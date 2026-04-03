@@ -34,8 +34,8 @@
 2. ✅ Dashboard por rol — cada usuario ve solo sus apps
 3. ✅ AppCards con acceso directo a las apps del grupo
 4. ✅ Diseño corporativo azul, blanco y amarillo
-5. ✅ Deploy en zymointranet.com
-6. ✅ CI/CD desde GitHub
+5. ⬜ Deploy en zymointranet.com
+6. ⬜ CI/CD desde GitHub
 
 ## Instrucciones para Claude Code
 

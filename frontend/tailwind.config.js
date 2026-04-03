@@ -1,9 +1,20 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: [],
+  content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        brand: {
+          blue:   "#003087",
+          yellow: "#FFD700",
+          red:    "#E31E24",
+          white:  "#FFFFFF",
+        },
+      },
+      fontFamily: {
+        sans: ["Barlow", "system-ui", "sans-serif"],
+      },
+    },
   },
   plugins: [],
 }
-
