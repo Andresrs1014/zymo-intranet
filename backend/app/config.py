@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     first_admin_email: str = "admin@zymo.com"
     first_admin_password: str = "Admin123*"
 
+    # Orígenes CORS permitidos (separados por coma)
+    cors_origins: str = "http://localhost:5173,http://localhost:81"
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 
