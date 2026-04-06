@@ -50,15 +50,6 @@ export function getAppsForRole(role: UserRole): AppDefinition[] {
   return ALL_APPS.filter((app) => app.allowedRoles.includes(role))
 }
 
-export const ROLE_LABELS: Record<string, string> = {
-  admin:          "Administrador",
-  directivo:      "Directivo",
-  talento_cultura:"Talento y Cultura",
-  comercial:      "Comercial",
-  operativo:      "Operativo",
-  empleado:       "Empleado",
-}
-
 export function getRoleLabel(role: string): string {
-  return ROLE_LABELS[role] ?? role
+  return role
 }

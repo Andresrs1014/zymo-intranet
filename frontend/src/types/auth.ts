@@ -1,19 +1,12 @@
-export type UserRole =
-  | "admin"
-  | "directivo"
-  | "talento_cultura"
-  | "comercial"
-  | "operativo"
-  | "empleado"
-  | string  // permite roles futuros sin cambios de tipo
+export type UserRole = string
 
 export interface User {
   id: number
   email: string
   full_name: string | null
   role: UserRole
-  sede: string | null   // IMCCARGO / LOGIMAT / IMC Depósito → futuro: sede
-  area: string | null   // Comercial / Operaciones / RRHH / etc.
+  sede: string | null
+  area: string | null
   is_active: boolean
 }
 

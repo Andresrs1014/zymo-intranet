@@ -1,10 +1,6 @@
 import { useState } from "react"
 import type { UserListItem } from "@/types/auth"
-import { ROLE_LABELS } from "@/lib/roles"
 import type { CreateUserPayload, UpdateUserPayload } from "@/hooks/useUsers"
-
-const SEDES = ["IMCCARGO", "LOGIMAT", "IMC Depósito"]
-const AREAS = ["Comercial", "Operaciones", "RRHH", "IT", "Gerencia", "Administración"]
 
 interface Props {
   user?: UserListItem
@@ -112,47 +108,33 @@ export function UserFormModal({ user, onSubmit, onClose, isLoading, error }: Pro
           )}
 
           <Field label="Rol">
-            <select
+            <input
+              type="text"
               value={form.role}
               onChange={(e) => set("role", e.target.value)}
               className={inputCls}
-            >
-              {Object.entries(ROLE_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
+              placeholder="Ej. empleado"
+            />
           </Field>
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="Sede">
-              <select
+              <input
+                type="text"
                 value={form.sede}
                 onChange={(e) => set("sede", e.target.value)}
                 className={inputCls}
-              >
-                <option value="">Sin sede</option>
-                {SEDES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
+                placeholder="Ej. IMCCARGO"
+              />
             </Field>
             <Field label="Área">
-              <select
+              <input
+                type="text"
                 value={form.area}
                 onChange={(e) => set("area", e.target.value)}
                 className={inputCls}
-              >
-                <option value="">Sin área</option>
-                {AREAS.map((a) => (
-                  <option key={a} value={a}>
-                    {a}
-                  </option>
-                ))}
-              </select>
+                placeholder="Ej. Comercial"
+              />
             </Field>
           </div>
 
