@@ -132,11 +132,11 @@ export function RolesPage() {
                       <td className="px-4 py-3">
                         {role.name === "admin" ? (
                           <span className="text-xs text-gray-400 italic">Todo</span>
-                        ) : role.app_permissions.length === 0 ? (
+                        ) : (role.app_permissions ?? []).length === 0 ? (
                           <span className="text-xs text-gray-300">Ninguno</span>
                         ) : (
                           <div className="flex flex-wrap gap-1">
-                            {role.app_permissions.map((p) => (
+                            {(role.app_permissions ?? []).map((p) => (
                               <span key={p} className="inline-block rounded bg-brand-blue/10 px-1.5 py-0.5 text-xs font-medium text-brand-blue">
                                 {ALL_APPS.find((a) => a.id === p)?.name ?? p}
                               </span>
@@ -382,7 +382,7 @@ function PermissionsModal({
   onSave: (permissions: string[]) => void
   isLoading: boolean
 }) {
-  const [selected, setSelected] = useState<string[]>(role.app_permissions)
+  const [selected, setSelected] = useState<string[]>(role.app_permissions ?? [])
 
   function toggle(id: string) {
     setSelected((prev) =>

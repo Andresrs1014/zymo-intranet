@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlmodel import Session, select
 
 from app.core.deps import get_current_user, require_admin
@@ -28,6 +28,11 @@ class RoleRead(BaseModel):
     label: str
     description: str | None
     app_permissions: list[str]
+
+    @field_validator("app_permissions", mode="before")
+    @classmethod
+    def coerce_permissions(cls, v: object) -> list[str]:
+        return v if v is not None else []
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
