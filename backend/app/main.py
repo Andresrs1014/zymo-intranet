@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, select
 
-from app.database import create_db_and_tables, get_engine
+from app.database import create_db_and_tables, get_db
 from app.core.security import hash_password
 from app.models.user import User
 from app.routers import auth, users
@@ -12,7 +12,8 @@ from app.routers import auth, users
 
 def _seed_admin() -> None:
     """Crea el usuario admin por defecto si no existe ningún admin."""
-    with Session(get_engine()) as session:
+    session = next(get_db())
+    try:
         existing = session.exec(
             select(User).where(User.role == "admin")
         ).first()
@@ -28,6 +29,8 @@ def _seed_admin() -> None:
         )
         session.add(admin)
         session.commit()
+    finally:
+        session.close()
 
 
 @asynccontextmanager
