@@ -1,12 +1,6 @@
 import { NavLink } from "react-router-dom"
-import { useLogout } from "@/hooks/useAuth"
-import { useAuthStore } from "@/store/authStore"
-import { getRoleLabel } from "@/lib/roles"
 
 export function Sidebar() {
-  const user = useAuthStore((s) => s.user)
-  const logout = useLogout()
-
   return (
     <aside className="flex h-full w-64 flex-col bg-brand-blue">
       {/* Logo */}
@@ -21,64 +15,9 @@ export function Sidebar() {
       </div>
 
       {/* Navegación */}
-      <nav className="flex-1 px-3 py-4 space-y-4">
-        <div className="space-y-0.5">
-          <SidebarLink icon="⊞" label="Dashboard" to="/dashboard" />
-        </div>
-
-        {user?.role === "admin" && (
-          <div>
-            <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-white/30">
-              Configuración
-            </p>
-            <div className="space-y-0.5">
-              <SidebarLink icon="👥" label="Usuarios" to="/admin/configuracion/usuarios" />
-              <SidebarLink icon="🎭" label="Roles" to="/admin/configuracion/roles" />
-              <SidebarLink icon="🏢" label="Áreas y Sedes" to="/admin/configuracion/areas" />
-            </div>
-          </div>
-        )}
+      <nav className="flex-1 px-3 py-4 space-y-0.5">
+        <SidebarLink icon="⊞" label="Dashboard" to="/dashboard" />
       </nav>
-
-      {/* Usuario */}
-      <div className="border-t border-white/10 p-4">
-        {user && (
-          <div className="mb-3 rounded-lg bg-white/10 px-3 py-2.5">
-            <p className="text-white font-medium text-sm leading-none truncate">
-              {user.full_name ?? user.email}
-            </p>
-            <p className="text-white/60 text-xs mt-1">
-              {getRoleLabel(user.role)}
-            </p>
-            {user.sede && (
-              <p className="text-white/40 text-xs mt-0.5 truncate">
-                {user.sede}
-                {user.area ? ` · ${user.area}` : ""}
-              </p>
-            )}
-          </div>
-        )}
-
-        <button
-          onClick={logout}
-          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-white/70 transition-colors hover:bg-white/10 hover:text-white"
-        >
-          <svg
-            className="h-4 w-4 shrink-0"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-            />
-          </svg>
-          Cerrar sesión
-        </button>
-      </div>
     </aside>
   )
 }
