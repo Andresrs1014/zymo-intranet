@@ -6,6 +6,7 @@ export interface RoleItem {
   name: string
   label: string
   description: string | null
+  app_permissions: string[]
 }
 
 export interface CreateRolePayload {
@@ -17,6 +18,7 @@ export interface CreateRolePayload {
 export interface UpdateRolePayload {
   label?: string
   description?: string
+  app_permissions?: string[]
 }
 
 export function useRoles() {

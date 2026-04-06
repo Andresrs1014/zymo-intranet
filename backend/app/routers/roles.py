@@ -19,6 +19,7 @@ class RoleCreate(BaseModel):
 class RoleUpdate(BaseModel):
     label: str | None = None
     description: str | None = None
+    app_permissions: list[str] | None = None
 
 
 class RoleRead(BaseModel):
@@ -26,6 +27,7 @@ class RoleRead(BaseModel):
     name: str
     label: str
     description: str | None
+    app_permissions: list[str]
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -71,6 +73,8 @@ def update_role(
         role.label = payload.label
     if payload.description is not None:
         role.description = payload.description
+    if payload.app_permissions is not None:
+        role.app_permissions = payload.app_permissions
     db.add(role)
     db.commit()
     db.refresh(role)
