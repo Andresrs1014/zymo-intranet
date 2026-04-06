@@ -14,6 +14,7 @@ class RoleCreate(BaseModel):
     name: str
     label: str
     description: str | None = None
+    app_permissions: list[str] = []
 
 
 class RoleUpdate(BaseModel):
@@ -57,7 +58,7 @@ def create_role(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Ya existe un rol con el nombre '{payload.name}'.",
         )
-    role = Role(name=payload.name, label=payload.label, description=payload.description)
+    role = Role(name=payload.name, label=payload.label, description=payload.description, app_permissions=payload.app_permissions)
     db.add(role)
     db.commit()
     db.refresh(role)

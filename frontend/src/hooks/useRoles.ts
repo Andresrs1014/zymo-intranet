@@ -13,6 +13,7 @@ export interface CreateRolePayload {
   name: string
   label: string
   description?: string
+  app_permissions?: string[]
 }
 
 export interface UpdateRolePayload {
