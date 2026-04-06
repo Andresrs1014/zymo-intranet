@@ -85,15 +85,19 @@ docker compose up --build
 3. **`backend/.env`** — Generar `SECRET_KEY` nuevo y seguro (no usar el de dev)
 4. Deploy en servidor + configurar subdominio `zymointranet.com`
 5. CI/CD con GitHub Actions
+6. Panel de administración de usuarios (listar, registrar, editar, desactivar) — solo admin
 
 ---
 
 ## ⬜ Módulos post-MVP (no implementar antes del 7 de abril)
 
-- Panel de administración de usuarios (listar, registrar, editar, desactivar) — solo admin
-- Inventario de activos
-- Módulo Empleados (Talento y Cultura)
-- SIG — gestión de documentos
 - KPIs para directivos
+- Módulo Empleados (Talento y Cultura)
+- Inventario de activos
+- SIG — gestión de documentos
 - Integración de tokens JWT con apps externas
 - Refresh tokens
+
+## Importante leer el dia de hoy 6 de abril
+
+Vamos a implementar, de una vez, los roles, para que muestre unas cosas a unos y otras cosas a otros. 

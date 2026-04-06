@@ -1,3 +1,4 @@
+import { NavLink } from "react-router-dom"
 import { useLogout } from "@/hooks/useAuth"
 import { useAuthStore } from "@/store/authStore"
 import { getRoleLabel } from "@/lib/roles"
@@ -22,7 +23,10 @@ export function Sidebar() {
       {/* Navegación */}
       <nav className="flex-1 px-3 py-4">
         <div className="space-y-0.5">
-          <SidebarItem icon="⊞" label="Dashboard" active />
+          <SidebarLink icon="⊞" label="Dashboard" to="/dashboard" />
+          {user?.role === "admin" && (
+            <SidebarLink icon="👥" label="Usuarios" to="/admin/usuarios" />
+          )}
         </div>
       </nav>
 
@@ -69,25 +73,28 @@ export function Sidebar() {
   )
 }
 
-interface SidebarItemProps {
+interface SidebarLinkProps {
   icon: string
   label: string
-  active?: boolean
+  to: string
 }
 
-function SidebarItem({ icon, label, active }: SidebarItemProps) {
+function SidebarLink({ icon, label, to }: SidebarLinkProps) {
   return (
-    <div
-      className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium cursor-default transition-colors ${
-        active
-          ? "bg-white/15 text-white"
-          : "text-white/60 hover:bg-white/10 hover:text-white"
-      }`}
+    <NavLink
+      to={to}
+      className={({ isActive }) =>
+        `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+          isActive
+            ? "bg-white/15 text-white"
+            : "text-white/60 hover:bg-white/10 hover:text-white"
+        }`
+      }
     >
       <span className="text-base" aria-hidden="true">
         {icon}
       </span>
       {label}
-    </div>
+    </NavLink>
   )
 }

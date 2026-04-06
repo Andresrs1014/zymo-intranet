@@ -21,3 +21,8 @@ export interface TokenResponse {
   access_token: string
   token_type: string
 }
+
+export interface UserListItem extends User {
+  created_at: string
+  last_login_at: string | null
+}

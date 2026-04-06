@@ -2,14 +2,38 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlmodel import Session, select
 
-from app.database import create_db_and_tables
+from app.database import create_db_and_tables, get_engine
+from app.core.security import hash_password
+from app.models.user import User
 from app.routers import auth, users
+
+
+def _seed_admin() -> None:
+    """Crea el usuario admin por defecto si no existe ningún admin."""
+    with Session(get_engine()) as session:
+        existing = session.exec(
+            select(User).where(User.role == "admin")
+        ).first()
+        if existing:
+            return
+        admin = User(
+            email="admin@zymo.com",
+            hashed_password=hash_password("Admin123*"),
+            full_name="Administrador ZYMO",
+            role="admin",
+            sede="IMCCARGO",
+            area="IT",
+        )
+        session.add(admin)
+        session.commit()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     create_db_and_tables()
+    _seed_admin()
     yield
 
 
