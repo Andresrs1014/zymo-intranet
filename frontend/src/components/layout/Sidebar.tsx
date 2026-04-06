@@ -21,13 +21,23 @@ export function Sidebar() {
       </div>
 
       {/* Navegación */}
-      <nav className="flex-1 px-3 py-4">
+      <nav className="flex-1 px-3 py-4 space-y-4">
         <div className="space-y-0.5">
           <SidebarLink icon="⊞" label="Dashboard" to="/dashboard" />
-          {user?.role === "admin" && (
-            <SidebarLink icon="👥" label="Usuarios" to="/admin/usuarios" />
-          )}
         </div>
+
+        {user?.role === "admin" && (
+          <div>
+            <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-white/30">
+              Configuración
+            </p>
+            <div className="space-y-0.5">
+              <SidebarLink icon="👥" label="Usuarios" to="/admin/configuracion/usuarios" />
+              <SidebarLink icon="🎭" label="Roles" to="/admin/configuracion/roles" />
+              <SidebarLink icon="🏢" label="Áreas y Sedes" to="/admin/configuracion/areas" />
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* Usuario */}

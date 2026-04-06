@@ -3,6 +3,8 @@ import { useAuthStore } from "@/store/authStore"
 import { LoginPage } from "@/pages/LoginPage"
 import { DashboardPage } from "@/pages/DashboardPage"
 import { AdminPage } from "@/pages/AdminPage"
+import { RolesPage } from "@/pages/RolesPage"
+import { AreasPage } from "@/pages/AreasPage"
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -46,9 +48,29 @@ export default function App() {
         />
         <Route
           path="/admin/usuarios"
+          element={<Navigate to="/admin/configuracion/usuarios" replace />}
+        />
+        <Route
+          path="/admin/configuracion/usuarios"
           element={
             <AdminRoute>
               <AdminPage />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/configuracion/roles"
+          element={
+            <AdminRoute>
+              <RolesPage />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/configuracion/areas"
+          element={
+            <AdminRoute>
+              <AreasPage />
             </AdminRoute>
           }
         />
