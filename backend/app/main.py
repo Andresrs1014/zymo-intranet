@@ -60,6 +60,14 @@ _DEFAULT_ROLES = [
 def _migrate_db() -> None:
     """Agrega columnas nuevas si la tabla ya existe (migraciones ligeras)."""
     with get_engine().connect() as conn:
+        # Phase 2: label fue agregado al modelo sin migración
+        try:
+            conn.execute(text("ALTER TABLE role ADD COLUMN label VARCHAR(100) NOT NULL DEFAULT ''"))
+            conn.commit()
+            print("[migrate] Columna label agregada.")
+        except Exception:
+            pass  # La columna ya existe
+        # Phase 3: app_permissions
         try:
             conn.execute(text("ALTER TABLE role ADD COLUMN app_permissions JSON"))
             conn.commit()
@@ -74,10 +82,16 @@ def _seed_roles() -> None:
             existing = session.exec(select(Role).where(Role.name == r["name"])).first()
             if not existing:
                 session.add(Role(**r))
-            elif existing.app_permissions is None:
-                # Actualiza roles sembrados antes de Phase 3
-                existing.app_permissions = r["app_permissions"]
-                session.add(existing)
+            else:
+                changed = False
+                if not existing.label:  # vacío por el DEFAULT '' de la migración
+                    existing.label = r["label"]
+                    changed = True
+                if existing.app_permissions is None:
+                    existing.app_permissions = r["app_permissions"]
+                    changed = True
+                if changed:
+                    session.add(existing)
         session.commit()
     print("[seed] Roles verificados.")
 
