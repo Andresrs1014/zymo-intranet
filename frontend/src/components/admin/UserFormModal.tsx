@@ -1,6 +1,7 @@
 import { useState } from "react"
 import type { UserListItem } from "@/types/auth"
 import type { CreateUserPayload, UpdateUserPayload } from "@/hooks/useUsers"
+import { useRoles } from "@/hooks/useRoles"
 
 interface Props {
   user?: UserListItem
@@ -12,6 +13,7 @@ interface Props {
 
 export function UserFormModal({ user, onSubmit, onClose, isLoading, error }: Props) {
   const isEdit = !!user
+  const { data: roles = [] } = useRoles()
   const [form, setForm] = useState({
     email: user?.email ?? "",
     password: "",
@@ -108,13 +110,17 @@ export function UserFormModal({ user, onSubmit, onClose, isLoading, error }: Pro
           )}
 
           <Field label="Rol">
-            <input
-              type="text"
+            <select
               value={form.role}
               onChange={(e) => set("role", e.target.value)}
               className={inputCls}
-              placeholder="Ej. empleado"
-            />
+            >
+              {roles.map((r) => (
+                <option key={r.id} value={r.name}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
           </Field>
 
           <div className="grid grid-cols-2 gap-3">

@@ -7,12 +7,32 @@ from sqlmodel import Session, select
 from app.database import create_db_and_tables, get_engine
 from app.core.security import hash_password
 from app.models.user import User
+from app.models.role import Role  # noqa: F401 — necesario para que SQLModel registre la tabla
 from app.config import settings
-from app.routers import auth, users
+from app.routers import auth, users, roles
+
+
+_DEFAULT_ROLES = [
+    {"name": "admin",           "label": "Administrador",    "description": "Acceso total al sistema"},
+    {"name": "directivo",       "label": "Directivo",        "description": "Acceso directivo y gerencial"},
+    {"name": "talento_cultura", "label": "Talento y Cultura","description": "Gestión de talento humano"},
+    {"name": "comercial",       "label": "Comercial",        "description": "Área comercial y ventas"},
+    {"name": "operativo",       "label": "Operativo",        "description": "Operaciones logísticas"},
+    {"name": "empleado",        "label": "Empleado",         "description": "Acceso básico para colaboradores"},
+]
+
+
+def _seed_roles() -> None:
+    with Session(get_engine()) as session:
+        for r in _DEFAULT_ROLES:
+            exists = session.exec(select(Role).where(Role.name == r["name"])).first()
+            if not exists:
+                session.add(Role(**r))
+        session.commit()
+    print("[seed] Roles verificados.")
 
 
 def _seed_admin() -> None:
-    """Crea el usuario admin por defecto si no existe ningún admin."""
     with Session(get_engine()) as session:
         existing = session.exec(
             select(User).where(User.role == "admin")
@@ -36,6 +56,7 @@ def _seed_admin() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     create_db_and_tables()
+    _seed_roles()
     _seed_admin()
     yield
 
@@ -56,6 +77,7 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(users.router)
+app.include_router(roles.router)
 
 
 @app.get("/health")
