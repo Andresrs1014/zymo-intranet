@@ -2,6 +2,8 @@ import { useState } from "react"
 import type { UserListItem } from "@/types/auth"
 import type { CreateUserPayload, UpdateUserPayload } from "@/hooks/useUsers"
 import { useRoles } from "@/hooks/useRoles"
+import { useAreas } from "@/hooks/useAreas"
+import { useSedes } from "@/hooks/useSedes"
 
 interface Props {
   user?: UserListItem
@@ -14,6 +16,8 @@ interface Props {
 export function UserFormModal({ user, onSubmit, onClose, isLoading, error }: Props) {
   const isEdit = !!user
   const { data: roles = [] } = useRoles()
+  const { data: areas = [] } = useAreas()
+  const { data: sedes = [] } = useSedes()
   const [form, setForm] = useState({
     email: user?.email ?? "",
     password: "",
@@ -125,22 +129,28 @@ export function UserFormModal({ user, onSubmit, onClose, isLoading, error }: Pro
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="Sede">
-              <input
-                type="text"
+              <select
                 value={form.sede}
                 onChange={(e) => set("sede", e.target.value)}
                 className={inputCls}
-                placeholder="Ej. IMCCARGO"
-              />
+              >
+                <option value="">— Sin sede —</option>
+                {sedes.map((s) => (
+                  <option key={s.id} value={s.name}>{s.name}</option>
+                ))}
+              </select>
             </Field>
             <Field label="Área">
-              <input
-                type="text"
+              <select
                 value={form.area}
                 onChange={(e) => set("area", e.target.value)}
                 className={inputCls}
-                placeholder="Ej. Comercial"
-              />
+              >
+                <option value="">— Sin área —</option>
+                {areas.map((a) => (
+                  <option key={a.id} value={a.name}>{a.name}</option>
+                ))}
+              </select>
             </Field>
           </div>
 

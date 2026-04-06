@@ -8,9 +8,13 @@ from sqlmodel import Session, select
 from app.database import create_db_and_tables, get_engine
 from app.core.security import hash_password
 from app.models.user import User
-from app.models.role import Role  # noqa: F401 — necesario para que SQLModel registre la tabla
+from app.models.role import Role  # noqa: F401
+from app.models.area import Area  # noqa: F401
+from app.models.sede import Sede  # noqa: F401
 from app.config import settings
 from app.routers import auth, users, roles
+from app.routers import areas as areas_router
+from app.routers import sedes as sedes_router
 
 
 _DEFAULT_ROLES = [
@@ -78,6 +82,27 @@ def _seed_roles() -> None:
     print("[seed] Roles verificados.")
 
 
+_DEFAULT_AREAS = [
+    "Comercial", "Operaciones", "Talento y Cultura", "Finanzas", "IT", "Dirección",
+]
+
+_DEFAULT_SEDES = [
+    "IMCCARGO", "LOGIMAT", "IMC Depósito",
+]
+
+
+def _seed_areas_sedes() -> None:
+    with Session(get_engine()) as session:
+        for name in _DEFAULT_AREAS:
+            if not session.exec(select(Area).where(Area.name == name)).first():
+                session.add(Area(name=name))
+        for name in _DEFAULT_SEDES:
+            if not session.exec(select(Sede).where(Sede.name == name)).first():
+                session.add(Sede(name=name))
+        session.commit()
+    print("[seed] Áreas y sedes verificadas.")
+
+
 def _seed_admin() -> None:
     with Session(get_engine()) as session:
         existing = session.exec(
@@ -104,6 +129,7 @@ async def lifespan(app: FastAPI):
     create_db_and_tables()
     _migrate_db()
     _seed_roles()
+    _seed_areas_sedes()
     _seed_admin()
     yield
 
@@ -125,6 +151,8 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(roles.router)
+app.include_router(areas_router.router)
+app.include_router(sedes_router.router)
 
 
 @app.get("/health")
