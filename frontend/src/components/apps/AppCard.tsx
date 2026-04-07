@@ -1,3 +1,4 @@
+import { useAuthStore } from "@/store/authStore"
 import type { AppDefinition } from "@/lib/roles"
 
 interface AppCardProps {
@@ -5,9 +6,18 @@ interface AppCardProps {
 }
 
 export function AppCard({ app }: AppCardProps) {
+  const token = useAuthStore((s) => s.token)
+
+  function handleOpen(e: React.MouseEvent) {
+    e.preventDefault()
+    const url = token ? `${app.url}?token=${token}` : app.url
+    window.open(url, "_blank", "noopener,noreferrer")
+  }
+
   return (
     <a
       href={app.url}
+      onClick={handleOpen}
       target="_blank"
       rel="noopener noreferrer"
       className="group flex flex-col gap-3 rounded-xl border border-gray-100 bg-white p-6 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-brand-blue/20 hover:shadow-md"
