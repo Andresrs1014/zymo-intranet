@@ -55,6 +55,18 @@ export interface CotizacionProveedor {
   created_at: string
 }
 
+export interface OrdenCompra {
+  id: string
+  solicitud_id: string
+  cotizacion_id: string
+  numero_oc: string
+  pdf_path: string | null
+  enviada_proveedor: boolean
+  enviada_coordinador: boolean
+  email_proveedor: string | null
+  created_at: string
+}
+
 export interface Proveedor {
   id: string
   nombre: string
