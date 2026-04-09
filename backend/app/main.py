@@ -6,6 +6,7 @@ from sqlalchemy import text
 from sqlmodel import Session, select
 
 from app.database import create_db_and_tables, get_engine
+from app.oc_database import create_oc_tables
 from app.core.security import hash_password
 from app.models.user import User
 from app.models.role import Role  # noqa: F401
@@ -145,6 +146,7 @@ async def lifespan(app: FastAPI):
     _seed_roles()
     _seed_areas_sedes()
     _seed_admin()
+    create_oc_tables()
     yield
 
 

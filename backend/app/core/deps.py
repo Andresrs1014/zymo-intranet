@@ -44,6 +44,18 @@ def require_admin(current_user: User = Depends(get_current_user)) -> User:
     return current_user
 
 
+def require_compras(current_user: User = Depends(get_current_user)) -> User:
+    """Admin siempre pasa. Resto debe pertenecer al área de Compras."""
+    if current_user.role == "admin":
+        return current_user
+    if current_user.area != "Compras":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo el área de Compras puede gestionar cotizaciones.",
+        )
+    return current_user
+
+
 def require_any_role(allowed_roles: list[str]):
     """Guard configurable: acepta admin siempre + cualquier rol de la lista."""
     def guard(current_user: User = Depends(get_current_user)) -> User:

@@ -20,8 +20,20 @@ def get_engine():
     return _engine
 
 
-def create_db_and_tables():
-    SQLModel.metadata.create_all(get_engine())
+def create_db_and_tables() -> None:
+    """Crea solo las tablas de la intranet en intranet.db."""
+    from app.models.user import User
+    from app.models.role import Role
+    from app.models.area import Area
+    from app.models.sede import Sede
+
+    intranet_table_names = {"user", "role", "area", "sede"}
+    tables = [
+        SQLModel.metadata.tables[t]
+        for t in intranet_table_names
+        if t in SQLModel.metadata.tables
+    ]
+    SQLModel.metadata.create_all(get_engine(), tables=tables)
 
 
 def get_db():
