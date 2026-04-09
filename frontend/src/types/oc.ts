@@ -77,3 +77,29 @@ export interface Proveedor {
   activo: boolean
   created_at: string
 }
+
+export interface ConteoItem {
+  label: string
+  count: number
+}
+
+export interface KPIData {
+  total_solicitudes: number
+  por_estado: ConteoItem[]
+  por_sede: ConteoItem[]
+  por_prioridad: ConteoItem[]
+  por_area: ConteoItem[]
+  valor_total_aprobado: number
+  total_ordenes_generadas: number
+  top_proveedores: ConteoItem[]
+  tiempo_promedio_cotizacion_dias: number
+  solicitudes_recientes: {
+    id: string
+    consecutivo_os: string
+    descripcion: string
+    estado: string
+    nivel_prioridad: string
+    sede: string | null
+    fecha_solicitud: string
+  }[]
+}

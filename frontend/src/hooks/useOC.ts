@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { api } from "@/lib/api"
-import type { SolicitudOC, Proveedor, CotizacionProveedor, OrdenCompra } from "@/types/oc"
+import type { SolicitudOC, Proveedor, CotizacionProveedor, OrdenCompra, KPIData } from "@/types/oc"
 
 // ── Solicitudes ───────────────────────────────────────────────────────────────
 
@@ -185,6 +185,19 @@ export function useGenerarOC() {
       qc.invalidateQueries({ queryKey: ["oc", "orden", solicitudId] })
       qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
     },
+  })
+}
+
+// ── KPIs ──────────────────────────────────────────────────────────────────────
+
+export function useKPIs() {
+  return useQuery({
+    queryKey: ["oc", "kpis"],
+    queryFn: async () => {
+      const { data } = await api.get<KPIData>("/api/oc/kpis")
+      return data
+    },
+    refetchInterval: 60_000,
   })
 }
 

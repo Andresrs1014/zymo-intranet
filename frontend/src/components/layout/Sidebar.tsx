@@ -39,6 +39,7 @@ export function Sidebar() {
             </div>
             <SidebarLink icon="📋" label="Solicitudes" to="/oc/solicitudes" />
             {canApprove && <AprobacionesLink />}
+            <SidebarLink icon="📊" label="KPIs" to="/oc/kpis" />
           </>
         )}
       </nav>
