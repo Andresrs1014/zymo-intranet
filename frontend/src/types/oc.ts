@@ -24,6 +24,7 @@ export interface SolicitudOC {
   condicion: string | null
   observaciones_solicitante: string | null
   placa_ficha: string | null
+  fecha_proximo_mantenimiento: string | null
   estado: EstadoOC
   auxiliar_id: number | null
   fecha_solicitud: string
