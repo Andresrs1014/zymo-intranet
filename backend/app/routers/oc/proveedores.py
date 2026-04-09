@@ -8,6 +8,7 @@ from sqlmodel import Session, select
 
 from app.core.deps import get_current_user, require_compras
 from app.database import get_db
+from app.oc_database import get_oc_db
 from app.models.oc import Proveedor
 from app.models.user import User
 
@@ -53,31 +54,31 @@ class ProveedorRead(BaseModel):
 def list_proveedores(
     solo_activos: bool = Query(default=True),
     _: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    oc_db: Session = Depends(get_oc_db),
 ):
     query = select(Proveedor)
     if solo_activos:
         query = query.where(Proveedor.activo == True)  # noqa: E712
     query = query.order_by(Proveedor.nombre)
-    return db.exec(query).all()
+    return oc_db.exec(query).all()
 
 
 @router.post("", response_model=ProveedorRead, status_code=status.HTTP_201_CREATED)
 def create_proveedor(
     payload: ProveedorCreate,
     _: User = Depends(require_compras),
-    db: Session = Depends(get_db),
+    oc_db: Session = Depends(get_oc_db),
 ):
-    existing = db.exec(select(Proveedor).where(Proveedor.nombre == payload.nombre)).first()
+    existing = oc_db.exec(select(Proveedor).where(Proveedor.nombre == payload.nombre)).first()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Ya existe un proveedor con el nombre '{payload.nombre}'.",
         )
     proveedor = Proveedor(**payload.model_dump())
-    db.add(proveedor)
-    db.commit()
-    db.refresh(proveedor)
+    oc_db.add(proveedor)
+    oc_db.commit()
+    oc_db.refresh(proveedor)
     return proveedor
 
 
@@ -86,16 +87,16 @@ def update_proveedor(
     proveedor_id: uuid.UUID,
     payload: ProveedorUpdate,
     _: User = Depends(require_compras),
-    db: Session = Depends(get_db),
+    oc_db: Session = Depends(get_oc_db),
 ):
-    proveedor = db.get(Proveedor, proveedor_id)
+    proveedor = oc_db.get(Proveedor, proveedor_id)
     if not proveedor:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Proveedor no encontrado.")
 
     data = payload.model_dump(exclude_unset=True)
 
     if "nombre" in data and data["nombre"] != proveedor.nombre:
-        conflict = db.exec(select(Proveedor).where(Proveedor.nombre == data["nombre"])).first()
+        conflict = oc_db.exec(select(Proveedor).where(Proveedor.nombre == data["nombre"])).first()
         if conflict:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -105,7 +106,7 @@ def update_proveedor(
     for field, value in data.items():
         setattr(proveedor, field, value)
 
-    db.add(proveedor)
-    db.commit()
-    db.refresh(proveedor)
+    oc_db.add(proveedor)
+    oc_db.commit()
+    oc_db.refresh(proveedor)
     return proveedor

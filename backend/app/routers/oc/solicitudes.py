@@ -8,6 +8,7 @@ from sqlmodel import Session, select
 
 from app.core.deps import get_current_user, require_compras
 from app.database import get_db
+from app.oc_database import get_oc_db
 from app.models.oc import EstadoOC, SolicitudOC
 from app.models.user import User
 
@@ -63,7 +64,7 @@ def list_solicitudes(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, le=200),
     current_user: User = Depends(require_compras),
-    db: Session = Depends(get_db),
+    oc_db: Session = Depends(get_oc_db),
 ):
     query = select(SolicitudOC)
     if estado:
@@ -71,16 +72,16 @@ def list_solicitudes(
     if sede:
         query = query.where(SolicitudOC.sede == sede)
     query = query.order_by(SolicitudOC.fecha_solicitud.desc()).offset(skip).limit(limit)
-    return db.exec(query).all()
+    return oc_db.exec(query).all()
 
 
 @router.get("/{solicitud_id}", response_model=SolicitudRead)
 def get_solicitud(
     solicitud_id: uuid.UUID,
     current_user: User = Depends(require_compras),
-    db: Session = Depends(get_db),
+    oc_db: Session = Depends(get_oc_db),
 ):
-    solicitud = db.get(SolicitudOC, solicitud_id)
+    solicitud = oc_db.get(SolicitudOC, solicitud_id)
     if not solicitud:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
     return solicitud
@@ -91,9 +92,10 @@ def asignar_auxiliar(
     solicitud_id: uuid.UUID,
     payload: AsignarPayload,
     current_user: User = Depends(require_compras),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db),       # intranet.db — para validar que el user existe
+    oc_db: Session = Depends(get_oc_db), # oc.db — para actualizar la solicitud
 ):
-    solicitud = db.get(SolicitudOC, solicitud_id)
+    solicitud = oc_db.get(SolicitudOC, solicitud_id)
     if not solicitud:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
 
@@ -105,9 +107,9 @@ def asignar_auxiliar(
     if solicitud.estado == EstadoOC.nueva:
         solicitud.estado = EstadoOC.en_cotizacion
     solicitud.updated_at = datetime.now(timezone.utc)
-    db.add(solicitud)
-    db.commit()
-    db.refresh(solicitud)
+    oc_db.add(solicitud)
+    oc_db.commit()
+    oc_db.refresh(solicitud)
     return solicitud
 
 
@@ -116,15 +118,15 @@ def cambiar_estado(
     solicitud_id: uuid.UUID,
     payload: EstadoPayload,
     current_user: User = Depends(require_compras),
-    db: Session = Depends(get_db),
+    oc_db: Session = Depends(get_oc_db),
 ):
-    solicitud = db.get(SolicitudOC, solicitud_id)
+    solicitud = oc_db.get(SolicitudOC, solicitud_id)
     if not solicitud:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
 
     solicitud.estado = payload.estado
     solicitud.updated_at = datetime.now(timezone.utc)
-    db.add(solicitud)
-    db.commit()
-    db.refresh(solicitud)
+    oc_db.add(solicitud)
+    oc_db.commit()
+    oc_db.refresh(solicitud)
     return solicitud

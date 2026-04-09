@@ -1,6 +1,14 @@
 import { NavLink } from "react-router-dom"
+import { useAuthStore } from "@/store/authStore"
 
 export function Sidebar() {
+  const user = useAuthStore((s) => s.user)
+
+  const canSeeOC =
+    user?.role === "admin" ||
+    user?.role === "directivo" ||
+    user?.area === "Compras"
+
   return (
     <aside className="flex h-full w-64 flex-col bg-brand-blue">
       {/* Logo */}
@@ -17,6 +25,17 @@ export function Sidebar() {
       {/* Navegación */}
       <nav className="flex-1 px-3 py-4 space-y-0.5">
         <SidebarLink icon="⊞" label="Dashboard" to="/dashboard" />
+
+        {canSeeOC && (
+          <>
+            <div className="px-3 pt-4 pb-1">
+              <p className="text-white/30 text-xs font-semibold uppercase tracking-wider">
+                OC Automatizaciones
+              </p>
+            </div>
+            <SidebarLink icon="📋" label="Solicitudes" to="/oc/solicitudes" />
+          </>
+        )}
       </nav>
     </aside>
   )
