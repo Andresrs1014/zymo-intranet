@@ -45,15 +45,23 @@ def require_admin(current_user: User = Depends(get_current_user)) -> User:
 
 
 def require_compras(current_user: User = Depends(get_current_user)) -> User:
-    """Admin siempre pasa. Resto debe pertenecer al área de Compras."""
-    if current_user.role == "admin":
+    """
+    Guard del módulo OC. Pasan:
+      - role='admin'
+      - role='administrativo'
+      - role='directivo'
+      - role='compras'
+      - area='Compras'  (retrocompatibilidad con usuarios existentes)
+    """
+    OC_ROLES = {"admin", "administrativo", "directivo", "compras"}
+    if current_user.role in OC_ROLES:
         return current_user
-    if current_user.area != "Compras":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Solo el área de Compras puede gestionar cotizaciones.",
-        )
-    return current_user
+    if current_user.area == "Compras":
+        return current_user
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Sin acceso al módulo OC Automatizaciones.",
+    )
 
 
 def require_any_role(allowed_roles: list[str]):

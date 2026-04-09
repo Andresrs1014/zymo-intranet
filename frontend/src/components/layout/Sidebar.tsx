@@ -1,17 +1,29 @@
-import { NavLink } from "react-router-dom"
+import { useState } from "react"
+import { NavLink, useLocation } from "react-router-dom"
 import { useAuthStore } from "@/store/authStore"
 import { useSolicitudes } from "@/hooks/useOC"
 
+// Roles con acceso completo (Solicitudes + Aprobaciones + KPIs)
+const ROLES_ADMIN_OC = new Set(["admin", "administrativo", "directivo"])
+// Roles con acceso parcial (solo Solicitudes)
+const ROLES_COMPRAS_OC = new Set(["compras"])
+
 export function Sidebar() {
   const user = useAuthStore((s) => s.user)
+  const location = useLocation()
 
   const canSeeOC =
-    user?.role === "admin" ||
-    user?.role === "directivo" ||
+    ROLES_ADMIN_OC.has(user?.role ?? "") ||
+    ROLES_COMPRAS_OC.has(user?.role ?? "") ||
     user?.area === "Compras"
 
   const canApprove =
-    user?.role === "admin" || user?.role === "directivo"
+    ROLES_ADMIN_OC.has(user?.role ?? "")
+
+  // El bloque OC arranca expandido si la ruta actual es /oc/...
+  const [ocExpanded, setOcExpanded] = useState(
+    () => location.pathname.startsWith("/oc")
+  )
 
   return (
     <aside className="flex h-full w-64 flex-col bg-brand-blue">
@@ -31,49 +43,96 @@ export function Sidebar() {
         <SidebarLink icon="⊞" label="Dashboard" to="/dashboard" />
 
         {canSeeOC && (
-          <>
-            <div className="px-3 pt-4 pb-1">
-              <p className="text-white/30 text-xs font-semibold uppercase tracking-wider">
-                OC Automatizaciones
-              </p>
-            </div>
-            <SidebarLink icon="📋" label="Solicitudes" to="/oc/solicitudes" />
-            {canApprove && <AprobacionesLink />}
-            <SidebarLink icon="📊" label="KPIs" to="/oc/kpis" />
-          </>
+          <OCSection
+            canApprove={canApprove}
+            expanded={ocExpanded}
+            onToggle={() => setOcExpanded((v) => !v)}
+          />
         )}
       </nav>
     </aside>
   )
 }
 
-/** Link de Aprobaciones con badge de pendientes en tiempo real */
-function AprobacionesLink() {
-  const { data: pendientes = [] } = useSolicitudes({ estado: "pendiente_aprobacion" })
+// ── Sección OC colapsable ─────────────────────────────────────────────────────
+
+function OCSection({
+  canApprove,
+  expanded,
+  onToggle,
+}: {
+  canApprove: boolean
+  expanded: boolean
+  onToggle: () => void
+}) {
+  const { data: pendientes = [] } = useSolicitudes(
+    { estado: "pendiente_aprobacion" },
+  )
+  const pendientesCount = canApprove ? pendientes.length : 0
 
   return (
-    <NavLink
-      to="/oc/aprobacion"
-      className={({ isActive }) =>
-        `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-          isActive
-            ? "bg-white/15 text-white"
-            : "text-white/60 hover:bg-white/10 hover:text-white"
-        }`
-      }
-    >
-      <span className="text-base" aria-hidden="true">
-        ✅
-      </span>
-      <span className="flex-1">Aprobaciones</span>
-      {pendientes.length > 0 && (
-        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-400 px-1.5 text-xs font-bold text-white">
-          {pendientes.length}
+    <div className="pt-3">
+      {/* Botón padre colapsable */}
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+      >
+        <span className="text-base" aria-hidden="true">🛒</span>
+        <span className="flex-1 text-left">OC Automatizaciones</span>
+
+        {/* Badge de pendientes sobre el padre cuando está colapsado */}
+        {!expanded && pendientesCount > 0 && (
+          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-400 px-1.5 text-xs font-bold text-white">
+            {pendientesCount}
+          </span>
+        )}
+
+        {/* Flecha */}
+        <span
+          className={`text-white/40 text-xs transition-transform duration-200 ${
+            expanded ? "rotate-90" : ""
+          }`}
+        >
+          ▶
         </span>
+      </button>
+
+      {/* Links anidados */}
+      {expanded && (
+        <div className="mt-0.5 ml-3 pl-3 border-l border-white/10 space-y-0.5">
+          <SidebarLink icon="📋" label="Solicitudes" to="/oc/solicitudes" />
+
+          {canApprove && (
+            <NavLink
+              to="/oc/aprobacion"
+              className={({ isActive }) =>
+                `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                  isActive
+                    ? "bg-white/15 text-white"
+                    : "text-white/60 hover:bg-white/10 hover:text-white"
+                }`
+              }
+            >
+              <span className="text-base" aria-hidden="true">✅</span>
+              <span className="flex-1">Aprobaciones</span>
+              {pendientesCount > 0 && (
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-400 px-1.5 text-xs font-bold text-white">
+                  {pendientesCount}
+                </span>
+              )}
+            </NavLink>
+          )}
+
+          {canApprove && (
+            <SidebarLink icon="📊" label="KPIs" to="/oc/kpis" />
+          )}
+        </div>
       )}
-    </NavLink>
+    </div>
   )
 }
+
+// ── Link genérico ─────────────────────────────────────────────────────────────
 
 interface SidebarLinkProps {
   icon: string
