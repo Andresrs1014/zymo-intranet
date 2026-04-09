@@ -17,7 +17,7 @@ export function AppCard({ app }: AppCardProps) {
   }
 
   return (
-    
+    <a
       href={app.url}
       onClick={handleOpen}
       rel="noopener noreferrer"
