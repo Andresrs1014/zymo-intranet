@@ -17,6 +17,7 @@ from app.config import settings
 from app.routers import auth, users, roles
 from app.routers import areas as areas_router
 from app.routers import sedes as sedes_router
+from app.routers.oc.router import router as oc_router
 
 
 _DEFAULT_ROLES = [
@@ -170,6 +171,7 @@ app.include_router(users.router)
 app.include_router(roles.router)
 app.include_router(areas_router.router)
 app.include_router(sedes_router.router)
+app.include_router(oc_router)
 
 
 @app.get("/health")
