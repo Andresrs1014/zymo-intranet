@@ -7,6 +7,7 @@ import { RolesPage } from "@/pages/RolesPage"
 import { AreasPage } from "@/pages/AreasPage"
 import { SolicitudesPage } from "@/pages/oc/SolicitudesPage"
 import { SolicitudDetallePage } from "@/pages/oc/SolicitudDetallePage"
+import { CotizacionFormPage } from "@/pages/oc/CotizacionFormPage"
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -99,6 +100,15 @@ export default function App() {
           element={
             <OCRoute>
               <SolicitudDetallePage />
+            </OCRoute>
+          }
+        />
+
+        <Route
+          path="/oc/solicitudes/:id/cotizar"
+          element={
+            <OCRoute>
+              <CotizacionFormPage />
             </OCRoute>
           }
         />

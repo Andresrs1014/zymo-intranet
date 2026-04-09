@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { api } from "@/lib/api"
-import type { SolicitudOC, Proveedor } from "@/types/oc"
+import type { SolicitudOC, Proveedor, CotizacionProveedor } from "@/types/oc"
 
 // ── Solicitudes ───────────────────────────────────────────────────────────────
 
@@ -63,6 +63,97 @@ export function useCambiarEstado() {
       qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
       qc.invalidateQueries({ queryKey: ["oc", "solicitudes", id] })
     },
+  })
+}
+
+// ── Cotizaciones ──────────────────────────────────────────────────────────────
+
+export interface CotizacionCreatePayload {
+  proveedor_nombre: string
+  proveedor_email?: string
+  numero_cotizacion_proveedor?: string
+  valor_unitario: number
+  valor_total: number
+  fecha_vigencia?: string
+  observaciones?: string
+}
+
+export function useCotizaciones(solicitudId: string | undefined) {
+  return useQuery({
+    queryKey: ["oc", "cotizaciones", solicitudId],
+    queryFn: async () => {
+      const { data } = await api.get<CotizacionProveedor[]>(
+        `/api/oc/solicitudes/${solicitudId}/cotizaciones`
+      )
+      return data
+    },
+    enabled: !!solicitudId,
+  })
+}
+
+export function useCrearCotizacion() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      solicitudId,
+      payload,
+    }: {
+      solicitudId: string
+      payload: CotizacionCreatePayload
+    }) => {
+      const { data } = await api.post<CotizacionProveedor>(
+        `/api/oc/solicitudes/${solicitudId}/cotizacion`,
+        payload
+      )
+      return data
+    },
+    onSuccess: (_, { solicitudId }) => {
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes", solicitudId] })
+      qc.invalidateQueries({ queryKey: ["oc", "cotizaciones", solicitudId] })
+    },
+  })
+}
+
+export function useAprobarCotizacion() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      cotizacionId,
+      valor_aprobado,
+      observaciones_aprobacion,
+    }: {
+      cotizacionId: string
+      valor_aprobado: number
+      observaciones_aprobacion?: string
+    }) => {
+      const { data } = await api.patch<CotizacionProveedor>(
+        `/api/oc/cotizaciones/${cotizacionId}/aprobar`,
+        { valor_aprobado, observaciones_aprobacion }
+      )
+      return data
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["oc"] }),
+  })
+}
+
+export function useRechazarCotizacion() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      cotizacionId,
+      observaciones_aprobacion,
+    }: {
+      cotizacionId: string
+      observaciones_aprobacion: string
+    }) => {
+      const { data } = await api.patch<CotizacionProveedor>(
+        `/api/oc/cotizaciones/${cotizacionId}/rechazar`,
+        { observaciones_aprobacion }
+      )
+      return data
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["oc"] }),
   })
 }
 

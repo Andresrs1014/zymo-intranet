@@ -35,6 +35,25 @@ export interface SolicitudOC {
   updated_at: string
 }
 
+export interface CotizacionProveedor {
+  id: string
+  solicitud_id: string
+  proveedor_nombre: string
+  proveedor_email: string | null
+  numero_cotizacion_proveedor: string | null
+  valor_unitario: number
+  valor_total: number
+  fecha_vigencia: string | null
+  observaciones: string | null
+  pdf_path: string | null
+  extraccion_automatica: boolean
+  aprobada: boolean | null
+  valor_aprobado: number | null
+  aprobado_por_id: number | null
+  observaciones_aprobacion: string | null
+  created_at: string
+}
+
 export interface Proveedor {
   id: string
   nombre: string
