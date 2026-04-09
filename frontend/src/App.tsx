@@ -5,6 +5,8 @@ import { DashboardPage } from "@/pages/DashboardPage"
 import { AdminPage } from "@/pages/AdminPage"
 import { RolesPage } from "@/pages/RolesPage"
 import { AreasPage } from "@/pages/AreasPage"
+import { SolicitudesPage } from "@/pages/oc/SolicitudesPage"
+import { SolicitudDetallePage } from "@/pages/oc/SolicitudDetallePage"
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -22,6 +24,15 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user)
   if (!user) return <Navigate to="/login" replace />
   if (user.role !== "admin") return <Navigate to="/dashboard" replace />
+  return <>{children}</>
+}
+
+function OCRoute({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user)
+  if (!user) return <Navigate to="/login" replace />
+  const canAccess =
+    user.role === "admin" || user.role === "directivo" || user.area === "Compras"
+  if (!canAccess) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
 
@@ -74,6 +85,24 @@ export default function App() {
             </AdminRoute>
           }
         />
+        {/* OC Automatizaciones */}
+        <Route
+          path="/oc/solicitudes"
+          element={
+            <OCRoute>
+              <SolicitudesPage />
+            </OCRoute>
+          }
+        />
+        <Route
+          path="/oc/solicitudes/:id"
+          element={
+            <OCRoute>
+              <SolicitudDetallePage />
+            </OCRoute>
+          }
+        />
+
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>

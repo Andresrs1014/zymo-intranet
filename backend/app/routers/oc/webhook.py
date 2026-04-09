@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from app.config import settings
-from app.database import get_db
+from app.oc_database import get_oc_db
 from app.models.oc import EstadoOC, SolicitudOC
 
 router = APIRouter(prefix="/webhook", tags=["OC - Webhook"])
@@ -45,7 +45,7 @@ def _verify_secret(x_pa_secret: Optional[str]) -> None:
     """Valida el secret de PA si está configurado en el entorno."""
     secret = settings.oc_webhook_secret
     if not secret:
-        return  # Sin secret configurado, se acepta cualquier llamada
+        return  # Sin secret configurado, acepta cualquier llamada (útil en dev)
     if x_pa_secret != secret:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -63,7 +63,7 @@ def _verify_secret(x_pa_secret: Optional[str]) -> None:
 def nueva_solicitud(
     payload: NuevaSolicitudPayload,
     x_pa_secret: Optional[str] = Header(default=None),
-    db: Session = Depends(get_db),
+    oc_db: Session = Depends(get_oc_db),
 ):
     """
     Power Automate llama este endpoint cuando hay un ítem nuevo
@@ -72,7 +72,7 @@ def nueva_solicitud(
     _verify_secret(x_pa_secret)
 
     # Evitar duplicados por consecutivo_os
-    existing = db.exec(
+    existing = oc_db.exec(
         select(SolicitudOC).where(SolicitudOC.consecutivo_os == payload.consecutivo_os)
     ).first()
     if existing:
@@ -103,9 +103,9 @@ def nueva_solicitud(
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc),
     )
-    db.add(solicitud)
-    db.commit()
-    db.refresh(solicitud)
+    oc_db.add(solicitud)
+    oc_db.commit()
+    oc_db.refresh(solicitud)
 
     print(f"[webhook] Nueva solicitud recibida: {solicitud.consecutivo_os} — {solicitud.id}")
 
