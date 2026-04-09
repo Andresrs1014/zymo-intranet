@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     # Orígenes CORS permitidos (separados por coma)
     cors_origins: str = "http://localhost:5173,http://localhost:81"
 
+    # OC Automatizaciones
+    # Secret para validar que el webhook viene de Power Automate (opcional)
+    oc_webhook_secret: str = ""
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 
