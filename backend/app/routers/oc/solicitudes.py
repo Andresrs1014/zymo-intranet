@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -33,6 +33,7 @@ class SolicitudRead(BaseModel):
     condicion: Optional[str]
     observaciones_solicitante: Optional[str]
     placa_ficha: Optional[str]
+    fecha_proximo_mantenimiento: Optional[date]
     estado: str
     auxiliar_id: Optional[int]
     fecha_solicitud: datetime

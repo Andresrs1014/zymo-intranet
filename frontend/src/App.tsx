@@ -9,6 +9,7 @@ import { SolicitudesPage } from "@/pages/oc/SolicitudesPage"
 import { SolicitudDetallePage } from "@/pages/oc/SolicitudDetallePage"
 import { CotizacionFormPage } from "@/pages/oc/CotizacionFormPage"
 import { AprobacionPage } from "@/pages/oc/AprobacionPage"
+import { KPIPage } from "@/pages/oc/KPIPage"
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -118,6 +119,14 @@ export default function App() {
           element={
             <OCRoute>
               <AprobacionPage />
+            </OCRoute>
+          }
+        />
+        <Route
+          path="/oc/kpis"
+          element={
+            <OCRoute>
+              <KPIPage />
             </OCRoute>
           }
         />
