@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom"
 import { useAuthStore } from "@/store/authStore"
+import { useSolicitudes } from "@/hooks/useOC"
 
 export function Sidebar() {
   const user = useAuthStore((s) => s.user)
@@ -8,6 +9,9 @@ export function Sidebar() {
     user?.role === "admin" ||
     user?.role === "directivo" ||
     user?.area === "Compras"
+
+  const canApprove =
+    user?.role === "admin" || user?.role === "directivo"
 
   return (
     <aside className="flex h-full w-64 flex-col bg-brand-blue">
@@ -34,10 +38,39 @@ export function Sidebar() {
               </p>
             </div>
             <SidebarLink icon="📋" label="Solicitudes" to="/oc/solicitudes" />
+            {canApprove && <AprobacionesLink />}
           </>
         )}
       </nav>
     </aside>
+  )
+}
+
+/** Link de Aprobaciones con badge de pendientes en tiempo real */
+function AprobacionesLink() {
+  const { data: pendientes = [] } = useSolicitudes({ estado: "pendiente_aprobacion" })
+
+  return (
+    <NavLink
+      to="/oc/aprobacion"
+      className={({ isActive }) =>
+        `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+          isActive
+            ? "bg-white/15 text-white"
+            : "text-white/60 hover:bg-white/10 hover:text-white"
+        }`
+      }
+    >
+      <span className="text-base" aria-hidden="true">
+        ✅
+      </span>
+      <span className="flex-1">Aprobaciones</span>
+      {pendientes.length > 0 && (
+        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-400 px-1.5 text-xs font-bold text-white">
+          {pendientes.length}
+        </span>
+      )}
+    </NavLink>
   )
 }
 
