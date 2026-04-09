@@ -30,11 +30,12 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+const OC_ALLOWED_ROLES = new Set(["admin", "administrativo", "directivo", "compras"])
+
 function OCRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user)
   if (!user) return <Navigate to="/login" replace />
-  const canAccess =
-    user.role === "admin" || user.role === "directivo" || user.area === "Compras"
+  const canAccess = OC_ALLOWED_ROLES.has(user.role) || user.area === "Compras"
   if (!canAccess) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
