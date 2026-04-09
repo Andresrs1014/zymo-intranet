@@ -22,7 +22,7 @@ class SolicitudOC(SQLModel, table=True):
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
 
-    # Datos que vienen de SharePoint/Forms via webhook de Power Automate
+    # Datos que vienen de SharePoint/Forms via webhook de PA
     consecutivo_os: str = Field(max_length=50)
     descripcion: str
     categoria: Optional[str] = Field(default=None, max_length=100)
@@ -41,7 +41,8 @@ class SolicitudOC(SQLModel, table=True):
 
     # Gestión interna
     estado: str = Field(default=EstadoOC.nueva, max_length=30)
-    auxiliar_id: Optional[int] = Field(default=None, foreign_key="user.id")
+    # Referencia al user.id de intranet.db — sin FK constraint (DBs separadas)
+    auxiliar_id: Optional[int] = Field(default=None)
 
     # Fechas del proceso
     fecha_solicitud: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -60,6 +61,7 @@ class CotizacionProveedor(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     solicitud_id: uuid.UUID = Field(foreign_key="oc_solicitudes.id")
 
+    # Datos del proveedor y cotización
     proveedor_nombre: str = Field(max_length=200)
     proveedor_email: Optional[str] = Field(default=None, max_length=200)
     numero_cotizacion_proveedor: Optional[str] = Field(default=None, max_length=100)
@@ -68,12 +70,15 @@ class CotizacionProveedor(SQLModel, table=True):
     fecha_vigencia: Optional[date] = Field(default=None)
     observaciones: Optional[str] = Field(default=None)
 
+    # PDF adjunto
     pdf_path: Optional[str] = Field(default=None)
     extraccion_automatica: bool = Field(default=False)
 
+    # Aprobación
     aprobada: Optional[bool] = Field(default=None)
     valor_aprobado: Optional[float] = Field(default=None)
-    aprobado_por_id: Optional[int] = Field(default=None, foreign_key="user.id")
+    # Referencia al user.id de intranet.db — sin FK constraint (DBs separadas)
+    aprobado_por_id: Optional[int] = Field(default=None)
     observaciones_aprobacion: Optional[str] = Field(default=None)
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
