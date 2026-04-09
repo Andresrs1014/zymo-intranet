@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { api } from "@/lib/api"
-import type { SolicitudOC, Proveedor, CotizacionProveedor } from "@/types/oc"
+import type { SolicitudOC, Proveedor, CotizacionProveedor, OrdenCompra } from "@/types/oc"
 
 // ── Solicitudes ───────────────────────────────────────────────────────────────
 
@@ -154,6 +154,37 @@ export function useRechazarCotizacion() {
       return data
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["oc"] }),
+  })
+}
+
+// ── Documentos / Orden de Compra ──────────────────────────────────────────────
+
+export function useOrden(solicitudId: string | undefined) {
+  return useQuery({
+    queryKey: ["oc", "orden", solicitudId],
+    queryFn: async () => {
+      const { data } = await api.get<OrdenCompra>(`/api/oc/solicitudes/${solicitudId}/orden`)
+      return data
+    },
+    enabled: !!solicitudId,
+    retry: false, // 404 es esperado cuando aún no existe la OC
+  })
+}
+
+export function useGenerarOC() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (solicitudId: string) => {
+      const { data } = await api.post<OrdenCompra>(
+        `/api/oc/solicitudes/${solicitudId}/generar-oc`,
+        {}
+      )
+      return data
+    },
+    onSuccess: (_, solicitudId) => {
+      qc.invalidateQueries({ queryKey: ["oc", "orden", solicitudId] })
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
+    },
   })
 }
 

@@ -2,16 +2,19 @@ import { useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
+import { api } from "@/lib/api"
 import {
   useSolicitud,
   useAsignarAuxiliar,
   useCotizaciones,
   useAprobarCotizacion,
   useRechazarCotizacion,
+  useOrden,
+  useGenerarOC,
 } from "@/hooks/useOC"
 import { useAuthStore } from "@/store/authStore"
 import { EstadoBadge } from "./SolicitudesPage"
-import type { CotizacionProveedor } from "@/types/oc"
+import type { CotizacionProveedor, OrdenCompra } from "@/types/oc"
 
 export function SolicitudDetallePage() {
   const { id } = useParams<{ id: string }>()
@@ -20,9 +23,11 @@ export function SolicitudDetallePage() {
 
   const { data: solicitud, isLoading } = useSolicitud(id)
   const { data: cotizaciones = [] } = useCotizaciones(id)
+  const { data: orden } = useOrden(id)
   const asignar = useAsignarAuxiliar()
   const aprobar = useAprobarCotizacion()
   const rechazar = useRechazarCotizacion()
+  const generarOC = useGenerarOC()
 
   function handleAsignarme() {
     if (!id || !user) return
@@ -61,7 +66,37 @@ export function SolicitudDetallePage() {
   const puedeAsignarse =
     !solicitud.auxiliar_id && (user?.role === "admin" || user?.area === "Compras")
   const esAprobador = user?.role === "admin" || user?.role === "directivo"
+  const puedeGenerarOC = user?.role === "admin" || user?.area === "Compras"
   const cotizacionPendiente = cotizaciones.find((c) => c.aprobada === null)
+
+  function handleGenerarOC() {
+    if (!id) return
+    generarOC.mutate(id)
+  }
+
+  async function handleDescargar() {
+    if (!orden) return
+    const ext = orden.pdf_path ? "pdf" : "docx"
+    const mimeType =
+      ext === "pdf"
+        ? "application/pdf"
+        : "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    try {
+      const response = await api.get(`/api/oc/ordenes/${orden.id}/descargar`, {
+        responseType: "blob",
+      })
+      const blobUrl = URL.createObjectURL(new Blob([response.data], { type: mimeType }))
+      const a = document.createElement("a")
+      a.href = blobUrl
+      a.download = `${orden.numero_oc}.${ext}`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(blobUrl)
+    } catch {
+      alert("Error al descargar el documento.")
+    }
+  }
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -127,6 +162,17 @@ export function SolicitudDetallePage() {
                     isLoading={aprobar.isPending || rechazar.isPending}
                   />
                 )}
+
+              {/* Panel Orden de Compra — visible cuando está aprobada */}
+              {solicitud.estado === "aprobada" && (
+                <PanelOrdenCompra
+                  orden={orden ?? null}
+                  puedeGenerar={puedeGenerarOC}
+                  isGenerating={generarOC.isPending}
+                  onGenerar={handleGenerarOC}
+                  onDescargar={handleDescargar}
+                />
+              )}
 
               {/* Cotizaciones cargadas */}
               {cotizaciones.length > 0 && (
@@ -414,6 +460,80 @@ function PanelAprobacion({
           </button>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Panel Orden de Compra ─────────────────────────────────────────────────────
+
+function PanelOrdenCompra({
+  orden,
+  puedeGenerar,
+  isGenerating,
+  onGenerar,
+  onDescargar,
+}: {
+  orden: OrdenCompra | null
+  puedeGenerar: boolean
+  isGenerating: boolean
+  onGenerar: () => void
+  onDescargar: () => void
+}) {
+  if (orden) {
+    // OC ya generada — mostrar info y botón de descarga
+    return (
+      <div className="bg-green-50 border border-green-200 rounded-xl p-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-green-600 text-lg">📄</span>
+            <div>
+              <p className="text-sm font-semibold text-green-800">
+                Orden de Compra generada
+              </p>
+              <p className="text-xs text-green-600 font-mono">{orden.numero_oc}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-green-600">
+              {orden.pdf_path ? "PDF disponible" : "DOCX disponible"}
+            </span>
+            <button
+              onClick={onDescargar}
+              className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 transition-colors flex items-center gap-1.5"
+            >
+              ↓ Descargar {orden.pdf_path ? "PDF" : "DOCX"}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!puedeGenerar) return null
+
+  // OC no generada aún — botón para generarla
+  return (
+    <div className="bg-blue-50 border border-brand-blue/20 rounded-xl p-5">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-brand-blue text-lg">🖨️</span>
+          <div>
+            <p className="text-sm font-semibold text-brand-blue">
+              Generar Orden de Compra
+            </p>
+            <p className="text-xs text-brand-blue/60">
+              La cotización fue aprobada. Puedes generar el documento oficial.
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={onGenerar}
+          disabled={isGenerating}
+          className="rounded-lg bg-brand-blue px-4 py-2 text-sm font-medium text-white hover:bg-brand-blue/90 disabled:opacity-50 transition-colors"
+        >
+          {isGenerating ? "Generando..." : "Generar OC"}
+        </button>
+      </div>
     </div>
   )
 }
