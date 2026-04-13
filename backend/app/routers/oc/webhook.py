@@ -20,7 +20,7 @@ class NuevaSolicitudPayload(BaseModel):
     grupo_articulos: Optional[str] = None
     descripcion: str
     evidencia_url: Optional[str] = None
-    cantidad: int
+    cantidad: int = 1
     cliente: Optional[str] = None
     condicion: Optional[str] = None
     solicitante_email: Optional[str] = None
