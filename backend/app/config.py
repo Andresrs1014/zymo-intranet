@@ -18,6 +18,14 @@ class Settings(BaseSettings):
     # Secret para validar que el webhook viene de Power Automate (opcional)
     oc_webhook_secret: str = ""
 
+    # Correo — SMTP Office 365
+    smtp_host: str = "smtp.office365.com"
+    smtp_port: int = 587
+    smtp_user: str = ""        # ej: compras@zymologistica.com
+    smtp_password: str = ""
+    smtp_from: str = ""        # igual al smtp_user normalmente
+    email_directora: str = ""  # email de quien aprueba cotizaciones
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 

@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -11,6 +11,11 @@ from app.database import get_db
 from app.oc_database import get_oc_db
 from app.models.oc import EstadoOC, SolicitudOC
 from app.models.user import User
+from app.services.email_service import (
+    send_aprobacion_directora,
+    send_cotizacion_lista,
+    send_oc_enviada,
+)
 
 router = APIRouter(prefix="/solicitudes", tags=["OC - Solicitudes"])
 
@@ -139,6 +144,7 @@ def asignar_auxiliar(
 def cambiar_estado(
     solicitud_id: uuid.UUID,
     payload: EstadoPayload,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_compras),
     oc_db: Session = Depends(get_oc_db),
 ):
@@ -146,11 +152,20 @@ def cambiar_estado(
     if not solicitud:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
 
-    solicitud.estado = payload.estado
+    nuevo_estado = payload.estado
+    solicitud.estado = nuevo_estado
     solicitud.updated_at = datetime.now(timezone.utc)
     oc_db.add(solicitud)
     oc_db.commit()
     oc_db.refresh(solicitud)
+
+    # Emails automáticos según el nuevo estado
+    if nuevo_estado == EstadoOC.pendiente_aprobacion:
+        background_tasks.add_task(send_cotizacion_lista, solicitud)      # Flujo 2
+        background_tasks.add_task(send_aprobacion_directora, solicitud)  # Flujo 3
+    elif nuevo_estado == EstadoOC.oc_enviada:
+        background_tasks.add_task(send_oc_enviada, solicitud)            # Flujo 4
+
     return solicitud
 
 
