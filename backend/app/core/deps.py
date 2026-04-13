@@ -44,6 +44,26 @@ def require_admin(current_user: User = Depends(get_current_user)) -> User:
     return current_user
 
 
+def require_compras(current_user: User = Depends(get_current_user)) -> User:
+    """
+    Guard del módulo OC. Pasan:
+      - role='admin'
+      - role='administrativo'
+      - role='directivo'
+      - role='compras'
+      - area='Compras'  (retrocompatibilidad con usuarios existentes)
+    """
+    OC_ROLES = {"admin", "administrativo", "directivo", "compras"}
+    if current_user.role in OC_ROLES:
+        return current_user
+    if current_user.area == "Compras":
+        return current_user
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Sin acceso al módulo OC Automatizaciones.",
+    )
+
+
 def require_any_role(allowed_roles: list[str]):
     """Guard configurable: acepta admin siempre + cualquier rol de la lista."""
     def guard(current_user: User = Depends(get_current_user)) -> User:
