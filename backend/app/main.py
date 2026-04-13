@@ -6,7 +6,7 @@ from sqlalchemy import text
 from sqlmodel import Session, select
 
 from app.database import create_db_and_tables, get_engine
-from app.oc_database import create_oc_tables
+from app.oc_database import create_oc_tables, get_oc_engine
 from app.core.security import hash_password
 from app.models.user import User
 from app.models.role import Role  # noqa: F401
@@ -141,6 +141,30 @@ def _seed_admin() -> None:
         print(f"[seed] Admin creado: {settings.first_admin_email}")
 
 
+def _migrate_oc_db() -> None:
+    """Agrega columnas nuevas a oc.db sin tocar datos existentes."""
+    nuevas_columnas = [
+        ("evidencia_url", "TEXT"),
+        ("plataforma", "VARCHAR(100)"),
+        ("numero_remision", "VARCHAR(100)"),
+        ("observaciones_compras", "TEXT"),
+        ("fecha_estimada_entrega", "DATE"),
+        ("fecha_confirmada_entrega", "DATE"),
+        ("numero_factura", "VARCHAR(100)"),
+        ("aval_compra", "VARCHAR(200)"),
+        ("observacion_contabilidad", "TEXT"),
+        ("fecha_recibida_factura", "DATE"),
+    ]
+    with get_oc_engine().connect() as conn:
+        for col, tipo in nuevas_columnas:
+            try:
+                conn.execute(text(f"ALTER TABLE oc_solicitudes ADD COLUMN {col} {tipo}"))
+                conn.commit()
+                print(f"[migrate_oc] Columna {col} agregada.")
+            except Exception:
+                pass  # Ya existe
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     create_db_and_tables()
@@ -149,6 +173,7 @@ async def lifespan(app: FastAPI):
     _seed_areas_sedes()
     _seed_admin()
     create_oc_tables()
+    _migrate_oc_db()
     yield
 
 

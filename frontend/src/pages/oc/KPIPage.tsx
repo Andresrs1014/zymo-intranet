@@ -269,12 +269,12 @@ export function KPIPage() {
                 </div>
               </div>
 
-              {/* Fila 3 — Por Sede, Por Prioridad, Por Área */}
+              {/* Fila 3 — Por Plataforma, Por Prioridad, Por Área */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-                  <h2 className="text-sm font-semibold text-gray-700 mb-4">Por sede</h2>
+                  <h2 className="text-sm font-semibold text-gray-700 mb-4">Por plataforma</h2>
                   <BarList
-                    items={kpis.por_sede}
+                    items={kpis.por_plataforma}
                     total={kpis.total_solicitudes}
                     getColor={() => "bg-brand-blue"}
                   />

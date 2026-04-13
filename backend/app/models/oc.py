@@ -44,6 +44,20 @@ class SolicitudOC(SQLModel, table=True):
     # Referencia al user.id de intranet.db — sin FK constraint (DBs separadas)
     auxiliar_id: Optional[int] = Field(default=None)
 
+    # Evidencia del solicitante (URL a OneDrive/SharePoint, enviada por PA)
+    evidencia_url: Optional[str] = Field(default=None)
+
+    # Campos de gestión de compras
+    plataforma: Optional[str] = Field(default=None, max_length=100)
+    numero_remision: Optional[str] = Field(default=None, max_length=100)
+    observaciones_compras: Optional[str] = Field(default=None)
+    fecha_estimada_entrega: Optional[date] = Field(default=None)
+    fecha_confirmada_entrega: Optional[date] = Field(default=None)
+    numero_factura: Optional[str] = Field(default=None, max_length=100)
+    aval_compra: Optional[str] = Field(default=None, max_length=200)
+    observacion_contabilidad: Optional[str] = Field(default=None)
+    fecha_recibida_factura: Optional[date] = Field(default=None)
+
     # Fechas del proceso
     fecha_solicitud: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     fecha_cotizacion: Optional[datetime] = Field(default=None)

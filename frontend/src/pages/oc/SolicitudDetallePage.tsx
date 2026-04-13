@@ -11,6 +11,9 @@ import {
   useRechazarCotizacion,
   useOrden,
   useGenerarOC,
+  useActualizarGestion,
+  useUsuario,
+  type GestionPayload,
 } from "@/hooks/useOC"
 import { useAuthStore } from "@/store/authStore"
 import { EstadoBadge } from "./SolicitudesPage"
@@ -24,10 +27,12 @@ export function SolicitudDetallePage() {
   const { data: solicitud, isLoading } = useSolicitud(id)
   const { data: cotizaciones = [] } = useCotizaciones(id)
   const { data: orden } = useOrden(id)
+  const { data: auxiliar } = useUsuario(solicitud?.auxiliar_id)
   const asignar = useAsignarAuxiliar()
   const aprobar = useAprobarCotizacion()
   const rechazar = useRechazarCotizacion()
   const generarOC = useGenerarOC()
+  const actualizarGestion = useActualizarGestion()
 
   function handleAsignarme() {
     if (!id || !user) return
@@ -64,7 +69,8 @@ export function SolicitudDetallePage() {
 
   const esAuxiliarAsignado = solicitud.auxiliar_id === user?.id
   const puedeAsignarse =
-    !solicitud.auxiliar_id && (user?.role === "admin" || user?.area === "Compras")
+    !solicitud.auxiliar_id &&
+    (user?.role === "admin" || user?.role === "compras" || user?.area === "Compras")
   const esAprobador = user?.role === "admin" || user?.role === "directivo"
   const puedeGenerarOC = user?.role === "admin" || user?.area === "Compras"
   const cotizacionPendiente = cotizaciones.find((c) => c.aprobada === null)
@@ -219,8 +225,21 @@ export function SolicitudDetallePage() {
                   <InfoItem label="Nombre" value={solicitud.solicitante_nombre} />
                   <InfoItem label="Email" value={solicitud.solicitante_email} />
                   <InfoItem label="Área" value={solicitud.area_solicitante} />
-                  <InfoItem label="Sede" value={solicitud.sede} />
+                  <InfoItem label="Plataforma" value={solicitud.plataforma} />
                 </InfoGrid>
+                {solicitud.evidencia_url && (
+                  <div className="mt-3 pt-3 border-t border-gray-50">
+                    <p className="text-xs font-medium text-gray-400 mb-1">Evidencia adjunta</p>
+                    <a
+                      href={solicitud.evidencia_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-sm text-brand-blue hover:underline"
+                    >
+                      📎 Ver evidencia
+                    </a>
+                  </div>
+                )}
               </Section>
             </div>
 
@@ -274,11 +293,24 @@ export function SolicitudDetallePage() {
 
               {solicitud.auxiliar_id && (
                 <Section title="Auxiliar asignado">
-                  <p className="text-sm text-gray-600">
-                    ID usuario:{" "}
-                    <span className="font-medium font-mono">{solicitud.auxiliar_id}</span>
+                  <p className="text-sm font-semibold text-gray-800">
+                    {auxiliar?.full_name ?? `Usuario #${solicitud.auxiliar_id}`}
                   </p>
+                  {auxiliar?.email && (
+                    <p className="text-xs text-gray-400 mt-0.5">{auxiliar.email}</p>
+                  )}
                 </Section>
+              )}
+
+              {/* Panel gestión de compras */}
+              {(esAuxiliarAsignado || user?.role === "admin") && (
+                <PanelGestion
+                  solicitud={solicitud}
+                  isLoading={actualizarGestion.isPending}
+                  onGuardar={(payload) =>
+                    actualizarGestion.mutate({ id: solicitud.id, payload })
+                  }
+                />
               )}
             </div>
           </div>
@@ -593,6 +625,135 @@ function CotizacionCard({ cotizacion: c }: { cotizacion: CotizacionProveedor }) 
           "{c.observaciones_aprobacion}"
         </p>
       )}
+    </div>
+  )
+}
+
+// ── Panel Gestión de Compras ──────────────────────────────────────────────────
+
+function PanelGestion({
+  solicitud,
+  isLoading,
+  onGuardar,
+}: {
+  solicitud: import("@/types/oc").SolicitudOC
+  isLoading: boolean
+  onGuardar: (payload: GestionPayload) => void
+}) {
+  const [form, setForm] = useState<GestionPayload>({
+    numero_remision: solicitud.numero_remision ?? "",
+    observaciones_compras: solicitud.observaciones_compras ?? "",
+    fecha_estimada_entrega: solicitud.fecha_estimada_entrega ?? "",
+    fecha_confirmada_entrega: solicitud.fecha_confirmada_entrega ?? "",
+    numero_factura: solicitud.numero_factura ?? "",
+    aval_compra: solicitud.aval_compra ?? "",
+    observacion_contabilidad: solicitud.observacion_contabilidad ?? "",
+    fecha_recibida_factura: solicitud.fecha_recibida_factura ?? "",
+  })
+
+  function set(field: keyof GestionPayload, value: string) {
+    setForm((prev) => ({ ...prev, [field]: value }))
+  }
+
+  function handleGuardar() {
+    const payload: GestionPayload = {}
+    for (const [k, v] of Object.entries(form)) {
+      if (v !== "") payload[k as keyof GestionPayload] = v as string
+    }
+    onGuardar(payload)
+  }
+
+  return (
+    <Section title="Gestión de Compras">
+      <div className="space-y-3">
+        <div className="grid grid-cols-1 gap-3">
+          <Field label="N° Remisión">
+            <input
+              type="text"
+              value={form.numero_remision}
+              onChange={(e) => set("numero_remision", e.target.value)}
+              placeholder="Ej: REM-2025-001"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+            />
+          </Field>
+          <Field label="N° Factura">
+            <input
+              type="text"
+              value={form.numero_factura}
+              onChange={(e) => set("numero_factura", e.target.value)}
+              placeholder="Ej: FAC-2025-001"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+            />
+          </Field>
+          <Field label="Aval de compra">
+            <input
+              type="text"
+              value={form.aval_compra}
+              onChange={(e) => set("aval_compra", e.target.value)}
+              placeholder="Nombre o referencia del aprobador"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+            />
+          </Field>
+          <Field label="Fecha estimada de entrega">
+            <input
+              type="date"
+              value={form.fecha_estimada_entrega}
+              onChange={(e) => set("fecha_estimada_entrega", e.target.value)}
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+            />
+          </Field>
+          <Field label="Fecha confirmada de entrega">
+            <input
+              type="date"
+              value={form.fecha_confirmada_entrega}
+              onChange={(e) => set("fecha_confirmada_entrega", e.target.value)}
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+            />
+          </Field>
+          <Field label="Fecha recepción factura">
+            <input
+              type="date"
+              value={form.fecha_recibida_factura}
+              onChange={(e) => set("fecha_recibida_factura", e.target.value)}
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+            />
+          </Field>
+          <Field label="Observaciones de compras">
+            <textarea
+              rows={2}
+              value={form.observaciones_compras}
+              onChange={(e) => set("observaciones_compras", e.target.value)}
+              placeholder="Notas internas del equipo de compras"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+            />
+          </Field>
+          <Field label="Observación contabilidad">
+            <textarea
+              rows={2}
+              value={form.observacion_contabilidad}
+              onChange={(e) => set("observacion_contabilidad", e.target.value)}
+              placeholder="Nota para contabilidad"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+            />
+          </Field>
+        </div>
+        <button
+          onClick={handleGuardar}
+          disabled={isLoading}
+          className="w-full rounded-lg bg-brand-blue px-4 py-2 text-sm font-medium text-white hover:bg-brand-blue/90 disabled:opacity-50 transition-colors"
+        >
+          {isLoading ? "Guardando..." : "Guardar gestión"}
+        </button>
+      </div>
+    </Section>
+  )
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-xs text-gray-500 mb-1">{label}</label>
+      {children}
     </div>
   )
 }

@@ -6,7 +6,7 @@ import type { SolicitudOC, Proveedor, CotizacionProveedor, OrdenCompra, KPIData 
 
 export interface SolicitudesFilters {
   estado?: string
-  sede?: string
+  plataforma?: string
 }
 
 export function useSolicitudes(filters: SolicitudesFilters = {}) {
@@ -15,11 +15,11 @@ export function useSolicitudes(filters: SolicitudesFilters = {}) {
     queryFn: async () => {
       const params = new URLSearchParams()
       if (filters.estado) params.set("estado", filters.estado)
-      if (filters.sede) params.set("sede", filters.sede)
+      if (filters.plataforma) params.set("plataforma", filters.plataforma)
       const { data } = await api.get<SolicitudOC[]>(`/api/oc/solicitudes?${params}`)
       return data
     },
-    refetchInterval: 30_000, // polling cada 30s — PA puede enviar nuevas solicitudes
+    refetchInterval: 30_000,
   })
 }
 
@@ -63,6 +63,44 @@ export function useCambiarEstado() {
       qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
       qc.invalidateQueries({ queryKey: ["oc", "solicitudes", id] })
     },
+  })
+}
+
+export interface GestionPayload {
+  numero_remision?: string
+  observaciones_compras?: string
+  fecha_estimada_entrega?: string
+  fecha_confirmada_entrega?: string
+  numero_factura?: string
+  aval_compra?: string
+  observacion_contabilidad?: string
+  fecha_recibida_factura?: string
+}
+
+export function useActualizarGestion() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: GestionPayload }) => {
+      const { data } = await api.patch<SolicitudOC>(`/api/oc/solicitudes/${id}/gestionar`, payload)
+      return data
+    },
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes", id] })
+    },
+  })
+}
+
+export function useUsuario(userId: number | null | undefined) {
+  return useQuery({
+    queryKey: ["users", userId],
+    queryFn: async () => {
+      const { data } = await api.get<{ id: number; full_name: string; email: string; area: string }>(
+        `/api/users/${userId}`
+      )
+      return data
+    },
+    enabled: !!userId,
+    staleTime: 5 * 60_000, // cache 5 min — los datos de usuario cambian poco
   })
 }
 

@@ -27,6 +27,16 @@ export interface SolicitudOC {
   fecha_proximo_mantenimiento: string | null
   estado: EstadoOC
   auxiliar_id: number | null
+  evidencia_url: string | null
+  plataforma: string | null
+  numero_remision: string | null
+  observaciones_compras: string | null
+  fecha_estimada_entrega: string | null
+  fecha_confirmada_entrega: string | null
+  numero_factura: string | null
+  aval_compra: string | null
+  observacion_contabilidad: string | null
+  fecha_recibida_factura: string | null
   fecha_solicitud: string
   fecha_cotizacion: string | null
   fecha_aprobacion: string | null
@@ -86,7 +96,7 @@ export interface ConteoItem {
 export interface KPIData {
   total_solicitudes: number
   por_estado: ConteoItem[]
-  por_sede: ConteoItem[]
+  por_plataforma: ConteoItem[]
   por_prioridad: ConteoItem[]
   por_area: ConteoItem[]
   valor_total_aprobado: number
@@ -99,7 +109,7 @@ export interface KPIData {
     descripcion: string
     estado: string
     nivel_prioridad: string
-    sede: string | null
+    plataforma: string | null
     fecha_solicitud: string
   }[]
 }

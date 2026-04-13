@@ -20,11 +20,11 @@ const ESTADOS: { value: string; label: string }[] = [
 export function SolicitudesPage() {
   const navigate = useNavigate()
   const [estadoFiltro, setEstadoFiltro] = useState("")
-  const [sedeFiltro, setSedeFiltro] = useState("")
+  const [plataformaFiltro, setPlataformaFiltro] = useState("")
 
   const { data: solicitudes = [], isLoading, isRefetching } = useSolicitudes({
     estado: estadoFiltro || undefined,
-    sede: sedeFiltro || undefined,
+    plataforma: plataformaFiltro || undefined,
   })
 
   return (
@@ -64,9 +64,9 @@ export function SolicitudesPage() {
 
             <input
               type="text"
-              placeholder="Filtrar por sede..."
-              value={sedeFiltro}
-              onChange={(e) => setSedeFiltro(e.target.value)}
+              placeholder="Filtrar por plataforma..."
+              value={plataformaFiltro}
+              onChange={(e) => setPlataformaFiltro(e.target.value)}
               className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30 w-44"
             />
           </div>
@@ -88,7 +88,7 @@ export function SolicitudesPage() {
                     <th className="px-4 py-3 font-medium text-gray-500">Consecutivo</th>
                     <th className="px-4 py-3 font-medium text-gray-500">Descripción</th>
                     <th className="px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Solicitante</th>
-                    <th className="px-4 py-3 font-medium text-gray-500 hidden lg:table-cell">Sede</th>
+                    <th className="px-4 py-3 font-medium text-gray-500 hidden lg:table-cell">Plataforma</th>
                     <th className="px-4 py-3 font-medium text-gray-500">Prioridad</th>
                     <th className="px-4 py-3 font-medium text-gray-500">Estado</th>
                     <th className="px-4 py-3 font-medium text-gray-500 hidden lg:table-cell">Fecha</th>
@@ -138,7 +138,7 @@ function SolicitudRow({
         )}
       </td>
       <td className="px-4 py-3 text-gray-500 hidden lg:table-cell">
-        {s.sede ?? "—"}
+        {s.plataforma ?? "—"}
       </td>
       <td className="px-4 py-3">
         <PrioridadBadge prioridad={s.nivel_prioridad} />

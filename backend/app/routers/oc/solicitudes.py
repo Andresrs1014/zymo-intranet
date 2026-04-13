@@ -36,6 +36,16 @@ class SolicitudRead(BaseModel):
     fecha_proximo_mantenimiento: Optional[date]
     estado: str
     auxiliar_id: Optional[int]
+    evidencia_url: Optional[str] = None
+    plataforma: Optional[str] = None
+    numero_remision: Optional[str] = None
+    observaciones_compras: Optional[str] = None
+    fecha_estimada_entrega: Optional[date] = None
+    fecha_confirmada_entrega: Optional[date] = None
+    numero_factura: Optional[str] = None
+    aval_compra: Optional[str] = None
+    observacion_contabilidad: Optional[str] = None
+    fecha_recibida_factura: Optional[date] = None
     fecha_solicitud: datetime
     fecha_cotizacion: Optional[datetime]
     fecha_aprobacion: Optional[datetime]
@@ -56,12 +66,23 @@ class EstadoPayload(BaseModel):
     estado: EstadoOC
 
 
+class GestionPayload(BaseModel):
+    numero_remision: Optional[str] = None
+    observaciones_compras: Optional[str] = None
+    fecha_estimada_entrega: Optional[date] = None
+    fecha_confirmada_entrega: Optional[date] = None
+    numero_factura: Optional[str] = None
+    aval_compra: Optional[str] = None
+    observacion_contabilidad: Optional[str] = None
+    fecha_recibida_factura: Optional[date] = None
+
+
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.get("", response_model=list[SolicitudRead])
 def list_solicitudes(
     estado: Optional[str] = Query(default=None),
-    sede: Optional[str] = Query(default=None),
+    plataforma: Optional[str] = Query(default=None),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, le=200),
     current_user: User = Depends(require_compras),
@@ -70,8 +91,8 @@ def list_solicitudes(
     query = select(SolicitudOC)
     if estado:
         query = query.where(SolicitudOC.estado == estado)
-    if sede:
-        query = query.where(SolicitudOC.sede == sede)
+    if plataforma:
+        query = query.where(SolicitudOC.plataforma == plataforma)
     query = query.order_by(SolicitudOC.fecha_solicitud.desc()).offset(skip).limit(limit)
     return oc_db.exec(query).all()
 
@@ -126,6 +147,27 @@ def cambiar_estado(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
 
     solicitud.estado = payload.estado
+    solicitud.updated_at = datetime.now(timezone.utc)
+    oc_db.add(solicitud)
+    oc_db.commit()
+    oc_db.refresh(solicitud)
+    return solicitud
+
+
+@router.patch("/{solicitud_id}/gestionar", response_model=SolicitudRead)
+def gestionar_solicitud(
+    solicitud_id: uuid.UUID,
+    payload: GestionPayload,
+    current_user: User = Depends(require_compras),
+    oc_db: Session = Depends(get_oc_db),
+):
+    """Actualiza los campos de gestión de compras (remisión, factura, aval, etc.)."""
+    solicitud = oc_db.get(SolicitudOC, solicitud_id)
+    if not solicitud:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
+
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(solicitud, field, value)
     solicitud.updated_at = datetime.now(timezone.utc)
     oc_db.add(solicitud)
     oc_db.commit()

@@ -27,14 +27,14 @@ class SolicitudResumenKPI(BaseModel):
     descripcion: str
     estado: str
     nivel_prioridad: str
-    sede: Optional[str]
+    plataforma: Optional[str]
     fecha_solicitud: datetime
 
 
 class KPIResponse(BaseModel):
     total_solicitudes: int
     por_estado: list[ConteoItem]
-    por_sede: list[ConteoItem]
+    por_plataforma: list[ConteoItem]
     por_prioridad: list[ConteoItem]
     por_area: list[ConteoItem]
     valor_total_aprobado: float
@@ -61,15 +61,15 @@ def get_kpis(
         por_estado.append(ConteoItem(label=estado.value, count=count))
         total_solicitudes += count
 
-    # 3. Por sede (top 6)
-    sede_rows = oc_db.exec(
-        select(SolicitudOC.sede, func.count(SolicitudOC.id).label("cnt"))
-        .where(SolicitudOC.sede.is_not(None))
-        .group_by(SolicitudOC.sede)
+    # 3. Por plataforma (top 6)
+    plataforma_rows = oc_db.exec(
+        select(SolicitudOC.plataforma, func.count(SolicitudOC.id).label("cnt"))
+        .where(SolicitudOC.plataforma.is_not(None))
+        .group_by(SolicitudOC.plataforma)
         .order_by(func.count(SolicitudOC.id).desc())
         .limit(6)
     ).all()
-    por_sede = [ConteoItem(label=r[0], count=r[1]) for r in sede_rows]
+    por_plataforma = [ConteoItem(label=r[0], count=r[1]) for r in plataforma_rows]
 
     # 4. Por prioridad
     prioridad_rows = oc_db.exec(
@@ -138,7 +138,7 @@ def get_kpis(
             descripcion=s.descripcion,
             estado=s.estado,
             nivel_prioridad=s.nivel_prioridad,
-            sede=s.sede,
+            plataforma=s.plataforma,
             fecha_solicitud=s.fecha_solicitud,
         )
         for s in recientes_raw
@@ -147,7 +147,7 @@ def get_kpis(
     return KPIResponse(
         total_solicitudes=total_solicitudes,
         por_estado=por_estado,
-        por_sede=por_sede,
+        por_plataforma=por_plataforma,
         por_prioridad=por_prioridad,
         por_area=por_area,
         valor_total_aprobado=float(valor_total_aprobado),
