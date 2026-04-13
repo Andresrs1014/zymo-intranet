@@ -355,7 +355,7 @@ export function KPIPage() {
                               <PrioridadBadge prioridad={s.nivel_prioridad} />
                             </td>
                             <td className="px-4 py-3 text-gray-500 text-xs hidden lg:table-cell">
-                              {s.sede ?? "—"}
+                              {s.plataforma ?? "—"}
                             </td>
                             <td className="px-4 py-3 text-gray-400 text-xs hidden lg:table-cell">
                               {formatDateRelative(s.fecha_solicitud)}
