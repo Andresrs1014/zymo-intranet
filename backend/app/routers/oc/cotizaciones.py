@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -11,6 +11,7 @@ from app.database import get_db
 from app.oc_database import get_oc_db
 from app.models.oc import CotizacionProveedor, EstadoOC, SolicitudOC
 from app.models.user import User
+from app.services.email_service import send_aprobacion_directora, send_cotizacion_lista
 
 router = APIRouter(tags=["OC - Cotizaciones"])
 
@@ -68,6 +69,7 @@ class RechazarPayload(BaseModel):
 def crear_cotizacion(
     solicitud_id: uuid.UUID,
     payload: CotizacionCreate,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_compras),
     oc_db: Session = Depends(get_oc_db),
 ):
@@ -104,6 +106,11 @@ def crear_cotizacion(
 
     oc_db.commit()
     oc_db.refresh(cotizacion)
+
+    # Disparar emails Flujo 2 y 3 (cotización lista → pendiente_aprobacion)
+    background_tasks.add_task(send_cotizacion_lista, solicitud)
+    background_tasks.add_task(send_aprobacion_directora, solicitud)
+
     return cotizacion
 
 
