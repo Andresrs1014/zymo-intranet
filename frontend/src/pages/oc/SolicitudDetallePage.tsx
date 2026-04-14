@@ -521,7 +521,7 @@ function PanelAprobacion({
 // ── Panel Orden de Compra ─────────────────────────────────────────────────────
 
 function PanelOrdenCompra({
-  solicitudId,
+  solicitudId: _solicitudId,
   estado,
   orden,
   puedeGenerar,
