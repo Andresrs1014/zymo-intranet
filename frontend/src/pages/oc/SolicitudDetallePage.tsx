@@ -13,6 +13,9 @@ import {
   useGenerarOC,
   useActualizarGestion,
   useUsuario,
+  useMarcarEnviada,
+  useMarcarEntregada,
+  useCerrarSolicitud,
   type GestionPayload,
 } from "@/hooks/useOC"
 import { useAuthStore } from "@/store/authStore"
@@ -33,6 +36,9 @@ export function SolicitudDetallePage() {
   const rechazar = useRechazarCotizacion()
   const generarOC = useGenerarOC()
   const actualizarGestion = useActualizarGestion()
+  const marcarEnviada = useMarcarEnviada()
+  const marcarEntregada = useMarcarEntregada()
+  const cerrarSolicitud = useCerrarSolicitud()
 
   function handleAsignarme() {
     if (!id || !user) return
@@ -169,14 +175,25 @@ export function SolicitudDetallePage() {
                   />
                 )}
 
-              {/* Panel Orden de Compra — visible cuando está aprobada */}
-              {solicitud.estado === "aprobada" && (
+              {/* Panel Orden de Compra — visible desde aprobada en adelante */}
+              {(solicitud.estado === "aprobada" ||
+                solicitud.estado === "oc_enviada" ||
+                solicitud.estado === "entregada" ||
+                solicitud.estado === "cerrada") && (
                 <PanelOrdenCompra
+                  solicitudId={solicitud.id}
+                  estado={solicitud.estado}
                   orden={orden ?? null}
                   puedeGenerar={puedeGenerarOC}
                   isGenerating={generarOC.isPending}
+                  isMarkingEnviada={marcarEnviada.isPending}
+                  isMarkingEntregada={marcarEntregada.isPending}
+                  isClosing={cerrarSolicitud.isPending}
                   onGenerar={handleGenerarOC}
                   onDescargar={handleDescargar}
+                  onMarcarEnviada={() => marcarEnviada.mutate(solicitud.id)}
+                  onMarcarEntregada={() => marcarEntregada.mutate(solicitud.id)}
+                  onCerrar={() => cerrarSolicitud.mutate(solicitud.id)}
                 />
               )}
 
@@ -504,42 +521,153 @@ function PanelAprobacion({
 // ── Panel Orden de Compra ─────────────────────────────────────────────────────
 
 function PanelOrdenCompra({
+  solicitudId,
+  estado,
   orden,
   puedeGenerar,
   isGenerating,
+  isMarkingEnviada,
+  isMarkingEntregada,
+  isClosing,
   onGenerar,
   onDescargar,
+  onMarcarEnviada,
+  onMarcarEntregada,
+  onCerrar,
 }: {
+  solicitudId: string
+  estado: string
   orden: OrdenCompra | null
   puedeGenerar: boolean
   isGenerating: boolean
+  isMarkingEnviada: boolean
+  isMarkingEntregada: boolean
+  isClosing: boolean
   onGenerar: () => void
   onDescargar: () => void
+  onMarcarEnviada: () => void
+  onMarcarEntregada: () => void
+  onCerrar: () => void
 }) {
-  if (orden) {
-    // OC ya generada — mostrar info y botón de descarga
+  // Estado cerrada — solo informativo
+  if (estado === "cerrada") {
     return (
-      <div className="bg-green-50 border border-green-200 rounded-xl p-5">
+      <div className="bg-gray-50 border border-gray-200 rounded-xl p-5">
+        <div className="flex items-center gap-2">
+          <span className="text-gray-500 text-lg">✔</span>
+          <div>
+            <p className="text-sm font-semibold text-gray-700">Solicitud cerrada</p>
+            {orden && <p className="text-xs text-gray-400 font-mono">{orden.numero_oc}</p>}
+          </div>
+          {orden && (
+            <button
+              onClick={onDescargar}
+              className="ml-auto rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+            >
+              ↓ Descargar OC
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // Estado entregada — botón para cerrar
+  if (estado === "entregada") {
+    return (
+      <div className="bg-teal-50 border border-teal-200 rounded-xl p-5 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-teal-600 text-lg">📦</span>
+            <div>
+              <p className="text-sm font-semibold text-teal-800">Producto entregado</p>
+              {orden && <p className="text-xs text-teal-600 font-mono">{orden.numero_oc}</p>}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            {orden && (
+              <button
+                onClick={onDescargar}
+                className="rounded-lg border border-teal-300 px-3 py-1.5 text-xs font-medium text-teal-700 hover:bg-teal-100 transition-colors"
+              >
+                ↓ Descargar OC
+              </button>
+            )}
+            <button
+              onClick={onCerrar}
+              disabled={isClosing}
+              className="rounded-lg bg-gray-700 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50 transition-colors"
+            >
+              {isClosing ? "Cerrando..." : "Cerrar solicitud"}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Estado oc_enviada — botón para marcar entregada
+  if (estado === "oc_enviada") {
+    return (
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-blue-600 text-lg">📤</span>
+            <div>
+              <p className="text-sm font-semibold text-blue-800">OC enviada al proveedor</p>
+              {orden && <p className="text-xs text-blue-600 font-mono">{orden.numero_oc}</p>}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            {orden && (
+              <button
+                onClick={onDescargar}
+                className="rounded-lg border border-blue-300 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors"
+              >
+                ↓ Descargar OC
+              </button>
+            )}
+            <button
+              onClick={onMarcarEntregada}
+              disabled={isMarkingEntregada}
+              className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-50 transition-colors"
+            >
+              {isMarkingEntregada ? "Guardando..." : "Marcar como entregada"}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Estado aprobada con OC ya generada — botón para marcar enviada
+  if (orden) {
+    return (
+      <div className="bg-green-50 border border-green-200 rounded-xl p-5 space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-green-600 text-lg">📄</span>
             <div>
-              <p className="text-sm font-semibold text-green-800">
-                Orden de Compra generada
-              </p>
+              <p className="text-sm font-semibold text-green-800">Orden de Compra generada</p>
               <p className="text-xs text-green-600 font-mono">{orden.numero_oc}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-green-600">
-              {orden.pdf_path ? "PDF disponible" : "DOCX disponible"}
-            </span>
             <button
               onClick={onDescargar}
-              className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 transition-colors flex items-center gap-1.5"
+              className="rounded-lg border border-green-300 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-100 transition-colors"
             >
-              ↓ Descargar {orden.pdf_path ? "PDF" : "DOCX"}
+              ↓ {orden.pdf_path ? "PDF" : "DOCX"}
             </button>
+            {puedeGenerar && (
+              <button
+                onClick={onMarcarEnviada}
+                disabled={isMarkingEnviada}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                {isMarkingEnviada ? "Procesando..." : "Marcar OC como enviada"}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -555,9 +683,7 @@ function PanelOrdenCompra({
         <div className="flex items-center gap-2">
           <span className="text-brand-blue text-lg">🖨️</span>
           <div>
-            <p className="text-sm font-semibold text-brand-blue">
-              Generar Orden de Compra
-            </p>
+            <p className="text-sm font-semibold text-brand-blue">Generar Orden de Compra</p>
             <p className="text-xs text-brand-blue/60">
               La cotización fue aprobada. Puedes generar el documento oficial.
             </p>

@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlmodel import Session, func, select
@@ -324,6 +324,100 @@ def obtener_orden_por_solicitud(
             detail="No existe orden de compra para esta solicitud.",
         )
     return orden
+
+
+@router.post(
+    "/solicitudes/{solicitud_id}/marcar-enviada",
+    response_model=None,
+    status_code=status.HTTP_200_OK,
+)
+async def marcar_oc_enviada(
+    solicitud_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(require_compras),
+    oc_db: Session = Depends(get_oc_db),
+):
+    from app.models.oc import EstadoOC
+    from app.services import email_service
+
+    solicitud = oc_db.get(SolicitudOC, solicitud_id)
+    if not solicitud:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
+    if solicitud.estado != EstadoOC.aprobada:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Solo se puede marcar como enviada desde estado 'aprobada'. Estado actual: {solicitud.estado}",
+        )
+
+    solicitud.estado = EstadoOC.oc_enviada
+    solicitud.fecha_envio_oc = datetime.now(timezone.utc)
+    solicitud.updated_at = datetime.now(timezone.utc)
+    oc_db.add(solicitud)
+    oc_db.commit()
+    oc_db.refresh(solicitud)
+
+    background_tasks.add_task(email_service.send_oc_enviada, solicitud)
+
+    return {"ok": True}
+
+
+@router.post(
+    "/solicitudes/{solicitud_id}/marcar-entregada",
+    response_model=None,
+    status_code=status.HTTP_200_OK,
+)
+def marcar_entregada(
+    solicitud_id: uuid.UUID,
+    current_user: User = Depends(require_compras),
+    oc_db: Session = Depends(get_oc_db),
+):
+    from app.models.oc import EstadoOC
+
+    solicitud = oc_db.get(SolicitudOC, solicitud_id)
+    if not solicitud:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
+    if solicitud.estado != EstadoOC.oc_enviada:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Solo se puede marcar como entregada desde estado 'oc_enviada'. Estado actual: {solicitud.estado}",
+        )
+
+    solicitud.estado = EstadoOC.entregada
+    solicitud.fecha_recibido = datetime.now(timezone.utc)
+    solicitud.updated_at = datetime.now(timezone.utc)
+    oc_db.add(solicitud)
+    oc_db.commit()
+
+    return {"ok": True}
+
+
+@router.post(
+    "/solicitudes/{solicitud_id}/cerrar",
+    response_model=None,
+    status_code=status.HTTP_200_OK,
+)
+def cerrar_solicitud(
+    solicitud_id: uuid.UUID,
+    current_user: User = Depends(require_compras),
+    oc_db: Session = Depends(get_oc_db),
+):
+    from app.models.oc import EstadoOC
+
+    solicitud = oc_db.get(SolicitudOC, solicitud_id)
+    if not solicitud:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
+    if solicitud.estado != EstadoOC.entregada:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Solo se puede cerrar desde estado 'entregada'. Estado actual: {solicitud.estado}",
+        )
+
+    solicitud.estado = EstadoOC.cerrada
+    solicitud.updated_at = datetime.now(timezone.utc)
+    oc_db.add(solicitud)
+    oc_db.commit()
+
+    return {"ok": True}
 
 
 @router.get("/ordenes/{orden_id}/descargar")

@@ -226,6 +226,48 @@ export function useGenerarOC() {
   })
 }
 
+export function useMarcarEnviada() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (solicitudId: string) => {
+      const { data } = await api.post(`/api/oc/solicitudes/${solicitudId}/marcar-enviada`, {})
+      return data
+    },
+    onSuccess: (_, solicitudId) => {
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes", solicitudId] })
+    },
+  })
+}
+
+export function useMarcarEntregada() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (solicitudId: string) => {
+      const { data } = await api.post(`/api/oc/solicitudes/${solicitudId}/marcar-entregada`, {})
+      return data
+    },
+    onSuccess: (_, solicitudId) => {
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes", solicitudId] })
+    },
+  })
+}
+
+export function useCerrarSolicitud() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (solicitudId: string) => {
+      const { data } = await api.post(`/api/oc/solicitudes/${solicitudId}/cerrar`, {})
+      return data
+    },
+    onSuccess: (_, solicitudId) => {
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes", solicitudId] })
+    },
+  })
+}
+
 // ── KPIs ──────────────────────────────────────────────────────────────────────
 
 export function useKPIs() {
