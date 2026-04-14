@@ -73,6 +73,10 @@ class EstadoPayload(BaseModel):
     estado: EstadoOC
 
 
+class PrioridadPayload(BaseModel):
+    nivel_prioridad: str
+
+
 class GestionPayload(BaseModel):
     numero_remision: Optional[str] = None
     observaciones_compras: Optional[str] = None
@@ -172,6 +176,31 @@ def cambiar_estado(
     elif nuevo_estado == EstadoOC.oc_enviada:
         background_tasks.add_task(send_oc_enviada, solicitud)            # Flujo 4
 
+    return solicitud
+
+
+@router.patch("/{solicitud_id}/prioridad", response_model=SolicitudRead)
+def cambiar_prioridad(
+    solicitud_id: uuid.UUID,
+    payload: PrioridadPayload,
+    current_user: User = Depends(require_compras),
+    oc_db: Session = Depends(get_oc_db),
+):
+    """Auxiliar de compras o directivo pueden ajustar la prioridad en cualquier momento."""
+    _PRIORIDADES = {"Alta", "Media", "Baja"}
+    if payload.nivel_prioridad not in _PRIORIDADES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Prioridad inválida. Valores permitidos: {', '.join(_PRIORIDADES)}",
+        )
+    solicitud = oc_db.get(SolicitudOC, solicitud_id)
+    if not solicitud:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
+    solicitud.nivel_prioridad = payload.nivel_prioridad
+    solicitud.updated_at = datetime.now(timezone.utc)
+    oc_db.add(solicitud)
+    oc_db.commit()
+    oc_db.refresh(solicitud)
     return solicitud
 
 

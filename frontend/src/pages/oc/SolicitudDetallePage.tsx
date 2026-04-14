@@ -12,6 +12,7 @@ import {
   useOrden,
   useGenerarOC,
   useActualizarGestion,
+  useCambiarPrioridad,
   useUsuario,
   useMarcarEnviada,
   useMarcarEntregada,
@@ -39,6 +40,13 @@ export function SolicitudDetallePage() {
   const marcarEnviada = useMarcarEnviada()
   const marcarEntregada = useMarcarEntregada()
   const cerrarSolicitud = useCerrarSolicitud()
+  const cambiarPrioridad = useCambiarPrioridad()
+
+  const puedeEditarPrioridad =
+    user?.role === "admin" ||
+    user?.role === "directivo" ||
+    user?.role === "compras" ||
+    user?.role === "administrativo"
 
   function handleAsignarme() {
     if (!id || !user) return
@@ -215,7 +223,25 @@ export function SolicitudDetallePage() {
                   <InfoItem label="Cantidad" value={String(solicitud.cantidad)} />
                   <InfoItem label="Categoría" value={solicitud.categoria} />
                   <InfoItem label="Grupo de artículos" value={solicitud.grupo_articulos} />
-                  <InfoItem label="Prioridad" value={solicitud.nivel_prioridad} />
+                  {puedeEditarPrioridad ? (
+                    <div>
+                      <p className="text-xs text-gray-400 mb-1">Prioridad</p>
+                      <select
+                        value={solicitud.nivel_prioridad}
+                        disabled={cambiarPrioridad.isPending}
+                        onChange={(e) =>
+                          cambiarPrioridad.mutate({ id: solicitud.id, nivel_prioridad: e.target.value })
+                        }
+                        className="rounded-md border border-gray-200 px-2 py-1 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue disabled:opacity-50"
+                      >
+                        <option value="Alta">Alta</option>
+                        <option value="Media">Media</option>
+                        <option value="Baja">Baja</option>
+                      </select>
+                    </div>
+                  ) : (
+                    <InfoItem label="Prioridad" value={solicitud.nivel_prioridad} />
+                  )}
                   <InfoItem label="Cliente" value={solicitud.cliente} />
                   <InfoItem label="Condición" value={solicitud.condicion} />
                   <InfoItem label="Placa / Ficha técnica" value={solicitud.placa_ficha} />
@@ -521,7 +547,7 @@ function PanelAprobacion({
 // ── Panel Orden de Compra ─────────────────────────────────────────────────────
 
 function PanelOrdenCompra({
-  solicitudId,
+  solicitudId: _solicitudId,
   estado,
   orden,
   puedeGenerar,

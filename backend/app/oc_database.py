@@ -23,9 +23,9 @@ def get_oc_engine():
 def create_oc_tables() -> None:
     """Crea solo las tablas del módulo OC en oc.db."""
     # Importar modelos para registrarlos en SQLModel.metadata
-    from app.models.oc import SolicitudOC, CotizacionProveedor, OrdenCompra, Proveedor  # noqa: F401
+    from app.models.oc import SolicitudOC, CotizacionProveedor, OrdenCompra, Proveedor, OcConfig  # noqa: F401
 
-    oc_table_names = {"oc_solicitudes", "oc_cotizaciones", "oc_ordenes", "oc_proveedores"}
+    oc_table_names = {"oc_solicitudes", "oc_cotizaciones", "oc_ordenes", "oc_proveedores", "oc_config"}
     tables = [
         SQLModel.metadata.tables[t]
         for t in oc_table_names
