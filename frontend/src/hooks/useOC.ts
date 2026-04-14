@@ -124,12 +124,44 @@ export function useUsuario(userId: number | null | undefined) {
 
 export interface CotizacionCreatePayload {
   proveedor_nombre: string
+  proveedor_nit?: string
   proveedor_email?: string
   numero_cotizacion_proveedor?: string
   valor_unitario: number
+  valor_antes_iva?: number
+  valor_iva?: number
   valor_total: number
   fecha_vigencia?: string
+  forma_pago?: string
+  plazo_entrega?: string
   observaciones?: string
+}
+
+export interface ExtraccionResult {
+  proveedor_nit: string | null
+  valor_unitario: number | null
+  valor_antes_iva: number | null
+  valor_iva: number | null
+  valor_total: number | null
+  forma_pago: string | null
+  plazo_entrega: string | null
+  nombre_archivo: string
+  campos_encontrados: number
+}
+
+export function useExtraerCotizacion() {
+  return useMutation({
+    mutationFn: async ({ solicitudId, file }: { solicitudId: string; file: File }) => {
+      const form = new FormData()
+      form.append("file", file)
+      const { data } = await api.post<ExtraccionResult>(
+        `/api/oc/solicitudes/${solicitudId}/cotizacion/extraer`,
+        form,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      )
+      return data
+    },
+  })
 }
 
 export function useCotizaciones(solicitudId: string | undefined) {

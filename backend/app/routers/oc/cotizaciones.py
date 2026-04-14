@@ -1,8 +1,10 @@
+import io
+import re
 import uuid
 from datetime import date, datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -69,7 +71,178 @@ class RechazarPayload(BaseModel):
     observaciones_aprobacion: str
 
 
+class ExtraccionResult(BaseModel):
+    proveedor_nit: Optional[str] = None
+    valor_unitario: Optional[float] = None
+    valor_antes_iva: Optional[float] = None
+    valor_iva: Optional[float] = None
+    valor_total: Optional[float] = None
+    forma_pago: Optional[str] = None
+    plazo_entrega: Optional[str] = None
+    nombre_archivo: str = ""
+    campos_encontrados: int = 0
+
+
+# ── Helpers de extracción ─────────────────────────────────────────────────────
+
+def _extraer_texto(contenido: bytes, ext: str) -> str:
+    if ext == "pdf":
+        try:
+            import pdfplumber
+            with pdfplumber.open(io.BytesIO(contenido)) as pdf:
+                return "\n".join(page.extract_text() or "" for page in pdf.pages)
+        except Exception:
+            return ""
+    if ext in ("xlsx", "xls"):
+        try:
+            import openpyxl
+            wb = openpyxl.load_workbook(io.BytesIO(contenido), data_only=True)
+            lines: list[str] = []
+            for ws in wb.worksheets:
+                for row in ws.iter_rows(values_only=True):
+                    parts = [str(c) for c in row if c is not None]
+                    if parts:
+                        lines.append("  ".join(parts))
+            return "\n".join(lines)
+        except Exception:
+            return ""
+    if ext == "docx":
+        try:
+            from docx import Document
+            doc = Document(io.BytesIO(contenido))
+            return "\n".join(p.text for p in doc.paragraphs if p.text.strip())
+        except Exception:
+            return ""
+    return ""
+
+
+def _to_float(raw: str) -> Optional[float]:
+    try:
+        cleaned = raw.replace("$", "").replace(" ", "").strip()
+        # Detectar si usa punto como separador de miles (ej: 1.200.000,00)
+        if re.search(r"\d{1,3}(\.\d{3})+,\d{2}$", cleaned):
+            cleaned = cleaned.replace(".", "").replace(",", ".")
+        elif "," in cleaned and "." in cleaned:
+            # 1,200,000.50 formato anglosajón
+            cleaned = cleaned.replace(",", "")
+        elif "," in cleaned:
+            cleaned = cleaned.replace(".", "").replace(",", ".")
+        else:
+            cleaned = cleaned.replace(".", "")
+        return float(cleaned)
+    except Exception:
+        return None
+
+
+def _parsear_campos(texto: str) -> ExtraccionResult:
+    def find_money(patterns: list[str]) -> Optional[float]:
+        for pat in patterns:
+            m = re.search(pat, texto, re.IGNORECASE | re.MULTILINE)
+            if m:
+                val = _to_float(m.group(1))
+                if val and val > 0:
+                    return val
+        return None
+
+    def find_text(patterns: list[str]) -> Optional[str]:
+        for pat in patterns:
+            m = re.search(pat, texto, re.IGNORECASE | re.MULTILINE)
+            if m:
+                found = m.group(1).strip()
+                if found:
+                    return found[:200]
+        return None
+
+    nit = find_text([
+        r"N\.?I\.?T\.?[:\s#]*(\d[\d.\-]+[-]\d)",
+        r"NIT[:\s#]*(\d{3}[.\s]?\d{3}[.\s]?\d{3}[-]?\d)",
+    ])
+
+    total = find_money([
+        r"TOTAL\s+A\s+PAGAR[:\s]*\$?\s*([\d.,]+)",
+        r"VALOR\s+TOTAL[:\s]*\$?\s*([\d.,]+)",
+        r"GRAN\s+TOTAL[:\s]*\$?\s*([\d.,]+)",
+        r"\bTOTAL\b[:\s]*\$?\s*([\d.,]+)",
+    ])
+
+    subtotal = find_money([
+        r"SUBTOTAL[:\s]*\$?\s*([\d.,]+)",
+        r"SUB\s+TOTAL[:\s]*\$?\s*([\d.,]+)",
+        r"VALOR\s+ANTES\s+DE\s+IVA[:\s]*\$?\s*([\d.,]+)",
+        r"BASE\s+(?:IVA|GRAVABLE)[:\s]*\$?\s*([\d.,]+)",
+    ])
+
+    iva = find_money([
+        r"IVA\s+19%?[:\s]*\$?\s*([\d.,]+)",
+        r"IVA\s+\d+%[:\s]*\$?\s*([\d.,]+)",
+        r"\bIVA\b[:\s]*\$?\s*([\d.,]+)",
+    ])
+
+    unitario = find_money([
+        r"VALOR\s+UNITARIO[:\s]*\$?\s*([\d.,]+)",
+        r"V\.?\s*UNITARIO[:\s]*\$?\s*([\d.,]+)",
+        r"PRECIO\s+UNITARIO[:\s]*\$?\s*([\d.,]+)",
+        r"P\.?\s*UNITARIO[:\s]*\$?\s*([\d.,]+)",
+    ])
+
+    forma_pago = find_text([
+        r"FORMA\s+DE\s+PAGO[:\s]+(.{4,100}?)(?:\n|$)",
+        r"CONDICI[OÓ]N(?:ES)?\s+DE\s+PAGO[:\s]+(.{4,100}?)(?:\n|$)",
+        r"MODALIDAD\s+DE\s+PAGO[:\s]+(.{4,100}?)(?:\n|$)",
+    ])
+
+    plazo = find_text([
+        r"PLAZO\s+DE\s+ENTREGA[:\s]+(.{3,100}?)(?:\n|$)",
+        r"TIEMPO\s+DE\s+ENTREGA[:\s]+(.{3,100}?)(?:\n|$)",
+        r"FECHA\s+(?:DE\s+)?ENTREGA[:\s]+(.{3,100}?)(?:\n|$)",
+    ])
+
+    campos = sum(1 for v in [nit, total, subtotal, iva, unitario, forma_pago, plazo] if v is not None)
+
+    return ExtraccionResult(
+        proveedor_nit=nit,
+        valor_unitario=unitario,
+        valor_antes_iva=subtotal,
+        valor_iva=iva,
+        valor_total=total,
+        forma_pago=forma_pago,
+        plazo_entrega=plazo,
+        campos_encontrados=campos,
+    )
+
+
 # ── Endpoints ─────────────────────────────────────────────────────────────────
+
+@router.post(
+    "/solicitudes/{solicitud_id}/cotizacion/extraer",
+    response_model=ExtraccionResult,
+    status_code=status.HTTP_200_OK,
+)
+async def extraer_cotizacion(
+    solicitud_id: uuid.UUID,
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_compras),
+    oc_db: Session = Depends(get_oc_db),
+):
+    """Extrae campos de un PDF/Excel/Word de cotización sin guardar nada."""
+    solicitud = oc_db.get(SolicitudOC, solicitud_id)
+    if not solicitud:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
+
+    nombre = file.filename or ""
+    ext = nombre.rsplit(".", 1)[-1].lower() if "." in nombre else ""
+    if ext not in ("pdf", "xlsx", "xls", "docx"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Formato no soportado. Use PDF, Excel (.xlsx) o Word (.docx).",
+        )
+
+    contenido = await file.read()
+    texto = _extraer_texto(contenido, ext)
+    resultado = _parsear_campos(texto)
+    resultado.nombre_archivo = nombre
+    return resultado
+
 
 @router.post(
     "/solicitudes/{solicitud_id}/cotizacion",
@@ -97,11 +270,16 @@ def crear_cotizacion(
     cotizacion = CotizacionProveedor(
         solicitud_id=solicitud_id,
         proveedor_nombre=payload.proveedor_nombre,
+        proveedor_nit=payload.proveedor_nit,
         proveedor_email=payload.proveedor_email,
         numero_cotizacion_proveedor=payload.numero_cotizacion_proveedor,
         valor_unitario=payload.valor_unitario,
+        valor_antes_iva=payload.valor_antes_iva,
+        valor_iva=payload.valor_iva,
         valor_total=payload.valor_total,
         fecha_vigencia=payload.fecha_vigencia,
+        forma_pago=payload.forma_pago,
+        plazo_entrega=payload.plazo_entrega,
         observaciones=payload.observaciones,
         extraccion_automatica=False,
         created_at=datetime.now(timezone.utc),
