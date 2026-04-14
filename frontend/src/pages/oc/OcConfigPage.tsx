@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
-import { apiClient } from "@/lib/api"
+import { api } from "@/lib/api"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -26,12 +26,12 @@ interface FormState {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 async function fetchConfig(): Promise<OcConfigRead> {
-  const res = await apiClient.get("/api/oc/config")
+  const res = await api.get("/api/oc/config")
   return res.data
 }
 
 async function saveConfig(payload: Partial<FormState>): Promise<void> {
-  await apiClient.patch("/api/oc/config", payload)
+  await api.patch("/api/oc/config", payload)
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
