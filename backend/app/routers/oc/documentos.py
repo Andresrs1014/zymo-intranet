@@ -179,7 +179,8 @@ def _generar_docx(
     empresa = _load_platform_config(solicitud.plataforma)
     RED = "C8102E"
     GRAY_BG = "F5F5F5"
-    fecha_str = datetime.now(timezone.utc).strftime("%d/%m/%Y")
+    from zoneinfo import ZoneInfo
+    fecha_str = datetime.now(ZoneInfo("America/Bogota")).strftime("%d/%m/%Y")
 
     subtotal = cotizacion.valor_antes_iva if cotizacion.valor_antes_iva else cotizacion.valor_total
     iva = cotizacion.valor_iva if cotizacion.valor_iva else None

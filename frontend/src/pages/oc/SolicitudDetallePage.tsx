@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
 import { api } from "@/lib/api"
+import { formatFechaHora } from "@/lib/dates"
 import {
   useSolicitud,
   useAsignarAuxiliar,
@@ -1016,12 +1017,7 @@ function TimelineItem({
         <p className={`text-sm ${done ? "text-gray-800" : "text-gray-400"}`}>{label}</p>
         {date && (
           <p className="text-xs text-gray-400">
-            {new Date(date).toLocaleDateString("es-CO", {
-              day: "numeric",
-              month: "short",
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
+            {formatFechaHora(date)}
           </p>
         )}
       </div>

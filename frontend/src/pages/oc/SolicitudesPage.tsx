@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
 import { useSolicitudes } from "@/hooks/useOC"
+import { formatFechaRelativa } from "@/lib/dates"
 import type { EstadoOC, SolicitudOC } from "@/types/oc"
 
 const ESTADOS: { value: string; label: string }[] = [
@@ -194,12 +195,5 @@ function PrioridadBadge({ prioridad }: { prioridad: string }) {
 }
 
 function formatDate(iso: string): string {
-  const date = new Date(iso)
-  const now = new Date()
-  const diff = now.getTime() - date.getTime()
-  const days = Math.floor(diff / 86400000)
-  if (days === 0) return "Hoy"
-  if (days === 1) return "Ayer"
-  if (days < 7) return `Hace ${days} días`
-  return date.toLocaleDateString("es-CO", { day: "numeric", month: "short" })
+  return formatFechaRelativa(iso)
 }
