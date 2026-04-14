@@ -166,6 +166,25 @@ def _migrate_oc_db() -> None:
                 pass  # Ya existe
 
 
+def _migrate_oc_cotizaciones() -> None:
+    """Agrega columnas nuevas a oc_cotizaciones sin tocar datos existentes."""
+    nuevas = [
+        ("proveedor_nit", "VARCHAR(50)"),
+        ("valor_antes_iva", "REAL"),
+        ("valor_iva", "REAL"),
+        ("forma_pago", "VARCHAR(200)"),
+        ("plazo_entrega", "VARCHAR(200)"),
+    ]
+    with get_oc_engine().connect() as conn:
+        for col, tipo in nuevas:
+            try:
+                conn.execute(text(f"ALTER TABLE oc_cotizaciones ADD COLUMN {col} {tipo}"))
+                conn.commit()
+                print(f"[migrate_oc_cot] Columna {col} agregada.")
+            except Exception:
+                pass
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     create_db_and_tables()
@@ -175,6 +194,7 @@ async def lifespan(app: FastAPI):
     _seed_admin()
     create_oc_tables()
     _migrate_oc_db()
+    _migrate_oc_cotizaciones()
     yield
 
 

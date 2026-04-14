@@ -20,11 +20,16 @@ router = APIRouter(tags=["OC - Cotizaciones"])
 
 class CotizacionCreate(BaseModel):
     proveedor_nombre: str
+    proveedor_nit: Optional[str] = None
     proveedor_email: Optional[str] = None
     numero_cotizacion_proveedor: Optional[str] = None
     valor_unitario: float
+    valor_antes_iva: Optional[float] = None
+    valor_iva: Optional[float] = None
     valor_total: float
     fecha_vigencia: Optional[date] = None
+    forma_pago: Optional[str] = None
+    plazo_entrega: Optional[str] = None
     observaciones: Optional[str] = None
 
 
@@ -32,11 +37,16 @@ class CotizacionRead(BaseModel):
     id: uuid.UUID
     solicitud_id: uuid.UUID
     proveedor_nombre: str
+    proveedor_nit: Optional[str]
     proveedor_email: Optional[str]
     numero_cotizacion_proveedor: Optional[str]
     valor_unitario: float
+    valor_antes_iva: Optional[float]
+    valor_iva: Optional[float]
     valor_total: float
     fecha_vigencia: Optional[date]
+    forma_pago: Optional[str]
+    plazo_entrega: Optional[str]
     observaciones: Optional[str]
     pdf_path: Optional[str]
     extraccion_automatica: bool

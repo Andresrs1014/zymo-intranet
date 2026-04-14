@@ -11,7 +11,7 @@ build/
 venv/
 env/
 claude/
-
+zymo/
 # Base de datos SQLite
 *.db
 *.db-shm
