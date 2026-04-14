@@ -64,6 +64,34 @@ def _base(titulo: str, cuerpo: str) -> str:
     """
 
 
+def _html_en_gestion(s: "SolicitudOC") -> str:
+    cuerpo = f"""
+    <p style="color:#374151">Hola <strong>{s.solicitante_nombre}</strong>,</p>
+    <p style="color:#374151">
+      Queremos informarte que tu solicitud de compra ha sido recibida y un auxiliar de compras
+      ya está trabajando en ella. Te notificaremos en cuanto tengamos una cotización lista.
+    </p>
+    <table style="width:100%;border-collapse:collapse;margin:16px 0">
+      <tr>
+        <td style="padding:8px 12px;background:#e5e7eb;font-weight:bold;width:40%;border-radius:4px 0 0 4px">Consecutivo</td>
+        <td style="padding:8px 12px;background:#f3f4f6;border-radius:0 4px 4px 0">{s.consecutivo_os}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 12px;background:#e5e7eb;font-weight:bold;border-radius:4px 0 0 4px">Descripción</td>
+        <td style="padding:8px 12px;background:#f3f4f6;border-radius:0 4px 4px 0">{s.descripcion}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 12px;background:#e5e7eb;font-weight:bold;border-radius:4px 0 0 4px">Estado</td>
+        <td style="padding:8px 12px;background:#f3f4f6;border-radius:0 4px 4px 0">🔄 En gestión</td>
+      </tr>
+    </table>
+    <p style="color:#374151">
+      Si tienes alguna duda adicional sobre tu solicitud, puedes comunicarte con el equipo de compras.
+    </p>
+    """
+    return _base("Tu solicitud está siendo gestionada", cuerpo)
+
+
 def _html_cotizacion_lista(s: "SolicitudOC") -> str:
     cuerpo = f"""
     <p style="color:#374151">Hola <strong>{s.solicitante_nombre}</strong>,</p>
@@ -158,6 +186,28 @@ def _html_oc_enviada(s: "SolicitudOC") -> str:
 
 
 # ── Funciones públicas (llamar desde background tasks) ────────────────────────
+
+async def send_en_gestion(s: "SolicitudOC") -> None:
+    """Flujo 1 — email al solicitante cuando el auxiliar toma la solicitud."""
+    if not _is_configured():
+        log.warning("[email] SMTP no configurado — omitiendo Flujo 1")
+        return
+    if not s.solicitante_email:
+        log.warning("[email] Flujo 1: solicitud %s sin email de solicitante", s.consecutivo_os)
+        return
+
+    msg = MessageSchema(
+        subject=f"[Compras Zymo] Tu solicitud está siendo gestionada — {s.consecutivo_os}",
+        recipients=[s.solicitante_email],
+        body=_html_en_gestion(s),
+        subtype=MessageType.html,
+    )
+    try:
+        await FastMail(_build_conf()).send_message(msg)
+        log.info("[email] Flujo 1 enviado a %s", s.solicitante_email)
+    except Exception:
+        log.exception("[email] Error enviando Flujo 1 para %s", s.consecutivo_os)
+
 
 async def send_cotizacion_lista(s: "SolicitudOC") -> None:
     """Flujo 2 — email al solicitante cuando hay cotizaciones listas."""

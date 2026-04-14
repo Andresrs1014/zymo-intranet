@@ -14,6 +14,7 @@ from app.models.user import User
 from app.services.email_service import (
     send_aprobacion_directora,
     send_cotizacion_lista,
+    send_en_gestion,
     send_oc_enviada,
 )
 
@@ -52,6 +53,7 @@ class SolicitudRead(BaseModel):
     observacion_contabilidad: Optional[str] = None
     fecha_recibida_factura: Optional[date] = None
     fecha_solicitud: datetime
+    fecha_asignacion: Optional[datetime]
     fecha_cotizacion: Optional[datetime]
     fecha_aprobacion: Optional[datetime]
     fecha_envio_oc: Optional[datetime]
@@ -118,6 +120,7 @@ def get_solicitud(
 def asignar_auxiliar(
     solicitud_id: uuid.UUID,
     payload: AsignarPayload,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_compras),
     db: Session = Depends(get_db),       # intranet.db — para validar que el user existe
     oc_db: Session = Depends(get_oc_db), # oc.db — para actualizar la solicitud
@@ -133,10 +136,13 @@ def asignar_auxiliar(
     solicitud.auxiliar_id = payload.auxiliar_id
     if solicitud.estado == EstadoOC.nueva:
         solicitud.estado = EstadoOC.en_cotizacion
+    solicitud.fecha_asignacion = datetime.now(timezone.utc)
     solicitud.updated_at = datetime.now(timezone.utc)
     oc_db.add(solicitud)
     oc_db.commit()
     oc_db.refresh(solicitud)
+
+    background_tasks.add_task(send_en_gestion, solicitud)  # Flujo 1
     return solicitud
 
 

@@ -154,6 +154,7 @@ def _migrate_oc_db() -> None:
         ("aval_compra", "VARCHAR(200)"),
         ("observacion_contabilidad", "TEXT"),
         ("fecha_recibida_factura", "DATE"),
+        ("fecha_asignacion", "DATETIME"),
     ]
     with get_oc_engine().connect() as conn:
         for col, tipo in nuevas_columnas:

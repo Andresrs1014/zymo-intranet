@@ -60,6 +60,7 @@ class SolicitudOC(SQLModel, table=True):
 
     # Fechas del proceso
     fecha_solicitud: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    fecha_asignacion: Optional[datetime] = Field(default=None)
     fecha_cotizacion: Optional[datetime] = Field(default=None)
     fecha_aprobacion: Optional[datetime] = Field(default=None)
     fecha_envio_oc: Optional[datetime] = Field(default=None)

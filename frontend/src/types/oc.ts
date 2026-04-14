@@ -38,6 +38,7 @@ export interface SolicitudOC {
   observacion_contabilidad: string | null
   fecha_recibida_factura: string | null
   fecha_solicitud: string
+  fecha_asignacion: string | null
   fecha_cotizacion: string | null
   fecha_aprobacion: string | null
   fecha_envio_oc: string | null

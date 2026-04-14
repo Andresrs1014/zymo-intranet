@@ -249,6 +249,11 @@ export function SolicitudDetallePage() {
                 <div className="space-y-2">
                   <TimelineItem label="Solicitud recibida" date={solicitud.fecha_solicitud} done />
                   <TimelineItem
+                    label="En gestión"
+                    date={solicitud.fecha_asignacion}
+                    done={!!solicitud.fecha_asignacion}
+                  />
+                  <TimelineItem
                     label="En cotización"
                     date={solicitud.fecha_cotizacion}
                     done={!!solicitud.fecha_cotizacion}
