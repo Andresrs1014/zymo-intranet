@@ -3,9 +3,11 @@ Servicio de correo electrónico para el módulo OC.
 Usa fastapi-mail con SMTP de Office 365.
 
 Flujos implementados:
+  Flujo 1 — En gestión         → solicitante (estado: en_cotizacion)
   Flujo 2 — Cotización Lista   → solicitante (estado: pendiente_aprobacion)
   Flujo 3 — Aprobación Dir.    → directora   (estado: pendiente_aprobacion)
   Flujo 4 — OC Enviada         → solicitante (estado: oc_enviada)
+  Flujo OC Proveedor           → proveedor   (adjunto DOCX/PDF)
 """
 from __future__ import annotations
 
@@ -215,6 +217,36 @@ def _html_oc_enviada(s: "SolicitudOC") -> str:
     return _base("Tu Orden de Compra fue enviada", cuerpo)
 
 
+def _html_oc_proveedor(s: "SolicitudOC", numero_oc: str) -> str:
+    cuerpo = f"""
+    <p style="color:#374151">Estimado proveedor,</p>
+    <p style="color:#374151">
+      Adjunto encontrará la Orden de Compra <strong>{numero_oc}</strong> emitida por Zymo Logística.
+      Por favor revísela y confírmenos su recepción junto con la fecha estimada de entrega.
+    </p>
+    <table style="width:100%;border-collapse:collapse;margin:16px 0">
+      <tr>
+        <td style="padding:8px 12px;background:#e5e7eb;font-weight:bold;width:40%;border-radius:4px 0 0 4px">N° Orden</td>
+        <td style="padding:8px 12px;background:#f3f4f6;border-radius:0 4px 4px 0">{numero_oc}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 12px;background:#e5e7eb;font-weight:bold;border-radius:4px 0 0 4px">Descripción</td>
+        <td style="padding:8px 12px;background:#f3f4f6;border-radius:0 4px 4px 0">{s.descripcion}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 12px;background:#e5e7eb;font-weight:bold;border-radius:4px 0 0 4px">Consecutivo OS</td>
+        <td style="padding:8px 12px;background:#f3f4f6;border-radius:0 4px 4px 0">{s.consecutivo_os}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 12px;background:#e5e7eb;font-weight:bold;border-radius:4px 0 0 4px">Cantidad</td>
+        <td style="padding:8px 12px;background:#f3f4f6;border-radius:0 4px 4px 0">{s.cantidad}</td>
+      </tr>
+    </table>
+    <p style="color:#374151">Gracias por su atención.</p>
+    """
+    return _base(f"Orden de Compra {numero_oc} — Zymo Logística", cuerpo)
+
+
 # ── Funciones públicas (llamar desde background tasks) ────────────────────────
 
 async def send_en_gestion(s: "SolicitudOC") -> None:
@@ -282,6 +314,49 @@ async def send_aprobacion_directora(s: "SolicitudOC") -> None:
         log.info("[email] Flujo 3 enviado a directora (%s)", directora_email)
     except Exception:
         log.exception("[email] Error enviando Flujo 3 para %s", s.consecutivo_os)
+
+
+async def send_oc_a_proveedor(s: "SolicitudOC", numero_oc: str, pdf_path: str | None, email_proveedor: str) -> None:
+    """Envía el documento OC al proveedor como adjunto."""
+    if not _is_configured():
+        log.warning("[email] SMTP no configurado — omitiendo envío OC a proveedor")
+        return
+
+    from pathlib import Path
+    archivo: Path | None = None
+    if pdf_path:
+        p = Path(pdf_path)
+        if p.exists():
+            archivo = p
+    if archivo is None:
+        docx = Path(f"/app/data/oc_docs/{numero_oc}.docx")
+        if docx.exists():
+            archivo = docx
+
+    if archivo is None:
+        log.warning("[email] No se encontró el archivo OC %s para enviar al proveedor", numero_oc)
+        return
+
+    ext = archivo.suffix.lstrip(".")
+    mime_subtype = "pdf" if ext == "pdf" else "vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+    msg = MessageSchema(
+        subject=f"Orden de Compra {numero_oc} — Zymo Logística",
+        recipients=[email_proveedor],
+        body=_html_oc_proveedor(s, numero_oc),
+        subtype=MessageType.html,
+        attachments=[{
+            "file": str(archivo),
+            "filename": f"{numero_oc}.{ext}",
+            "mime_type": "application",
+            "mime_subtype": mime_subtype,
+        }],
+    )
+    try:
+        await FastMail(_build_conf()).send_message(msg)
+        log.info("[email] OC %s enviada a proveedor %s", numero_oc, email_proveedor)
+    except Exception:
+        log.exception("[email] Error enviando OC %s a proveedor %s", numero_oc, email_proveedor)
 
 
 async def send_oc_enviada(s: "SolicitudOC") -> None:

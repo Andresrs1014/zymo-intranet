@@ -245,13 +245,13 @@ export function useGenerarOC() {
 export function useMarcarEnviada() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (solicitudId: string) => {
-      const { data } = await api.post(`/api/oc/solicitudes/${solicitudId}/marcar-enviada`, {})
+    mutationFn: async ({ id, email_proveedor }: { id: string; email_proveedor: string }) => {
+      const { data } = await api.post(`/api/oc/solicitudes/${id}/marcar-enviada`, { email_proveedor })
       return data
     },
-    onSuccess: (_, solicitudId) => {
+    onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
-      qc.invalidateQueries({ queryKey: ["oc", "solicitudes", solicitudId] })
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes", id] })
     },
   })
 }

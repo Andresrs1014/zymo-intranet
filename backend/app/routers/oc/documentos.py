@@ -21,6 +21,10 @@ OC_DOCS_DIR = Path("/app/data/oc_docs")
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
 
+class MarcarEnviadaPayload(BaseModel):
+    email_proveedor: Optional[str] = None
+
+
 class OrdenCompraRead(BaseModel):
     id: uuid.UUID
     solicitud_id: uuid.UUID
@@ -333,6 +337,7 @@ def obtener_orden_por_solicitud(
 )
 async def marcar_oc_enviada(
     solicitud_id: uuid.UUID,
+    payload: MarcarEnviadaPayload,
     background_tasks: BackgroundTasks,
     current_user: User = Depends(require_compras),
     oc_db: Session = Depends(get_oc_db),
@@ -349,14 +354,33 @@ async def marcar_oc_enviada(
             detail=f"Solo se puede marcar como enviada desde estado 'aprobada'. Estado actual: {solicitud.estado}",
         )
 
+    orden = oc_db.exec(
+        select(OrdenCompra).where(OrdenCompra.solicitud_id == solicitud_id)
+    ).first()
+
     solicitud.estado = EstadoOC.oc_enviada
     solicitud.fecha_envio_oc = datetime.now(timezone.utc)
     solicitud.updated_at = datetime.now(timezone.utc)
     oc_db.add(solicitud)
+
+    if orden and payload.email_proveedor:
+        orden.email_proveedor = payload.email_proveedor
+        orden.enviada_proveedor = True
+        oc_db.add(orden)
+
     oc_db.commit()
     oc_db.refresh(solicitud)
 
     background_tasks.add_task(email_service.send_oc_enviada, solicitud)
+
+    if orden and payload.email_proveedor:
+        background_tasks.add_task(
+            email_service.send_oc_a_proveedor,
+            solicitud,
+            orden.numero_oc,
+            orden.pdf_path,
+            payload.email_proveedor,
+        )
 
     return {"ok": True}
 

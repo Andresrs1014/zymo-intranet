@@ -92,6 +92,7 @@ export function SolicitudDetallePage() {
     user?.role === "administrativo" ||
     user?.area === "Compras"
   const cotizacionPendiente = cotizaciones.find((c) => c.aprobada === null)
+  const cotizacionAprobada = cotizaciones.find((c) => c.aprobada === true)
 
   function handleGenerarOC() {
     if (!id) return
@@ -197,13 +198,14 @@ export function SolicitudDetallePage() {
                   estado={solicitud.estado}
                   orden={orden ?? null}
                   puedeGenerar={puedeGenerarOC}
+                  emailProveedorInicial={cotizacionAprobada?.proveedor_email ?? orden?.email_proveedor ?? ""}
                   isGenerating={generarOC.isPending}
                   isMarkingEnviada={marcarEnviada.isPending}
                   isMarkingEntregada={marcarEntregada.isPending}
                   isClosing={cerrarSolicitud.isPending}
                   onGenerar={handleGenerarOC}
                   onDescargar={handleDescargar}
-                  onMarcarEnviada={() => marcarEnviada.mutate(solicitud.id)}
+                  onMarcarEnviada={(email) => marcarEnviada.mutate({ id: solicitud.id, email_proveedor: email })}
                   onMarcarEntregada={() => marcarEntregada.mutate(solicitud.id)}
                   onCerrar={() => cerrarSolicitud.mutate(solicitud.id)}
                 />
@@ -555,6 +557,7 @@ function PanelOrdenCompra({
   estado,
   orden,
   puedeGenerar,
+  emailProveedorInicial,
   isGenerating,
   isMarkingEnviada,
   isMarkingEntregada,
@@ -569,16 +572,26 @@ function PanelOrdenCompra({
   estado: string
   orden: OrdenCompra | null
   puedeGenerar: boolean
+  emailProveedorInicial: string
   isGenerating: boolean
   isMarkingEnviada: boolean
   isMarkingEntregada: boolean
   isClosing: boolean
   onGenerar: () => void
   onDescargar: () => void
-  onMarcarEnviada: () => void
+  onMarcarEnviada: (email: string) => void
   onMarcarEntregada: () => void
   onCerrar: () => void
 }) {
+  const [showModal, setShowModal] = useState(false)
+  const [emailInput, setEmailInput] = useState(emailProveedorInicial)
+
+  function handleConfirmarEnvio() {
+    if (!emailInput.trim()) return
+    onMarcarEnviada(emailInput.trim())
+    setShowModal(false)
+  }
+
   // Estado cerrada — solo informativo
   if (estado === "cerrada") {
     return (
@@ -691,15 +704,55 @@ function PanelOrdenCompra({
             </button>
             {puedeGenerar && (
               <button
-                onClick={onMarcarEnviada}
+                onClick={() => { setEmailInput(emailProveedorInicial); setShowModal(true) }}
                 disabled={isMarkingEnviada}
                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
               >
-                {isMarkingEnviada ? "Procesando..." : "Marcar OC como enviada"}
+                {isMarkingEnviada ? "Enviando..." : "Enviar OC al proveedor"}
               </button>
             )}
           </div>
         </div>
+
+        {/* Modal confirmación email proveedor */}
+        {showModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+            <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4 space-y-4">
+              <h3 className="text-base font-semibold text-gray-900">Enviar OC al proveedor</h3>
+              <p className="text-sm text-gray-500">
+                Confirma o edita el correo del proveedor. La OC se enviará como adjunto.
+              </p>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Correo del proveedor
+                </label>
+                <input
+                  type="email"
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="proveedor@empresa.com"
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button
+                  onClick={handleConfirmarEnvio}
+                  disabled={!emailInput.trim() || isMarkingEnviada}
+                  className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                >
+                  {isMarkingEnviada ? "Enviando..." : "Confirmar y enviar"}
+                </button>
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
