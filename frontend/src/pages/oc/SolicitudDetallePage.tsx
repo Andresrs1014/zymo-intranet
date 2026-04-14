@@ -86,7 +86,11 @@ export function SolicitudDetallePage() {
     !solicitud.auxiliar_id &&
     (user?.role === "admin" || user?.role === "compras" || user?.area === "Compras")
   const esAprobador = user?.role === "admin" || user?.role === "directivo"
-  const puedeGenerarOC = user?.role === "admin" || user?.area === "Compras"
+  const puedeGenerarOC =
+    user?.role === "admin" ||
+    user?.role === "compras" ||
+    user?.role === "administrativo" ||
+    user?.area === "Compras"
   const cotizacionPendiente = cotizaciones.find((c) => c.aprobada === null)
 
   function handleGenerarOC() {
