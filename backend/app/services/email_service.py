@@ -347,9 +347,12 @@ async def send_oc_a_proveedor(s: "SolicitudOC", numero_oc: str, pdf_path: str | 
         subtype=MessageType.html,
         attachments=[{
             "file": str(archivo),
-            "filename": f"{numero_oc}.{ext}",
             "mime_type": "application",
             "mime_subtype": mime_subtype,
+            "headers": {
+                "Content-Disposition": f'attachment; filename="{numero_oc}.{ext}"',
+                "Content-ID": f"<{numero_oc}>",
+            },
         }],
     )
     try:
