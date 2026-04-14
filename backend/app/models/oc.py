@@ -127,3 +127,11 @@ class Proveedor(SQLModel, table=True):
     categoria: Optional[str] = Field(default=None, max_length=100)
     activo: bool = Field(default=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class OcConfig(SQLModel, table=True):
+    """Configuración runtime de OC (SMTP, destinatarios). Sobreescribe .env."""
+    __tablename__ = "oc_config"
+
+    key: str = Field(primary_key=True, max_length=100)
+    value: str = Field(default="")

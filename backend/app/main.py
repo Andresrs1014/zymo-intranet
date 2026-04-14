@@ -12,7 +12,7 @@ from app.models.user import User
 from app.models.role import Role  # noqa: F401
 from app.models.area import Area  # noqa: F401
 from app.models.sede import Sede  # noqa: F401
-from app.models.oc import SolicitudOC, CotizacionProveedor, OrdenCompra, Proveedor  # noqa: F401
+from app.models.oc import SolicitudOC, CotizacionProveedor, OrdenCompra, Proveedor, OcConfig  # noqa: F401
 from app.config import settings
 from app.routers import auth, users, roles
 from app.routers import areas as areas_router

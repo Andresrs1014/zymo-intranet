@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.routers.oc import solicitudes, proveedores, webhook, cotizaciones, documentos, kpis
+from app.routers.oc import solicitudes, proveedores, webhook, cotizaciones, documentos, kpis, config
 
 router = APIRouter(prefix="/api/oc")
 
@@ -10,3 +10,4 @@ router.include_router(proveedores.router)
 router.include_router(webhook.router)
 router.include_router(documentos.router)
 router.include_router(kpis.router)
+router.include_router(config.router)

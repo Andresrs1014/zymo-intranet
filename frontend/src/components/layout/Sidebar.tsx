@@ -5,6 +5,7 @@ import { useSolicitudes } from "@/hooks/useOC"
 
 // Roles con acceso completo (Solicitudes + Aprobaciones + KPIs)
 const ROLES_ADMIN_OC = new Set(["admin", "administrativo", "directivo"])
+const ROLES_OC_CONFIG = new Set(["admin"])
 // Roles con acceso parcial (solo Solicitudes)
 const ROLES_COMPRAS_OC = new Set(["compras"])
 
@@ -19,6 +20,9 @@ export function Sidebar() {
 
   const canApprove =
     ROLES_ADMIN_OC.has(user?.role ?? "")
+
+  const canConfigureOC =
+    ROLES_OC_CONFIG.has(user?.role ?? "")
 
   // El bloque OC arranca expandido si la ruta actual es /oc/...
   const [ocExpanded, setOcExpanded] = useState(
@@ -45,6 +49,7 @@ export function Sidebar() {
         {canSeeOC && (
           <OCSection
             canApprove={canApprove}
+            canConfigureOC={canConfigureOC}
             expanded={ocExpanded}
             onToggle={() => setOcExpanded((v) => !v)}
           />
@@ -58,10 +63,12 @@ export function Sidebar() {
 
 function OCSection({
   canApprove,
+  canConfigureOC,
   expanded,
   onToggle,
 }: {
   canApprove: boolean
+  canConfigureOC: boolean
   expanded: boolean
   onToggle: () => void
 }) {
@@ -125,6 +132,10 @@ function OCSection({
 
           {canApprove && (
             <SidebarLink icon="📊" label="KPIs" to="/oc/kpis" />
+          )}
+
+          {canConfigureOC && (
+            <SidebarLink icon="⚙️" label="Configuración" to="/oc/configuracion" />
           )}
         </div>
       )}

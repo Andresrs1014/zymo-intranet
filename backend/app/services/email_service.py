@@ -23,14 +23,39 @@ log = logging.getLogger(__name__)
 
 # ── Configuración SMTP ────────────────────────────────────────────────────────
 
+def _get_runtime_config() -> dict:
+    """Lee la config SMTP de oc_config (DB), con fallback a settings/.env."""
+    from sqlmodel import Session, select
+    from app.models.oc import OcConfig
+    from app.oc_database import get_oc_engine
+
+    cfg = {
+        "smtp_user": settings.smtp_user,
+        "smtp_password": settings.smtp_password,
+        "smtp_from": settings.smtp_from or settings.smtp_user,
+        "smtp_host": settings.smtp_host,
+        "smtp_port": settings.smtp_port,
+        "email_directora": settings.email_directora,
+    }
+    try:
+        with Session(get_oc_engine()) as db:
+            for row in db.exec(select(OcConfig)).all():
+                if row.key in cfg and row.value:
+                    cfg[row.key] = int(row.value) if row.key == "smtp_port" else row.value
+    except Exception:
+        pass
+    return cfg
+
+
 def _build_conf() -> ConnectionConfig:
+    c = _get_runtime_config()
     return ConnectionConfig(
-        MAIL_USERNAME=settings.smtp_user,
-        MAIL_PASSWORD=settings.smtp_password,
-        MAIL_FROM=settings.smtp_from or settings.smtp_user,
+        MAIL_USERNAME=c["smtp_user"],
+        MAIL_PASSWORD=c["smtp_password"],
+        MAIL_FROM=c["smtp_from"] or c["smtp_user"],
         MAIL_FROM_NAME="Compras Zymo",
-        MAIL_PORT=settings.smtp_port,
-        MAIL_SERVER=settings.smtp_host,
+        MAIL_PORT=c["smtp_port"],
+        MAIL_SERVER=c["smtp_host"],
         MAIL_STARTTLS=True,
         MAIL_SSL_TLS=False,
         USE_CREDENTIALS=True,
@@ -39,8 +64,13 @@ def _build_conf() -> ConnectionConfig:
 
 
 def _is_configured() -> bool:
-    """Retorna False si no se han configurado credenciales SMTP (entorno dev)."""
-    return bool(settings.smtp_user and settings.smtp_password)
+    """Retorna False si no se han configurado credenciales SMTP."""
+    c = _get_runtime_config()
+    return bool(c["smtp_user"] and c["smtp_password"])
+
+
+def _get_directora_email() -> str:
+    return _get_runtime_config()["email_directora"]
 
 
 # ── Templates HTML ────────────────────────────────────────────────────────────
@@ -236,19 +266,20 @@ async def send_aprobacion_directora(s: "SolicitudOC") -> None:
     if not _is_configured():
         log.warning("[email] SMTP no configurado — omitiendo Flujo 3")
         return
-    if not settings.email_directora:
+    directora_email = _get_directora_email()
+    if not directora_email:
         log.warning("[email] Flujo 3: EMAIL_DIRECTORA no configurado")
         return
 
     msg = MessageSchema(
         subject=f"[Compras Zymo] Aprobación requerida — {s.consecutivo_os}",
-        recipients=[settings.email_directora],
+        recipients=[directora_email],
         body=_html_aprobacion_directora(s),
         subtype=MessageType.html,
     )
     try:
         await FastMail(_build_conf()).send_message(msg)
-        log.info("[email] Flujo 3 enviado a directora (%s)", settings.email_directora)
+        log.info("[email] Flujo 3 enviado a directora (%s)", directora_email)
     except Exception:
         log.exception("[email] Error enviando Flujo 3 para %s", s.consecutivo_os)
 
