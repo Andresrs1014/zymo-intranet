@@ -49,31 +49,37 @@ def _format_cop(value: Optional[float]) -> str:
     return f"${value:,.0f} COP"
 
 
+_PLATFORMS_DIR = Path(__file__).parent.parent.parent / "platforms"
+_STATIC_DIR = Path(__file__).parent.parent.parent / "static"
+
+_SLUG_MAP = {
+    "logimat": "logimat",
+    "logimat s.a.s.": "logimat",
+    "imccargo": "logimat",
+    "imc cargo": "logimat",
+    "imc cargo international": "logimat",
+    "imcdep": "logimat",
+    "imc deposito": "logimat",
+    "imc depósito": "logimat",
+}
+
+
 def _load_platform_config(plataforma: Optional[str]) -> dict:
-    """Carga la config de la plataforma desde zymo/platforms/{slug}/config.json."""
+    """Carga la config de la plataforma desde app/platforms/{slug}/config.json."""
     import json
-    _SLUG_MAP = {
-        "logimat": "logimat",
-        "logimat s.a.s.": "logimat",
-        "imccargo": "imccargo",
-        "imc cargo": "imccargo",
-        "imc cargo international": "imccargo",
-        "imcdep": "imcdep",
-        "imc deposito": "imcdep",
-        "imc depósito": "imcdep",
-    }
     slug = _SLUG_MAP.get((plataforma or "").lower().strip(), "logimat")
-    config_path = Path(__file__).parent.parent.parent.parent.parent / "zymo" / "platforms" / slug / "config.json"
+    config_path = _PLATFORMS_DIR / slug / "config.json"
     if config_path.exists():
         return json.loads(config_path.read_text(encoding="utf-8"))
     return {
-        "nombre": "ZYMO LOGÍSTICA",
-        "nit": "",
-        "direccion": "",
-        "ciudad": "",
-        "pbx": "",
-        "email_facturacion": "",
-        "prefijo_oc": "Z",
+        "nombre": "LOGIMAT S.A.S.",
+        "nit": "830.103.877-6",
+        "direccion": "Carrera 106 No. 15A-25 - Manzana 23 LTE 135M",
+        "ciudad": "Zona Franca de Bogotá - Colombia",
+        "pbx": "(1) 7 44 92 00",
+        "email_facturacion": "830103877@factureinbox.co",
+        "prefijo_oc": "L",
+        "logo": "logimat_logo.png",
     }
 
 
@@ -123,6 +129,41 @@ def _cell_text(cell, text: str, bold=False, size=9, color=None, align=None) -> N
         run.font.color.rgb = RGBColor.from_string(color)
 
 
+def _set_row_height(row, cm_val: float) -> None:
+    from docx.shared import Cm
+    from docx.oxml.ns import qn
+    from docx.oxml import OxmlElement
+    tr = row._tr
+    trPr = tr.get_or_add_trPr()
+    trHeight = OxmlElement("w:trHeight")
+    trHeight.set(qn("w:val"), str(int(Cm(cm_val).emu / 914.4 * 20)))
+    trHeight.set(qn("w:hRule"), "atLeast")
+    trPr.append(trHeight)
+
+
+def _set_col_width(table, col_idx: int, cm_val: float) -> None:
+    from docx.shared import Cm
+    from docx.oxml.ns import qn
+    for row in table.rows:
+        cell = row.cells[col_idx]
+        tc = cell._tc
+        tcPr = tc.get_or_add_tcPr()
+        tcW = tcPr.find(qn("w:tcW"))
+        if tcW is None:
+            from docx.oxml import OxmlElement
+            tcW = OxmlElement("w:tcW")
+            tcPr.append(tcW)
+        tcW.set(qn("w:w"), str(int(Cm(cm_val).emu / 914.4 * 20)))
+        tcW.set(qn("w:type"), "dxa")
+
+
+def _add_spacing(doc, pt: int = 6) -> None:
+    from docx.shared import Pt
+    p = doc.add_paragraph()
+    p.paragraph_format.space_before = Pt(0)
+    p.paragraph_format.space_after = Pt(pt)
+
+
 def _generar_docx(
     numero_oc: str,
     solicitud: SolicitudOC,
@@ -134,161 +175,224 @@ def _generar_docx(
     from docx import Document
     from docx.shared import Pt, RGBColor, Cm, Inches
     from docx.enum.text import WD_ALIGN_PARAGRAPH
-    from docx.oxml.ns import qn
-    from docx.oxml import OxmlElement
 
     empresa = _load_platform_config(solicitud.plataforma)
     RED = "C8102E"
-    DARK = "1A1A1A"
-    GRAY_BG = "F5F5F5"
+    GRAY_BG = "F2F2F2"
     fecha_str = datetime.now(timezone.utc).strftime("%d/%m/%Y")
 
-    # Calcular subtotal e IVA
     subtotal = cotizacion.valor_antes_iva if cotizacion.valor_antes_iva else cotizacion.valor_total
     iva = cotizacion.valor_iva if cotizacion.valor_iva else None
     total = cotizacion.valor_total
 
     doc = Document()
 
-    # ── Márgenes ──────────────────────────────────────────────────────────────
+    # ── Márgenes amplios para legibilidad ─────────────────────────────────────
     for section in doc.sections:
-        section.top_margin = Cm(1.5)
-        section.bottom_margin = Cm(1.5)
-        section.left_margin = Cm(2)
-        section.right_margin = Cm(2)
+        section.top_margin = Cm(2)
+        section.bottom_margin = Cm(2)
+        section.left_margin = Cm(2.5)
+        section.right_margin = Cm(2.5)
 
-    # ── ENCABEZADO: tabla 2 col (empresa izq | OC info der) ───────────────────
-    hdr = doc.add_table(rows=3, cols=2)
+    # ── ENCABEZADO: logo izq | datos OC der ───────────────────────────────────
+    hdr = doc.add_table(rows=1, cols=2)
     hdr.style = "Table Grid"
+    _set_row_height(hdr.rows[0], 2.2)
 
-    # Fila 0 — Nombre empresa + "ORDEN DE COMPRA No."
-    _cell_text(hdr.rows[0].cells[0], empresa["nombre"], bold=True, size=14, color=RED)
-    _cell_text(hdr.rows[0].cells[1], f"ORDEN DE COMPRA No. {numero_oc}", bold=True, size=12, color=RED, align="right")
-    _set_cell_bg(hdr.rows[0].cells[0], "FFFFFF")
-    _set_cell_bg(hdr.rows[0].cells[1], "FFFFFF")
+    # Celda logo
+    logo_cell = hdr.rows[0].cells[0]
+    logo_path = _STATIC_DIR / (empresa.get("logo") or "logimat_logo.png")
+    logo_para = logo_cell.paragraphs[0]
+    logo_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    if logo_path.exists():
+        logo_run = logo_para.add_run()
+        logo_run.add_picture(str(logo_path), width=Cm(5))
+    else:
+        logo_run = logo_para.add_run(empresa["nombre"])
+        logo_run.bold = True
+        logo_run.font.size = Pt(14)
+        logo_run.font.color.rgb = RGBColor(200, 16, 46)
 
-    # Fila 1 — NIT empresa + Fecha
-    _cell_text(hdr.rows[1].cells[0], f"NIT: {empresa['nit']}", size=9, color=DARK)
-    _cell_text(hdr.rows[1].cells[1], f"FECHA: {fecha_str}", size=9, color=DARK, align="right")
-    _set_cell_bg(hdr.rows[1].cells[0], GRAY_BG)
-    _set_cell_bg(hdr.rows[1].cells[1], GRAY_BG)
+    # Sub-texto empresa bajo el logo
+    sub_para = logo_cell.add_paragraph()
+    sub_run = sub_para.add_run(f"NIT: {empresa['nit']}")
+    sub_run.font.size = Pt(9)
+    sub_run.font.color.rgb = RGBColor(80, 80, 80)
 
-    # Fila 2 — Dirección empresa + ciudad
-    dir_text = f"{empresa['direccion']}\n{empresa['ciudad']}"
-    _cell_text(hdr.rows[2].cells[0], dir_text, size=8, color="666666")
-    _cell_text(hdr.rows[2].cells[1], f"PBX: {empresa['pbx']}", size=8, color="666666", align="right")
-    _set_cell_bg(hdr.rows[2].cells[0], "FFFFFF")
-    _set_cell_bg(hdr.rows[2].cells[1], "FFFFFF")
+    sub_para2 = logo_cell.add_paragraph()
+    sub_run2 = sub_para2.add_run(f"{empresa['direccion']}")
+    sub_run2.font.size = Pt(8)
+    sub_run2.font.color.rgb = RGBColor(120, 120, 120)
 
-    doc.add_paragraph()
+    sub_para3 = logo_cell.add_paragraph()
+    sub_run3 = sub_para3.add_run(f"{empresa['ciudad']}   PBX: {empresa['pbx']}")
+    sub_run3.font.size = Pt(8)
+    sub_run3.font.color.rgb = RGBColor(120, 120, 120)
+
+    _set_cell_bg(logo_cell, "FFFFFF")
+
+    # Celda OC info
+    oc_cell = hdr.rows[0].cells[1]
+    _set_cell_bg(oc_cell, RED)
+
+    oc_title = oc_cell.paragraphs[0]
+    oc_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    r1 = oc_title.add_run("ORDEN DE COMPRA")
+    r1.bold = True
+    r1.font.size = Pt(13)
+    r1.font.color.rgb = RGBColor(255, 255, 255)
+
+    oc_num = oc_cell.add_paragraph()
+    oc_num.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    r2 = oc_num.add_run(numero_oc)
+    r2.bold = True
+    r2.font.size = Pt(18)
+    r2.font.color.rgb = RGBColor(255, 255, 255)
+
+    oc_fecha = oc_cell.add_paragraph()
+    oc_fecha.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    r3 = oc_fecha.add_run(f"Fecha: {fecha_str}")
+    r3.font.size = Pt(10)
+    r3.font.color.rgb = RGBColor(255, 230, 230)
+
+    _add_spacing(doc, 10)
 
     # ── DATOS DEL PROVEEDOR ───────────────────────────────────────────────────
     prov = doc.add_table(rows=4, cols=2)
     prov.style = "Table Grid"
 
-    # Título fila — encabezado rojo
+    # Encabezado de sección
     prov.rows[0].cells[0].merge(prov.rows[0].cells[1])
-    _cell_text(prov.rows[0].cells[0], "SEÑORES:", bold=True, size=9, color="FFFFFF")
+    _cell_text(prov.rows[0].cells[0], "  SEÑORES", bold=True, size=11, color="FFFFFF")
     _set_cell_bg(prov.rows[0].cells[0], RED)
+    _set_row_height(prov.rows[0], 0.7)
 
-    _cell_text(prov.rows[1].cells[0], "Proveedor:", bold=True, size=9)
-    _cell_text(prov.rows[1].cells[1], cotizacion.proveedor_nombre or "", size=9)
-    _set_cell_bg(prov.rows[1].cells[0], GRAY_BG)
+    datos = [
+        ("Proveedor", cotizacion.proveedor_nombre or ""),
+        ("NIT", cotizacion.proveedor_nit or ""),
+        ("Ref. Cotización", f"OS: {solicitud.consecutivo_os}   |   COT: {cotizacion.numero_cotizacion_proveedor or 'N/A'}"),
+    ]
+    for i, (lbl, val) in enumerate(datos, 1):
+        _cell_text(prov.rows[i].cells[0], f"  {lbl}", bold=True, size=10)
+        _cell_text(prov.rows[i].cells[1], f"  {val}", size=10)
+        _set_cell_bg(prov.rows[i].cells[0], GRAY_BG)
+        _set_row_height(prov.rows[i], 0.65)
 
-    _cell_text(prov.rows[2].cells[0], "NIT:", bold=True, size=9)
-    _cell_text(prov.rows[2].cells[1], cotizacion.proveedor_nit or "", size=9)
-    _set_cell_bg(prov.rows[2].cells[0], GRAY_BG)
+    _set_col_width(prov, 0, 5)
 
-    cot_ref = cotizacion.numero_cotizacion_proveedor or ""
-    os_ref = solicitud.consecutivo_os or ""
-    _cell_text(prov.rows[3].cells[0], "ORDEN DE COMPRA SEGÚN:", bold=True, size=9)
-    _cell_text(prov.rows[3].cells[1], f"OS: {os_ref}     COT: {cot_ref}", size=9)
-    _set_cell_bg(prov.rows[3].cells[0], GRAY_BG)
-
-    doc.add_paragraph()
+    _add_spacing(doc, 8)
 
     # ── TABLA DE ÍTEMS ────────────────────────────────────────────────────────
     items = doc.add_table(rows=2, cols=4)
     items.style = "Table Grid"
 
-    # Encabezado rojo
-    for i, (txt, al) in enumerate([("ÍTEM", "center"), ("CANT.", "center"), ("REFERENCIA / DESCRIPCIÓN", None), ("VALOR UNITARIO", "right")]):
-        _cell_text(items.rows[0].cells[i], txt, bold=True, size=9, color="FFFFFF", align=al)
+    hdrs_items = [("ÍTEM", "center"), ("CANT.", "center"), ("DESCRIPCIÓN DEL ARTÍCULO / SERVICIO", None), ("VALOR UNITARIO", "right")]
+    for i, (txt, al) in enumerate(hdrs_items):
+        _cell_text(items.rows[0].cells[i], f"  {txt}  ", bold=True, size=10, color="FFFFFF", align=al)
         _set_cell_bg(items.rows[0].cells[i], RED)
+    _set_row_height(items.rows[0], 0.7)
 
-    # Datos del ítem
-    _cell_text(items.rows[1].cells[0], "1", size=9, align="center")
-    _cell_text(items.rows[1].cells[1], str(solicitud.cantidad), size=9, align="center")
-    _cell_text(items.rows[1].cells[2], solicitud.descripcion or "", size=9)
-    _cell_text(items.rows[1].cells[3], _format_cop(cotizacion.valor_unitario), size=9, align="right")
+    _cell_text(items.rows[1].cells[0], "1", size=10, align="center")
+    _cell_text(items.rows[1].cells[1], str(solicitud.cantidad), size=10, align="center")
+    _cell_text(items.rows[1].cells[2], f"  {solicitud.descripcion or ''}", size=10)
+    _cell_text(items.rows[1].cells[3], _format_cop(cotizacion.valor_unitario), size=10, align="right")
+    _set_row_height(items.rows[1], 0.9)
 
-    doc.add_paragraph()
+    _set_col_width(items, 0, 1.5)
+    _set_col_width(items, 1, 1.5)
+    _set_col_width(items, 3, 4)
+
+    _add_spacing(doc, 8)
 
     # ── TOTALES ───────────────────────────────────────────────────────────────
-    tot = doc.add_table(rows=3 if iva else 2, cols=2)
+    n_filas_tot = 3 if iva else 2
+    tot = doc.add_table(rows=n_filas_tot, cols=2)
     tot.style = "Table Grid"
 
     row_idx = 0
-    _cell_text(tot.rows[row_idx].cells[0], "SUB TOTAL", bold=True, size=9, align="right")
-    _cell_text(tot.rows[row_idx].cells[1], _format_cop(subtotal), size=9, align="right")
+    _cell_text(tot.rows[row_idx].cells[0], "  SUB TOTAL", bold=True, size=10, align="right")
+    _cell_text(tot.rows[row_idx].cells[1], _format_cop(subtotal), size=10, align="right")
     _set_cell_bg(tot.rows[row_idx].cells[0], GRAY_BG)
+    _set_row_height(tot.rows[row_idx], 0.65)
     row_idx += 1
 
     if iva:
-        _cell_text(tot.rows[row_idx].cells[0], "IVA", bold=True, size=9, align="right")
-        _cell_text(tot.rows[row_idx].cells[1], _format_cop(iva), size=9, align="right")
+        _cell_text(tot.rows[row_idx].cells[0], "  IVA (19%)", bold=True, size=10, align="right")
+        _cell_text(tot.rows[row_idx].cells[1], _format_cop(iva), size=10, align="right")
         _set_cell_bg(tot.rows[row_idx].cells[0], GRAY_BG)
+        _set_row_height(tot.rows[row_idx], 0.65)
         row_idx += 1
 
-    _cell_text(tot.rows[row_idx].cells[0], "VALOR TOTAL", bold=True, size=10, color="FFFFFF", align="right")
-    _cell_text(tot.rows[row_idx].cells[1], _format_cop(total), bold=True, size=10, color="FFFFFF", align="right")
+    _cell_text(tot.rows[row_idx].cells[0], "  VALOR TOTAL", bold=True, size=12, color="FFFFFF", align="right")
+    _cell_text(tot.rows[row_idx].cells[1], _format_cop(total), bold=True, size=12, color="FFFFFF", align="right")
     _set_cell_bg(tot.rows[row_idx].cells[0], RED)
     _set_cell_bg(tot.rows[row_idx].cells[1], RED)
+    _set_row_height(tot.rows[row_idx], 0.8)
 
-    doc.add_paragraph()
+    _set_col_width(tot, 0, 12)
+
+    _add_spacing(doc, 8)
 
     # ── CONDICIONES ───────────────────────────────────────────────────────────
     cond = doc.add_table(rows=3, cols=2)
     cond.style = "Table Grid"
 
-    # Buzón facturación
-    _cell_text(cond.rows[0].cells[0], "Buzón Facturación:", bold=True, size=9)
-    _cell_text(cond.rows[0].cells[1], empresa.get("email_facturacion", ""), size=9)
-    _set_cell_bg(cond.rows[0].cells[0], GRAY_BG)
+    cond.rows[0].cells[0].merge(cond.rows[0].cells[1])
+    _cell_text(cond.rows[0].cells[0], "  CONDICIONES", bold=True, size=11, color="FFFFFF")
+    _set_cell_bg(cond.rows[0].cells[0], RED)
+    _set_row_height(cond.rows[0], 0.7)
 
-    _cell_text(cond.rows[1].cells[0], "Forma de Pago:", bold=True, size=9)
-    _cell_text(cond.rows[1].cells[1], cotizacion.forma_pago or cotizacion.observaciones or "", size=9)
-    _set_cell_bg(cond.rows[1].cells[0], GRAY_BG)
+    condiciones = [
+        ("Forma de Pago", cotizacion.forma_pago or cotizacion.observaciones or ""),
+        ("Plazo de Entrega", cotizacion.plazo_entrega or ""),
+    ]
+    for i, (lbl, val) in enumerate(condiciones, 1):
+        _cell_text(cond.rows[i].cells[0], f"  {lbl}", bold=True, size=10)
+        _cell_text(cond.rows[i].cells[1], f"  {val}", size=10)
+        _set_cell_bg(cond.rows[i].cells[0], GRAY_BG)
+        _set_row_height(cond.rows[i], 0.65)
 
-    _cell_text(cond.rows[2].cells[0], "Plazo de Entrega:", bold=True, size=9)
-    _cell_text(cond.rows[2].cells[1], cotizacion.plazo_entrega or "", size=9)
-    _set_cell_bg(cond.rows[2].cells[0], GRAY_BG)
+    _set_col_width(cond, 0, 5)
 
-    doc.add_paragraph()
+    # Buzón de facturación como párrafo separado
+    _add_spacing(doc, 4)
+    buzon_p = doc.add_paragraph()
+    br = buzon_p.add_run(f"  Buzón de facturación: {empresa.get('email_facturacion', '')}")
+    br.font.size = Pt(9)
+    br.font.color.rgb = RGBColor(100, 100, 100)
+    br.italic = True
+
+    _add_spacing(doc, 12)
 
     # ── FIRMAS ────────────────────────────────────────────────────────────────
-    firmas = doc.add_table(rows=2, cols=3)
+    firmas = doc.add_table(rows=3, cols=3)
     firmas.style = "Table Grid"
 
-    for i, titulo in enumerate(["SOLICITA", "ELABORA", "APRUEBA"]):
-        _cell_text(firmas.rows[0].cells[i], titulo, bold=True, size=9, color="FFFFFF", align="center")
+    titulos = ["SOLICITA", "ELABORA / COMPRAS", "APRUEBA"]
+    for i, titulo in enumerate(titulos):
+        _cell_text(firmas.rows[0].cells[i], titulo, bold=True, size=10, color="FFFFFF", align="center")
         _set_cell_bg(firmas.rows[0].cells[i], RED)
+    _set_row_height(firmas.rows[0], 0.65)
 
-    nombres = [
-        solicitud.solicitante_nombre or "",
-        auxiliar_nombre,
-        aprobador_nombre,
-    ]
+    nombres = [solicitud.solicitante_nombre or "", auxiliar_nombre, aprobador_nombre]
     for i, nombre in enumerate(nombres):
-        _cell_text(firmas.rows[1].cells[i], nombre, size=9, align="center")
+        _cell_text(firmas.rows[1].cells[i], nombre, size=10, align="center")
+    _set_row_height(firmas.rows[1], 0.65)
 
-    doc.add_paragraph()
+    # Fila de líneas de firma
+    for i in range(3):
+        _cell_text(firmas.rows[2].cells[i], "_" * 30, size=9, align="center")
+    _set_row_height(firmas.rows[2], 1.2)
+
+    _add_spacing(doc, 8)
 
     # ── PIE DE PÁGINA ─────────────────────────────────────────────────────────
     pie = doc.add_paragraph()
     pie.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = pie.add_run(f"{empresa['nombre']}  |  {empresa['direccion']}  |  PBX: {empresa['pbx']}")
-    run.font.size = Pt(7)
+    run = pie.add_run(
+        f"{empresa['nombre']}  ·  NIT: {empresa['nit']}  ·  {empresa['ciudad']}  ·  PBX: {empresa['pbx']}"
+    )
+    run.font.size = Pt(8)
     run.font.color.rgb = RGBColor(150, 150, 150)
     run.italic = True
 
