@@ -77,6 +77,22 @@ export interface GestionPayload {
   fecha_recibida_factura?: string
 }
 
+export function useCambiarPrioridad() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, nivel_prioridad }: { id: string; nivel_prioridad: string }) => {
+      const { data } = await api.patch<SolicitudOC>(`/api/oc/solicitudes/${id}/prioridad`, {
+        nivel_prioridad,
+      })
+      return data
+    },
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes", id] })
+    },
+  })
+}
+
 export function useActualizarGestion() {
   const qc = useQueryClient()
   return useMutation({
