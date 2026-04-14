@@ -85,7 +85,7 @@ export function SolicitudDetallePage() {
   const puedeAsignarse =
     !solicitud.auxiliar_id &&
     (user?.role === "admin" || user?.role === "compras" || user?.area === "Compras")
-  const esAprobador = user?.role === "admin" || user?.role === "directivo"
+  const esAprobador = user?.role === "admin" || user?.role === "directivo" || user?.role === "administrativo"
   const puedeGenerarOC =
     user?.role === "admin" ||
     user?.role === "compras" ||

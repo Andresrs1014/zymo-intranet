@@ -145,10 +145,10 @@ def aprobar_cotizacion(
     current_user: User = Depends(get_current_user),
     oc_db: Session = Depends(get_oc_db),
 ):
-    if current_user.role not in ("admin", "directivo"):
+    if current_user.role not in ("admin", "directivo", "administrativo"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Solo directivo o admin pueden aprobar cotizaciones.",
+            detail="Solo directivo, administrativo o admin pueden aprobar cotizaciones.",
         )
 
     cotizacion = oc_db.get(CotizacionProveedor, cotizacion_id)
@@ -184,10 +184,10 @@ def rechazar_cotizacion(
     current_user: User = Depends(get_current_user),
     oc_db: Session = Depends(get_oc_db),
 ):
-    if current_user.role not in ("admin", "directivo"):
+    if current_user.role not in ("admin", "directivo", "administrativo"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Solo directivo o admin pueden rechazar cotizaciones.",
+            detail="Solo directivo, administrativo o admin pueden rechazar cotizaciones.",
         )
 
     cotizacion = oc_db.get(CotizacionProveedor, cotizacion_id)
