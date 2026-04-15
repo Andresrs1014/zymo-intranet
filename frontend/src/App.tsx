@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { useAuthStore } from "@/store/authStore"
-import { canSeeOC } from "@/lib/permissions"
+import { canSeeOC, canSeeSGC } from "@/lib/permissions"
 import { LoginPage } from "@/pages/LoginPage"
 import { DashboardPage } from "@/pages/DashboardPage"
 import { AdminPage } from "@/pages/AdminPage"
@@ -13,6 +13,7 @@ import { CotizacionFormPage } from "@/pages/oc/CotizacionFormPage"
 import { AprobacionPage } from "@/pages/oc/AprobacionPage"
 import { KPIPage } from "@/pages/oc/KPIPage"
 import { OcConfigPage } from "@/pages/oc/OcConfigPage"
+import { ProveedoresPage } from "@/pages/sgc/ProveedoresPage"
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -37,6 +38,13 @@ function OCRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user)
   if (!user) return <Navigate to="/login" replace />
   if (!canSeeOC(user.role, user.area)) return <Navigate to="/dashboard" replace />
+  return <>{children}</>
+}
+
+function SGCRoute({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user)
+  if (!user) return <Navigate to="/login" replace />
+  if (!canSeeSGC(user.role, user.area)) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
 
@@ -147,6 +155,20 @@ export default function App() {
             <AdminRoute>
               <OcConfigPage />
             </AdminRoute>
+          }
+        />
+
+        {/* SGC — Sistema de Gestión de Calidad */}
+        <Route
+          path="/sgc"
+          element={<Navigate to="/sgc/proveedores" replace />}
+        />
+        <Route
+          path="/sgc/proveedores"
+          element={
+            <SGCRoute>
+              <ProveedoresPage />
+            </SGCRoute>
           }
         />
 

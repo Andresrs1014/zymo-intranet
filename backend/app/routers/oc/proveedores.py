@@ -1,112 +1,51 @@
-import uuid
-from datetime import datetime, timezone
-from typing import Optional
+"""
+OC — Proveedores (lectura desde SGC)
+=====================================
+Este endpoint retorna los proveedores activos gestionados por SGC.
+SGC es el dueño del catálogo; OC solo lo consume para el selector de cotizaciones.
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+Para crear o editar proveedores, usar /api/sgc/proveedores.
+"""
+
+import uuid
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from app.core.deps import get_current_user, require_compras
-from app.database import get_db
-from app.oc_database import get_oc_db
-from app.models.oc import Proveedor
+from app.core.deps import get_current_user
+from app.models.sgc import ProveedorSGC
 from app.models.user import User
+from app.sgc_database import get_sgc_db
 
 router = APIRouter(prefix="/proveedores", tags=["OC - Proveedores"])
 
 
-# ── Schemas ───────────────────────────────────────────────────────────────────
-
-class ProveedorCreate(BaseModel):
-    nombre: str
-    email: Optional[str] = None
-    telefono: Optional[str] = None
-    nit: Optional[str] = None
-    categoria: Optional[str] = None
-
-
-class ProveedorUpdate(BaseModel):
-    nombre: Optional[str] = None
-    email: Optional[str] = None
-    telefono: Optional[str] = None
-    nit: Optional[str] = None
-    categoria: Optional[str] = None
-    activo: Optional[bool] = None
-
-
 class ProveedorRead(BaseModel):
+    """Subconjunto de campos del proveedor SGC que necesita OC."""
     id: uuid.UUID
     nombre: str
-    email: Optional[str]
-    telefono: Optional[str]
-    nit: Optional[str]
-    categoria: Optional[str]
+    nit: str | None
+    email: str | None
+    telefono: str | None
+    categoria: str | None
     activo: bool
-    created_at: datetime
+    created_at: datetime  # requerido por el tipo Proveedor en types/oc.ts
 
     class Config:
         from_attributes = True
 
 
-# ── Endpoints ─────────────────────────────────────────────────────────────────
-
 @router.get("", response_model=list[ProveedorRead])
 def list_proveedores(
     solo_activos: bool = Query(default=True),
     _: User = Depends(get_current_user),
-    oc_db: Session = Depends(get_oc_db),
+    sgc_db: Session = Depends(get_sgc_db),
 ):
-    query = select(Proveedor)
+    """Lista proveedores de SGC. Por defecto solo los activos (para el selector de OC)."""
+    query = select(ProveedorSGC)
     if solo_activos:
-        query = query.where(Proveedor.activo == True)  # noqa: E712
-    query = query.order_by(Proveedor.nombre)
-    return oc_db.exec(query).all()
-
-
-@router.post("", response_model=ProveedorRead, status_code=status.HTTP_201_CREATED)
-def create_proveedor(
-    payload: ProveedorCreate,
-    _: User = Depends(require_compras),
-    oc_db: Session = Depends(get_oc_db),
-):
-    existing = oc_db.exec(select(Proveedor).where(Proveedor.nombre == payload.nombre)).first()
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Ya existe un proveedor con el nombre '{payload.nombre}'.",
-        )
-    proveedor = Proveedor(**payload.model_dump())
-    oc_db.add(proveedor)
-    oc_db.commit()
-    oc_db.refresh(proveedor)
-    return proveedor
-
-
-@router.put("/{proveedor_id}", response_model=ProveedorRead)
-def update_proveedor(
-    proveedor_id: uuid.UUID,
-    payload: ProveedorUpdate,
-    _: User = Depends(require_compras),
-    oc_db: Session = Depends(get_oc_db),
-):
-    proveedor = oc_db.get(Proveedor, proveedor_id)
-    if not proveedor:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Proveedor no encontrado.")
-
-    data = payload.model_dump(exclude_unset=True)
-
-    if "nombre" in data and data["nombre"] != proveedor.nombre:
-        conflict = oc_db.exec(select(Proveedor).where(Proveedor.nombre == data["nombre"])).first()
-        if conflict:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"Ya existe un proveedor con el nombre '{data['nombre']}'.",
-            )
-
-    for field, value in data.items():
-        setattr(proveedor, field, value)
-
-    oc_db.add(proveedor)
-    oc_db.commit()
-    oc_db.refresh(proveedor)
-    return proveedor
+        query = query.where(ProveedorSGC.activo == True)  # noqa: E712
+    query = query.order_by(ProveedorSGC.nombre)
+    return sgc_db.exec(query).all()

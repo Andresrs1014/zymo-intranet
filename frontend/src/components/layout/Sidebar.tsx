@@ -1,10 +1,11 @@
 import { NavLink } from "react-router-dom"
 import { useAuthStore } from "@/store/authStore"
-import { canSeeOC } from "@/lib/permissions"
+import { canSeeOC, canSeeSGC } from "@/lib/permissions"
 
 export function Sidebar() {
   const user = useAuthStore((s) => s.user)
   const showAdministrativo = user ? canSeeOC(user.role, user.area) : false
+  const showSGC = user ? canSeeSGC(user.role, user.area) : false
 
   return (
     <aside className="flex h-full w-64 flex-col bg-brand-blue">
@@ -33,11 +34,14 @@ export function Sidebar() {
           icon={<IconIT />}
         />
 
-        <SidebarLink
-          to="/sgc"
-          label="SGC"
-          icon={<IconSGC />}
-        />
+        {showSGC && (
+          <SidebarLink
+            to="/sgc/proveedores"
+            label="SGC"
+            icon={<IconSGC />}
+            matchPaths={["/sgc"]}
+          />
+        )}
 
         <SidebarLink
           to="/sig"

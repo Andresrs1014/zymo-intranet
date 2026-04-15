@@ -5,6 +5,7 @@ class Settings(BaseSettings):
     secret_key: str
     database_url: str = "sqlite:///./data/intranet.db"
     oc_database_url: str = "sqlite:///./data/oc.db"
+    sgc_database_url: str = "sqlite:///./data/sgc.db"
     access_token_expire_minutes: int = 480  # 8 horas
 
     # Credenciales del admin inicial (se crea solo si no existe ningún admin)
