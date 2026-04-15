@@ -78,6 +78,7 @@ class PrioridadPayload(BaseModel):
 
 
 class GestionPayload(BaseModel):
+    plataforma: Optional[str] = None
     numero_remision: Optional[str] = None
     observaciones_compras: Optional[str] = None
     fecha_estimada_entrega: Optional[date] = None

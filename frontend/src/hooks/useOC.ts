@@ -67,6 +67,7 @@ export function useCambiarEstado() {
 }
 
 export interface GestionPayload {
+  plataforma?: string
   numero_remision?: string
   observaciones_compras?: string
   fecha_estimada_entrega?: string

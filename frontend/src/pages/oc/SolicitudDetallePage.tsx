@@ -856,6 +856,7 @@ function PanelGestion({
   onGuardar: (payload: GestionPayload) => void
 }) {
   const [form, setForm] = useState<GestionPayload>({
+    plataforma: solicitud.plataforma ?? "",
     numero_remision: solicitud.numero_remision ?? "",
     observaciones_compras: solicitud.observaciones_compras ?? "",
     fecha_estimada_entrega: solicitud.fecha_estimada_entrega ?? "",
@@ -882,6 +883,18 @@ function PanelGestion({
     <Section title="Gestión de Compras">
       <div className="space-y-3">
         <div className="grid grid-cols-1 gap-3">
+          <Field label="Plataforma">
+            <select
+              value={form.plataforma}
+              onChange={(e) => set("plataforma", e.target.value)}
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30 bg-white"
+            >
+              <option value="">— Sin asignar —</option>
+              <option value="logimat">LOGIMAT S.A.S.</option>
+              <option value="imc cargo">IMC Cargo International S.A.S.</option>
+              <option value="imc depósito">IMC Depósito S.A.S.</option>
+            </select>
+          </Field>
           <Field label="N° Remisión">
             <input
               type="text"
