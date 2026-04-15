@@ -102,11 +102,11 @@ export function SolicitudDetallePage() {
 
   async function handleDescargar() {
     if (!orden) return
-    const ext = orden.pdf_path ? "pdf" : "docx"
+    const ext = orden.pdf_path ? "pdf" : "xlsx"
     const mimeType =
       ext === "pdf"
         ? "application/pdf"
-        : "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     try {
       const response = await api.get(`/api/oc/ordenes/${orden.id}/descargar`, {
         responseType: "blob",
