@@ -6,5 +6,25 @@
   "pbx": "(1) 7 44 92 00",
   "email_facturacion": "830103877@factureinbox.co",
   "prefijo_oc": "L",
-  "logo": "logimat_logo.png"
+  "logo": "logimat_logo.png",
+  "template": "template.xlsx",
+  "celdas_dinamicas": {
+    "numero_oc": "G4",
+    "fecha": "F5",
+    "proveedor_nombre": "F6",
+    "proveedor_nit": "F7",
+    "os_ref": "F9",
+    "cot_ref": "H9",
+    "solicita": "C60",
+    "elabora": "F60",
+    "aprueba": "G60"
+  },
+  "items": {
+    "fila_inicio": 11,
+    "max_filas": 20,
+    "col_item_num": "C",
+    "col_cantidad": "D",
+    "col_descripcion": "F",
+    "col_valor_unitario": "G"
+  }
 }

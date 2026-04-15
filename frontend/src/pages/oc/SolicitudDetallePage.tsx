@@ -423,7 +423,7 @@ function PanelAprobacion({
           )}
         </div>
         <div>
-          <p className="text-xs text-gray-400">N° cotización proveedor</p>
+          <p className="text-xs text-gray-400">N° cotización</p>
           <p className="text-sm font-medium text-gray-800">
             {cotizacion.numero_cotizacion_proveedor ?? "—"}
           </p>
@@ -824,7 +824,7 @@ function CotizacionCard({ cotizacion: c }: { cotizacion: CotizacionProveedor }) 
         )}
         {c.numero_cotizacion_proveedor && (
           <div>
-            <span className="text-gray-400">N° cot: </span>
+            <span className="text-gray-400">N° cotización: </span>
             <span className="font-medium text-gray-700">{c.numero_cotizacion_proveedor}</span>
           </div>
         )}

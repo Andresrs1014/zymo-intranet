@@ -300,7 +300,7 @@ export function CotizacionFormPage() {
                     className={inputCls}
                   />
                 </Field>
-                <Field label="N° cotización del proveedor">
+                <Field label="N° cotización">
                   <input
                     name="numero_cotizacion_proveedor"
                     value={form.numero_cotizacion_proveedor ?? ""}

@@ -1,0 +1,30 @@
+{
+  "nombre": "IMC CARGO INTERNATIONAL S.A.S.",
+  "nit": "830.513.769-8",
+  "direccion": "KM 2.5 Siberia-Bogotá, Costado Sur, Centro Logístico Industrial CLIC 80",
+  "ciudad": "Bogotá, Colombia",
+  "pbx": "(1) 7 44 92 01",
+  "email_facturacion": "830513769@factureinbox.co",
+  "prefijo_oc": "C",
+  "logo": "imccargo_logo.png",
+  "template": "template.xlsx",
+  "celdas_dinamicas": {
+    "numero_oc": "G4",
+    "fecha": "F5",
+    "proveedor_nombre": "F6",
+    "proveedor_nit": "F7",
+    "os_ref": "F9",
+    "cot_ref": "H9",
+    "solicita": "C40",
+    "elabora": "F40",
+    "aprueba": "G40"
+  },
+  "items": {
+    "fila_inicio": 11,
+    "max_filas": 3,
+    "col_item_num": "C",
+    "col_cantidad": "D",
+    "col_descripcion": "F",
+    "col_valor_unitario": "G"
+  }
+}

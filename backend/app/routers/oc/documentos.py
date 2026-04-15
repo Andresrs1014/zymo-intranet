@@ -55,12 +55,15 @@ _STATIC_DIR = Path(__file__).parent.parent.parent / "static"
 _SLUG_MAP = {
     "logimat": "logimat",
     "logimat s.a.s.": "logimat",
-    "imccargo": "logimat",
-    "imc cargo": "logimat",
-    "imc cargo international": "logimat",
-    "imcdep": "logimat",
-    "imc deposito": "logimat",
-    "imc depósito": "logimat",
+    "imccargo": "imccargo",
+    "imc cargo": "imccargo",
+    "imc cargo international": "imccargo",
+    "imc cargo international s.a.s.": "imccargo",
+    "imcdep": "imcdep",
+    "imc deposito": "imcdep",
+    "imc depósito": "imcdep",
+    "imc deposito s.a.s.": "imcdep",
+    "imc depósito s.a.s.": "imcdep",
 }
 
 
@@ -83,88 +86,7 @@ def _load_platform_config(plataforma: Optional[str]) -> dict:
     }
 
 
-def _set_cell_bg(cell, hex_color: str) -> None:
-    from docx.oxml.ns import qn
-    from docx.oxml import OxmlElement
-    tc = cell._tc
-    tcPr = tc.get_or_add_tcPr()
-    shd = OxmlElement("w:shd")
-    shd.set(qn("w:val"), "clear")
-    shd.set(qn("w:color"), "auto")
-    shd.set(qn("w:fill"), hex_color)
-    tcPr.append(shd)
-
-
-def _set_cell_borders(cell, top=None, bottom=None, left=None, right=None) -> None:
-    from docx.oxml.ns import qn
-    from docx.oxml import OxmlElement
-    tc = cell._tc
-    tcPr = tc.get_or_add_tcPr()
-    tcBdr = OxmlElement("w:tcBdr")
-    for side, val in [("top", top), ("bottom", bottom), ("left", left), ("right", right)]:
-        if val:
-            el = OxmlElement(f"w:{side}")
-            el.set(qn("w:val"), val)
-            el.set(qn("w:sz"), "4")
-            el.set(qn("w:space"), "0")
-            el.set(qn("w:color"), "CCCCCC")
-            tcBdr.append(el)
-    tcPr.append(tcBdr)
-
-
-def _cell_text(cell, text: str, bold=False, size=9, color=None, align=None) -> None:
-    from docx.shared import Pt, RGBColor
-    from docx.enum.text import WD_ALIGN_PARAGRAPH
-    cell.text = ""
-    para = cell.paragraphs[0]
-    if align:
-        para.alignment = {
-            "center": WD_ALIGN_PARAGRAPH.CENTER,
-            "right": WD_ALIGN_PARAGRAPH.RIGHT,
-        }.get(align, WD_ALIGN_PARAGRAPH.LEFT)
-    run = para.add_run(str(text) if text is not None else "")
-    run.bold = bold
-    run.font.size = Pt(size)
-    if color:
-        run.font.color.rgb = RGBColor.from_string(color)
-
-
-def _set_row_height(row, cm_val: float) -> None:
-    from docx.shared import Cm
-    from docx.oxml.ns import qn
-    from docx.oxml import OxmlElement
-    tr = row._tr
-    trPr = tr.get_or_add_trPr()
-    trHeight = OxmlElement("w:trHeight")
-    trHeight.set(qn("w:val"), str(int(Cm(cm_val).emu / 914.4 * 20)))
-    trHeight.set(qn("w:hRule"), "atLeast")
-    trPr.append(trHeight)
-
-
-def _set_col_width(table, col_idx: int, cm_val: float) -> None:
-    from docx.shared import Cm
-    from docx.oxml.ns import qn
-    for row in table.rows:
-        cell = row.cells[col_idx]
-        tc = cell._tc
-        tcPr = tc.get_or_add_tcPr()
-        tcW = tcPr.find(qn("w:tcW"))
-        if tcW is None:
-            from docx.oxml import OxmlElement
-            tcW = OxmlElement("w:tcW")
-            tcPr.append(tcW)
-        tcW.set(qn("w:w"), str(int(Cm(cm_val).emu / 914.4 * 20)))
-        tcW.set(qn("w:type"), "dxa")
-
-
-def _add_spacing(doc, pt: int = 6) -> None:
-    from docx.shared import Pt
-    p = doc.add_paragraph()
-    p.paragraph_format.space_before = Pt(0)
-    p.paragraph_format.space_after = Pt(pt)
-
-
-def _generar_docx(
+def _generar_xlsx(
     numero_oc: str,
     solicitud: SolicitudOC,
     cotizacion: CotizacionProveedor,
@@ -172,192 +94,78 @@ def _generar_docx(
     auxiliar_nombre: str = "",
     aprobador_nombre: str = "",
 ) -> None:
-    from docx import Document
-    from docx.shared import Pt, RGBColor, Cm
-    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    """Rellena la plantilla Excel de la plataforma con los datos de la OC.
+
+    Las fórmulas del template (totales, IVA) se conservan intactas;
+    LibreOffice las recalcula al convertir a PDF.
+    """
+    import openpyxl
+    from zoneinfo import ZoneInfo
 
     empresa = _load_platform_config(solicitud.plataforma)
-    RED = "C8102E"
-    GRAY_BG = "F5F5F5"
-    from zoneinfo import ZoneInfo
+    slug = _SLUG_MAP.get((solicitud.plataforma or "").lower().strip(), "logimat")
+    template_path = _PLATFORMS_DIR / slug / empresa.get("template", "template.xlsx")
+
+    wb = openpyxl.load_workbook(str(template_path))
+    ws = wb.active
+
     fecha_str = datetime.now(ZoneInfo("America/Bogota")).strftime("%d/%m/%Y")
+    cfg = empresa.get("celdas_dinamicas", {})
+    items_cfg = empresa.get("items", {})
 
-    subtotal = cotizacion.valor_antes_iva if cotizacion.valor_antes_iva else cotizacion.valor_total
-    iva = cotizacion.valor_iva if cotizacion.valor_iva else None
-    total = cotizacion.valor_total
+    # ── Cabecera dinámica ──────────────────────────────────────────────────────
+    if cfg.get("numero_oc"):
+        ws[cfg["numero_oc"]] = f"ORDEN DE COMPRA No. {numero_oc}"
+    if cfg.get("fecha"):
+        ws[cfg["fecha"]] = fecha_str
+    if cfg.get("proveedor_nombre"):
+        ws[cfg["proveedor_nombre"]] = cotizacion.proveedor_nombre or ""
+    if cfg.get("proveedor_nit"):
+        ws[cfg["proveedor_nit"]] = cotizacion.proveedor_nit or ""
+    if cfg.get("os_ref"):
+        ws[cfg["os_ref"]] = f"OS: {solicitud.consecutivo_os}" if solicitud.consecutivo_os else ""
+    if cfg.get("cot_ref"):
+        ws[cfg["cot_ref"]] = cotizacion.numero_cotizacion_proveedor or ""
 
-    doc = Document()
+    # ── Firmas ─────────────────────────────────────────────────────────────────
+    if cfg.get("solicita"):
+        ws[cfg["solicita"]] = solicitud.solicitante_nombre or ""
+    if cfg.get("elabora"):
+        ws[cfg["elabora"]] = auxiliar_nombre
+    if cfg.get("aprueba"):
+        ws[cfg["aprueba"]] = aprobador_nombre
 
-    # ── Márgenes compactos ────────────────────────────────────────────────────
-    for section in doc.sections:
-        section.top_margin = Cm(1.5)
-        section.bottom_margin = Cm(1.5)
-        section.left_margin = Cm(2)
-        section.right_margin = Cm(2)
+    # ── Ítems ─────────────────────────────────────────────────────────────────
+    fila_inicio = items_cfg.get("fila_inicio", 11)
+    max_filas = items_cfg.get("max_filas", 20)
+    col_num = items_cfg.get("col_item_num", "C")
+    col_cant = items_cfg.get("col_cantidad", "D")
+    col_desc = items_cfg.get("col_descripcion", "F")
+    col_vunit = items_cfg.get("col_valor_unitario", "G")
 
-    # ── ENCABEZADO: logo izq | caja OC der ────────────────────────────────────
-    hdr = doc.add_table(rows=1, cols=2)
-    hdr.style = "Table Grid"
+    # Limpiar todas las filas de ítems (preserva fórmulas en col H)
+    for fila in range(fila_inicio, fila_inicio + max_filas):
+        ws[f"{col_num}{fila}"] = None
+        ws[f"{col_cant}{fila}"] = None
+        ws[f"E{fila}"] = None  # referencia
+        ws[f"{col_desc}{fila}"] = None
+        ws[f"{col_vunit}{fila}"] = None
 
-    logo_cell = hdr.rows[0].cells[0]
-    _set_cell_bg(logo_cell, "FFFFFF")
-    logo_path = _STATIC_DIR / (empresa.get("logo") or "logimat_logo.png")
-    logo_para = logo_cell.paragraphs[0]
-    logo_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
-    if logo_path.exists():
-        logo_para.add_run().add_picture(str(logo_path), width=Cm(3))
-    else:
-        r = logo_para.add_run(empresa["nombre"])
-        r.bold = True
-        r.font.size = Pt(13)
-        r.font.color.rgb = RGBColor(200, 16, 46)
+    # Escribir el único ítem de la OC en la primera fila disponible
+    ws[f"{col_num}{fila_inicio}"] = 1
+    ws[f"{col_cant}{fila_inicio}"] = solicitud.cantidad
+    ws[f"{col_desc}{fila_inicio}"] = solicitud.descripcion or ""
+    ws[f"{col_vunit}{fila_inicio}"] = cotizacion.valor_unitario or 0
 
-    for txt, size, color in [
-        (f"NIT: {empresa['nit']}", 8, RGBColor(80, 80, 80)),
-        (empresa["direccion"], 7, RGBColor(130, 130, 130)),
-        (f"{empresa['ciudad']}  |  PBX: {empresa['pbx']}", 7, RGBColor(130, 130, 130)),
-    ]:
-        p = logo_cell.add_paragraph()
-        r = p.add_run(txt)
-        r.font.size = Pt(size)
-        r.font.color.rgb = color
+    # ── IVA manual (solo en plantillas sin fórmula de IVA) ────────────────────
+    if cfg.get("iva_manual"):
+        ws[cfg["iva_manual"]] = cotizacion.valor_iva or 0
 
-    oc_cell = hdr.rows[0].cells[1]
-    _set_cell_bg(oc_cell, RED)
-    p1 = oc_cell.paragraphs[0]
-    p1.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r1 = p1.add_run("ORDEN DE COMPRA")
-    r1.bold = True; r1.font.size = Pt(11); r1.font.color.rgb = RGBColor(255, 255, 255)
-
-    p2 = oc_cell.add_paragraph()
-    p2.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r2 = p2.add_run(numero_oc)
-    r2.bold = True; r2.font.size = Pt(16); r2.font.color.rgb = RGBColor(255, 255, 255)
-
-    p3 = oc_cell.add_paragraph()
-    p3.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r3 = p3.add_run(f"Fecha: {fecha_str}")
-    r3.font.size = Pt(9); r3.font.color.rgb = RGBColor(255, 220, 220)
-
-    _add_spacing(doc, 6)
-
-    # ── DATOS DEL PROVEEDOR ───────────────────────────────────────────────────
-    prov = doc.add_table(rows=4, cols=2)
-    prov.style = "Table Grid"
-
-    prov.rows[0].cells[0].merge(prov.rows[0].cells[1])
-    _cell_text(prov.rows[0].cells[0], "SEÑORES", bold=True, size=9, color="FFFFFF")
-    _set_cell_bg(prov.rows[0].cells[0], RED)
-
-    cot_ref = cotizacion.numero_cotizacion_proveedor or "—"
-    datos = [
-        ("Proveedor", cotizacion.proveedor_nombre or ""),
-        ("NIT", cotizacion.proveedor_nit or ""),
-        ("OC según", f"OS: {solicitud.consecutivo_os}   COT: {cot_ref}"),
-    ]
-    for i, (lbl, val) in enumerate(datos, 1):
-        _cell_text(prov.rows[i].cells[0], lbl, bold=True, size=9)
-        _cell_text(prov.rows[i].cells[1], val, size=9)
-        _set_cell_bg(prov.rows[i].cells[0], GRAY_BG)
-
-    _set_col_width(prov, 0, 4.5)
-    _add_spacing(doc, 6)
-
-    # ── TABLA DE ÍTEMS ────────────────────────────────────────────────────────
-    items = doc.add_table(rows=2, cols=4)
-    items.style = "Table Grid"
-
-    for i, (txt, al) in enumerate([
-        ("ÍTEM", "center"), ("CANT.", "center"),
-        ("DESCRIPCIÓN", None), ("VALOR UNITARIO", "right"),
-    ]):
-        _cell_text(items.rows[0].cells[i], txt, bold=True, size=9, color="FFFFFF", align=al)
-        _set_cell_bg(items.rows[0].cells[i], RED)
-
-    _cell_text(items.rows[1].cells[0], "1", size=9, align="center")
-    _cell_text(items.rows[1].cells[1], str(solicitud.cantidad), size=9, align="center")
-    _cell_text(items.rows[1].cells[2], solicitud.descripcion or "", size=9)
-    _cell_text(items.rows[1].cells[3], _format_cop(cotizacion.valor_unitario), size=9, align="right")
-
-    _set_col_width(items, 0, 1.2)
-    _set_col_width(items, 1, 1.2)
-    _set_col_width(items, 3, 3.5)
-    _add_spacing(doc, 6)
-
-    # ── TOTALES ───────────────────────────────────────────────────────────────
-    n_filas_tot = 3 if iva else 2
-    tot = doc.add_table(rows=n_filas_tot, cols=2)
-    tot.style = "Table Grid"
-
-    row_idx = 0
-    _cell_text(tot.rows[row_idx].cells[0], "SUB TOTAL", bold=True, size=9, align="right")
-    _cell_text(tot.rows[row_idx].cells[1], _format_cop(subtotal), size=9, align="right")
-    _set_cell_bg(tot.rows[row_idx].cells[0], GRAY_BG)
-    row_idx += 1
-
-    if iva:
-        _cell_text(tot.rows[row_idx].cells[0], "IVA (19%)", bold=True, size=9, align="right")
-        _cell_text(tot.rows[row_idx].cells[1], _format_cop(iva), size=9, align="right")
-        _set_cell_bg(tot.rows[row_idx].cells[0], GRAY_BG)
-        row_idx += 1
-
-    _cell_text(tot.rows[row_idx].cells[0], "VALOR TOTAL", bold=True, size=11, color="FFFFFF", align="right")
-    _cell_text(tot.rows[row_idx].cells[1], _format_cop(total), bold=True, size=11, color="FFFFFF", align="right")
-    _set_cell_bg(tot.rows[row_idx].cells[0], RED)
-    _set_cell_bg(tot.rows[row_idx].cells[1], RED)
-
-    _set_col_width(tot, 0, 12)
-    _add_spacing(doc, 6)
-
-    # ── CONDICIONES ───────────────────────────────────────────────────────────
-    cond = doc.add_table(rows=4, cols=2)
-    cond.style = "Table Grid"
-
-    cond.rows[0].cells[0].merge(cond.rows[0].cells[1])
-    _cell_text(cond.rows[0].cells[0], "CONDICIONES", bold=True, size=9, color="FFFFFF")
-    _set_cell_bg(cond.rows[0].cells[0], RED)
-
-    for i, (lbl, val) in enumerate([
-        ("Buzón de facturación", empresa.get("email_facturacion", "")),
-        ("Forma de pago", cotizacion.forma_pago or cotizacion.observaciones or ""),
-        ("Plazo de entrega", cotizacion.plazo_entrega or ""),
-    ], 1):
-        _cell_text(cond.rows[i].cells[0], lbl, bold=True, size=9)
-        _cell_text(cond.rows[i].cells[1], val, size=9)
-        _set_cell_bg(cond.rows[i].cells[0], GRAY_BG)
-
-    _set_col_width(cond, 0, 4.5)
-    _add_spacing(doc, 10)
-
-    # ── FIRMAS ────────────────────────────────────────────────────────────────
-    firmas = doc.add_table(rows=2, cols=3)
-    firmas.style = "Table Grid"
-
-    for i, titulo in enumerate(["SOLICITA", "ELABORA / COMPRAS", "APRUEBA"]):
-        _cell_text(firmas.rows[0].cells[i], titulo, bold=True, size=9, color="FFFFFF", align="center")
-        _set_cell_bg(firmas.rows[0].cells[i], RED)
-
-    nombres = [solicitud.solicitante_nombre or "", auxiliar_nombre, aprobador_nombre]
-    for i, nombre in enumerate(nombres):
-        _cell_text(firmas.rows[1].cells[i], nombre, size=9, align="center")
-
-    _add_spacing(doc, 6)
-
-    # ── PIE ───────────────────────────────────────────────────────────────────
-    pie = doc.add_paragraph()
-    pie.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r = pie.add_run(
-        f"{empresa['nombre']}  ·  NIT: {empresa['nit']}  ·  {empresa['ciudad']}  ·  PBX: {empresa['pbx']}"
-    )
-    r.font.size = Pt(7)
-    r.font.color.rgb = RGBColor(160, 160, 160)
-    r.italic = True
-
-    doc.save(str(output_path))
+    wb.save(str(output_path))
 
 
-def _intentar_conversion_pdf(docx_path: Path, output_dir: Path) -> Optional[Path]:
-    """Intenta convertir el DOCX a PDF con LibreOffice. Retorna la ruta del PDF si tiene éxito."""
+def _intentar_conversion_pdf(source_path: Path, output_dir: Path) -> Optional[Path]:
+    """Convierte un XLSX (o DOCX) a PDF con LibreOffice. Retorna la ruta del PDF si tiene éxito."""
     try:
         result = subprocess.run(
             [
@@ -367,13 +175,13 @@ def _intentar_conversion_pdf(docx_path: Path, output_dir: Path) -> Optional[Path
                 "pdf",
                 "--outdir",
                 str(output_dir),
-                str(docx_path),
+                str(source_path),
             ],
-            timeout=30,
+            timeout=60,
             capture_output=True,
         )
         if result.returncode == 0:
-            pdf_path = output_dir / (docx_path.stem + ".pdf")
+            pdf_path = output_dir / (source_path.stem + ".pdf")
             if pdf_path.exists():
                 return pdf_path
     except FileNotFoundError:
@@ -438,7 +246,7 @@ def generar_orden_compra(
 
     # Preparar directorio de salida
     OC_DOCS_DIR.mkdir(parents=True, exist_ok=True)
-    docx_path = OC_DOCS_DIR / f"{numero_oc}.docx"
+    xlsx_path = OC_DOCS_DIR / f"{numero_oc}.xlsx"
 
     # Resolver nombres para firmas
     auxiliar_nombre = ""
@@ -452,11 +260,11 @@ def generar_orden_compra(
         if aprobador:
             aprobador_nombre = aprobador.full_name
 
-    # Generar DOCX
-    _generar_docx(numero_oc, solicitud, cotizacion, docx_path, auxiliar_nombre, aprobador_nombre)
+    # Generar XLSX desde plantilla
+    _generar_xlsx(numero_oc, solicitud, cotizacion, xlsx_path, auxiliar_nombre, aprobador_nombre)
 
-    # Intentar conversión a PDF
-    pdf_path_obj = _intentar_conversion_pdf(docx_path, OC_DOCS_DIR)
+    # Intentar conversión a PDF (LibreOffice recalcula fórmulas)
+    pdf_path_obj = _intentar_conversion_pdf(xlsx_path, OC_DOCS_DIR)
     pdf_path_str = str(pdf_path_obj) if pdf_path_obj else None
 
     # Crear registro OrdenCompra
@@ -631,13 +439,13 @@ def descargar_orden(
                 filename=f"{orden.numero_oc}.pdf",
             )
 
-    # Fallback: servir DOCX
-    docx_path = OC_DOCS_DIR / f"{orden.numero_oc}.docx"
-    if docx_path.exists():
+    # Fallback: servir XLSX si el PDF no está disponible
+    xlsx_path = OC_DOCS_DIR / f"{orden.numero_oc}.xlsx"
+    if xlsx_path.exists():
         return FileResponse(
-            path=str(docx_path),
-            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            filename=f"{orden.numero_oc}.docx",
+            path=str(xlsx_path),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            filename=f"{orden.numero_oc}.xlsx",
         )
 
     raise HTTPException(

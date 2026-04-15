@@ -375,16 +375,21 @@ async def send_oc_a_proveedor(
         if p.exists():
             archivo = p
     if archivo is None:
-        docx = Path(f"/app/data/oc_docs/{numero_oc}.docx")
-        if docx.exists():
-            archivo = docx
+        xlsx = Path(f"/app/data/oc_docs/{numero_oc}.xlsx")
+        if xlsx.exists():
+            archivo = xlsx
 
     if archivo is None:
         log.warning("[email] No se encontró el archivo OC %s para enviar al proveedor", numero_oc)
         return
 
     ext = archivo.suffix.lstrip(".")
-    mime_subtype = "pdf" if ext == "pdf" else "vnd.openxmlformats-officedocument.wordprocessingml.document"
+    _mime_map = {
+        "pdf": "pdf",
+        "xlsx": "vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "docx": "vnd.openxmlformats-officedocument.wordprocessingml.document",
+    }
+    mime_subtype = _mime_map.get(ext, "octet-stream")
 
     msg = MessageSchema(
         subject=f"Orden de Compra {numero_oc} — LOGIMAT S.A.S.",
