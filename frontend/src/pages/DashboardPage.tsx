@@ -1,4 +1,3 @@
-import { useMemo } from "react"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
 import { AppCard } from "@/components/apps/AppCard"
@@ -10,13 +9,14 @@ export function DashboardPage() {
   const user = useAuthStore((s) => s.user)
   const { data: roles } = useRoles()
 
-  const apps = useMemo(() => {
+  function getApps() {
     if (!user) return []
     if (user.role === "admin") return ALL_APPS
     const userRole = roles?.find((r) => r.name === user.role)
     if (!userRole) return []
     return getAppsForRole(user.role, userRole.app_permissions)
-  }, [user, roles])
+  }
+  const apps = getApps()
 
   return (
     <div className="flex h-screen bg-gray-50">

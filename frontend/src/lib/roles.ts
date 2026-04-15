@@ -21,20 +21,6 @@ export const ALL_APPS: AppDefinition[] = [
     url: "https://crm.zymointranet.com",
     icon: "💼",
   },
-  {
-    id: "oc",
-    name: "OC Automatizaciones",
-    description: "Automatización de órdenes de compra",
-    url: "https://oc.zymointranet.com",
-    icon: "⚡",
-  },
-  {
-    id: "capacitaciones",
-    name: "Portal Capacitaciones",
-    description: "Programas de formación y desarrollo",
-    url: "https://capacitaciones.zymointranet.com",
-    icon: "🎓",
-  },
 ]
 
 // admin siempre ve todo. Para el resto, permissions viene del backend (role.app_permissions).
@@ -46,3 +32,4 @@ export function getAppsForRole(role: string, permissions: string[]): AppDefiniti
 export function getRoleLabel(role: string): string {
   return role
 }
+

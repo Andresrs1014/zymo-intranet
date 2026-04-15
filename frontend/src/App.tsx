@@ -1,10 +1,12 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { useAuthStore } from "@/store/authStore"
+import { canSeeOC } from "@/lib/permissions"
 import { LoginPage } from "@/pages/LoginPage"
 import { DashboardPage } from "@/pages/DashboardPage"
 import { AdminPage } from "@/pages/AdminPage"
 import { RolesPage } from "@/pages/RolesPage"
 import { AreasPage } from "@/pages/AreasPage"
+import { AdministrativoPage } from "@/pages/AdministrativoPage"
 import { SolicitudesPage } from "@/pages/oc/SolicitudesPage"
 import { SolicitudDetallePage } from "@/pages/oc/SolicitudDetallePage"
 import { CotizacionFormPage } from "@/pages/oc/CotizacionFormPage"
@@ -31,13 +33,10 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
-const OC_ALLOWED_ROLES = new Set(["admin", "administrativo", "directivo", "compras"])
-
 function OCRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user)
   if (!user) return <Navigate to="/login" replace />
-  const canAccess = OC_ALLOWED_ROLES.has(user.role) || user.area === "Compras"
-  if (!canAccess) return <Navigate to="/dashboard" replace />
+  if (!canSeeOC(user.role, user.area)) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
 
@@ -88,6 +87,15 @@ export default function App() {
             <AdminRoute>
               <AreasPage />
             </AdminRoute>
+          }
+        />
+        {/* Administrativo */}
+        <Route
+          path="/administrativo"
+          element={
+            <OCRoute>
+              <AdministrativoPage />
+            </OCRoute>
           }
         />
         {/* OC Automatizaciones */}

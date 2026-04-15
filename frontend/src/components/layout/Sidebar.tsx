@@ -1,33 +1,10 @@
-import { useState } from "react"
-import { NavLink, useLocation } from "react-router-dom"
+import { NavLink } from "react-router-dom"
 import { useAuthStore } from "@/store/authStore"
-import { useSolicitudes } from "@/hooks/useOC"
-
-// Roles con acceso completo (Solicitudes + Aprobaciones + KPIs)
-const ROLES_ADMIN_OC = new Set(["admin", "administrativo", "directivo"])
-const ROLES_OC_CONFIG = new Set(["admin"])
-// Roles con acceso parcial (solo Solicitudes)
-const ROLES_COMPRAS_OC = new Set(["compras"])
+import { canSeeOC } from "@/lib/permissions"
 
 export function Sidebar() {
   const user = useAuthStore((s) => s.user)
-  const location = useLocation()
-
-  const canSeeOC =
-    ROLES_ADMIN_OC.has(user?.role ?? "") ||
-    ROLES_COMPRAS_OC.has(user?.role ?? "") ||
-    user?.area === "Compras"
-
-  const canApprove =
-    ROLES_ADMIN_OC.has(user?.role ?? "")
-
-  const canConfigureOC =
-    ROLES_OC_CONFIG.has(user?.role ?? "")
-
-  // El bloque OC arranca expandido si la ruta actual es /oc/...
-  const [ocExpanded, setOcExpanded] = useState(
-    () => location.pathname.startsWith("/oc")
-  )
+  const showAdministrativo = user ? canSeeOC(user.role, user.area) : false
 
   return (
     <aside className="flex h-full w-64 flex-col bg-brand-blue">
@@ -43,15 +20,37 @@ export function Sidebar() {
       </div>
 
       {/* Navegación */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5">
-        <SidebarLink icon="⊞" label="Dashboard" to="/dashboard" />
+      <nav className="flex-1 px-3 py-4 space-y-0.5" aria-label="Navegación principal">
+        <SidebarLink
+          to="/dashboard"
+          label="Dashboard"
+          icon={<IconDashboard />}
+        />
 
-        {canSeeOC && (
-          <OCSection
-            canApprove={canApprove}
-            canConfigureOC={canConfigureOC}
-            expanded={ocExpanded}
-            onToggle={() => setOcExpanded((v) => !v)}
+        <SidebarLink
+          to="/it"
+          label="IT"
+          icon={<IconIT />}
+        />
+
+        <SidebarLink
+          to="/sgc"
+          label="SGC"
+          icon={<IconSGC />}
+        />
+
+        <SidebarLink
+          to="/sig"
+          label="SIG"
+          icon={<IconSIG />}
+        />
+
+        {showAdministrativo && (
+          <SidebarLink
+            to="/administrativo"
+            label="Administrativo"
+            icon={<IconAdministrativo />}
+            matchPaths={["/administrativo", "/oc"]}
           />
         )}
       </nav>
@@ -59,114 +58,80 @@ export function Sidebar() {
   )
 }
 
-// ── Sección OC colapsable ─────────────────────────────────────────────────────
-
-function OCSection({
-  canApprove,
-  canConfigureOC,
-  expanded,
-  onToggle,
-}: {
-  canApprove: boolean
-  canConfigureOC: boolean
-  expanded: boolean
-  onToggle: () => void
-}) {
-  const { data: pendientes = [] } = useSolicitudes(
-    { estado: "pendiente_aprobacion" },
-  )
-  const pendientesCount = canApprove ? pendientes.length : 0
-
-  return (
-    <div className="pt-3">
-      {/* Botón padre colapsable */}
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-white/70 hover:bg-white/10 hover:text-white transition-colors"
-      >
-        <span className="text-base" aria-hidden="true">🛒</span>
-        <span className="flex-1 text-left">OC Automatizaciones</span>
-
-        {/* Badge de pendientes sobre el padre cuando está colapsado */}
-        {!expanded && pendientesCount > 0 && (
-          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-400 px-1.5 text-xs font-bold text-white">
-            {pendientesCount}
-          </span>
-        )}
-
-        {/* Flecha */}
-        <span
-          className={`text-white/40 text-xs transition-transform duration-200 ${
-            expanded ? "rotate-90" : ""
-          }`}
-        >
-          ▶
-        </span>
-      </button>
-
-      {/* Links anidados */}
-      {expanded && (
-        <div className="mt-0.5 ml-3 pl-3 border-l border-white/10 space-y-0.5">
-          <SidebarLink icon="📋" label="Solicitudes" to="/oc/solicitudes" />
-
-          {canApprove && (
-            <NavLink
-              to="/oc/aprobacion"
-              className={({ isActive }) =>
-                `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                  isActive
-                    ? "bg-white/15 text-white"
-                    : "text-white/60 hover:bg-white/10 hover:text-white"
-                }`
-              }
-            >
-              <span className="text-base" aria-hidden="true">✅</span>
-              <span className="flex-1">Aprobaciones</span>
-              {pendientesCount > 0 && (
-                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-400 px-1.5 text-xs font-bold text-white">
-                  {pendientesCount}
-                </span>
-              )}
-            </NavLink>
-          )}
-
-          {canApprove && (
-            <SidebarLink icon="📊" label="KPIs" to="/oc/kpis" />
-          )}
-
-          {canConfigureOC && (
-            <SidebarLink icon="⚙️" label="Configuración" to="/oc/configuracion" />
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ── Link genérico ─────────────────────────────────────────────────────────────
 
 interface SidebarLinkProps {
-  icon: string
-  label: string
   to: string
+  label: string
+  icon: React.ReactNode
+  /** Rutas adicionales que activan el estado activo */
+  matchPaths?: string[]
 }
 
-function SidebarLink({ icon, label, to }: SidebarLinkProps) {
+function SidebarLink({ to, label, icon, matchPaths }: SidebarLinkProps) {
   return (
     <NavLink
       to={to}
-      className={({ isActive }) =>
-        `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-          isActive
+      className={({ isActive }) => {
+        const extraActive = matchPaths?.some((p) =>
+          window.location.pathname.startsWith(p)
+        ) ?? false
+        const active = isActive || extraActive
+        return `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-150 ${
+          active
             ? "bg-white/15 text-white"
             : "text-white/60 hover:bg-white/10 hover:text-white"
         }`
-      }
+      }}
+      aria-label={label}
     >
-      <span className="text-base" aria-hidden="true">
+      <span className="shrink-0 w-5 h-5" aria-hidden="true">
         {icon}
       </span>
       {label}
     </NavLink>
+  )
+}
+
+// ── Iconos SVG ────────────────────────────────────────────────────────────────
+
+function IconDashboard() {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <path d="M2 4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4ZM2 12a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-4ZM12 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2V4ZM12 12a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2v-4Z" />
+    </svg>
+  )
+}
+
+function IconIT() {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <path fillRule="evenodd" d="M2 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5Zm3.293 1.293a1 1 0 0 1 1.414 0l3 3a1 1 0 0 1 0 1.414l-3 3a1 1 0 0 1-1.414-1.414L7.586 10 5.293 7.707a1 1 0 0 1 0-1.414ZM11 12a1 1 0 1 0 0 2h3a1 1 0 1 0 0-2h-3Z" clipRule="evenodd" />
+    </svg>
+  )
+}
+
+function IconSGC() {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <path fillRule="evenodd" d="M4 4a2 2 0 0 1 2-2h4.586A2 2 0 0 1 12 2.586L15.414 6A2 2 0 0 1 16 7.414V16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4Zm2 6a1 1 0 0 1 1-1h6a1 1 0 1 1 0 2H7a1 1 0 0 1-1-1Zm1 3a1 1 0 1 0 0 2h6a1 1 0 1 0 0-2H7Z" clipRule="evenodd" />
+    </svg>
+  )
+}
+
+function IconSIG() {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <path d="M2 10a8 8 0 1 1 16 0A8 8 0 0 1 2 10Zm8-3a1 1 0 0 0-1 1v2a1 1 0 0 0 .293.707l1.5 1.5a1 1 0 0 0 1.414-1.414L11 9.586V8a1 1 0 0 0-1-1Z" />
+      <path d="M10 3V2a1 1 0 1 0-2 0v1a7.001 7.001 0 0 0-5.865 9.337 1 1 0 0 0 1.868-.674A5 5 0 0 1 10 5v-.001ZM10 3V2a1 1 0 0 1 2 0v1a7.001 7.001 0 0 1 5.865 9.337 1 1 0 0 1-1.868-.674A5 5 0 0 0 10 5V3Z" />
+    </svg>
+  )
+}
+
+function IconAdministrativo() {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <path fillRule="evenodd" d="M4 16.5v-13h-.25a.75.75 0 0 1 0-1.5h12.5a.75.75 0 0 1 0 1.5H16v13h.25a.75.75 0 0 1 0 1.5h-3.5a.75.75 0 0 1-.75-.75v-2.5a.75.75 0 0 0-.75-.75h-2.5a.75.75 0 0 0-.75.75v2.5a.75.75 0 0 1-.75.75h-3.5a.75.75 0 0 1 0-1.5H4Zm3-11a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1Zm.5 3.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1Zm3.5-4a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1Zm.5 3.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1Z" clipRule="evenodd" />
+    </svg>
   )
 }

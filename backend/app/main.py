@@ -37,7 +37,7 @@ _DEFAULT_ROLES = [
         "name": "talento_cultura",
         "label": "Talento y Cultura",
         "description": "Gestión de talento humano",
-        "app_permissions": ["matriz", "oc", "capacitaciones"],
+        "app_permissions": ["matriz"],
     },
     {
         "name": "comercial",
