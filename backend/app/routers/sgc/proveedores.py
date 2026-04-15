@@ -28,6 +28,17 @@ from app.models.sgc import ProveedorSGC
 from app.models.user import User
 from app.sgc_database import get_sgc_db
 
+SGC_ROLES = {"admin", "calidad"}
+
+
+def _require_sgc(current_user: User) -> None:
+    """Valida que el usuario tenga rol SGC o sea admin."""
+    if current_user.role not in SGC_ROLES and current_user.area != "Gestión de Calidad":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tienes permiso para gestionar proveedores SGC.",
+        )
+
 router = APIRouter(prefix="/proveedores", tags=["SGC - Proveedores"])
 
 
@@ -241,6 +252,7 @@ def create_proveedor(
     current_user: User = Depends(get_current_user),
     sgc_db: Session = Depends(get_sgc_db),
 ):
+    _require_sgc(current_user)
     existing = sgc_db.exec(
         select(ProveedorSGC).where(ProveedorSGC.nombre == payload.nombre)
     ).first()
@@ -266,6 +278,7 @@ def update_proveedor(
     current_user: User = Depends(get_current_user),
     sgc_db: Session = Depends(get_sgc_db),
 ):
+    _require_sgc(current_user)
     proveedor = sgc_db.get(ProveedorSGC, proveedor_id)
     if not proveedor:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Proveedor no encontrado.")
@@ -299,6 +312,7 @@ def toggle_activo(
     sgc_db: Session = Depends(get_sgc_db),
 ):
     """Activa o desactiva un proveedor. Los inactivos no aparecen en OC."""
+    _require_sgc(current_user)
     proveedor = sgc_db.get(ProveedorSGC, proveedor_id)
     if not proveedor:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Proveedor no encontrado.")

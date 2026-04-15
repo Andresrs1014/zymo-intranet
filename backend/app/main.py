@@ -60,6 +60,12 @@ _DEFAULT_ROLES = [
         "description": "Acceso básico para colaboradores",
         "app_permissions": ["matriz"],
     },
+    {
+        "name": "calidad",
+        "label": "Gestión de Calidad",
+        "description": "Administración del SGC y catálogo de proveedores",
+        "app_permissions": [],
+    },
 ]
 
 

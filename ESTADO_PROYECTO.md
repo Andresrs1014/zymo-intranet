@@ -293,12 +293,84 @@ OrdenCompra
 
 ---
 
+---
+
+### 4. Módulo SGC — Sistema de Gestión de Calidad ✅ (fase inicial)
+
+#### Propósito
+SGC es el dueño del catálogo de proveedores. OC Automatizaciones consume ese catálogo (solo proveedores activos) para el selector de cotizaciones.
+
+#### Flujo de datos
+```
+SGC crea/edita/desactiva proveedor en sgc.db
+        ↓
+OC lee GET /api/oc/proveedores → filtra activos desde sgc.db
+        ↓
+Selector en CotizacionFormPage auto-rellena: nombre, NIT, email
+```
+
+#### Backend — Archivos del módulo SGC
+
+| Archivo | Descripción |
+|---------|-------------|
+| `app/sgc_database.py` | Motor y sesión para `sgc.db` |
+| `app/models/sgc.py` | Modelo `ProveedorSGC` con campos marcados `[FORMATO]` para el formato oficial pendiente |
+| `app/routers/sgc/proveedores.py` | CRUD completo + `PATCH /toggle-activo` + `POST /extraer` (motor de extracción de documentos) |
+
+#### Endpoints SGC
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/api/sgc/proveedores` | Lista todos (SGC ve activos e inactivos) |
+| GET | `/api/sgc/proveedores/{id}` | Detalle de un proveedor |
+| POST | `/api/sgc/proveedores` | Crear proveedor |
+| PUT | `/api/sgc/proveedores/{id}` | Editar proveedor |
+| PATCH | `/api/sgc/proveedores/{id}/toggle-activo` | Activa o desactiva (inactivos desaparecen de OC) |
+| POST | `/api/sgc/proveedores/extraer` | Extrae campos desde PDF/Excel/Word sin guardar |
+
+#### Motor de extracción SGC
+
+Reutiliza `_extraer_texto` (pdfplumber/openpyxl/python-docx) del módulo OC.
+`_parsear_campos_rut` extrae campos de documentos de proveedor:
+
+| Campo | Patrón actual |
+|-------|--------------|
+| NIT | `N.I.T.:`, `NIT:` seguido de número colombiano |
+| Razón social | `RAZÓN SOCIAL:`, `NOMBRE:`, `ENTIDAD:` |
+| Representante legal | `REPRESENTANTE LEGAL:`, `APODERADO:` |
+| Email | Detección de patrón `@` |
+| Teléfono | `TELÉFONO:`, `CELULAR:`, `PBX:` |
+| Dirección | `DIRECCIÓN:`, `DOMICILIO:` |
+| Ciudad | `CIUDAD:`, `MUNICIPIO:` |
+
+⚠️ Los patrones se calibrarán cuando llegue el formato oficial de evaluación de proveedores. Los campos en el modelo marcados `[FORMATO]` también se actualizarán en ese momento.
+
+#### Frontend — Páginas SGC
+
+| Archivo | Ruta | Descripción |
+|---------|------|-------------|
+| `SGCPage.tsx` | `/sgc` | Landing con tarjeta de acceso (igual al patrón de Administrativo) |
+| `ProveedoresPage.tsx` | `/sgc/proveedores` | Tabla completa + modal crear/editar con extracción automática |
+
+#### Permisos SGC
+
+| Acción | admin | calidad | área "Gestión de Calidad" |
+|--------|-------|---------|--------------------------|
+| Ver módulo SGC | ✅ | ✅ | ✅ |
+| Crear/editar proveedor | ✅ | ✅ | ✅ |
+| Activar/desactivar | ✅ | ✅ | ✅ |
+
+Definido en `frontend/src/lib/permissions.ts` → `canSeeSGC()`. El admin puede crear roles desde el panel y asignar `calidad` sin tocar código.
+
+---
+
 ## Bases de Datos
 
 | Archivo | Contenido |
 |---------|-----------|
 | `intranet.db` | Usuarios, roles, autenticación |
-| `oc.db` | Solicitudes OC, cotizaciones, órdenes de compra, proveedores, configuración SMTP |
+| `oc.db` | Solicitudes OC, cotizaciones, órdenes de compra, configuración SMTP |
+| `sgc.db` | Proveedores (fuente de verdad del catálogo compartido con OC) |
 
 Resolución de nombres (auxiliar/aprobador) cruza DBs vía consulta directa a `intranet.db` desde `documentos.py`.
 
@@ -308,7 +380,7 @@ Resolución de nombres (auxiliar/aprobador) cruza DBs vía consulta directa a `i
 
 - **Docker Compose** con servicios: `backend`, `frontend`
 - **Nginx** como reverse proxy: `/api/` → backend:8001, `/` → frontend:81
-- **Volume** `backend_data` para persistencia de `oc.db` y archivos OC generados
+- **Volume** `backend_data` para persistencia de `oc.db`, `sgc.db` y archivos OC generados
 - **Build context** del backend es `./backend` — los assets (logo, configs de plataforma) deben estar dentro de `backend/app/`
 
 ---
@@ -325,7 +397,7 @@ Resolución de nombres (auxiliar/aprobador) cruza DBs vía consulta directa a `i
 ### Media prioridad
 
 - [ ] **Dashboard de métricas** — gráficos de tendencias por mes en `KPIPage` (actualmente solo conteos)
-- [ ] **Módulo de proveedores CRUD** — crear, editar, desactivar proveedores (actualmente solo listado de lectura)
+- [x] **Módulo de proveedores CRUD** — implementado en SGC (`/sgc/proveedores`). SGC crea/edita/desactiva; OC consume solo activos
 - [ ] **Formatos OC para IMCCARGO e IMC Depósito** — completar `backend/app/platforms/imccargo/config.json` y `imcdep/config.json` con NIT, dirección, email de facturación y logo propios
 - [ ] **Subir PDF de cotización y guardarlo** — actualmente el endpoint de extracción no guarda el archivo. Falta endpoint para guardar el PDF físicamente y asociarlo al `pdf_path` de la cotización
 
@@ -353,12 +425,10 @@ Resolución de nombres (auxiliar/aprobador) cruza DBs vía consulta directa a `i
 ## Commits recientes relevantes
 
 ```
-[hoy] Emails rediseñados: branding LOGIMAT, valor cotización para directora, fechas hora Colombia
-[hoy] Zona horaria Colombia en frontend (dates.ts) y documento DOCX
-[hoy] Extracción automática de cotizaciones (PDF/Excel/Word) con preview
-[hoy] Logo LOGIMAT real en documento OC, configs dentro de backend/ (fix Docker)
-[hoy] Nuevos campos cotización: NIT, subtotal, IVA, forma pago, plazo entrega
-[hoy] Documento OC rediseñado — formato compacto 1 página
-2bb60d9 camvbios
-64339dd correciones de estado de OC
+[2026-04-15] Módulo SGC — CRUD de proveedores con extracción automática desde documento
+[2026-04-15] Cambios visuales side bar
+[2026-04-15] Emails rediseñados: branding LOGIMAT, valor cotización para directora, fechas hora Colombia
+[anterior]   Zona horaria Colombia en frontend (dates.ts) y documento DOCX
+[anterior]   Extracción automática de cotizaciones (PDF/Excel/Word) con preview
+[anterior]   Logo LOGIMAT real en documento OC, configs dentro de backend/ (fix Docker)
 ```
