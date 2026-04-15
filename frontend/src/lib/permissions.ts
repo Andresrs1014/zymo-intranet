@@ -5,7 +5,7 @@ export const ROLES_OC_VIEWER = new Set(["admin", "administrativo", "directivo", 
 export const ROLES_OC_APPROVER = new Set(["admin", "administrativo", "directivo"])
 export const ROLES_OC_CONFIG = new Set(["admin"])
 
-export function canSeeOC(role: string, area?: string): boolean {
+export function canSeeOC(role: string, area?: string | null): boolean {
   return ROLES_OC_VIEWER.has(role) || area === "Compras"
 }
 
