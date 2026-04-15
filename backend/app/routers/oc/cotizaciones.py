@@ -297,7 +297,7 @@ def crear_cotizacion(
 
     # Disparar emails Flujo 2 y 3 (cotización lista → pendiente_aprobacion)
     background_tasks.add_task(send_cotizacion_lista, solicitud)
-    background_tasks.add_task(send_aprobacion_directora, solicitud)
+    background_tasks.add_task(send_aprobacion_directora, solicitud, cotizacion)
 
     return cotizacion
 

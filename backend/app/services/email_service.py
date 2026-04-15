@@ -5,21 +5,21 @@ Usa fastapi-mail con SMTP de Office 365.
 Flujos implementados:
   Flujo 1 — En gestión         → solicitante (estado: en_cotizacion)
   Flujo 2 — Cotización Lista   → solicitante (estado: pendiente_aprobacion)
-  Flujo 3 — Aprobación Dir.    → directora   (estado: pendiente_aprobacion)
+  Flujo 3 — Aprobación Dir.    → directora   (estado: pendiente_aprobacion)  ← incluye valor cotización
   Flujo 4 — OC Enviada         → solicitante (estado: oc_enviada)
   Flujo OC Proveedor           → proveedor   (adjunto DOCX/PDF)
 """
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType
 
 from app.config import settings
 
 if TYPE_CHECKING:
-    from app.models.oc import SolicitudOC
+    from app.models.oc import CotizacionProveedor, SolicitudOC
 
 log = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ def _build_conf() -> ConnectionConfig:
         MAIL_USERNAME=c["smtp_user"],
         MAIL_PASSWORD=c["smtp_password"],
         MAIL_FROM=c["smtp_from"] or c["smtp_user"],
-        MAIL_FROM_NAME="Compras Zymo",
+        MAIL_FROM_NAME="Compras LOGIMAT",
         MAIL_PORT=c["smtp_port"],
         MAIL_SERVER=c["smtp_host"],
         MAIL_STARTTLS=True,
@@ -66,7 +66,6 @@ def _build_conf() -> ConnectionConfig:
 
 
 def _is_configured() -> bool:
-    """Retorna False si no se han configurado credenciales SMTP."""
     c = _get_runtime_config()
     return bool(c["smtp_user"] and c["smtp_password"])
 
@@ -75,176 +74,215 @@ def _get_directora_email() -> str:
     return _get_runtime_config()["email_directora"]
 
 
+# ── Utilidades de formato ─────────────────────────────────────────────────────
+
+def _fmt_fecha(dt) -> str:
+    """Formatea un datetime UTC → hora Colombia (America/Bogota)."""
+    if dt is None:
+        return "—"
+    from datetime import timezone
+    from zoneinfo import ZoneInfo
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    dt_col = dt.astimezone(ZoneInfo("America/Bogota"))
+    meses = ["ene", "feb", "mar", "abr", "may", "jun",
+             "jul", "ago", "sep", "oct", "nov", "dic"]
+    hora = dt_col.strftime("%I:%M %p").lstrip("0").lower()
+    return f"{dt_col.day} de {meses[dt_col.month - 1]}. de {dt_col.year}, {hora}"
+
+
+def _fmt_cop(value) -> str:
+    if value is None:
+        return "—"
+    return f"${value:,.0f} COP"
+
+
 # ── Templates HTML ────────────────────────────────────────────────────────────
 
 def _base(titulo: str, cuerpo: str) -> str:
     return f"""
-    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px">
-      <div style="background:#003087;padding:16px 24px;border-radius:8px 8px 0 0">
-        <h2 style="color:#fff;margin:0;font-size:18px">Zymo Logística — Compras</h2>
+    <div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;padding:24px">
+      <div style="background:#C8102E;padding:16px 24px;border-radius:8px 8px 0 0;display:flex;align-items:center;gap:12px">
+        <div>
+          <h2 style="color:#fff;margin:0;font-size:18px;letter-spacing:1px">LOGIMAT S.A.S.</h2>
+          <p style="color:rgba(255,255,255,0.75);margin:2px 0 0;font-size:12px">Departamento de Compras</p>
+        </div>
       </div>
-      <div style="background:#f9fafb;padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px">
-        <h3 style="color:#111827;margin-top:0">{titulo}</h3>
+      <div style="background:#fff;padding:28px 24px;border:1px solid #e5e7eb;border-top:none">
+        <h3 style="color:#111827;margin-top:0;font-size:16px">{titulo}</h3>
         {cuerpo}
-        <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0"/>
-        <p style="color:#9ca3af;font-size:12px;margin:0">
-          Este correo fue generado automáticamente por la intranet de Zymo Logística.
+        <hr style="border:none;border-top:1px solid #f0f0f0;margin:24px 0"/>
+        <p style="color:#9ca3af;font-size:11px;margin:0">
+          Este correo fue generado automáticamente por el sistema de compras de LOGIMAT S.A.S.
           Por favor no responda a este mensaje.
+        </p>
+      </div>
+      <div style="background:#f9fafb;padding:10px 24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px">
+        <p style="color:#9ca3af;font-size:11px;margin:0;text-align:center">
+          LOGIMAT S.A.S. · NIT: 830.103.877-6 · Zona Franca de Bogotá · PBX: (1) 7 44 92 00
         </p>
       </div>
     </div>
     """
 
 
+def _fila(label: str, value: str, destacar: bool = False) -> str:
+    bg_label = "#f3f4f6"
+    bg_val = "#fff"
+    color_val = "#C8102E" if destacar else "#111827"
+    weight = "bold" if destacar else "normal"
+    return f"""
+      <tr>
+        <td style="padding:9px 14px;background:{bg_label};font-weight:600;font-size:13px;
+                   width:38%;border-bottom:1px solid #f0f0f0;color:#374151">{label}</td>
+        <td style="padding:9px 14px;background:{bg_val};font-size:13px;
+                   border-bottom:1px solid #f0f0f0;color:{color_val};font-weight:{weight}">{value}</td>
+      </tr>"""
+
+
+def _tabla(*filas: str) -> str:
+    return f"""
+    <table style="width:100%;border-collapse:collapse;margin:16px 0;
+                  border-radius:6px;overflow:hidden;border:1px solid #e5e7eb">
+      {''.join(filas)}
+    </table>"""
+
+
+# ── Flujo 1 — En gestión → solicitante ───────────────────────────────────────
+
 def _html_en_gestion(s: "SolicitudOC") -> str:
     cuerpo = f"""
-    <p style="color:#374151">Hola <strong>{s.solicitante_nombre}</strong>,</p>
-    <p style="color:#374151">
-      Queremos informarte que tu solicitud de compra ha sido recibida y un auxiliar de compras
-      ya está trabajando en ella. Te notificaremos en cuanto tengamos una cotización lista.
+    <p style="color:#374151;font-size:14px">Hola <strong>{s.solicitante_nombre}</strong>,</p>
+    <p style="color:#374151;font-size:14px">
+      Tu solicitud de compra ha sido recibida y un auxiliar de compras ya está trabajando en ella.
+      Te notificaremos en cuanto tengamos una cotización lista.
     </p>
-    <table style="width:100%;border-collapse:collapse;margin:16px 0">
-      <tr>
-        <td style="padding:8px 12px;background:#e5e7eb;font-weight:bold;width:40%;border-radius:4px 0 0 4px">Consecutivo</td>
-        <td style="padding:8px 12px;background:#f3f4f6;border-radius:0 4px 4px 0">{s.consecutivo_os}</td>
-      </tr>
-      <tr>
-        <td style="padding:8px 12px;background:#e5e7eb;font-weight:bold;border-radius:4px 0 0 4px">Descripción</td>
-        <td style="padding:8px 12px;background:#f3f4f6;border-radius:0 4px 4px 0">{s.descripcion}</td>
-      </tr>
-      <tr>
-        <td style="padding:8px 12px;background:#e5e7eb;font-weight:bold;border-radius:4px 0 0 4px">Estado</td>
-        <td style="padding:8px 12px;background:#f3f4f6;border-radius:0 4px 4px 0">🔄 En gestión</td>
-      </tr>
-    </table>
-    <p style="color:#374151">
-      Si tienes alguna duda adicional sobre tu solicitud, puedes comunicarte con el equipo de compras.
+    {_tabla(
+        _fila("Consecutivo", s.consecutivo_os),
+        _fila("Descripción", s.descripcion),
+        _fila("Cantidad", str(s.cantidad)),
+        _fila("Prioridad", s.nivel_prioridad),
+        _fila("Fecha de solicitud", _fmt_fecha(s.fecha_solicitud)),
+        _fila("Estado", "🔄 En gestión"),
+    )}
+    <p style="color:#6b7280;font-size:13px">
+      Si tienes alguna duda, puedes comunicarte con el equipo de compras.
     </p>
     """
     return _base("Tu solicitud está siendo gestionada", cuerpo)
 
 
+# ── Flujo 2 — Cotización lista → solicitante ─────────────────────────────────
+
 def _html_cotizacion_lista(s: "SolicitudOC") -> str:
     cuerpo = f"""
-    <p style="color:#374151">Hola <strong>{s.solicitante_nombre}</strong>,</p>
-    <p style="color:#374151">
-      Tu solicitud de compra ha sido procesada y tenemos cotizaciones listas para aprobación.
+    <p style="color:#374151;font-size:14px">Hola <strong>{s.solicitante_nombre}</strong>,</p>
+    <p style="color:#374151;font-size:14px">
+      Ya tenemos una cotización lista para tu solicitud. Está en proceso de aprobación por la dirección.
+      Te notificaremos cuando la orden de compra sea enviada al proveedor.
     </p>
-    <table style="width:100%;border-collapse:collapse;margin:16px 0">
-      <tr>
-        <td style="padding:8px 12px;background:#e5e7eb;font-weight:bold;width:40%;border-radius:4px 0 0 4px">Consecutivo</td>
-        <td style="padding:8px 12px;background:#f3f4f6;border-radius:0 4px 4px 0">{s.consecutivo_os}</td>
-      </tr>
-      <tr>
-        <td style="padding:8px 12px;background:#e5e7eb;font-weight:bold;border-radius:4px 0 0 4px">Descripción</td>
-        <td style="padding:8px 12px;background:#f3f4f6;border-radius:0 4px 4px 0">{s.descripcion}</td>
-      </tr>
-      <tr>
-        <td style="padding:8px 12px;background:#e5e7eb;font-weight:bold;border-radius:4px 0 0 4px">Estado</td>
-        <td style="padding:8px 12px;background:#f3f4f6;border-radius:0 4px 4px 0">⏳ Pendiente de aprobación</td>
-      </tr>
-    </table>
-    <p style="color:#374151">
-      El equipo de compras se encuentra en el proceso de aprobación. Te notificaremos cuando la orden de compra sea enviada.
-    </p>
+    {_tabla(
+        _fila("Consecutivo", s.consecutivo_os),
+        _fila("Descripción", s.descripcion),
+        _fila("Fecha de solicitud", _fmt_fecha(s.fecha_solicitud)),
+        _fila("Fecha de cotización", _fmt_fecha(s.fecha_cotizacion)),
+        _fila("Estado", "⏳ Pendiente de aprobación"),
+    )}
     """
-    return _base("Cotización lista para tu solicitud", cuerpo)
+    return _base("Cotización lista — pendiente de aprobación", cuerpo)
 
 
-def _html_aprobacion_directora(s: "SolicitudOC") -> str:
+# ── Flujo 3 — Aprobación directora ───────────────────────────────────────────
+
+def _html_aprobacion_directora(s: "SolicitudOC", cot: Optional["CotizacionProveedor"]) -> str:
+    filas_cot = ""
+    if cot:
+        filas_cot = "".join([
+            _fila("Proveedor", cot.proveedor_nombre or "—"),
+            _fila("NIT proveedor", cot.proveedor_nit or "—"),
+            _fila("N° cotización", cot.numero_cotizacion_proveedor or "—"),
+            _fila("Subtotal", _fmt_cop(cot.valor_antes_iva), destacar=False),
+            _fila("IVA", _fmt_cop(cot.valor_iva) if cot.valor_iva else "No aplica"),
+            _fila("VALOR TOTAL", _fmt_cop(cot.valor_total), destacar=True),
+            _fila("Forma de pago", cot.forma_pago or "—"),
+            _fila("Plazo de entrega", cot.plazo_entrega or "—"),
+        ])
+
     cuerpo = f"""
-    <p style="color:#374151">
-      Hay una solicitud de compra pendiente de tu aprobación:
+    <p style="color:#374151;font-size:14px">
+      Hay una solicitud de compra que requiere tu aprobación:
     </p>
-    <table style="width:100%;border-collapse:collapse;margin:16px 0">
-      <tr>
-        <td style="padding:8px 12px;background:#e5e7eb;font-weight:bold;width:40%;border-radius:4px 0 0 4px">Consecutivo</td>
-        <td style="padding:8px 12px;background:#f3f4f6;border-radius:0 4px 4px 0">{s.consecutivo_os}</td>
-      </tr>
-      <tr>
-        <td style="padding:8px 12px;background:#e5e7eb;font-weight:bold;border-radius:4px 0 0 4px">Descripción</td>
-        <td style="padding:8px 12px;background:#f3f4f6;border-radius:0 4px 4px 0">{s.descripcion}</td>
-      </tr>
-      <tr>
-        <td style="padding:8px 12px;background:#e5e7eb;font-weight:bold;border-radius:4px 0 0 4px">Solicitante</td>
-        <td style="padding:8px 12px;background:#f3f4f6;border-radius:0 4px 4px 0">{s.solicitante_nombre}</td>
-      </tr>
-      <tr>
-        <td style="padding:8px 12px;background:#e5e7eb;font-weight:bold;border-radius:4px 0 0 4px">Área</td>
-        <td style="padding:8px 12px;background:#f3f4f6;border-radius:0 4px 4px 0">{s.area_solicitante or "—"}</td>
-      </tr>
-      <tr>
-        <td style="padding:8px 12px;background:#e5e7eb;font-weight:bold;border-radius:4px 0 0 4px">Plataforma</td>
-        <td style="padding:8px 12px;background:#f3f4f6;border-radius:0 4px 4px 0">{s.plataforma or "—"}</td>
-      </tr>
-      <tr>
-        <td style="padding:8px 12px;background:#e5e7eb;font-weight:bold;border-radius:4px 0 0 4px">Prioridad</td>
-        <td style="padding:8px 12px;background:#f3f4f6;border-radius:0 4px 4px 0">{s.nivel_prioridad}</td>
-      </tr>
-    </table>
-    <p style="color:#374151">
-      Ingresa a la intranet para revisar y aprobar o rechazar la cotización.
+
+    <p style="color:#374151;font-size:13px;font-weight:600;margin-bottom:4px">📋 Datos de la solicitud</p>
+    {_tabla(
+        _fila("Consecutivo", s.consecutivo_os),
+        _fila("Descripción", s.descripcion),
+        _fila("Solicitante", s.solicitante_nombre),
+        _fila("Área", s.area_solicitante or "—"),
+        _fila("Plataforma", s.plataforma or "—"),
+        _fila("Prioridad", s.nivel_prioridad),
+        _fila("Fecha de solicitud", _fmt_fecha(s.fecha_solicitud)),
+        _fila("Fecha de cotización", _fmt_fecha(s.fecha_cotizacion)),
+    )}
+
+    {"<p style='color:#374151;font-size:13px;font-weight:600;margin-bottom:4px'>💰 Detalle de la cotización</p>" + _tabla(filas_cot) if filas_cot else ""}
+
+    <p style="color:#374151;font-size:14px">
+      Ingresa a la intranet para revisar y <strong>aprobar o rechazar</strong> la cotización.
     </p>
     """
     return _base(f"Aprobación requerida — {s.consecutivo_os}", cuerpo)
 
 
+# ── Flujo 4 — OC enviada → solicitante ───────────────────────────────────────
+
 def _html_oc_enviada(s: "SolicitudOC") -> str:
+    fila_entrega = _fila(
+        "Fecha estimada de entrega",
+        str(s.fecha_estimada_entrega) if s.fecha_estimada_entrega else "Por confirmar"
+    )
     cuerpo = f"""
-    <p style="color:#374151">Hola <strong>{s.solicitante_nombre}</strong>,</p>
-    <p style="color:#374151">
-      Nos complace informarte que la Orden de Compra para tu solicitud ha sido enviada al proveedor.
+    <p style="color:#374151;font-size:14px">Hola <strong>{s.solicitante_nombre}</strong>,</p>
+    <p style="color:#374151;font-size:14px">
+      La Orden de Compra para tu solicitud ha sido generada y enviada al proveedor.
     </p>
-    <table style="width:100%;border-collapse:collapse;margin:16px 0">
-      <tr>
-        <td style="padding:8px 12px;background:#e5e7eb;font-weight:bold;width:40%;border-radius:4px 0 0 4px">Consecutivo</td>
-        <td style="padding:8px 12px;background:#f3f4f6;border-radius:0 4px 4px 0">{s.consecutivo_os}</td>
-      </tr>
-      <tr>
-        <td style="padding:8px 12px;background:#e5e7eb;font-weight:bold;border-radius:4px 0 0 4px">Descripción</td>
-        <td style="padding:8px 12px;background:#f3f4f6;border-radius:0 4px 4px 0">{s.descripcion}</td>
-      </tr>
-      <tr>
-        <td style="padding:8px 12px;background:#e5e7eb;font-weight:bold;border-radius:4px 0 0 4px">Estado</td>
-        <td style="padding:8px 12px;background:#f3f4f6;border-radius:0 4px 4px 0">✅ OC Enviada al proveedor</td>
-      </tr>
-      {"<tr><td style='padding:8px 12px;background:#e5e7eb;font-weight:bold;border-radius:4px 0 0 4px'>Fecha estimada entrega</td><td style='padding:8px 12px;background:#f3f4f6;border-radius:0 4px 4px 0'>" + str(s.fecha_estimada_entrega) + "</td></tr>" if s.fecha_estimada_entrega else ""}
-    </table>
-    <p style="color:#374151">
-      Pronto recibirás el producto. El equipo de compras te mantendrá informado.
+    {_tabla(
+        _fila("Consecutivo", s.consecutivo_os),
+        _fila("Descripción", s.descripcion),
+        _fila("Fecha de solicitud", _fmt_fecha(s.fecha_solicitud)),
+        _fila("Fecha de envío OC", _fmt_fecha(s.fecha_envio_oc)),
+        fila_entrega,
+        _fila("Estado", "✅ OC enviada al proveedor"),
+    )}
+    <p style="color:#6b7280;font-size:13px">
+      El equipo de compras te mantendrá informado sobre la entrega.
     </p>
     """
-    return _base("Tu Orden de Compra fue enviada", cuerpo)
+    return _base("Tu Orden de Compra fue enviada al proveedor", cuerpo)
 
+
+# ── OC al proveedor ───────────────────────────────────────────────────────────
 
 def _html_oc_proveedor(s: "SolicitudOC", numero_oc: str) -> str:
     cuerpo = f"""
-    <p style="color:#374151">Estimado proveedor,</p>
-    <p style="color:#374151">
-      Adjunto encontrará la Orden de Compra <strong>{numero_oc}</strong> emitida por Zymo Logística.
+    <p style="color:#374151;font-size:14px">Estimado proveedor,</p>
+    <p style="color:#374151;font-size:14px">
+      Adjunto encontrará la Orden de Compra <strong>{numero_oc}</strong> emitida por LOGIMAT S.A.S.
       Por favor revísela y confírmenos su recepción junto con la fecha estimada de entrega.
     </p>
-    <table style="width:100%;border-collapse:collapse;margin:16px 0">
-      <tr>
-        <td style="padding:8px 12px;background:#e5e7eb;font-weight:bold;width:40%;border-radius:4px 0 0 4px">N° Orden</td>
-        <td style="padding:8px 12px;background:#f3f4f6;border-radius:0 4px 4px 0">{numero_oc}</td>
-      </tr>
-      <tr>
-        <td style="padding:8px 12px;background:#e5e7eb;font-weight:bold;border-radius:4px 0 0 4px">Descripción</td>
-        <td style="padding:8px 12px;background:#f3f4f6;border-radius:0 4px 4px 0">{s.descripcion}</td>
-      </tr>
-      <tr>
-        <td style="padding:8px 12px;background:#e5e7eb;font-weight:bold;border-radius:4px 0 0 4px">Consecutivo OS</td>
-        <td style="padding:8px 12px;background:#f3f4f6;border-radius:0 4px 4px 0">{s.consecutivo_os}</td>
-      </tr>
-      <tr>
-        <td style="padding:8px 12px;background:#e5e7eb;font-weight:bold;border-radius:4px 0 0 4px">Cantidad</td>
-        <td style="padding:8px 12px;background:#f3f4f6;border-radius:0 4px 4px 0">{s.cantidad}</td>
-      </tr>
-    </table>
-    <p style="color:#374151">Gracias por su atención.</p>
+    {_tabla(
+        _fila("N° Orden de Compra", numero_oc),
+        _fila("Descripción", s.descripcion),
+        _fila("Consecutivo OS", s.consecutivo_os),
+        _fila("Cantidad", str(s.cantidad)),
+        _fila("Fecha de emisión", _fmt_fecha(s.fecha_envio_oc or s.updated_at)),
+    )}
+    <p style="color:#374151;font-size:14px">
+      Para cualquier consulta sobre esta orden, puede comunicarse con nuestro departamento de compras.
+    </p>
+    <p style="color:#374151;font-size:14px">Gracias por su atención.</p>
     """
-    return _base(f"Orden de Compra {numero_oc} — Zymo Logística", cuerpo)
+    return _base(f"Orden de Compra {numero_oc}", cuerpo)
 
 
 # ── Funciones públicas (llamar desde background tasks) ────────────────────────
@@ -259,7 +297,7 @@ async def send_en_gestion(s: "SolicitudOC") -> None:
         return
 
     msg = MessageSchema(
-        subject=f"[Compras Zymo] Tu solicitud está siendo gestionada — {s.consecutivo_os}",
+        subject=f"[Compras LOGIMAT] Tu solicitud está siendo gestionada — {s.consecutivo_os}",
         recipients=[s.solicitante_email],
         body=_html_en_gestion(s),
         subtype=MessageType.html,
@@ -281,7 +319,7 @@ async def send_cotizacion_lista(s: "SolicitudOC") -> None:
         return
 
     msg = MessageSchema(
-        subject=f"[Compras Zymo] Cotización lista — {s.consecutivo_os}",
+        subject=f"[Compras LOGIMAT] Cotización lista — {s.consecutivo_os}",
         recipients=[s.solicitante_email],
         body=_html_cotizacion_lista(s),
         subtype=MessageType.html,
@@ -293,8 +331,11 @@ async def send_cotizacion_lista(s: "SolicitudOC") -> None:
         log.exception("[email] Error enviando Flujo 2 para %s", s.consecutivo_os)
 
 
-async def send_aprobacion_directora(s: "SolicitudOC") -> None:
-    """Flujo 3 — email a la directora cuando hay cotización que aprobar."""
+async def send_aprobacion_directora(
+    s: "SolicitudOC",
+    cotizacion: Optional["CotizacionProveedor"] = None,
+) -> None:
+    """Flujo 3 — email a la directora con detalle completo de la cotización."""
     if not _is_configured():
         log.warning("[email] SMTP no configurado — omitiendo Flujo 3")
         return
@@ -304,9 +345,9 @@ async def send_aprobacion_directora(s: "SolicitudOC") -> None:
         return
 
     msg = MessageSchema(
-        subject=f"[Compras Zymo] Aprobación requerida — {s.consecutivo_os}",
+        subject=f"[Compras LOGIMAT] Aprobación requerida — {s.consecutivo_os}",
         recipients=[directora_email],
-        body=_html_aprobacion_directora(s),
+        body=_html_aprobacion_directora(s, cotizacion),
         subtype=MessageType.html,
     )
     try:
@@ -316,7 +357,12 @@ async def send_aprobacion_directora(s: "SolicitudOC") -> None:
         log.exception("[email] Error enviando Flujo 3 para %s", s.consecutivo_os)
 
 
-async def send_oc_a_proveedor(s: "SolicitudOC", numero_oc: str, pdf_path: str | None, email_proveedor: str) -> None:
+async def send_oc_a_proveedor(
+    s: "SolicitudOC",
+    numero_oc: str,
+    pdf_path: str | None,
+    email_proveedor: str,
+) -> None:
     """Envía el documento OC al proveedor como adjunto."""
     if not _is_configured():
         log.warning("[email] SMTP no configurado — omitiendo envío OC a proveedor")
@@ -341,7 +387,7 @@ async def send_oc_a_proveedor(s: "SolicitudOC", numero_oc: str, pdf_path: str | 
     mime_subtype = "pdf" if ext == "pdf" else "vnd.openxmlformats-officedocument.wordprocessingml.document"
 
     msg = MessageSchema(
-        subject=f"Orden de Compra {numero_oc} — Zymo Logística",
+        subject=f"Orden de Compra {numero_oc} — LOGIMAT S.A.S.",
         recipients=[email_proveedor],
         body=_html_oc_proveedor(s, numero_oc),
         subtype=MessageType.html,
@@ -372,7 +418,7 @@ async def send_oc_enviada(s: "SolicitudOC") -> None:
         return
 
     msg = MessageSchema(
-        subject=f"[Compras Zymo] Orden de Compra enviada — {s.consecutivo_os}",
+        subject=f"[Compras LOGIMAT] Orden de Compra enviada — {s.consecutivo_os}",
         recipients=[s.solicitante_email],
         body=_html_oc_enviada(s),
         subtype=MessageType.html,
