@@ -36,7 +36,7 @@ export function Sidebar() {
 
         {showSGC && (
           <SidebarLink
-            to="/sgc/proveedores"
+            to="/sgc"
             label="SGC"
             icon={<IconSGC />}
             matchPaths={["/sgc"]}

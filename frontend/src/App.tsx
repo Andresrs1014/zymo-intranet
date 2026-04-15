@@ -13,6 +13,7 @@ import { CotizacionFormPage } from "@/pages/oc/CotizacionFormPage"
 import { AprobacionPage } from "@/pages/oc/AprobacionPage"
 import { KPIPage } from "@/pages/oc/KPIPage"
 import { OcConfigPage } from "@/pages/oc/OcConfigPage"
+import { SGCPage } from "@/pages/sgc/SGCPage"
 import { ProveedoresPage } from "@/pages/sgc/ProveedoresPage"
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -161,7 +162,11 @@ export default function App() {
         {/* SGC — Sistema de Gestión de Calidad */}
         <Route
           path="/sgc"
-          element={<Navigate to="/sgc/proveedores" replace />}
+          element={
+            <SGCRoute>
+              <SGCPage />
+            </SGCRoute>
+          }
         />
         <Route
           path="/sgc/proveedores"
