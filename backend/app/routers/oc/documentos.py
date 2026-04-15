@@ -161,6 +161,32 @@ def _generar_xlsx(
     if cfg.get("iva_manual"):
         ws[cfg["iva_manual"]] = cotizacion.valor_iva or 0
 
+    # ── Configuración de página: ajustar a 1 hoja ancha para PDF correcto ─────
+    from openpyxl.worksheet.page import PageMargins
+
+    # Área de impresión desde config — limita las columnas que LibreOffice convierte
+    print_area = empresa.get("print_area")
+    if print_area:
+        ws.print_area = print_area
+
+    # Eliminar anchos de columna espurios fuera del área de impresión (p.ej. columna IW=257)
+    from openpyxl.utils import column_index_from_string
+    max_content_col = 10  # columna J — más allá no hay contenido real
+    cols_to_remove = [
+        c for c in list(ws.column_dimensions.keys())
+        if column_index_from_string(c) > max_content_col
+    ]
+    for col in cols_to_remove:
+        del ws.column_dimensions[col]
+
+    ws.page_setup.fitToPage = True
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0  # sin límite alto (crece si hay muchos ítems)
+    ws.page_setup.orientation = "landscape" if empresa.get("orientacion_paisaje") else "portrait"
+    ws.page_setup.paperSize = 9  # A4
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.page_margins = PageMargins(left=0.5, right=0.5, top=0.75, bottom=0.75, header=0.3, footer=0.3)
+
     wb.save(str(output_path))
 
 

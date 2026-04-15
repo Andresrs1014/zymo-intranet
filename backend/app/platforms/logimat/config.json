@@ -8,6 +8,7 @@
   "prefijo_oc": "L",
   "logo": "logimat_logo.png",
   "template": "template.xlsx",
+  "print_area": "A1:J64",
   "celdas_dinamicas": {
     "numero_oc": "G4",
     "fecha": "F5",

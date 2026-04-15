@@ -8,6 +8,7 @@
   "prefijo_oc": "D",
   "logo": "imcdep_logo.png",
   "template": "template.xlsx",
+  "print_area": "A1:J43",
   "celdas_dinamicas": {
     "numero_oc": "G4",
     "fecha": "F5",
