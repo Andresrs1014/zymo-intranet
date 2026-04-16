@@ -261,12 +261,15 @@ def _parsear_campos(texto: str, extra: Optional[dict[str, str]] = None) -> Extra
         r"\bTOTAL\b[:\s]*\$?\s*([\d.,]+)",
     ])
 
-    subtotal = money_or_extra("valor_antes_iva", [
+    _subtotal_regex = find_money([
         r"SUBTOTAL[:\s]*\$?\s*([\d.,]+)",
         r"SUB\s+TOTAL[:\s]*\$?\s*([\d.,]+)",
         r"VALOR\s+ANTES\s+DE\s+IVA[:\s]*\$?\s*([\d.,]+)",
         r"BASE\s+(?:IVA|GRAVABLE)[:\s]*\$?\s*([\d.,]+)",
     ])
+    _subtotal_extra = _to_float(_extra.get("valor_antes_iva", ""))
+    # Usar extra solo si es distinto al total para evitar que ambos queden iguales
+    subtotal = _subtotal_regex or (_subtotal_extra if _subtotal_extra != total else None)
 
     iva = money_or_extra("valor_iva", [
         r"IVA\s+19%?[:\s]*\$?\s*([\d.,]+)",

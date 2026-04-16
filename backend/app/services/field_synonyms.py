@@ -207,7 +207,6 @@ FIELD_SYNONYMS: dict[str, list[str]] = {
         "neto",
         "valor neto",
         "vr antes iva",
-        "precio base",
         "subtotal sin iva",
         "valor base",
         "subtotal antes de iva",

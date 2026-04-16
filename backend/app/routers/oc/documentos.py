@@ -217,6 +217,7 @@ def _generar_xlsx(
     max_filas = items_cfg.get("max_filas", 20)
     col_num = items_cfg.get("col_item_num", "C")
     col_cant = items_cfg.get("col_cantidad", "D")
+    col_ref = items_cfg.get("col_referencia")
     col_desc = items_cfg.get("col_descripcion", "F")
     col_vunit = items_cfg.get("col_valor_unitario", "G")
 
@@ -224,13 +225,16 @@ def _generar_xlsx(
     for fila in range(fila_inicio, fila_inicio + max_filas):
         ws[f"{col_num}{fila}"] = None
         ws[f"{col_cant}{fila}"] = None
-        ws[f"E{fila}"] = None  # referencia
+        if col_ref:
+            ws[f"{col_ref}{fila}"] = None
         ws[f"{col_desc}{fila}"] = None
         ws[f"{col_vunit}{fila}"] = None
 
     # Escribir el único ítem de la OC en la primera fila disponible
     ws[f"{col_num}{fila_inicio}"] = 1
     ws[f"{col_cant}{fila_inicio}"] = solicitud.cantidad
+    if col_ref and solicitud.placa_ficha:
+        ws[f"{col_ref}{fila_inicio}"] = solicitud.placa_ficha
     ws[f"{col_desc}{fila_inicio}"] = solicitud.descripcion or ""
     ws[f"{col_vunit}{fila_inicio}"] = cotizacion.valor_unitario or 0
 

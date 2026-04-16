@@ -39,6 +39,7 @@
     "max_filas": 1,
     "col_item_num": "C",
     "col_cantidad": "D",
+    "col_referencia": "E",
     "col_descripcion": "F",
     "col_valor_unitario": "G"
   }

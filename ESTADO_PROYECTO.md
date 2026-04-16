@@ -1,6 +1,6 @@
 # ZYMO Intranet — Estado del Proyecto
 
-**Última actualización:** 2026-04-14
+**Última actualización:** 2026-04-16
 **Branch activo:** `master`
 **Repositorio:** `Andresrs1014/zymo-intranet`
 
@@ -13,8 +13,8 @@
 | Backend | FastAPI + SQLModel + SQLite + python-jose HS256 |
 | Frontend | React 19 + Vite + TypeScript + Tailwind CSS + TanStack Query + Zustand + Axios |
 | Email | fastapi-mail 1.4.2 + Office 365 SMTP |
-| Documentos | python-docx + LibreOffice (conversión a PDF) |
-| Extracción | pdfplumber (PDF texto) + openpyxl (Excel) + python-docx (Word) |
+| Documentos | openpyxl (XLSX desde template) + LibreOffice headless (conversión a PDF) |
+| Extracción | pdfplumber (PDF texto) + openpyxl (Excel) + python-docx (Word) + field_synonyms.py |
 | Deploy | Docker Compose + Nginx |
 | Puertos | backend=8001, frontend=81 |
 
@@ -60,19 +60,20 @@ MS Forms → Power Automate → POST /api/oc/webhook/nueva-solicitud
                          [Email Flujo 1 → solicitante: consecutivo, descripción, fecha hora Colombia]
                                         ↓
                          Auxiliar sube cotización del proveedor (PDF/Excel/Word)
-                         → Extracción automática de campos (NIT, valores, IVA, forma pago, plazo)
+                         → Extracción automática de campos (NIT, valores, IVA, forma pago, plazo,
+                           garantía, anticipo, pago saldo)
                          → Preview con campos pre-llenados → auxiliar confirma/corrige
-                              Estado: pendiente_aprobacion
+                              Estado: cotizacion_lista
                          [Email Flujo 2 → solicitante: fechas en hora Colombia]
                          [Email Flujo 3 → directora: valor cotización, proveedor, NIT, IVA, fechas]
                                         ↓
                          Directora / Administrativo aprueba cotización
                               Estado: aprobada
                                         ↓
-                         Auxiliar genera el documento OC (DOCX/PDF — formato LOGIMAT)
+                         Auxiliar genera el documento OC (XLSX → PDF con LibreOffice)
                          Auxiliar confirma email proveedor → envía OC como adjunto
                               Estado: oc_enviada
-                         [Email OC → proveedor (adjunto DOCX/PDF, branding LOGIMAT)]
+                         [Email OC → proveedor (adjunto PDF, branding por plataforma)]
                          [Email Flujo 4 → solicitante: fecha envío en hora Colombia]
                                         ↓
                          Auxiliar marca como entregada (proveedor entregó)
@@ -84,8 +85,24 @@ MS Forms → Power Automate → POST /api/oc/webhook/nueva-solicitud
 
 **Estado con rechazo:**
 ```
-pendiente_aprobacion → rechazada → en_cotizacion  (directora rechaza, auxiliar busca nueva cotización)
+cotizacion_lista → rechazada → en_cotizacion  (directora rechaza, auxiliar busca nueva cotización)
 ```
+
+---
+
+#### Plataformas (empresas) ✅ — Todas configuradas
+
+Cada empresa tiene su carpeta en `backend/app/platforms/{slug}/` con template propio:
+
+| Slug | Empresa | Prefijo OC | Max items | Print area |
+|------|---------|-----------|----------|------------|
+| `logimat` | LOGIMAT S.A.S. | L | 20 | A1:J64 |
+| `imccargo` | IMC CARGO INTERNATIONAL S.A.S. | C | 3 | A1:J45 |
+| `imcdep` | IMC DEPOSITO S.A.S. | D | 1 | A1:J43 |
+
+Cada plataforma contiene: `config.json`, `template.xlsx`, logo (`*.png` / `*.jpeg`).
+
+⚠️ **LOGIMAT**: el archivo `logimat_logo.png` debe colocarse manualmente en `backend/app/platforms/logimat/logimat_logo.png` para que aparezca el logo en la OC.
 
 ---
 
@@ -96,14 +113,47 @@ pendiente_aprobacion → rechazada → en_cotizacion  (directora rechaza, auxili
 | `app/models/oc.py` | Modelos SQLModel: `SolicitudOC`, `CotizacionProveedor`, `OrdenCompra`, `Proveedor`, `OcConfig` |
 | `app/routers/oc/webhook.py` | `POST /api/oc/webhook/nueva-solicitud` — sin auth, recibe desde Power Automate |
 | `app/routers/oc/solicitudes.py` | CRUD de solicitudes, asignación de auxiliar, cambio de estado, prioridad, gestión de campos |
-| `app/routers/oc/cotizaciones.py` | Crear, aprobar/rechazar cotizaciones + endpoint de extracción automática desde archivos |
-| `app/routers/oc/documentos.py` | Generar OC (DOCX/PDF), descargar, marcar enviada/entregada/cerrada, enviar al proveedor |
+| `app/routers/oc/cotizaciones.py` | Crear, aprobar/rechazar cotizaciones + extracción automática desde archivos |
+| `app/routers/oc/documentos.py` | Generar OC (XLSX + PDF), descargar, marcar enviada/entregada/cerrada |
 | `app/routers/oc/kpis.py` | KPIs: totales, por estado, por plataforma, solicitudes recientes |
 | `app/routers/oc/config.py` | CRUD de `OcConfig` (SMTP, emails) desde la UI |
-| `app/routers/oc/proveedores.py` | Listado de proveedores |
+| `app/routers/oc/proveedores.py` | Listado de proveedores (activos desde sgc.db) |
 | `app/services/email_service.py` | Flujos 1–4 + envío OC a proveedor. Branding LOGIMAT, fechas en hora Colombia |
-| `app/platforms/logimat/config.json` | NIT, dirección, PBX, email facturación LOGIMAT ✅ |
-| `app/static/logimat_logo.png` | Logo real de LOGIMAT embebido en el documento DOCX |
+| `app/services/field_synonyms.py` | Diccionario de sinónimos para normalizar campos extraídos. `resolve_field()` + `fuzzy_resolve()` |
+| `app/platforms/{slug}/config.json` | Config por empresa: nombre, NIT, logo, celdas dinámicas, ítems |
+
+#### `config.json` — estructura por plataforma
+
+```json
+{
+  "nombre": "...",
+  "nit": "...",
+  "prefijo_oc": "L|C|D",
+  "logo": "filename.png",
+  "logo_anchor": "C3",
+  "logo_width": 150,
+  "logo_height": 55,
+  "template": "template.xlsx",
+  "print_area": "A1:J64",
+  "celdas_dinamicas": {
+    "numero_oc", "fecha", "proveedor_nombre", "proveedor_nit",
+    "os_ref", "cot_ref", "solicita", "area_firma", "elabora", "aprueba",
+    "nota", "forma_pago", "forma_pago_x", "anticipo", "pago_saldo",
+    "plazo_inmediata_x", "plazo_dias", "plazo_fecha", "garantia"
+  },
+  "items": {
+    "fila_inicio": 11,
+    "max_filas": 20,
+    "col_item_num": "C",
+    "col_cantidad": "D",
+    "col_referencia": "E",
+    "col_descripcion": "F",
+    "col_valor_unitario": "G"
+  }
+}
+```
+
+---
 
 #### Endpoints OC completos
 
@@ -118,17 +168,17 @@ pendiente_aprobacion → rechazada → en_cotizacion  (directora rechaza, auxili
 | PATCH | `/api/oc/solicitudes/{id}/gestionar` | Actualiza campos de gestión (remisión, factura, etc.) |
 | GET | `/api/oc/solicitudes/{id}/cotizaciones` | Lista cotizaciones de una solicitud |
 | POST | `/api/oc/solicitudes/{id}/cotizacion/extraer` | Extrae campos de PDF/Excel/Word sin guardar — devuelve preview |
-| POST | `/api/oc/solicitudes/{id}/cotizacion` | Guarda cotización con todos los campos (incluyendo extraídos) |
+| POST | `/api/oc/solicitudes/{id}/cotizacion` | Guarda cotización con todos los campos |
 | PATCH | `/api/oc/cotizaciones/{id}/aprobar` | Aprueba cotización (admin, directivo, administrativo) |
 | PATCH | `/api/oc/cotizaciones/{id}/rechazar` | Rechaza cotización (admin, directivo, administrativo) |
-| POST | `/api/oc/solicitudes/{id}/generar-oc` | Genera documento OC (DOCX + intento PDF) con formato y logo LOGIMAT |
+| POST | `/api/oc/solicitudes/{id}/generar-oc` | Genera OC desde template XLSX + convierte a PDF con LibreOffice |
 | GET | `/api/oc/solicitudes/{id}/orden` | Retorna registro de la OC |
-| GET | `/api/oc/ordenes/{id}/descargar` | Descarga el archivo PDF o DOCX |
+| GET | `/api/oc/ordenes/{id}/descargar` | Descarga el archivo PDF (fallback XLSX) |
 | POST | `/api/oc/solicitudes/{id}/marcar-enviada` | Avanza a `oc_enviada`, envía OC al proveedor como adjunto |
 | POST | `/api/oc/solicitudes/{id}/marcar-entregada` | Avanza a `entregada` |
 | POST | `/api/oc/solicitudes/{id}/cerrar` | Avanza a `cerrada` |
 | GET | `/api/oc/kpis` | KPIs del módulo |
-| GET | `/api/oc/proveedores` | Lista proveedores |
+| GET | `/api/oc/proveedores` | Lista proveedores activos (desde sgc.db) |
 | GET/PATCH | `/api/oc/config` | Lee/guarda configuración OC (SMTP, emails) |
 
 ---
@@ -139,7 +189,7 @@ pendiente_aprobacion → rechazada → en_cotizacion  (directora rechaza, auxili
 |---------|------|-------------|
 | `SolicitudesPage.tsx` | `/oc/solicitudes` | Tabla de todas las solicitudes con filtros |
 | `SolicitudDetallePage.tsx` | `/oc/solicitudes/:id` | Detalle completo: info, cotizaciones, OC, gestión |
-| `CotizacionFormPage.tsx` | `/oc/solicitudes/:id/cotizacion` | Formulario con zona de carga, extracción automática y campos completos |
+| `CotizacionFormPage.tsx` | `/oc/solicitudes/:id/cotizacion` | Formulario con zona de carga, extracción automática y 10 campos completos |
 | `AprobacionPage.tsx` | `/oc/aprobacion` | Vista de aprobador (directivo, administrativo) |
 | `KPIPage.tsx` | `/oc/kpis` | Dashboard de KPIs |
 | `OcConfigPage.tsx` | `/oc/configuracion` | Configuración SMTP y emails (solo admin) |
@@ -148,7 +198,7 @@ pendiente_aprobacion → rechazada → en_cotizacion  (directora rechaza, auxili
 
 | Archivo | Descripción |
 |---------|-------------|
-| `src/lib/dates.ts` | `formatFechaHora`, `formatFecha`, `formatFechaRelativa` — todas muestran en hora Colombia (America/Bogota). Fuerzan interpretación UTC aunque SQLite no incluya el sufijo Z |
+| `src/lib/dates.ts` | `formatFechaHora`, `formatFecha`, `formatFechaRelativa` — todas en hora Colombia (America/Bogota). Fuerzan interpretación UTC aunque SQLite no incluya el sufijo Z |
 | `src/hooks/useOC.ts` | Todos los hooks del módulo OC incluyendo `useExtraerCotizacion` |
 
 ---
@@ -173,10 +223,10 @@ pendiente_aprobacion → rechazada → en_cotizacion  (directora rechaza, auxili
 | Flujo | Evento | Destinatario | Contenido |
 |-------|--------|-------------|-----------|
 | Flujo 1 | Auxiliar toma solicitud (`en_cotizacion`) | Solicitante | Consecutivo, descripción, cantidad, prioridad, fecha solicitud (hora COL) |
-| Flujo 2 | Cotización cargada (`pendiente_aprobacion`) | Solicitante | Consecutivo, descripción, fecha solicitud y cotización (hora COL) |
-| Flujo 3 | Cotización lista para aprobar | Directora/Aprobadora | **Valor total, subtotal, IVA, proveedor, NIT, forma pago, plazo entrega**, fechas (hora COL) |
+| Flujo 2 | Cotización cargada (`cotizacion_lista`) | Solicitante | Consecutivo, descripción, fecha solicitud y cotización (hora COL) |
+| Flujo 3 | Cotización lista para aprobar | Directora/Aprobadora | Valor total, subtotal, IVA, proveedor, NIT, forma pago, plazo entrega, fechas (hora COL) |
 | Flujo 4 | OC enviada al proveedor (`oc_enviada`) | Solicitante | Consecutivo, fecha envío, fecha estimada entrega (hora COL) |
-| Flujo OC | Al marcar OC enviada | Proveedor | Adjunto DOCX/PDF, datos de la orden, branding LOGIMAT |
+| Flujo OC | Al marcar OC enviada | Proveedor | Adjunto PDF, datos de la orden, branding LOGIMAT |
 | Flujo 5 | _(pendiente)_ Producto entregado | Solicitante | — |
 
 Todos los correos usan branding LOGIMAT (header rojo #C8102E, footer con NIT y PBX).
@@ -184,36 +234,66 @@ La configuración SMTP se gestiona desde `/oc/configuracion`. Fallback a `.env`.
 
 ---
 
-#### Formato del documento OC — LOGIMAT
+#### Generación del documento OC ✅
 
-- **Logo real** de LOGIMAT (3cm) en encabezado izquierdo
-- **Caja roja** con número OC y fecha (hora Colombia) en encabezado derecho
-- **SEÑORES**: proveedor nombre + NIT + referencia OS/COT
-- **Tabla ítems**: ÍTEM, CANT., DESCRIPCIÓN, VALOR UNITARIO (encabezado rojo)
-- **Totales**: SUB TOTAL + IVA (si aplica) + VALOR TOTAL (fondo rojo)
-- **Condiciones**: buzón facturación + forma de pago + plazo de entrega
-- **Firmas**: SOLICITA / ELABORA / APRUEBA con nombres auto-poblados desde intranet.db
-- **Pie**: NIT, ciudad, PBX de LOGIMAT
+- Se genera un XLSX rellenando el `template.xlsx` de la plataforma con **openpyxl**
+- LibreOffice headless convierte el XLSX a PDF (recalcula fórmulas del template)
+- Fallback: si LibreOffice falla, se sirve el XLSX directamente
 
-Configuración por plataforma en `backend/app/platforms/{slug}/config.json` (dentro del build Docker).
+**Campos escritos al template por `_generar_xlsx()`:**
+
+| Campo | Fuente |
+|-------|--------|
+| Número OC | Generado `OC-YYYY-XXXX` |
+| Fecha | `datetime.now(America/Bogota)` |
+| Proveedor nombre / NIT | `CotizacionProveedor` |
+| OS ref / COT ref | `SolicitudOC.consecutivo_os` / `cotizacion.numero_cotizacion_proveedor` |
+| Solicita / Área firma | `SolicitudOC.solicitante_nombre` / `area_solicitante` |
+| Elabora / Aprueba | Nombres resueltos desde `intranet.db` |
+| Nota | `cotizacion.observaciones` (fallback: `solicitud.observaciones_solicitante`) |
+| Forma de pago + X | `cotizacion.forma_pago` |
+| Plazo de entrega | Helper `_escribir_plazo_entrega`: INMEDIATA→X, número→días, texto→fecha |
+| Garantía | `cotizacion.garantia` |
+| Anticipo | `cotizacion.anticipo` |
+| Pago saldo | `cotizacion.pago_saldo` |
+| Ítem: N°, cantidad | `1`, `solicitud.cantidad` |
+| Ítem: referencia | `solicitud.placa_ficha` → columna `col_referencia` del config |
+| Ítem: descripción | `solicitud.descripcion` |
+| Ítem: valor unitario | `cotizacion.valor_unitario` |
+| IVA manual *(solo imcdep)* | `cotizacion.valor_iva` → celda `iva_manual` |
+| Logo | Imagen local insertada con openpyxl (limpia `=IMAGE()` del template) |
 
 ---
 
-#### Extracción automática de cotizaciones
+#### Extracción automática de cotizaciones ✅
 
-El endpoint `POST /cotizacion/extraer` acepta PDF (texto plano), Excel (.xlsx) o Word (.docx) del proveedor y extrae mediante regex:
+El endpoint `POST /cotizacion/extraer` acepta PDF (texto), Excel (.xlsx) o Word (.docx) y extrae:
 
-| Campo | Patrón buscado |
-|-------|---------------|
-| NIT | `NIT:`, `N.I.T.` seguido de número con formato colombiano |
-| Valor total | `TOTAL A PAGAR`, `VALOR TOTAL`, `GRAN TOTAL` |
-| Subtotal | `SUBTOTAL`, `VALOR ANTES DE IVA`, `BASE GRAVABLE` |
-| IVA | `IVA 19%`, `IVA` |
-| Valor unitario | `VALOR UNITARIO`, `PRECIO UNITARIO` |
-| Forma de pago | `FORMA DE PAGO`, `CONDICIONES DE PAGO` |
-| Plazo de entrega | `PLAZO DE ENTREGA`, `TIEMPO DE ENTREGA` |
+| Campo canónico | Sinónimos reconocidos |
+|---------------|----------------------|
+| `proveedor_nombre` | proveedor, razón social, empresa, nombre... |
+| `proveedor_nit` | nit, n.i.t., rut, id tributario... |
+| `numero_cotizacion_proveedor` | n° cotización, ref. cotización, folio, propuesta... |
+| `valor_unitario` | precio unitario, valor unit, costo unitario... |
+| `valor_antes_iva` | subtotal, base gravable, valor sin IVA... |
+| `valor_iva` | iva 19%, impuesto, tax, vat... |
+| `valor_total` | total a pagar, gran total, valor con IVA... |
+| `forma_pago` | forma de pago, condiciones de pago, crédito... |
+| `plazo_entrega` | tiempo de entrega, lead time, días hábiles... |
+| `garantia` | garantía, warranty, período de garantía... |
+| `anticipo` | anticipo, down payment, pago inicial... |
+| `pago_saldo` | saldo, contra entrega, balance payment... |
+| `observaciones` | notas, comentarios, aclaraciones... |
+| `fecha_vigencia` | válida hasta, vence, expiry date... |
 
-El resultado muestra cuántos campos se encontraron (verde ≥3, amarillo <3) y pre-llena el formulario. El auxiliar revisa y corrige antes de guardar.
+Sinónimos gestionados en `app/services/field_synonyms.py` con índice invertido y matching fuzzy (`SequenceMatcher`, umbral 0.75).
+
+**Bug corregido (2026-04-16):** `valor_total` y `valor_antes_iva` mostraban el mismo valor extraído.
+- Causa 1: la lógica `find_money(...) or _extra.get("valor_antes_iva")` usaba el subtotal como fallback aunque fuera igual al total.
+- Causa 2: `"precio base"` era sinónimo duplicado bajo `valor_unitario` y `valor_antes_iva` → última declaración ganaba, clasificando precios unitarios como subtotales.
+- Fix: guard `_subtotal_extra != total` + eliminación del sinónimo duplicado.
+
+El resultado pre-llena el formulario. El auxiliar revisa y corrige antes de guardar.
 
 **Limitación conocida:** Solo funciona con PDFs de texto (no escaneados/imágenes). OCR para escaneados es backlog.
 
@@ -223,7 +303,7 @@ El resultado muestra cuántos campos se encontraron (verde ≥3, amarillo <3) y 
 
 **Problema resuelto:** SQLite devuelve datetimes sin sufijo `Z`. JS los interpretaba como hora local en vez de UTC → 5 horas de diferencia.
 
-**Solución:** `frontend/src/lib/dates.ts` detecta si falta el `Z` y lo agrega antes de parsear, luego formatea con `timeZone: "America/Bogota"` explícito. El documento DOCX usa `ZoneInfo("America/Bogota")` en Python.
+**Solución:** `frontend/src/lib/dates.ts` detecta si falta el `Z` y lo agrega antes de parsear, luego formatea con `timeZone: "America/Bogota"` explícito. El backend usa `ZoneInfo("America/Bogota")` en Python.
 
 ---
 
@@ -258,7 +338,7 @@ Campos generados automáticamente: `consecutivo_os` → `OS-YYYY-XXXX`, `nivel_p
 SolicitudOC
 ├── id (UUID)
 ├── consecutivo_os
-├── estado (nueva|en_cotizacion|pendiente_aprobacion|aprobada|oc_enviada|entregada|cerrada|rechazada)
+├── estado (nueva|en_cotizacion|cotizacion_lista|aprobada|oc_enviada|entregada|cerrada|rechazada)
 ├── nivel_prioridad (Alta|Media|Baja — editable)
 ├── solicitante_nombre, solicitante_email, area_solicitante
 ├── categoria, grupo_articulos, descripcion, cantidad
@@ -277,6 +357,7 @@ CotizacionProveedor
 ├── numero_cotizacion_proveedor
 ├── valor_unitario, valor_antes_iva, valor_iva, valor_total, valor_aprobado
 ├── forma_pago, plazo_entrega
+├── garantia, anticipo, pago_saldo
 ├── fecha_vigencia, observaciones
 ├── pdf_path, extraccion_automatica (bool)
 ├── aprobada (bool), aprobado_por_id, observaciones_aprobacion
@@ -290,8 +371,6 @@ OrdenCompra
 ├── enviada_proveedor, enviada_coordinador (bool)
 └── created_at
 ```
-
----
 
 ---
 
@@ -328,28 +407,11 @@ Selector en CotizacionFormPage auto-rellena: nombre, NIT, email
 | PATCH | `/api/sgc/proveedores/{id}/toggle-activo` | Activa o desactiva (inactivos desaparecen de OC) |
 | POST | `/api/sgc/proveedores/extraer` | Extrae campos desde PDF/Excel/Word sin guardar |
 
-#### Motor de extracción SGC
-
-Reutiliza `_extraer_texto` (pdfplumber/openpyxl/python-docx) del módulo OC.
-`_parsear_campos_rut` extrae campos de documentos de proveedor:
-
-| Campo | Patrón actual |
-|-------|--------------|
-| NIT | `N.I.T.:`, `NIT:` seguido de número colombiano |
-| Razón social | `RAZÓN SOCIAL:`, `NOMBRE:`, `ENTIDAD:` |
-| Representante legal | `REPRESENTANTE LEGAL:`, `APODERADO:` |
-| Email | Detección de patrón `@` |
-| Teléfono | `TELÉFONO:`, `CELULAR:`, `PBX:` |
-| Dirección | `DIRECCIÓN:`, `DOMICILIO:` |
-| Ciudad | `CIUDAD:`, `MUNICIPIO:` |
-
-⚠️ Los patrones se calibrarán cuando llegue el formato oficial de evaluación de proveedores. Los campos en el modelo marcados `[FORMATO]` también se actualizarán en ese momento.
-
 #### Frontend — Páginas SGC
 
 | Archivo | Ruta | Descripción |
 |---------|------|-------------|
-| `SGCPage.tsx` | `/sgc` | Landing con tarjeta de acceso (igual al patrón de Administrativo) |
+| `SGCPage.tsx` | `/sgc` | Landing con tarjeta de acceso |
 | `ProveedoresPage.tsx` | `/sgc/proveedores` | Tabla completa + modal crear/editar con extracción automática |
 
 #### Permisos SGC
@@ -359,8 +421,6 @@ Reutiliza `_extraer_texto` (pdfplumber/openpyxl/python-docx) del módulo OC.
 | Ver módulo SGC | ✅ | ✅ | ✅ |
 | Crear/editar proveedor | ✅ | ✅ | ✅ |
 | Activar/desactivar | ✅ | ✅ | ✅ |
-
-Definido en `frontend/src/lib/permissions.ts` → `canSeeSGC()`. El admin puede crear roles desde el panel y asignar `calidad` sin tocar código.
 
 ---
 
@@ -381,54 +441,56 @@ Resolución de nombres (auxiliar/aprobador) cruza DBs vía consulta directa a `i
 - **Docker Compose** con servicios: `backend`, `frontend`
 - **Nginx** como reverse proxy: `/api/` → backend:8001, `/` → frontend:81
 - **Volume** `backend_data` para persistencia de `oc.db`, `sgc.db` y archivos OC generados
-- **Build context** del backend es `./backend` — los assets (logo, configs de plataforma) deben estar dentro de `backend/app/`
+- **Build context** del backend es `./backend` — los assets (logos, templates, configs de plataforma) deben estar dentro de `backend/app/platforms/{slug}/`
 
 ---
 
 ## Pendientes / Backlog
 
-### Alta prioridad — Fase 1 (completar primer paso)
+### Alta prioridad
 
 - [ ] **Flujo 5** — email al solicitante cuando el producto es entregado (estado `entregada`). Falta `send_entregada()` en `email_service.py` y llamarla desde `marcar_entregada` en `documentos.py`
+- [ ] **Logo LOGIMAT** — colocar `logimat_logo.png` en `backend/app/platforms/logimat/logimat_logo.png` (archivo físico, no hay código pendiente)
 - [ ] **Prueba end-to-end del webhook** — enviar request real desde Power Automate con datos de formulario y verificar creación de solicitud + email Flujo 1
 - [ ] **Dropdown para asignar auxiliar** — UI para que admin elija qué auxiliar asignar (actualmente cada auxiliar se asigna a sí mismo)
-- [ ] **Entrenamiento del motor de extracción** — los regex funcionan pero necesitan calibración con más cotizaciones reales de los proveedores habituales de LOGIMAT
 
 ### Media prioridad
 
 - [ ] **Dashboard de métricas** — gráficos de tendencias por mes en `KPIPage` (actualmente solo conteos)
-- [x] **Módulo de proveedores CRUD** — implementado en SGC (`/sgc/proveedores`). SGC crea/edita/desactiva; OC consume solo activos
-- [ ] **Formatos OC para IMCCARGO e IMC Depósito** — completar `backend/app/platforms/imccargo/config.json` y `imcdep/config.json` con NIT, dirección, email de facturación y logo propios
-- [ ] **Subir PDF de cotización y guardarlo** — actualmente el endpoint de extracción no guarda el archivo. Falta endpoint para guardar el PDF físicamente y asociarlo al `pdf_path` de la cotización
+- [ ] **Entrenamiento del motor de extracción** — calibrar sinónimos y regex con más cotizaciones reales de los proveedores habituales
+- [ ] **Subir y guardar PDF de cotización** — actualmente la extracción no guarda el archivo físico. Falta endpoint para asociar el PDF al `pdf_path` de la cotización
 
-### Baja prioridad / Fase 2
+### Baja prioridad / Futuro
 
 - [ ] **SharePoint List push** — al cerrar la solicitud, escribir en SharePoint para trazabilidad histórica
 - [ ] **OCR de cotizaciones escaneadas** — Google Vision o Tesseract para PDFs de imagen
 - [ ] **Refresh tokens** — mejorar seguridad de sesión (actualmente JWT de 8h sin renovación)
 - [ ] **PostgreSQL** — migrar de SQLite para entornos de mayor carga concurrente
-- [ ] **Formato OC para plataforma Zymo** — pendiente para fase futura cuando se implemente
-- [ ] **Notificación al auxiliar cuando directora rechaza cotización** — actualmente solo cambia el estado, no notifica por email
-- [ ] **Historial de estados** — tabla de auditoría con todos los cambios de estado de una solicitud y quién los hizo
+- [ ] **Formato OC para plataforma Zymo** — pendiente para fase futura
+- [ ] **Notificación al auxiliar cuando directora rechaza cotización** — solo cambia estado, no notifica por email
+- [ ] **Historial de estados** — tabla de auditoría con todos los cambios de estado y quién los hizo
 
 ### Posibles mejoras identificadas
 
-- **Cotización múltiple con comparación** — permitir cargar 2-3 cotizaciones de diferentes proveedores y mostrarlas en tabla comparativa para que la directora elija la mejor
-- **Firma digital o visto bueno en la OC** — que la directora pueda "firmar" digitalmente desde la intranet antes de enviar al proveedor
-- **Template de email configurable desde UI** — actualmente los mensajes están hardcodeados en `email_service.py`; podrían editarse desde `/oc/configuracion`
-- **Reenvío de OC** — botón para reenviar la OC al proveedor si no confirmó, sin cambiar el estado
-- **Integración con catálogo de proveedores** — cuando se carga una cotización y se detecta el NIT, auto-completar proveedor_nombre desde el catálogo
-- **Recordatorio automático** — si una solicitud lleva X días en `pendiente_aprobacion` sin respuesta, re-enviar el Flujo 3 a la directora
+- **Cotización múltiple con comparación** — cargar 2-3 cotizaciones y mostrar tabla comparativa para que la directora elija
+- **Firma digital en la OC** — que la directora "firme" digitalmente desde la intranet antes de enviar
+- **Template de email configurable desde UI** — actualmente hardcodeado en `email_service.py`
+- **Reenvío de OC** — botón para reenviar sin cambiar el estado
+- **Recordatorio automático** — si una solicitud lleva X días en `cotizacion_lista` sin aprobación, re-enviar Flujo 3
 
 ---
 
 ## Commits recientes relevantes
 
 ```
+[2026-04-16] Fix extracción: guard valor_total != valor_antes_iva + sinónimo duplicado "precio base"
+[2026-04-16] Plataformas imccargo e imcdep: col_referencia configurada; documentos.py escribe placa_ficha
+[2026-04-16] OC generada desde template XLSX (openpyxl) + conversión PDF LibreOffice para 3 plataformas
+[2026-04-16] Extracción completa: garantia, anticipo, pago_saldo en BD + UI + motor de extracción
+[2026-04-16] Botón Generar OC aparece solo después de Aprobación; estado renombrado a "Cotización lista"
 [2026-04-15] Módulo SGC — CRUD de proveedores con extracción automática desde documento
-[2026-04-15] Cambios visuales side bar
 [2026-04-15] Emails rediseñados: branding LOGIMAT, valor cotización para directora, fechas hora Colombia
-[anterior]   Zona horaria Colombia en frontend (dates.ts) y documento DOCX
+[anterior]   Zona horaria Colombia en frontend (dates.ts) y documentos
 [anterior]   Extracción automática de cotizaciones (PDF/Excel/Word) con preview
 [anterior]   Logo LOGIMAT real en documento OC, configs dentro de backend/ (fix Docker)
 ```
