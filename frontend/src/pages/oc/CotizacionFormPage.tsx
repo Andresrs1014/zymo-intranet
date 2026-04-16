@@ -22,6 +22,9 @@ const EMPTY_FORM: CotizacionCreatePayload = {
   fecha_vigencia: "",
   forma_pago: "",
   plazo_entrega: "",
+  garantia: "",
+  anticipo: "",
+  pago_saldo: "",
   observaciones: "",
 }
 
@@ -75,6 +78,9 @@ export function CotizacionFormPage() {
       valor_total: ext.valor_total ?? prev.valor_total,
       forma_pago: ext.forma_pago ?? prev.forma_pago,
       plazo_entrega: ext.plazo_entrega ?? prev.plazo_entrega,
+      garantia: ext.garantia ?? prev.garantia,
+      anticipo: ext.anticipo ?? prev.anticipo,
+      pago_saldo: ext.pago_saldo ?? prev.pago_saldo,
     }))
   }
 
@@ -121,6 +127,9 @@ export function CotizacionFormPage() {
       fecha_vigencia: form.fecha_vigencia || undefined,
       forma_pago: form.forma_pago || undefined,
       plazo_entrega: form.plazo_entrega || undefined,
+      garantia: form.garantia || undefined,
+      anticipo: form.anticipo || undefined,
+      pago_saldo: form.pago_saldo || undefined,
       observaciones: form.observaciones || undefined,
     }
 
@@ -238,6 +247,9 @@ export function CotizacionFormPage() {
                     <ExtraidoItem label="Valor total" value={extraccion.valor_total} money />
                     <ExtraidoItem label="Forma de pago" value={extraccion.forma_pago} />
                     <ExtraidoItem label="Plazo de entrega" value={extraccion.plazo_entrega} />
+                    <ExtraidoItem label="Garantía" value={extraccion.garantia} />
+                    <ExtraidoItem label="Anticipo" value={extraccion.anticipo} />
+                    <ExtraidoItem label="Pago saldo" value={extraccion.pago_saldo} />
                   </div>
                   {extStatus === "warn" && (
                     <p className="text-amber-600 text-xs mt-2">
@@ -414,6 +426,37 @@ export function CotizacionFormPage() {
                   value={form.plazo_entrega ?? ""}
                   onChange={handleChange}
                   placeholder="Ej: 5 días hábiles"
+                  className={inputCls}
+                />
+              </Field>
+
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Anticipo">
+                  <input
+                    name="anticipo"
+                    value={form.anticipo ?? ""}
+                    onChange={handleChange}
+                    placeholder="Ej: 50%"
+                    className={inputCls}
+                  />
+                </Field>
+                <Field label="Pago de saldo">
+                  <input
+                    name="pago_saldo"
+                    value={form.pago_saldo ?? ""}
+                    onChange={handleChange}
+                    placeholder="Ej: Contra entrega"
+                    className={inputCls}
+                  />
+                </Field>
+              </div>
+
+              <Field label="Garantía">
+                <input
+                  name="garantia"
+                  value={form.garantia ?? ""}
+                  onChange={handleChange}
+                  placeholder="Ej: 1 año de garantía en defectos de fabricación"
                   className={inputCls}
                 />
               </Field>

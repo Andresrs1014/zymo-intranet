@@ -15,7 +15,7 @@ function formatCOP(value: number): string {
 function estadoLabel(estado: string): string {
   const map: Record<string, string> = {
     nueva: "Nueva",
-    en_cotizacion: "En cotización",
+    en_cotizacion: "Cotización lista",
     pendiente_aprobacion: "Pend. aprobación",
     aprobada: "Aprobada",
     rechazada: "Rechazada",
@@ -119,7 +119,7 @@ function PrioridadBadge({ prioridad }: { prioridad: string }) {
 function EstadoBadgeMini({ estado }: { estado: string }) {
   const config: Record<string, { label: string; className: string }> = {
     nueva: { label: "Nueva", className: "bg-blue-100 text-blue-700" },
-    en_cotizacion: { label: "En cotización", className: "bg-yellow-100 text-yellow-700" },
+    en_cotizacion: { label: "Cotización lista", className: "bg-yellow-100 text-yellow-700" },
     pendiente_aprobacion: { label: "Pend. aprobación", className: "bg-orange-100 text-orange-700" },
     aprobada: { label: "Aprobada", className: "bg-green-100 text-green-700" },
     rechazada: { label: "Rechazada", className: "bg-red-100 text-red-700" },

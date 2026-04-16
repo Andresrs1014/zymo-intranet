@@ -183,6 +183,9 @@ def _migrate_oc_cotizaciones() -> None:
         ("valor_iva", "REAL"),
         ("forma_pago", "VARCHAR(200)"),
         ("plazo_entrega", "VARCHAR(200)"),
+        ("garantia", "VARCHAR(300)"),
+        ("anticipo", "VARCHAR(200)"),
+        ("pago_saldo", "VARCHAR(200)"),
     ]
     with get_oc_engine().connect() as conn:
         for col, tipo in nuevas:

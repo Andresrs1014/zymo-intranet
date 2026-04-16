@@ -90,6 +90,11 @@ class CotizacionProveedor(SQLModel, table=True):
     plazo_entrega: Optional[str] = Field(default=None, max_length=200)
     observaciones: Optional[str] = Field(default=None)
 
+    # Condiciones adicionales
+    garantia: Optional[str] = Field(default=None, max_length=300)
+    anticipo: Optional[str] = Field(default=None, max_length=200)
+    pago_saldo: Optional[str] = Field(default=None, max_length=200)
+
     # PDF adjunto
     pdf_path: Optional[str] = Field(default=None)
     extraccion_automatica: bool = Field(default=False)

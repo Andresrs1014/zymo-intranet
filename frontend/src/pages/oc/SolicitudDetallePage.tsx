@@ -195,6 +195,7 @@ export function SolicitudDetallePage() {
                   solicitudId={solicitud.id}
                   estado={solicitud.estado}
                   orden={orden ?? null}
+                  plataforma={solicitud.plataforma ?? ""}
                   puedeGenerar={puedeGenerarOC}
                   emailProveedorInicial={cotizacionAprobada?.proveedor_email ?? orden?.email_proveedor ?? ""}
                   isGenerating={generarOC.isPending}
@@ -203,6 +204,7 @@ export function SolicitudDetallePage() {
                   isClosing={cerrarSolicitud.isPending}
                   onGenerar={handleGenerarOC}
                   onDescargar={handleDescargar}
+                  onPlataformaChange={(p) => actualizarGestion.mutate({ id: solicitud.id, payload: { plataforma: p } })}
                   onMarcarEnviada={(email) => marcarEnviada.mutate({ id: solicitud.id, email_proveedor: email })}
                   onMarcarEntregada={() => marcarEntregada.mutate(solicitud.id)}
                   onCerrar={() => cerrarSolicitud.mutate(solicitud.id)}
@@ -301,7 +303,7 @@ export function SolicitudDetallePage() {
                     done={!!solicitud.fecha_asignacion}
                   />
                   <TimelineItem
-                    label="En cotización"
+                    label="Cotización lista"
                     date={solicitud.fecha_cotizacion}
                     done={!!solicitud.fecha_cotizacion}
                   />
@@ -554,6 +556,7 @@ function PanelOrdenCompra({
   solicitudId: _solicitudId,
   estado,
   orden,
+  plataforma: plataformaInicial,
   puedeGenerar,
   emailProveedorInicial,
   isGenerating,
@@ -562,6 +565,7 @@ function PanelOrdenCompra({
   isClosing,
   onGenerar,
   onDescargar,
+  onPlataformaChange,
   onMarcarEnviada,
   onMarcarEntregada,
   onCerrar,
@@ -569,6 +573,7 @@ function PanelOrdenCompra({
   solicitudId: string
   estado: string
   orden: OrdenCompra | null
+  plataforma: string
   puedeGenerar: boolean
   emailProveedorInicial: string
   isGenerating: boolean
@@ -577,10 +582,12 @@ function PanelOrdenCompra({
   isClosing: boolean
   onGenerar: () => void
   onDescargar: () => void
+  onPlataformaChange: (plataforma: string) => void
   onMarcarEnviada: (email: string) => void
   onMarcarEntregada: () => void
   onCerrar: () => void
 }) {
+  const [plataforma, setPlataforma] = useState(plataformaInicial)
   const [showModal, setShowModal] = useState(false)
   const [emailInput, setEmailInput] = useState(emailProveedorInicial)
 
@@ -757,22 +764,38 @@ function PanelOrdenCompra({
 
   if (!puedeGenerar) return null
 
-  // OC no generada aún — botón para generarla
+  // OC no generada aún — selector de plataforma + botón para generarla
   return (
-    <div className="bg-blue-50 border border-brand-blue/20 rounded-xl p-5">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-brand-blue text-lg">🖨️</span>
-          <div>
-            <p className="text-sm font-semibold text-brand-blue">Generar Orden de Compra</p>
-            <p className="text-xs text-brand-blue/60">
-              La cotización fue aprobada. Puedes generar el documento oficial.
-            </p>
-          </div>
+    <div className="bg-blue-50 border border-brand-blue/20 rounded-xl p-5 space-y-4">
+      <div className="flex items-center gap-2">
+        <span className="text-brand-blue text-lg">🖨️</span>
+        <div>
+          <p className="text-sm font-semibold text-brand-blue">Generar Orden de Compra</p>
+          <p className="text-xs text-brand-blue/60">
+            La cotización fue aprobada. Selecciona la plataforma y genera el documento oficial.
+          </p>
         </div>
+      </div>
+      <div className="space-y-1">
+        <label className="block text-xs font-medium text-brand-blue/70">Plataforma</label>
+        <select
+          value={plataforma}
+          onChange={(e) => {
+            setPlataforma(e.target.value)
+            onPlataformaChange(e.target.value)
+          }}
+          className="w-full rounded-lg border border-brand-blue/30 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+        >
+          <option value="">— Sin asignar —</option>
+          <option value="logimat">LOGIMAT S.A.S.</option>
+          <option value="imc cargo">IMC Cargo International S.A.S.</option>
+          <option value="imc depósito">IMC Depósito S.A.S.</option>
+        </select>
+      </div>
+      <div className="flex justify-end">
         <button
           onClick={onGenerar}
-          disabled={isGenerating}
+          disabled={isGenerating || !plataforma}
           className="rounded-lg bg-brand-blue px-4 py-2 text-sm font-medium text-white hover:bg-brand-blue/90 disabled:opacity-50 transition-colors"
         >
           {isGenerating ? "Generando..." : "Generar OC"}
@@ -880,18 +903,6 @@ function PanelGestion({
     <Section title="Gestión de Compras">
       <div className="space-y-3">
         <div className="grid grid-cols-1 gap-3">
-          <Field label="Plataforma">
-            <select
-              value={form.plataforma}
-              onChange={(e) => set("plataforma", e.target.value)}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30 bg-white"
-            >
-              <option value="">— Sin asignar —</option>
-              <option value="logimat">LOGIMAT S.A.S.</option>
-              <option value="imc cargo">IMC Cargo International S.A.S.</option>
-              <option value="imc depósito">IMC Depósito S.A.S.</option>
-            </select>
-          </Field>
           <Field label="N° Remisión">
             <input
               type="text"

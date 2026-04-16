@@ -135,6 +135,9 @@ export interface CotizacionCreatePayload {
   fecha_vigencia?: string
   forma_pago?: string
   plazo_entrega?: string
+  garantia?: string
+  anticipo?: string
+  pago_saldo?: string
   observaciones?: string
 }
 
@@ -146,6 +149,9 @@ export interface ExtraccionResult {
   valor_total: number | null
   forma_pago: string | null
   plazo_entrega: string | null
+  garantia: string | null
+  anticipo: string | null
+  pago_saldo: string | null
   nombre_archivo: string
   campos_encontrados: number
 }

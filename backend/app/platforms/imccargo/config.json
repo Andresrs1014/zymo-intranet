@@ -7,6 +7,9 @@
   "email_facturacion": "830513769@factureinbox.co",
   "prefijo_oc": "C",
   "logo": "imccargo_logo.jpeg",
+  "logo_anchor": "C3",
+  "logo_width": 150,
+  "logo_height": 55,
   "template": "template.xlsx",
   "print_area": "A1:J45",
   "celdas_dinamicas": {

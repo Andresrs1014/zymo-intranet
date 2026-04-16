@@ -32,6 +32,9 @@ class CotizacionCreate(BaseModel):
     fecha_vigencia: Optional[date] = None
     forma_pago: Optional[str] = None
     plazo_entrega: Optional[str] = None
+    garantia: Optional[str] = None
+    anticipo: Optional[str] = None
+    pago_saldo: Optional[str] = None
     observaciones: Optional[str] = None
 
 
@@ -49,6 +52,9 @@ class CotizacionRead(BaseModel):
     fecha_vigencia: Optional[date]
     forma_pago: Optional[str]
     plazo_entrega: Optional[str]
+    garantia: Optional[str]
+    anticipo: Optional[str]
+    pago_saldo: Optional[str]
     observaciones: Optional[str]
     pdf_path: Optional[str]
     extraccion_automatica: bool
@@ -79,6 +85,9 @@ class ExtraccionResult(BaseModel):
     valor_total: Optional[float] = None
     forma_pago: Optional[str] = None
     plazo_entrega: Optional[str] = None
+    garantia: Optional[str] = None
+    anticipo: Optional[str] = None
+    pago_saldo: Optional[str] = None
     nombre_archivo: str = ""
     campos_encontrados: int = 0
 
@@ -116,6 +125,80 @@ def _extraer_texto(contenido: bytes, ext: str) -> str:
     return ""
 
 
+def _extraer_campos_estructurado(contenido: bytes, ext: str) -> dict[str, str]:
+    """Extrae pares etiqueta→valor de documentos estructurados (Excel, Word).
+
+    Usa field_synonyms para normalizar los encabezados a nombres canónicos.
+    Retorna un dict {campo_canonico: valor_str} con los campos reconocidos.
+    """
+    from app.services.field_synonyms import resolve_field, fuzzy_resolve
+
+    resultado: dict[str, str] = {}
+
+    if ext in ("xlsx", "xls"):
+        try:
+            import openpyxl
+            wb = openpyxl.load_workbook(io.BytesIO(contenido), data_only=True)
+            for ws in wb.worksheets:
+                for row in ws.iter_rows(values_only=True):
+                    cells = [c for c in row if c is not None]
+                    if len(cells) < 2:
+                        continue
+                    label = str(cells[0]).strip()
+                    value = str(cells[1]).strip()
+                    if not label or not value or value.lower() == "none":
+                        continue
+                    canonical = resolve_field(label)
+                    if not canonical:
+                        canonical, _ = fuzzy_resolve(label)
+                    if canonical and canonical not in resultado:
+                        resultado[canonical] = value
+        except Exception:
+            pass
+
+    elif ext == "docx":
+        try:
+            from docx import Document
+            doc = Document(io.BytesIO(contenido))
+            # Tablas: primera columna = etiqueta, segunda columna = valor
+            for table in doc.tables:
+                for row in table.rows:
+                    raw_cells = [c.text.strip() for c in row.cells]
+                    # Deduplicar celdas combinadas (python-docx las repite)
+                    deduped: list[str] = []
+                    for c in raw_cells:
+                        if not deduped or c != deduped[-1]:
+                            deduped.append(c)
+                    cells = [c for c in deduped if c]
+                    if len(cells) < 2:
+                        continue
+                    label, value = cells[0], cells[1]
+                    canonical = resolve_field(label)
+                    if not canonical:
+                        canonical, _ = fuzzy_resolve(label)
+                    if canonical and canonical not in resultado:
+                        resultado[canonical] = value
+            # Párrafos con formato "Etiqueta: valor"
+            for para in doc.paragraphs:
+                text = para.text.strip()
+                if ":" not in text:
+                    continue
+                label, _, value = text.partition(":")
+                label = label.strip()
+                value = value.strip()
+                if not value:
+                    continue
+                canonical = resolve_field(label)
+                if not canonical:
+                    canonical, _ = fuzzy_resolve(label)
+                if canonical and canonical not in resultado:
+                    resultado[canonical] = value
+        except Exception:
+            pass
+
+    return resultado
+
+
 def _to_float(raw: str) -> Optional[float]:
     try:
         cleaned = raw.replace("$", "").replace(" ", "").strip()
@@ -134,7 +217,14 @@ def _to_float(raw: str) -> Optional[float]:
         return None
 
 
-def _parsear_campos(texto: str) -> ExtraccionResult:
+def _parsear_campos(texto: str, extra: Optional[dict[str, str]] = None) -> ExtraccionResult:
+    """Extrae campos de texto libre con regex.
+
+    extra: dict de campos pre-resueltos vía extracción estructurada (Excel/Word).
+    Se usan como complemento cuando el regex no encuentra el campo en el texto.
+    """
+    _extra = extra or {}
+
     def find_money(patterns: list[str]) -> Optional[float]:
         for pat in patterns:
             m = re.search(pat, texto, re.IGNORECASE | re.MULTILINE)
@@ -153,51 +243,77 @@ def _parsear_campos(texto: str) -> ExtraccionResult:
                     return found[:200]
         return None
 
+    def money_or_extra(field: str, patterns: list[str]) -> Optional[float]:
+        return find_money(patterns) or _to_float(_extra.get(field, ""))
+
+    def text_or_extra(field: str, patterns: list[str]) -> Optional[str]:
+        return find_text(patterns) or (_extra.get(field) or None)
+
     nit = find_text([
         r"N\.?I\.?T\.?[:\s#]*(\d[\d.\-]+[-]\d)",
         r"NIT[:\s#]*(\d{3}[.\s]?\d{3}[.\s]?\d{3}[-]?\d)",
-    ])
+    ]) or (_extra.get("proveedor_nit") or None)
 
-    total = find_money([
+    total = money_or_extra("valor_total", [
         r"TOTAL\s+A\s+PAGAR[:\s]*\$?\s*([\d.,]+)",
         r"VALOR\s+TOTAL[:\s]*\$?\s*([\d.,]+)",
         r"GRAN\s+TOTAL[:\s]*\$?\s*([\d.,]+)",
         r"\bTOTAL\b[:\s]*\$?\s*([\d.,]+)",
     ])
 
-    subtotal = find_money([
+    subtotal = money_or_extra("valor_antes_iva", [
         r"SUBTOTAL[:\s]*\$?\s*([\d.,]+)",
         r"SUB\s+TOTAL[:\s]*\$?\s*([\d.,]+)",
         r"VALOR\s+ANTES\s+DE\s+IVA[:\s]*\$?\s*([\d.,]+)",
         r"BASE\s+(?:IVA|GRAVABLE)[:\s]*\$?\s*([\d.,]+)",
     ])
 
-    iva = find_money([
+    iva = money_or_extra("valor_iva", [
         r"IVA\s+19%?[:\s]*\$?\s*([\d.,]+)",
         r"IVA\s+\d+%[:\s]*\$?\s*([\d.,]+)",
         r"\bIVA\b[:\s]*\$?\s*([\d.,]+)",
     ])
 
-    unitario = find_money([
+    unitario = money_or_extra("valor_unitario", [
         r"VALOR\s+UNITARIO[:\s]*\$?\s*([\d.,]+)",
         r"V\.?\s*UNITARIO[:\s]*\$?\s*([\d.,]+)",
         r"PRECIO\s+UNITARIO[:\s]*\$?\s*([\d.,]+)",
         r"P\.?\s*UNITARIO[:\s]*\$?\s*([\d.,]+)",
     ])
 
-    forma_pago = find_text([
+    forma_pago = text_or_extra("forma_pago", [
         r"FORMA\s+DE\s+PAGO[:\s]+(.{4,100}?)(?:\n|$)",
         r"CONDICI[OÓ]N(?:ES)?\s+DE\s+PAGO[:\s]+(.{4,100}?)(?:\n|$)",
         r"MODALIDAD\s+DE\s+PAGO[:\s]+(.{4,100}?)(?:\n|$)",
     ])
 
-    plazo = find_text([
+    plazo = text_or_extra("plazo_entrega", [
         r"PLAZO\s+DE\s+ENTREGA[:\s]+(.{3,100}?)(?:\n|$)",
         r"TIEMPO\s+DE\s+ENTREGA[:\s]+(.{3,100}?)(?:\n|$)",
         r"FECHA\s+(?:DE\s+)?ENTREGA[:\s]+(.{3,100}?)(?:\n|$)",
     ])
 
-    campos = sum(1 for v in [nit, total, subtotal, iva, unitario, forma_pago, plazo] if v is not None)
+    garantia = text_or_extra("garantia", [
+        r"GARANT[IÍ]A[:\s]+(.{3,200}?)(?:\n|$)",
+        r"WARRANTY[:\s]+(.{3,200}?)(?:\n|$)",
+    ])
+
+    anticipo = text_or_extra("anticipo", [
+        r"ANTICIPO[:\s]+(.{3,100}?)(?:\n|$)",
+        r"PAGO\s+ANTICIPADO[:\s]+(.{3,100}?)(?:\n|$)",
+        r"ABONO\s+INICIAL[:\s]+(.{3,100}?)(?:\n|$)",
+    ])
+
+    pago_saldo = text_or_extra("pago_saldo", [
+        r"PAGO\s+(?:DEL\s+)?SALDO[:\s]+(.{3,100}?)(?:\n|$)",
+        r"SALDO\s+A\s+PAGAR[:\s]+(.{3,100}?)(?:\n|$)",
+        r"CONTRA\s+ENTREGA[:\s]+(.{3,100}?)(?:\n|$)",
+    ])
+
+    campos = sum(
+        1 for v in [nit, total, subtotal, iva, unitario, forma_pago, plazo, garantia, anticipo, pago_saldo]
+        if v is not None
+    )
 
     return ExtraccionResult(
         proveedor_nit=nit,
@@ -207,6 +323,9 @@ def _parsear_campos(texto: str) -> ExtraccionResult:
         valor_total=total,
         forma_pago=forma_pago,
         plazo_entrega=plazo,
+        garantia=garantia,
+        anticipo=anticipo,
+        pago_saldo=pago_saldo,
         campos_encontrados=campos,
     )
 
@@ -238,8 +357,11 @@ async def extraer_cotizacion(
         )
 
     contenido = await file.read()
+    extra: dict[str, str] = {}
+    if ext in ("xlsx", "xls", "docx"):
+        extra = _extraer_campos_estructurado(contenido, ext)
     texto = _extraer_texto(contenido, ext)
-    resultado = _parsear_campos(texto)
+    resultado = _parsear_campos(texto, extra)
     resultado.nombre_archivo = nombre
     return resultado
 
@@ -280,6 +402,9 @@ def crear_cotizacion(
         fecha_vigencia=payload.fecha_vigencia,
         forma_pago=payload.forma_pago,
         plazo_entrega=payload.plazo_entrega,
+        garantia=payload.garantia,
+        anticipo=payload.anticipo,
+        pago_saldo=payload.pago_saldo,
         observaciones=payload.observaciones,
         extraccion_automatica=False,
         created_at=datetime.now(timezone.utc),

@@ -139,11 +139,15 @@ def _generar_xlsx(
         logo_path = _PLATFORMS_DIR / slug / logo_filename
         if logo_path.exists():
             from openpyxl.drawing.image import Image as XLImage
-            ws["C3"] = None  # Limpiar fórmula #VALUE! rota
+            # Eliminar logos embebidos en la plantilla para evitar duplicados
+            ws._images = []
+            anchor = empresa.get("logo_anchor", "C3")
+            width = empresa.get("logo_width", 150)
+            height = empresa.get("logo_height", 55)
             img = XLImage(str(logo_path))
-            img.width = 150
-            img.height = 55
-            img.anchor = "C3"
+            img.width = width
+            img.height = height
+            img.anchor = anchor
             ws.add_image(img)
 
     fecha_str = datetime.now(ZoneInfo("America/Bogota")).strftime("%d/%m/%Y")
@@ -199,6 +203,14 @@ def _generar_xlsx(
     # Plazo de entrega: detectar tipo y marcar celda correspondiente
     if cotizacion.plazo_entrega:
         _escribir_plazo_entrega(ws, cfg, cotizacion.plazo_entrega)
+
+    # ── Condiciones adicionales ───────────────────────────────────────────────
+    if cfg.get("garantia") and cotizacion.garantia:
+        ws[cfg["garantia"]] = cotizacion.garantia
+    if cfg.get("anticipo") and cotizacion.anticipo:
+        ws[cfg["anticipo"]] = cotizacion.anticipo
+    if cfg.get("pago_saldo") and cotizacion.pago_saldo:
+        ws[cfg["pago_saldo"]] = cotizacion.pago_saldo
 
     # ── Ítems ─────────────────────────────────────────────────────────────────
     fila_inicio = items_cfg.get("fila_inicio", 11)

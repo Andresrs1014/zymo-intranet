@@ -9,7 +9,7 @@ import type { EstadoOC, SolicitudOC } from "@/types/oc"
 const ESTADOS: { value: string; label: string }[] = [
   { value: "", label: "Todos los estados" },
   { value: "nueva", label: "Nueva" },
-  { value: "en_cotizacion", label: "En cotización" },
+  { value: "en_cotizacion", label: "Cotización lista" },
   { value: "pendiente_aprobacion", label: "Pendiente aprobación" },
   { value: "aprobada", label: "Aprobada" },
   { value: "rechazada", label: "Rechazada" },
@@ -165,7 +165,7 @@ function SolicitudRow({
 export function EstadoBadge({ estado }: { estado: EstadoOC | string }) {
   const config: Record<string, { label: string; className: string }> = {
     nueva:                 { label: "Nueva",               className: "bg-blue-100 text-blue-700" },
-    en_cotizacion:         { label: "En cotización",       className: "bg-yellow-100 text-yellow-700" },
+    en_cotizacion:         { label: "Cotización lista",       className: "bg-yellow-100 text-yellow-700" },
     pendiente_aprobacion:  { label: "Pend. aprobación",    className: "bg-orange-100 text-orange-700" },
     aprobada:              { label: "Aprobada",            className: "bg-green-100 text-green-700" },
     rechazada:             { label: "Rechazada",           className: "bg-red-100 text-red-700" },

@@ -7,6 +7,9 @@
   "email_facturacion": "900907185@factureinbox.co",
   "prefijo_oc": "D",
   "logo": "imcdep_logo.jpeg",
+  "logo_anchor": "C3",
+  "logo_width": 150,
+  "logo_height": 55,
   "template": "template.xlsx",
   "print_area": "A1:J43",
   "celdas_dinamicas": {
