@@ -38,6 +38,8 @@ class KPIResponse(BaseModel):
     por_prioridad: list[ConteoItem]
     por_area: list[ConteoItem]
     valor_total_aprobado: float
+    valor_total_sin_iva: float
+    valor_iva_acumulado: float
     total_ordenes_generadas: int
     top_proveedores: list[ConteoItem]
     tiempo_promedio_cotizacion_dias: float
@@ -89,11 +91,23 @@ def get_kpis(
     ).all()
     por_area = [ConteoItem(label=r[0], count=r[1]) for r in area_rows]
 
-    # 6. Valor total aprobado
+    # 6. Valores monetarios aprobados
     valor_total_aprobado = oc_db.exec(
         select(func.sum(CotizacionProveedor.valor_aprobado))
         .where(CotizacionProveedor.aprobada == True)  # noqa: E712
     ).one() or 0.0
+
+    # Suma de valor_antes_iva donde existe; si no existe, se usa valor_aprobado (sin IVA desconocido)
+    cotizaciones_aprobadas = oc_db.exec(
+        select(CotizacionProveedor).where(CotizacionProveedor.aprobada == True)  # noqa: E712
+    ).all()
+    valor_total_sin_iva = 0.0
+    valor_iva_acumulado = 0.0
+    for cot in cotizaciones_aprobadas:
+        base = cot.valor_antes_iva if cot.valor_antes_iva is not None else (cot.valor_aprobado or 0.0)
+        iva = cot.valor_iva if cot.valor_iva is not None else 0.0
+        valor_total_sin_iva += base
+        valor_iva_acumulado += iva
 
     # 7. Número de OCs generadas
     total_ordenes_generadas = oc_db.exec(
@@ -151,6 +165,8 @@ def get_kpis(
         por_prioridad=por_prioridad,
         por_area=por_area,
         valor_total_aprobado=float(valor_total_aprobado),
+        valor_total_sin_iva=round(valor_total_sin_iva, 2),
+        valor_iva_acumulado=round(valor_iva_acumulado, 2),
         total_ordenes_generadas=total_ordenes_generadas,
         top_proveedores=top_proveedores,
         tiempo_promedio_cotizacion_dias=round(tiempo_promedio_cotizacion_dias, 2),

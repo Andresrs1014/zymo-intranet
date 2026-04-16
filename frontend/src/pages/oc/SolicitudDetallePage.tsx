@@ -16,6 +16,7 @@ import {
   useCambiarPrioridad,
   useUsuario,
   useMarcarEnviada,
+  useMarcarEnPlataforma,
   useMarcarEntregada,
   useCerrarSolicitud,
   type GestionPayload,
@@ -40,6 +41,7 @@ export function SolicitudDetallePage() {
   const generarOC = useGenerarOC()
   const actualizarGestion = useActualizarGestion()
   const marcarEnviada = useMarcarEnviada()
+  const marcarEnPlataforma = useMarcarEnPlataforma()
   const marcarEntregada = useMarcarEntregada()
   const cerrarSolicitud = useCerrarSolicitud()
   const cambiarPrioridad = useCambiarPrioridad()
@@ -189,6 +191,7 @@ export function SolicitudDetallePage() {
               {/* Panel Orden de Compra — visible desde aprobada en adelante */}
               {(solicitud.estado === "aprobada" ||
                 solicitud.estado === "oc_enviada" ||
+                solicitud.estado === "oc_en_plataforma" ||
                 solicitud.estado === "entregada" ||
                 solicitud.estado === "cerrada") && (
                 <PanelOrdenCompra
@@ -200,12 +203,14 @@ export function SolicitudDetallePage() {
                   emailProveedorInicial={cotizacionAprobada?.proveedor_email ?? orden?.email_proveedor ?? ""}
                   isGenerating={generarOC.isPending}
                   isMarkingEnviada={marcarEnviada.isPending}
+                  isMarkingEnPlataforma={marcarEnPlataforma.isPending}
                   isMarkingEntregada={marcarEntregada.isPending}
                   isClosing={cerrarSolicitud.isPending}
                   onGenerar={handleGenerarOC}
                   onDescargar={handleDescargar}
                   onPlataformaChange={(p) => actualizarGestion.mutate({ id: solicitud.id, payload: { plataforma: p } })}
                   onMarcarEnviada={(email) => marcarEnviada.mutate({ id: solicitud.id, email_proveedor: email })}
+                  onMarcarEnPlataforma={() => marcarEnPlataforma.mutate(solicitud.id)}
                   onMarcarEntregada={() => marcarEntregada.mutate(solicitud.id)}
                   onCerrar={() => cerrarSolicitud.mutate(solicitud.id)}
                 />
@@ -318,7 +323,12 @@ export function SolicitudDetallePage() {
                     done={!!solicitud.fecha_envio_oc}
                   />
                   <TimelineItem
-                    label="Entregada"
+                    label="En plataforma"
+                    date={solicitud.fecha_en_plataforma}
+                    done={!!solicitud.fecha_en_plataforma}
+                  />
+                  <TimelineItem
+                    label="Recibido por líder"
                     date={solicitud.fecha_recibido}
                     done={!!solicitud.fecha_recibido}
                   />
@@ -356,8 +366,8 @@ export function SolicitudDetallePage() {
                 </Section>
               )}
 
-              {/* Panel gestión de compras */}
-              {(esAuxiliarAsignado || puedeGenerarOC) && (
+              {/* Panel gestión de compras — PENDIENTE: se moverá a vista de Gestión Financiera (contabilidad) */}
+              {false && (esAuxiliarAsignado || puedeGenerarOC) && (
                 <PanelGestion
                   solicitud={solicitud}
                   isLoading={actualizarGestion.isPending}
@@ -439,6 +449,22 @@ function PanelAprobacion({
             {formatCurrency(cotizacion.valor_total)}
           </p>
         </div>
+        {cotizacion.valor_antes_iva != null && (
+          <div>
+            <p className="text-xs text-gray-400">Subtotal (sin IVA)</p>
+            <p className="text-sm font-medium text-gray-800">
+              {formatCurrency(cotizacion.valor_antes_iva)}
+            </p>
+          </div>
+        )}
+        {cotizacion.valor_iva != null && (
+          <div>
+            <p className="text-xs text-gray-400">IVA</p>
+            <p className="text-sm font-medium text-orange-700">
+              {formatCurrency(cotizacion.valor_iva)}
+            </p>
+          </div>
+        )}
         {cotizacion.fecha_vigencia && (
           <div className="col-span-2">
             <p className="text-xs text-gray-400">Vigencia</p>
@@ -529,6 +555,18 @@ function PanelAprobacion({
         </div>
       )}
 
+      {/* Aviso POR IMPLEMENTAR: aprobación por gerencia */}
+      {cotizacion.valor_total > 2_500_000 && (
+        <div className="mb-3 rounded-lg bg-yellow-50 border border-yellow-200 px-4 py-2.5 flex items-start gap-2">
+          <span className="text-yellow-500 shrink-0 mt-0.5">⚠️</span>
+          <p className="text-xs text-yellow-800">
+            <span className="font-semibold">POR IMPLEMENTAR —</span> Compras mayores a $2.500.000
+            requerirán aprobación de Gerencia con notificación por correo. Por ahora el flujo de
+            aprobación sigue siendo del Directivo.
+          </p>
+        </div>
+      )}
+
       {/* Botones principales */}
       {modo === "idle" && (
         <div className="flex gap-2">
@@ -567,6 +605,7 @@ function PanelOrdenCompra({
   onDescargar,
   onPlataformaChange,
   onMarcarEnviada,
+  onMarcarEnPlataforma,
   onMarcarEntregada,
   onCerrar,
 }: {
@@ -578,12 +617,14 @@ function PanelOrdenCompra({
   emailProveedorInicial: string
   isGenerating: boolean
   isMarkingEnviada: boolean
+  isMarkingEnPlataforma: boolean
   isMarkingEntregada: boolean
   isClosing: boolean
   onGenerar: () => void
   onDescargar: () => void
   onPlataformaChange: (plataforma: string) => void
   onMarcarEnviada: (email: string) => void
+  onMarcarEnPlataforma: () => void
   onMarcarEntregada: () => void
   onCerrar: () => void
 }) {
@@ -654,7 +695,7 @@ function PanelOrdenCompra({
     )
   }
 
-  // Estado oc_enviada — botón para marcar entregada
+  // Estado oc_enviada — auxiliar confirma que ingresó el pedido en la plataforma
   if (estado === "oc_enviada") {
     return (
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 space-y-3">
@@ -676,11 +717,46 @@ function PanelOrdenCompra({
               </button>
             )}
             <button
+              onClick={onMarcarEnPlataforma}
+              disabled={isMarkingEnPlataforma}
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+            >
+              {isMarkingEnPlataforma ? "Guardando..." : "El pedido ya está en la plataforma"}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Estado oc_en_plataforma — líder confirma que recibió físicamente el pedido
+  if (estado === "oc_en_plataforma") {
+    return (
+      <div className="bg-violet-50 border border-violet-200 rounded-xl p-5 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-violet-600 text-lg">🏭</span>
+            <div>
+              <p className="text-sm font-semibold text-violet-800">Pedido en plataforma</p>
+              {orden && <p className="text-xs text-violet-600 font-mono">{orden.numero_oc}</p>}
+              <p className="text-xs text-violet-500 mt-0.5">Esperando confirmación del líder</p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            {orden && (
+              <button
+                onClick={onDescargar}
+                className="rounded-lg border border-violet-300 px-3 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-100 transition-colors"
+              >
+                ↓ Descargar OC
+              </button>
+            )}
+            <button
               onClick={onMarcarEntregada}
               disabled={isMarkingEntregada}
               className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-50 transition-colors"
             >
-              {isMarkingEntregada ? "Guardando..." : "Marcar como entregada"}
+              {isMarkingEntregada ? "Guardando..." : "Confirmar recepción"}
             </button>
           </div>
         </div>

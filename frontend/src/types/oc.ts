@@ -5,6 +5,7 @@ export type EstadoOC =
   | "aprobada"
   | "rechazada"
   | "oc_enviada"
+  | "oc_en_plataforma"
   | "entregada"
   | "cerrada"
 
@@ -42,6 +43,7 @@ export interface SolicitudOC {
   fecha_cotizacion: string | null
   fecha_aprobacion: string | null
   fecha_envio_oc: string | null
+  fecha_en_plataforma: string | null
   fecha_recibido: string | null
   created_at: string
   updated_at: string
@@ -54,6 +56,8 @@ export interface CotizacionProveedor {
   proveedor_email: string | null
   numero_cotizacion_proveedor: string | null
   valor_unitario: number
+  valor_antes_iva: number | null
+  valor_iva: number | null
   valor_total: number
   fecha_vigencia: string | null
   observaciones: string | null
@@ -101,6 +105,8 @@ export interface KPIData {
   por_prioridad: ConteoItem[]
   por_area: ConteoItem[]
   valor_total_aprobado: number
+  valor_total_sin_iva: number
+  valor_iva_acumulado: number
   total_ordenes_generadas: number
   top_proveedores: ConteoItem[]
   tiempo_promedio_cotizacion_dias: number

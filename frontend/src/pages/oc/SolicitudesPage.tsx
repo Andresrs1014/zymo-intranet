@@ -14,6 +14,7 @@ const ESTADOS: { value: string; label: string }[] = [
   { value: "aprobada", label: "Aprobada" },
   { value: "rechazada", label: "Rechazada" },
   { value: "oc_enviada", label: "OC Enviada" },
+  { value: "oc_en_plataforma", label: "En plataforma" },
   { value: "entregada", label: "Entregada" },
   { value: "cerrada", label: "Cerrada" },
 ]
@@ -170,6 +171,7 @@ export function EstadoBadge({ estado }: { estado: EstadoOC | string }) {
     aprobada:              { label: "Aprobada",            className: "bg-green-100 text-green-700" },
     rechazada:             { label: "Rechazada",           className: "bg-red-100 text-red-700" },
     oc_enviada:            { label: "OC Enviada",          className: "bg-indigo-100 text-indigo-700" },
+    oc_en_plataforma:      { label: "En plataforma",       className: "bg-violet-100 text-violet-700" },
     entregada:             { label: "Entregada",           className: "bg-teal-100 text-teal-700" },
     cerrada:               { label: "Cerrada",             className: "bg-gray-100 text-gray-500" },
   }

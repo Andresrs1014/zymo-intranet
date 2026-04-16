@@ -295,6 +295,20 @@ export function useMarcarEnviada() {
   })
 }
 
+export function useMarcarEnPlataforma() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (solicitudId: string) => {
+      const { data } = await api.post(`/api/oc/solicitudes/${solicitudId}/marcar-en-plataforma`, {})
+      return data
+    },
+    onSuccess: (_, solicitudId) => {
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes", solicitudId] })
+    },
+  })
+}
+
 export function useMarcarEntregada() {
   const qc = useQueryClient()
   return useMutation({

@@ -13,6 +13,7 @@ class EstadoOC(str, Enum):
     aprobada = "aprobada"
     rechazada = "rechazada"
     oc_enviada = "oc_enviada"
+    oc_en_plataforma = "oc_en_plataforma"
     entregada = "entregada"
     cerrada = "cerrada"
 
@@ -64,6 +65,7 @@ class SolicitudOC(SQLModel, table=True):
     fecha_cotizacion: Optional[datetime] = Field(default=None)
     fecha_aprobacion: Optional[datetime] = Field(default=None)
     fecha_envio_oc: Optional[datetime] = Field(default=None)
+    fecha_en_plataforma: Optional[datetime] = Field(default=None)
     fecha_recibido: Optional[datetime] = Field(default=None)
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

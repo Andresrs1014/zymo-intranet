@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
 import { useKPIs } from "@/hooks/useOC"
@@ -20,6 +21,7 @@ function estadoLabel(estado: string): string {
     aprobada: "Aprobada",
     rechazada: "Rechazada",
     oc_enviada: "OC Enviada",
+    oc_en_plataforma: "En plataforma",
     entregada: "Entregada",
     cerrada: "Cerrada",
   }
@@ -34,6 +36,7 @@ function estadoBarColor(estado: string): string {
     aprobada: "bg-green-500",
     rechazada: "bg-red-400",
     oc_enviada: "bg-indigo-400",
+    oc_en_plataforma: "bg-violet-400",
     entregada: "bg-teal-400",
     cerrada: "bg-gray-300",
   }
@@ -124,6 +127,7 @@ function EstadoBadgeMini({ estado }: { estado: string }) {
     aprobada: { label: "Aprobada", className: "bg-green-100 text-green-700" },
     rechazada: { label: "Rechazada", className: "bg-red-100 text-red-700" },
     oc_enviada: { label: "OC Enviada", className: "bg-indigo-100 text-indigo-700" },
+    oc_en_plataforma: { label: "En plataforma", className: "bg-violet-100 text-violet-700" },
     entregada: { label: "Entregada", className: "bg-teal-100 text-teal-700" },
     cerrada: { label: "Cerrada", className: "bg-gray-100 text-gray-500" },
   }
@@ -139,9 +143,14 @@ function EstadoBadgeMini({ estado }: { estado: string }) {
 
 export function KPIPage() {
   const { data: kpis, isLoading, isError, isRefetching } = useKPIs()
+  const [mostrarConIva, setMostrarConIva] = useState(false)
 
   const pendientesAprobacion =
     kpis?.por_estado.find((e) => e.label === "pendiente_aprobacion")?.count ?? 0
+
+  const valorMostrado = mostrarConIva
+    ? (kpis?.valor_total_aprobado ?? 0)
+    : (kpis?.valor_total_sin_iva ?? 0)
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -218,13 +227,36 @@ export function KPIPage() {
                   value={kpis.total_ordenes_generadas}
                   accent="text-green-600"
                 />
-                <StatCard
-                  label="Valor Total Aprobado"
-                  icon="💰"
-                  value={formatCOP(kpis.valor_total_aprobado)}
-                  sub={`Prom. cotización: ${kpis.tiempo_promedio_cotizacion_dias.toFixed(1)} días`}
-                  accent="text-[#003087]"
-                />
+                <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm text-gray-500">
+                      {mostrarConIva ? "Valor Total (con IVA)" : "Valor Total (sin IVA)"}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">💰</span>
+                      <button
+                        onClick={() => setMostrarConIva((v) => !v)}
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium transition-colors ${
+                          mostrarConIva
+                            ? "bg-orange-100 text-orange-700 hover:bg-orange-200"
+                            : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                        }`}
+                        title={mostrarConIva ? "Mostrando con IVA — clic para ver sin IVA" : "Mostrando sin IVA — clic para incluir IVA"}
+                      >
+                        {mostrarConIva ? "Con IVA" : "Sin IVA"}
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-2xl font-bold text-[#003087]">{formatCOP(valorMostrado)}</p>
+                  {!mostrarConIva && kpis.valor_iva_acumulado > 0 && (
+                    <p className="text-xs text-orange-500 mt-1">
+                      + {formatCOP(kpis.valor_iva_acumulado)} IVA
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-400 mt-1">
+                    Prom. cotización: {kpis.tiempo_promedio_cotizacion_dias.toFixed(1)} días
+                  </p>
+                </div>
               </div>
 
               {/* Fila 2 — Por Estado + Top Proveedores */}

@@ -465,6 +465,37 @@ async def marcar_oc_enviada(
 
 
 @router.post(
+    "/solicitudes/{solicitud_id}/marcar-en-plataforma",
+    response_model=None,
+    status_code=status.HTTP_200_OK,
+)
+def marcar_en_plataforma(
+    solicitud_id: uuid.UUID,
+    current_user: User = Depends(require_compras),
+    oc_db: Session = Depends(get_oc_db),
+):
+    """Auxiliar confirma que el pedido ya fue ingresado en la plataforma (ERP/sistema)."""
+    from app.models.oc import EstadoOC
+
+    solicitud = oc_db.get(SolicitudOC, solicitud_id)
+    if not solicitud:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
+    if solicitud.estado != EstadoOC.oc_enviada:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Solo se puede marcar en plataforma desde estado 'oc_enviada'. Estado actual: {solicitud.estado}",
+        )
+
+    solicitud.estado = EstadoOC.oc_en_plataforma
+    solicitud.fecha_en_plataforma = datetime.now(timezone.utc)
+    solicitud.updated_at = datetime.now(timezone.utc)
+    oc_db.add(solicitud)
+    oc_db.commit()
+
+    return {"ok": True}
+
+
+@router.post(
     "/solicitudes/{solicitud_id}/marcar-entregada",
     response_model=None,
     status_code=status.HTTP_200_OK,
@@ -474,15 +505,16 @@ def marcar_entregada(
     current_user: User = Depends(require_compras),
     oc_db: Session = Depends(get_oc_db),
 ):
+    """Líder confirma que físicamente recibió el pedido."""
     from app.models.oc import EstadoOC
 
     solicitud = oc_db.get(SolicitudOC, solicitud_id)
     if not solicitud:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
-    if solicitud.estado != EstadoOC.oc_enviada:
+    if solicitud.estado != EstadoOC.oc_en_plataforma:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Solo se puede marcar como entregada desde estado 'oc_enviada'. Estado actual: {solicitud.estado}",
+            detail=f"Solo se puede marcar como entregada desde estado 'oc_en_plataforma'. Estado actual: {solicitud.estado}",
         )
 
     solicitud.estado = EstadoOC.entregada
