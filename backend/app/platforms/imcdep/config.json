@@ -6,7 +6,7 @@
   "pbx": "(1) 7 44 92 01",
   "email_facturacion": "900907185@factureinbox.co",
   "prefijo_oc": "D",
-  "logo": "imcdep_logo.png",
+  "logo": "imcdep_logo.jpeg",
   "template": "template.xlsx",
   "print_area": "A1:J43",
   "celdas_dinamicas": {
@@ -16,10 +16,20 @@
     "proveedor_nit": "F7",
     "os_ref": "F9",
     "cot_ref": "H9",
-    "solicita": "C38",
+    "solicita": "E29",
+    "area_firma": "C37",
     "elabora": "F38",
     "aprueba": "G38",
-    "iva_manual": "H16"
+    "iva_manual": "H16",
+    "nota": "C13",
+    "forma_pago": "E20",
+    "forma_pago_x": "G20",
+    "anticipo": "E21",
+    "pago_saldo": "E22",
+    "plazo_inmediata_x": "G25",
+    "plazo_dias": "E26",
+    "plazo_fecha": "E27",
+    "garantia": "E28"
   },
   "items": {
     "fila_inicio": 11,

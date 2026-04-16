@@ -358,7 +358,7 @@ export function SolicitudDetallePage() {
               )}
 
               {/* Panel gestión de compras */}
-              {(esAuxiliarAsignado || user?.role === "admin") && (
+              {(esAuxiliarAsignado || puedeGenerarOC) && (
                 <PanelGestion
                   solicitud={solicitud}
                   isLoading={actualizarGestion.isPending}

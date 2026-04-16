@@ -86,6 +86,30 @@ def _load_platform_config(plataforma: Optional[str]) -> dict:
     }
 
 
+def _escribir_plazo_entrega(ws, cfg: dict, plazo_entrega: str) -> None:
+    """Detecta el tipo de plazo y escribe en la celda correspondiente del template."""
+    import re
+
+    valor = plazo_entrega.strip().upper()
+
+    # INMEDIATA / INMEDIATO
+    if "INMEDIATA" in valor or "INMEDIATO" in valor or valor in ("INMEDIATA", "INMEDIATO"):
+        if cfg.get("plazo_inmediata_x"):
+            ws[cfg["plazo_inmediata_x"]] = "X"
+        return
+
+    # Número de días — extraer primer entero del texto
+    numeros = re.findall(r"\d+", plazo_entrega)
+    if numeros:
+        if cfg.get("plazo_dias"):
+            ws[cfg["plazo_dias"]] = int(numeros[0])
+        return
+
+    # Si llega algo parecido a fecha, escribir en plazo_fecha
+    if cfg.get("plazo_fecha"):
+        ws[cfg["plazo_fecha"]] = plazo_entrega
+
+
 def _generar_xlsx(
     numero_oc: str,
     solicitud: SolicitudOC,
@@ -109,6 +133,19 @@ def _generar_xlsx(
     wb = openpyxl.load_workbook(str(template_path))
     ws = wb.active
 
+    # ── Logo de la empresa ─────────────────────────────────────────────────────
+    logo_filename = empresa.get("logo")
+    if logo_filename:
+        logo_path = _PLATFORMS_DIR / slug / logo_filename
+        if logo_path.exists():
+            from openpyxl.drawing.image import Image as XLImage
+            ws["C3"] = None  # Limpiar fórmula #VALUE! rota
+            img = XLImage(str(logo_path))
+            img.width = 150
+            img.height = 55
+            img.anchor = "C3"
+            ws.add_image(img)
+
     fecha_str = datetime.now(ZoneInfo("America/Bogota")).strftime("%d/%m/%Y")
     cfg = empresa.get("celdas_dinamicas", {})
     items_cfg = empresa.get("items", {})
@@ -128,12 +165,40 @@ def _generar_xlsx(
         ws[cfg["cot_ref"]] = cotizacion.numero_cotizacion_proveedor or ""
 
     # ── Firmas ─────────────────────────────────────────────────────────────────
+    # solicita apunta a ENTREGAR A (p.ej. E48 en Logimat). La celda SOLICITA del
+    # template tiene fórmula =ENTREGAR_A, por lo que se auto-rellena.
     if cfg.get("solicita"):
         ws[cfg["solicita"]] = solicitud.solicitante_nombre or ""
+    if cfg.get("area_firma"):
+        ws[cfg["area_firma"]] = solicitud.area_solicitante or ""
     if cfg.get("elabora"):
         ws[cfg["elabora"]] = auxiliar_nombre
     if cfg.get("aprueba"):
         ws[cfg["aprueba"]] = aprobador_nombre
+
+    # ── Campos operativos de la cotización ────────────────────────────────────
+    if cfg.get("nota"):
+        nota = cotizacion.observaciones or solicitud.observaciones_solicitante or ""
+        ws[cfg["nota"]] = nota
+
+    # Limpiar checkboxes de forma_pago que el template trae pre-marcados
+    for _cell_key in ("forma_pago_x",):
+        if cfg.get(_cell_key):
+            ws[cfg[_cell_key]] = None
+
+    if cfg.get("forma_pago") and cotizacion.forma_pago:
+        ws[cfg["forma_pago"]] = cotizacion.forma_pago
+        if cfg.get("forma_pago_x"):
+            ws[cfg["forma_pago_x"]] = "X"
+
+    # Limpiar todos los checkboxes de plazo (el template los trae pre-marcados)
+    for _cell_key in ("plazo_inmediata_x", "plazo_dias", "plazo_fecha"):
+        if cfg.get(_cell_key):
+            ws[cfg[_cell_key]] = None
+
+    # Plazo de entrega: detectar tipo y marcar celda correspondiente
+    if cotizacion.plazo_entrega:
+        _escribir_plazo_entrega(ws, cfg, cotizacion.plazo_entrega)
 
     # ── Ítems ─────────────────────────────────────────────────────────────────
     fila_inicio = items_cfg.get("fila_inicio", 11)

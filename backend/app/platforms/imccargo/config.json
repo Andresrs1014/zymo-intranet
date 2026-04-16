@@ -6,7 +6,7 @@
   "pbx": "(1) 7 44 92 01",
   "email_facturacion": "830513769@factureinbox.co",
   "prefijo_oc": "C",
-  "logo": "imccargo_logo.png",
+  "logo": "imccargo_logo.jpeg",
   "template": "template.xlsx",
   "print_area": "A1:J45",
   "celdas_dinamicas": {
@@ -16,9 +16,19 @@
     "proveedor_nit": "F7",
     "os_ref": "F9",
     "cot_ref": "H9",
-    "solicita": "C40",
+    "solicita": "E30",
+    "area_firma": "C39",
     "elabora": "F40",
-    "aprueba": "G40"
+    "aprueba": "G40",
+    "nota": "C14",
+    "forma_pago": "E21",
+    "forma_pago_x": "G21",
+    "anticipo": "E22",
+    "pago_saldo": "E23",
+    "plazo_inmediata_x": "G26",
+    "plazo_dias": "E27",
+    "plazo_fecha": "E28",
+    "garantia": "E29"
   },
   "items": {
     "fila_inicio": 11,

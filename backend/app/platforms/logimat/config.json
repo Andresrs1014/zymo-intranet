@@ -16,9 +16,19 @@
     "proveedor_nit": "F7",
     "os_ref": "F9",
     "cot_ref": "H9",
-    "solicita": "C60",
+    "solicita": "E48",
+    "area_firma": "C59",
     "elabora": "F60",
-    "aprueba": "G60"
+    "aprueba": "G60",
+    "nota": "C32",
+    "forma_pago": "E39",
+    "forma_pago_x": "G39",
+    "anticipo": "E40",
+    "pago_saldo": "E41",
+    "plazo_inmediata_x": "G44",
+    "plazo_dias": "E45",
+    "plazo_fecha": "E46",
+    "garantia": "E47"
   },
   "items": {
     "fila_inicio": 11,
