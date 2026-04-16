@@ -367,15 +367,6 @@ export function SolicitudDetallePage() {
               )}
 
               {/* Panel gestión de compras — PENDIENTE: se moverá a vista de Gestión Financiera (contabilidad) */}
-              {false && (esAuxiliarAsignado || puedeGenerarOC) && (
-                <PanelGestion
-                  solicitud={solicitud}
-                  isLoading={actualizarGestion.isPending}
-                  onGuardar={(payload) =>
-                    actualizarGestion.mutate({ id: solicitud.id, payload })
-                  }
-                />
-              )}
             </div>
           </div>
         </main>
@@ -599,6 +590,7 @@ function PanelOrdenCompra({
   emailProveedorInicial,
   isGenerating,
   isMarkingEnviada,
+  isMarkingEnPlataforma,
   isMarkingEntregada,
   isClosing,
   onGenerar,
