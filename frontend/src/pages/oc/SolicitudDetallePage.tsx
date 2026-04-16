@@ -21,6 +21,7 @@ import {
   type GestionPayload,
 } from "@/hooks/useOC"
 import { useAuthStore } from "@/store/authStore"
+import { canSeeOC } from "@/lib/permissions"
 import { EstadoBadge } from "./SolicitudesPage"
 import type { CotizacionProveedor, OrdenCompra } from "@/types/oc"
 
@@ -87,11 +88,7 @@ export function SolicitudDetallePage() {
     !solicitud.auxiliar_id &&
     (user?.role === "admin" || user?.role === "compras" || user?.area === "Compras")
   const esAprobador = user?.role === "admin" || user?.role === "directivo" || user?.role === "administrativo"
-  const puedeGenerarOC =
-    user?.role === "admin" ||
-    user?.role === "compras" ||
-    user?.role === "administrativo" ||
-    user?.area === "Compras"
+  const puedeGenerarOC = user ? canSeeOC(user.role, user.area) : false
   const cotizacionPendiente = cotizaciones.find((c) => c.aprobada === null)
   const cotizacionAprobada = cotizaciones.find((c) => c.aprobada === true)
 
