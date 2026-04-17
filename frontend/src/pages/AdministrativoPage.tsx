@@ -7,8 +7,9 @@ import { canApproveOC, canConfigureOC } from "@/lib/permissions"
 
 export function AdministrativoPage() {
   const user = useAuthStore((s) => s.user)
-  const canApprove = user ? canApproveOC(user.role) : false
-  const canConfigure = user ? canConfigureOC(user.role) : false
+  const perms = user?.app_permissions
+  const canApprove   = user ? canApproveOC(user.role, perms) : false
+  const canConfigure = user ? canConfigureOC(user.role, perms) : false
 
   const { data: pendientes = [] } = useSolicitudes(
     canApprove ? { estado: "pendiente_aprobacion" } : undefined,

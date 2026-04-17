@@ -8,6 +8,7 @@ export interface User {
   sede: string | null
   area: string | null
   is_active: boolean
+  app_permissions?: string[]
 }
 
 export interface TokenResponse {

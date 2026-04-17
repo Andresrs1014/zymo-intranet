@@ -44,28 +44,28 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 function OCRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user)
   if (!user) return <Navigate to="/login" replace />
-  if (!canSeeOC(user.role, user.area)) return <Navigate to="/dashboard" replace />
+  if (!canSeeOC(user.role, user.area, user.app_permissions)) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
 
 function SGCRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user)
   if (!user) return <Navigate to="/login" replace />
-  if (!canSeeSGC(user.role, user.area)) return <Navigate to="/dashboard" replace />
+  if (!canSeeSGC(user.role, user.area, user.app_permissions)) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
 
 function OperativoRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user)
   if (!user) return <Navigate to="/login" replace />
-  if (!canSeeOperativo(user.role, user.area)) return <Navigate to="/dashboard" replace />
+  if (!canSeeOperativo(user.role, user.area, user.app_permissions)) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
 
 function FinancieroRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user)
   if (!user) return <Navigate to="/login" replace />
-  if (!canSeeFinanciero(user.role, user.area)) return <Navigate to="/dashboard" replace />
+  if (!canSeeFinanciero(user.role, user.area, user.app_permissions)) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
 

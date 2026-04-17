@@ -4,10 +4,11 @@ import { canSeeOC, canSeeSGC, canSeeOperativo, canSeeFinanciero } from "@/lib/pe
 
 export function Sidebar() {
   const user = useAuthStore((s) => s.user)
-  const showAdministrativo = user ? canSeeOC(user.role, user.area) : false
-  const showSGC = user ? canSeeSGC(user.role, user.area) : false
-  const showOperativo = user ? canSeeOperativo(user.role, user.area) : false
-  const showFinanciero = user ? canSeeFinanciero(user.role, user.area) : false
+  const perms = user?.app_permissions
+  const showAdministrativo = user ? canSeeOC(user.role, user.area, perms) : false
+  const showSGC            = user ? canSeeSGC(user.role, user.area, perms) : false
+  const showOperativo      = user ? canSeeOperativo(user.role, user.area, perms) : false
+  const showFinanciero     = user ? canSeeFinanciero(user.role, user.area, perms) : false
 
   return (
     <aside className="flex h-full w-64 flex-col bg-brand-blue">

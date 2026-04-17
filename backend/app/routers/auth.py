@@ -8,6 +8,7 @@ from sqlmodel import Session, select
 
 from app.core.deps import get_current_user, get_db, require_admin
 from app.core.security import create_access_token, hash_password, verify_password
+from app.models.role import Role
 from app.models.user import User
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -28,6 +29,7 @@ class MeResponse(BaseModel):
     sede: str | None
     area: str | None
     is_active: bool
+    app_permissions: list[str] = []
 
 
 class UserListResponse(MeResponse):
@@ -60,7 +62,7 @@ class UpdateUserRequest(BaseModel):
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _to_me(u: User) -> MeResponse:
+def _to_me(u: User, app_permissions: list[str] | None = None) -> MeResponse:
     return MeResponse(
         id=cast(int, u.id),
         email=u.email,
@@ -69,6 +71,7 @@ def _to_me(u: User) -> MeResponse:
         sede=u.sede,
         area=u.area,
         is_active=u.is_active,
+        app_permissions=app_permissions or [],
     )
 
 
@@ -100,7 +103,6 @@ def login(
             detail="Credenciales incorrectas.",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    # Actualizar last_login_at
     user.last_login_at = datetime.now(timezone.utc)
     db.add(user)
     db.commit()
@@ -113,8 +115,10 @@ def login(
 
 
 @router.get("/me", response_model=MeResponse)
-def me(current_user: User = Depends(get_current_user)):
-    return _to_me(current_user)
+def me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    role = db.exec(select(Role).where(Role.name == current_user.role)).first()
+    perms = role.app_permissions if role else []
+    return _to_me(current_user, perms)
 
 
 @router.post("/register", response_model=MeResponse)
