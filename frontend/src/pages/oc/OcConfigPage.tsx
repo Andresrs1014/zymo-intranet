@@ -23,6 +23,12 @@ interface FormState {
   email_directora: string
 }
 
+interface TestEmailResult {
+  ok: boolean
+  mensaje: string
+  detalle?: string
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 async function fetchConfig(): Promise<OcConfigRead> {
@@ -50,6 +56,8 @@ export function OcConfigPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState<TestEmailResult | null>(null)
 
   useEffect(() => {
     fetchConfig()
@@ -71,6 +79,23 @@ export function OcConfigPage() {
   function handleChange(field: keyof FormState, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }))
     setSuccess(false)
+  }
+
+  async function handleTestEmail() {
+    setTesting(true)
+    setTestResult(null)
+    try {
+      const res = await api.post<TestEmailResult>("/api/oc/config/test-email", {})
+      setTestResult(res.data)
+    } catch {
+      setTestResult({
+        ok: false,
+        mensaje: "Error al contactar el servidor.",
+        detalle: "Revisa que el backend esté corriendo y vuelve a intentarlo.",
+      })
+    } finally {
+      setTesting(false)
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -205,7 +230,62 @@ export function OcConfigPage() {
                   />
                 </section>
 
-                {/* Feedback */}
+                {/* Test SMTP */}
+                <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                        Diagnóstico de correo
+                      </h2>
+                      <p className="text-xs text-gray-400 mt-1">
+                        Envía un correo de prueba al usuario SMTP configurado para verificar
+                        que las credenciales funcionan. El error exacto se mostrará aquí.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleTestEmail}
+                      disabled={testing}
+                      className="shrink-0 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 transition-colors flex items-center gap-2"
+                    >
+                      {testing ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                          </svg>
+                          Probando…
+                        </>
+                      ) : (
+                        <>
+                          <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M3.105 2.288a.75.75 0 0 0-.826.95l1.414 4.926A1.5 1.5 0 0 0 5.135 9.25h6.115a.75.75 0 0 1 0 1.5H5.135a1.5 1.5 0 0 0-1.442 1.086l-1.414 4.926a.75.75 0 0 0 .826.95 28.897 28.897 0 0 0 15.293-7.154.75.75 0 0 0 0-1.115A28.897 28.897 0 0 0 3.105 2.288Z"/>
+                          </svg>
+                          Enviar correo de prueba
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {testResult && (
+                    <div className={`rounded-lg border px-4 py-3 text-sm ${
+                      testResult.ok
+                        ? "bg-green-50 border-green-200 text-green-800"
+                        : "bg-red-50 border-red-200 text-red-800"
+                    }`}>
+                      <p className="font-semibold flex items-center gap-1.5">
+                        {testResult.ok ? "✅" : "❌"} {testResult.mensaje}
+                      </p>
+                      {testResult.detalle && (
+                        <pre className="mt-2 text-xs whitespace-pre-wrap font-mono leading-relaxed opacity-80">
+                          {testResult.detalle}
+                        </pre>
+                      )}
+                    </div>
+                  )}
+                </section>
+
+                {/* Feedback guardado */}
                 {error && (
                   <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
                     {error}
