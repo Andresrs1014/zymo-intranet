@@ -8,7 +8,7 @@ import {
   useProveedores,
   useExtraerCotizacion,
 } from "@/hooks/useOC"
-import type { CotizacionCreatePayload, ExtraccionResult } from "@/hooks/useOC"
+import type { CotizacionCreatePayload, ExtraccionResult, ItemCotizacion } from "@/hooks/useOC"
 
 const EMPTY_FORM: CotizacionCreatePayload = {
   proveedor_nombre: "",
@@ -28,7 +28,29 @@ const EMPTY_FORM: CotizacionCreatePayload = {
   observaciones: "",
 }
 
+const EMPTY_ITEM: ItemCotizacion = {
+  descripcion: "",
+  referencia: "",
+  cantidad: undefined,
+  valor_unitario: undefined,
+  valor_total: undefined,
+}
+
 type ExtraccionStatus = "idle" | "loading" | "ok" | "warn" | "error"
+
+function calcRowTotal(item: ItemCotizacion): number | undefined {
+  if (item.cantidad != null && item.valor_unitario != null) {
+    return item.cantidad * item.valor_unitario
+  }
+  return item.valor_total
+}
+
+function sumaItems(items: ItemCotizacion[]): number {
+  return items.reduce((acc, item) => {
+    const t = calcRowTotal(item)
+    return acc + (t ?? 0)
+  }, 0)
+}
 
 export function CotizacionFormPage() {
   const { id } = useParams<{ id: string }>()
@@ -40,10 +62,14 @@ export function CotizacionFormPage() {
   const extraerCotizacion = useExtraerCotizacion()
 
   const [form, setForm] = useState<CotizacionCreatePayload>(EMPTY_FORM)
+  const [items, setItems] = useState<ItemCotizacion[]>([])
   const [error, setError] = useState<string>()
   const [extraccion, setExtraccion] = useState<ExtraccionResult | null>(null)
   const [extStatus, setExtStatus] = useState<ExtraccionStatus>("idle")
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const totalItems = sumaItems(items)
+  const hayItems = items.length > 0
 
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -82,6 +108,9 @@ export function CotizacionFormPage() {
       anticipo: ext.anticipo ?? prev.anticipo,
       pago_saldo: ext.pago_saldo ?? prev.pago_saldo,
     }))
+    if (ext.items?.length) {
+      setItems(ext.items)
+    }
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -102,9 +131,42 @@ export function CotizacionFormPage() {
         onError: () => setExtStatus("error"),
       }
     )
-    // Limpiar input para permitir resubida del mismo archivo
     e.target.value = ""
   }
+
+  // ── Item handlers ─────────────────────────────────────────────────────────
+
+  function handleAddItem() {
+    setItems((prev) => [...prev, { ...EMPTY_ITEM }])
+  }
+
+  function handleRemoveItem(index: number) {
+    setItems((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  function handleItemChange(index: number, field: keyof ItemCotizacion, raw: string) {
+    setItems((prev) =>
+      prev.map((item, i) => {
+        if (i !== index) return item
+        const numericFields: (keyof ItemCotizacion)[] = ["cantidad", "valor_unitario", "valor_total"]
+        const value = numericFields.includes(field)
+          ? raw === "" ? undefined : Number(raw)
+          : raw
+        const updated = { ...item, [field]: value }
+        // Auto-calc row total when qty or unit price changes
+        if (field === "cantidad" || field === "valor_unitario") {
+          const qty = field === "cantidad" ? (raw === "" ? undefined : Number(raw)) : item.cantidad
+          const unit = field === "valor_unitario" ? (raw === "" ? undefined : Number(raw)) : item.valor_unitario
+          if (qty != null && unit != null) {
+            updated.valor_total = qty * unit
+          }
+        }
+        return updated
+      })
+    )
+  }
+
+  // ── Submit ────────────────────────────────────────────────────────────────
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -114,13 +176,24 @@ export function CotizacionFormPage() {
       setError("El nombre del proveedor es requerido.")
       return
     }
-    if (!form.valor_total || form.valor_total <= 0) {
+
+    const valorTotal = hayItems ? totalItems : form.valor_total
+    if (!valorTotal || valorTotal <= 0) {
       setError("El valor total debe ser mayor a 0.")
       return
     }
 
+    if (hayItems) {
+      const sinDescripcion = items.some((it) => !it.descripcion.trim())
+      if (sinDescripcion) {
+        setError("Todos los ítems deben tener descripción.")
+        return
+      }
+    }
+
     const payload: CotizacionCreatePayload = {
       ...form,
+      valor_total: valorTotal,
       proveedor_nit: form.proveedor_nit || undefined,
       proveedor_email: form.proveedor_email || undefined,
       numero_cotizacion_proveedor: form.numero_cotizacion_proveedor || undefined,
@@ -131,6 +204,7 @@ export function CotizacionFormPage() {
       anticipo: form.anticipo || undefined,
       pago_saldo: form.pago_saldo || undefined,
       observaciones: form.observaciones || undefined,
+      items: hayItems ? items.map((it, i) => ({ ...it, num: it.num ?? i + 1 })) : undefined,
     }
 
     crearCotizacion.mutate(
@@ -166,7 +240,6 @@ export function CotizacionFormPage() {
         <TopBar title="OC Automatizaciones" />
 
         <main className="flex-1 overflow-y-auto px-6 py-8">
-          {/* Breadcrumb */}
           <button
             onClick={() => navigate(`/oc/solicitudes/${id}`)}
             className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-600 mb-6 transition-colors"
@@ -174,7 +247,6 @@ export function CotizacionFormPage() {
             ← Volver al detalle
           </button>
 
-          {/* Header */}
           <div className="mb-6">
             <h1 className="text-xl font-bold text-gray-900">Cargar Cotización</h1>
             {solicitud && (
@@ -187,9 +259,9 @@ export function CotizacionFormPage() {
             )}
           </div>
 
-          <form onSubmit={handleSubmit} className="max-w-2xl space-y-5">
+          <form onSubmit={handleSubmit} className="max-w-3xl space-y-5">
 
-            {/* ── Zona de carga automática ─────────────────────────────────── */}
+            {/* ── Extracción automática ─────────────────────────────────────── */}
             <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
               <h2 className="text-sm font-semibold text-gray-700 mb-3">
                 Extracción automática
@@ -226,7 +298,6 @@ export function CotizacionFormPage() {
                 )}
               </button>
 
-              {/* Resultado de extracción */}
               {extraccion && extStatus !== "idle" && (
                 <div className={`mt-3 rounded-lg p-4 border text-sm ${
                   extStatus === "ok"
@@ -238,6 +309,11 @@ export function CotizacionFormPage() {
                       ? `✓ Extracción exitosa — ${extraccion.campos_encontrados} campos encontrados`
                       : `⚠ Extracción parcial — ${extraccion.campos_encontrados} campos encontrados`}
                     <span className="font-normal ml-2 text-xs opacity-70">{extraccion.nombre_archivo}</span>
+                    {extraccion.items?.length > 0 && (
+                      <span className="ml-2 text-xs bg-indigo-100 text-indigo-700 rounded px-1.5 py-0.5 font-medium">
+                        {extraccion.items.length} ítems detectados
+                      </span>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                     <ExtraidoItem label="NIT" value={extraccion.proveedor_nit} />
@@ -266,7 +342,7 @@ export function CotizacionFormPage() {
               )}
             </div>
 
-            {/* Seleccionar proveedor del catálogo */}
+            {/* ── Catálogo de proveedores ───────────────────────────────────── */}
             {proveedores.length > 0 && (
               <div className="bg-brand-blue/5 border border-brand-blue/20 rounded-xl p-4">
                 <label className="block text-sm font-medium text-brand-blue mb-2">
@@ -287,7 +363,7 @@ export function CotizacionFormPage() {
               </div>
             )}
 
-            {/* Datos del proveedor */}
+            {/* ── Datos del proveedor ───────────────────────────────────────── */}
             <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-4">
               <h2 className="text-sm font-semibold text-gray-700">Datos del proveedor</h2>
 
@@ -335,24 +411,137 @@ export function CotizacionFormPage() {
               </Field>
             </div>
 
-            {/* Valores */}
+            {/* ── Ítems de la cotización ────────────────────────────────────── */}
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h2 className="text-sm font-semibold text-gray-700">Ítems de la cotización</h2>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {hayItems
+                      ? `${items.length} ítem${items.length !== 1 ? "s" : ""} — el total se calcula automáticamente`
+                      : "Opcional — para cotizaciones con múltiples productos"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAddItem}
+                  className="rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-200 px-3 py-1.5 text-xs font-medium hover:bg-indigo-100 transition-colors"
+                >
+                  + Agregar ítem
+                </button>
+              </div>
+
+              {!hayItems ? (
+                <div className="text-center py-8 text-gray-300 text-xs border-2 border-dashed border-gray-100 rounded-lg">
+                  Sin ítems — el valor total se ingresa manualmente abajo
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs border-collapse">
+                    <thead>
+                      <tr className="text-gray-400 border-b border-gray-100 text-left">
+                        <th className="py-2 pr-2 w-8 font-medium">#</th>
+                        <th className="py-2 pr-2 font-medium">Descripción *</th>
+                        <th className="py-2 pr-2 w-28 font-medium">Referencia</th>
+                        <th className="py-2 pr-2 w-20 font-medium">Cant.</th>
+                        <th className="py-2 pr-2 w-28 font-medium">V. Unit.</th>
+                        <th className="py-2 pr-2 w-28 font-medium text-right">V. Total</th>
+                        <th className="py-2 w-8" />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {items.map((item, i) => {
+                        const rowTotal = calcRowTotal(item)
+                        return (
+                          <tr key={i} className="group hover:bg-gray-50/50">
+                            <td className="py-1.5 pr-2 text-gray-400 font-mono">{i + 1}</td>
+                            <td className="py-1.5 pr-2">
+                              <input
+                                value={item.descripcion}
+                                onChange={(e) => handleItemChange(i, "descripcion", e.target.value)}
+                                placeholder="Descripción del producto"
+                                className={itemInputCls}
+                              />
+                            </td>
+                            <td className="py-1.5 pr-2">
+                              <input
+                                value={item.referencia ?? ""}
+                                onChange={(e) => handleItemChange(i, "referencia", e.target.value)}
+                                placeholder="Ref."
+                                className={itemInputCls}
+                              />
+                            </td>
+                            <td className="py-1.5 pr-2">
+                              <input
+                                type="number"
+                                min="0"
+                                step="any"
+                                value={item.cantidad ?? ""}
+                                onChange={(e) => handleItemChange(i, "cantidad", e.target.value)}
+                                placeholder="0"
+                                className={`${itemInputCls} text-right`}
+                              />
+                            </td>
+                            <td className="py-1.5 pr-2">
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={item.valor_unitario ?? ""}
+                                onChange={(e) => handleItemChange(i, "valor_unitario", e.target.value)}
+                                placeholder="0"
+                                className={`${itemInputCls} text-right`}
+                              />
+                            </td>
+                            <td className="py-1.5 pr-2 text-right font-mono text-gray-700">
+                              {rowTotal != null
+                                ? `$${rowTotal.toLocaleString("es-CO", { minimumFractionDigits: 0 })}`
+                                : <span className="text-gray-300">—</span>}
+                            </td>
+                            <td className="py-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveItem(i)}
+                                className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 text-sm transition-opacity w-6 h-6 flex items-center justify-center rounded"
+                                title="Eliminar fila"
+                              >
+                                ×
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t-2 border-gray-200">
+                        <td colSpan={5} className="py-2 text-right text-xs font-semibold text-gray-600 pr-2">
+                          Total {items.length} ítem{items.length !== 1 ? "s" : ""}:
+                        </td>
+                        <td className="py-2 pr-2 text-right font-mono font-bold text-gray-900 text-sm">
+                          ${totalItems.toLocaleString("es-CO", { minimumFractionDigits: 0 })}
+                        </td>
+                        <td />
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* ── Valores ──────────────────────────────────────────────────── */}
             <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-4">
               <h2 className="text-sm font-semibold text-gray-700">Valores</h2>
 
+              {hayItems && (
+                <div className="rounded-lg bg-indigo-50 border border-indigo-200 px-4 py-3 text-xs text-indigo-700">
+                  El valor total se calcula automáticamente desde los ítems:{" "}
+                  <span className="font-bold">
+                    ${totalItems.toLocaleString("es-CO", { minimumFractionDigits: 0 })}
+                  </span>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-4">
-                <Field label="Valor unitario *">
-                  <input
-                    name="valor_unitario"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={form.valor_unitario || ""}
-                    onChange={handleChange}
-                    placeholder="0"
-                    className={inputCls}
-                    required
-                  />
-                </Field>
                 <Field label="Subtotal (antes de IVA)">
                   <input
                     name="valor_antes_iva"
@@ -365,9 +554,6 @@ export function CotizacionFormPage() {
                     className={inputCls}
                   />
                 </Field>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
                 <Field label="IVA">
                   <input
                     name="valor_iva"
@@ -380,20 +566,37 @@ export function CotizacionFormPage() {
                     className={inputCls}
                   />
                 </Field>
-                <Field label="Valor total *">
-                  <input
-                    name="valor_total"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={form.valor_total || ""}
-                    onChange={handleChange}
-                    placeholder="0"
-                    className={inputCls}
-                    required
-                  />
-                </Field>
               </div>
+
+              {!hayItems && (
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Valor unitario">
+                    <input
+                      name="valor_unitario"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={form.valor_unitario || ""}
+                      onChange={handleChange}
+                      placeholder="0"
+                      className={inputCls}
+                    />
+                  </Field>
+                  <Field label="Valor total *">
+                    <input
+                      name="valor_total"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={form.valor_total || ""}
+                      onChange={handleChange}
+                      placeholder="0"
+                      className={inputCls}
+                      required
+                    />
+                  </Field>
+                </div>
+              )}
 
               <Field label="Fecha de vigencia de la cotización">
                 <input
@@ -406,7 +609,7 @@ export function CotizacionFormPage() {
               </Field>
             </div>
 
-            {/* Condiciones */}
+            {/* ── Condiciones ───────────────────────────────────────────────── */}
             <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-4">
               <h2 className="text-sm font-semibold text-gray-700">Condiciones</h2>
 
@@ -473,14 +676,12 @@ export function CotizacionFormPage() {
               </Field>
             </div>
 
-            {/* Error */}
             {error && (
               <div className="rounded-lg bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-600">
                 {error}
               </div>
             )}
 
-            {/* Acciones */}
             <div className="flex items-center gap-3 pt-2">
               <button
                 type="submit"
@@ -508,6 +709,9 @@ export function CotizacionFormPage() {
 
 const inputCls =
   "w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+
+const itemInputCls =
+  "w-full rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-brand-blue/30"
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (

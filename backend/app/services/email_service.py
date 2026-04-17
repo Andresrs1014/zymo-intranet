@@ -152,6 +152,41 @@ def _tabla(*filas: str) -> str:
     </table>"""
 
 
+def _tabla_items(items: list[dict]) -> str:
+    """Genera una tabla HTML con el detalle de ítems de una cotización multi-producto."""
+    filas_html = ""
+    for item in items:
+        desc = item.get("descripcion") or "—"
+        ref = item.get("referencia") or ""
+        cant = item.get("cantidad") or "—"
+        vunit = _fmt_cop(item.get("valor_unitario")) if item.get("valor_unitario") else "—"
+        vtotal = _fmt_cop(item.get("valor_total")) if item.get("valor_total") else "—"
+        ref_cell = f"<br/><span style='color:#9ca3af;font-size:11px'>Ref: {ref}</span>" if ref else ""
+        filas_html += f"""
+        <tr>
+          <td style="padding:7px 12px;border-bottom:1px solid #f0f0f0;font-size:13px;color:#374151">
+            {desc}{ref_cell}
+          </td>
+          <td style="padding:7px 12px;border-bottom:1px solid #f0f0f0;font-size:13px;color:#374151;text-align:center">{cant}</td>
+          <td style="padding:7px 12px;border-bottom:1px solid #f0f0f0;font-size:13px;color:#374151;text-align:right">{vunit}</td>
+          <td style="padding:7px 12px;border-bottom:1px solid #f0f0f0;font-size:13px;color:#374151;text-align:right">{vtotal}</td>
+        </tr>"""
+
+    return f"""
+    <table style="width:100%;border-collapse:collapse;margin:16px 0;
+                  border-radius:6px;overflow:hidden;border:1px solid #e5e7eb;font-size:13px">
+      <thead>
+        <tr style="background:#f3f4f6">
+          <th style="padding:8px 12px;text-align:left;font-size:12px;color:#6b7280;font-weight:600">Descripción</th>
+          <th style="padding:8px 12px;text-align:center;font-size:12px;color:#6b7280;font-weight:600">Cant.</th>
+          <th style="padding:8px 12px;text-align:right;font-size:12px;color:#6b7280;font-weight:600">V. Unitario</th>
+          <th style="padding:8px 12px;text-align:right;font-size:12px;color:#6b7280;font-weight:600">V. Total</th>
+        </tr>
+      </thead>
+      <tbody>{filas_html}</tbody>
+    </table>"""
+
+
 # ── Flujo 1 — En gestión → solicitante ───────────────────────────────────────
 
 def _html_en_gestion(s: "SolicitudOC") -> str:
@@ -199,24 +234,35 @@ def _html_cotizacion_lista(s: "SolicitudOC") -> str:
 # ── Flujo 3 — Aprobación directora ───────────────────────────────────────────
 
 def _html_aprobacion_directora(s: "SolicitudOC", cot: Optional["CotizacionProveedor"]) -> str:
-    filas_cot = ""
+    seccion_cotizacion = ""
     if cot:
         filas_cot = "".join([
             _fila("Proveedor", cot.proveedor_nombre or "—"),
             _fila("NIT proveedor", cot.proveedor_nit or "—"),
             _fila("N° cotización", cot.numero_cotizacion_proveedor or "—"),
-            _fila("Subtotal", _fmt_cop(cot.valor_antes_iva), destacar=False),
+            _fila("Subtotal", _fmt_cop(cot.valor_antes_iva)),
             _fila("IVA", _fmt_cop(cot.valor_iva) if cot.valor_iva else "No aplica"),
             _fila("VALOR TOTAL", _fmt_cop(cot.valor_total), destacar=True),
             _fila("Forma de pago", cot.forma_pago or "—"),
             _fila("Plazo de entrega", cot.plazo_entrega or "—"),
         ])
+        seccion_cotizacion = f"""
+        <p style="color:#374151;font-size:13px;font-weight:600;margin-bottom:4px">💰 Cotización</p>
+        {_tabla(filas_cot)}
+        """
+        # Si hay múltiples ítems, mostrar la tabla de detalle
+        if cot.items:
+            seccion_cotizacion += f"""
+            <p style="color:#374151;font-size:13px;font-weight:600;margin-bottom:4px">
+              📦 Detalle de ítems ({len(cot.items)} productos)
+            </p>
+            {_tabla_items(cot.items)}
+            """
 
     cuerpo = f"""
     <p style="color:#374151;font-size:14px">
       Hay una solicitud de compra que requiere tu aprobación:
     </p>
-
     <p style="color:#374151;font-size:13px;font-weight:600;margin-bottom:4px">📋 Datos de la solicitud</p>
     {_tabla(
         _fila("Consecutivo", s.consecutivo_os),
@@ -228,9 +274,7 @@ def _html_aprobacion_directora(s: "SolicitudOC", cot: Optional["CotizacionProvee
         _fila("Fecha de solicitud", _fmt_fecha(s.fecha_solicitud)),
         _fila("Fecha de cotización", _fmt_fecha(s.fecha_cotizacion)),
     )}
-
-    {"<p style='color:#374151;font-size:13px;font-weight:600;margin-bottom:4px'>💰 Detalle de la cotización</p>" + _tabla(filas_cot) if filas_cot else ""}
-
+    {seccion_cotizacion}
     <p style="color:#374151;font-size:14px">
       Ingresa a la intranet para revisar y <strong>aprobar o rechazar</strong> la cotización.
     </p>
@@ -267,7 +311,25 @@ def _html_oc_enviada(s: "SolicitudOC") -> str:
 
 # ── OC al proveedor ───────────────────────────────────────────────────────────
 
-def _html_oc_proveedor(s: "SolicitudOC", numero_oc: str) -> str:
+def _html_oc_proveedor(
+    s: "SolicitudOC",
+    numero_oc: str,
+    items: Optional[list[dict]] = None,
+) -> str:
+    # Si hay ítems múltiples, mostrar tabla; si no, una sola fila de descripción
+    if items:
+        detalle = f"""
+        <p style="color:#374151;font-size:13px;font-weight:600;margin-bottom:4px">
+          📦 Detalle del pedido ({len(items)} productos)
+        </p>
+        {_tabla_items(items)}
+        """
+    else:
+        detalle = _tabla(
+            _fila("Descripción", s.descripcion),
+            _fila("Cantidad", str(s.cantidad)),
+        )
+
     cuerpo = f"""
     <p style="color:#374151;font-size:14px">Estimado proveedor,</p>
     <p style="color:#374151;font-size:14px">
@@ -276,13 +338,12 @@ def _html_oc_proveedor(s: "SolicitudOC", numero_oc: str) -> str:
     </p>
     {_tabla(
         _fila("N° Orden de Compra", numero_oc),
-        _fila("Descripción", s.descripcion),
         _fila("Consecutivo OS", s.consecutivo_os),
-        _fila("Cantidad", str(s.cantidad)),
         _fila("Fecha de emisión", _fmt_fecha(s.fecha_envio_oc or s.updated_at)),
     )}
+    {detalle}
     <p style="color:#374151;font-size:14px">
-      Para cualquier consulta sobre esta orden, puede comunicarse con nuestro departamento de compras.
+      Para cualquier consulta, comuníquese con nuestro departamento de compras.
     </p>
     <p style="color:#374151;font-size:14px">Gracias por su atención.</p>
     """
@@ -357,6 +418,7 @@ async def send_oc_a_proveedor(
     numero_oc: str,
     pdf_path: str | None,
     email_proveedor: str,
+    items: Optional[list[dict]] = None,
 ) -> None:
     """Envía el documento OC al proveedor como adjunto."""
     cfg = _get_runtime_config()
@@ -389,7 +451,7 @@ async def send_oc_a_proveedor(
     msg = MessageSchema(
         subject=f"Orden de Compra {numero_oc} — LOGIMAT S.A.S.",
         recipients=[email_proveedor],
-        body=_html_oc_proveedor(s, numero_oc),
+        body=_html_oc_proveedor(s, numero_oc, items=items),
         subtype=MessageType.html,
         attachments=[{
             "file": str(archivo),

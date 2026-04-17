@@ -230,13 +230,24 @@ def _generar_xlsx(
         ws[f"{col_desc}{fila}"] = None
         ws[f"{col_vunit}{fila}"] = None
 
-    # Escribir el único ítem de la OC en la primera fila disponible
-    ws[f"{col_num}{fila_inicio}"] = 1
-    ws[f"{col_cant}{fila_inicio}"] = solicitud.cantidad
-    if col_ref and solicitud.placa_ficha:
-        ws[f"{col_ref}{fila_inicio}"] = solicitud.placa_ficha
-    ws[f"{col_desc}{fila_inicio}"] = solicitud.descripcion or ""
-    ws[f"{col_vunit}{fila_inicio}"] = cotizacion.valor_unitario or 0
+    # Construir la lista de ítems a escribir:
+    # Si la cotización tiene ítems múltiples, usarlos; si no, crear uno con los campos de la solicitud.
+    items_a_escribir: list[dict] = cotizacion.items or [{
+        "num": 1,
+        "descripcion": solicitud.descripcion or "",
+        "referencia": solicitud.placa_ficha or "",
+        "cantidad": solicitud.cantidad,
+        "valor_unitario": cotizacion.valor_unitario or 0,
+    }]
+
+    for i, item in enumerate(items_a_escribir[:max_filas]):
+        fila = fila_inicio + i
+        ws[f"{col_num}{fila}"] = item.get("num") or (i + 1)
+        ws[f"{col_cant}{fila}"] = item.get("cantidad") or ""
+        if col_ref:
+            ws[f"{col_ref}{fila}"] = item.get("referencia") or ""
+        ws[f"{col_desc}{fila}"] = item.get("descripcion") or ""
+        ws[f"{col_vunit}{fila}"] = item.get("valor_unitario") or 0
 
     # ── IVA manual (solo en plantillas sin fórmula de IVA) ────────────────────
     if cfg.get("iva_manual"):
@@ -453,12 +464,24 @@ async def marcar_oc_enviada(
     background_tasks.add_task(email_service.send_oc_enviada, solicitud)
 
     if orden and payload.email_proveedor:
+        # Buscar ítems de la cotización aprobada para enviarlos al proveedor
+        cotizacion = oc_db.exec(
+            select(CotizacionProveedor)
+            .where(
+                CotizacionProveedor.solicitud_id == solicitud_id,
+                CotizacionProveedor.aprobada == True,  # noqa: E712
+            )
+            .order_by(CotizacionProveedor.created_at.desc())
+        ).first()
+        items_cot = cotizacion.items if cotizacion else None
+
         background_tasks.add_task(
             email_service.send_oc_a_proveedor,
             solicitud,
             orden.numero_oc,
             orden.pdf_path,
             payload.email_proveedor,
+            items_cot,
         )
 
     return {"ok": True}

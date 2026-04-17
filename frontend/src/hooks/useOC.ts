@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { api } from "@/lib/api"
-import type { SolicitudOC, Proveedor, CotizacionProveedor, OrdenCompra, KPIData } from "@/types/oc"
+import type { SolicitudOC, Proveedor, CotizacionProveedor, OrdenCompra, KPIData, ItemCotizacion } from "@/types/oc"
+export type { ItemCotizacion }
 
 // ── Solicitudes ───────────────────────────────────────────────────────────────
 
@@ -150,6 +151,7 @@ export interface CotizacionCreatePayload {
   anticipo?: string
   pago_saldo?: string
   observaciones?: string
+  items?: ItemCotizacion[]
 }
 
 export interface ExtraccionResult {
@@ -165,6 +167,7 @@ export interface ExtraccionResult {
   pago_saldo: string | null
   nombre_archivo: string
   campos_encontrados: number
+  items: ItemCotizacion[]
 }
 
 export function useExtraerCotizacion() {

@@ -25,7 +25,7 @@ class CotizacionCreate(BaseModel):
     proveedor_nit: Optional[str] = None
     proveedor_email: Optional[str] = None
     numero_cotizacion_proveedor: Optional[str] = None
-    valor_unitario: float
+    valor_unitario: float = 0
     valor_antes_iva: Optional[float] = None
     valor_iva: Optional[float] = None
     valor_total: float
@@ -36,6 +36,8 @@ class CotizacionCreate(BaseModel):
     anticipo: Optional[str] = None
     pago_saldo: Optional[str] = None
     observaciones: Optional[str] = None
+    # Lista de ítems; None o vacía = cotización de un solo producto
+    items: Optional[list[dict]] = None
 
 
 class CotizacionRead(BaseModel):
@@ -56,6 +58,7 @@ class CotizacionRead(BaseModel):
     anticipo: Optional[str]
     pago_saldo: Optional[str]
     observaciones: Optional[str]
+    items: Optional[list] = None
     pdf_path: Optional[str]
     extraccion_automatica: bool
     aprobada: Optional[bool]
@@ -77,7 +80,17 @@ class RechazarPayload(BaseModel):
     observaciones_aprobacion: str
 
 
+class ItemCotizacion(BaseModel):
+    num: Optional[int] = None
+    descripcion: str
+    referencia: Optional[str] = None
+    cantidad: Optional[float] = None
+    valor_unitario: Optional[float] = None
+    valor_total: Optional[float] = None
+
+
 class ExtraccionResult(BaseModel):
+    # Campos escalares del encabezado de la cotización
     proveedor_nit: Optional[str] = None
     valor_unitario: Optional[float] = None
     valor_antes_iva: Optional[float] = None
@@ -88,6 +101,8 @@ class ExtraccionResult(BaseModel):
     garantia: Optional[str] = None
     anticipo: Optional[str] = None
     pago_saldo: Optional[str] = None
+    # Tabla de ítems (vacía si el documento tiene un solo producto)
+    items: list[ItemCotizacion] = []
     nombre_archivo: str = ""
     campos_encontrados: int = 0
 
@@ -333,6 +348,183 @@ def _parsear_campos(texto: str, extra: Optional[dict[str, str]] = None) -> Extra
     )
 
 
+# ── Motor de extracción de tabla de ítems ─────────────────────────────────────
+#
+# Detecta la tabla de productos en cualquier cotización buscando una fila de
+# encabezado cuyos títulos resuelvan a campos canónicos conocidos (descripcion,
+# cantidad, valor_unitario, valor_total, referencia) usando field_synonyms.
+#
+# Soporta: Excel (.xlsx/.xls), PDF (via pdfplumber.extract_tables), Word (.docx)
+#
+# El motor regex existente (_parsear_campos) sigue activo para los campos
+# escalares del encabezado (NIT, forma de pago, totales, etc.).
+
+_CAMPOS_TABLA = {"descripcion", "cantidad", "valor_unitario", "valor_total", "referencia"}
+
+
+def _fila_a_item(col_map: dict[int, str], celda_valores: list[str]) -> Optional[dict]:
+    """Convierte una fila de datos a un dict de ítem usando el mapa de columnas.
+
+    Retorna None si la fila no tiene descripción (fila vacía o de totales).
+    """
+    item: dict = {}
+    for col_idx, canonical in col_map.items():
+        if col_idx >= len(celda_valores):
+            continue
+        val = celda_valores[col_idx].strip()
+        if not val or val.lower() in ("none", "n/a", "-", "—"):
+            continue
+        # Convertir campos numéricos
+        if canonical in ("cantidad", "valor_unitario", "valor_total"):
+            parsed = _to_float(val)
+            item[canonical] = parsed if parsed is not None else val
+        else:
+            item[canonical] = val
+
+    return item if item.get("descripcion") else None
+
+
+def _detectar_encabezado(filas_celdas: list[list[str]]) -> Optional[tuple[int, dict[int, str]]]:
+    """Busca la primera fila que sea un encabezado de tabla de ítems.
+
+    Criterio: la fila debe resolver al menos 'descripcion' + uno de
+    ('cantidad', 'valor_unitario', 'valor_total') usando field_synonyms.
+
+    Retorna (índice_fila, {col_idx: campo_canónico}) o None.
+    """
+    from app.services.field_synonyms import resolve_field, fuzzy_resolve
+
+    for row_idx, celdas in enumerate(filas_celdas):
+        col_map: dict[int, str] = {}
+        for col_idx, celda in enumerate(celdas):
+            if not celda:
+                continue
+            canonical = resolve_field(celda)
+            if not canonical:
+                canonical, score = fuzzy_resolve(celda, threshold=0.72)
+            if canonical and canonical in _CAMPOS_TABLA:
+                col_map[col_idx] = canonical
+
+        tiene_desc = "descripcion" in col_map.values()
+        tiene_valor = any(f in col_map.values() for f in ("cantidad", "valor_unitario", "valor_total"))
+
+        if tiene_desc and tiene_valor:
+            return row_idx, col_map
+
+    return None
+
+
+def _items_desde_excel(contenido: bytes) -> list[dict]:
+    """Extrae tabla de ítems de un Excel buscando la fila de encabezado."""
+    try:
+        import openpyxl
+        wb = openpyxl.load_workbook(io.BytesIO(contenido), data_only=True)
+        for ws in wb.worksheets:
+            filas = [
+                [str(c).strip() if c is not None else "" for c in row]
+                for row in ws.iter_rows(values_only=True)
+            ]
+            resultado = _detectar_encabezado(filas)
+            if resultado is None:
+                continue
+            header_idx, col_map = resultado
+            items = []
+            for fila in filas[header_idx + 1:]:
+                if not any(fila):
+                    continue
+                item = _fila_a_item(col_map, fila)
+                if item:
+                    items.append(item)
+            if items:
+                return items
+    except Exception:
+        pass
+    return []
+
+
+def _items_desde_pdf(contenido: bytes) -> list[dict]:
+    """Extrae tabla de ítems de un PDF usando pdfplumber.extract_tables()."""
+    try:
+        import pdfplumber
+        with pdfplumber.open(io.BytesIO(contenido)) as pdf:
+            for page in pdf.pages:
+                for tabla in (page.extract_tables() or []):
+                    if not tabla or len(tabla) < 2:
+                        continue
+                    # Normalizar: cada celda como string limpio
+                    filas = [
+                        [str(c).strip() if c else "" for c in fila]
+                        for fila in tabla
+                    ]
+                    resultado = _detectar_encabezado(filas)
+                    if resultado is None:
+                        continue
+                    header_idx, col_map = resultado
+                    items = []
+                    for fila in filas[header_idx + 1:]:
+                        if not any(fila):
+                            continue
+                        item = _fila_a_item(col_map, fila)
+                        if item:
+                            items.append(item)
+                    if items:
+                        return items
+    except Exception:
+        pass
+    return []
+
+
+def _items_desde_docx(contenido: bytes) -> list[dict]:
+    """Extrae tabla de ítems de un Word buscando la tabla con encabezado de productos."""
+    try:
+        from docx import Document
+        doc = Document(io.BytesIO(contenido))
+        for tabla in doc.tables:
+            if len(tabla.rows) < 2:
+                continue
+            # Convertir cada fila a lista de strings, deduplicando celdas combinadas
+            filas: list[list[str]] = []
+            for row in tabla.rows:
+                celdas_raw = [c.text.strip() for c in row.cells]
+                deduped: list[str] = []
+                for c in celdas_raw:
+                    if not deduped or c != deduped[-1]:
+                        deduped.append(c)
+                filas.append(deduped)
+
+            resultado = _detectar_encabezado(filas)
+            if resultado is None:
+                continue
+            header_idx, col_map = resultado
+            items = []
+            for fila in filas[header_idx + 1:]:
+                if not any(fila):
+                    continue
+                item = _fila_a_item(col_map, fila)
+                if item:
+                    items.append(item)
+            if items:
+                return items
+    except Exception:
+        pass
+    return []
+
+
+def _extraer_tabla_items(contenido: bytes, ext: str) -> list[dict]:
+    """Punto de entrada del motor de extracción de ítems.
+
+    Intenta detectar y extraer la tabla de productos de una cotización.
+    Retorna lista vacía si el documento tiene formato de un solo producto.
+    """
+    if ext in ("xlsx", "xls"):
+        return _items_desde_excel(contenido)
+    if ext == "pdf":
+        return _items_desde_pdf(contenido)
+    if ext == "docx":
+        return _items_desde_docx(contenido)
+    return []
+
+
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.post(
@@ -360,11 +552,31 @@ async def extraer_cotizacion(
         )
 
     contenido = await file.read()
+
+    # 1. Extraer tabla de ítems (motor de detección de encabezados)
+    items_tabla = _extraer_tabla_items(contenido, ext)
+
+    # 2. Extraer campos escalares del encabezado (NIT, totales, condiciones, etc.)
     extra: dict[str, str] = {}
     if ext in ("xlsx", "xls", "docx"):
         extra = _extraer_campos_estructurado(contenido, ext)
     texto = _extraer_texto(contenido, ext)
     resultado = _parsear_campos(texto, extra)
+
+    # 3. Si la tabla de ítems tiene datos, agregar al resultado y recalcular totales
+    if items_tabla:
+        resultado.items = [ItemCotizacion(**item) for item in items_tabla]
+        # Derivar valor_total como suma de filas si el regex no lo encontró
+        if resultado.valor_total is None:
+            totales = [
+                i.get("valor_total") for i in items_tabla
+                if isinstance(i.get("valor_total"), (int, float))
+            ]
+            if totales:
+                resultado.valor_total = sum(totales)
+        # Contabilizar ítems en campos_encontrados
+        resultado.campos_encontrados += len(items_tabla)
+
     resultado.nombre_archivo = nombre
     return resultado
 
@@ -392,6 +604,14 @@ def crear_cotizacion(
             detail=f"No se puede cargar cotización en estado '{solicitud.estado}'.",
         )
 
+    # Normalizar ítems: asignar número secuencial si no viene en el payload
+    items_normalizados: Optional[list[dict]] = None
+    if payload.items:
+        items_normalizados = [
+            {**item, "num": item.get("num") or (i + 1)}
+            for i, item in enumerate(payload.items)
+        ]
+
     cotizacion = CotizacionProveedor(
         solicitud_id=solicitud_id,
         proveedor_nombre=payload.proveedor_nombre,
@@ -409,6 +629,7 @@ def crear_cotizacion(
         anticipo=payload.anticipo,
         pago_saldo=payload.pago_saldo,
         observaciones=payload.observaciones,
+        items=items_normalizados,
         extraccion_automatica=False,
         created_at=datetime.now(timezone.utc),
     )

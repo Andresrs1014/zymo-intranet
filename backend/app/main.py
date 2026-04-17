@@ -190,6 +190,7 @@ def _migrate_oc_cotizaciones() -> None:
         ("garantia", "VARCHAR(300)"),
         ("anticipo", "VARCHAR(200)"),
         ("pago_saldo", "VARCHAR(200)"),
+        ("items", "JSON"),  # lista de ítems multi-producto [{descripcion, cantidad, valor_unitario, ...}]
     ]
     with get_oc_engine().connect() as conn:
         for col, tipo in nuevas:

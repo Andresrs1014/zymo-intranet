@@ -97,6 +97,10 @@ class CotizacionProveedor(SQLModel, table=True):
     anticipo: Optional[str] = Field(default=None, max_length=200)
     pago_saldo: Optional[str] = Field(default=None, max_length=200)
 
+    # Lista de ítems cotizados: [{num, descripcion, referencia?, cantidad, valor_unitario, valor_total}]
+    # None = cotización de un solo producto (compatibilidad con solicitudes existentes)
+    items: Optional[list] = Field(default=None, sa_column=Column(JSON))
+
     # PDF adjunto
     pdf_path: Optional[str] = Field(default=None)
     extraccion_automatica: bool = Field(default=False)

@@ -5,6 +5,20 @@ import { api } from "@/lib/api"
 import { useListasFormulario, useGuardarListas } from "@/hooks/useOC"
 import type { ListasFormulario } from "@/hooks/useOC"
 
+async function descargarExcelPrueba(): Promise<string> {
+  const res = await api.get("/api/oc/config/test/generar-excel", { responseType: "blob" })
+  const disposition: string = res.headers["content-disposition"] ?? ""
+  const match = disposition.match(/filename="(.+?)"/)
+  const filename = match ? match[1] : "prueba.xlsx"
+  const url = URL.createObjectURL(new Blob([res.data]))
+  const a = document.createElement("a")
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+  return filename
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface OcConfigRead {
@@ -66,6 +80,8 @@ export function OcConfigPage() {
   const [success, setSuccess] = useState(false)
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<TestEmailResult | null>(null)
+  const [generandoExcel, setGenerandoExcel] = useState(false)
+  const [ultimoArchivo, setUltimoArchivo] = useState<string | null>(null)
 
   const { data: listas } = useListasFormulario()
   const guardarListas = useGuardarListas()
@@ -382,6 +398,44 @@ export function OcConfigPage() {
                         </pre>
                       )}
                     </div>
+                  )}
+                </section>
+
+                {/* Herramientas de prueba del motor */}
+                <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                        Herramientas de prueba del motor
+                      </h2>
+                      <p className="text-xs text-gray-400 mt-1">
+                        Genera un Excel con datos aleatorios y sinónimos del motor para probar la extracción automática.
+                        Cada archivo tiene un consecutivo único (<code className="bg-gray-100 px-1 rounded">prueba.001.xlsx</code>,{" "}
+                        <code className="bg-gray-100 px-1 rounded">prueba.002.xlsx</code>…).
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={generandoExcel}
+                      onClick={async () => {
+                        setGenerandoExcel(true)
+                        setUltimoArchivo(null)
+                        try {
+                          const nombre = await descargarExcelPrueba()
+                          setUltimoArchivo(nombre)
+                        } finally {
+                          setGenerandoExcel(false)
+                        }
+                      }}
+                      className="shrink-0 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 transition-colors flex items-center gap-2"
+                    >
+                      {generandoExcel ? "Generando…" : "Generar Excel de prueba"}
+                    </button>
+                  </div>
+                  {ultimoArchivo && (
+                    <p className="text-xs text-green-600 font-medium">
+                      ✓ Descargado: <span className="font-mono">{ultimoArchivo}</span>
+                    </p>
                   )}
                 </section>
 

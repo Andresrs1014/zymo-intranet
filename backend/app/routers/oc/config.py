@@ -1,10 +1,15 @@
+import io
 import json
 import logging
+import random
 import smtplib
 import ssl
+from datetime import date, timedelta
 from typing import Optional
 
+import openpyxl
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -13,6 +18,7 @@ from app.core.deps import get_current_user
 from app.models.oc import OcConfig
 from app.models.user import User
 from app.oc_database import get_oc_db
+from app.services.field_synonyms import FIELD_SYNONYMS
 
 log = logging.getLogger(__name__)
 
@@ -268,3 +274,183 @@ def test_email(
     except Exception as e:
         log.exception("[email_test] Error inesperado")
         return TestEmailResult(ok=False, mensaje="Error inesperado.", detalle=str(e))
+
+
+# ── Test Excel generator ──────────────────────────────────────────────────────
+
+_EMPRESAS = [
+    "Suministros del Norte S.A.S.", "Proveedores Industriales Ltda.", "Papelería El Centro S.A.",
+    "Distribuidora Tech Colombia S.A.S.", "Insumos y Repuestos del Valle Ltda.",
+    "Ferretería Industrial Bogotá S.A.", "Oficina Total S.A.S.", "Comercializadora Andina Ltda.",
+    "Electrónica y Sistemas S.A.", "Materiales y Construcción del Sur S.A.S.",
+]
+
+_ITEMS_POOL = [
+    ("Resma de papel carta 75g", "PAP-001", 10, 12500),
+    ("Tóner HP LaserJet 85A", "TON-HP85A", 3, 89000),
+    ("Bolígrafo BIC punto fino azul x12", "ESC-BIC12", 5, 8900),
+    ("Carpeta de palanca tamaño carta", "ARC-CAR01", 20, 5200),
+    ("Marcador permanente Sharpie negro", "MAR-SHP01", 8, 3500),
+    ("Cinta adhesiva transparente 48mm", "CIN-48T", 12, 2800),
+    ("Grapadora metálica 26/6", "GRA-MET26", 4, 18500),
+    ("Resaltador fluorescente amarillo", "RES-AMA01", 15, 1900),
+    ("Sobre manila carta x100", "SOB-MAN100", 6, 14200),
+    ("Perforadora 2 huecos metálica", "PER-2H01", 3, 22000),
+    ("Sello automático personalizado", "SEL-AUT01", 2, 45000),
+    ("Post-it notas adhesivas 76x76mm", "NOT-POST76", 10, 7500),
+    ("Tijeras de oficina 20cm", "TIJ-20CM", 5, 6800),
+    ("Regla metálica 30cm", "REG-30M", 8, 4500),
+    ("Lapicero gel 0.5mm negro x10", "LAP-GEL10", 4, 12000),
+    ("Borrador blanco para lápiz", "BOR-BLA01", 20, 800),
+    ("Clip mariposa mediano x50", "CLI-MAR50", 10, 3200),
+    ("Folder plástico oficio transparente", "FOL-PLA01", 15, 2100),
+    ("Corrector líquido tipo lapicero", "COR-LIQ01", 6, 4200),
+    ("Caja de clips estándar x100", "CLI-EST100", 12, 2500),
+]
+
+_FORMAS_PAGO = ["Contado", "Crédito 30 días", "Crédito 15 días", "50% anticipo - 50% contra entrega", "Transferencia inmediata"]
+_PLAZOS = ["Inmediata", "3 días hábiles", "5 días hábiles", "8 días hábiles", "15 días calendario"]
+_GARANTIAS = ["6 meses", "1 año fabricante", "30 días por defectos de fábrica", "No aplica", "12 meses"]
+_ANTICIPOS = ["No requiere", "30%", "50%", "100% anticipado"]
+_SALDOS = ["Contra entrega", "Al facturar", "30 días", "No aplica"]
+
+
+def _rnd_syn(campo: str) -> str:
+    """Retorna un sinónimo aleatorio del campo (incluye el propio nombre canónico)."""
+    opciones = [campo] + FIELD_SYNONYMS.get(campo, [])
+    return random.choice(opciones)
+
+
+def _generar_excel_prueba() -> bytes:
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Cotización"
+
+    empresa = random.choice(_EMPRESAS)
+    nit = f"{random.randint(800, 999)}.{random.randint(100, 999)}.{random.randint(100, 999)}-{random.randint(0, 9)}"
+    email = f"ventas@{empresa.split()[0].lower().replace(',', '')}.com"
+    num_cot = f"COT-{random.randint(2025,2026)}-{random.randint(100,999)}"
+    vigencia = (date.today() + timedelta(days=random.randint(10, 30))).isoformat()
+
+    # ── Encabezado escalar ────────────────────────────────────────────────────
+    fila = 1
+    ws.cell(fila, 1, "COTIZACIÓN DE COMPRA")
+    fila += 1
+    ws.cell(fila, 1, _rnd_syn("numero_cotizacion_proveedor")).title()
+    ws.cell(fila, 2, num_cot)
+    fila += 1
+    ws.cell(fila, 1, _rnd_syn("proveedor_nombre")).title()
+    ws.cell(fila, 2, empresa)
+    fila += 1
+    ws.cell(fila, 1, _rnd_syn("proveedor_nit")).upper()
+    ws.cell(fila, 2, nit)
+    ws.cell(fila, 1, _rnd_syn("proveedor_nit").upper())
+    fila += 1
+    ws.cell(fila, 1, _rnd_syn("proveedor_email").title())
+    ws.cell(fila, 2, email)
+    fila += 1
+    ws.cell(fila, 1, _rnd_syn("fecha_vigencia").title())
+    ws.cell(fila, 2, vigencia)
+    fila += 1
+    ws.cell(fila, 1, _rnd_syn("forma_pago").title())
+    ws.cell(fila, 2, random.choice(_FORMAS_PAGO))
+    fila += 1
+    ws.cell(fila, 1, _rnd_syn("plazo_entrega").title())
+    ws.cell(fila, 2, random.choice(_PLAZOS))
+    fila += 1
+    ws.cell(fila, 1, _rnd_syn("garantia").title())
+    ws.cell(fila, 2, random.choice(_GARANTIAS))
+    fila += 1
+    ws.cell(fila, 1, _rnd_syn("anticipo").title())
+    ws.cell(fila, 2, random.choice(_ANTICIPOS))
+    fila += 1
+    ws.cell(fila, 1, _rnd_syn("pago_saldo").title())
+    ws.cell(fila, 2, random.choice(_SALDOS))
+    fila += 2  # fila en blanco
+
+    # ── Tabla de ítems ────────────────────────────────────────────────────────
+    col_desc = _rnd_syn("descripcion").title()
+    col_ref  = _rnd_syn("referencia").title()
+    col_cant = _rnd_syn("cantidad").title()
+    col_unit = _rnd_syn("valor_unitario").title()
+    col_tot  = _rnd_syn("valor_total").title()
+
+    ws.cell(fila, 1, "No.")
+    ws.cell(fila, 2, col_desc)
+    ws.cell(fila, 3, col_ref)
+    ws.cell(fila, 4, col_cant)
+    ws.cell(fila, 5, col_unit)
+    ws.cell(fila, 6, col_tot)
+    fila += 1
+
+    n_items = random.randint(3, 10)
+    pool = random.sample(_ITEMS_POOL, min(n_items, len(_ITEMS_POOL)))
+    subtotal = 0.0
+
+    for i, (desc, ref, cant_base, precio_base) in enumerate(pool, 1):
+        cant = random.randint(1, cant_base)
+        precio = round(precio_base * random.uniform(0.9, 1.15), -2)  # variación ±15%
+        total_fila = round(cant * precio, 2)
+        subtotal += total_fila
+        ws.cell(fila, 1, i)
+        ws.cell(fila, 2, desc)
+        ws.cell(fila, 3, ref)
+        ws.cell(fila, 4, cant)
+        ws.cell(fila, 5, precio)
+        ws.cell(fila, 6, total_fila)
+        fila += 1
+
+    fila += 1  # fila en blanco
+
+    iva = round(subtotal * 0.19, 2)
+    total = round(subtotal + iva, 2)
+
+    ws.cell(fila, 5, _rnd_syn("valor_antes_iva").title())
+    ws.cell(fila, 6, subtotal)
+    fila += 1
+    ws.cell(fila, 5, _rnd_syn("valor_iva").upper())
+    ws.cell(fila, 6, iva)
+    fila += 1
+    ws.cell(fila, 5, _rnd_syn("valor_total").title())
+    ws.cell(fila, 6, total)
+
+    # Ajustar ancho columnas
+    ws.column_dimensions["A"].width = 5
+    ws.column_dimensions["B"].width = 40
+    ws.column_dimensions["C"].width = 16
+    ws.column_dimensions["D"].width = 10
+    ws.column_dimensions["E"].width = 22
+    ws.column_dimensions["F"].width = 18
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf.read()
+
+
+@router.get("/config/test/generar-excel")
+def generar_excel_prueba(
+    current_user: User = Depends(get_current_user),
+    oc_db: Session = Depends(get_oc_db),
+):
+    """Genera un Excel de prueba con datos aleatorios usando sinónimos del motor."""
+    _require_admin(current_user)
+
+    # Incrementar contador
+    counter_row = oc_db.get(OcConfig, "test_excel_counter")
+    counter = int(counter_row.value) + 1 if counter_row else 1
+    if counter_row:
+        counter_row.value = str(counter)
+        oc_db.add(counter_row)
+    else:
+        oc_db.add(OcConfig(key="test_excel_counter", value=str(counter)))
+    oc_db.commit()
+
+    filename = f"prueba.{counter:03d}.xlsx"
+    contenido = _generar_excel_prueba()
+
+    return StreamingResponse(
+        io.BytesIO(contenido),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

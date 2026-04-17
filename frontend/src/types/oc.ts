@@ -49,6 +49,15 @@ export interface SolicitudOC {
   updated_at: string
 }
 
+export interface ItemCotizacion {
+  num?: number
+  descripcion: string
+  referencia?: string
+  cantidad?: number
+  valor_unitario?: number
+  valor_total?: number
+}
+
 export interface CotizacionProveedor {
   id: string
   solicitud_id: string
@@ -67,6 +76,7 @@ export interface CotizacionProveedor {
   valor_aprobado: number | null
   aprobado_por_id: number | null
   observaciones_aprobacion: string | null
+  items: ItemCotizacion[] | null
   created_at: string
 }
 
