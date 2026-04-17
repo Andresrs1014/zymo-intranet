@@ -23,6 +23,17 @@ export function useSolicitudes(filters: SolicitudesFilters = {}) {
   })
 }
 
+export function useMisSolicitudes() {
+  return useQuery({
+    queryKey: ["oc", "mis-solicitudes"],
+    queryFn: async () => {
+      const { data } = await api.get<SolicitudOC[]>("/api/oc/solicitudes/mis-solicitudes")
+      return data
+    },
+    refetchInterval: 30_000,
+  })
+}
+
 export function useSolicitud(id: string | undefined) {
   return useQuery({
     queryKey: ["oc", "solicitudes", id],

@@ -502,19 +502,32 @@ def marcar_en_plataforma(
 )
 def marcar_entregada(
     solicitud_id: uuid.UUID,
-    current_user: User = Depends(require_compras),
+    current_user: User = Depends(get_current_user),
     oc_db: Session = Depends(get_oc_db),
 ):
-    """Líder confirma que físicamente recibió el pedido."""
+    """Coordinador/solicitante confirma que recibió físicamente el pedido.
+    Accesible para cualquier usuario autenticado cuyo email coincida con el solicitante,
+    o para usuarios del módulo de compras (require_compras)."""
     from app.models.oc import EstadoOC
+
+    OC_ROLES = {"admin", "administrativo", "directivo", "compras"}
+    es_compras = current_user.role in OC_ROLES or current_user.area == "Compras"
 
     solicitud = oc_db.get(SolicitudOC, solicitud_id)
     if not solicitud:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
+
+    # Validar que sea el solicitante o alguien de compras
+    if not es_compras and solicitud.solicitante_email != current_user.email:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo el solicitante o el equipo de compras puede confirmar la recepción.",
+        )
+
     if solicitud.estado != EstadoOC.oc_en_plataforma:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Solo se puede marcar como entregada desde estado 'oc_en_plataforma'. Estado actual: {solicitud.estado}",
+            detail=f"Solo se puede confirmar recepción desde estado 'oc_en_plataforma'. Estado actual: {solicitud.estado}",
         )
 
     solicitud.estado = EstadoOC.entregada

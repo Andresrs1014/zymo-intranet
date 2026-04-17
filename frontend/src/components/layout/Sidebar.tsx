@@ -1,11 +1,12 @@
 import { NavLink } from "react-router-dom"
 import { useAuthStore } from "@/store/authStore"
-import { canSeeOC, canSeeSGC } from "@/lib/permissions"
+import { canSeeOC, canSeeSGC, canSeeOperativo } from "@/lib/permissions"
 
 export function Sidebar() {
   const user = useAuthStore((s) => s.user)
   const showAdministrativo = user ? canSeeOC(user.role, user.area) : false
   const showSGC = user ? canSeeSGC(user.role, user.area) : false
+  const showOperativo = user ? canSeeOperativo(user.role, user.area) : false
 
   return (
     <aside className="flex h-full w-64 flex-col bg-brand-blue">
@@ -48,6 +49,15 @@ export function Sidebar() {
           label="SIG"
           icon={<IconSIG />}
         />
+
+        {showOperativo && (
+          <SidebarLink
+            to="/operativo"
+            label="Operativo"
+            icon={<IconOperativo />}
+            matchPaths={["/operativo"]}
+          />
+        )}
 
         {showAdministrativo && (
           <SidebarLink
@@ -135,6 +145,14 @@ function IconAdministrativo() {
   return (
     <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
       <path fillRule="evenodd" d="M4 16.5v-13h-.25a.75.75 0 0 1 0-1.5h12.5a.75.75 0 0 1 0 1.5H16v13h.25a.75.75 0 0 1 0 1.5h-3.5a.75.75 0 0 1-.75-.75v-2.5a.75.75 0 0 0-.75-.75h-2.5a.75.75 0 0 0-.75.75v2.5a.75.75 0 0 1-.75.75h-3.5a.75.75 0 0 1 0-1.5H4Zm3-11a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1Zm.5 3.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1Zm3.5-4a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1Zm.5 3.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1Z" clipRule="evenodd" />
+    </svg>
+  )
+}
+
+function IconOperativo() {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <path d="M6.5 3A1.5 1.5 0 0 0 5 4.5v.75a.75.75 0 0 1-.75.75H3a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-1.25A.75.75 0 0 1 15 5.25V4.5A1.5 1.5 0 0 0 13.5 3h-7ZM6.5 4.5h7v.75H6.5V4.5ZM4 8.5a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5Zm0 3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5Z" />
     </svg>
   )
 }

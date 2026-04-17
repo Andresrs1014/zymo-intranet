@@ -19,6 +19,16 @@ export function canConfigureOC(role: string): boolean {
   return ROLES_OC_CONFIG.has(role)
 }
 
+// ── Operativo ─────────────────────────────────────────────────────────────────
+// Gate principal: área "Operaciones". Los roles operativo/operaciones están en el
+// set pero se asignan manualmente — no hay seed automático.
+
+export const ROLES_OPERATIVO = new Set(["admin", "operativo", "operaciones"])
+
+export function canSeeOperativo(role: string, area?: string | null): boolean {
+  return area === "Operaciones" || ROLES_OPERATIVO.has(role)
+}
+
 // ── SGC — Sistema de Gestión de Calidad ───────────────────────────────────────
 // Cualquier rol que el admin nombre "calidad" o área "Gestión de Calidad"
 // tiene acceso. Se puede ampliar desde el panel de admin sin cambiar código.

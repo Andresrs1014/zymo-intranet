@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { useAuthStore } from "@/store/authStore"
-import { canSeeOC, canSeeSGC } from "@/lib/permissions"
+import { canSeeOC, canSeeSGC, canSeeOperativo } from "@/lib/permissions"
 import { LoginPage } from "@/pages/LoginPage"
 import { DashboardPage } from "@/pages/DashboardPage"
 import { AdminPage } from "@/pages/AdminPage"
@@ -15,6 +15,8 @@ import { KPIPage } from "@/pages/oc/KPIPage"
 import { OcConfigPage } from "@/pages/oc/OcConfigPage"
 import { SGCPage } from "@/pages/sgc/SGCPage"
 import { ProveedoresPage } from "@/pages/sgc/ProveedoresPage"
+import { OperativoPage } from "@/pages/operativo/OperativoPage"
+import { MisSolicitudesPage } from "@/pages/operativo/MisSolicitudesPage"
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -46,6 +48,13 @@ function SGCRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user)
   if (!user) return <Navigate to="/login" replace />
   if (!canSeeSGC(user.role, user.area)) return <Navigate to="/dashboard" replace />
+  return <>{children}</>
+}
+
+function OperativoRoute({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user)
+  if (!user) return <Navigate to="/login" replace />
+  if (!canSeeOperativo(user.role, user.area)) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
 
@@ -156,6 +165,24 @@ export default function App() {
             <AdminRoute>
               <OcConfigPage />
             </AdminRoute>
+          }
+        />
+
+        {/* Operativo */}
+        <Route
+          path="/operativo"
+          element={
+            <OperativoRoute>
+              <OperativoPage />
+            </OperativoRoute>
+          }
+        />
+        <Route
+          path="/operativo/mis-solicitudes"
+          element={
+            <OperativoRoute>
+              <MisSolicitudesPage />
+            </OperativoRoute>
           }
         />
 

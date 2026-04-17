@@ -57,6 +57,7 @@ class SolicitudRead(BaseModel):
     fecha_cotizacion: Optional[datetime]
     fecha_aprobacion: Optional[datetime]
     fecha_envio_oc: Optional[datetime]
+    fecha_en_plataforma: Optional[datetime] = None
     fecha_recibido: Optional[datetime]
     created_at: datetime
     updated_at: datetime
@@ -106,6 +107,23 @@ def list_solicitudes(
     if plataforma:
         query = query.where(SolicitudOC.plataforma == plataforma)
     query = query.order_by(SolicitudOC.fecha_solicitud.desc()).offset(skip).limit(limit)
+    return oc_db.exec(query).all()
+
+
+@router.get("/mis-solicitudes", response_model=list[SolicitudRead])
+def mis_solicitudes(
+    current_user: User = Depends(get_current_user),
+    oc_db: Session = Depends(get_oc_db),
+):
+    """Solicitudes donde el solicitante_email coincide con el usuario logueado.
+    Accesible para cualquier usuario autenticado (coordinadores, líderes, etc.)."""
+    if not current_user.email:
+        return []
+    query = (
+        select(SolicitudOC)
+        .where(SolicitudOC.solicitante_email == current_user.email)
+        .order_by(SolicitudOC.fecha_solicitud.desc())
+    )
     return oc_db.exec(query).all()
 
 
