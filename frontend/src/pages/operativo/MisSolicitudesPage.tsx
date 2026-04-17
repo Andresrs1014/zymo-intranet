@@ -8,15 +8,6 @@ import type { SolicitudOC } from "@/types/oc"
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat("es-CO", {
-    style: "currency",
-    currency: "COP",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value)
-}
-
 const ESTADO_CONFIG: Record<string, { label: string; className: string; descripcion: string }> = {
   nueva:                { label: "Nueva",              className: "bg-blue-100 text-blue-700",    descripcion: "Tu solicitud fue recibida y está en cola." },
   en_cotizacion:        { label: "En gestión",          className: "bg-yellow-100 text-yellow-700", descripcion: "El equipo de compras está buscando cotización." },
