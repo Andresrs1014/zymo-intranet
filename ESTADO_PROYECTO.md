@@ -1,6 +1,6 @@
 # ZYMO Intranet — Estado del Proyecto
 
-**Última actualización:** 2026-04-17
+**Última actualización:** 2026-04-17 (sesión 2)
 **Branch activo:** `master`
 **Repositorio:** `Andresrs1014/zymo-intranet`
 
@@ -172,7 +172,8 @@ Cada empresa tiene su carpeta en `backend/app/platforms/{slug}/` con template pr
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| POST | `/api/oc/webhook/nueva-solicitud` | Recibe solicitud desde Power Automate |
+| POST | `/api/oc/webhook/nueva-solicitud` | Recibe solicitud desde Power Automate (backward compat.) |
+| POST | `/api/oc/solicitudes/crear-interna` | Crea solicitud desde el formulario nativo (cualquier empleado autenticado) |
 | GET | `/api/oc/solicitudes` | Lista todas (filtros: estado, plataforma) |
 | GET | `/api/oc/solicitudes/mis-solicitudes` | Solicitudes del usuario autenticado (por email) |
 | GET | `/api/oc/solicitudes/{id}` | Detalle de una solicitud |
@@ -195,8 +196,10 @@ Cada empresa tiene su carpeta en `backend/app/platforms/{slug}/` con template pr
 | GET | `/api/oc/kpis` | KPIs del módulo |
 | GET | `/api/oc/proveedores` | Lista proveedores activos |
 | GET | `/api/oc/config` | Lee configuración OC (admin) |
-| PATCH | `/api/oc/config` | Guarda configuración OC (admin) |
-| POST | `/api/oc/config/test-email` | Envía correo de prueba para verificar SMTP (admin) |
+| PATCH | `/api/oc/config` | Guarda configuración OC: SMTP, emails, URL intranet (admin) |
+| POST | `/api/oc/config/test-email` | Envía correo de prueba con error SMTP exacto (admin) |
+| GET | `/api/oc/config/listas` | Lee listas del formulario (cualquier autenticado) |
+| PATCH | `/api/oc/config/listas` | Guarda listas del formulario (admin) |
 
 ---
 
@@ -209,7 +212,7 @@ Cada empresa tiene su carpeta en `backend/app/platforms/{slug}/` con template pr
 | `CotizacionFormPage.tsx` | `/oc/solicitudes/:id/cotizacion` | Formulario con extracción automática y 10 campos |
 | `AprobacionPage.tsx` | `/oc/aprobacion` | Vista del aprobador |
 | `KPIPage.tsx` | `/oc/kpis` | Dashboard de KPIs con toggle sin/con IVA |
-| `OcConfigPage.tsx` | `/oc/configuracion` | SMTP, emails, mensajes por flujo, botón test (solo admin) |
+| `OcConfigPage.tsx` | `/oc/configuracion` | SMTP, emails, listas del formulario, botón test SMTP (solo admin) |
 
 ---
 
@@ -246,13 +249,22 @@ Acceso: role `calidad` o área `Gestión de Calidad`.
 
 ---
 
-### 5. Módulo Operativo ✅ (Fase 1 — confirmación de recepción)
+### 5. Módulo Operativo ✅ (Fase 1 + Fase 2 — formulario interno)
 
-Permite a coordinadores/solicitantes ver sus propias solicitudes de compra y confirmar la recepción física del pedido.
+Permite a cualquier empleado autenticado crear solicitudes de compra directamente desde la intranet, y a coordinadores/solicitantes ver el estado de sus pedidos y confirmar la recepción física.
 
 #### Flujo Operativo
 
 ```
+Empleado abre /operativo/nueva-solicitud
+→ Nombre, área, fecha → auto desde perfil autenticado
+→ Completa: prioridad, categoría, grupo, descripción, cantidad, plataforma,
+             cliente, condición, placa/ficha, observaciones
+→ POST /api/oc/solicitudes/crear-interna
+→ Consecutivo OS-YYYY-XXXX generado automáticamente
+→ Email automático a auxiliar de compras (+ fallback a directora)
+→ Redirige a /operativo/mis-solicitudes
+
 Coordinador abre /operativo/mis-solicitudes
 → Ve sus solicitudes filtradas por su email
 → Cuando estado = oc_en_plataforma → botón "Confirmar recepción"
@@ -264,11 +276,10 @@ Coordinador abre /operativo/mis-solicitudes
 | Archivo | Ruta | Descripción |
 |---------|------|-------------|
 | `OperativoPage.tsx` | `/operativo` | Hub con tarjeta a Mis Solicitudes |
-| `MisSolicitudesPage.tsx` | `/operativo/mis-solicitudes` | Lista de solicitudes propias + confirmación recepción |
+| `MisSolicitudesPage.tsx` | `/operativo/mis-solicitudes` | Lista de solicitudes propias + confirmación recepción + botón "Nueva solicitud" |
+| `NuevaSolicitudPage.tsx` | `/operativo/nueva-solicitud` | Formulario nativo de creación — reemplaza MS Forms + Power Automate |
 
-Acceso: área `Operaciones` OR role `operativo`/`operaciones`.
-
-⚠️ **Fase 2 planificada:** Formulario interno para crear solicitudes (reemplaza MS Forms + Power Automate). Ver sección Roadmap.
+Acceso: cualquier usuario autenticado (formulario) — área `Operaciones` OR role `operativo`/`operaciones` para confirmar recepción.
 
 ---
 
@@ -380,48 +391,25 @@ Estado factura: `validada` si todos cumplen, `con_diferencias` si alguno falla.
 
 ### Sprint en curso — Emails (prioridad alta)
 
+- [x] **Botón test SMTP** — `POST /api/oc/config/test-email` con error SMTP exacto + UI en OcConfigPage ✅
+- [x] **Diagnóstico** — errores de DB config ahora visibles en logs del backend ✅
 - [ ] **Branding multi-plataforma** — `_base()` lee color, nombre y datos de empresa desde `config.json`. LOGIMAT rojo, IMC azul/amarillo
 - [ ] **Email OC al proveedor formal** — tabla de ítems, condiciones de pago, contacto empresa
 - [ ] **Copia al solicitante** al enviar OC al proveedor (resumen de lo que se ordenó)
 - [ ] **Templates configurables** — asuntos e intros de flujos 1–4 editables desde `OcConfigPage`
-- [ ] **Botón test SMTP** — endpoint + UI para verificar credenciales sin esperar evento real
-- [ ] **Diagnóstico** — revisar si hay credenciales incorrectas en `oc_config` DB
 
-### Fase 2 — Formulario interno en Módulo Operativo
+### Fase 2 — Formulario interno en Módulo Operativo ✅ COMPLETADO
 
 **Objetivo:** Reemplazar MS Forms + Power Automate con un formulario nativo en la intranet.
 
-**Motivación:**
-- Power Automate falla en extraer el nombre del solicitante de forma confiable
-- Un fallo en el flujo PA bloquea toda la cadena de compras (punto de falla crítico)
-- Sin histórico propio para el coordinador
-- No es posible hacer "paquetes" de solicitudes recurrentes con Forms
+**Implementado:**
+- `POST /api/oc/solicitudes/crear-interna` — solicitante_* tomados del usuario autenticado, consecutivo OS-YYYY-XXXX con retry en colisión
+- `GET/PATCH /api/oc/config/listas` — listas de dropdowns administradas por compras desde `/oc/configuracion`
+- `NuevaSolicitudPage.tsx` — formulario con dropdowns dinámicos (prioridad, categoría, grupo, cliente, condición), campos de texto, plataforma, validación frontend + backend
+- Email automático a auxiliar de compras con formato de tabla HTML al crear solicitud
+- Webhook Power Automate mantenido para compatibilidad hacia atrás
 
-**Componentes planificados:**
-
-```
-/operativo/nueva-solicitud    ← Formulario de creación (reemplaza MS Forms)
-/operativo/mis-solicitudes    ← Ya existe, solo añadir creadas internamente
-/operativo/paquetes           ← Templates de solicitudes recurrentes (futuro)
-```
-
-**Backend requerido:**
-- `POST /api/oc/solicitudes/crear-interna` — crea solicitud con `solicitante_*` tomados del usuario autenticado (sin pasar por webhook)
-- Mismo modelo `SolicitudOC`, mismos campos del webhook actual
-- Guard: cualquier usuario autenticado (cualquier área/rol)
-
-**Formulario — campos:**
-- Categoría, grupo de artículos, descripción (requeridos)
-- Cantidad (número, requerido)
-- Plataforma (selector: Logimat / IMC Cargo / IMC Depósito)
-- Cliente, condición (texto libre)
-- Observaciones del solicitante (textarea)
-- Placa/ficha (texto)
-- Fecha próximo mantenimiento (date)
-- Adjunto evidencia (imagen/PDF)
-- Nombre y email → auto desde perfil del usuario autenticado
-
-**Paquetes (fase posterior):**
+**Paquetes (Fase 2b — futuro):**
 - El coordinador guarda templates de solicitudes frecuentes
 - Un click genera N solicitudes pre-llenadas de golpe
 - Caso de uso: "Kit mantenimiento mensual camión X" → 3-5 solicitudes simultáneas
@@ -434,9 +422,9 @@ Estado factura: `validada` si todos cumplen, `con_diferencias` si alguno falla.
 
 - [ ] **Emails — branding multi-plataforma** (sprint en curso)
 - [ ] **Emails — OC formal al proveedor** (sprint en curso)
-- [ ] **Emails — test SMTP desde UI** (sprint en curso)
-- [ ] **Logo LOGIMAT** — colocar `logimat_logo.png` en `backend/app/platforms/logimat/` (archivo físico)
-- [ ] **Fase 2 Operativo** — formulario interno + endpoint `crear-interna`
+- [ ] **Logo LOGIMAT** — colocar `logimat_logo.png` en `backend/app/platforms/logimat/` (archivo físico, manual)
+- [x] **Emails — test SMTP desde UI** ✅ — `POST /api/oc/config/test-email` con detalle exacto del error
+- [x] **Fase 2 Operativo** ✅ — formulario interno `NuevaSolicitudPage` + `crear-interna` + listas configurables
 
 ### Media prioridad
 
@@ -487,14 +475,19 @@ aprobada → oc_enviada → oc_en_plataforma → entregada → cerrada
 ## Commits recientes relevantes
 
 ```
-[2026-04-17] Módulo Financiero: facturas, motor extracción, validación vs OC, branding fixes
+[2026-04-17] Fase 2 Operativo: formulario interno NuevaSolicitudPage + crear-interna + listas configurables
+[2026-04-17] Fix: consecutivo_os único (índice único + retry loop IntegrityError)
+[2026-04-17] Fix: nivel_prioridad validado con Literal["Alta","Media","Baja"] en crear-interna
+[2026-04-17] Fix: invalidar cache ["oc","solicitudes"] al crear solicitud interna
+[2026-04-17] Fix: estado de error visible en NuevaSolicitudPage cuando falla carga de listas
+[2026-04-17] Fix: log.warning en _get_runtime_config (antes excepción silenciosa)
+[2026-04-17] Test SMTP: POST /api/oc/config/test-email con error exacto de smtplib
+[2026-04-17] OcConfigPage: email_compras, intranet_url, listas del formulario con ListaEditor
+[2026-04-17] Módulo Financiero: facturas, motor extracción, validación vs OC
 [2026-04-17] Módulo Operativo Fase 1: mis-solicitudes + confirmar recepción física
 [2026-04-17] Estado oc_en_plataforma: nuevo estado entre oc_enviada y entregada
 [2026-04-17] KPIs con toggle sin/con IVA; IVA visible en panel aprobación directora
 [2026-04-16] Fix extracción: guard valor_total != valor_antes_iva + sinónimo duplicado
-[2026-04-16] Plataformas imccargo e imcdep: col_referencia configurada
 [2026-04-16] OC generada desde template XLSX + conversión PDF LibreOffice
-[2026-04-16] Extracción completa: garantia, anticipo, pago_saldo en BD + UI + motor
 [2026-04-15] Módulo SGC — CRUD de proveedores con extracción automática
-[2026-04-15] Emails rediseñados: branding LOGIMAT, valor cotización para directora
 ```

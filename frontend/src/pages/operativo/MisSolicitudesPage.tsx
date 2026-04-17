@@ -59,7 +59,7 @@ export function MisSolicitudesPage() {
           </button>
 
           {/* Header */}
-          <div className="flex items-start justify-between mb-6">
+          <div className="flex items-center justify-between mb-6">
             <div>
               <h1 className="text-xl font-bold text-gray-900">Mis Solicitudes</h1>
               <p className="text-sm text-gray-500 mt-0.5">
@@ -68,18 +68,30 @@ export function MisSolicitudesPage() {
               </p>
             </div>
 
-            {/* Badge de confirmaciones pendientes */}
-            {pendientesConfirmacion > 0 && (
-              <div className="flex items-center gap-2 rounded-xl bg-violet-50 border border-violet-200 px-4 py-2.5">
-                <span className="text-violet-600 text-lg">🏭</span>
-                <div>
-                  <p className="text-sm font-semibold text-violet-800">
-                    {pendientesConfirmacion} pedido{pendientesConfirmacion > 1 ? "s" : ""} esperando confirmación
-                  </p>
-                  <p className="text-xs text-violet-600">Confirma que los recibiste</p>
+            <div className="flex items-center gap-3">
+              {/* Badge de confirmaciones pendientes */}
+              {pendientesConfirmacion > 0 && (
+                <div className="flex items-center gap-2 rounded-xl bg-violet-50 border border-violet-200 px-4 py-2.5">
+                  <span className="text-violet-600 text-lg">🏭</span>
+                  <div>
+                    <p className="text-sm font-semibold text-violet-800">
+                      {pendientesConfirmacion} pedido{pendientesConfirmacion > 1 ? "s" : ""} esperando confirmación
+                    </p>
+                    <p className="text-xs text-violet-600">Confirma que los recibiste</p>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+
+              <button
+                onClick={() => navigate("/operativo/nueva-solicitud")}
+                className="flex items-center gap-1.5 rounded-lg bg-brand-blue px-4 py-2 text-sm font-semibold text-white hover:brightness-105 transition-all"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z"/>
+                </svg>
+                Nueva solicitud
+              </button>
+            </div>
           </div>
 
           {/* Filtro de estado */}

@@ -32,6 +32,16 @@ def create_oc_tables() -> None:
         if t in SQLModel.metadata.tables
     ]
     SQLModel.metadata.create_all(get_oc_engine(), tables=tables)
+
+    # Migración: índice único en consecutivo_os (seguro en bases existentes)
+    from sqlalchemy import text
+    with get_oc_engine().connect() as conn:
+        conn.execute(text(
+            "CREATE UNIQUE INDEX IF NOT EXISTS ix_oc_solicitudes_consecutivo_os "
+            "ON oc_solicitudes (consecutivo_os)"
+        ))
+        conn.commit()
+
     print("[oc] Tablas OC verificadas en oc.db.")
 
 

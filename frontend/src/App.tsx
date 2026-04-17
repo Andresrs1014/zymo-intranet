@@ -17,6 +17,7 @@ import { SGCPage } from "@/pages/sgc/SGCPage"
 import { ProveedoresPage } from "@/pages/sgc/ProveedoresPage"
 import { OperativoPage } from "@/pages/operativo/OperativoPage"
 import { MisSolicitudesPage } from "@/pages/operativo/MisSolicitudesPage"
+import { NuevaSolicitudPage } from "@/pages/operativo/NuevaSolicitudPage"
 import { FinancieroPage } from "@/pages/financiero/FinancieroPage"
 import { FacturasPage } from "@/pages/financiero/FacturasPage"
 import { FacturaDetallePage } from "@/pages/financiero/FacturaDetallePage"
@@ -193,6 +194,14 @@ export default function App() {
             <OperativoRoute>
               <MisSolicitudesPage />
             </OperativoRoute>
+          }
+        />
+        <Route
+          path="/operativo/nueva-solicitud"
+          element={
+            <PrivateRoute>
+              <NuevaSolicitudPage />
+            </PrivateRoute>
           }
         />
 

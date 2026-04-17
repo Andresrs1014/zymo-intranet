@@ -1,3 +1,4 @@
+import json
 import logging
 import smtplib
 import ssl
@@ -17,7 +18,10 @@ log = logging.getLogger(__name__)
 
 router = APIRouter(tags=["OC - Configuración"])
 
-_ALLOWED_KEYS = {"smtp_host", "smtp_port", "smtp_user", "smtp_password", "smtp_from", "email_directora"}
+_ALLOWED_KEYS = {
+    "smtp_host", "smtp_port", "smtp_user", "smtp_password", "smtp_from",
+    "email_directora", "email_compras", "intranet_url",
+}
 
 
 def _require_admin(user: User) -> None:
@@ -34,6 +38,8 @@ class ConfigRead(BaseModel):
     smtp_password_set: bool
     smtp_from: str
     email_directora: str
+    email_compras: str
+    intranet_url: str
 
 
 class ConfigUpdate(BaseModel):
@@ -43,12 +49,31 @@ class ConfigUpdate(BaseModel):
     smtp_password: Optional[str] = None
     smtp_from: Optional[str] = None
     email_directora: Optional[str] = None
+    email_compras: Optional[str] = None
+    intranet_url: Optional[str] = None
 
 
 class TestEmailResult(BaseModel):
     ok: bool
     mensaje: str
     detalle: Optional[str] = None
+
+
+class ListasFormulario(BaseModel):
+    prioridades: list[str]
+    categorias: list[str]
+    grupos_articulos: list[str]
+    clientes: list[str]
+    condiciones: list[str]
+
+
+_DEFAULT_LISTAS: dict[str, list[str]] = {
+    "lista_prioridades":      ["Alta", "Media", "Baja"],
+    "lista_categorias":       ["Repuesto", "Insumo", "Herramienta", "Servicio", "Otro"],
+    "lista_grupos_articulos": ["Mecánico", "Eléctrico", "Hidráulico", "Neumático", "Lubricantes", "Papelería", "Otro"],
+    "lista_clientes":         [],
+    "lista_condiciones":      ["Nuevo", "Reposición", "Urgente"],
+}
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -68,6 +93,8 @@ def get_config(
         smtp_password_set=bool(rows.get("smtp_password") or settings.smtp_password),
         smtp_from=rows.get("smtp_from") or settings.smtp_from or rows.get("smtp_user") or settings.smtp_user,
         email_directora=rows.get("email_directora") or settings.email_directora,
+        email_compras=rows.get("email_compras") or settings.email_directora,
+        intranet_url=rows.get("intranet_url") or settings.intranet_url,
     )
 
 
@@ -88,6 +115,61 @@ def update_config(
             oc_db.add(existing)
         else:
             oc_db.add(OcConfig(key=field, value=value))
+
+    oc_db.commit()
+
+
+@router.get("/config/listas", response_model=ListasFormulario)
+def get_listas(
+    current_user: User = Depends(get_current_user),
+    oc_db: Session = Depends(get_oc_db),
+) -> ListasFormulario:
+    """Retorna las listas configurables del formulario de solicitud.
+    Accesible para cualquier usuario autenticado (el formulario las necesita)."""
+    rows = {r.key: r.value for r in oc_db.exec(select(OcConfig)).all()}
+
+    def _get_lista(key: str) -> list[str]:
+        raw = rows.get(key)
+        if raw:
+            try:
+                return json.loads(raw)
+            except Exception:
+                return []
+        return _DEFAULT_LISTAS.get(key, [])
+
+    return ListasFormulario(
+        prioridades=_get_lista("lista_prioridades"),
+        categorias=_get_lista("lista_categorias"),
+        grupos_articulos=_get_lista("lista_grupos_articulos"),
+        clientes=_get_lista("lista_clientes"),
+        condiciones=_get_lista("lista_condiciones"),
+    )
+
+
+@router.patch("/config/listas", status_code=status.HTTP_204_NO_CONTENT)
+def update_listas(
+    payload: ListasFormulario,
+    current_user: User = Depends(get_current_user),
+    oc_db: Session = Depends(get_oc_db),
+) -> None:
+    """Guarda las listas configurables. Solo admin."""
+    _require_admin(current_user)
+
+    mapping = {
+        "lista_prioridades":      payload.prioridades,
+        "lista_categorias":       payload.categorias,
+        "lista_grupos_articulos": payload.grupos_articulos,
+        "lista_clientes":         payload.clientes,
+        "lista_condiciones":      payload.condiciones,
+    }
+    for key, value in mapping.items():
+        serialized = json.dumps(value, ensure_ascii=False)
+        existing = oc_db.get(OcConfig, key)
+        if existing:
+            existing.value = serialized
+            oc_db.add(existing)
+        else:
+            oc_db.add(OcConfig(key=key, value=serialized))
 
     oc_db.commit()
 

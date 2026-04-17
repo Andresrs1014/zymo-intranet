@@ -2,6 +2,8 @@ import { useState, useEffect } from "react"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
 import { api } from "@/lib/api"
+import { useListasFormulario, useGuardarListas } from "@/hooks/useOC"
+import type { ListasFormulario } from "@/hooks/useOC"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -12,6 +14,8 @@ interface OcConfigRead {
   smtp_password_set: boolean
   smtp_from: string
   email_directora: string
+  email_compras?: string
+  intranet_url?: string
 }
 
 interface FormState {
@@ -21,6 +25,8 @@ interface FormState {
   smtp_password: string
   smtp_from: string
   email_directora: string
+  email_compras: string
+  intranet_url: string
 }
 
 interface TestEmailResult {
@@ -51,6 +57,8 @@ export function OcConfigPage() {
     smtp_password: "",
     smtp_from: "",
     email_directora: "",
+    email_compras: "",
+    intranet_url: "",
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -58,6 +66,21 @@ export function OcConfigPage() {
   const [success, setSuccess] = useState(false)
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<TestEmailResult | null>(null)
+
+  const { data: listas } = useListasFormulario()
+  const guardarListas = useGuardarListas()
+  const [listasForm, setListasForm] = useState<ListasFormulario>({
+    prioridades: [],
+    categorias: [],
+    grupos_articulos: [],
+    clientes: [],
+    condiciones: [],
+  })
+  const [listasGuardadas, setListasGuardadas] = useState(false)
+
+  useEffect(() => {
+    if (listas) setListasForm(listas)
+  }, [listas])
 
   useEffect(() => {
     fetchConfig()
@@ -70,6 +93,8 @@ export function OcConfigPage() {
           smtp_password: "",
           smtp_from: data.smtp_from,
           email_directora: data.email_directora,
+          email_compras: data.email_compras ?? "",
+          intranet_url: data.intranet_url ?? "",
         })
       })
       .catch(() => setError("No se pudo cargar la configuración."))
@@ -111,6 +136,8 @@ export function OcConfigPage() {
       smtp_user: form.smtp_user,
       smtp_from: form.smtp_from,
       email_directora: form.email_directora,
+      email_compras: form.email_compras,
+      intranet_url: form.intranet_url,
     }
     if (form.smtp_password.trim()) {
       payload.smtp_password = form.smtp_password
@@ -228,6 +255,79 @@ export function OcConfigPage() {
                     type="email"
                     hint="Recibe el correo de aprobación cuando hay una cotización lista."
                   />
+                  <Field
+                    label="Email de compras (nuevas solicitudes internas)"
+                    placeholder="compras@empresa.com"
+                    value={form.email_compras}
+                    onChange={(v) => handleChange("email_compras", v)}
+                    type="email"
+                    hint="Recibe la notificación cuando un coordinador crea una solicitud desde la intranet."
+                  />
+                  <Field
+                    label="URL de la intranet (para links en emails)"
+                    placeholder="https://intranet.empresa.com"
+                    value={form.intranet_url}
+                    onChange={(v) => handleChange("intranet_url", v)}
+                    hint="Se usa para generar el link directo a la solicitud en los correos."
+                  />
+                </section>
+
+                {/* Listas del formulario de solicitud */}
+                <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                        Listas del formulario de solicitud
+                      </h2>
+                      <p className="text-xs text-gray-400 mt-1">
+                        Opciones que aparecen en los desplegables del formulario de nueva solicitud (módulo Operativo).
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={guardarListas.isPending}
+                      onClick={() => {
+                        guardarListas.mutate(listasForm, {
+                          onSuccess: () => setListasGuardadas(true),
+                        })
+                      }}
+                      className="shrink-0 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 transition-colors"
+                    >
+                      {guardarListas.isPending ? "Guardando…" : "Guardar listas"}
+                    </button>
+                  </div>
+
+                  {listasGuardadas && (
+                    <p className="text-xs text-green-600 font-medium">✓ Listas guardadas correctamente.</p>
+                  )}
+
+                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                    <ListaEditor
+                      label="Prioridades"
+                      items={listasForm.prioridades}
+                      onChange={(v) => { setListasForm(prev => ({ ...prev, prioridades: v })); setListasGuardadas(false) }}
+                    />
+                    <ListaEditor
+                      label="Categorías / Estatus"
+                      items={listasForm.categorias}
+                      onChange={(v) => { setListasForm(prev => ({ ...prev, categorias: v })); setListasGuardadas(false) }}
+                    />
+                    <ListaEditor
+                      label="Grupos de artículos"
+                      items={listasForm.grupos_articulos}
+                      onChange={(v) => { setListasForm(prev => ({ ...prev, grupos_articulos: v })); setListasGuardadas(false) }}
+                    />
+                    <ListaEditor
+                      label="Clientes"
+                      items={listasForm.clientes}
+                      onChange={(v) => { setListasForm(prev => ({ ...prev, clientes: v })); setListasGuardadas(false) }}
+                    />
+                    <ListaEditor
+                      label="Condiciones"
+                      items={listasForm.condiciones}
+                      onChange={(v) => { setListasForm(prev => ({ ...prev, condiciones: v })); setListasGuardadas(false) }}
+                    />
+                  </div>
                 </section>
 
                 {/* Test SMTP */}
@@ -341,6 +441,70 @@ function Field({ label, placeholder, value, onChange, type = "text", hint }: Fie
         onChange={(e) => onChange(e.target.value)}
       />
       {hint && <p className="mt-1 text-xs text-gray-400">{hint}</p>}
+    </div>
+  )
+}
+
+// ── ListaEditor ───────────────────────────────────────────────────────────────
+
+function ListaEditor({
+  label,
+  items,
+  onChange,
+}: {
+  label: string
+  items: string[]
+  onChange: (items: string[]) => void
+}) {
+  const [input, setInput] = useState("")
+
+  function agregar() {
+    const trimmed = input.trim()
+    if (!trimmed || items.includes(trimmed)) return
+    onChange([...items, trimmed])
+    setInput("")
+  }
+
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+      <div className="flex flex-wrap gap-1.5 mb-2 min-h-[2rem]">
+        {items.map((item) => (
+          <span
+            key={item}
+            className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-xs font-medium text-blue-700"
+          >
+            {item}
+            <button
+              type="button"
+              onClick={() => onChange(items.filter((i) => i !== item))}
+              className="text-blue-400 hover:text-blue-700 transition-colors"
+            >
+              ×
+            </button>
+          </span>
+        ))}
+        {items.length === 0 && (
+          <span className="text-xs text-gray-400 italic">Sin opciones — agrega la primera</span>
+        )}
+      </div>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); agregar() } }}
+          placeholder="Escribe y presiona Enter o Agregar"
+          className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <button
+          type="button"
+          onClick={agregar}
+          className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+        >
+          Agregar
+        </button>
+      </div>
     </div>
   )
 }

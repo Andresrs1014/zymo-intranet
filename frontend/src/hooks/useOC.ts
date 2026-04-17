@@ -237,7 +237,10 @@ export function useAprobarCotizacion() {
       )
       return data
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["oc"] }),
+    onSuccess: (_data, { cotizacionId }) => {
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
+      qc.invalidateQueries({ queryKey: ["oc", "cotizaciones", cotizacionId] })
+    },
   })
 }
 
@@ -257,7 +260,10 @@ export function useRechazarCotizacion() {
       )
       return data
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["oc"] }),
+    onSuccess: (_data, { cotizacionId }) => {
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
+      qc.invalidateQueries({ queryKey: ["oc", "cotizaciones", cotizacionId] })
+    },
   })
 }
 
@@ -371,6 +377,65 @@ export function useProveedores(soloActivos = true) {
         `/api/oc/proveedores?solo_activos=${soloActivos}`
       )
       return data
+    },
+  })
+}
+
+// ── Listas del formulario ─────────────────────────────────────────────────────
+
+export interface ListasFormulario {
+  prioridades: string[]
+  categorias: string[]
+  grupos_articulos: string[]
+  clientes: string[]
+  condiciones: string[]
+}
+
+export function useListasFormulario() {
+  return useQuery({
+    queryKey: ["oc", "config", "listas"],
+    queryFn: async () => {
+      const { data } = await api.get<ListasFormulario>("/api/oc/config/listas")
+      return data
+    },
+  })
+}
+
+export function useGuardarListas() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (listas: ListasFormulario) => {
+      await api.patch("/api/oc/config/listas", listas)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["oc", "config", "listas"] })
+    },
+  })
+}
+
+export interface SolicitudInternaCreate {
+  nivel_prioridad: string
+  categoria: string
+  grupo_articulos: string
+  descripcion: string
+  cantidad: number
+  cliente?: string
+  condicion?: string
+  plataforma: string
+  placa_ficha?: string
+  observaciones_solicitante?: string
+}
+
+export function useCrearSolicitudInterna() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: SolicitudInternaCreate) => {
+      const { data } = await api.post<SolicitudOC>("/api/oc/solicitudes/crear-interna", payload)
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["oc", "mis-solicitudes"] })
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
     },
   })
 }

@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     smtp_from: str = ""        # igual al smtp_user normalmente
     email_directora: str = ""  # email de quien aprueba cotizaciones
 
+    # URL base de la intranet (para links en emails)
+    intranet_url: str = "http://localhost:81"
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 

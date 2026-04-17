@@ -24,7 +24,7 @@ class SolicitudOC(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
 
     # Datos que vienen de SharePoint/Forms via webhook de PA
-    consecutivo_os: str = Field(max_length=50)
+    consecutivo_os: str = Field(max_length=50, unique=True)
     descripcion: str
     categoria: Optional[str] = Field(default=None, max_length=100)
     grupo_articulos: Optional[str] = Field(default=None, max_length=100)

@@ -1,10 +1,11 @@
 import uuid
 from datetime import date, datetime, timezone
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from pydantic import BaseModel
-from sqlmodel import Session, select
+from sqlalchemy.exc import IntegrityError
+from sqlmodel import Session, func, select
 
 from app.core.deps import get_current_user, require_compras
 from app.database import get_db
@@ -15,6 +16,7 @@ from app.services.email_service import (
     send_aprobacion_directora,
     send_cotizacion_lista,
     send_en_gestion,
+    send_nueva_solicitud_interna,
     send_oc_enviada,
 )
 
@@ -90,6 +92,19 @@ class GestionPayload(BaseModel):
     fecha_recibida_factura: Optional[date] = None
 
 
+class SolicitudInternaCreate(BaseModel):
+    nivel_prioridad: Literal["Alta", "Media", "Baja"]
+    categoria: str
+    grupo_articulos: str
+    descripcion: str
+    cantidad: int
+    cliente: Optional[str] = None
+    condicion: Optional[str] = None
+    plataforma: str
+    placa_ficha: Optional[str] = None
+    observaciones_solicitante: Optional[str] = None
+
+
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.get("", response_model=list[SolicitudRead])
@@ -108,6 +123,71 @@ def list_solicitudes(
         query = query.where(SolicitudOC.plataforma == plataforma)
     query = query.order_by(SolicitudOC.fecha_solicitud.desc()).offset(skip).limit(limit)
     return oc_db.exec(query).all()
+
+
+@router.post("/crear-interna", response_model=SolicitudRead, status_code=status.HTTP_201_CREATED)
+async def crear_solicitud_interna(
+    payload: SolicitudInternaCreate,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    oc_db: Session = Depends(get_oc_db),
+) -> SolicitudRead:
+    """Crea una solicitud de compra desde el formulario interno de la intranet.
+    El nombre, email y área del solicitante se toman del usuario autenticado.
+    No requiere rol especial — cualquier empleado autenticado puede crear solicitudes."""
+    now = datetime.now(timezone.utc)
+    anio = now.year
+    prefijo = f"OS-{anio}-"
+
+    # Generar consecutivo OS-YYYY-XXXX con reintentos para evitar colisión concurrente
+    solicitud: SolicitudOC | None = None
+    for intento in range(5):
+        count = oc_db.exec(
+            select(func.count(SolicitudOC.id)).where(
+                SolicitudOC.consecutivo_os.startswith(prefijo)
+            )
+        ).one()
+        consecutivo_os = f"{prefijo}{(count + intento + 1):04d}"
+
+        candidato = SolicitudOC(
+            consecutivo_os=consecutivo_os,
+            estado=EstadoOC.nueva,
+            nivel_prioridad=payload.nivel_prioridad,
+            categoria=payload.categoria,
+            grupo_articulos=payload.grupo_articulos,
+            descripcion=payload.descripcion,
+            cantidad=payload.cantidad,
+            cliente=payload.cliente,
+            condicion=payload.condicion,
+            plataforma=payload.plataforma,
+            placa_ficha=payload.placa_ficha,
+            observaciones_solicitante=payload.observaciones_solicitante,
+            solicitante_nombre=current_user.full_name,
+            solicitante_email=current_user.email,
+            area_solicitante=current_user.area,
+            sede=current_user.sede,
+            fecha_solicitud=now,
+            created_at=now,
+            updated_at=now,
+        )
+        oc_db.add(candidato)
+        try:
+            oc_db.commit()
+            oc_db.refresh(candidato)
+            solicitud = candidato
+            break
+        except IntegrityError:
+            oc_db.rollback()
+
+    if solicitud is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="No se pudo generar un consecutivo único. Intenta de nuevo.",
+        )
+
+    background_tasks.add_task(send_nueva_solicitud_interna, solicitud)
+
+    return solicitud
 
 
 @router.get("/mis-solicitudes", response_model=list[SolicitudRead])

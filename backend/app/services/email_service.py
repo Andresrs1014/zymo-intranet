@@ -12,7 +12,10 @@ Flujos implementados:
 from __future__ import annotations
 
 import logging
+from datetime import timezone
+from pathlib import Path
 from typing import TYPE_CHECKING, Optional
+from zoneinfo import ZoneInfo
 
 from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType
 
@@ -38,26 +41,28 @@ def _get_runtime_config() -> dict:
         "smtp_host": settings.smtp_host,
         "smtp_port": settings.smtp_port,
         "email_directora": settings.email_directora,
+        "email_compras": "",
+        "intranet_url": settings.intranet_url,
     }
     try:
         with Session(get_oc_engine()) as db:
             for row in db.exec(select(OcConfig)).all():
                 if row.key in cfg and row.value:
                     cfg[row.key] = int(row.value) if row.key == "smtp_port" else row.value
-    except Exception:
-        pass
+    except Exception as exc:
+        log.warning("[email] No se pudo leer oc_config de DB: %s", exc)
     return cfg
 
 
-def _build_conf() -> ConnectionConfig:
-    c = _get_runtime_config()
+def _build_conf(cfg: dict) -> ConnectionConfig:
+    """Construye la configuración fastapi-mail a partir de un dict de runtime config."""
     return ConnectionConfig(
-        MAIL_USERNAME=c["smtp_user"],
-        MAIL_PASSWORD=c["smtp_password"],
-        MAIL_FROM=c["smtp_from"] or c["smtp_user"],
+        MAIL_USERNAME=cfg["smtp_user"],
+        MAIL_PASSWORD=cfg["smtp_password"],
+        MAIL_FROM=cfg["smtp_from"] or cfg["smtp_user"],
         MAIL_FROM_NAME="Compras LOGIMAT",
-        MAIL_PORT=c["smtp_port"],
-        MAIL_SERVER=c["smtp_host"],
+        MAIL_PORT=cfg["smtp_port"],
+        MAIL_SERVER=cfg["smtp_host"],
         MAIL_STARTTLS=True,
         MAIL_SSL_TLS=False,
         USE_CREDENTIALS=True,
@@ -65,13 +70,14 @@ def _build_conf() -> ConnectionConfig:
     )
 
 
-def _is_configured() -> bool:
-    c = _get_runtime_config()
-    return bool(c["smtp_user"] and c["smtp_password"])
-
-
-def _get_directora_email() -> str:
-    return _get_runtime_config()["email_directora"]
+async def _send_html(cfg: dict, subject: str, recipients: list[str], body: str, flujo: str) -> None:
+    """Envía un correo HTML. Centraliza el manejo de errores SMTP para todos los flujos."""
+    msg = MessageSchema(subject=subject, recipients=recipients, body=body, subtype=MessageType.html)
+    try:
+        await FastMail(_build_conf(cfg)).send_message(msg)
+        log.info("[email] %s enviado a %s", flujo, recipients)
+    except Exception:
+        log.exception("[email] Error enviando %s a %s", flujo, recipients)
 
 
 # ── Utilidades de formato ─────────────────────────────────────────────────────
@@ -80,8 +86,6 @@ def _fmt_fecha(dt) -> str:
     """Formatea un datetime UTC → hora Colombia (America/Bogota)."""
     if dt is None:
         return "—"
-    from datetime import timezone
-    from zoneinfo import ZoneInfo
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     dt_col = dt.astimezone(ZoneInfo("America/Bogota"))
@@ -289,46 +293,40 @@ def _html_oc_proveedor(s: "SolicitudOC", numero_oc: str) -> str:
 
 async def send_en_gestion(s: "SolicitudOC") -> None:
     """Flujo 1 — email al solicitante cuando el auxiliar toma la solicitud."""
-    if not _is_configured():
+    cfg = _get_runtime_config()
+    if not (cfg["smtp_user"] and cfg["smtp_password"]):
         log.warning("[email] SMTP no configurado — omitiendo Flujo 1")
         return
     if not s.solicitante_email:
         log.warning("[email] Flujo 1: solicitud %s sin email de solicitante", s.consecutivo_os)
         return
 
-    msg = MessageSchema(
+    await _send_html(
+        cfg,
         subject=f"[Compras LOGIMAT] Tu solicitud está siendo gestionada — {s.consecutivo_os}",
         recipients=[s.solicitante_email],
         body=_html_en_gestion(s),
-        subtype=MessageType.html,
+        flujo="Flujo 1",
     )
-    try:
-        await FastMail(_build_conf()).send_message(msg)
-        log.info("[email] Flujo 1 enviado a %s", s.solicitante_email)
-    except Exception:
-        log.exception("[email] Error enviando Flujo 1 para %s", s.consecutivo_os)
 
 
 async def send_cotizacion_lista(s: "SolicitudOC") -> None:
     """Flujo 2 — email al solicitante cuando hay cotizaciones listas."""
-    if not _is_configured():
+    cfg = _get_runtime_config()
+    if not (cfg["smtp_user"] and cfg["smtp_password"]):
         log.warning("[email] SMTP no configurado — omitiendo Flujo 2")
         return
     if not s.solicitante_email:
         log.warning("[email] Flujo 2: solicitud %s sin email de solicitante", s.consecutivo_os)
         return
 
-    msg = MessageSchema(
+    await _send_html(
+        cfg,
         subject=f"[Compras LOGIMAT] Cotización lista — {s.consecutivo_os}",
         recipients=[s.solicitante_email],
         body=_html_cotizacion_lista(s),
-        subtype=MessageType.html,
+        flujo="Flujo 2",
     )
-    try:
-        await FastMail(_build_conf()).send_message(msg)
-        log.info("[email] Flujo 2 enviado a %s", s.solicitante_email)
-    except Exception:
-        log.exception("[email] Error enviando Flujo 2 para %s", s.consecutivo_os)
 
 
 async def send_aprobacion_directora(
@@ -336,25 +334,22 @@ async def send_aprobacion_directora(
     cotizacion: Optional["CotizacionProveedor"] = None,
 ) -> None:
     """Flujo 3 — email a la directora con detalle completo de la cotización."""
-    if not _is_configured():
+    cfg = _get_runtime_config()
+    if not (cfg["smtp_user"] and cfg["smtp_password"]):
         log.warning("[email] SMTP no configurado — omitiendo Flujo 3")
         return
-    directora_email = _get_directora_email()
+    directora_email = cfg["email_directora"]
     if not directora_email:
         log.warning("[email] Flujo 3: EMAIL_DIRECTORA no configurado")
         return
 
-    msg = MessageSchema(
+    await _send_html(
+        cfg,
         subject=f"[Compras LOGIMAT] Aprobación requerida — {s.consecutivo_os}",
         recipients=[directora_email],
         body=_html_aprobacion_directora(s, cotizacion),
-        subtype=MessageType.html,
+        flujo="Flujo 3",
     )
-    try:
-        await FastMail(_build_conf()).send_message(msg)
-        log.info("[email] Flujo 3 enviado a directora (%s)", directora_email)
-    except Exception:
-        log.exception("[email] Error enviando Flujo 3 para %s", s.consecutivo_os)
 
 
 async def send_oc_a_proveedor(
@@ -364,11 +359,11 @@ async def send_oc_a_proveedor(
     email_proveedor: str,
 ) -> None:
     """Envía el documento OC al proveedor como adjunto."""
-    if not _is_configured():
+    cfg = _get_runtime_config()
+    if not (cfg["smtp_user"] and cfg["smtp_password"]):
         log.warning("[email] SMTP no configurado — omitiendo envío OC a proveedor")
         return
 
-    from pathlib import Path
     archivo: Path | None = None
     if pdf_path:
         p = Path(pdf_path)
@@ -407,7 +402,7 @@ async def send_oc_a_proveedor(
         }],
     )
     try:
-        await FastMail(_build_conf()).send_message(msg)
+        await FastMail(_build_conf(cfg)).send_message(msg)
         log.info("[email] OC %s enviada a proveedor %s", numero_oc, email_proveedor)
     except Exception:
         log.exception("[email] Error enviando OC %s a proveedor %s", numero_oc, email_proveedor)
@@ -415,21 +410,73 @@ async def send_oc_a_proveedor(
 
 async def send_oc_enviada(s: "SolicitudOC") -> None:
     """Flujo 4 — email al solicitante cuando la OC fue enviada al proveedor."""
-    if not _is_configured():
+    cfg = _get_runtime_config()
+    if not (cfg["smtp_user"] and cfg["smtp_password"]):
         log.warning("[email] SMTP no configurado — omitiendo Flujo 4")
         return
     if not s.solicitante_email:
         log.warning("[email] Flujo 4: solicitud %s sin email de solicitante", s.consecutivo_os)
         return
 
-    msg = MessageSchema(
+    await _send_html(
+        cfg,
         subject=f"[Compras LOGIMAT] Orden de Compra enviada — {s.consecutivo_os}",
         recipients=[s.solicitante_email],
         body=_html_oc_enviada(s),
-        subtype=MessageType.html,
+        flujo="Flujo 4",
     )
-    try:
-        await FastMail(_build_conf()).send_message(msg)
-        log.info("[email] Flujo 4 enviado a %s", s.solicitante_email)
-    except Exception:
-        log.exception("[email] Error enviando Flujo 4 para %s", s.consecutivo_os)
+
+
+# ── Flujo Interno — Nueva solicitud → equipo de compras ──────────────────────
+
+def _html_nueva_solicitud_interna(s: "SolicitudOC", intranet_url: str) -> str:
+    link = f"{intranet_url}/oc/solicitudes/{s.id}"
+    cuerpo = f"""
+    <p style="color:#374151;font-size:14px">
+      <strong>{s.solicitante_nombre}</strong> del área <strong>{s.area_solicitante or "—"}</strong>
+      está solicitando un nuevo artículo.
+    </p>
+    <p style="color:#374151;font-size:14px">A continuación se detalla con claridad:</p>
+    {_tabla(
+        _fila("Grupo de artículo", s.grupo_articulos or "—"),
+        _fila("Detalle de la solicitud", s.descripcion),
+        _fila("Cantidad solicitada", str(s.cantidad)),
+        _fila("Plataforma", s.plataforma or "—"),
+        _fila("Prioridad", s.nivel_prioridad),
+        _fila("Fecha del registro", _fmt_fecha(s.fecha_solicitud)),
+    )}
+    <p style="color:#374151;font-size:14px">
+      Para acceder a la solicitud haga click
+      <a href="{link}" style="color:#C8102E;font-weight:600">📋 aquí →</a>
+    </p>
+    <p style="color:#374151;font-size:14px">
+      Agradecemos gestionar esta solicitud conforme a los procedimientos establecidos.
+    </p>
+    <p style="color:#374151;font-size:14px">
+      Cordialmente,<br/><strong>{s.solicitante_nombre}</strong>
+    </p>
+    """
+    return _base(f"Nueva solicitud de compra — {s.consecutivo_os}", cuerpo)
+
+
+async def send_nueva_solicitud_interna(s: "SolicitudOC") -> None:
+    """Flujo Interno — notifica al equipo de compras cuando un coordinador crea una solicitud."""
+    cfg = _get_runtime_config()
+    if not (cfg["smtp_user"] and cfg["smtp_password"]):
+        log.warning("[email] SMTP no configurado — omitiendo notificación interna")
+        return
+
+    email_compras = cfg.get("email_compras") or cfg.get("email_directora")
+    if not email_compras:
+        log.warning("[email] Flujo Interno: email_compras no configurado")
+        return
+
+    intranet_url = cfg.get("intranet_url") or settings.intranet_url
+
+    await _send_html(
+        cfg,
+        subject=f"[Compras] Nueva solicitud — {s.consecutivo_os} | {s.solicitante_nombre}",
+        recipients=[email_compras],
+        body=_html_nueva_solicitud_interna(s, intranet_url),
+        flujo="Flujo Interno",
+    )
