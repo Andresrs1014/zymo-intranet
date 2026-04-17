@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./data/intranet.db"
     oc_database_url: str = "sqlite:///./data/oc.db"
     sgc_database_url: str = "sqlite:///./data/sgc.db"
+    financiero_database_url: str = "sqlite:///./data/financiero.db"
     access_token_expire_minutes: int = 480  # 8 horas
 
     # Credenciales del admin inicial (se crea solo si no existe ningún admin)
@@ -14,6 +15,9 @@ class Settings(BaseSettings):
 
     # Orígenes CORS permitidos (separados por coma)
     cors_origins: str = "http://localhost:5173,http://localhost:81"
+
+    # Módulo Financiero
+    facturas_dir: str = "/app/data/facturas"
 
     # OC Automatizaciones
     # Secret para validar que el webhook viene de Power Automate (opcional)

@@ -38,3 +38,12 @@ export const ROLES_SGC = new Set(["admin", "calidad"])
 export function canSeeSGC(role: string, area?: string | null): boolean {
   return ROLES_SGC.has(role) || area === "Gestión de Calidad"
 }
+
+// ── Financiero — Gestión de Facturas ─────────────────────────────────────────
+// Gate: área "contabilidad" OR role "financiero". Admin siempre pasa.
+
+export const ROLES_FINANCIERO = new Set(["admin", "financiero"])
+
+export function canSeeFinanciero(role: string, area?: string | null): boolean {
+  return ROLES_FINANCIERO.has(role) || area === "contabilidad"
+}

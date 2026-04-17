@@ -64,6 +64,23 @@ def require_compras(current_user: User = Depends(get_current_user)) -> User:
     )
 
 
+def require_financiero(current_user: User = Depends(get_current_user)) -> User:
+    """
+    Guard del módulo Financiero. Pasan:
+      - role='admin'
+      - role='financiero'
+      - area='contabilidad'
+    """
+    if current_user.role == "admin":
+        return current_user
+    if current_user.role == "financiero" or current_user.area == "contabilidad":
+        return current_user
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Sin acceso al módulo Financiero.",
+    )
+
+
 def require_any_role(allowed_roles: list[str]):
     """Guard configurable: acepta admin siempre + cualquier rol de la lista."""
     def guard(current_user: User = Depends(get_current_user)) -> User:

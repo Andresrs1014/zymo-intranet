@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { useAuthStore } from "@/store/authStore"
-import { canSeeOC, canSeeSGC, canSeeOperativo } from "@/lib/permissions"
+import { canSeeOC, canSeeSGC, canSeeOperativo, canSeeFinanciero } from "@/lib/permissions"
 import { LoginPage } from "@/pages/LoginPage"
 import { DashboardPage } from "@/pages/DashboardPage"
 import { AdminPage } from "@/pages/AdminPage"
@@ -17,6 +17,9 @@ import { SGCPage } from "@/pages/sgc/SGCPage"
 import { ProveedoresPage } from "@/pages/sgc/ProveedoresPage"
 import { OperativoPage } from "@/pages/operativo/OperativoPage"
 import { MisSolicitudesPage } from "@/pages/operativo/MisSolicitudesPage"
+import { FinancieroPage } from "@/pages/financiero/FinancieroPage"
+import { FacturasPage } from "@/pages/financiero/FacturasPage"
+import { FacturaDetallePage } from "@/pages/financiero/FacturaDetallePage"
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -55,6 +58,13 @@ function OperativoRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user)
   if (!user) return <Navigate to="/login" replace />
   if (!canSeeOperativo(user.role, user.area)) return <Navigate to="/dashboard" replace />
+  return <>{children}</>
+}
+
+function FinancieroRoute({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user)
+  if (!user) return <Navigate to="/login" replace />
+  if (!canSeeFinanciero(user.role, user.area)) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
 
@@ -201,6 +211,32 @@ export default function App() {
             <SGCRoute>
               <ProveedoresPage />
             </SGCRoute>
+          }
+        />
+
+        {/* Financiero */}
+        <Route
+          path="/financiero"
+          element={
+            <FinancieroRoute>
+              <FinancieroPage />
+            </FinancieroRoute>
+          }
+        />
+        <Route
+          path="/financiero/facturas"
+          element={
+            <FinancieroRoute>
+              <FacturasPage />
+            </FinancieroRoute>
+          }
+        />
+        <Route
+          path="/financiero/facturas/:solicitudId"
+          element={
+            <FinancieroRoute>
+              <FacturaDetallePage />
+            </FinancieroRoute>
           }
         />
 

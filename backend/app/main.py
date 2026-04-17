@@ -8,6 +8,7 @@ from sqlmodel import Session, select
 from app.database import create_db_and_tables, get_engine
 from app.oc_database import create_oc_tables, get_oc_engine
 from app.sgc_database import create_sgc_tables
+from app.financiero_database import create_financiero_tables
 from app.core.security import hash_password
 from app.models.user import User
 from app.models.role import Role  # noqa: F401
@@ -15,12 +16,14 @@ from app.models.area import Area  # noqa: F401
 from app.models.sede import Sede  # noqa: F401
 from app.models.oc import SolicitudOC, CotizacionProveedor, OrdenCompra, Proveedor, OcConfig  # noqa: F401
 from app.models.sgc import ProveedorSGC  # noqa: F401
+from app.models.financiero import FacturaProveedor, ValidacionFactura  # noqa: F401
 from app.config import settings
 from app.routers import auth, users, roles
 from app.routers import areas as areas_router
 from app.routers import sedes as sedes_router
 from app.routers.oc.router import router as oc_router
 from app.routers.sgc.router import router as sgc_router
+from app.routers.financiero.router import router as financiero_router
 
 
 _DEFAULT_ROLES = [
@@ -109,7 +112,7 @@ def _seed_roles() -> None:
 
 
 _DEFAULT_AREAS = [
-    "Comercial", "Operaciones", "Talento y Cultura", "Finanzas", "IT", "Dirección",
+    "Comercial", "Operaciones", "Talento y Cultura", "Finanzas", "IT", "Dirección", "contabilidad",
 ]
 
 _DEFAULT_SEDES = [
@@ -209,6 +212,7 @@ async def lifespan(app: FastAPI):
     _migrate_oc_db()
     _migrate_oc_cotizaciones()
     create_sgc_tables()
+    create_financiero_tables()
     yield
 
 
@@ -233,6 +237,7 @@ app.include_router(areas_router.router)
 app.include_router(sedes_router.router)
 app.include_router(oc_router)
 app.include_router(sgc_router)
+app.include_router(financiero_router)
 
 
 @app.get("/health")
