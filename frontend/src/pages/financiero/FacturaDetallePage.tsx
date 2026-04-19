@@ -11,18 +11,7 @@ import {
   useValidarFactura,
 } from "@/hooks/useFinanciero"
 import type { EstadoFactura, FacturaUpdate } from "@/types/financiero"
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function formatCOP(value: number | null | undefined): string {
-  if (value == null) return "—"
-  return new Intl.NumberFormat("es-CO", {
-    style: "currency",
-    currency: "COP",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value)
-}
+import { formatCOP, parseCOP } from "@/lib/formatters"
 
 function FacturaEstadoBadge({ estado }: { estado: EstadoFactura }) {
   const cfg: Record<EstadoFactura, { label: string; className: string }> = {
@@ -250,10 +239,10 @@ export function FacturaDetallePage() {
                       value={form.numero_factura ?? ""}
                       onChange={(v) => handleChange("numero_factura", v)}
                     />
-                    <FormFieldNumber
+                    <FormFieldCOP
                       label="Valor factura"
-                      value={form.valor_factura ?? ""}
-                      onChange={(v) => handleChange("valor_factura", v)}
+                      value={form.valor_factura}
+                      onChange={(v) => handleChange("valor_factura", v ?? 0)}
                     />
                     <FormFieldDate
                       label="Fecha factura"
@@ -406,22 +395,44 @@ function FormField({
   )
 }
 
-function FormFieldNumber({
+function FormFieldCOP({
   label,
   value,
   onChange,
 }: {
   label: string
-  value: number | string
-  onChange: (v: number) => void
+  value: number | undefined
+  onChange: (v: number | undefined) => void
 }) {
+  const [raw, setRaw] = useState(
+    value != null ? value.toLocaleString("es-CO", { minimumFractionDigits: 0 }) : ""
+  )
+
+  // Sincronizar cuando el valor externo cambia (carga inicial desde backend)
+  useEffect(() => {
+    if (value != null) {
+      setRaw(value.toLocaleString("es-CO", { minimumFractionDigits: 0 }))
+    } else {
+      setRaw("")
+    }
+  }, [value])
+
   return (
     <div>
       <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
       <input
-        type="number"
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
+        type="text"
+        inputMode="numeric"
+        value={raw}
+        onChange={(e) => setRaw(e.target.value)}
+        onBlur={() => {
+          const parsed = parseCOP(raw)
+          onChange(parsed)
+          if (parsed != null) {
+            setRaw(parsed.toLocaleString("es-CO", { minimumFractionDigits: 0 }))
+          }
+        }}
+        placeholder="0"
         className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
       />
     </div>

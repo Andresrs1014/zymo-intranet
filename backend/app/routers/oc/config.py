@@ -336,15 +336,14 @@ def _generar_excel_prueba() -> bytes:
     fila = 1
     ws.cell(fila, 1, "COTIZACIÓN DE COMPRA")
     fila += 1
-    ws.cell(fila, 1, _rnd_syn("numero_cotizacion_proveedor")).title()
+    ws.cell(fila, 1, _rnd_syn("numero_cotizacion_proveedor").title())
     ws.cell(fila, 2, num_cot)
     fila += 1
-    ws.cell(fila, 1, _rnd_syn("proveedor_nombre")).title()
+    ws.cell(fila, 1, _rnd_syn("proveedor_nombre").title())
     ws.cell(fila, 2, empresa)
     fila += 1
-    ws.cell(fila, 1, _rnd_syn("proveedor_nit")).upper()
-    ws.cell(fila, 2, nit)
     ws.cell(fila, 1, _rnd_syn("proveedor_nit").upper())
+    ws.cell(fila, 2, nit)
     fila += 1
     ws.cell(fila, 1, _rnd_syn("proveedor_email").title())
     ws.cell(fila, 2, email)

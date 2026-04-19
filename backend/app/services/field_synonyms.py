@@ -10,6 +10,9 @@ Normaliza cualquier variante a su campo canónico antes de guardar en BD.
 
 from __future__ import annotations
 
+from difflib import SequenceMatcher
+from functools import lru_cache
+
 # ---------------------------------------------------------------------------
 # Tabla principal de sinónimos
 # ---------------------------------------------------------------------------
@@ -435,34 +438,48 @@ for _canonical, _variants in FIELD_SYNONYMS.items():
         _VARIANT_INDEX[_v.lower()] = _canonical
 
 
+@lru_cache(maxsize=512)
 def resolve_field(raw_label: str) -> str | None:
     """Devuelve el nombre canónico del campo dado un encabezado crudo.
 
     La búsqueda es insensible a mayúsculas/minúsculas y elimina espacios extra.
     Retorna None si no se encuentra ninguna coincidencia exacta.
     Use fuzzy_resolve() para coincidencias aproximadas.
+    Cacheada: los mismos encabezados de cotización se resuelven en O(1) a partir
+    de la segunda llamada.
     """
     normalized = " ".join(raw_label.strip().lower().split())
     return _VARIANT_INDEX.get(normalized)
 
 
+@lru_cache(maxsize=256)
 def fuzzy_resolve(raw_label: str, threshold: float = 0.75) -> tuple[str | None, float]:
     """Coincidencia aproximada cuando resolve_field() no encuentra exacta.
 
     Usa SequenceMatcher de difflib (sin dependencias externas).
     Retorna (nombre_canónico, score) o (None, 0.0) si nada supera el umbral.
+    Cacheada y con early-exit para reducir comparaciones innecesarias.
     """
-    from difflib import SequenceMatcher
-
     normalized = " ".join(raw_label.strip().lower().split())
+
+    # Strings muy cortos o muy largos no tienen coincidencias útiles
+    if len(normalized) < 2 or len(normalized) > 60:
+        return None, 0.0
+
     best_match: str | None = None
     best_score = 0.0
 
     for variant, canonical in _VARIANT_INDEX.items():
+        # Early-exit por longitud: diferencia > 50% → skip sin calcular ratio
+        len_v, len_n = len(variant), len(normalized)
+        if abs(len_v - len_n) / max(len_v, len_n, 1) > 0.5:
+            continue
         score = SequenceMatcher(None, normalized, variant).ratio()
         if score > best_score:
             best_score = score
             best_match = canonical
+            if best_score >= 0.95:  # match casi perfecto → no seguir buscando
+                break
 
     if best_score >= threshold:
         return best_match, best_score

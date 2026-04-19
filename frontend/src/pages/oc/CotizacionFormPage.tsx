@@ -1,4 +1,5 @@
 import { useRef, useState } from "react"
+import { formatCOP } from "@/lib/formatters"
 import { useNavigate, useParams } from "react-router-dom"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
@@ -734,7 +735,7 @@ function ExtraidoItem({
   const found = value !== null && value !== undefined
   const display = found
     ? money
-      ? `$${Number(value).toLocaleString("es-CO")}`
+      ? formatCOP(Number(value))
       : String(value)
     : "No encontrado"
 

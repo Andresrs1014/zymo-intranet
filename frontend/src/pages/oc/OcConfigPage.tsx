@@ -10,12 +10,14 @@ async function descargarExcelPrueba(): Promise<string> {
   const disposition: string = res.headers["content-disposition"] ?? ""
   const match = disposition.match(/filename="(.+?)"/)
   const filename = match ? match[1] : "prueba.xlsx"
-  const url = URL.createObjectURL(new Blob([res.data]))
+  const url = URL.createObjectURL(res.data as Blob)
   const a = document.createElement("a")
   a.href = url
   a.download = filename
+  document.body.appendChild(a)
   a.click()
-  URL.revokeObjectURL(url)
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
   return filename
 }
 
@@ -82,6 +84,7 @@ export function OcConfigPage() {
   const [testResult, setTestResult] = useState<TestEmailResult | null>(null)
   const [generandoExcel, setGenerandoExcel] = useState(false)
   const [ultimoArchivo, setUltimoArchivo] = useState<string | null>(null)
+  const [errorExcel, setErrorExcel] = useState<string | null>(null)
 
   const { data: listas } = useListasFormulario()
   const guardarListas = useGuardarListas()
@@ -420,9 +423,12 @@ export function OcConfigPage() {
                       onClick={async () => {
                         setGenerandoExcel(true)
                         setUltimoArchivo(null)
+                        setErrorExcel(null)
                         try {
                           const nombre = await descargarExcelPrueba()
                           setUltimoArchivo(nombre)
+                        } catch (err: any) {
+                          setErrorExcel(err?.message ?? "Error al generar el archivo.")
                         } finally {
                           setGenerandoExcel(false)
                         }
@@ -436,6 +442,9 @@ export function OcConfigPage() {
                     <p className="text-xs text-green-600 font-medium">
                       ✓ Descargado: <span className="font-mono">{ultimoArchivo}</span>
                     </p>
+                  )}
+                  {errorExcel && (
+                    <p className="text-xs text-red-600 font-medium">✗ {errorExcel}</p>
                   )}
                 </section>
 

@@ -1,9 +1,12 @@
 import io
+import logging
 import re
 import uuid
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Optional
+
+log = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
@@ -138,7 +141,8 @@ def _extraer_texto(contenido: bytes, ext: str) -> str:
 
             with pdfplumber.open(io.BytesIO(contenido)) as pdf:
                 return "\n".join(page.extract_text() or "" for page in pdf.pages)
-        except Exception:
+        except Exception as e:
+            log.warning("[motor-facturas] extracción texto PDF falló: %s", e)
             return ""
     if ext in ("xlsx", "xls"):
         try:
@@ -152,7 +156,8 @@ def _extraer_texto(contenido: bytes, ext: str) -> str:
                     if parts:
                         lines.append("  ".join(parts))
             return "\n".join(lines)
-        except Exception:
+        except Exception as e:
+            log.warning("[motor-facturas] extracción texto Excel falló: %s", e)
             return ""
     if ext == "docx":
         try:
@@ -160,36 +165,13 @@ def _extraer_texto(contenido: bytes, ext: str) -> str:
 
             doc = Document(io.BytesIO(contenido))
             return "\n".join(p.text for p in doc.paragraphs if p.text.strip())
-        except Exception:
+        except Exception as e:
+            log.warning("[motor-facturas] extracción texto Word falló: %s", e)
             return ""
     return ""
 
 
-def _to_float(raw: str) -> Optional[float]:
-    try:
-        cleaned = raw.replace("$", "").replace(" ", "").strip()
-        # Formato europeo con punto de miles y coma decimal: 1.200.000,00
-        if re.search(r"\d{1,3}(\.\d{3})+,\d{2}$", cleaned):
-            cleaned = cleaned.replace(".", "").replace(",", ".")
-        # Formato anglosajón con coma de miles y punto decimal: 1,200,000.50
-        elif "," in cleaned and "." in cleaned:
-            cleaned = cleaned.replace(",", "")
-        # Solo coma → tratar como coma decimal: 1200,50
-        elif "," in cleaned:
-            cleaned = cleaned.replace(".", "").replace(",", ".")
-        # Solo un punto → puede ser decimal simple (1500.50) o miles (1.500)
-        # Si hay exactamente un punto y ≤2 dígitos tras él, es decimal; si tiene 3, es separador de miles
-        elif cleaned.count(".") == 1:
-            _, _, decimales = cleaned.partition(".")
-            if len(decimales) == 3:  # ej: "1.500" → miles, sin decimales
-                cleaned = cleaned.replace(".", "")
-            # else: "1500.50" → decimal legítimo, no tocar
-        else:
-            # Múltiples puntos → todos son separadores de miles: 1.200.000
-            cleaned = cleaned.replace(".", "")
-        return float(cleaned)
-    except Exception:
-        return None
+from app.services.number_utils import parse_cop as _to_float  # noqa: E402
 
 
 def _parsear_factura(texto: str) -> ExtraccionFacturaResult:

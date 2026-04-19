@@ -1,8 +1,11 @@
 import io
+import logging
 import re
 import uuid
 from datetime import date, datetime, timezone
 from typing import Optional
+
+log = logging.getLogger(__name__)
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
 from pydantic import BaseModel
@@ -115,7 +118,8 @@ def _extraer_texto(contenido: bytes, ext: str) -> str:
             import pdfplumber
             with pdfplumber.open(io.BytesIO(contenido)) as pdf:
                 return "\n".join(page.extract_text() or "" for page in pdf.pages)
-        except Exception:
+        except Exception as e:
+            log.warning("[motor] extracción texto PDF falló: %s", e)
             return ""
     if ext in ("xlsx", "xls"):
         try:
@@ -128,14 +132,16 @@ def _extraer_texto(contenido: bytes, ext: str) -> str:
                     if parts:
                         lines.append("  ".join(parts))
             return "\n".join(lines)
-        except Exception:
+        except Exception as e:
+            log.warning("[motor] extracción texto Excel falló: %s", e)
             return ""
     if ext == "docx":
         try:
             from docx import Document
             doc = Document(io.BytesIO(contenido))
             return "\n".join(p.text for p in doc.paragraphs if p.text.strip())
-        except Exception:
+        except Exception as e:
+            log.warning("[motor] extracción texto Word falló: %s", e)
             return ""
     return ""
 
@@ -168,8 +174,8 @@ def _extraer_campos_estructurado(contenido: bytes, ext: str) -> dict[str, str]:
                         canonical, _ = fuzzy_resolve(label)
                     if canonical and canonical not in resultado:
                         resultado[canonical] = value
-        except Exception:
-            pass
+        except Exception as e:
+            log.warning("[motor] extracción estructurada Excel falló: %s", e)
 
     elif ext == "docx":
         try:
@@ -208,28 +214,13 @@ def _extraer_campos_estructurado(contenido: bytes, ext: str) -> dict[str, str]:
                     canonical, _ = fuzzy_resolve(label)
                 if canonical and canonical not in resultado:
                     resultado[canonical] = value
-        except Exception:
-            pass
+        except Exception as e:
+            log.warning("[motor] extracción estructurada Word falló: %s", e)
 
     return resultado
 
 
-def _to_float(raw: str) -> Optional[float]:
-    try:
-        cleaned = raw.replace("$", "").replace(" ", "").strip()
-        # Detectar si usa punto como separador de miles (ej: 1.200.000,00)
-        if re.search(r"\d{1,3}(\.\d{3})+,\d{2}$", cleaned):
-            cleaned = cleaned.replace(".", "").replace(",", ".")
-        elif "," in cleaned and "." in cleaned:
-            # 1,200,000.50 formato anglosajón
-            cleaned = cleaned.replace(",", "")
-        elif "," in cleaned:
-            cleaned = cleaned.replace(".", "").replace(",", ".")
-        else:
-            cleaned = cleaned.replace(".", "")
-        return float(cleaned)
-    except Exception:
-        return None
+from app.services.number_utils import parse_cop as _to_float  # noqa: E402
 
 
 def _parsear_campos(texto: str, extra: Optional[dict[str, str]] = None) -> ExtraccionResult:
@@ -437,8 +428,8 @@ def _items_desde_excel(contenido: bytes) -> list[dict]:
                     items.append(item)
             if items:
                 return items
-    except Exception:
-        pass
+    except Exception as e:
+        log.warning("[motor] extracción ítems Excel falló: %s", e)
     return []
 
 
@@ -469,8 +460,8 @@ def _items_desde_pdf(contenido: bytes) -> list[dict]:
                             items.append(item)
                     if items:
                         return items
-    except Exception:
-        pass
+    except Exception as e:
+        log.warning("[motor] extracción ítems PDF falló: %s", e)
     return []
 
 
@@ -505,8 +496,8 @@ def _items_desde_docx(contenido: bytes) -> list[dict]:
                     items.append(item)
             if items:
                 return items
-    except Exception:
-        pass
+    except Exception as e:
+        log.warning("[motor] extracción ítems Word falló: %s", e)
     return []
 
 
