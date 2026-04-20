@@ -234,7 +234,6 @@ export function SolicitudDetallePage() {
                     )
                   }}
                   onDescargar={handleDescargar}
-                  isActualizando={actualizarGestion.isPending}
                   onMarcarEnviada={(email) => marcarEnviada.mutate({ id: solicitud.id, email_proveedor: email })}
                   onMarcarEnPlataforma={() => marcarEnPlataforma.mutate(solicitud.id)}
                   onMarcarEntregada={() => marcarEntregada.mutate(solicitud.id)}
