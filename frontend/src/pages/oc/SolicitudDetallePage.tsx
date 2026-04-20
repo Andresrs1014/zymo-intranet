@@ -101,7 +101,21 @@ export function SolicitudDetallePage() {
 
   function handleGenerarOC(forzar = false) {
     if (!id) return
-    generarOC.mutate({ solicitudId: id, forzar })
+    generarOC.mutate(
+      { solicitudId: id, forzar },
+      {
+        onError: () => alert("Error al generar la OC. Verifica que la cotización esté aprobada y vuelve a intentarlo."),
+      }
+    )
+  }
+
+  // Guarda la plataforma primero y luego genera — evita race condition
+  function handleGuardarYGenerar(plataforma: string) {
+    if (!id) return
+    actualizarGestion.mutate(
+      { id, payload: { plataforma } },
+      { onSuccess: () => handleGenerarOC(false) }
+    )
   }
 
   async function handleDescargar() {
@@ -207,11 +221,12 @@ export function SolicitudDetallePage() {
                   puedeGenerar={puedeGenerarOC}
                   emailProveedorInicial={cotizacionAprobada?.proveedor_email ?? orden?.email_proveedor ?? ""}
                   isGenerating={generarOC.isPending}
+                  isActualizando={actualizarGestion.isPending}
                   isMarkingEnviada={marcarEnviada.isPending}
                   isMarkingEnPlataforma={marcarEnPlataforma.isPending}
                   isMarkingEntregada={marcarEntregada.isPending}
                   isClosing={cerrarSolicitud.isPending}
-                  onGenerar={handleGenerarOC}
+                  onGenerar={handleGuardarYGenerar}
                   onRegenerar={(p) => {
                     actualizarGestion.mutate(
                       { id: solicitud.id, payload: { plataforma: p } },
@@ -219,7 +234,7 @@ export function SolicitudDetallePage() {
                     )
                   }}
                   onDescargar={handleDescargar}
-                  onPlataformaChange={(p) => actualizarGestion.mutate({ id: solicitud.id, payload: { plataforma: p } })}
+                  isActualizando={actualizarGestion.isPending}
                   onMarcarEnviada={(email) => marcarEnviada.mutate({ id: solicitud.id, email_proveedor: email })}
                   onMarcarEnPlataforma={() => marcarEnPlataforma.mutate(solicitud.id)}
                   onMarcarEntregada={() => marcarEntregada.mutate(solicitud.id)}
@@ -725,7 +740,7 @@ function PanelOrdenCompra({
   onGenerar,
   onRegenerar,
   onDescargar,
-  onPlataformaChange,
+  isActualizando = false,
   onMarcarEnviada,
   onMarcarEnPlataforma,
   onMarcarEntregada,
@@ -742,10 +757,10 @@ function PanelOrdenCompra({
   isMarkingEnPlataforma: boolean
   isMarkingEntregada: boolean
   isClosing: boolean
-  onGenerar: () => void
+  onGenerar: (plataforma: string) => void
   onRegenerar: (plataforma: string) => void
   onDescargar: () => void
-  onPlataformaChange: (plataforma: string) => void
+  isActualizando?: boolean
   onMarcarEnviada: (email: string) => void
   onMarcarEnPlataforma: () => void
   onMarcarEntregada: () => void
@@ -1021,10 +1036,7 @@ function PanelOrdenCompra({
         <label className="block text-xs font-medium text-brand-blue/70">Plataforma</label>
         <select
           value={plataforma}
-          onChange={(e) => {
-            setPlataforma(e.target.value)
-            onPlataformaChange(e.target.value)
-          }}
+          onChange={(e) => setPlataforma(e.target.value)}
           className="w-full rounded-lg border border-brand-blue/30 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
         >
           <option value="">— Sin asignar —</option>
@@ -1035,11 +1047,11 @@ function PanelOrdenCompra({
       </div>
       <div className="flex justify-end">
         <button
-          onClick={onGenerar}
-          disabled={isGenerating || !plataforma}
+          onClick={() => onGenerar(plataforma)}
+          disabled={isGenerating || isActualizando || !plataforma}
           className="rounded-lg bg-brand-blue px-4 py-2 text-sm font-medium text-white hover:bg-brand-blue/90 disabled:opacity-50 transition-colors"
         >
-          {isGenerating ? "Generando..." : "Generar OC"}
+          {isActualizando ? "Guardando..." : isGenerating ? "Generando..." : "Generar OC"}
         </button>
       </div>
     </div>
