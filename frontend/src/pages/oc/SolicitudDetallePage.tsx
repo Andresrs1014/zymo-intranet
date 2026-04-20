@@ -19,6 +19,7 @@ import {
   useMarcarEnPlataforma,
   useMarcarEntregada,
   useCerrarSolicitud,
+  useUsuariosCompras,
 } from "@/hooks/useOC"
 import { useAuthStore } from "@/store/authStore"
 import { canSeeOC } from "@/lib/permissions"
@@ -34,6 +35,7 @@ export function SolicitudDetallePage() {
   const { data: cotizaciones = [] } = useCotizaciones(id)
   const { data: orden } = useOrden(id)
   const { data: auxiliar } = useUsuario(solicitud?.auxiliar_id)
+  const { data: usuariosCompras = [] } = useUsuariosCompras()
   const asignar = useAsignarAuxiliar()
   const aprobar = useAprobarCotizacion()
   const rechazar = useRechazarCotizacion()
@@ -89,6 +91,8 @@ export function SolicitudDetallePage() {
     !solicitud.auxiliar_id &&
     (user?.role === "admin" || user?.role === "compras" || user?.area === "Compras")
   const esAprobador = user?.role === "admin" || user?.role === "directivo" || user?.role === "administrativo"
+  const esAdmin = user?.role === "admin" || user?.role === "administrativo" || user?.role === "directivo"
+  const puedeAsignarOtro = esAdmin
   const puedeGenerarOC = user ? canSeeOC(user.role, user.area, user.app_permissions) : false
   const cotizacionPendiente = cotizaciones.find((c) => c.aprobada === null)
   const cotizacionAprobada = cotizaciones.find((c) => c.aprobada === true)
@@ -354,13 +358,44 @@ export function SolicitudDetallePage() {
                   </Section>
                 )}
 
-              {solicitud.auxiliar_id && (
+              {(solicitud.auxiliar_id || puedeAsignarOtro) && (
                 <Section title="Auxiliar asignado">
-                  <p className="text-sm font-semibold text-gray-800">
-                    {auxiliar?.full_name ?? `Usuario #${solicitud.auxiliar_id}`}
-                  </p>
-                  {auxiliar?.email && (
-                    <p className="text-xs text-gray-400 mt-0.5">{auxiliar.email}</p>
+                  {solicitud.auxiliar_id && (
+                    <div className="mb-3">
+                      <p className="text-sm font-semibold text-gray-800">
+                        {auxiliar?.full_name ?? `Usuario #${solicitud.auxiliar_id}`}
+                      </p>
+                      {auxiliar?.email && (
+                        <p className="text-xs text-gray-400 mt-0.5">{auxiliar.email}</p>
+                      )}
+                    </div>
+                  )}
+                  {puedeAsignarOtro && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-gray-400">
+                        {solicitud.auxiliar_id ? "Reasignar:" : "Asignar auxiliar:"}
+                      </p>
+                      <select
+                        defaultValue=""
+                        disabled={asignar.isPending || usuariosCompras.length === 0}
+                        onChange={(e) => {
+                          const val = Number(e.target.value)
+                          if (!val || !id) return
+                          asignar.mutate({ id, auxiliar_id: val })
+                        }}
+                        className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30 bg-white disabled:opacity-50"
+                      >
+                        <option value="" disabled>— Seleccionar —</option>
+                        {usuariosCompras.map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.full_name}
+                          </option>
+                        ))}
+                      </select>
+                      {asignar.isPending && (
+                        <p className="text-xs text-brand-blue">Asignando...</p>
+                      )}
+                    </div>
                   )}
                 </Section>
               )}

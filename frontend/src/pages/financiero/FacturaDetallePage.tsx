@@ -285,6 +285,17 @@ export function FacturaDetallePage() {
 
                   <div className="mt-5 flex items-center justify-end gap-3">
                     <button
+                      onClick={() => window.open(`/api/financiero/facturas/${facturaId}/pdf`, "_blank")}
+                      className="mr-auto rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-1.5"
+                      title="Ver PDF en nueva pestaña"
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M10 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />
+                        <path fillRule="evenodd" d="M.664 10.59a1.651 1.651 0 0 1 0-1.186A10.004 10.004 0 0 1 10 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0 1 10 17c-4.257 0-7.893-2.66-9.336-6.41Z" clipRule="evenodd" />
+                      </svg>
+                      Ver PDF
+                    </button>
+                    <button
                       onClick={handleValidar}
                       disabled={validarFactura.isPending}
                       className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-colors"

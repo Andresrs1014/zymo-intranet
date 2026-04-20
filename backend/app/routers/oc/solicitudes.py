@@ -5,7 +5,7 @@ from typing import Literal, Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session, func, select
+from sqlmodel import Session, func, or_, select
 
 from app.core.deps import get_current_user, require_compras
 from app.database import get_db
@@ -103,6 +103,17 @@ class SolicitudInternaCreate(BaseModel):
     plataforma: str
     placa_ficha: Optional[str] = None
     observaciones_solicitante: Optional[str] = None
+
+
+class UsuarioBasico(BaseModel):
+    id: int
+    full_name: str
+    email: str
+    area: Optional[str]
+    role: str
+
+    class Config:
+        from_attributes = True
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -205,6 +216,29 @@ def mis_solicitudes(
         .order_by(SolicitudOC.fecha_solicitud.desc())
     )
     return oc_db.exec(query).all()
+
+
+_ROLES_COMPRAS = ["admin", "compras", "administrativo", "directivo"]
+
+
+@router.get("/usuarios-compras", response_model=list[UsuarioBasico])
+def list_usuarios_compras(
+    current_user: User = Depends(require_compras),
+    db: Session = Depends(get_db),
+):
+    """Lista usuarios activos del equipo de compras (por rol o por área)."""
+    usuarios = db.exec(
+        select(User)
+        .where(
+            User.is_active == True,  # noqa: E712
+            or_(
+                User.role.in_(_ROLES_COMPRAS),
+                User.area == "Compras",
+            ),
+        )
+        .order_by(User.full_name)
+    ).all()
+    return usuarios
 
 
 @router.get("/{solicitud_id}", response_model=SolicitudRead)

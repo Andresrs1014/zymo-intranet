@@ -108,6 +108,21 @@ export interface ConteoItem {
   count: number
 }
 
+export interface MesItem {
+  mes: string           // "2026-04"
+  label: string         // "Abr 2026"
+  solicitudes: number
+  valor_aprobado: number
+}
+
+export interface UsuarioBasico {
+  id: number
+  full_name: string
+  email: string
+  area: string | null
+  role: string
+}
+
 export interface KPIData {
   total_solicitudes: number
   por_estado: ConteoItem[]
@@ -120,6 +135,7 @@ export interface KPIData {
   total_ordenes_generadas: number
   top_proveedores: ConteoItem[]
   tiempo_promedio_cotizacion_dias: number
+  por_mes: MesItem[]
   solicitudes_recientes: {
     id: string
     consecutivo_os: string

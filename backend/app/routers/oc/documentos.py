@@ -525,6 +525,7 @@ def marcar_en_plataforma(
 )
 def marcar_entregada(
     solicitud_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     oc_db: Session = Depends(get_oc_db),
 ):
@@ -532,6 +533,7 @@ def marcar_entregada(
     Accesible para cualquier usuario autenticado cuyo email coincida con el solicitante,
     o para usuarios del módulo de compras (require_compras)."""
     from app.models.oc import EstadoOC
+    from app.services import email_service
 
     OC_ROLES = {"admin", "administrativo", "directivo", "compras"}
     es_compras = current_user.role in OC_ROLES or current_user.area == "Compras"
@@ -558,6 +560,9 @@ def marcar_entregada(
     solicitud.updated_at = datetime.now(timezone.utc)
     oc_db.add(solicitud)
     oc_db.commit()
+    oc_db.refresh(solicitud)
+
+    background_tasks.add_task(email_service.send_entrega_confirmada, solicitud)
 
     return {"ok": True}
 

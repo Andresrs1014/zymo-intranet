@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends
@@ -15,6 +15,20 @@ router = APIRouter(prefix="", tags=["OC - KPIs"])
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
+
+_MESES_ES = {
+    1: "Ene", 2: "Feb", 3: "Mar", 4: "Abr",
+    5: "May", 6: "Jun", 7: "Jul", 8: "Ago",
+    9: "Sep", 10: "Oct", 11: "Nov", 12: "Dic",
+}
+
+
+class MesItem(BaseModel):
+    mes: str          # "2026-04"
+    label: str        # "Abr 2026"
+    solicitudes: int
+    valor_aprobado: float
+
 
 class ConteoItem(BaseModel):
     label: str
@@ -44,6 +58,7 @@ class KPIResponse(BaseModel):
     top_proveedores: list[ConteoItem]
     tiempo_promedio_cotizacion_dias: float
     solicitudes_recientes: list[SolicitudResumenKPI]
+    por_mes: list[MesItem]
 
 
 # ── Endpoint ──────────────────────────────────────────────────────────────────
@@ -139,7 +154,67 @@ def get_kpis(
             deltas.append(delta_days)
         tiempo_promedio_cotizacion_dias = sum(deltas) / len(deltas)
 
-    # 10. Solicitudes recientes (últimas 10)
+    # 10. Tendencia mensual — últimos 6 meses (calculado en Python)
+    now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+    # Generar los 6 puntos (año, mes) en orden cronológico sin dateutil
+    _puntos: list[tuple[int, int]] = []
+    _y, _m = now_utc.year, now_utc.month
+    for _ in range(6):
+        _puntos.append((_y, _m))
+        _m -= 1
+        if _m == 0:
+            _m = 12
+            _y -= 1
+    _puntos.reverse()  # orden cronológico: más antiguo → más reciente
+
+    # Fecha de inicio de la ventana (primer día del mes más antiguo)
+    inicio_anio, inicio_mes = _puntos[0]
+    inicio_ventana = datetime(inicio_anio, inicio_mes, 1, 0, 0, 0)
+
+    solicitudes_ventana = oc_db.exec(
+        select(SolicitudOC).where(SolicitudOC.fecha_solicitud >= inicio_ventana)
+    ).all()
+
+    cotizaciones_ventana = oc_db.exec(
+        select(CotizacionProveedor).where(
+            CotizacionProveedor.aprobada == True  # noqa: E712
+        )
+    ).all()
+
+    # Indexar cotizaciones aprobadas por solicitud_id → valor_aprobado total
+    valor_por_solicitud: dict[uuid.UUID, float] = {}
+    for cot in cotizaciones_ventana:
+        if cot.solicitud_id is not None:
+            valor_por_solicitud[cot.solicitud_id] = (
+                valor_por_solicitud.get(cot.solicitud_id, 0.0) + (cot.valor_aprobado or 0.0)
+            )
+
+    # Construir diccionario mes_key → {solicitudes, valor_aprobado}
+    mes_data: dict[str, dict] = {}
+    for s in solicitudes_ventana:
+        fecha = s.fecha_solicitud.replace(tzinfo=None) if s.fecha_solicitud.tzinfo else s.fecha_solicitud
+        mes_key = fecha.strftime("%Y-%m")
+        if mes_key not in mes_data:
+            mes_data[mes_key] = {"solicitudes": 0, "valor_aprobado": 0.0}
+        mes_data[mes_key]["solicitudes"] += 1
+        mes_data[mes_key]["valor_aprobado"] += valor_por_solicitud.get(s.id, 0.0)
+
+    # Rellenar los 6 meses en orden cronológico, incluyendo meses sin datos
+    por_mes: list[MesItem] = []
+    for anio_p, mes_p in _puntos:
+        mes_key = f"{anio_p:04d}-{mes_p:02d}"
+        label = f"{_MESES_ES[mes_p]} {anio_p}"
+        datos = mes_data.get(mes_key, {"solicitudes": 0, "valor_aprobado": 0.0})
+        por_mes.append(
+            MesItem(
+                mes=mes_key,
+                label=label,
+                solicitudes=datos["solicitudes"],
+                valor_aprobado=round(datos["valor_aprobado"], 2),
+            )
+        )
+
+    # 11. Solicitudes recientes (últimas 10)
     recientes_raw = oc_db.exec(
         select(SolicitudOC)
         .order_by(SolicitudOC.fecha_solicitud.desc())
@@ -171,4 +246,5 @@ def get_kpis(
         top_proveedores=top_proveedores,
         tiempo_promedio_cotizacion_dias=round(tiempo_promedio_cotizacion_dias, 2),
         solicitudes_recientes=solicitudes_recientes,
+        por_mes=por_mes,
     )

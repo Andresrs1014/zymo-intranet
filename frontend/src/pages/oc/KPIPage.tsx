@@ -2,16 +2,11 @@ import { useState } from "react"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
 import { useKPIs } from "@/hooks/useOC"
-import type { ConteoItem } from "@/types/oc"
+import type { ConteoItem, MesItem } from "@/types/oc"
 import { formatFechaRelativa } from "@/lib/dates"
+import { formatCOP } from "@/lib/formatters"
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function formatCOP(value: number): string {
-  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M COP`
-  if (value >= 1_000) return `$${(value / 1_000).toFixed(0)}K COP`
-  return `$${value.toFixed(0)} COP`
-}
 
 function estadoLabel(estado: string): string {
   const map: Record<string, string> = {
@@ -45,6 +40,40 @@ function estadoBarColor(estado: string): string {
 
 function formatDateRelative(iso: string): string {
   return formatFechaRelativa(iso)
+}
+
+function MesChart({ items }: { items: MesItem[] }) {
+  if (!items || items.length === 0) return <p className="text-sm text-gray-400">Sin datos aún</p>
+
+  const maxSolicitudes = Math.max(...items.map(i => i.solicitudes), 1)
+
+  return (
+    <div className="flex items-end gap-3 h-36 pt-2">
+      {items.map((item) => {
+        const pctH = Math.round((item.solicitudes / maxSolicitudes) * 100)
+        return (
+          <div key={item.mes} className="flex-1 flex flex-col items-center gap-1 min-w-0">
+            {/* Tooltip: valor aprobado */}
+            <p className="text-xs text-gray-400 truncate w-full text-center">
+              {item.valor_aprobado > 0 ? formatCOP(item.valor_aprobado) : "—"}
+            </p>
+            {/* Barra */}
+            <div className="w-full relative" style={{ height: "72px" }}>
+              <div
+                className="w-full bg-brand-blue rounded-t-md absolute bottom-0 transition-all duration-500"
+                style={{ height: `${pctH}%` }}
+                title={`${item.label}: ${item.solicitudes} solicitudes`}
+              />
+            </div>
+            {/* Número de solicitudes */}
+            <p className="text-xs font-semibold text-gray-700">{item.solicitudes}</p>
+            {/* Label mes */}
+            <p className="text-xs text-gray-400 truncate w-full text-center">{item.label}</p>
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -330,6 +359,15 @@ export function KPIPage() {
                     getColor={() => "bg-teal-400"}
                   />
                 </div>
+              </div>
+
+              {/* Fila 3b — Tendencia mensual */}
+              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+                <h2 className="text-sm font-semibold text-gray-700 mb-1">
+                  Solicitudes por mes
+                </h2>
+                <p className="text-xs text-gray-400 mb-4">Últimos 6 meses · valor = aprobado sin IVA</p>
+                <MesChart items={kpis.por_mes} />
               </div>
 
               {/* Fila 4 — Solicitudes Recientes */}

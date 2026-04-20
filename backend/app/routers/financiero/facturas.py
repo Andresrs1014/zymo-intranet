@@ -486,6 +486,48 @@ async def subir_factura(
 
 
 @router.get(
+    "/facturas/{factura_id}/pdf",
+    response_class=FileResponse,
+)
+def previsualizar_factura_pdf(
+    factura_id: uuid.UUID,
+    current_user: User = Depends(require_financiero),
+    fin_db: Session = Depends(get_financiero_db),
+) -> FileResponse:
+    """Retorna el archivo de la factura inline para previsualización en el browser."""
+    factura = fin_db.get(FacturaProveedor, factura_id)
+    if not factura:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Factura no encontrada.")
+
+    if not factura.pdf_path:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Esta factura no tiene archivo asociado.",
+        )
+
+    archivo = Path(factura.pdf_path)
+    ext = archivo.suffix.lower().lstrip(".")
+
+    if ext in ("xlsx", "xls", "docx"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="El archivo de esta factura no es un PDF, no se puede previsualizar en el browser.",
+        )
+
+    if not archivo.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="El archivo de la factura no existe en el servidor.",
+        )
+
+    return FileResponse(
+        path=str(archivo),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{archivo.name}"'},
+    )
+
+
+@router.get(
     "/facturas/{factura_id}",
     response_model=FacturaRead,
 )

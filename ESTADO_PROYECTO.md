@@ -389,14 +389,16 @@ Estado factura: `validada` si todos cumplen, `con_diferencias` si alguno falla.
 
 ## Roadmap
 
-### Sprint en curso — Emails (prioridad alta)
+### Sprint emails + mejoras (completado 2026-04-19) ✅
 
-- [x] **Botón test SMTP** — `POST /api/oc/config/test-email` con error SMTP exacto + UI en OcConfigPage ✅
-- [x] **Diagnóstico** — errores de DB config ahora visibles en logs del backend ✅
-- [ ] **Branding multi-plataforma** — `_base()` lee color, nombre y datos de empresa desde `config.json`. LOGIMAT rojo, IMC azul/amarillo
-- [ ] **Email OC al proveedor formal** — tabla de ítems, condiciones de pago, contacto empresa
-- [ ] **Copia al solicitante** al enviar OC al proveedor (resumen de lo que se ordenó)
-- [ ] **Templates configurables** — asuntos e intros de flujos 1–4 editables desde `OcConfigPage`
+- [x] **Botón test SMTP** ✅
+- [x] **Branding multi-plataforma** ✅ — `_base()` dinámico, configurable desde OcConfigPage
+- [x] **Email OC al proveedor formal** ✅ — tabla de ítems, condiciones de pago
+- [x] **Copia al solicitante** ✅ — CC automático en `send_oc_a_proveedor`
+- [x] **Templates configurables** ✅ — prefijo + intros flujos 1–4 desde OcConfigPage
+- [x] **Email entrega confirmada** ✅ — `send_entrega_confirmada` al confirmar recepción física
+- [x] **Email rechazo cotización** ✅ — `send_rechazo_cotizacion` al auxiliar cuando directora rechaza
+- [x] **Logo LOGIMAT** ✅ — copiado a `backend/app/platforms/logimat/logo_logimat.png`
 
 ### Fase 2 — Formulario interno en Módulo Operativo ✅ COMPLETADO
 
@@ -418,29 +420,25 @@ Estado factura: `validada` si todos cumplen, `con_diferencias` si alguno falla.
 
 ## Pendientes / Backlog consolidado
 
-### Alta prioridad
+### Alta prioridad ✅ COMPLETADO 2026-04-19
 
-- [ ] **Emails — branding multi-plataforma** (sprint en curso)
-- [ ] **Emails — OC formal al proveedor** (sprint en curso)
-- [ ] **Logo LOGIMAT** — colocar `logimat_logo.png` en `backend/app/platforms/logimat/` (archivo físico, manual)
-- [x] **Emails — test SMTP desde UI** ✅ — `POST /api/oc/config/test-email` con detalle exacto del error
-- [x] **Fase 2 Operativo** ✅ — formulario interno `NuevaSolicitudPage` + `crear-interna` + listas configurables
+- [x] **Logo LOGIMAT** ✅
+- [x] **Email entrega confirmada** ✅
+- [x] **Email rechazo cotización al auxiliar** ✅
 
-### Media prioridad
+### Media prioridad ✅ COMPLETADO 2026-04-19
 
-- [ ] **Preview factura** — `GET /api/financiero/facturas/{id}/pdf` para visualizar en browser
-- [ ] **Flujo email entrega confirmada** — notificar cuando coordinador confirma recepción
-- [ ] **Dashboard métricas** — gráficos de tendencias por mes en KPIPage
-- [ ] **Dropdown asignar auxiliar** — UI para que admin asigne auxiliar específico
-- [ ] **Guardar PDF cotización** — actualmente la extracción no persiste el archivo fuente
+- [x] **Preview factura PDF** ✅ — `GET /api/financiero/facturas/{id}/pdf` + botón "Ver PDF" en FacturaDetallePage
+- [x] **Dashboard métricas mensuales** ✅ — `MesChart` en KPIPage, tendencia últimos 6 meses
+- [x] **Dropdown asignar auxiliar** ✅ — select en SolicitudDetallePage para admin, endpoint `GET /api/oc/usuarios-compras`
+- [x] **Guardar PDF cotización** ✅ — archivo fuente persiste en `/app/data/cotizaciones/{id}.ext`
 
-### Baja prioridad / Futuro
+### Pendiente / Futuro
 
 - [ ] **SharePoint List push** — al cerrar solicitud, escribir en SharePoint
 - [ ] **OCR cotizaciones escaneadas** — Google Vision o Tesseract
 - [ ] **Refresh tokens** — JWT de 8h sin renovación
 - [ ] **PostgreSQL** — migrar de SQLite para mayor concurrencia
-- [ ] **Notificación a auxiliar** cuando directora rechaza cotización
 - [ ] **Historial de estados** — tabla de auditoría completa
 - [ ] **Cotización múltiple con comparación** — tabla comparativa para el aprobador
 - [ ] **Notificación a compras** cuando factura tiene diferencias (módulo financiero)

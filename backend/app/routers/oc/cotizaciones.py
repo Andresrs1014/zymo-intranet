@@ -3,6 +3,7 @@ import logging
 import re
 import uuid
 from datetime import date, datetime, timezone
+from pathlib import Path
 from typing import Optional
 
 log = logging.getLogger(__name__)
@@ -584,15 +585,19 @@ async def extraer_cotizacion(
     return resultado
 
 
+_COTIZACIONES_DIR = Path("/app/data/cotizaciones")
+
+
 @router.post(
     "/solicitudes/{solicitud_id}/cotizacion",
     response_model=CotizacionRead,
     status_code=status.HTTP_201_CREATED,
 )
-def crear_cotizacion(
+async def crear_cotizacion(
     solicitud_id: uuid.UUID,
-    payload: CotizacionCreate,
     background_tasks: BackgroundTasks,
+    payload: CotizacionCreate,
+    file: Optional[UploadFile] = File(None),
     current_user: User = Depends(require_compras),
     oc_db: Session = Depends(get_oc_db),
 ):
@@ -646,6 +651,22 @@ def crear_cotizacion(
 
     oc_db.commit()
     oc_db.refresh(cotizacion)
+
+    # Guardar el archivo fuente de la cotización si se adjuntó
+    if file and file.filename:
+        nombre = file.filename
+        ext = nombre.rsplit(".", 1)[-1].lower() if "." in nombre else "bin"
+        try:
+            _COTIZACIONES_DIR.mkdir(parents=True, exist_ok=True)
+            ruta_guardada = _COTIZACIONES_DIR / f"{cotizacion.id}.{ext}"
+            contenido = await file.read()
+            ruta_guardada.write_bytes(contenido)
+            cotizacion.pdf_path = str(ruta_guardada)
+            oc_db.add(cotizacion)
+            oc_db.commit()
+            oc_db.refresh(cotizacion)
+        except Exception:
+            log.warning("[cotizacion] No se pudo guardar el archivo fuente para cotización %s", cotizacion.id)
 
     # Disparar emails Flujo 2 y 3 (cotización lista → pendiente_aprobacion)
     background_tasks.add_task(send_cotizacion_lista, solicitud)
@@ -721,9 +742,13 @@ def aprobar_cotizacion(
 def rechazar_cotizacion(
     cotizacion_id: uuid.UUID,
     payload: RechazarPayload,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     oc_db: Session = Depends(get_oc_db),
+    db: Session = Depends(get_db),
 ):
+    from app.services import email_service
+
     if current_user.role not in ("admin", "directivo", "administrativo"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -748,4 +773,27 @@ def rechazar_cotizacion(
 
     oc_db.commit()
     oc_db.refresh(cotizacion)
+
+    # Notificar al auxiliar por email
+    if solicitud and solicitud.auxiliar_id:
+        auxiliar = db.get(User, solicitud.auxiliar_id)
+        if auxiliar and auxiliar.email:
+            background_tasks.add_task(
+                email_service.send_rechazo_cotizacion,
+                solicitud,
+                payload.observaciones_aprobacion,
+                auxiliar.email,
+            )
+        else:
+            log.warning(
+                "[email] Rechazo cotización: auxiliar %s sin email en solicitud %s",
+                solicitud.auxiliar_id,
+                solicitud.consecutivo_os,
+            )
+    else:
+        log.warning(
+            "[email] Rechazo cotización: solicitud %s sin auxiliar_id asignado",
+            solicitud.consecutivo_os if solicitud else cotizacion_id,
+        )
+
     return cotizacion

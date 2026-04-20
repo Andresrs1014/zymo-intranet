@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { api } from "@/lib/api"
-import type { SolicitudOC, Proveedor, CotizacionProveedor, OrdenCompra, KPIData, ItemCotizacion } from "@/types/oc"
+import type { SolicitudOC, Proveedor, CotizacionProveedor, OrdenCompra, KPIData, ItemCotizacion, UsuarioBasico } from "@/types/oc"
 export type { ItemCotizacion }
 
 // ── Solicitudes ───────────────────────────────────────────────────────────────
@@ -440,5 +440,16 @@ export function useCrearSolicitudInterna() {
       qc.invalidateQueries({ queryKey: ["oc", "mis-solicitudes"] })
       qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
     },
+  })
+}
+
+export function useUsuariosCompras() {
+  return useQuery({
+    queryKey: ["oc", "usuarios-compras"],
+    queryFn: async () => {
+      const { data } = await api.get<UsuarioBasico[]>("/api/oc/usuarios-compras")
+      return data
+    },
+    staleTime: 5 * 60_000,
   })
 }

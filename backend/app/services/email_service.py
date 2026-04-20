@@ -603,6 +603,92 @@ async def send_oc_enviada(s: "SolicitudOC") -> None:
     )
 
 
+# ── Entrega confirmada → solicitante ─────────────────────────────────────────
+
+def _html_entrega_confirmada(s: "SolicitudOC", cfg: Optional[dict] = None) -> str:
+    """HTML para notificar al solicitante que su pedido fue confirmado como entregado."""
+    cuerpo = f"""
+    <p style="color:#374151;font-size:14px">Hola <strong>{s.solicitante_nombre}</strong>,</p>
+    <p style="color:#374151;font-size:14px">
+      El coordinador ha confirmado la recepción física de tu pedido. Tu solicitud queda marcada como entregada.
+    </p>
+    {_tabla(
+        _fila("Consecutivo", s.consecutivo_os),
+        _fila("Descripción", s.descripcion),
+        _fila("Fecha de solicitud", _fmt_fecha(s.fecha_solicitud)),
+        _fila("Fecha de envío OC", _fmt_fecha(s.fecha_envio_oc)),
+        _fila("Fecha de recepción", _fmt_fecha(s.fecha_recibido)),
+        _fila("Estado", "✅ Entregado"),
+    )}
+    <p style="color:#6b7280;font-size:13px">
+      Si tienes alguna observación sobre el pedido recibido, comunícate con el equipo de compras.
+    </p>
+    """
+    return _base("Tu pedido fue recibido y confirmado", cuerpo, cfg)
+
+
+async def send_entrega_confirmada(s: "SolicitudOC") -> None:
+    """Notifica al solicitante cuando coordinador confirma la recepción física."""
+    cfg = _get_runtime_config()
+    if not (cfg["smtp_user"] and cfg["smtp_password"]):
+        log.warning("[email] SMTP no configurado — omitiendo notificación entrega confirmada")
+        return
+    if not s.solicitante_email:
+        log.warning("[email] Entrega confirmada: solicitud %s sin email de solicitante", s.consecutivo_os)
+        return
+
+    prefijo = _b(cfg, "email_prefijo")
+    await _send_html(
+        cfg,
+        subject=f"{prefijo} Pedido recibido — {s.consecutivo_os}",
+        recipients=[s.solicitante_email],
+        body=_html_entrega_confirmada(s, cfg),
+        flujo="Entrega confirmada",
+    )
+
+
+# ── Rechazo de cotización → auxiliar ─────────────────────────────────────────
+
+def _html_rechazo_cotizacion(s: "SolicitudOC", motivo: str, cfg: Optional[dict] = None) -> str:
+    """Notifica al auxiliar de compras que la cotización fue rechazada."""
+    cuerpo = f"""
+    <p style="color:#374151;font-size:14px">
+      La directora ha rechazado la cotización para la siguiente solicitud.
+      Por favor busca una nueva cotización.
+    </p>
+    {_tabla(
+        _fila("Consecutivo", s.consecutivo_os),
+        _fila("Descripción", s.descripcion),
+        _fila("Estado", "🔄 En cotización"),
+        _fila("Motivo del rechazo", motivo, destacar=True, cfg=cfg),
+    )}
+    <p style="color:#374151;font-size:14px">
+      Ingresa a la intranet para gestionar una nueva cotización para esta solicitud.
+    </p>
+    """
+    return _base(f"Cotización rechazada — {s.consecutivo_os}", cuerpo, cfg)
+
+
+async def send_rechazo_cotizacion(s: "SolicitudOC", motivo: str, auxiliar_email: str) -> None:
+    """Flujo rechazo — email al auxiliar cuando directora rechaza la cotización."""
+    cfg = _get_runtime_config()
+    if not (cfg["smtp_user"] and cfg["smtp_password"]):
+        log.warning("[email] SMTP no configurado — omitiendo notificación rechazo cotización")
+        return
+    if not auxiliar_email:
+        log.warning("[email] Rechazo cotización: solicitud %s sin email de auxiliar", s.consecutivo_os)
+        return
+
+    prefijo = _b(cfg, "email_prefijo")
+    await _send_html(
+        cfg,
+        subject=f"{prefijo} Cotización rechazada — {s.consecutivo_os}",
+        recipients=[auxiliar_email],
+        body=_html_rechazo_cotizacion(s, motivo, cfg),
+        flujo="Rechazo cotización",
+    )
+
+
 async def send_nueva_solicitud_interna(s: "SolicitudOC") -> None:
     """Flujo Interno — notifica al equipo de compras cuando un coordinador crea una solicitud."""
     cfg = _get_runtime_config()
