@@ -214,6 +214,9 @@ def _generar_xlsx(
         ws[cfg["pago_saldo"]] = cotizacion.pago_saldo
 
     # ── Ítems ─────────────────────────────────────────────────────────────────
+    from copy import copy as _copy
+    from openpyxl.utils import range_boundaries
+
     fila_inicio = items_cfg.get("fila_inicio", 11)
     max_filas = items_cfg.get("max_filas", 20)
     col_num = items_cfg.get("col_item_num", "C")
@@ -222,17 +225,50 @@ def _generar_xlsx(
     col_desc = items_cfg.get("col_descripcion", "F")
     col_vunit = items_cfg.get("col_valor_unitario", "G")
 
-    # Limpiar todas las filas de ítems (preserva fórmulas en col H)
-    for fila in range(fila_inicio, fila_inicio + max_filas):
-        ws[f"{col_num}{fila}"] = None
-        ws[f"{col_cant}{fila}"] = None
-        if col_ref:
-            ws[f"{col_ref}{fila}"] = None
-        ws[f"{col_desc}{fila}"] = None
-        ws[f"{col_vunit}{fila}"] = None
+    col_total = items_cfg.get("col_total")
+    cols_items = [c for c in [col_num, col_cant, col_ref, col_desc, col_vunit, col_total] if c]
+    fila_fin = fila_inicio + max_filas  # exclusivo
 
-    # Construir la lista de ítems a escribir:
-    # Si la cotización tiene ítems múltiples, usarlos; si no, crear uno con los campos de la solicitud.
+    # 1. Desmerge cualquier rango que caiga dentro del área de ítems
+    #    para que cada celda sea independiente (permite multi-fila).
+    rangos_a_desmerge = [
+        str(m) for m in list(ws.merged_cells.ranges)
+        if range_boundaries(str(m))[1] >= fila_inicio        # min_row >= fila_inicio
+        and range_boundaries(str(m))[1] < fila_fin           # min_row < fila_fin
+    ]
+    for rng in rangos_a_desmerge:
+        ws.unmerge_cells(rng)
+
+    # 2. Capturar estilos de la fila base (fila_inicio) ANTES de limpiar
+    _estilos_base: dict[str, dict] = {}
+    for col in cols_items:
+        src = ws[f"{col}{fila_inicio}"]
+        _estilos_base[col] = {
+            "font":          _copy(src.font),
+            "border":        _copy(src.border),
+            "fill":          _copy(src.fill),
+            "number_format": src.number_format,
+            "alignment":     _copy(src.alignment),
+        }
+    _altura_base = ws.row_dimensions[fila_inicio].height
+
+    # 3. Limpiar datos y uniformizar estilos en todas las filas de ítems
+    for fila in range(fila_inicio, fila_fin):
+        for col in cols_items:
+            cell = ws[f"{col}{fila}"]
+            cell.value = None
+            est = _estilos_base[col]
+            cell.font          = _copy(est["font"])
+            cell.border        = _copy(est["border"])
+            cell.fill          = _copy(est["fill"])
+            cell.number_format = est["number_format"]
+            cell.alignment     = _copy(est["alignment"])
+        if _altura_base:
+            ws.row_dimensions[fila].height = _altura_base
+
+    # 4. Construir la lista de ítems a escribir:
+    #    Si la cotización tiene ítems múltiples, usarlos;
+    #    si no, crear uno con los campos de la solicitud.
     items_a_escribir: list[dict] = cotizacion.items or [{
         "num": 1,
         "descripcion": solicitud.descripcion or "",
@@ -244,11 +280,19 @@ def _generar_xlsx(
     for i, item in enumerate(items_a_escribir[:max_filas]):
         fila = fila_inicio + i
         ws[f"{col_num}{fila}"] = item.get("num") or (i + 1)
-        ws[f"{col_cant}{fila}"] = item.get("cantidad") or ""
+        cant = item.get("cantidad")
+        ws[f"{col_cant}{fila}"] = cant if cant is not None else ""
         if col_ref:
             ws[f"{col_ref}{fila}"] = item.get("referencia") or ""
         ws[f"{col_desc}{fila}"] = item.get("descripcion") or ""
-        ws[f"{col_vunit}{fila}"] = item.get("valor_unitario") or 0
+        vunit = item.get("valor_unitario") or 0
+        ws[f"{col_vunit}{fila}"] = vunit
+        # Escribir total directamente para no depender de fórmulas del template
+        if col_total:
+            vtotal = item.get("valor_total")
+            if vtotal is None and cant and vunit:
+                vtotal = float(cant) * float(vunit)
+            ws[f"{col_total}{fila}"] = vtotal or 0
 
     # ── IVA manual (solo en plantillas sin fórmula de IVA) ────────────────────
     if cfg.get("iva_manual"):
