@@ -120,15 +120,16 @@ export function SolicitudDetallePage() {
 
   async function handleDescargar() {
     if (!orden) return
-    const ext = orden.pdf_path ? "pdf" : "xlsx"
-    const mimeType =
-      ext === "pdf"
-        ? "application/pdf"
-        : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     try {
       const response = await api.get(`/api/oc/ordenes/${orden.id}/descargar`, {
         responseType: "blob",
       })
+      const contentType: string = response.headers["content-type"] ?? ""
+      const isPdf = contentType.includes("pdf")
+      const ext = isPdf ? "pdf" : "xlsx"
+      const mimeType = isPdf
+        ? "application/pdf"
+        : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
       const blobUrl = URL.createObjectURL(new Blob([response.data], { type: mimeType }))
       const a = document.createElement("a")
       a.href = blobUrl
@@ -920,7 +921,7 @@ function PanelOrdenCompra({
               onClick={onDescargar}
               className="rounded-lg border border-green-300 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-100 transition-colors"
             >
-              ↓ {orden.pdf_path ? "PDF" : "XLSX"}
+              ↓ Descargar OC
             </button>
             {puedeGenerar && !showRegenerar && (
               <button

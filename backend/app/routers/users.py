@@ -5,7 +5,7 @@ from app.database import get_db
 from app.models.user import User
 from sqlmodel import Session
 
-router = APIRouter(prefix="/users", tags=["Users"])
+router = APIRouter(prefix="/api/users", tags=["Users"])
 
 
 @router.get("/me")
