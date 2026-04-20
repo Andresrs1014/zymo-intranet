@@ -36,7 +36,7 @@
   },
   "items": {
     "fila_inicio": 11,
-    "max_filas": 1,
+    "max_filas": 2,
     "col_item_num": "C",
     "col_cantidad": "D",
     "col_referencia": "E",
