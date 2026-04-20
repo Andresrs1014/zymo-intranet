@@ -312,12 +312,15 @@ def _intentar_conversion_pdf(source_path: Path, output_dir: Path) -> Optional[Pa
     import logging
     _log = logging.getLogger(__name__)
     try:
+        # -env:UserInstallation es la forma correcta en LibreOffice 25.x de
+        # apuntar el perfil a un dir escribible (--user-data-dir fue deprecado).
+        # HOME=/tmp evita fallos de permisos en contenedores Docker.
         env = {**os.environ, "HOME": "/tmp"}
         result = subprocess.run(
             [
                 "libreoffice",
                 "--headless",
-                "--user-data-dir=/tmp/lo_userdata",
+                "-env:UserInstallation=file:///tmp/lo_userdata",
                 "--convert-to",
                 "pdf",
                 "--outdir",
