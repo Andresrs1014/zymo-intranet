@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { api } from "@/lib/api"
-import type { SolicitudOC, Proveedor, CotizacionProveedor, OrdenCompra, KPIData, ItemCotizacion, UsuarioBasico } from "@/types/oc"
+import type { SolicitudOC, Proveedor, CotizacionProveedor, OrdenCompra, KPIData, ItemCotizacion, UsuarioBasico, HistorialEntrada } from "@/types/oc"
 export type { ItemCotizacion }
 
 // ── Solicitudes ───────────────────────────────────────────────────────────────
@@ -451,5 +451,75 @@ export function useUsuariosCompras() {
       return data
     },
     staleTime: 5 * 60_000,
+  })
+}
+
+export function useHistorialEstados(solicitudId: string | undefined) {
+  return useQuery({
+    queryKey: ["oc", "historial", solicitudId],
+    queryFn: async () => {
+      const { data } = await api.get<HistorialEntrada[]>(
+        `/api/oc/solicitudes/${solicitudId}/historial`
+      )
+      return data
+    },
+    enabled: !!solicitudId,
+  })
+}
+
+// ── Paquetes de Solicitudes ───────────────────────────────────────────────────
+
+export interface PaqueteItem {
+  nivel_prioridad: string
+  categoria?: string
+  grupo_articulos?: string
+  descripcion: string
+  cantidad: number
+  plataforma: string
+  cliente?: string
+  condicion?: string
+  placa_ficha?: string
+  observaciones_solicitante?: string
+}
+
+export interface Paquete {
+  id: string
+  nombre: string
+  descripcion_uso?: string
+  creado_por_id: number
+  creado_por_nombre: string
+  items: PaqueteItem[]
+  activo: boolean
+  created_at: string
+}
+
+export function usePaquetes() {
+  return useQuery({
+    queryKey: ["oc", "paquetes"],
+    queryFn: async () => {
+      const { data } = await api.get<Paquete[]>("/api/oc/paquetes")
+      return data
+    },
+  })
+}
+
+export function useCrearPaquete() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: { nombre: string; descripcion_uso?: string; items: PaqueteItem[] }) => {
+      const { data } = await api.post<Paquete>("/api/oc/paquetes", payload)
+      return data
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["oc", "paquetes"] }),
+  })
+}
+
+export function useEliminarPaquete() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (paqueteId: string) => {
+      await api.delete(`/api/oc/paquetes/${paqueteId}`)
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["oc", "paquetes"] }),
   })
 }

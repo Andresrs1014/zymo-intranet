@@ -14,7 +14,7 @@ from app.models.user import User
 from app.models.role import Role  # noqa: F401
 from app.models.area import Area  # noqa: F401
 from app.models.sede import Sede  # noqa: F401
-from app.models.oc import SolicitudOC, CotizacionProveedor, OrdenCompra, Proveedor, OcConfig  # noqa: F401
+from app.models.oc import SolicitudOC, CotizacionProveedor, OrdenCompra, Proveedor, OcConfig, HistorialEstado, PaqueteSolicitud  # noqa: F401
 from app.models.sgc import ProveedorSGC  # noqa: F401
 from app.models.financiero import FacturaProveedor, ValidacionFactura  # noqa: F401
 from app.config import settings

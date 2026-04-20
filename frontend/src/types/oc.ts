@@ -62,6 +62,7 @@ export interface CotizacionProveedor {
   id: string
   solicitud_id: string
   proveedor_nombre: string
+  proveedor_nit: string | null
   proveedor_email: string | null
   numero_cotizacion_proveedor: string | null
   valor_unitario: number
@@ -69,6 +70,8 @@ export interface CotizacionProveedor {
   valor_iva: number | null
   valor_total: number
   fecha_vigencia: string | null
+  forma_pago: string | null
+  plazo_entrega: string | null
   observaciones: string | null
   pdf_path: string | null
   extraccion_automatica: boolean
@@ -78,6 +81,15 @@ export interface CotizacionProveedor {
   observaciones_aprobacion: string | null
   items: ItemCotizacion[] | null
   created_at: string
+}
+
+export interface HistorialEntrada {
+  id: string
+  estado_anterior: string | null
+  estado_nuevo: string
+  usuario_nombre: string | null
+  notas: string | null
+  fecha: string
 }
 
 export interface OrdenCompra {

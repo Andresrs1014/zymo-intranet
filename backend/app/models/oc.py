@@ -152,3 +152,33 @@ class OcConfig(SQLModel, table=True):
 
     key: str = Field(primary_key=True, max_length=100)
     value: str = Field(default="")
+
+
+class HistorialEstado(SQLModel, table=True):
+    __tablename__ = "oc_historial_estados"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    solicitud_id: uuid.UUID = Field(foreign_key="oc_solicitudes.id", index=True)
+    estado_anterior: Optional[str] = Field(default=None, max_length=30)
+    estado_nuevo: str = Field(max_length=30)
+    # Referencia al user.id de intranet.db — sin FK constraint (DBs separadas)
+    usuario_id: Optional[int] = Field(default=None)
+    usuario_nombre: Optional[str] = Field(default=None, max_length=200)
+    notas: Optional[str] = Field(default=None)
+    fecha: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class PaqueteSolicitud(SQLModel, table=True):
+    __tablename__ = "oc_paquetes"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    nombre: str = Field(max_length=200)
+    descripcion_uso: Optional[str] = Field(default=None)
+    # Referencia al user.id de intranet.db — sin FK constraint (DBs separadas)
+    creado_por_id: int
+    creado_por_nombre: str = Field(max_length=200)
+    # Lista de items del paquete: [{nivel_prioridad, categoria, grupo_articulos, descripcion, cantidad, plataforma, ...}]
+    items: list = Field(default=[], sa_column=Column(JSON))
+    activo: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

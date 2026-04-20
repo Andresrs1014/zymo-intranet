@@ -5,6 +5,13 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends libreoffice \
     && rm -rf /var/lib/apt/lists/*
 
+# OCR para PDFs escaneados
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    tesseract-ocr \
+    tesseract-ocr-spa \
+    poppler-utils \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 

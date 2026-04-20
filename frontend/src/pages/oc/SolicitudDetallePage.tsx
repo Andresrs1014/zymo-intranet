@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
 import { api } from "@/lib/api"
-import { formatFechaHora } from "@/lib/dates"
+import { formatFechaHora, formatFechaRelativa } from "@/lib/dates"
 import {
   useSolicitud,
   useAsignarAuxiliar,
@@ -20,11 +20,12 @@ import {
   useMarcarEntregada,
   useCerrarSolicitud,
   useUsuariosCompras,
+  useHistorialEstados,
 } from "@/hooks/useOC"
 import { useAuthStore } from "@/store/authStore"
 import { canSeeOC } from "@/lib/permissions"
 import { EstadoBadge } from "./SolicitudesPage"
-import type { CotizacionProveedor, OrdenCompra } from "@/types/oc"
+import type { CotizacionProveedor, HistorialEntrada, OrdenCompra } from "@/types/oc"
 
 export function SolicitudDetallePage() {
   const { id } = useParams<{ id: string }>()
@@ -36,6 +37,7 @@ export function SolicitudDetallePage() {
   const { data: orden } = useOrden(id)
   const { data: auxiliar } = useUsuario(solicitud?.auxiliar_id)
   const { data: usuariosCompras = [] } = useUsuariosCompras()
+  const { data: historial = [] } = useHistorialEstados(id)
   const asignar = useAsignarAuxiliar()
   const aprobar = useAprobarCotizacion()
   const rechazar = useRechazarCotizacion()
@@ -219,6 +221,13 @@ export function SolicitudDetallePage() {
                 />
               )}
 
+              {/* Tabla comparativa — solo cuando hay más de 1 cotización */}
+              {cotizaciones.length > 1 && (
+                <Section title="Comparativa de cotizaciones">
+                  <TablaCotizacionesComparativa cotizaciones={cotizaciones} />
+                </Section>
+              )}
+
               {/* Cotizaciones cargadas */}
               {cotizaciones.length > 0 && (
                 <Section title={`Cotizaciones (${cotizaciones.length})`}>
@@ -337,6 +346,13 @@ export function SolicitudDetallePage() {
                   />
                 </div>
               </Section>
+
+              {/* Historial dinámico de cambios de estado */}
+              {historial.length > 0 && (
+                <Section title="Historial de cambios">
+                  <HistorialTimeline entradas={historial} />
+                </Section>
+              )}
 
               {/* Acción auxiliar: cargar cotización */}
               {(esAuxiliarAsignado || user?.role === "admin") &&
@@ -1024,4 +1040,254 @@ function formatCurrency(value: number): string {
     currency: "COP",
     minimumFractionDigits: 0,
   }).format(value)
+}
+
+// ── Mapa de etiquetas de estado ───────────────────────────────────────────────
+
+const ESTADO_LABEL: Record<string, string> = {
+  nueva: "Nueva",
+  en_cotizacion: "En cotización",
+  pendiente_aprobacion: "Pend. aprobación",
+  aprobada: "Aprobada",
+  rechazada: "Rechazada",
+  oc_enviada: "OC Enviada",
+  oc_en_plataforma: "En plataforma",
+  entregada: "Entregada",
+  cerrada: "Cerrada",
+}
+
+function estadoDisplayLabel(estado: string): string {
+  return ESTADO_LABEL[estado] ?? estado
+}
+
+// ── Tabla comparativa de cotizaciones ─────────────────────────────────────────
+
+function TablaCotizacionesComparativa({ cotizaciones }: { cotizaciones: CotizacionProveedor[] }) {
+  return (
+    <div className="overflow-x-auto -mx-1">
+      <table className="min-w-full text-sm border-separate border-spacing-0">
+        <thead>
+          <tr>
+            <th className="sticky left-0 bg-white text-left text-xs font-semibold text-gray-500 py-2 pr-4 w-36 min-w-36">
+              Campo
+            </th>
+            {cotizaciones.map((c, i) => (
+              <th
+                key={c.id}
+                className={`text-left text-xs font-semibold py-2 px-3 min-w-44 ${
+                  c.aprobada === true
+                    ? "text-green-700 border-l-2 border-green-400"
+                    : "text-gray-600 border-l border-gray-100"
+                }`}
+              >
+                Cotización {i + 1}
+                {c.aprobada === true && (
+                  <span className="ml-1.5 text-green-600">✓</span>
+                )}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {/* Proveedor */}
+          <ComparativaFila label="Proveedor">
+            {cotizaciones.map((c) => (
+              <td key={c.id} className={comparativaCellClass(c)}>
+                <span className="font-medium text-gray-800">{c.proveedor_nombre}</span>
+              </td>
+            ))}
+          </ComparativaFila>
+
+          {/* N° cotización */}
+          <ComparativaFila label="N° cotización">
+            {cotizaciones.map((c) => (
+              <td key={c.id} className={comparativaCellClass(c)}>
+                {c.numero_cotizacion_proveedor ?? <span className="text-gray-300">—</span>}
+              </td>
+            ))}
+          </ComparativaFila>
+
+          {/* Valor unitario */}
+          <ComparativaFila label="Valor unitario">
+            {cotizaciones.map((c) => (
+              <td key={c.id} className={comparativaCellClass(c)}>
+                {formatCurrency(c.valor_unitario)}
+              </td>
+            ))}
+          </ComparativaFila>
+
+          {/* Subtotal sin IVA */}
+          <ComparativaFila label="Subtotal (sin IVA)">
+            {cotizaciones.map((c) => (
+              <td key={c.id} className={comparativaCellClass(c)}>
+                {c.valor_antes_iva != null
+                  ? formatCurrency(c.valor_antes_iva)
+                  : <span className="text-gray-300">—</span>}
+              </td>
+            ))}
+          </ComparativaFila>
+
+          {/* IVA */}
+          <ComparativaFila label="IVA">
+            {cotizaciones.map((c) => (
+              <td key={c.id} className={comparativaCellClass(c)}>
+                {c.valor_iva != null
+                  ? formatCurrency(c.valor_iva)
+                  : <span className="text-gray-300">—</span>}
+              </td>
+            ))}
+          </ComparativaFila>
+
+          {/* VALOR TOTAL — fila destacada */}
+          <tr className="bg-gray-50">
+            <td className="sticky left-0 bg-gray-50 text-xs font-bold text-gray-700 py-2.5 pr-4">
+              VALOR TOTAL
+            </td>
+            {cotizaciones.map((c) => (
+              <td
+                key={c.id}
+                className={`text-sm font-bold py-2.5 px-3 ${
+                  c.aprobada === true
+                    ? "text-green-700 border-l-2 border-green-400"
+                    : "text-gray-900 border-l border-gray-100"
+                }`}
+              >
+                {formatCurrency(c.valor_total)}
+              </td>
+            ))}
+          </tr>
+
+          {/* Forma de pago */}
+          <ComparativaFila label="Forma de pago">
+            {cotizaciones.map((c) => (
+              <td key={c.id} className={comparativaCellClass(c)}>
+                {c.forma_pago ?? <span className="text-gray-300">—</span>}
+              </td>
+            ))}
+          </ComparativaFila>
+
+          {/* Plazo entrega */}
+          <ComparativaFila label="Plazo entrega">
+            {cotizaciones.map((c) => (
+              <td key={c.id} className={comparativaCellClass(c)}>
+                {c.plazo_entrega ?? <span className="text-gray-300">—</span>}
+              </td>
+            ))}
+          </ComparativaFila>
+
+          {/* Estado */}
+          <ComparativaFila label="Estado">
+            {cotizaciones.map((c) => {
+              const label =
+                c.aprobada === true ? "Aprobada" : c.aprobada === false ? "Rechazada" : "En revisión"
+              const color =
+                c.aprobada === true
+                  ? "text-green-700"
+                  : c.aprobada === false
+                  ? "text-red-600"
+                  : "text-orange-600"
+              return (
+                <td key={c.id} className={comparativaCellClass(c)}>
+                  <span className={`font-medium ${color}`}>{label}</span>
+                </td>
+              )
+            })}
+          </ComparativaFila>
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function comparativaCellClass(c: CotizacionProveedor): string {
+  return `text-sm text-gray-700 py-2 px-3 ${
+    c.aprobada === true
+      ? "border-l-2 border-green-400 bg-green-50/40"
+      : "border-l border-gray-100"
+  }`
+}
+
+function ComparativaFila({
+  label,
+  children,
+}: {
+  label: string
+  children: React.ReactNode
+}) {
+  return (
+    <tr className="border-t border-gray-50 hover:bg-gray-50/50 transition-colors">
+      <td className="sticky left-0 bg-white text-xs text-gray-400 font-medium py-2 pr-4">
+        {label}
+      </td>
+      {children}
+    </tr>
+  )
+}
+
+// ── Historial de cambios de estado ────────────────────────────────────────────
+
+function HistorialTimeline({ entradas }: { entradas: HistorialEntrada[] }) {
+  return (
+    <div className="space-y-3">
+      {entradas.map((e, idx) => {
+        const isLast = idx === entradas.length - 1
+        return (
+          <div key={e.id} className="flex gap-3">
+            {/* Indicador vertical */}
+            <div className="flex flex-col items-center shrink-0">
+              <div
+                className={`h-2.5 w-2.5 rounded-full mt-1 shrink-0 ${
+                  isLast ? "bg-brand-blue" : "bg-gray-300"
+                }`}
+              />
+              {!isLast && <div className="flex-1 w-px bg-gray-100 mt-1" />}
+            </div>
+
+            {/* Contenido */}
+            <div className="pb-3 min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                {e.estado_anterior && (
+                  <>
+                    <span className="text-xs text-gray-400">
+                      {estadoDisplayLabel(e.estado_anterior)}
+                    </span>
+                    <span className="text-xs text-gray-300">→</span>
+                  </>
+                )}
+                <span
+                  className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${estadoBadgeClass(e.estado_nuevo)}`}
+                >
+                  {estadoDisplayLabel(e.estado_nuevo)}
+                </span>
+              </div>
+              <div className="mt-0.5 flex items-center gap-2 flex-wrap">
+                {e.usuario_nombre && (
+                  <span className="text-xs text-gray-500">{e.usuario_nombre}</span>
+                )}
+                <span className="text-xs text-gray-400">{formatFechaRelativa(e.fecha)}</span>
+              </div>
+              {e.notas && (
+                <p className="mt-1 text-xs text-gray-500 italic">"{e.notas}"</p>
+              )}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function estadoBadgeClass(estado: string): string {
+  const map: Record<string, string> = {
+    nueva: "bg-blue-100 text-blue-700",
+    en_cotizacion: "bg-yellow-100 text-yellow-700",
+    pendiente_aprobacion: "bg-orange-100 text-orange-700",
+    aprobada: "bg-green-100 text-green-700",
+    rechazada: "bg-red-100 text-red-700",
+    oc_enviada: "bg-indigo-100 text-indigo-700",
+    oc_en_plataforma: "bg-violet-100 text-violet-700",
+    entregada: "bg-teal-100 text-teal-700",
+    cerrada: "bg-gray-100 text-gray-600",
+  }
+  return map[estado] ?? "bg-gray-100 text-gray-600"
 }

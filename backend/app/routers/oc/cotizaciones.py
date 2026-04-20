@@ -18,6 +18,7 @@ from app.oc_database import get_oc_db
 from app.models.oc import CotizacionProveedor, EstadoOC, SolicitudOC
 from app.models.user import User
 from app.services.email_service import send_aprobacion_directora, send_cotizacion_lista
+from app.services.historial import registrar_cambio_estado
 
 router = APIRouter(tags=["OC - Cotizaciones"])
 
@@ -118,10 +119,12 @@ def _extraer_texto(contenido: bytes, ext: str) -> str:
         try:
             import pdfplumber
             with pdfplumber.open(io.BytesIO(contenido)) as pdf:
-                return "\n".join(page.extract_text() or "" for page in pdf.pages)
+                texto = "\n".join(page.extract_text() or "" for page in pdf.pages)
         except Exception as e:
             log.warning("[motor] extracción texto PDF falló: %s", e)
-            return ""
+            texto = ""
+        from app.services.ocr_service import texto_con_ocr_fallback
+        return texto_con_ocr_fallback(texto, contenido)
     if ext in ("xlsx", "xls"):
         try:
             import openpyxl
@@ -644,10 +647,20 @@ async def crear_cotizacion(
     oc_db.add(cotizacion)
 
     # Avanzar estado de la solicitud a pendiente_aprobacion
+    estado_anterior = solicitud.estado
     solicitud.estado = EstadoOC.pendiente_aprobacion
     solicitud.fecha_cotizacion = datetime.now(timezone.utc)
     solicitud.updated_at = datetime.now(timezone.utc)
     oc_db.add(solicitud)
+
+    registrar_cambio_estado(
+        oc_db,
+        solicitud.id,
+        estado_anterior,
+        EstadoOC.pendiente_aprobacion,
+        usuario_id=current_user.id,
+        usuario_nombre=current_user.full_name,
+    )
 
     oc_db.commit()
     oc_db.refresh(cotizacion)
@@ -725,10 +738,19 @@ def aprobar_cotizacion(
     # Avanzar estado de la solicitud
     solicitud = oc_db.get(SolicitudOC, cotizacion.solicitud_id)
     if solicitud:
+        estado_anterior = solicitud.estado
         solicitud.estado = EstadoOC.aprobada
         solicitud.fecha_aprobacion = datetime.now(timezone.utc)
         solicitud.updated_at = datetime.now(timezone.utc)
         oc_db.add(solicitud)
+        registrar_cambio_estado(
+            oc_db,
+            solicitud.id,
+            estado_anterior,
+            EstadoOC.aprobada,
+            usuario_id=current_user.id,
+            usuario_nombre=current_user.full_name,
+        )
 
     oc_db.commit()
     oc_db.refresh(cotizacion)
@@ -767,9 +789,19 @@ def rechazar_cotizacion(
     # Regresar solicitud a en_cotizacion para que el auxiliar busque otra cotización
     solicitud = oc_db.get(SolicitudOC, cotizacion.solicitud_id)
     if solicitud:
+        estado_anterior = solicitud.estado
         solicitud.estado = EstadoOC.en_cotizacion
         solicitud.updated_at = datetime.now(timezone.utc)
         oc_db.add(solicitud)
+        registrar_cambio_estado(
+            oc_db,
+            solicitud.id,
+            estado_anterior,
+            EstadoOC.en_cotizacion,
+            usuario_id=current_user.id,
+            usuario_nombre=current_user.full_name,
+            notas=payload.observaciones_aprobacion,
+        )
 
     oc_db.commit()
     oc_db.refresh(cotizacion)

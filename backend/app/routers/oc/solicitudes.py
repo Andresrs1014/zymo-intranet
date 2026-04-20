@@ -12,6 +12,7 @@ from app.database import get_db
 from app.oc_database import get_oc_db
 from app.models.oc import EstadoOC, SolicitudOC
 from app.models.user import User
+from app.services.historial import registrar_cambio_estado
 from app.services.email_service import (
     send_aprobacion_directora,
     send_cotizacion_lista,
@@ -111,6 +112,18 @@ class UsuarioBasico(BaseModel):
     email: str
     area: Optional[str]
     role: str
+
+    class Config:
+        from_attributes = True
+
+
+class HistorialEstadoRead(BaseModel):
+    id: uuid.UUID
+    estado_anterior: Optional[str]
+    estado_nuevo: str
+    usuario_nombre: Optional[str]
+    notas: Optional[str]
+    fecha: datetime
 
     class Config:
         from_attributes = True
@@ -270,12 +283,24 @@ def asignar_auxiliar(
     if not auxiliar or not auxiliar.is_active:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado o inactivo.")
 
+    estado_anterior = solicitud.estado
     solicitud.auxiliar_id = payload.auxiliar_id
     if solicitud.estado == EstadoOC.nueva:
         solicitud.estado = EstadoOC.en_cotizacion
     solicitud.fecha_asignacion = datetime.now(timezone.utc)
     solicitud.updated_at = datetime.now(timezone.utc)
     oc_db.add(solicitud)
+
+    if solicitud.estado != estado_anterior:
+        registrar_cambio_estado(
+            oc_db,
+            solicitud.id,
+            estado_anterior,
+            solicitud.estado,
+            usuario_id=current_user.id,
+            usuario_nombre=current_user.full_name,
+        )
+
     oc_db.commit()
     oc_db.refresh(solicitud)
 
@@ -295,10 +320,21 @@ def cambiar_estado(
     if not solicitud:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
 
+    estado_anterior = solicitud.estado
     nuevo_estado = payload.estado
     solicitud.estado = nuevo_estado
     solicitud.updated_at = datetime.now(timezone.utc)
     oc_db.add(solicitud)
+
+    registrar_cambio_estado(
+        oc_db,
+        solicitud.id,
+        estado_anterior,
+        nuevo_estado,
+        usuario_id=current_user.id,
+        usuario_nombre=current_user.full_name,
+    )
+
     oc_db.commit()
     oc_db.refresh(solicitud)
 
@@ -356,3 +392,24 @@ def gestionar_solicitud(
     oc_db.commit()
     oc_db.refresh(solicitud)
     return solicitud
+
+
+@router.get("/{solicitud_id}/historial", response_model=list[HistorialEstadoRead])
+def get_historial_estados(
+    solicitud_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    oc_db: Session = Depends(get_oc_db),
+):
+    """Retorna el historial de cambios de estado de una solicitud, ordenado cronológicamente."""
+    from app.models.oc import HistorialEstado
+
+    solicitud = oc_db.get(SolicitudOC, solicitud_id)
+    if not solicitud:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
+
+    entradas = oc_db.exec(
+        select(HistorialEstado)
+        .where(HistorialEstado.solicitud_id == solicitud_id)
+        .order_by(HistorialEstado.fecha.asc())
+    ).all()
+    return entradas

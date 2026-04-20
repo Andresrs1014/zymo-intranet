@@ -14,6 +14,7 @@ from app.database import get_db
 from app.models.oc import CotizacionProveedor, OrdenCompra, SolicitudOC
 from app.models.user import User
 from app.oc_database import get_oc_db
+from app.services.historial import registrar_cambio_estado
 
 router = APIRouter(tags=["OC - Documentos"])
 
@@ -448,10 +449,20 @@ async def marcar_oc_enviada(
         select(OrdenCompra).where(OrdenCompra.solicitud_id == solicitud_id)
     ).first()
 
+    estado_anterior = solicitud.estado
     solicitud.estado = EstadoOC.oc_enviada
     solicitud.fecha_envio_oc = datetime.now(timezone.utc)
     solicitud.updated_at = datetime.now(timezone.utc)
     oc_db.add(solicitud)
+
+    registrar_cambio_estado(
+        oc_db,
+        solicitud.id,
+        estado_anterior,
+        EstadoOC.oc_enviada,
+        usuario_id=current_user.id,
+        usuario_nombre=current_user.full_name,
+    )
 
     if orden and payload.email_proveedor:
         orden.email_proveedor = payload.email_proveedor
@@ -509,10 +520,21 @@ def marcar_en_plataforma(
             detail=f"Solo se puede marcar en plataforma desde estado 'oc_enviada'. Estado actual: {solicitud.estado}",
         )
 
+    estado_anterior = solicitud.estado
     solicitud.estado = EstadoOC.oc_en_plataforma
     solicitud.fecha_en_plataforma = datetime.now(timezone.utc)
     solicitud.updated_at = datetime.now(timezone.utc)
     oc_db.add(solicitud)
+
+    registrar_cambio_estado(
+        oc_db,
+        solicitud.id,
+        estado_anterior,
+        EstadoOC.oc_en_plataforma,
+        usuario_id=current_user.id,
+        usuario_nombre=current_user.full_name,
+    )
+
     oc_db.commit()
 
     return {"ok": True}
@@ -555,10 +577,21 @@ def marcar_entregada(
             detail=f"Solo se puede confirmar recepción desde estado 'oc_en_plataforma'. Estado actual: {solicitud.estado}",
         )
 
+    estado_anterior = solicitud.estado
     solicitud.estado = EstadoOC.entregada
     solicitud.fecha_recibido = datetime.now(timezone.utc)
     solicitud.updated_at = datetime.now(timezone.utc)
     oc_db.add(solicitud)
+
+    registrar_cambio_estado(
+        oc_db,
+        solicitud.id,
+        estado_anterior,
+        EstadoOC.entregada,
+        usuario_id=current_user.id,
+        usuario_nombre=current_user.full_name,
+    )
+
     oc_db.commit()
     oc_db.refresh(solicitud)
 
@@ -588,9 +621,20 @@ def cerrar_solicitud(
             detail=f"Solo se puede cerrar desde estado 'entregada'. Estado actual: {solicitud.estado}",
         )
 
+    estado_anterior = solicitud.estado
     solicitud.estado = EstadoOC.cerrada
     solicitud.updated_at = datetime.now(timezone.utc)
     oc_db.add(solicitud)
+
+    registrar_cambio_estado(
+        oc_db,
+        solicitud.id,
+        estado_anterior,
+        EstadoOC.cerrada,
+        usuario_id=current_user.id,
+        usuario_nombre=current_user.full_name,
+    )
+
     oc_db.commit()
 
     return {"ok": True}

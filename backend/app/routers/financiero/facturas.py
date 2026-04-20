@@ -140,10 +140,12 @@ def _extraer_texto(contenido: bytes, ext: str) -> str:
             import pdfplumber
 
             with pdfplumber.open(io.BytesIO(contenido)) as pdf:
-                return "\n".join(page.extract_text() or "" for page in pdf.pages)
+                texto = "\n".join(page.extract_text() or "" for page in pdf.pages)
         except Exception as e:
             log.warning("[motor-facturas] extracción texto PDF falló: %s", e)
-            return ""
+            texto = ""
+        from app.services.ocr_service import texto_con_ocr_fallback
+        return texto_con_ocr_fallback(texto, contenido)
     if ext in ("xlsx", "xls"):
         try:
             import openpyxl
