@@ -99,9 +99,9 @@ export function SolicitudDetallePage() {
   const cotizacionPendiente = cotizaciones.find((c) => c.aprobada === null)
   const cotizacionAprobada = cotizaciones.find((c) => c.aprobada === true)
 
-  function handleGenerarOC() {
+  function handleGenerarOC(forzar = false) {
     if (!id) return
-    generarOC.mutate(id)
+    generarOC.mutate({ solicitudId: id, forzar })
   }
 
   async function handleDescargar() {
@@ -138,7 +138,7 @@ export function SolicitudDetallePage() {
         <main className="flex-1 overflow-y-auto px-6 py-8">
           {/* Breadcrumb */}
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => navigate("/oc/solicitudes")}
             className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-600 mb-6 transition-colors"
           >
             ← Volver
@@ -212,6 +212,12 @@ export function SolicitudDetallePage() {
                   isMarkingEntregada={marcarEntregada.isPending}
                   isClosing={cerrarSolicitud.isPending}
                   onGenerar={handleGenerarOC}
+                  onRegenerar={(p) => {
+                    actualizarGestion.mutate(
+                      { id: solicitud.id, payload: { plataforma: p } },
+                      { onSuccess: () => handleGenerarOC(true) }
+                    )
+                  }}
                   onDescargar={handleDescargar}
                   onPlataformaChange={(p) => actualizarGestion.mutate({ id: solicitud.id, payload: { plataforma: p } })}
                   onMarcarEnviada={(email) => marcarEnviada.mutate({ id: solicitud.id, email_proveedor: email })}
@@ -717,6 +723,7 @@ function PanelOrdenCompra({
   isMarkingEntregada,
   isClosing,
   onGenerar,
+  onRegenerar,
   onDescargar,
   onPlataformaChange,
   onMarcarEnviada,
@@ -736,6 +743,7 @@ function PanelOrdenCompra({
   isMarkingEntregada: boolean
   isClosing: boolean
   onGenerar: () => void
+  onRegenerar: (plataforma: string) => void
   onDescargar: () => void
   onPlataformaChange: (plataforma: string) => void
   onMarcarEnviada: (email: string) => void
@@ -745,6 +753,8 @@ function PanelOrdenCompra({
 }) {
   const [plataforma, setPlataforma] = useState(plataformaInicial)
   const [showModal, setShowModal] = useState(false)
+  const [showRegenerar, setShowRegenerar] = useState(false)
+  const [plataformaRegen, setPlataformaRegen] = useState(plataformaInicial)
   const [emailInput, setEmailInput] = useState(emailProveedorInicial)
 
   function handleConfirmarEnvio() {
@@ -896,8 +906,16 @@ function PanelOrdenCompra({
               onClick={onDescargar}
               className="rounded-lg border border-green-300 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-100 transition-colors"
             >
-              ↓ {orden.pdf_path ? "PDF" : "DOCX"}
+              ↓ {orden.pdf_path ? "PDF" : "XLSX"}
             </button>
+            {puedeGenerar && !showRegenerar && (
+              <button
+                onClick={() => setShowRegenerar(true)}
+                className="rounded-lg border border-green-300 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-100 transition-colors"
+              >
+                ↺ Otro formato
+              </button>
+            )}
             {puedeGenerar && (
               <button
                 onClick={() => { setEmailInput(emailProveedorInicial); setShowModal(true) }}
@@ -909,6 +927,38 @@ function PanelOrdenCompra({
             )}
           </div>
         </div>
+
+        {/* Regenerar con otro formato */}
+        {showRegenerar && puedeGenerar && (
+          <div className="border-t border-green-200 pt-3 space-y-2">
+            <p className="text-xs font-medium text-green-700">Selecciona el nuevo formato de plataforma:</p>
+            <div className="flex items-center gap-2">
+              <select
+                value={plataformaRegen}
+                onChange={(e) => setPlataformaRegen(e.target.value)}
+                className="flex-1 rounded-lg border border-green-300 px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-400"
+              >
+                <option value="">— Seleccionar —</option>
+                <option value="Logimat">LOGIMAT S.A.S.</option>
+                <option value="IMC Cargo">IMC Cargo International S.A.S.</option>
+                <option value="IMC Depósito">IMC Depósito S.A.S.</option>
+              </select>
+              <button
+                onClick={() => { onRegenerar(plataformaRegen); setShowRegenerar(false) }}
+                disabled={isGenerating || !plataformaRegen}
+                className="rounded-lg bg-green-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-800 disabled:opacity-50 transition-colors"
+              >
+                {isGenerating ? "Generando..." : "Regenerar"}
+              </button>
+              <button
+                onClick={() => setShowRegenerar(false)}
+                className="rounded-lg border border-green-300 px-3 py-1.5 text-xs text-green-700 hover:bg-green-100 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Modal confirmación email proveedor */}
         {showModal && (

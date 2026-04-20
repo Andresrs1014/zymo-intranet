@@ -287,14 +287,14 @@ export function useOrden(solicitudId: string | undefined) {
 export function useGenerarOC() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (solicitudId: string) => {
-      const { data } = await api.post<OrdenCompra>(
-        `/api/oc/solicitudes/${solicitudId}/generar-oc`,
-        {}
-      )
+    mutationFn: async ({ solicitudId, forzar = false }: { solicitudId: string; forzar?: boolean }) => {
+      const url = forzar
+        ? `/api/oc/solicitudes/${solicitudId}/generar-oc?forzar=true`
+        : `/api/oc/solicitudes/${solicitudId}/generar-oc`
+      const { data } = await api.post<OrdenCompra>(url, {})
       return data
     },
-    onSuccess: (_, solicitudId) => {
+    onSuccess: (_, { solicitudId }) => {
       qc.invalidateQueries({ queryKey: ["oc", "orden", solicitudId] })
       qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
     },

@@ -363,6 +363,7 @@ def _intentar_conversion_pdf(source_path: Path, output_dir: Path) -> Optional[Pa
 )
 def generar_orden_compra(
     solicitud_id: uuid.UUID,
+    forzar: bool = False,
     current_user: User = Depends(require_compras),
     oc_db: Session = Depends(get_oc_db),
     db: Session = Depends(get_db),
@@ -371,7 +372,8 @@ def generar_orden_compra(
     orden_existente = oc_db.exec(
         select(OrdenCompra).where(OrdenCompra.solicitud_id == solicitud_id)
     ).first()
-    if orden_existente:
+
+    if orden_existente and not forzar:
         return orden_existente
 
     # Buscar la solicitud
@@ -397,15 +399,26 @@ def generar_orden_compra(
             detail="No existe una cotización aprobada para esta solicitud.",
         )
 
-    # Generar número de OC: OC-{año}-{secuencial 4 dígitos}
-    anio_actual = datetime.now(timezone.utc).year
-    prefijo = f"OC-{anio_actual}-"
-    count = oc_db.exec(
-        select(func.count(OrdenCompra.id)).where(
-            OrdenCompra.numero_oc.startswith(prefijo)
-        )
-    ).one()
-    numero_oc = f"{prefijo}{(count + 1):04d}"
+    # Si es regeneración, reutilizar el número existente; si no, generar nuevo
+    if orden_existente and forzar:
+        numero_oc = orden_existente.numero_oc
+        # Eliminar archivos viejos para que no queden huérfanos
+        for viejo in [
+            OC_DOCS_DIR / f"{numero_oc}.xlsx",
+            OC_DOCS_DIR / f"{numero_oc}.pdf",
+        ]:
+            if viejo.exists():
+                viejo.unlink(missing_ok=True)
+    else:
+        # Generar número de OC: OC-{año}-{secuencial 4 dígitos}
+        anio_actual = datetime.now(timezone.utc).year
+        prefijo = f"OC-{anio_actual}-"
+        count = oc_db.exec(
+            select(func.count(OrdenCompra.id)).where(
+                OrdenCompra.numero_oc.startswith(prefijo)
+            )
+        ).one()
+        numero_oc = f"{prefijo}{(count + 1):04d}"
 
     # Preparar directorio de salida
     OC_DOCS_DIR.mkdir(parents=True, exist_ok=True)
@@ -430,7 +443,15 @@ def generar_orden_compra(
     pdf_path_obj = _intentar_conversion_pdf(xlsx_path, OC_DOCS_DIR)
     pdf_path_str = str(pdf_path_obj) if pdf_path_obj else None
 
-    # Crear registro OrdenCompra
+    # Actualizar registro existente o crear uno nuevo
+    if orden_existente and forzar:
+        orden_existente.cotizacion_id = cotizacion.id
+        orden_existente.pdf_path = pdf_path_str
+        oc_db.add(orden_existente)
+        oc_db.commit()
+        oc_db.refresh(orden_existente)
+        return orden_existente
+
     orden = OrdenCompra(
         solicitud_id=solicitud_id,
         cotizacion_id=cotizacion.id,
