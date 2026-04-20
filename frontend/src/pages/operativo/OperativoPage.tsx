@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom"
+import { NavLink, Link } from "react-router-dom"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
 
@@ -35,6 +35,12 @@ export function OperativoPage() {
 
           {/* Cards secundarias */}
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <InternalCard
+              to="/operativo/paquetes"
+              icon={<IconPaquetes />}
+              label="Paquetes de Compras"
+              description="Crea plantillas de solicitudes frecuentes y despáchalas todas en un solo clic."
+            />
             <ExternalCard
               href={BRP_URL}
               icon={<IconBRP />}
@@ -82,6 +88,40 @@ function PrimaryCard({
   )
 }
 
+// ── Internal card (páginas internas) ─────────────────────────────────────────
+
+function InternalCard({
+  to,
+  icon,
+  label,
+  description,
+}: {
+  to: string
+  icon: React.ReactNode
+  label: string
+  description: string
+}) {
+  return (
+    <Link
+      to={to}
+      className="group flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all duration-150 hover:border-brand-blue/30 hover:shadow-md"
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-blue/8 text-brand-blue transition-colors duration-150 group-hover:bg-brand-blue/15">
+          <span className="w-5 h-5">{icon}</span>
+        </div>
+        <svg className="w-3.5 h-3.5 text-gray-300 group-hover:text-brand-blue/40 transition-colors" viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M3 10a.75.75 0 0 1 .75-.75h10.638L10.23 5.29a.75.75 0 1 1 1.04-1.08l5.5 5.25a.75.75 0 0 1 0 1.08l-5.5 5.25a.75.75 0 1 1-1.04-1.08l4.158-3.96H3.75A.75.75 0 0 1 3 10Z" clipRule="evenodd" />
+        </svg>
+      </div>
+      <div>
+        <p className="text-sm font-semibold text-gray-900">{label}</p>
+        <p className="mt-0.5 text-xs text-gray-500 leading-relaxed">{description}</p>
+      </div>
+    </Link>
+  )
+}
+
 // ── External card (BRP y futuros sistemas externos) ───────────────────────────
 
 function ExternalCard({
@@ -125,6 +165,14 @@ function IconSolicitudes() {
   return (
     <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
       <path fillRule="evenodd" d="M4 4a2 2 0 0 1 2-2h4.586A2 2 0 0 1 12 2.586L15.414 6A2 2 0 0 1 16 7.414V16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4Zm2 6a1 1 0 0 1 1-1h6a1 1 0 1 1 0 2H7a1 1 0 0 1-1-1Zm1 3a1 1 0 1 0 0 2h6a1 1 0 1 0 0-2H7Z" clipRule="evenodd" />
+    </svg>
+  )
+}
+
+function IconPaquetes() {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <path d="M2 4.75A.75.75 0 0 1 2.75 4h14.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 4.75ZM2 10a.75.75 0 0 1 .75-.75h14.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 10Zm0 5.25a.75.75 0 0 1 .75-.75h14.5a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1-.75-.75Z" />
     </svg>
   )
 }

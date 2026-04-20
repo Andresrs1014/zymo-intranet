@@ -523,3 +523,46 @@ export function useEliminarPaquete() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["oc", "paquetes"] }),
   })
 }
+
+export interface DespachoResult {
+  creadas: number
+  errores: number
+  consecutivos: string[]
+}
+
+/**
+ * Despacha todos los ítems de un paquete como solicitudes independientes.
+ * Llama a crear-interna N veces en paralelo.
+ */
+export function useDespacharPaquete() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (items: PaqueteItem[]): Promise<DespachoResult> => {
+      const resultados = await Promise.allSettled(
+        items.map((item) =>
+          api.post<SolicitudOC>("/api/oc/solicitudes/crear-interna", {
+            nivel_prioridad: item.nivel_prioridad ?? "Media",
+            categoria: item.categoria ?? "",
+            grupo_articulos: item.grupo_articulos ?? "",
+            descripcion: item.descripcion,
+            cantidad: item.cantidad ?? 1,
+            cliente: item.cliente ?? undefined,
+            condicion: item.condicion ?? undefined,
+            plataforma: item.plataforma,
+            placa_ficha: item.placa_ficha ?? undefined,
+            observaciones_solicitante: item.observaciones_solicitante ?? undefined,
+          })
+        )
+      )
+      const creadas = resultados.filter((r) => r.status === "fulfilled").length
+      const errores = resultados.filter((r) => r.status === "rejected").length
+      const consecutivos = resultados
+        .filter((r): r is PromiseFulfilledResult<{ data: SolicitudOC }> => r.status === "fulfilled")
+        .map((r) => r.value.data.consecutivo_os)
+      return { creadas, errores, consecutivos }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
+    },
+  })
+}

@@ -110,6 +110,8 @@ class ExtraccionResult(BaseModel):
     items: list[ItemCotizacion] = []
     nombre_archivo: str = ""
     campos_encontrados: int = 0
+    # Referencia al archivo temporal guardado — se vincula al crear la cotización
+    temp_file_ext: Optional[str] = None
 
 
 # ── Helpers de extracción ─────────────────────────────────────────────────────
@@ -585,6 +587,17 @@ async def extraer_cotizacion(
         resultado.campos_encontrados += len(items_tabla)
 
     resultado.nombre_archivo = nombre
+
+    # Guardar el archivo como temporal vinculado a esta solicitud
+    # Al crear la cotización, se moverá al destino final con el ID de cotización
+    try:
+        _COTIZACIONES_DIR.mkdir(parents=True, exist_ok=True)
+        temp_path = _COTIZACIONES_DIR / f"temp_{solicitud_id}.{ext}"
+        temp_path.write_bytes(contenido)
+        resultado.temp_file_ext = ext
+    except Exception as e:
+        log.warning("[extraccion] No se pudo guardar archivo temporal para solicitud %s: %s", solicitud_id, e)
+
     return resultado
 
 
@@ -600,7 +613,6 @@ async def crear_cotizacion(
     solicitud_id: uuid.UUID,
     background_tasks: BackgroundTasks,
     payload: CotizacionCreate,
-    file: Optional[UploadFile] = File(None),
     current_user: User = Depends(require_compras),
     oc_db: Session = Depends(get_oc_db),
 ):
@@ -665,21 +677,21 @@ async def crear_cotizacion(
     oc_db.commit()
     oc_db.refresh(cotizacion)
 
-    # Guardar el archivo fuente de la cotización si se adjuntó
-    if file and file.filename:
-        nombre = file.filename
-        ext = nombre.rsplit(".", 1)[-1].lower() if "." in nombre else "bin"
-        try:
-            _COTIZACIONES_DIR.mkdir(parents=True, exist_ok=True)
-            ruta_guardada = _COTIZACIONES_DIR / f"{cotizacion.id}.{ext}"
-            contenido = await file.read()
-            ruta_guardada.write_bytes(contenido)
-            cotizacion.pdf_path = str(ruta_guardada)
+    # Vincular el archivo temporal que dejó la extracción automática (si existe)
+    # La extracción guarda: _COTIZACIONES_DIR/temp_{solicitud_id}.{ext}
+    try:
+        temp_candidates = list(_COTIZACIONES_DIR.glob(f"temp_{solicitud_id}.*"))
+        if temp_candidates:
+            temp_path = temp_candidates[0]
+            ext = temp_path.suffix.lstrip(".")
+            dest = _COTIZACIONES_DIR / f"{cotizacion.id}.{ext}"
+            temp_path.rename(dest)
+            cotizacion.pdf_path = str(dest)
             oc_db.add(cotizacion)
             oc_db.commit()
             oc_db.refresh(cotizacion)
-        except Exception:
-            log.warning("[cotizacion] No se pudo guardar el archivo fuente para cotización %s", cotizacion.id)
+    except Exception as e:
+        log.warning("[cotizacion] No se pudo vincular archivo para cotización %s: %s", cotizacion.id, e)
 
     # Disparar emails Flujo 2 y 3 (cotización lista → pendiente_aprobacion)
     background_tasks.add_task(send_cotizacion_lista, solicitud)

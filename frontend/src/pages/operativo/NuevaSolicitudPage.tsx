@@ -1,30 +1,59 @@
-import { useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useState, useEffect } from "react"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
 import { useAuthStore } from "@/store/authStore"
-import { useListasFormulario, useCrearSolicitudInterna } from "@/hooks/useOC"
+import { useListasFormulario, useCrearSolicitudInterna, usePaquetes } from "@/hooks/useOC"
 import type { SolicitudInternaCreate } from "@/hooks/useOC"
+
+const FORM_VACIO: SolicitudInternaCreate = {
+  nivel_prioridad: "",
+  categoria: "",
+  grupo_articulos: "",
+  descripcion: "",
+  cantidad: 1,
+  cliente: "",
+  condicion: "",
+  plataforma: "Logimat",
+  placa_ficha: "",
+  observaciones_solicitante: "",
+}
 
 export function NuevaSolicitudPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const paqueteId = searchParams.get("paquete")
+
   const user = useAuthStore((s) => s.user)
   const { data: listas, isLoading: listasLoading, isError: listasError } = useListasFormulario()
+  const { data: paquetes } = usePaquetes()
   const crear = useCrearSolicitudInterna()
 
-  const [form, setForm] = useState<SolicitudInternaCreate>({
-    nivel_prioridad: "",
-    categoria: "",
-    grupo_articulos: "",
-    descripcion: "",
-    cantidad: 1,
-    cliente: "",
-    condicion: "",
-    plataforma: "Logimat",
-    placa_ficha: "",
-    observaciones_solicitante: "",
-  })
+  const [form, setForm] = useState<SolicitudInternaCreate>(FORM_VACIO)
+  const [paqueteNombre, setPaqueteNombre] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  // Pre-llenar form si viene de un paquete de 1 ítem
+  useEffect(() => {
+    if (!paqueteId || !paquetes) return
+    const paquete = paquetes.find((p) => p.id === paqueteId)
+    if (!paquete || !paquete.items.length) return
+
+    const item = paquete.items[0]
+    setForm({
+      nivel_prioridad: item.nivel_prioridad ?? "",
+      categoria: item.categoria ?? "",
+      grupo_articulos: item.grupo_articulos ?? "",
+      descripcion: item.descripcion ?? "",
+      cantidad: item.cantidad ?? 1,
+      cliente: item.cliente ?? "",
+      condicion: item.condicion ?? "",
+      plataforma: item.plataforma ?? "Logimat",
+      placa_ficha: item.placa_ficha ?? "",
+      observaciones_solicitante: item.observaciones_solicitante ?? "",
+    })
+    setPaqueteNombre(paquete.nombre)
+  }, [paqueteId, paquetes])
 
   function handleChange<K extends keyof SolicitudInternaCreate>(
     field: K,
@@ -85,6 +114,24 @@ export function NuevaSolicitudPage() {
               Los campos marcados con * son obligatorios
             </p>
           </div>
+
+          {/* Banner plantilla cargada */}
+          {paqueteNombre && (
+            <div className="mb-4 flex items-center gap-2.5 rounded-lg bg-indigo-50 border border-indigo-200 px-4 py-2.5">
+              <span className="text-indigo-500 text-base">📦</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-indigo-700">Plantilla cargada</p>
+                <p className="text-xs text-indigo-600 truncate">{paqueteNombre}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setForm(FORM_VACIO); setPaqueteNombre(null) }}
+                className="text-xs text-indigo-400 hover:text-indigo-600 transition-colors shrink-0"
+              >
+                Limpiar
+              </button>
+            </div>
+          )}
 
           {/* Skeleton mientras cargan las listas */}
           {listasLoading && (

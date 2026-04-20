@@ -72,6 +72,9 @@ export interface CotizacionProveedor {
   fecha_vigencia: string | null
   forma_pago: string | null
   plazo_entrega: string | null
+  garantia: string | null
+  anticipo: string | null
+  pago_saldo: string | null
   observaciones: string | null
   pdf_path: string | null
   extraccion_automatica: boolean

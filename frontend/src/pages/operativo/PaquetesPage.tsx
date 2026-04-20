@@ -6,9 +6,10 @@ import {
   usePaquetes,
   useCrearPaquete,
   useEliminarPaquete,
+  useDespacharPaquete,
   useListasFormulario,
 } from "@/hooks/useOC"
-import type { PaqueteItem } from "@/hooks/useOC"
+import type { PaqueteItem, Paquete, DespachoResult } from "@/hooks/useOC"
 
 // ── Empty item template ───────────────────────────────────────────────────────
 
@@ -35,6 +36,7 @@ export function PaquetesPage() {
   const { data: listas } = useListasFormulario()
   const crear = useCrearPaquete()
   const eliminar = useEliminarPaquete()
+  const despachar = useDespacharPaquete()
 
   const [showForm, setShowForm] = useState(false)
   const [nombre, setNombre] = useState("")
@@ -42,6 +44,29 @@ export function PaquetesPage() {
   const [items, setItems] = useState<PaqueteItem[]>([emptyItem()])
   const [formError, setFormError] = useState<string | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  // Despacho multi-ítem
+  const [confirmDespacho, setConfirmDespacho] = useState<Paquete | null>(null)
+  const [despachoResult, setDespachoResult] = useState<DespachoResult | null>(null)
+
+  function handleUsarPaquete(p: Paquete) {
+    if (p.items.length === 1) {
+      // 1 ítem: ir al formulario pre-llenado
+      navigate(`/operativo/nueva-solicitud?paquete=${p.id}`)
+    } else {
+      // Varios ítems: confirmar despacho múltiple
+      setConfirmDespacho(p)
+    }
+  }
+
+  function handleDespachar() {
+    if (!confirmDespacho) return
+    despachar.mutate(confirmDespacho.items, {
+      onSuccess: (result) => {
+        setConfirmDespacho(null)
+        setDespachoResult(result)
+      },
+    })
+  }
 
   function resetForm() {
     setNombre("")
@@ -213,10 +238,10 @@ export function PaquetesPage() {
 
                   <div className="flex items-center gap-2 pt-1 border-t border-gray-100">
                     <button
-                      onClick={() => navigate(`/operativo/nueva-solicitud?paquete=${p.id}`)}
+                      onClick={() => handleUsarPaquete(p)}
                       className="flex-1 rounded-lg bg-brand-blue px-3 py-1.5 text-xs font-semibold text-white hover:brightness-105 transition-all text-center"
                     >
-                      Usar paquete
+                      {p.items.length === 1 ? "Crear solicitud" : `Despachar ${p.items.length} solicitudes`}
                     </button>
                     <button
                       onClick={() => setConfirmDeleteId(p.id)}
@@ -468,6 +493,86 @@ export function PaquetesPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Confirmar despacho múltiple ───────────────────────────────── */}
+      {confirmDespacho && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl space-y-4">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">📦</span>
+              <div>
+                <h3 className="text-base font-bold text-gray-900">Despachar paquete</h3>
+                <p className="text-sm text-gray-500">{confirmDespacho.nombre}</p>
+              </div>
+            </div>
+            <p className="text-sm text-gray-600">
+              Se crearán <span className="font-semibold text-brand-blue">{confirmDespacho.items.length} solicitudes</span> de compra independientes:
+            </p>
+            <ul className="space-y-1 max-h-48 overflow-y-auto">
+              {confirmDespacho.items.map((item, i) => (
+                <li key={i} className="flex items-start gap-2 text-xs text-gray-700 bg-gray-50 rounded-lg px-3 py-2">
+                  <span className="font-mono text-gray-400 shrink-0">{i + 1}.</span>
+                  <span className="flex-1">{item.descripcion}</span>
+                  <span className="text-gray-400 shrink-0">{item.plataforma}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                onClick={() => setConfirmDespacho(null)}
+                disabled={despachar.isPending}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDespachar}
+                disabled={despachar.isPending}
+                className="rounded-lg bg-brand-blue px-4 py-2 text-sm font-semibold text-white hover:brightness-105 disabled:opacity-60 transition-all"
+              >
+                {despachar.isPending
+                  ? `Creando solicitudes...`
+                  : `Crear ${confirmDespacho.items.length} solicitudes`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Resultado del despacho ─────────────────────────────────────── */}
+      {despachoResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl space-y-4 text-center">
+            <span className="text-4xl">{despachoResult.errores === 0 ? "✅" : "⚠️"}</span>
+            <h3 className="text-base font-bold text-gray-900">
+              {despachoResult.errores === 0
+                ? "¡Solicitudes creadas!"
+                : `${despachoResult.creadas} creadas, ${despachoResult.errores} fallaron`}
+            </h3>
+            {despachoResult.consecutivos.length > 0 && (
+              <div className="text-left space-y-1">
+                {despachoResult.consecutivos.map((c) => (
+                  <p key={c} className="text-xs font-mono bg-green-50 text-green-700 rounded px-2 py-1">{c}</p>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDespachoResult(null)}
+                className="flex-1 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                Cerrar
+              </button>
+              <button
+                onClick={() => { setDespachoResult(null); navigate("/operativo/mis-solicitudes") }}
+                className="flex-1 rounded-lg bg-brand-blue px-4 py-2 text-sm font-semibold text-white hover:brightness-105 transition-all"
+              >
+                Ver solicitudes
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { useAuthStore } from "@/store/authStore"
+import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { canSeeOC, canSeeSGC, canSeeOperativo, canSeeFinanciero } from "@/lib/permissions"
 import { LoginPage } from "@/pages/LoginPage"
 import { DashboardPage } from "@/pages/DashboardPage"
@@ -18,6 +19,7 @@ import { ProveedoresPage } from "@/pages/sgc/ProveedoresPage"
 import { OperativoPage } from "@/pages/operativo/OperativoPage"
 import { MisSolicitudesPage } from "@/pages/operativo/MisSolicitudesPage"
 import { NuevaSolicitudPage } from "@/pages/operativo/NuevaSolicitudPage"
+import { PaquetesPage } from "@/pages/operativo/PaquetesPage"
 import { FinancieroPage } from "@/pages/financiero/FinancieroPage"
 import { FacturasPage } from "@/pages/financiero/FacturasPage"
 import { FacturaDetallePage } from "@/pages/financiero/FacturaDetallePage"
@@ -71,6 +73,7 @@ function FinancieroRoute({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
+    <ErrorBoundary>
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -204,6 +207,14 @@ export default function App() {
             </PrivateRoute>
           }
         />
+        <Route
+          path="/operativo/paquetes"
+          element={
+            <PrivateRoute>
+              <PaquetesPage />
+            </PrivateRoute>
+          }
+        />
 
         {/* SGC — Sistema de Gestión de Calidad */}
         <Route
@@ -252,5 +263,6 @@ export default function App() {
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>
+    </ErrorBoundary>
   )
 }

@@ -315,7 +315,7 @@ export function SolicitudDetallePage() {
                 <div className="space-y-2">
                   <TimelineItem label="Solicitud recibida" date={solicitud.fecha_solicitud} done />
                   <TimelineItem
-                    label="En gestión"
+                    label="Asignada a compras"
                     date={solicitud.fecha_asignacion}
                     done={!!solicitud.fecha_asignacion}
                   />
@@ -464,58 +464,131 @@ function PanelAprobacion({
       </div>
 
       {/* Resumen de la cotización */}
-      <div className="bg-white rounded-lg border border-orange-100 p-4 mb-4 grid grid-cols-2 gap-3">
-        <div>
-          <p className="text-xs text-gray-400">Proveedor</p>
-          <p className="text-sm font-semibold text-gray-800">{cotizacion.proveedor_nombre}</p>
-          {cotizacion.proveedor_email && (
-            <p className="text-xs text-gray-400">{cotizacion.proveedor_email}</p>
-          )}
-        </div>
-        <div>
-          <p className="text-xs text-gray-400">N° cotización</p>
-          <p className="text-sm font-medium text-gray-800">
-            {cotizacion.numero_cotizacion_proveedor ?? "—"}
-          </p>
-        </div>
-        <div>
-          <p className="text-xs text-gray-400">Valor unitario</p>
-          <p className="text-sm font-medium text-gray-800">
-            {formatCurrency(cotizacion.valor_unitario)}
-          </p>
-        </div>
-        <div>
-          <p className="text-xs text-gray-400">Valor total</p>
-          <p className="text-base font-bold text-gray-900">
-            {formatCurrency(cotizacion.valor_total)}
-          </p>
-        </div>
-        {cotizacion.valor_antes_iva != null && (
+      <div className="bg-white rounded-lg border border-orange-100 p-4 mb-4 space-y-3">
+        {/* Proveedor + N° cotización */}
+        <div className="grid grid-cols-2 gap-3">
           <div>
-            <p className="text-xs text-gray-400">Subtotal (sin IVA)</p>
+            <p className="text-xs text-gray-400">Proveedor</p>
+            <p className="text-sm font-semibold text-gray-800">{cotizacion.proveedor_nombre}</p>
+            {cotizacion.proveedor_nit && (
+              <p className="text-xs text-gray-400">NIT: {cotizacion.proveedor_nit}</p>
+            )}
+            {cotizacion.proveedor_email && (
+              <p className="text-xs text-gray-400">{cotizacion.proveedor_email}</p>
+            )}
+          </div>
+          <div>
+            <p className="text-xs text-gray-400">N° cotización</p>
             <p className="text-sm font-medium text-gray-800">
-              {formatCurrency(cotizacion.valor_antes_iva)}
+              {cotizacion.numero_cotizacion_proveedor ?? "—"}
             </p>
+            {cotizacion.fecha_vigencia && (
+              <>
+                <p className="text-xs text-gray-400 mt-1">Vigencia</p>
+                <p className="text-xs text-gray-700">{cotizacion.fecha_vigencia}</p>
+              </>
+            )}
           </div>
-        )}
-        {cotizacion.valor_iva != null && (
+        </div>
+
+        {/* Tabla de ítems — solo si tiene ítems */}
+        {cotizacion.items && cotizacion.items.length > 0 && (
           <div>
-            <p className="text-xs text-gray-400">IVA</p>
-            <p className="text-sm font-medium text-orange-700">
-              {formatCurrency(cotizacion.valor_iva)}
+            <p className="text-xs text-gray-400 mb-1.5">
+              Ítems ({cotizacion.items.length})
             </p>
+            <div className="overflow-x-auto rounded-lg border border-gray-100">
+              <table className="min-w-full text-xs">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-2 py-1.5 text-left font-medium text-gray-500">#</th>
+                    <th className="px-2 py-1.5 text-left font-medium text-gray-500">Descripción</th>
+                    <th className="px-2 py-1.5 text-right font-medium text-gray-500">Cant.</th>
+                    <th className="px-2 py-1.5 text-right font-medium text-gray-500">V. Unit.</th>
+                    <th className="px-2 py-1.5 text-right font-medium text-gray-500">V. Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {cotizacion.items.map((item, i) => (
+                    <tr key={i} className="bg-white">
+                      <td className="px-2 py-1.5 text-gray-400 font-mono">{item.num ?? i + 1}</td>
+                      <td className="px-2 py-1.5 text-gray-700">
+                        {item.descripcion}
+                        {item.referencia && (
+                          <span className="ml-1 text-gray-400">({item.referencia})</span>
+                        )}
+                      </td>
+                      <td className="px-2 py-1.5 text-right text-gray-700">
+                        {item.cantidad ?? "—"}
+                      </td>
+                      <td className="px-2 py-1.5 text-right text-gray-700 font-mono">
+                        {item.valor_unitario != null
+                          ? formatCurrency(item.valor_unitario)
+                          : "—"}
+                      </td>
+                      <td className="px-2 py-1.5 text-right text-gray-800 font-mono font-medium">
+                        {item.valor_total != null
+                          ? formatCurrency(item.valor_total)
+                          : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
-        {cotizacion.fecha_vigencia && (
-          <div className="col-span-2">
-            <p className="text-xs text-gray-400">Vigencia</p>
-            <p className="text-sm text-gray-700">{cotizacion.fecha_vigencia}</p>
+
+        {/* Desglose de valores */}
+        <div className="border-t border-orange-100 pt-3 space-y-1.5">
+          {cotizacion.valor_antes_iva != null && (
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-gray-500">Subtotal (sin IVA)</span>
+              <span className="font-medium text-gray-700">
+                {formatCurrency(cotizacion.valor_antes_iva)}
+              </span>
+            </div>
+          )}
+          {cotizacion.valor_iva != null && (
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-gray-500">IVA</span>
+              <span className="font-medium text-orange-600">
+                + {formatCurrency(cotizacion.valor_iva)}
+              </span>
+            </div>
+          )}
+          {/* Total con IVA — siempre prominente */}
+          <div className="flex justify-between items-center bg-orange-50 rounded-lg px-3 py-2 mt-1">
+            <span className="text-sm font-semibold text-orange-900">
+              {cotizacion.valor_iva != null ? "Total con IVA" : "Valor total"}
+            </span>
+            <span className="text-xl font-bold text-orange-900">
+              {formatCurrency(cotizacion.valor_total)}
+            </span>
           </div>
-        )}
-        {cotizacion.observaciones && (
-          <div className="col-span-2">
-            <p className="text-xs text-gray-400">Observaciones</p>
-            <p className="text-sm text-gray-700">{cotizacion.observaciones}</p>
+        </div>
+
+        {/* Condiciones */}
+        {(cotizacion.forma_pago || cotizacion.plazo_entrega || cotizacion.observaciones) && (
+          <div className="grid grid-cols-2 gap-2 border-t border-orange-100 pt-3">
+            {cotizacion.forma_pago && (
+              <div>
+                <p className="text-xs text-gray-400">Forma de pago</p>
+                <p className="text-xs text-gray-700">{cotizacion.forma_pago}</p>
+              </div>
+            )}
+            {cotizacion.plazo_entrega && (
+              <div>
+                <p className="text-xs text-gray-400">Plazo entrega</p>
+                <p className="text-xs text-gray-700">{cotizacion.plazo_entrega}</p>
+              </div>
+            )}
+            {cotizacion.observaciones && (
+              <div className="col-span-2">
+                <p className="text-xs text-gray-400">Observaciones</p>
+                <p className="text-xs text-gray-700">{cotizacion.observaciones}</p>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -951,8 +1024,10 @@ function CotizacionCard({ cotizacion: c }: { cotizacion: CotizacionProveedor }) 
       </div>
       <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
         <div>
-          <span className="text-gray-400">Valor total: </span>
-          <span className="font-medium text-gray-800">{formatCurrency(c.valor_total)}</span>
+          <span className="text-gray-400">
+            {c.valor_iva != null ? "Total con IVA: " : "Valor total: "}
+          </span>
+          <span className="font-semibold text-gray-900">{formatCurrency(c.valor_total)}</span>
         </div>
         {c.valor_aprobado != null && (
           <div>
@@ -1107,15 +1182,6 @@ function TablaCotizacionesComparativa({ cotizaciones }: { cotizaciones: Cotizaci
             ))}
           </ComparativaFila>
 
-          {/* Valor unitario */}
-          <ComparativaFila label="Valor unitario">
-            {cotizaciones.map((c) => (
-              <td key={c.id} className={comparativaCellClass(c)}>
-                {formatCurrency(c.valor_unitario)}
-              </td>
-            ))}
-          </ComparativaFila>
-
           {/* Subtotal sin IVA */}
           <ComparativaFila label="Subtotal (sin IVA)">
             {cotizaciones.map((c) => (
@@ -1138,10 +1204,10 @@ function TablaCotizacionesComparativa({ cotizaciones }: { cotizaciones: Cotizaci
             ))}
           </ComparativaFila>
 
-          {/* VALOR TOTAL — fila destacada */}
+          {/* TOTAL CON IVA — fila destacada */}
           <tr className="bg-gray-50">
             <td className="sticky left-0 bg-gray-50 text-xs font-bold text-gray-700 py-2.5 pr-4">
-              VALOR TOTAL
+              TOTAL CON IVA
             </td>
             {cotizaciones.map((c) => (
               <td
