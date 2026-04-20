@@ -171,15 +171,24 @@ def _extraer_texto(contenido: bytes, ext: str) -> str:
     return ""
 
 
+from app.services.extraction_utils import extraer_campos_estructurado as _extraer_campos_estructurado  # noqa: E402
 from app.services.number_utils import parse_cop as _to_float  # noqa: E402
 
 
-def _parsear_factura(texto: str) -> ExtraccionFacturaResult:
-    """Extrae campos de factura de proveedor desde texto libre con regex."""
+def _parsear_factura(texto: str, extra: Optional[dict[str, str]] = None) -> ExtraccionFacturaResult:
+    """Extrae campos de factura desde texto libre con regex.
+
+    extra: dict de campos pre-resueltos via extracción estructurada (Excel/Word).
+    Funciona como fallback cuando el regex no encuentra el campo en el texto.
+    """
+    _extra = extra or {}
+    # DOTALL permite capturar valores cuando el PDF parte etiqueta y valor
+    # en líneas distintas (frecuente en facturas electrónicas colombianas).
+    flags = re.IGNORECASE | re.MULTILINE | re.DOTALL
 
     def find_money(patterns: list[str]) -> Optional[float]:
         for pat in patterns:
-            m = re.search(pat, texto, re.IGNORECASE | re.MULTILINE)
+            m = re.search(pat, texto, flags)
             if m:
                 val = _to_float(m.group(1))
                 if val and val > 0:
@@ -188,7 +197,7 @@ def _parsear_factura(texto: str) -> ExtraccionFacturaResult:
 
     def find_text(patterns: list[str]) -> Optional[str]:
         for pat in patterns:
-            m = re.search(pat, texto, re.IGNORECASE | re.MULTILINE)
+            m = re.search(pat, texto, flags)
             if m:
                 found = m.group(1).strip()
                 if found:
@@ -197,56 +206,60 @@ def _parsear_factura(texto: str) -> ExtraccionFacturaResult:
 
     def find_date(patterns: list[str]) -> Optional[date]:
         for pat in patterns:
-            m = re.search(pat, texto, re.IGNORECASE | re.MULTILINE)
+            m = re.search(pat, texto, flags)
             if m:
                 try:
-                    # dd/mm/yyyy
                     return date(int(m.group(3)), int(m.group(2)), int(m.group(1)))
                 except Exception:
                     pass
                 try:
-                    # yyyy-mm-dd
                     return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
                 except Exception:
                     pass
         return None
 
+    def text_or_extra(field: str, patterns: list[str]) -> Optional[str]:
+        return find_text(patterns) or (_extra.get(field) or None)
+
+    def money_or_extra(field: str, patterns: list[str]) -> Optional[float]:
+        return find_money(patterns) or _to_float(_extra.get(field, ""))
+
     # Número de factura
-    numero_factura = find_text([
-        r"N[oó]\.?\s*(?:DE\s+)?FACTURA[:\s#]*([A-Z0-9\-]+)",
+    numero_factura = text_or_extra("numero_factura", [
+        r"N[oó]\.?\s*(?:DE\s+)?FACTURA[\s\S]{0,10}?([A-Z0-9\-]{3,})",
         r"FACTURA\s+(?:DE\s+VENTA\s+)?(?:N[oó]\.?\s*|#\s*)?([FE]{2}-\d+|FV-\d+|\d{5,})",
         r"\b(FE-\d+)\b",
         r"\b(FV-\d+)\b",
-        r"N[Ú Uu]MERO\s+DE\s+FACTURA[:\s#]*([A-Z0-9\-]+)",
+        r"N[ÚUu]MERO\s+DE\s+FACTURA[\s\S]{0,10}?([A-Z0-9\-]{3,})",
     ])
 
     # Valor total de la factura
-    valor_factura = find_money([
-        r"TOTAL\s+A\s+PAGAR[:\s]*\$?\s*([\d.,]+)",
-        r"VALOR\s+TOTAL[:\s]*\$?\s*([\d.,]+)",
-        r"GRAN\s+TOTAL[:\s]*\$?\s*([\d.,]+)",
-        r"GRAND\s+TOTAL[:\s]*\$?\s*([\d.,]+)",
-        r"\bTOTAL\b[:\s]*\$?\s*([\d.,]+)",
-    ])
+    valor_factura = money_or_extra("valor_factura", [
+        r"TOTAL\s+A\s+PAGAR[\s\S]{0,20}?\$?\s*([\d.,]+)",
+        r"VALOR\s+TOTAL[\s\S]{0,20}?\$?\s*([\d.,]+)",
+        r"GRAN\s+TOTAL[\s\S]{0,20}?\$?\s*([\d.,]+)",
+        r"GRAND\s+TOTAL[\s\S]{0,20}?\$?\s*([\d.,]+)",
+        r"\bTOTAL\b[\s\S]{0,15}?\$?\s*([\d.,]+)",
+    ]) or money_or_extra("valor_total", [])  # alias: campo valor_total del motor cotizaciones
 
     # Fecha de la factura — dd/mm/yyyy o yyyy-mm-dd
     fecha_factura = find_date([
-        r"FECHA[:\s]*(\d{2})[/\-](\d{2})[/\-](\d{4})",
+        r"FECHA[\s\S]{0,15}?(\d{2})[/\-](\d{2})[/\-](\d{4})",
         r"(\d{4})[/\-](\d{2})[/\-](\d{2})",
+    ]) or (_parse_date_str(_extra.get("fecha_factura") or _extra.get("fecha", "")))
+
+    # NIT del proveedor — también usa proveedor_nit del motor de cotizaciones
+    nit_proveedor = text_or_extra("proveedor_nit", [
+        r"N\.?I\.?T\.?[\s\S]{0,10}?(\d[\d.\-]+[-]?\d)",
+        r"NIT[\s\S]{0,10}?(\d{3}[.\s]?\d{3}[.\s]?\d{3}[-]?\d)",
+        r"IDENTIFICACI[OÓ]N[\s\S]{0,10}?(\d[\d.\-]+)",
     ])
 
-    # NIT del proveedor
-    nit_proveedor = find_text([
-        r"N\.?I\.?T\.?\s+(?:PROVEEDOR\s+)?[:\s#]*(\d[\d.\-]+[-]?\d)",
-        r"NIT[:\s#]*(\d{3}[.\s]?\d{3}[.\s]?\d{3}[-]?\d)",
-        r"IDENTIFICACI[OÓ]N[:\s]*(\d[\d.\-]+)",
-    ])
-
-    # Nombre / razón social del proveedor
-    nombre_proveedor = find_text([
-        r"RAZ[OÓ]N\s+SOCIAL[:\s]+(.{3,150}?)(?:\n|$)",
-        r"EMPRESA[:\s]+(.{3,150}?)(?:\n|$)",
-        r"PROVEEDOR[:\s]+(.{3,150}?)(?:\n|$)",
+    # Nombre / razón social del proveedor — también usa proveedor_nombre
+    nombre_proveedor = text_or_extra("proveedor_nombre", [
+        r"RAZ[OÓ]N\s+SOCIAL[\s\S]{0,10}?(.{3,150}?)(?:\n|$)",
+        r"EMPRESA[\s\S]{0,10}?(.{3,150}?)(?:\n|$)",
+        r"PROVEEDOR[\s\S]{0,10}?(.{3,150}?)(?:\n|$)",
     ])
 
     campos = sum(
@@ -263,6 +276,19 @@ def _parsear_factura(texto: str) -> ExtraccionFacturaResult:
         nombre_proveedor=nombre_proveedor,
         campos_encontrados=campos,
     )
+
+
+def _parse_date_str(raw: str) -> Optional[date]:
+    """Intenta parsear un string de fecha en formatos dd/mm/yyyy o yyyy-mm-dd."""
+    if not raw:
+        return None
+    for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%d/%m/%y"):
+        try:
+            from datetime import datetime as _dt
+            return _dt.strptime(raw.strip(), fmt).date()
+        except ValueError:
+            continue
+    return None
 
 
 # ── Estados elegibles para gestión de facturas ────────────────────────────────
@@ -401,10 +427,15 @@ async def subir_factura(
     factura_dest = FACTURAS_DIR / f"{solicitud_id}.{ext}"
     factura_dest.write_bytes(contenido)
 
-    # 5. Extraer campos
+    # 5. Extraer campos — estructurado primero (Excel/Word), luego regex sobre texto
     texto = _extraer_texto(contenido, ext)
-    extraccion = _parsear_factura(texto)
+    extra = _extraer_campos_estructurado(contenido, ext)   # vacío para PDF
+    extraccion = _parsear_factura(texto, extra=extra)
     extraccion.nombre_archivo = nombre
+    log.info(
+        "[facturas] extracción %s: %d campos encontrados (extra=%d)",
+        ext, extraccion.campos_encontrados, len(extra),
+    )
 
     # 6. Crear o actualizar FacturaProveedor
     now = datetime.now(timezone.utc)

@@ -25,8 +25,15 @@ log = logging.getLogger(__name__)
 router = APIRouter(tags=["OC - Configuración"])
 
 _ALLOWED_KEYS = {
+    # SMTP
     "smtp_host", "smtp_port", "smtp_user", "smtp_password", "smtp_from",
+    # Destinatarios
     "email_directora", "email_compras", "intranet_url",
+    # Branding por plataforma
+    "empresa_nombre", "empresa_color", "empresa_nit", "empresa_tel", "empresa_dir", "empresa_dept",
+    # Asunto y plantillas de email
+    "email_prefijo",
+    "email_intro_flujo1", "email_intro_flujo2", "email_intro_flujo3", "email_intro_flujo4",
 }
 
 
@@ -46,6 +53,19 @@ class ConfigRead(BaseModel):
     email_directora: str
     email_compras: str
     intranet_url: str
+    # Branding
+    empresa_nombre: str
+    empresa_color: str
+    empresa_nit: str
+    empresa_tel: str
+    empresa_dir: str
+    empresa_dept: str
+    # Email templates
+    email_prefijo: str
+    email_intro_flujo1: str
+    email_intro_flujo2: str
+    email_intro_flujo3: str
+    email_intro_flujo4: str
 
 
 class ConfigUpdate(BaseModel):
@@ -57,6 +77,19 @@ class ConfigUpdate(BaseModel):
     email_directora: Optional[str] = None
     email_compras: Optional[str] = None
     intranet_url: Optional[str] = None
+    # Branding
+    empresa_nombre: Optional[str] = None
+    empresa_color: Optional[str] = None
+    empresa_nit: Optional[str] = None
+    empresa_tel: Optional[str] = None
+    empresa_dir: Optional[str] = None
+    empresa_dept: Optional[str] = None
+    # Email templates
+    email_prefijo: Optional[str] = None
+    email_intro_flujo1: Optional[str] = None
+    email_intro_flujo2: Optional[str] = None
+    email_intro_flujo3: Optional[str] = None
+    email_intro_flujo4: Optional[str] = None
 
 
 class TestEmailResult(BaseModel):
@@ -92,15 +125,33 @@ def get_config(
     _require_admin(current_user)
     rows = {r.key: r.value for r in oc_db.exec(select(OcConfig)).all()}
 
+    from app.services.email_service import _BRANDING_DEFAULTS
+
+    def _r(key: str, fallback: str = "") -> str:
+        return rows.get(key) or fallback
+
     return ConfigRead(
-        smtp_host=rows.get("smtp_host") or settings.smtp_host,
-        smtp_port=rows.get("smtp_port") or str(settings.smtp_port),
-        smtp_user=rows.get("smtp_user") or settings.smtp_user,
+        smtp_host=_r("smtp_host", settings.smtp_host),
+        smtp_port=_r("smtp_port", str(settings.smtp_port)),
+        smtp_user=_r("smtp_user", settings.smtp_user),
         smtp_password_set=bool(rows.get("smtp_password") or settings.smtp_password),
-        smtp_from=rows.get("smtp_from") or settings.smtp_from or rows.get("smtp_user") or settings.smtp_user,
-        email_directora=rows.get("email_directora") or settings.email_directora,
-        email_compras=rows.get("email_compras") or settings.email_directora,
-        intranet_url=rows.get("intranet_url") or settings.intranet_url,
+        smtp_from=_r("smtp_from", settings.smtp_from or settings.smtp_user),
+        email_directora=_r("email_directora", settings.email_directora),
+        email_compras=_r("email_compras", settings.email_directora),
+        intranet_url=_r("intranet_url", settings.intranet_url),
+        # Branding — usa _BRANDING_DEFAULTS cuando no hay valor en DB
+        empresa_nombre=_r("empresa_nombre", _BRANDING_DEFAULTS["empresa_nombre"]),
+        empresa_color=_r("empresa_color", _BRANDING_DEFAULTS["empresa_color"]),
+        empresa_nit=_r("empresa_nit", _BRANDING_DEFAULTS["empresa_nit"]),
+        empresa_tel=_r("empresa_tel", _BRANDING_DEFAULTS["empresa_tel"]),
+        empresa_dir=_r("empresa_dir", _BRANDING_DEFAULTS["empresa_dir"]),
+        empresa_dept=_r("empresa_dept", _BRANDING_DEFAULTS["empresa_dept"]),
+        # Email templates — vacío = el email_service usa _INTRO_DEFAULTS
+        email_prefijo=_r("email_prefijo", _BRANDING_DEFAULTS["email_prefijo"]),
+        email_intro_flujo1=_r("email_intro_flujo1", ""),
+        email_intro_flujo2=_r("email_intro_flujo2", ""),
+        email_intro_flujo3=_r("email_intro_flujo3", ""),
+        email_intro_flujo4=_r("email_intro_flujo4", ""),
     )
 
 

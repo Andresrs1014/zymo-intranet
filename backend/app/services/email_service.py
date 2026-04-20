@@ -7,7 +7,7 @@ Flujos implementados:
   Flujo 2 — Cotización Lista   → solicitante (estado: pendiente_aprobacion)
   Flujo 3 — Aprobación Dir.    → directora   (estado: pendiente_aprobacion)  ← incluye valor cotización
   Flujo 4 — OC Enviada         → solicitante (estado: oc_enviada)
-  Flujo OC Proveedor           → proveedor   (adjunto DOCX/PDF)
+  Flujo OC Proveedor           → proveedor   (adjunto DOCX/PDF) + CC al solicitante
 """
 from __future__ import annotations
 
@@ -26,23 +26,76 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+# ── Branding por defecto (se sobreescribe desde OcConfig en DB) ───────────────
+
+_BRANDING_DEFAULTS: dict[str, str] = {
+    "empresa_nombre": "LOGIMAT S.A.S.",
+    "empresa_color":  "#C8102E",
+    "empresa_nit":    "830.103.877-6",
+    "empresa_tel":    "(1) 7 44 92 00",
+    "empresa_dir":    "Zona Franca de Bogotá",
+    "empresa_dept":   "Departamento de Compras",
+    "email_prefijo":  "[Compras LOGIMAT]",
+}
+
+_INTRO_DEFAULTS: dict[str, str] = {
+    "email_intro_flujo1": (
+        "Tu solicitud de compra ha sido recibida y un auxiliar de compras ya está trabajando en ella. "
+        "Te notificaremos en cuanto tengamos una cotización lista."
+    ),
+    "email_intro_flujo2": (
+        "Ya tenemos una cotización lista para tu solicitud. Está en proceso de aprobación por la dirección. "
+        "Te notificaremos cuando la orden de compra sea enviada al proveedor."
+    ),
+    "email_intro_flujo3": "Hay una solicitud de compra que requiere tu aprobación:",
+    "email_intro_flujo4": (
+        "La Orden de Compra para tu solicitud ha sido generada y enviada al proveedor."
+    ),
+}
+
+
+def _b(cfg: Optional[dict], key: str) -> str:
+    """Lee un valor de branding del cfg con fallback a _BRANDING_DEFAULTS."""
+    if cfg:
+        v = cfg.get(key)
+        if v:
+            return v
+    return _BRANDING_DEFAULTS.get(key, "")
+
+
+def _intro(cfg: Optional[dict], key: str, solicitante: str = "") -> str:
+    """Lee el texto de intro del cfg; reemplaza {solicitante} si aparece."""
+    if cfg:
+        v = cfg.get(key, "").strip()
+        if v:
+            return v.replace("{solicitante}", solicitante)
+    return _INTRO_DEFAULTS.get(key, "").replace("{solicitante}", solicitante)
+
+
 # ── Configuración SMTP ────────────────────────────────────────────────────────
 
 def _get_runtime_config() -> dict:
-    """Lee la config SMTP de oc_config (DB), con fallback a settings/.env."""
+    """Lee la config SMTP y branding de oc_config (DB), con fallback a settings/.env."""
     from sqlmodel import Session, select
     from app.models.oc import OcConfig
     from app.oc_database import get_oc_engine
 
-    cfg = {
-        "smtp_user": settings.smtp_user,
-        "smtp_password": settings.smtp_password,
-        "smtp_from": settings.smtp_from or settings.smtp_user,
-        "smtp_host": settings.smtp_host,
-        "smtp_port": settings.smtp_port,
+    cfg: dict = {
+        "smtp_user":       settings.smtp_user,
+        "smtp_password":   settings.smtp_password,
+        "smtp_from":       settings.smtp_from or settings.smtp_user,
+        "smtp_host":       settings.smtp_host,
+        "smtp_port":       settings.smtp_port,
         "email_directora": settings.email_directora,
-        "email_compras": "",
-        "intranet_url": settings.intranet_url,
+        "email_compras":   "",
+        "intranet_url":    settings.intranet_url,
+        # Branding (defaults; sobreescritos desde DB)
+        **_BRANDING_DEFAULTS,
+        # Intros configurables (vacío = usa _INTRO_DEFAULTS)
+        "email_intro_flujo1": "",
+        "email_intro_flujo2": "",
+        "email_intro_flujo3": "",
+        "email_intro_flujo4": "",
     }
     try:
         with Session(get_oc_engine()) as db:
@@ -60,7 +113,7 @@ def _build_conf(cfg: dict) -> ConnectionConfig:
         MAIL_USERNAME=cfg["smtp_user"],
         MAIL_PASSWORD=cfg["smtp_password"],
         MAIL_FROM=cfg["smtp_from"] or cfg["smtp_user"],
-        MAIL_FROM_NAME="Compras LOGIMAT",
+        MAIL_FROM_NAME=f"Compras {cfg.get('empresa_nombre', 'LOGIMAT S.A.S.')}",
         MAIL_PORT=cfg["smtp_port"],
         MAIL_SERVER=cfg["smtp_host"],
         MAIL_STARTTLS=True,
@@ -70,9 +123,22 @@ def _build_conf(cfg: dict) -> ConnectionConfig:
     )
 
 
-async def _send_html(cfg: dict, subject: str, recipients: list[str], body: str, flujo: str) -> None:
+async def _send_html(
+    cfg: dict,
+    subject: str,
+    recipients: list[str],
+    body: str,
+    flujo: str,
+    cc: Optional[list[str]] = None,
+) -> None:
     """Envía un correo HTML. Centraliza el manejo de errores SMTP para todos los flujos."""
-    msg = MessageSchema(subject=subject, recipients=recipients, body=body, subtype=MessageType.html)
+    msg = MessageSchema(
+        subject=subject,
+        recipients=recipients,
+        cc=cc or [],
+        body=body,
+        subtype=MessageType.html,
+    )
     try:
         await FastMail(_build_conf(cfg)).send_message(msg)
         log.info("[email] %s enviado a %s", flujo, recipients)
@@ -103,13 +169,19 @@ def _fmt_cop(value) -> str:
 
 # ── Templates HTML ────────────────────────────────────────────────────────────
 
-def _base(titulo: str, cuerpo: str) -> str:
+def _base(titulo: str, cuerpo: str, cfg: Optional[dict] = None) -> str:
+    nombre = _b(cfg, "empresa_nombre")
+    color  = _b(cfg, "empresa_color")
+    nit    = _b(cfg, "empresa_nit")
+    tel    = _b(cfg, "empresa_tel")
+    dir_   = _b(cfg, "empresa_dir")
+    dept   = _b(cfg, "empresa_dept")
     return f"""
     <div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;padding:24px">
-      <div style="background:#C8102E;padding:16px 24px;border-radius:8px 8px 0 0;display:flex;align-items:center;gap:12px">
+      <div style="background:{color};padding:16px 24px;border-radius:8px 8px 0 0;display:flex;align-items:center;gap:12px">
         <div>
-          <h2 style="color:#fff;margin:0;font-size:18px;letter-spacing:1px">LOGIMAT S.A.S.</h2>
-          <p style="color:rgba(255,255,255,0.75);margin:2px 0 0;font-size:12px">Departamento de Compras</p>
+          <h2 style="color:#fff;margin:0;font-size:18px;letter-spacing:1px">{nombre}</h2>
+          <p style="color:rgba(255,255,255,0.75);margin:2px 0 0;font-size:12px">{dept}</p>
         </div>
       </div>
       <div style="background:#fff;padding:28px 24px;border:1px solid #e5e7eb;border-top:none">
@@ -117,30 +189,28 @@ def _base(titulo: str, cuerpo: str) -> str:
         {cuerpo}
         <hr style="border:none;border-top:1px solid #f0f0f0;margin:24px 0"/>
         <p style="color:#9ca3af;font-size:11px;margin:0">
-          Este correo fue generado automáticamente por el sistema de compras de LOGIMAT S.A.S.
+          Este correo fue generado automáticamente por el sistema de compras de {nombre}.
           Por favor no responda a este mensaje.
         </p>
       </div>
       <div style="background:#f9fafb;padding:10px 24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px">
         <p style="color:#9ca3af;font-size:11px;margin:0;text-align:center">
-          LOGIMAT S.A.S. · NIT: 830.103.877-6 · Zona Franca de Bogotá · PBX: (1) 7 44 92 00
+          {nombre} · NIT: {nit} · {dir_} · PBX: {tel}
         </p>
       </div>
     </div>
     """
 
 
-def _fila(label: str, value: str, destacar: bool = False) -> str:
-    bg_label = "#f3f4f6"
-    bg_val = "#fff"
-    color_val = "#C8102E" if destacar else "#111827"
+def _fila(label: str, value: str, destacar: bool = False, cfg: Optional[dict] = None) -> str:
+    accent = _b(cfg, "empresa_color") if destacar else "#111827"
     weight = "bold" if destacar else "normal"
     return f"""
       <tr>
-        <td style="padding:9px 14px;background:{bg_label};font-weight:600;font-size:13px;
+        <td style="padding:9px 14px;background:#f3f4f6;font-weight:600;font-size:13px;
                    width:38%;border-bottom:1px solid #f0f0f0;color:#374151">{label}</td>
-        <td style="padding:9px 14px;background:{bg_val};font-size:13px;
-                   border-bottom:1px solid #f0f0f0;color:{color_val};font-weight:{weight}">{value}</td>
+        <td style="padding:9px 14px;background:#fff;font-size:13px;
+                   border-bottom:1px solid #f0f0f0;color:{accent};font-weight:{weight}">{value}</td>
       </tr>"""
 
 
@@ -156,11 +226,11 @@ def _tabla_items(items: list[dict]) -> str:
     """Genera una tabla HTML con el detalle de ítems de una cotización multi-producto."""
     filas_html = ""
     for item in items:
-        desc = item.get("descripcion") or "—"
-        ref = item.get("referencia") or ""
-        cant = item.get("cantidad") or "—"
+        desc  = item.get("descripcion") or "—"
+        ref   = item.get("referencia") or ""
+        cant  = item.get("cantidad") or "—"
         vunit = _fmt_cop(item.get("valor_unitario")) if item.get("valor_unitario") else "—"
-        vtotal = _fmt_cop(item.get("valor_total")) if item.get("valor_total") else "—"
+        vtot  = _fmt_cop(item.get("valor_total")) if item.get("valor_total") else "—"
         ref_cell = f"<br/><span style='color:#9ca3af;font-size:11px'>Ref: {ref}</span>" if ref else ""
         filas_html += f"""
         <tr>
@@ -169,7 +239,7 @@ def _tabla_items(items: list[dict]) -> str:
           </td>
           <td style="padding:7px 12px;border-bottom:1px solid #f0f0f0;font-size:13px;color:#374151;text-align:center">{cant}</td>
           <td style="padding:7px 12px;border-bottom:1px solid #f0f0f0;font-size:13px;color:#374151;text-align:right">{vunit}</td>
-          <td style="padding:7px 12px;border-bottom:1px solid #f0f0f0;font-size:13px;color:#374151;text-align:right">{vtotal}</td>
+          <td style="padding:7px 12px;border-bottom:1px solid #f0f0f0;font-size:13px;color:#374151;text-align:right">{vtot}</td>
         </tr>"""
 
     return f"""
@@ -189,13 +259,11 @@ def _tabla_items(items: list[dict]) -> str:
 
 # ── Flujo 1 — En gestión → solicitante ───────────────────────────────────────
 
-def _html_en_gestion(s: "SolicitudOC") -> str:
+def _html_en_gestion(s: "SolicitudOC", cfg: Optional[dict] = None) -> str:
+    intro = _intro(cfg, "email_intro_flujo1", s.solicitante_nombre)
     cuerpo = f"""
     <p style="color:#374151;font-size:14px">Hola <strong>{s.solicitante_nombre}</strong>,</p>
-    <p style="color:#374151;font-size:14px">
-      Tu solicitud de compra ha sido recibida y un auxiliar de compras ya está trabajando en ella.
-      Te notificaremos en cuanto tengamos una cotización lista.
-    </p>
+    <p style="color:#374151;font-size:14px">{intro}</p>
     {_tabla(
         _fila("Consecutivo", s.consecutivo_os),
         _fila("Descripción", s.descripcion),
@@ -208,18 +276,16 @@ def _html_en_gestion(s: "SolicitudOC") -> str:
       Si tienes alguna duda, puedes comunicarte con el equipo de compras.
     </p>
     """
-    return _base("Tu solicitud está siendo gestionada", cuerpo)
+    return _base("Tu solicitud está siendo gestionada", cuerpo, cfg)
 
 
 # ── Flujo 2 — Cotización lista → solicitante ─────────────────────────────────
 
-def _html_cotizacion_lista(s: "SolicitudOC") -> str:
+def _html_cotizacion_lista(s: "SolicitudOC", cfg: Optional[dict] = None) -> str:
+    intro = _intro(cfg, "email_intro_flujo2", s.solicitante_nombre)
     cuerpo = f"""
     <p style="color:#374151;font-size:14px">Hola <strong>{s.solicitante_nombre}</strong>,</p>
-    <p style="color:#374151;font-size:14px">
-      Ya tenemos una cotización lista para tu solicitud. Está en proceso de aprobación por la dirección.
-      Te notificaremos cuando la orden de compra sea enviada al proveedor.
-    </p>
+    <p style="color:#374151;font-size:14px">{intro}</p>
     {_tabla(
         _fila("Consecutivo", s.consecutivo_os),
         _fila("Descripción", s.descripcion),
@@ -228,12 +294,17 @@ def _html_cotizacion_lista(s: "SolicitudOC") -> str:
         _fila("Estado", "⏳ Pendiente de aprobación"),
     )}
     """
-    return _base("Cotización lista — pendiente de aprobación", cuerpo)
+    return _base("Cotización lista — pendiente de aprobación", cuerpo, cfg)
 
 
 # ── Flujo 3 — Aprobación directora ───────────────────────────────────────────
 
-def _html_aprobacion_directora(s: "SolicitudOC", cot: Optional["CotizacionProveedor"]) -> str:
+def _html_aprobacion_directora(
+    s: "SolicitudOC",
+    cot: Optional["CotizacionProveedor"],
+    cfg: Optional[dict] = None,
+) -> str:
+    intro = _intro(cfg, "email_intro_flujo3")
     seccion_cotizacion = ""
     if cot:
         filas_cot = "".join([
@@ -242,7 +313,7 @@ def _html_aprobacion_directora(s: "SolicitudOC", cot: Optional["CotizacionProvee
             _fila("N° cotización", cot.numero_cotizacion_proveedor or "—"),
             _fila("Subtotal", _fmt_cop(cot.valor_antes_iva)),
             _fila("IVA", _fmt_cop(cot.valor_iva) if cot.valor_iva else "No aplica"),
-            _fila("VALOR TOTAL", _fmt_cop(cot.valor_total), destacar=True),
+            _fila("VALOR TOTAL", _fmt_cop(cot.valor_total), destacar=True, cfg=cfg),
             _fila("Forma de pago", cot.forma_pago or "—"),
             _fila("Plazo de entrega", cot.plazo_entrega or "—"),
         ])
@@ -250,7 +321,6 @@ def _html_aprobacion_directora(s: "SolicitudOC", cot: Optional["CotizacionProvee
         <p style="color:#374151;font-size:13px;font-weight:600;margin-bottom:4px">💰 Cotización</p>
         {_tabla(filas_cot)}
         """
-        # Si hay múltiples ítems, mostrar la tabla de detalle
         if cot.items:
             seccion_cotizacion += f"""
             <p style="color:#374151;font-size:13px;font-weight:600;margin-bottom:4px">
@@ -260,9 +330,7 @@ def _html_aprobacion_directora(s: "SolicitudOC", cot: Optional["CotizacionProvee
             """
 
     cuerpo = f"""
-    <p style="color:#374151;font-size:14px">
-      Hay una solicitud de compra que requiere tu aprobación:
-    </p>
+    <p style="color:#374151;font-size:14px">{intro}</p>
     <p style="color:#374151;font-size:13px;font-weight:600;margin-bottom:4px">📋 Datos de la solicitud</p>
     {_tabla(
         _fila("Consecutivo", s.consecutivo_os),
@@ -279,21 +347,20 @@ def _html_aprobacion_directora(s: "SolicitudOC", cot: Optional["CotizacionProvee
       Ingresa a la intranet para revisar y <strong>aprobar o rechazar</strong> la cotización.
     </p>
     """
-    return _base(f"Aprobación requerida — {s.consecutivo_os}", cuerpo)
+    return _base(f"Aprobación requerida — {s.consecutivo_os}", cuerpo, cfg)
 
 
 # ── Flujo 4 — OC enviada → solicitante ───────────────────────────────────────
 
-def _html_oc_enviada(s: "SolicitudOC") -> str:
+def _html_oc_enviada(s: "SolicitudOC", cfg: Optional[dict] = None) -> str:
+    intro = _intro(cfg, "email_intro_flujo4", s.solicitante_nombre)
     fila_entrega = _fila(
         "Fecha estimada de entrega",
         str(s.fecha_estimada_entrega) if s.fecha_estimada_entrega else "Por confirmar"
     )
     cuerpo = f"""
     <p style="color:#374151;font-size:14px">Hola <strong>{s.solicitante_nombre}</strong>,</p>
-    <p style="color:#374151;font-size:14px">
-      La Orden de Compra para tu solicitud ha sido generada y enviada al proveedor.
-    </p>
+    <p style="color:#374151;font-size:14px">{intro}</p>
     {_tabla(
         _fila("Consecutivo", s.consecutivo_os),
         _fila("Descripción", s.descripcion),
@@ -306,7 +373,7 @@ def _html_oc_enviada(s: "SolicitudOC") -> str:
       El equipo de compras te mantendrá informado sobre la entrega.
     </p>
     """
-    return _base("Tu Orden de Compra fue enviada al proveedor", cuerpo)
+    return _base("Tu Orden de Compra fue enviada al proveedor", cuerpo, cfg)
 
 
 # ── OC al proveedor ───────────────────────────────────────────────────────────
@@ -315,8 +382,9 @@ def _html_oc_proveedor(
     s: "SolicitudOC",
     numero_oc: str,
     items: Optional[list[dict]] = None,
+    cfg: Optional[dict] = None,
 ) -> str:
-    # Si hay ítems múltiples, mostrar tabla; si no, una sola fila de descripción
+    nombre_empresa = _b(cfg, "empresa_nombre")
     if items:
         detalle = f"""
         <p style="color:#374151;font-size:13px;font-weight:600;margin-bottom:4px">
@@ -333,7 +401,7 @@ def _html_oc_proveedor(
     cuerpo = f"""
     <p style="color:#374151;font-size:14px">Estimado proveedor,</p>
     <p style="color:#374151;font-size:14px">
-      Adjunto encontrará la Orden de Compra <strong>{numero_oc}</strong> emitida por LOGIMAT S.A.S.
+      Adjunto encontrará la Orden de Compra <strong>{numero_oc}</strong> emitida por {nombre_empresa}.
       Por favor revísela y confírmenos su recepción junto con la fecha estimada de entrega.
     </p>
     {_tabla(
@@ -347,7 +415,44 @@ def _html_oc_proveedor(
     </p>
     <p style="color:#374151;font-size:14px">Gracias por su atención.</p>
     """
-    return _base(f"Orden de Compra {numero_oc}", cuerpo)
+    return _base(f"Orden de Compra {numero_oc}", cuerpo, cfg)
+
+
+# ── Flujo Interno — Nueva solicitud → equipo de compras ──────────────────────
+
+def _html_nueva_solicitud_interna(
+    s: "SolicitudOC",
+    intranet_url: str,
+    cfg: Optional[dict] = None,
+) -> str:
+    color = _b(cfg, "empresa_color")
+    link = f"{intranet_url}/oc/solicitudes/{s.id}"
+    cuerpo = f"""
+    <p style="color:#374151;font-size:14px">
+      <strong>{s.solicitante_nombre}</strong> del área <strong>{s.area_solicitante or "—"}</strong>
+      está solicitando un nuevo artículo.
+    </p>
+    <p style="color:#374151;font-size:14px">A continuación se detalla con claridad:</p>
+    {_tabla(
+        _fila("Grupo de artículo", s.grupo_articulos or "—"),
+        _fila("Detalle de la solicitud", s.descripcion),
+        _fila("Cantidad solicitada", str(s.cantidad)),
+        _fila("Plataforma", s.plataforma or "—"),
+        _fila("Prioridad", s.nivel_prioridad),
+        _fila("Fecha del registro", _fmt_fecha(s.fecha_solicitud)),
+    )}
+    <p style="color:#374151;font-size:14px">
+      Para acceder a la solicitud haga click
+      <a href="{link}" style="color:{color};font-weight:600">📋 aquí →</a>
+    </p>
+    <p style="color:#374151;font-size:14px">
+      Agradecemos gestionar esta solicitud conforme a los procedimientos establecidos.
+    </p>
+    <p style="color:#374151;font-size:14px">
+      Cordialmente,<br/><strong>{s.solicitante_nombre}</strong>
+    </p>
+    """
+    return _base(f"Nueva solicitud de compra — {s.consecutivo_os}", cuerpo, cfg)
 
 
 # ── Funciones públicas (llamar desde background tasks) ────────────────────────
@@ -362,11 +467,12 @@ async def send_en_gestion(s: "SolicitudOC") -> None:
         log.warning("[email] Flujo 1: solicitud %s sin email de solicitante", s.consecutivo_os)
         return
 
+    prefijo = _b(cfg, "email_prefijo")
     await _send_html(
         cfg,
-        subject=f"[Compras LOGIMAT] Tu solicitud está siendo gestionada — {s.consecutivo_os}",
+        subject=f"{prefijo} Tu solicitud está siendo gestionada — {s.consecutivo_os}",
         recipients=[s.solicitante_email],
-        body=_html_en_gestion(s),
+        body=_html_en_gestion(s, cfg),
         flujo="Flujo 1",
     )
 
@@ -381,11 +487,12 @@ async def send_cotizacion_lista(s: "SolicitudOC") -> None:
         log.warning("[email] Flujo 2: solicitud %s sin email de solicitante", s.consecutivo_os)
         return
 
+    prefijo = _b(cfg, "email_prefijo")
     await _send_html(
         cfg,
-        subject=f"[Compras LOGIMAT] Cotización lista — {s.consecutivo_os}",
+        subject=f"{prefijo} Cotización lista — {s.consecutivo_os}",
         recipients=[s.solicitante_email],
-        body=_html_cotizacion_lista(s),
+        body=_html_cotizacion_lista(s, cfg),
         flujo="Flujo 2",
     )
 
@@ -404,11 +511,12 @@ async def send_aprobacion_directora(
         log.warning("[email] Flujo 3: EMAIL_DIRECTORA no configurado")
         return
 
+    prefijo = _b(cfg, "email_prefijo")
     await _send_html(
         cfg,
-        subject=f"[Compras LOGIMAT] Aprobación requerida — {s.consecutivo_os}",
+        subject=f"{prefijo} Aprobación requerida — {s.consecutivo_os}",
         recipients=[directora_email],
-        body=_html_aprobacion_directora(s, cotizacion),
+        body=_html_aprobacion_directora(s, cotizacion, cfg),
         flujo="Flujo 3",
     )
 
@@ -420,7 +528,7 @@ async def send_oc_a_proveedor(
     email_proveedor: str,
     items: Optional[list[dict]] = None,
 ) -> None:
-    """Envía el documento OC al proveedor como adjunto."""
+    """Envía el documento OC al proveedor como adjunto + CC al solicitante."""
     cfg = _get_runtime_config()
     if not (cfg["smtp_user"] and cfg["smtp_password"]):
         log.warning("[email] SMTP no configurado — omitiendo envío OC a proveedor")
@@ -442,16 +550,21 @@ async def send_oc_a_proveedor(
 
     ext = archivo.suffix.lstrip(".")
     _mime_map = {
-        "pdf": "pdf",
+        "pdf":  "pdf",
         "xlsx": "vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "docx": "vnd.openxmlformats-officedocument.wordprocessingml.document",
     }
     mime_subtype = _mime_map.get(ext, "octet-stream")
 
+    # CC al solicitante si tiene email registrado
+    cc_list = [s.solicitante_email] if s.solicitante_email else []
+
+    nombre_empresa = _b(cfg, "empresa_nombre")
     msg = MessageSchema(
-        subject=f"Orden de Compra {numero_oc} — LOGIMAT S.A.S.",
+        subject=f"Orden de Compra {numero_oc} — {nombre_empresa}",
         recipients=[email_proveedor],
-        body=_html_oc_proveedor(s, numero_oc, items=items),
+        cc=cc_list,
+        body=_html_oc_proveedor(s, numero_oc, items=items, cfg=cfg),
         subtype=MessageType.html,
         attachments=[{
             "file": str(archivo),
@@ -465,7 +578,7 @@ async def send_oc_a_proveedor(
     )
     try:
         await FastMail(_build_conf(cfg)).send_message(msg)
-        log.info("[email] OC %s enviada a proveedor %s", numero_oc, email_proveedor)
+        log.info("[email] OC %s enviada a proveedor %s (cc: %s)", numero_oc, email_proveedor, cc_list)
     except Exception:
         log.exception("[email] Error enviando OC %s a proveedor %s", numero_oc, email_proveedor)
 
@@ -480,45 +593,14 @@ async def send_oc_enviada(s: "SolicitudOC") -> None:
         log.warning("[email] Flujo 4: solicitud %s sin email de solicitante", s.consecutivo_os)
         return
 
+    prefijo = _b(cfg, "email_prefijo")
     await _send_html(
         cfg,
-        subject=f"[Compras LOGIMAT] Orden de Compra enviada — {s.consecutivo_os}",
+        subject=f"{prefijo} Orden de Compra enviada — {s.consecutivo_os}",
         recipients=[s.solicitante_email],
-        body=_html_oc_enviada(s),
+        body=_html_oc_enviada(s, cfg),
         flujo="Flujo 4",
     )
-
-
-# ── Flujo Interno — Nueva solicitud → equipo de compras ──────────────────────
-
-def _html_nueva_solicitud_interna(s: "SolicitudOC", intranet_url: str) -> str:
-    link = f"{intranet_url}/oc/solicitudes/{s.id}"
-    cuerpo = f"""
-    <p style="color:#374151;font-size:14px">
-      <strong>{s.solicitante_nombre}</strong> del área <strong>{s.area_solicitante or "—"}</strong>
-      está solicitando un nuevo artículo.
-    </p>
-    <p style="color:#374151;font-size:14px">A continuación se detalla con claridad:</p>
-    {_tabla(
-        _fila("Grupo de artículo", s.grupo_articulos or "—"),
-        _fila("Detalle de la solicitud", s.descripcion),
-        _fila("Cantidad solicitada", str(s.cantidad)),
-        _fila("Plataforma", s.plataforma or "—"),
-        _fila("Prioridad", s.nivel_prioridad),
-        _fila("Fecha del registro", _fmt_fecha(s.fecha_solicitud)),
-    )}
-    <p style="color:#374151;font-size:14px">
-      Para acceder a la solicitud haga click
-      <a href="{link}" style="color:#C8102E;font-weight:600">📋 aquí →</a>
-    </p>
-    <p style="color:#374151;font-size:14px">
-      Agradecemos gestionar esta solicitud conforme a los procedimientos establecidos.
-    </p>
-    <p style="color:#374151;font-size:14px">
-      Cordialmente,<br/><strong>{s.solicitante_nombre}</strong>
-    </p>
-    """
-    return _base(f"Nueva solicitud de compra — {s.consecutivo_os}", cuerpo)
 
 
 async def send_nueva_solicitud_interna(s: "SolicitudOC") -> None:
@@ -534,11 +616,11 @@ async def send_nueva_solicitud_interna(s: "SolicitudOC") -> None:
         return
 
     intranet_url = cfg.get("intranet_url") or settings.intranet_url
-
+    prefijo = _b(cfg, "email_prefijo")
     await _send_html(
         cfg,
-        subject=f"[Compras] Nueva solicitud — {s.consecutivo_os} | {s.solicitante_nombre}",
+        subject=f"{prefijo} Nueva solicitud — {s.consecutivo_os} | {s.solicitante_nombre}",
         recipients=[email_compras],
-        body=_html_nueva_solicitud_interna(s, intranet_url),
+        body=_html_nueva_solicitud_interna(s, intranet_url, cfg),
         flujo="Flujo Interno",
     )

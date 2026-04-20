@@ -146,78 +146,7 @@ def _extraer_texto(contenido: bytes, ext: str) -> str:
     return ""
 
 
-def _extraer_campos_estructurado(contenido: bytes, ext: str) -> dict[str, str]:
-    """Extrae pares etiqueta→valor de documentos estructurados (Excel, Word).
-
-    Usa field_synonyms para normalizar los encabezados a nombres canónicos.
-    Retorna un dict {campo_canonico: valor_str} con los campos reconocidos.
-    """
-    from app.services.field_synonyms import resolve_field, fuzzy_resolve
-
-    resultado: dict[str, str] = {}
-
-    if ext in ("xlsx", "xls"):
-        try:
-            import openpyxl
-            wb = openpyxl.load_workbook(io.BytesIO(contenido), data_only=True)
-            for ws in wb.worksheets:
-                for row in ws.iter_rows(values_only=True):
-                    cells = [c for c in row if c is not None]
-                    if len(cells) < 2:
-                        continue
-                    label = str(cells[0]).strip()
-                    value = str(cells[1]).strip()
-                    if not label or not value or value.lower() == "none":
-                        continue
-                    canonical = resolve_field(label)
-                    if not canonical:
-                        canonical, _ = fuzzy_resolve(label)
-                    if canonical and canonical not in resultado:
-                        resultado[canonical] = value
-        except Exception as e:
-            log.warning("[motor] extracción estructurada Excel falló: %s", e)
-
-    elif ext == "docx":
-        try:
-            from docx import Document
-            doc = Document(io.BytesIO(contenido))
-            # Tablas: primera columna = etiqueta, segunda columna = valor
-            for table in doc.tables:
-                for row in table.rows:
-                    raw_cells = [c.text.strip() for c in row.cells]
-                    # Deduplicar celdas combinadas (python-docx las repite)
-                    deduped: list[str] = []
-                    for c in raw_cells:
-                        if not deduped or c != deduped[-1]:
-                            deduped.append(c)
-                    cells = [c for c in deduped if c]
-                    if len(cells) < 2:
-                        continue
-                    label, value = cells[0], cells[1]
-                    canonical = resolve_field(label)
-                    if not canonical:
-                        canonical, _ = fuzzy_resolve(label)
-                    if canonical and canonical not in resultado:
-                        resultado[canonical] = value
-            # Párrafos con formato "Etiqueta: valor"
-            for para in doc.paragraphs:
-                text = para.text.strip()
-                if ":" not in text:
-                    continue
-                label, _, value = text.partition(":")
-                label = label.strip()
-                value = value.strip()
-                if not value:
-                    continue
-                canonical = resolve_field(label)
-                if not canonical:
-                    canonical, _ = fuzzy_resolve(label)
-                if canonical and canonical not in resultado:
-                    resultado[canonical] = value
-        except Exception as e:
-            log.warning("[motor] extracción estructurada Word falló: %s", e)
-
-    return resultado
+from app.services.extraction_utils import extraer_campos_estructurado as _extraer_campos_estructurado  # noqa: E402
 
 
 from app.services.number_utils import parse_cop as _to_float  # noqa: E402
@@ -232,8 +161,11 @@ def _parsear_campos(texto: str, extra: Optional[dict[str, str]] = None) -> Extra
     _extra = extra or {}
 
     def find_money(patterns: list[str]) -> Optional[float]:
+        # DOTALL permite que [\s\S]{0,20}? capture saltos de línea entre
+        # etiqueta y valor — frecuente en PDFs generados por proveedores.
+        flags = re.IGNORECASE | re.MULTILINE | re.DOTALL
         for pat in patterns:
-            m = re.search(pat, texto, re.IGNORECASE | re.MULTILINE)
+            m = re.search(pat, texto, flags)
             if m:
                 val = _to_float(m.group(1))
                 if val and val > 0:
@@ -261,10 +193,10 @@ def _parsear_campos(texto: str, extra: Optional[dict[str, str]] = None) -> Extra
     ]) or (_extra.get("proveedor_nit") or None)
 
     total = money_or_extra("valor_total", [
-        r"TOTAL\s+A\s+PAGAR[:\s]*\$?\s*([\d.,]+)",
-        r"VALOR\s+TOTAL[:\s]*\$?\s*([\d.,]+)",
-        r"GRAN\s+TOTAL[:\s]*\$?\s*([\d.,]+)",
-        r"\bTOTAL\b[:\s]*\$?\s*([\d.,]+)",
+        r"TOTAL\s+A\s+PAGAR[\s\S]{0,20}?\$?\s*([\d.,]+)",
+        r"VALOR\s+TOTAL[\s\S]{0,20}?\$?\s*([\d.,]+)",
+        r"GRAN\s+TOTAL[\s\S]{0,20}?\$?\s*([\d.,]+)",
+        r"\bTOTAL\b[\s\S]{0,15}?\$?\s*([\d.,]+)",
     ])
 
     _subtotal_regex = find_money([
@@ -433,8 +365,8 @@ def _items_desde_excel(contenido: bytes) -> list[dict]:
     return []
 
 
-def _items_desde_pdf(contenido: bytes) -> list[dict]:
-    """Extrae tabla de ítems de un PDF usando pdfplumber.extract_tables()."""
+def _items_desde_pdf_tablas(contenido: bytes) -> list[dict]:
+    """Extrae ítems de un PDF con tablas con bordes visibles (pdfplumber.extract_tables)."""
     try:
         import pdfplumber
         with pdfplumber.open(io.BytesIO(contenido)) as pdf:
@@ -442,7 +374,6 @@ def _items_desde_pdf(contenido: bytes) -> list[dict]:
                 for tabla in (page.extract_tables() or []):
                     if not tabla or len(tabla) < 2:
                         continue
-                    # Normalizar: cada celda como string limpio
                     filas = [
                         [str(c).strip() if c else "" for c in fila]
                         for fila in tabla
@@ -461,8 +392,89 @@ def _items_desde_pdf(contenido: bytes) -> list[dict]:
                     if items:
                         return items
     except Exception as e:
-        log.warning("[motor] extracción ítems PDF falló: %s", e)
+        log.warning("[motor] extracción ítems PDF (tablas) falló: %s", e)
     return []
+
+
+def _items_desde_pdf_texto(contenido: bytes) -> list[dict]:
+    """Fallback: extrae ítems de PDFs sin bordes de tabla, usando posición X/Y de palabras.
+
+    Agrupa palabras por línea (mismo Y aproximado) y detecta líneas con patrón
+    descripción + valor(es) numérico(s) al final — estructura típica de PDFs
+    de proveedores colombianos generados sin tablas explícitas.
+    """
+    _ENCABEZADOS_SKIP = {
+        "descripción", "descripcion", "total", "subtotal", "iva",
+        "cantidad", "cant", "valor", "precio", "item", "ítem",
+        "referencia", "ref", "und", "unidad",
+    }
+    try:
+        import pdfplumber
+        with pdfplumber.open(io.BytesIO(contenido)) as pdf:
+            for page in pdf.pages:
+                words = page.extract_words(x_tolerance=3, y_tolerance=3)
+                if not words:
+                    continue
+
+                # Agrupar palabras por línea (bucket de 5px en Y)
+                lineas: dict[int, list[str]] = {}
+                for w in words:
+                    y_key = round(float(w["top"]) / 5) * 5
+                    lineas.setdefault(y_key, []).append(w["text"])
+
+                items: list[dict] = []
+                for y_key in sorted(lineas.keys()):
+                    tokens = lineas[y_key]
+                    if len(tokens) < 2:
+                        continue
+
+                    # Separar tokens numéricos al final de la línea
+                    resto = list(tokens)
+                    valores_raw: list[str] = []
+                    while resto and re.match(r"^[\d.,\$%]+$", resto[-1].replace(".", "").replace(",", "")):
+                        valores_raw.insert(0, resto.pop())
+
+                    if not valores_raw or not resto:
+                        continue
+
+                    # Saltar líneas que sean encabezados de tabla o totales
+                    primer_token = resto[0].lower().rstrip(":")
+                    if primer_token in _ENCABEZADOS_SKIP:
+                        continue
+                    if any(t.upper() in ("TOTAL", "SUBTOTAL", "IVA", "GRAN") for t in resto):
+                        continue
+
+                    descripcion = " ".join(resto)
+                    valores = [v for v in (_to_float(n) for n in valores_raw) if v is not None]
+
+                    item: dict = {"descripcion": descripcion}
+                    if len(valores) >= 2:
+                        item["valor_unitario"] = valores[-2]
+                        item["valor_total"] = valores[-1]
+                    elif len(valores) == 1:
+                        item["valor_total"] = valores[0]
+
+                    items.append(item)
+
+                if len(items) >= 1:
+                    log.info("[motor] PDF texto: %d ítems detectados por posición", len(items))
+                    return items
+    except Exception as e:
+        log.warning("[motor] extracción ítems PDF (texto) falló: %s", e)
+    return []
+
+
+def _items_desde_pdf(contenido: bytes) -> list[dict]:
+    """Extrae tabla de ítems de un PDF.
+
+    Intenta primero con tablas explícitas (bordes visibles). Si no encuentra
+    nada, usa el fallback por posición de texto para PDFs sin bordes.
+    """
+    items = _items_desde_pdf_tablas(contenido)
+    if items:
+        return items
+    log.info("[motor] PDF sin tablas detectables — usando fallback por posición de texto")
+    return _items_desde_pdf_texto(contenido)
 
 
 def _items_desde_docx(contenido: bytes) -> list[dict]:

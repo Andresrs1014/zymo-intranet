@@ -32,6 +32,19 @@ interface OcConfigRead {
   email_directora: string
   email_compras?: string
   intranet_url?: string
+  // Branding
+  empresa_nombre?: string
+  empresa_color?: string
+  empresa_nit?: string
+  empresa_tel?: string
+  empresa_dir?: string
+  empresa_dept?: string
+  // Email templates
+  email_prefijo?: string
+  email_intro_flujo1?: string
+  email_intro_flujo2?: string
+  email_intro_flujo3?: string
+  email_intro_flujo4?: string
 }
 
 interface FormState {
@@ -43,6 +56,19 @@ interface FormState {
   email_directora: string
   email_compras: string
   intranet_url: string
+  // Branding
+  empresa_nombre: string
+  empresa_color: string
+  empresa_nit: string
+  empresa_tel: string
+  empresa_dir: string
+  empresa_dept: string
+  // Email templates
+  email_prefijo: string
+  email_intro_flujo1: string
+  email_intro_flujo2: string
+  email_intro_flujo3: string
+  email_intro_flujo4: string
 }
 
 interface TestEmailResult {
@@ -75,6 +101,17 @@ export function OcConfigPage() {
     email_directora: "",
     email_compras: "",
     intranet_url: "",
+    empresa_nombre: "",
+    empresa_color: "",
+    empresa_nit: "",
+    empresa_tel: "",
+    empresa_dir: "",
+    empresa_dept: "",
+    email_prefijo: "",
+    email_intro_flujo1: "",
+    email_intro_flujo2: "",
+    email_intro_flujo3: "",
+    email_intro_flujo4: "",
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -114,6 +151,17 @@ export function OcConfigPage() {
           email_directora: data.email_directora,
           email_compras: data.email_compras ?? "",
           intranet_url: data.intranet_url ?? "",
+          empresa_nombre: data.empresa_nombre ?? "",
+          empresa_color: data.empresa_color ?? "",
+          empresa_nit: data.empresa_nit ?? "",
+          empresa_tel: data.empresa_tel ?? "",
+          empresa_dir: data.empresa_dir ?? "",
+          empresa_dept: data.empresa_dept ?? "",
+          email_prefijo: data.email_prefijo ?? "",
+          email_intro_flujo1: data.email_intro_flujo1 ?? "",
+          email_intro_flujo2: data.email_intro_flujo2 ?? "",
+          email_intro_flujo3: data.email_intro_flujo3 ?? "",
+          email_intro_flujo4: data.email_intro_flujo4 ?? "",
         })
       })
       .catch(() => setError("No se pudo cargar la configuración."))
@@ -157,6 +205,17 @@ export function OcConfigPage() {
       email_directora: form.email_directora,
       email_compras: form.email_compras,
       intranet_url: form.intranet_url,
+      empresa_nombre: form.empresa_nombre,
+      empresa_color: form.empresa_color,
+      empresa_nit: form.empresa_nit,
+      empresa_tel: form.empresa_tel,
+      empresa_dir: form.empresa_dir,
+      empresa_dept: form.empresa_dept,
+      email_prefijo: form.email_prefijo,
+      email_intro_flujo1: form.email_intro_flujo1,
+      email_intro_flujo2: form.email_intro_flujo2,
+      email_intro_flujo3: form.email_intro_flujo3,
+      email_intro_flujo4: form.email_intro_flujo4,
     }
     if (form.smtp_password.trim()) {
       payload.smtp_password = form.smtp_password
@@ -288,6 +347,122 @@ export function OcConfigPage() {
                     value={form.intranet_url}
                     onChange={(v) => handleChange("intranet_url", v)}
                     hint="Se usa para generar el link directo a la solicitud en los correos."
+                  />
+                </section>
+
+                {/* Identidad de la empresa */}
+                <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+                  <div>
+                    <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                      Identidad de la empresa
+                    </h2>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Branding que aparece en el encabezado y pie de todos los correos.
+                      Dejar vacío para usar los valores por defecto de LOGIMAT.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <Field
+                      label="Nombre de la empresa"
+                      placeholder="LOGIMAT S.A.S."
+                      value={form.empresa_nombre}
+                      onChange={(v) => handleChange("empresa_nombre", v)}
+                    />
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Color principal (hex)
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          className="h-9 w-12 rounded border border-gray-300 cursor-pointer p-0.5"
+                          value={form.empresa_color || "#C8102E"}
+                          onChange={(e) => handleChange("empresa_color", e.target.value)}
+                        />
+                        <input
+                          type="text"
+                          className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                          placeholder="#C8102E"
+                          value={form.empresa_color}
+                          onChange={(e) => handleChange("empresa_color", e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <Field
+                      label="NIT"
+                      placeholder="830.103.877-6"
+                      value={form.empresa_nit}
+                      onChange={(v) => handleChange("empresa_nit", v)}
+                    />
+                    <Field
+                      label="Teléfono / PBX"
+                      placeholder="(1) 7 44 92 00"
+                      value={form.empresa_tel}
+                      onChange={(v) => handleChange("empresa_tel", v)}
+                    />
+                  </div>
+
+                  <Field
+                    label="Dirección / Ubicación"
+                    placeholder="Zona Franca de Bogotá"
+                    value={form.empresa_dir}
+                    onChange={(v) => handleChange("empresa_dir", v)}
+                  />
+                  <Field
+                    label="Nombre del departamento (subheader del email)"
+                    placeholder="Departamento de Compras"
+                    value={form.empresa_dept}
+                    onChange={(v) => handleChange("empresa_dept", v)}
+                  />
+                </section>
+
+                {/* Plantillas de correo */}
+                <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
+                  <div>
+                    <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                      Plantillas de correo
+                    </h2>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Personaliza el asunto y el cuerpo de cada flujo. Dejar en blanco usa el texto por defecto.
+                      Puedes usar <code className="bg-gray-100 px-1 rounded">{"{solicitante}"}</code> en los flujos 1, 2 y 4 para insertar el nombre del solicitante.
+                    </p>
+                  </div>
+
+                  <Field
+                    label="Prefijo de asunto (aparece al inicio de todos los correos)"
+                    placeholder="[Compras LOGIMAT]"
+                    value={form.email_prefijo}
+                    onChange={(v) => handleChange("email_prefijo", v)}
+                    hint='Ejemplo: "[Compras IMC]" · Si se deja vacío se usará "[Compras LOGIMAT]"'
+                  />
+
+                  <TextareaField
+                    label="Flujo 1 — Intro: Solicitud en gestión (al solicitante)"
+                    placeholder="Tu solicitud de compra ha sido recibida y un auxiliar de compras ya está trabajando en ella. Te notificaremos en cuanto tengamos una cotización lista."
+                    value={form.email_intro_flujo1}
+                    onChange={(v) => handleChange("email_intro_flujo1", v)}
+                  />
+                  <TextareaField
+                    label="Flujo 2 — Intro: Cotización lista (al solicitante)"
+                    placeholder="Ya tenemos una cotización lista para tu solicitud. Está en proceso de aprobación por la dirección."
+                    value={form.email_intro_flujo2}
+                    onChange={(v) => handleChange("email_intro_flujo2", v)}
+                  />
+                  <TextareaField
+                    label="Flujo 3 — Intro: Aprobación requerida (a la directora)"
+                    placeholder="Hay una solicitud de compra que requiere tu aprobación:"
+                    value={form.email_intro_flujo3}
+                    onChange={(v) => handleChange("email_intro_flujo3", v)}
+                  />
+                  <TextareaField
+                    label="Flujo 4 — Intro: OC enviada (al solicitante)"
+                    placeholder="La Orden de Compra para tu solicitud ha sido generada y enviada al proveedor."
+                    value={form.email_intro_flujo4}
+                    onChange={(v) => handleChange("email_intro_flujo4", v)}
                   />
                 </section>
 
@@ -499,6 +674,34 @@ function Field({ label, placeholder, value, onChange, type = "text", hint }: Fie
       <input
         type={type}
         className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      {hint && <p className="mt-1 text-xs text-gray-400">{hint}</p>}
+    </div>
+  )
+}
+
+// ── TextareaField ─────────────────────────────────────────────────────────────
+
+interface TextareaFieldProps {
+  label: string
+  placeholder?: string
+  value: string
+  onChange: (v: string) => void
+  hint?: string
+}
+
+function TextareaField({ label, placeholder, value, onChange, hint }: TextareaFieldProps) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        {label}
+      </label>
+      <textarea
+        rows={3}
+        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
