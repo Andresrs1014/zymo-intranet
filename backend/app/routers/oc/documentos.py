@@ -87,6 +87,44 @@ def _load_platform_config(plataforma: Optional[str]) -> dict:
     }
 
 
+def _expand_template_para_items(
+    ws,
+    fila_inicio: int,
+    max_filas: int,
+    n_items: int,
+    cfg: dict,
+) -> tuple[dict, int]:
+    """Inserta filas extra al final del área de ítems cuando hay más ítems que
+    filas disponibles en el template. Ajusta automáticamente todas las
+    referencias de celdas en cfg que estén por debajo del área de ítems.
+
+    Retorna (cfg_ajustado, nuevo_max_filas_efectivo).
+    """
+    import re as _re
+
+    extra = n_items - max_filas
+    if extra <= 0:
+        return cfg, max_filas
+
+    # Insertar `extra` filas justo después de la última fila de ítems del template.
+    # insert_rows desplaza automáticamente todo el contenido que está debajo.
+    fila_corte = fila_inicio + max_filas
+    ws.insert_rows(fila_corte, extra)
+
+    # Ajustar todas las referencias de celdas en cfg que queden por debajo del corte.
+    _CELL_RE = _re.compile(r"^([A-Z]+)(\d+)$")
+    cfg_nuevo: dict = {}
+    for key, val in cfg.items():
+        if isinstance(val, str):
+            m = _CELL_RE.match(val)
+            if m and int(m.group(2)) >= fila_corte:
+                cfg_nuevo[key] = f"{m.group(1)}{int(m.group(2)) + extra}"
+                continue
+        cfg_nuevo[key] = val
+
+    return cfg_nuevo, n_items
+
+
 def _escribir_plazo_entrega(ws, cfg: dict, plazo_entrega: str) -> None:
     """Detecta el tipo de plazo y escribe en la celda correspondiente del template."""
     import re
@@ -154,6 +192,28 @@ def _generar_xlsx(
     fecha_str = datetime.now(ZoneInfo("America/Bogota")).strftime("%d/%m/%Y")
     cfg = empresa.get("celdas_dinamicas", {})
     items_cfg = empresa.get("items", {})
+
+    # ── Construir lista de ítems antes de escribir cualquier celda ────────────
+    # Necesitamos saber cuántos ítems hay para poder expandir el template primero.
+    _items_a_escribir: list[dict] = cotizacion.items or [{
+        "num": 1,
+        "descripcion": solicitud.descripcion or "",
+        "referencia": solicitud.placa_ficha or "",
+        "cantidad": solicitud.cantidad,
+        "valor_unitario": cotizacion.valor_unitario or 0,
+    }]
+    _fila_inicio        = items_cfg.get("fila_inicio", 11)
+    _max_filas_template = items_cfg.get("max_filas", 20)   # filas en el template original
+    _n_items            = len(_items_a_escribir)
+    _filas_extra        = max(0, _n_items - _max_filas_template)
+
+    # Si hay más ítems que filas disponibles, expandir el template ahora,
+    # antes de escribir cualquier celda — así las referencias de cfg quedan correctas.
+    if _filas_extra > 0:
+        cfg, _ = _expand_template_para_items(
+            ws, _fila_inicio, _max_filas_template, _n_items, cfg
+        )
+        items_cfg = {**items_cfg, "max_filas": _n_items}
 
     # ── Cabecera dinámica ──────────────────────────────────────────────────────
     if cfg.get("numero_oc"):
@@ -266,18 +326,8 @@ def _generar_xlsx(
         if _altura_base:
             ws.row_dimensions[fila].height = _altura_base
 
-    # 4. Construir la lista de ítems a escribir:
-    #    Si la cotización tiene ítems múltiples, usarlos;
-    #    si no, crear uno con los campos de la solicitud.
-    items_a_escribir: list[dict] = cotizacion.items or [{
-        "num": 1,
-        "descripcion": solicitud.descripcion or "",
-        "referencia": solicitud.placa_ficha or "",
-        "cantidad": solicitud.cantidad,
-        "valor_unitario": cotizacion.valor_unitario or 0,
-    }]
-
-    for i, item in enumerate(items_a_escribir[:max_filas]):
+    # 4. Escribir los ítems (lista ya construida al inicio de la función)
+    for i, item in enumerate(_items_a_escribir[:max_filas]):
         fila = fila_inicio + i
         ws[f"{col_num}{fila}"] = item.get("num") or (i + 1)
         cant = item.get("cantidad")
@@ -300,11 +350,17 @@ def _generar_xlsx(
 
     # ── Configuración de página: ajustar a 1 hoja ancha para PDF correcto ─────
     from openpyxl.worksheet.page import PageMargins
+    import re as _re
 
-    # Área de impresión desde config — limita las columnas que LibreOffice convierte
-    print_area = empresa.get("print_area")
-    if print_area:
-        ws.print_area = print_area
+    # Área de impresión — ampliar si se insertaron filas extra
+    _print_area = empresa.get("print_area")
+    if _print_area and _filas_extra > 0:
+        _fila_corte = _fila_inicio + _max_filas_template
+        _m = _re.match(r"^([A-Z]+\d+):([A-Z]+)(\d+)$", _print_area)
+        if _m and int(_m.group(3)) >= _fila_corte:
+            _print_area = f"{_m.group(1)}:{_m.group(2)}{int(_m.group(3)) + _filas_extra}"
+    if _print_area:
+        ws.print_area = _print_area
 
     # Eliminar anchos de columna espurios fuera del área de impresión (p.ej. columna IW=257)
     from openpyxl.utils import column_index_from_string
