@@ -138,8 +138,16 @@ def _generar_xlsx(
         logo_path = _PLATFORMS_DIR / slug / logo_filename
         if logo_path.exists():
             from openpyxl.drawing.image import Image as XLImage
+            import io
+            from PIL import Image as PILImage
+            # Convertir a JPEG en memoria — LibreOffice falla al convertir a PDF
+            # cuando el XLSX contiene imágenes PNG (especialmente con canal alfa).
+            pil_img = PILImage.open(str(logo_path)).convert("RGB")
+            buf = io.BytesIO()
+            pil_img.save(buf, format="JPEG", quality=95)
+            buf.seek(0)
             ws._images = []
-            img = XLImage(str(logo_path))
+            img = XLImage(buf)
             img.width  = empresa.get("logo_width", 150)
             img.height = empresa.get("logo_height", 55)
             img.anchor = empresa.get("logo_anchor", "C3")
