@@ -218,34 +218,48 @@ def _generar_xlsx(
         "valor_unitario": cotizacion.valor_unitario or 0,
     }]
 
+    # Construir set de celdas que son parte de rangos fusionados (no top-left)
+    # para evitar ValueError al escribir en ellas
+    _merged_non_topleft: set[str] = set()
+    for merged_range in ws.merged_cells.ranges:
+        cells = list(merged_range.cells)
+        for r, c in cells[1:]:  # [0] es top-left, el resto no se pueden asignar
+            from openpyxl.utils import get_column_letter
+            _merged_non_topleft.add(f"{get_column_letter(c)}{r}")
+
+    def _safe_write(addr: str, value) -> None:
+        if addr not in _merged_non_topleft:
+            ws[addr] = value
+
     # Limpiar filas del área de ítems
     for fila in range(fila_inicio, fila_inicio + max_filas):
-        ws[f"{col_num}{fila}"]  = None
-        ws[f"{col_cant}{fila}"] = None
+        _safe_write(f"{col_num}{fila}", None)
+        _safe_write(f"{col_cant}{fila}", None)
         if col_ref:
-            ws[f"{col_ref}{fila}"] = None
-        ws[f"{col_desc}{fila}"]  = None
-        ws[f"{col_vunit}{fila}"] = None
+            _safe_write(f"{col_ref}{fila}", None)
+        _safe_write(f"{col_desc}{fila}", None)
+        _safe_write(f"{col_vunit}{fila}", None)
         if col_total:
-            ws[f"{col_total}{fila}"] = None
+            _safe_write(f"{col_total}{fila}", None)
 
     # Escribir ítems (limitado al espacio disponible en el template)
     n_escritos = 0
     for i, item in enumerate(items_a_escribir[:max_filas]):
         fila = fila_inicio + i
-        ws[f"{col_num}{fila}"]  = item.get("num") or (i + 1)
+        _safe_write(f"{col_num}{fila}", item.get("num") or (i + 1))
         cant = item.get("cantidad")
-        ws[f"{col_cant}{fila}"] = cant if cant is not None else ""
+        _safe_write(f"{col_cant}{fila}", cant if cant is not None else "")
         if col_ref:
-            ws[f"{col_ref}{fila}"] = item.get("referencia") or ""
-        ws[f"{col_desc}{fila}"]  = item.get("descripcion") or ""
+            _safe_write(f"{col_ref}{fila}", item.get("referencia") or "")
+        _safe_write(f"{col_desc}{fila}", item.get("descripcion") or "")
         vunit = item.get("valor_unitario") or 0
-        ws[f"{col_vunit}{fila}"] = vunit
+        _safe_write(f"{col_vunit}{fila}", vunit)
         # Fórmula de total por fila — la primera ya la tiene el template,
         # para las extra la escribimos nosotros
         if col_total:
-            if ws[f"{col_total}{fila}"].value is None:
-                ws[f"{col_total}{fila}"] = f"=+{col_vunit}{fila}*{col_cant}{fila}"
+            total_addr = f"{col_total}{fila}"
+            if total_addr not in _merged_non_topleft and ws[total_addr].value is None:
+                ws[total_addr] = f"=+{col_vunit}{fila}*{col_cant}{fila}"
         n_escritos += 1
 
     # Si hay más de 1 ítem y el template tiene una celda SUM en col_total,
@@ -294,28 +308,41 @@ def _generar_xlsx(
 
 def _intentar_conversion_pdf(source_path: Path, output_dir: Path) -> Optional[Path]:
     """Convierte un XLSX (o DOCX) a PDF con LibreOffice. Retorna la ruta del PDF si tiene éxito."""
+    import os
+    import logging
+    _log = logging.getLogger(__name__)
     try:
+        env = {**os.environ, "HOME": "/tmp"}
         result = subprocess.run(
             [
                 "libreoffice",
                 "--headless",
+                "--user-data-dir=/tmp/lo_userdata",
                 "--convert-to",
                 "pdf",
                 "--outdir",
                 str(output_dir),
                 str(source_path),
             ],
-            timeout=60,
+            timeout=90,
             capture_output=True,
+            env=env,
         )
         if result.returncode == 0:
             pdf_path = output_dir / (source_path.stem + ".pdf")
             if pdf_path.exists():
                 return pdf_path
+            _log.warning("LibreOffice exit 0 pero PDF no encontrado: %s", pdf_path)
+        else:
+            _log.warning(
+                "LibreOffice falló (rc=%d): %s",
+                result.returncode,
+                result.stderr.decode(errors="replace")[:500],
+            )
     except FileNotFoundError:
-        pass
+        _log.warning("LibreOffice no encontrado en el sistema.")
     except subprocess.TimeoutExpired:
-        pass
+        _log.warning("LibreOffice timeout al convertir %s", source_path)
     return None
 
 
