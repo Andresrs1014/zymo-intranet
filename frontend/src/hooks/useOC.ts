@@ -556,9 +556,12 @@ export function useDespacharPaquete() {
       )
       const creadas = resultados.filter((r) => r.status === "fulfilled").length
       const errores = resultados.filter((r) => r.status === "rejected").length
-      const consecutivos = resultados
-        .filter((r): r is PromiseFulfilledResult<{ data: SolicitudOC }> => r.status === "fulfilled")
-        .map((r) => r.value.data.consecutivo_os)
+      const consecutivos: string[] = []
+      for (const r of resultados) {
+        if (r.status === "fulfilled") {
+          consecutivos.push((r.value as { data: SolicitudOC }).data.consecutivo_os)
+        }
+      }
       return { creadas, errores, consecutivos }
     },
     onSuccess: () => {
