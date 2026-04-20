@@ -163,7 +163,11 @@ def _generar_xlsx(
     LibreOffice las recalcula al convertir a PDF.
     """
     import openpyxl
+    import re as _re
+    from copy import copy as _copy
     from zoneinfo import ZoneInfo
+    from openpyxl.utils import column_index_from_string, range_boundaries
+    from openpyxl.worksheet.page import PageMargins
 
     empresa = _load_platform_config(solicitud.plataforma)
     slug = _SLUG_MAP.get((solicitud.plataforma or "").lower().strip(), "logimat")
@@ -178,42 +182,103 @@ def _generar_xlsx(
         logo_path = _PLATFORMS_DIR / slug / logo_filename
         if logo_path.exists():
             from openpyxl.drawing.image import Image as XLImage
-            # Eliminar logos embebidos en la plantilla para evitar duplicados
             ws._images = []
-            anchor = empresa.get("logo_anchor", "C3")
-            width = empresa.get("logo_width", 150)
-            height = empresa.get("logo_height", 55)
             img = XLImage(str(logo_path))
-            img.width = width
-            img.height = height
-            img.anchor = anchor
+            img.width = empresa.get("logo_width", 150)
+            img.height = empresa.get("logo_height", 55)
+            img.anchor = empresa.get("logo_anchor", "C3")
             ws.add_image(img)
 
     fecha_str = datetime.now(ZoneInfo("America/Bogota")).strftime("%d/%m/%Y")
-    cfg = empresa.get("celdas_dinamicas", {})
-    items_cfg = empresa.get("items", {})
+    cfg: dict = empresa.get("celdas_dinamicas", {})
+    items_cfg: dict = empresa.get("items", {})
 
-    # ── Construir lista de ítems antes de escribir cualquier celda ────────────
-    # Necesitamos saber cuántos ítems hay para poder expandir el template primero.
-    _items_a_escribir: list[dict] = cotizacion.items or [{
+    # ── Configuración de columnas de ítems ────────────────────────────────────
+    col_num   = items_cfg.get("col_item_num", "C")
+    col_cant  = items_cfg.get("col_cantidad", "D")
+    col_ref   = items_cfg.get("col_referencia")
+    col_desc  = items_cfg.get("col_descripcion", "F")
+    col_vunit = items_cfg.get("col_valor_unitario", "G")
+    col_total = items_cfg.get("col_total")
+    cols_items = [c for c in [col_num, col_cant, col_ref, col_desc, col_vunit, col_total] if c]
+
+    fila_inicio        = items_cfg.get("fila_inicio", 11)
+    max_filas_template = items_cfg.get("max_filas", 20)
+
+    # ── Construir lista de ítems ───────────────────────────────────────────────
+    items_a_escribir: list[dict] = cotizacion.items or [{
         "num": 1,
         "descripcion": solicitud.descripcion or "",
         "referencia": solicitud.placa_ficha or "",
         "cantidad": solicitud.cantidad,
         "valor_unitario": cotizacion.valor_unitario or 0,
     }]
-    _fila_inicio        = items_cfg.get("fila_inicio", 11)
-    _max_filas_template = items_cfg.get("max_filas", 20)   # filas en el template original
-    _n_items            = len(_items_a_escribir)
-    _filas_extra        = max(0, _n_items - _max_filas_template)
+    n_items     = len(items_a_escribir)
+    filas_extra = max(0, n_items - max_filas_template)
 
-    # Si hay más ítems que filas disponibles, expandir el template ahora,
-    # antes de escribir cualquier celda — así las referencias de cfg quedan correctas.
-    if _filas_extra > 0:
+    # ── PASO 1: Desmerge área de ítems ANTES de expansión ─────────────────────
+    # Así insert_rows no encontrará merges que cruce el punto de inserción.
+    fila_fin_original = fila_inicio + max_filas_template
+    for m in list(ws.merged_cells.ranges):
+        bounds = range_boundaries(str(m))
+        min_row, max_row = bounds[1], bounds[3]
+        # Desmerge si el rango toca el área de ítems o cruza el punto de inserción
+        toca_items = min_row >= fila_inicio and min_row < fila_fin_original
+        cruza_insercion = min_row < fila_fin_original and max_row >= fila_fin_original
+        if toca_items or cruza_insercion:
+            ws.unmerge_cells(str(m))
+
+    # ── PASO 2: Capturar estilos de la fila base ───────────────────────────────
+    estilos_base: dict[str, dict] = {}
+    for col in cols_items:
+        src = ws[f"{col}{fila_inicio}"]
+        estilos_base[col] = {
+            "font":          _copy(src.font),
+            "border":        _copy(src.border),
+            "fill":          _copy(src.fill),
+            "number_format": src.number_format,
+            "alignment":     _copy(src.alignment),
+        }
+    altura_base = ws.row_dimensions[fila_inicio].height
+
+    # ── PASO 3: Expandir template si hay más ítems que filas disponibles ───────
+    if filas_extra > 0:
         cfg, _ = _expand_template_para_items(
-            ws, _fila_inicio, _max_filas_template, _n_items, cfg
+            ws, fila_inicio, max_filas_template, n_items, cfg
         )
-        items_cfg = {**items_cfg, "max_filas": _n_items}
+    max_filas = max(n_items, max_filas_template)
+    fila_fin  = fila_inicio + max_filas
+
+    # ── PASO 4: Limpiar y uniformizar estilos en todas las filas de ítems ──────
+    for fila in range(fila_inicio, fila_fin):
+        for col in cols_items:
+            cell = ws[f"{col}{fila}"]
+            cell.value         = None
+            est = estilos_base[col]
+            cell.font          = _copy(est["font"])
+            cell.border        = _copy(est["border"])
+            cell.fill          = _copy(est["fill"])
+            cell.number_format = est["number_format"]
+            cell.alignment     = _copy(est["alignment"])
+        if altura_base:
+            ws.row_dimensions[fila].height = altura_base
+
+    # ── PASO 5: Escribir ítems ─────────────────────────────────────────────────
+    for i, item in enumerate(items_a_escribir[:max_filas]):
+        fila = fila_inicio + i
+        ws[f"{col_num}{fila}"]  = item.get("num") or (i + 1)
+        cant = item.get("cantidad")
+        ws[f"{col_cant}{fila}"] = cant if cant is not None else ""
+        if col_ref:
+            ws[f"{col_ref}{fila}"] = item.get("referencia") or ""
+        ws[f"{col_desc}{fila}"]  = item.get("descripcion") or ""
+        vunit = item.get("valor_unitario") or 0
+        ws[f"{col_vunit}{fila}"] = vunit
+        if col_total:
+            vtotal = item.get("valor_total")
+            if vtotal is None and cant and vunit:
+                vtotal = float(cant) * float(vunit)
+            ws[f"{col_total}{fila}"] = vtotal or 0
 
     # ── Cabecera dinámica ──────────────────────────────────────────────────────
     if cfg.get("numero_oc"):
@@ -230,8 +295,6 @@ def _generar_xlsx(
         ws[cfg["cot_ref"]] = cotizacion.numero_cotizacion_proveedor or ""
 
     # ── Firmas ─────────────────────────────────────────────────────────────────
-    # solicita apunta a ENTREGAR A (p.ej. E48 en Logimat). La celda SOLICITA del
-    # template tiene fórmula =ENTREGAR_A, por lo que se auto-rellena.
     if cfg.get("solicita"):
         ws[cfg["solicita"]] = solicitud.solicitante_nombre or ""
     if cfg.get("area_firma"):
@@ -243,25 +306,20 @@ def _generar_xlsx(
 
     # ── Campos operativos de la cotización ────────────────────────────────────
     if cfg.get("nota"):
-        nota = cotizacion.observaciones or solicitud.observaciones_solicitante or ""
-        ws[cfg["nota"]] = nota
+        ws[cfg["nota"]] = cotizacion.observaciones or solicitud.observaciones_solicitante or ""
 
-    # Limpiar checkboxes de forma_pago que el template trae pre-marcados
-    for _cell_key in ("forma_pago_x",):
-        if cfg.get(_cell_key):
-            ws[cfg[_cell_key]] = None
-
+    # Limpiar checkboxes de forma_pago pre-marcados en el template
+    if cfg.get("forma_pago_x"):
+        ws[cfg["forma_pago_x"]] = None
     if cfg.get("forma_pago") and cotizacion.forma_pago:
         ws[cfg["forma_pago"]] = cotizacion.forma_pago
         if cfg.get("forma_pago_x"):
             ws[cfg["forma_pago_x"]] = "X"
 
-    # Limpiar todos los checkboxes de plazo (el template los trae pre-marcados)
-    for _cell_key in ("plazo_inmediata_x", "plazo_dias", "plazo_fecha"):
-        if cfg.get(_cell_key):
-            ws[cfg[_cell_key]] = None
-
-    # Plazo de entrega: detectar tipo y marcar celda correspondiente
+    # Limpiar checkboxes de plazo pre-marcados en el template
+    for _ck in ("plazo_inmediata_x", "plazo_dias", "plazo_fecha"):
+        if cfg.get(_ck):
+            ws[cfg[_ck]] = None
     if cotizacion.plazo_entrega:
         _escribir_plazo_entrega(ws, cfg, cotizacion.plazo_entrega)
 
@@ -273,110 +331,31 @@ def _generar_xlsx(
     if cfg.get("pago_saldo") and cotizacion.pago_saldo:
         ws[cfg["pago_saldo"]] = cotizacion.pago_saldo
 
-    # ── Ítems ─────────────────────────────────────────────────────────────────
-    from copy import copy as _copy
-    from openpyxl.utils import range_boundaries
-
-    fila_inicio = items_cfg.get("fila_inicio", 11)
-    max_filas = items_cfg.get("max_filas", 20)
-    col_num = items_cfg.get("col_item_num", "C")
-    col_cant = items_cfg.get("col_cantidad", "D")
-    col_ref = items_cfg.get("col_referencia")
-    col_desc = items_cfg.get("col_descripcion", "F")
-    col_vunit = items_cfg.get("col_valor_unitario", "G")
-
-    col_total = items_cfg.get("col_total")
-    cols_items = [c for c in [col_num, col_cant, col_ref, col_desc, col_vunit, col_total] if c]
-    fila_fin = fila_inicio + max_filas  # exclusivo
-
-    # 1. Desmerge cualquier rango que caiga dentro del área de ítems
-    #    para que cada celda sea independiente (permite multi-fila).
-    rangos_a_desmerge = [
-        str(m) for m in list(ws.merged_cells.ranges)
-        if range_boundaries(str(m))[1] >= fila_inicio        # min_row >= fila_inicio
-        and range_boundaries(str(m))[1] < fila_fin           # min_row < fila_fin
-    ]
-    for rng in rangos_a_desmerge:
-        ws.unmerge_cells(rng)
-
-    # 2. Capturar estilos de la fila base (fila_inicio) ANTES de limpiar
-    _estilos_base: dict[str, dict] = {}
-    for col in cols_items:
-        src = ws[f"{col}{fila_inicio}"]
-        _estilos_base[col] = {
-            "font":          _copy(src.font),
-            "border":        _copy(src.border),
-            "fill":          _copy(src.fill),
-            "number_format": src.number_format,
-            "alignment":     _copy(src.alignment),
-        }
-    _altura_base = ws.row_dimensions[fila_inicio].height
-
-    # 3. Limpiar datos y uniformizar estilos en todas las filas de ítems
-    for fila in range(fila_inicio, fila_fin):
-        for col in cols_items:
-            cell = ws[f"{col}{fila}"]
-            cell.value = None
-            est = _estilos_base[col]
-            cell.font          = _copy(est["font"])
-            cell.border        = _copy(est["border"])
-            cell.fill          = _copy(est["fill"])
-            cell.number_format = est["number_format"]
-            cell.alignment     = _copy(est["alignment"])
-        if _altura_base:
-            ws.row_dimensions[fila].height = _altura_base
-
-    # 4. Escribir los ítems (lista ya construida al inicio de la función)
-    for i, item in enumerate(_items_a_escribir[:max_filas]):
-        fila = fila_inicio + i
-        ws[f"{col_num}{fila}"] = item.get("num") or (i + 1)
-        cant = item.get("cantidad")
-        ws[f"{col_cant}{fila}"] = cant if cant is not None else ""
-        if col_ref:
-            ws[f"{col_ref}{fila}"] = item.get("referencia") or ""
-        ws[f"{col_desc}{fila}"] = item.get("descripcion") or ""
-        vunit = item.get("valor_unitario") or 0
-        ws[f"{col_vunit}{fila}"] = vunit
-        # Escribir total directamente para no depender de fórmulas del template
-        if col_total:
-            vtotal = item.get("valor_total")
-            if vtotal is None and cant and vunit:
-                vtotal = float(cant) * float(vunit)
-            ws[f"{col_total}{fila}"] = vtotal or 0
-
     # ── IVA manual (solo en plantillas sin fórmula de IVA) ────────────────────
     if cfg.get("iva_manual"):
         ws[cfg["iva_manual"]] = cotizacion.valor_iva or 0
 
-    # ── Configuración de página: ajustar a 1 hoja ancha para PDF correcto ─────
-    from openpyxl.worksheet.page import PageMargins
-    import re as _re
+    # ── Área de impresión ─────────────────────────────────────────────────────
+    print_area = empresa.get("print_area")
+    if print_area and filas_extra > 0:
+        fila_corte = fila_inicio + max_filas_template
+        m = _re.match(r"^([A-Z]+\d+):([A-Z]+)(\d+)$", print_area)
+        if m and int(m.group(3)) >= fila_corte:
+            print_area = f"{m.group(1)}:{m.group(2)}{int(m.group(3)) + filas_extra}"
+    if print_area:
+        ws.print_area = print_area
 
-    # Área de impresión — ampliar si se insertaron filas extra
-    _print_area = empresa.get("print_area")
-    if _print_area and _filas_extra > 0:
-        _fila_corte = _fila_inicio + _max_filas_template
-        _m = _re.match(r"^([A-Z]+\d+):([A-Z]+)(\d+)$", _print_area)
-        if _m and int(_m.group(3)) >= _fila_corte:
-            _print_area = f"{_m.group(1)}:{_m.group(2)}{int(_m.group(3)) + _filas_extra}"
-    if _print_area:
-        ws.print_area = _print_area
-
-    # Eliminar anchos de columna espurios fuera del área de impresión (p.ej. columna IW=257)
-    from openpyxl.utils import column_index_from_string
-    max_content_col = 10  # columna J — más allá no hay contenido real
-    cols_to_remove = [
-        c for c in list(ws.column_dimensions.keys())
-        if column_index_from_string(c) > max_content_col
-    ]
-    for col in cols_to_remove:
+    # Eliminar anchos de columna espurios fuera del área de impresión
+    max_content_col = 10  # columna J
+    for col in [c for c in list(ws.column_dimensions.keys())
+                if column_index_from_string(c) > max_content_col]:
         del ws.column_dimensions[col]
 
-    ws.page_setup.fitToPage = True
+    ws.page_setup.fitToPage  = True
     ws.page_setup.fitToWidth = 1
-    ws.page_setup.fitToHeight = 0  # sin límite alto (crece si hay muchos ítems)
+    ws.page_setup.fitToHeight = 0
     ws.page_setup.orientation = "landscape" if empresa.get("orientacion_paisaje") else "portrait"
-    ws.page_setup.paperSize = 9  # A4
+    ws.page_setup.paperSize  = 9  # A4
     ws.sheet_properties.pageSetUpPr.fitToPage = True
     ws.page_margins = PageMargins(left=0.5, right=0.5, top=0.75, bottom=0.75, header=0.3, footer=0.3)
 
