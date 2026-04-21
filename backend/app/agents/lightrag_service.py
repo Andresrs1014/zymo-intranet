@@ -36,7 +36,7 @@ async def _llm_func(prompt: str, system_prompt: str | None = None, history_messa
     client = _genai_client(settings.gemini_api_key_gerencial or settings.gemini_api_key_administrativo)
     contenido = f"{system_prompt}\n\n{prompt}" if system_prompt else prompt
     response = await client.aio.models.generate_content(
-        model="gemini-2.0-flash",
+        model="gemini-1.5-flash",
         contents=contenido,
     )
     return response.text
