@@ -24,6 +24,7 @@ import { FinancieroPage } from "@/pages/financiero/FinancieroPage"
 import { FacturasPage } from "@/pages/financiero/FacturasPage"
 import { FacturaDetallePage } from "@/pages/financiero/FacturaDetallePage"
 import { AgentFloatingWindow } from "@/components/agent/AgentFloatingWindow"
+import { GerencialPage } from "@/pages/gerencial/GerencialPage"
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -286,6 +287,16 @@ export default function App() {
             <FinancieroRoute>
               <FacturaDetallePage />
             </FinancieroRoute>
+          }
+        />
+
+        {/* Módulo Gerencial — accesible para cualquier usuario autenticado */}
+        <Route
+          path="/gerencial"
+          element={
+            <PrivateRoute>
+              <GerencialPage />
+            </PrivateRoute>
           }
         />
 
