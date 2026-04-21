@@ -26,6 +26,7 @@ from app.routers.oc.router import router as oc_router
 from app.routers.sgc.router import router as sgc_router
 from app.routers.financiero.router import router as financiero_router
 from app.routers.agentes import router as agentes_router
+from app.routers.zymo import router as zymo_router
 
 
 _DEFAULT_ROLES = [
@@ -69,6 +70,12 @@ _DEFAULT_ROLES = [
         "name": "calidad",
         "label": "Gestión de Calidad",
         "description": "Administración del SGC y catálogo de proveedores",
+        "app_permissions": [],
+    },
+    {
+        "name": "gerente",
+        "label": "Gerente",
+        "description": "Gerencia general — acceso al módulo gerencial y ZYMO",
         "app_permissions": [],
     },
 ]
@@ -243,6 +250,7 @@ app.include_router(oc_router)
 app.include_router(sgc_router)
 app.include_router(financiero_router)
 app.include_router(agentes_router)
+app.include_router(zymo_router)
 
 
 @app.get("/health")

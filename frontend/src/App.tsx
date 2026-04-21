@@ -72,18 +72,31 @@ function FinancieroRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
-// Roles con acceso al agente administrativo
-const ROLES_AGENTE_ADMIN = new Set(["admin", "administrativo", "compras", "directivo"])
+// Roles que ven el Agente Administrativo (Sonia y equipo compras)
+const ROLES_AGENTE_ADMIN = new Set(["administrativo", "compras", "directivo"])
+// Roles que ven ZYMO (módulo gerencial)
+const ROLES_ZYMO = new Set(["admin", "gerente"])
 
 function AgentLayer() {
   const user = useAuthStore((s) => s.user)
-  if (!user || !ROLES_AGENTE_ADMIN.has(user.role)) return null
-  return (
-    <AgentFloatingWindow
-      agente="administrativo"
-      usuarioNombre={user.full_name ?? user.email}
-    />
-  )
+  if (!user) return null
+  if (ROLES_ZYMO.has(user.role)) {
+    return (
+      <AgentFloatingWindow
+        agente="zymo"
+        usuarioNombre={user.full_name ?? user.email}
+      />
+    )
+  }
+  if (ROLES_AGENTE_ADMIN.has(user.role)) {
+    return (
+      <AgentFloatingWindow
+        agente="administrativo"
+        usuarioNombre={user.full_name ?? user.email}
+      />
+    )
+  }
+  return null
 }
 
 export default function App() {

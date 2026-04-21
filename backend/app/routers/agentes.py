@@ -223,11 +223,15 @@ async def chat_administrativo(
 
     async def generar_stream():
         try:
+            agente.guardar_turno_md(current_user.email, "user", payload.mensaje)
+            respuesta_completa = []
             async for chunk in agente.chat_stream(
                 payload.mensaje,
                 historial=payload.historial,
             ):
+                respuesta_completa.append(chunk)
                 yield f"data: {json.dumps({'chunk': chunk}, ensure_ascii=False)}\n\n"
+            agente.guardar_turno_md(current_user.email, "agent", "".join(respuesta_completa))
             yield f"data: {json.dumps({'done': True})}\n\n"
         except Exception as e:
             logger.error("Error en stream administrativo: %s", e)

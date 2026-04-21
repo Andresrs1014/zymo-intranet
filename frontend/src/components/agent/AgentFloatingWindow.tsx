@@ -29,7 +29,7 @@ export function AgentFloatingWindow({ agente, usuarioNombre }: Props) {
   const windowRef = useRef<HTMLDivElement>(null)
 
   const { messages, isStreaming, bienvenida, error, sendMessage, cancelStream, cargarBienvenida } =
-    useAgent()
+    useAgent(agente)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -122,7 +122,7 @@ export function AgentFloatingWindow({ agente, usuarioNombre }: Props) {
           {/* Ícono agente */}
           <div className="relative">
             <div className="w-8 h-8 rounded-full bg-brand-blue flex items-center justify-center text-white text-sm font-bold">
-              Z
+              {agente === "zymo" ? "Z" : "A"}
             </div>
             {isStreaming && (
               <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-400 border-2 border-white animate-pulse" />
@@ -136,7 +136,7 @@ export function AgentFloatingWindow({ agente, usuarioNombre }: Props) {
 
           <div className="text-left">
             <p className="text-xs font-semibold text-gray-800 leading-none">
-              Asistente ZYMO
+              {agente === "zymo" ? "ZYMO" : "Agente Administrativo"}
             </p>
             <p className="text-[10px] text-gray-400 mt-0.5">
               {isStreaming ? "trabajando..." : badgeCount > 0 ? `${badgeCount} alerta${badgeCount > 1 ? "s" : ""}` : "disponible"}
@@ -165,10 +165,12 @@ export function AgentFloatingWindow({ agente, usuarioNombre }: Props) {
         className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 rounded-t-2xl bg-brand-blue cursor-grab active:cursor-grabbing"
       >
         <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-white text-sm font-bold shrink-0">
-          Z
+          {agente === "zymo" ? "Z" : "A"}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-white leading-none">Asistente ZYMO</p>
+          <p className="text-sm font-semibold text-white leading-none">
+            {agente === "zymo" ? "ZYMO" : "Agente Administrativo"}
+          </p>
           <p className="text-[10px] text-blue-100 mt-0.5 truncate">
             {isStreaming ? "escribiendo..." : `Hola, ${usuarioNombre.split(" ")[0]}`}
           </p>

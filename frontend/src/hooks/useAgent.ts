@@ -27,16 +27,23 @@ function authHeaders(): Record<string, string> {
   }
 }
 
-export function useAgent() {
+export function useAgent(agente: "administrativo" | "zymo" = "administrativo") {
   const [messages, setMessages] = useState<AgentMessage[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
   const [bienvenida, setBienvenida] = useState<BienvenidaData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
+  const chatEndpoint =
+    agente === "zymo"
+      ? `${BASE_URL}/api/zymo/chat`
+      : `${BASE_URL}/api/agentes/administrativo/chat`
+
   // ── Bienvenida al login ────────────────────────────────────────────────────
 
   const cargarBienvenida = useCallback(async () => {
+    // Bienvenida solo disponible para el Agente Administrativo
+    if (agente !== "administrativo") return
     try {
       const res = await fetch(`${BASE_URL}/api/agentes/administrativo/bienvenida`, {
         method: "POST",
@@ -45,7 +52,6 @@ export function useAgent() {
       if (!res.ok) return
       const data: BienvenidaData = await res.json()
       setBienvenida(data)
-      // El mensaje de bienvenida aparece como primer mensaje del agente
       setMessages([
         {
           role: "agent",
@@ -56,7 +62,7 @@ export function useAgent() {
     } catch {
       // Bienvenida es opcional — falla silenciosamente
     }
-  }, [])
+  }, [agente])
 
   // ── Enviar mensaje con streaming ───────────────────────────────────────────
 
@@ -64,7 +70,6 @@ export function useAgent() {
     async (texto: string) => {
       if (!texto.trim() || isStreaming) return
 
-      // Agregar mensaje del usuario al historial
       const userMsg: AgentMessage = {
         role: "user",
         content: texto.trim(),
@@ -74,7 +79,6 @@ export function useAgent() {
       setIsStreaming(true)
       setError(null)
 
-      // Placeholder del agente que se va llenando con los chunks
       const agentMsg: AgentMessage = {
         role: "agent",
         content: "",
@@ -82,7 +86,6 @@ export function useAgent() {
       }
       setMessages((prev) => [...prev, agentMsg])
 
-      // Historial en formato que espera el backend
       const historial = messages.map((m) => ({
         role: m.role === "user" ? "user" : "model",
         content: m.content,
@@ -91,7 +94,7 @@ export function useAgent() {
       abortRef.current = new AbortController()
 
       try {
-        const res = await fetch(`${BASE_URL}/api/agentes/administrativo/chat`, {
+        const res = await fetch(chatEndpoint, {
           method: "POST",
           headers: authHeaders(),
           body: JSON.stringify({ mensaje: texto.trim(), historial }),

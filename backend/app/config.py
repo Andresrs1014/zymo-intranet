@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     # URL base de la intranet (para links en emails)
     intranet_url: str = "http://localhost:81"
 
+    # ── Módulo Gerencial (PostgreSQL — piloto migración) ──────────────────────
+    gerencial_database_url: str = "sqlite:///./data/gerencial.db"  # Override con PostgreSQL en producción
+
     # ── Agentes IA ────────────────────────────────────────────────────────────
     agents_database_url: str = "sqlite:///./data/agents.db"
     gemini_api_key_gerencial: str = ""

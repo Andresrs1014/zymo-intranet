@@ -100,18 +100,35 @@ class BaseAgent:
 
     # ── Markdowns de sesión ────────────────────────────────────────────────────
 
-    def _guardar_log_inicio(self, user_email: str) -> None:
+    def _log_path(self, user_email: str) -> Path:
         logs_dir = Path(settings.agent_logs_dir) / self.nombre
         logs_dir.mkdir(parents=True, exist_ok=True)
         fecha = datetime.utcnow().strftime("%Y-%m-%d")
         usuario_safe = user_email.replace("@", "_").replace(".", "_")
-        ruta = logs_dir / f"{fecha}_{usuario_safe}_001.md"
+        return logs_dir / f"{fecha}_{usuario_safe}_001.md"
+
+    def _guardar_log_inicio(self, user_email: str) -> None:
+        ruta = self._log_path(user_email)
         contenido = (
-            f"# Sesión {self.nombre} — {fecha} — {user_email}\n"
+            f"# Sesión {self.nombre} — {datetime.utcnow().strftime('%Y-%m-%d')} — {user_email}\n"
             f"**Inicio:** {datetime.utcnow().isoformat()}\n\n"
             "## Conversación\n\n"
         )
         ruta.write_text(contenido, encoding="utf-8")
+
+    def guardar_turno_md(self, user_email: str, rol: str, texto: str) -> None:
+        """Añade un turno de conversación al markdown de la sesión."""
+        if not user_email:
+            return
+        try:
+            ruta = self._log_path(user_email)
+            timestamp = datetime.utcnow().strftime("%H:%M:%S")
+            etiqueta = "**Usuario**" if rol == "user" else "**Asistente**"
+            linea = f"**[{timestamp}]** {etiqueta}: {texto.strip()}\n\n"
+            with ruta.open("a", encoding="utf-8") as f:
+                f.write(linea)
+        except Exception as e:
+            logger.warning("No se pudo escribir en log md: %s", e)
 
     # ── Utilidades ─────────────────────────────────────────────────────────────
 
