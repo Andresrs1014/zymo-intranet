@@ -4,6 +4,27 @@ Base de datos del módulo gerencial — PostgreSQL.
 Es el piloto de migración del sistema a PostgreSQL. Contiene:
 - gerencial_tareas: tareas de Andrés/Andrea con descripción gerencial generada por ZYMO
 - gerencial_ordenes: órdenes directas del gerente a áreas
+
+══════════════════════════════════════════════════════════════════
+MIGRACIÓN A POSTGRESQL — APLICA A TODOS LOS SCHEMAS DEL SISTEMA
+══════════════════════════════════════════════════════════════════
+
+Cuando se migre este módulo a PostgreSQL, el mismo proceso aplica
+para TODOS los schemas. Orden recomendado:
+
+  1. gerencial  → GERENCIAL_DATABASE_URL   (este archivo — piloto)
+  2. agents     → AGENTS_DATABASE_URL      (agent_database.py)
+  3. oc         → OC_DATABASE_URL          (oc_database.py)
+  4. intranet   → DATABASE_URL             (database.py)
+
+Proceso por schema:
+  1. Levantar contenedor PostgreSQL (ver docker-compose.yml)
+  2. Cambiar la variable de entorno del schema en .env
+  3. Reiniciar el servicio backend — las tablas se crean solas en lifespan
+  4. Migrar datos históricos si aplica (script separado)
+
+No se requieren cambios en el código — solo en las variables de entorno.
+══════════════════════════════════════════════════════════════════
 """
 import os
 import uuid
