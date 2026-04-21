@@ -26,7 +26,7 @@ def _get_lock() -> asyncio.Lock:
 
 def _genai_client(api_key: str):
     from google import genai
-    return genai.Client(api_key=api_key, http_options={"api_version": "v1"})
+    return genai.Client(api_key=api_key)
 
 
 async def _llm_func(prompt: str, system_prompt: str | None = None, history_messages: list = [], **kwargs) -> str:
@@ -50,7 +50,7 @@ async def _embed_func(texts: list[str]) -> list[list[float]]:
     embeddings = []
     for text in texts:
         response = await client.aio.models.embed_content(
-            model="models/text-embedding-004",
+            model="gemini-embedding-001",
             contents=text[:8000],
         )
         embeddings.append(response.embeddings[0].values)
@@ -87,7 +87,7 @@ async def get_rag():
                 working_dir=working_dir,
                 llm_model_func=_llm_func,
                 embedding_func=EmbeddingFunc(
-                    embedding_dim=768,
+                    embedding_dim=3072,
                     max_token_size=8192,
                     func=_embed_func,
                 ),
