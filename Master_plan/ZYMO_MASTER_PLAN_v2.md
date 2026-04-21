@@ -8,7 +8,7 @@
 
 ## Contexto del proyecto
 
-ZYMO Intranet es un sistema interno para Grupo ZYMO (IMCCARGO, LOGIMAT, IMCDEPÓSITO), empresa de logística colombiana. Stack actual: FastAPI + SQLModel + SQLite + React 19 + TypeScript + Tailwind + TanStack Query + Docker. Ya existe y funciona en producción en `zymointranet.com`.
+ZYMO Intranet es un sistema interno para Grupo ZYMO (IMCCARGO, LOGIMAT, IMCDEPÓSITO), empresa de logística colombiana. Stack actual: FastAPI + SQLModel + PostgreSQL + React 19 + TypeScript + Tailwind + TanStack Query + Docker. Ya existe y funciona en producción en `zymointranet.com`.
 
 Lo que se va a construir en este plan es completamente nuevo encima de lo que existe — no se toca nada del código actual salvo agregar rutas y roles.
 
@@ -40,6 +40,9 @@ Cada cuenta tiene 1M tokens/día gratis → Total: 2M tokens/día gratis
 ## Variables de entorno nuevas a agregar en .env
 
 ```env
+# Base de datos
+DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/zymo
+
 # Agentes - API Keys separadas
 GEMINI_API_KEY_GERENCIAL=key_cuenta_google_1
 GEMINI_API_KEY_ADMINISTRATIVO=key_cuenta_google_2
@@ -59,6 +62,8 @@ AGENT_MEMORY_DIR=/app/data/agent_memory
 ## Dependencias nuevas — agregar a requirements.txt
 
 ```
+asyncpg>=0.29.0
+psycopg2-binary>=2.9.0
 google-generativeai>=0.8.0
 chromadb>=0.5.0
 sentence-transformers>=3.0.0
@@ -80,7 +85,7 @@ backend/app/
 │   ├── worker.py                  # Proceso persistente (scheduler)
 │   └── tools/
 │       ├── __init__.py
-│       ├── oc_tools.py            # Consultas a oc.db
+│       ├── oc_tools.py            # Consultas a schema: oc (PostgreSQL)
 │       ├── doc_tools.py           # Búsqueda en documentos RAG
 │       ├── memory_tools.py        # Memoria persistente por usuario
 │       ├── intranet_tools.py      # KPIs y métricas globales
@@ -117,7 +122,7 @@ frontend/src/
 
 ---
 
-## Base de datos nueva — agents.db
+## Base de datos nueva — schema: agents (PostgreSQL)
 
 Crear `backend/app/agent_database.py` siguiendo el patrón de `oc_database.py`.
 
@@ -127,7 +132,7 @@ Crear `backend/app/agent_database.py` siguiendo el patrón de `oc_database.py`.
 # Sesiones del agente con cada usuario
 agent_sessions:
   id: UUID PK
-  user_id: int  # referencia a intranet.db sin FK
+  user_id: int  # referencia a schema: intranet (PostgreSQL) sin FK
   user_email: str
   agente: str   # "zymo_core" | "administrativo" | "documentos"
   inicio: datetime
@@ -314,7 +319,7 @@ oc_en_plataforma → entregada:          tiempo de entrega
 entregada → cerrada:                   tiempo de cierre
 ```
 
-### Cambios en oc.db
+### Cambios en schema: oc (PostgreSQL)
 ```python
 # Agregar tabla nueva:
 oc_tiempos_estado:
@@ -625,7 +630,7 @@ Día 2:
   [ ] Probar subida y búsqueda con un procedimiento real
 
 Día 3:
-  [ ] Agregar tabla oc_tiempos_estado a oc.db
+  [ ] Agregar tabla oc_tiempos_estado a schema: oc (PostgreSQL)
   [ ] Implementar registro de tiempos en cada cambio de estado
   [ ] Endpoints /api/oc/kpis/tiempos y /api/oc/solicitudes/{id}/tiempos
   [ ] Construir Agente Administrativo con tools de OC
@@ -674,7 +679,7 @@ Día 4-5:
    - `backend/app/models/oc.py` — agregar campos sin romper migraciones
    - `frontend/src/App.tsx` — agregar rutas con cuidado
 
-3. **Las 3 DBs siguen separadas** — agents.db no tiene FK constraints hacia oc.db ni intranet.db. Es intencional.
+3. **Las 3 DBs siguen separadas** — schema: agents (PostgreSQL) no tiene FK constraints hacia schema: oc (PostgreSQL) ni schema: intranet (PostgreSQL). Es intencional.
 
 4. **El worker de Docker** debe reiniciarse automáticamente (`restart: always`) — si cae, ZYMO deja de funcionar.
 

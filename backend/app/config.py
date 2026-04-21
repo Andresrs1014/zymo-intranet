@@ -34,6 +34,17 @@ class Settings(BaseSettings):
     # URL base de la intranet (para links en emails)
     intranet_url: str = "http://localhost:81"
 
+    # ── Agentes IA ────────────────────────────────────────────────────────────
+    agents_database_url: str = "sqlite:///./data/agents.db"
+    gemini_api_key_gerencial: str = ""
+    gemini_api_key_administrativo: str = ""
+    perplexity_api_key: str = ""
+    agent_check_interval_minutes: int = 120
+    agent_docs_dir: str = "/app/data/agent_docs"
+    agent_logs_dir: str = "/app/data/agent_logs"
+    agent_memory_dir: str = "/app/data/agent_memory"
+    lightrag_working_dir: str = "/app/data/lightrag"
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 
