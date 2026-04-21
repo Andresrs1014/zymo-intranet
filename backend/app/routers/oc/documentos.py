@@ -1,8 +1,11 @@
+import logging
 import subprocess
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+
+_log = logging.getLogger(__name__)
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from fastapi.responses import FileResponse
@@ -722,7 +725,6 @@ def descargar_orden(
             detail="Orden de compra no encontrada.",
         )
 
-    # Intentar servir PDF si existe
     if orden.pdf_path:
         pdf_path = Path(orden.pdf_path)
         if pdf_path.exists():
@@ -731,10 +733,13 @@ def descargar_orden(
                 media_type="application/pdf",
                 filename=f"{orden.numero_oc}.pdf",
             )
+        _log.warning("[descarga] pdf_path en DB pero archivo no existe: %s", orden.pdf_path)
+    else:
+        _log.warning("[descarga] pdf_path es None en DB para orden %s", orden.numero_oc)
 
-    # Fallback: servir XLSX si el PDF no está disponible
     xlsx_path = OC_DOCS_DIR / f"{orden.numero_oc}.xlsx"
     if xlsx_path.exists():
+        _log.warning("[descarga] Sirviendo XLSX como fallback para %s", orden.numero_oc)
         return FileResponse(
             path=str(xlsx_path),
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
