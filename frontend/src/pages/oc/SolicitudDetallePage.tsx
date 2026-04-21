@@ -49,10 +49,8 @@ export function SolicitudDetallePage() {
   const cerrarSolicitud = useCerrarSolicitud()
   const cambiarPrioridad = useCambiarPrioridad()
 
-  // Solo admin y administrativo (Sonia) pueden cambiar la prioridad
-  const puedeEditarPrioridad =
-    user?.role === "admin" ||
-    user?.role === "administrativo"
+  // Solo admin puede cambiar la prioridad
+  const puedeEditarPrioridad = user?.role === "admin"
 
   function handleAsignarme() {
     if (!id || !user) return

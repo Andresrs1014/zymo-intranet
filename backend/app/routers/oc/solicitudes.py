@@ -322,10 +322,10 @@ def cambiar_prioridad(
     oc_db: Session = Depends(get_oc_db),
 ):
     """Solo admin y administrativo pueden cambiar la prioridad de una solicitud."""
-    if current_user.role not in {"admin", "administrativo"}:
+    if current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Solo administradores o el área administrativa pueden cambiar la prioridad.",
+            detail="Solo administradores pueden cambiar la prioridad.",
         )
     _PRIORIDADES = {"Alta", "Media", "Baja"}
     if payload.nivel_prioridad not in _PRIORIDADES:
