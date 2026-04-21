@@ -27,6 +27,8 @@ from app.routers.sgc.router import router as sgc_router
 from app.routers.financiero.router import router as financiero_router
 from app.routers.agentes import router as agentes_router
 from app.routers.zymo import router as zymo_router
+from app.gerencial_database import create_gerencial_tables
+from app.routers.gerencial import router as gerencial_router
 
 
 _DEFAULT_ROLES = [
@@ -224,6 +226,7 @@ async def lifespan(app: FastAPI):
     create_sgc_tables()
     create_financiero_tables()
     create_agent_tables()
+    create_gerencial_tables()
     yield
 
 
@@ -251,6 +254,7 @@ app.include_router(sgc_router)
 app.include_router(financiero_router)
 app.include_router(agentes_router)
 app.include_router(zymo_router)
+app.include_router(gerencial_router)
 
 
 @app.get("/health")
