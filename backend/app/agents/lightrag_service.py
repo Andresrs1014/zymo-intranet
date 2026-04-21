@@ -2,11 +2,10 @@
 Servicio LightRAG — Motor RAG basado en grafos para los agentes ZYMO.
 
 Singleton lazy: se inicializa la primera vez que se necesita.
-Usa Gemini para LLM y embeddings (sin dependencia en lightrag.llm.gemini).
+Usa google-genai (nuevo SDK, v1) para LLM y embeddings.
 """
 import asyncio
 import logging
-from functools import partial
 from pathlib import Path
 from typing import Optional
 
@@ -27,36 +26,31 @@ def _get_lock() -> asyncio.Lock:
 
 async def _llm_func(prompt: str, system_prompt: str | None = None, history_messages: list = [], **kwargs) -> str:
     """LLM callable que LightRAG usa para razonamiento y extracción de entidades."""
-    import google.generativeai as genai
+    from google import genai
     from app.config import settings
 
-    genai.configure(api_key=settings.gemini_api_key_gerencial or settings.gemini_api_key_administrativo)
-    model = genai.GenerativeModel("gemini-2.0-flash")
-
+    client = genai.Client(api_key=settings.gemini_api_key_gerencial or settings.gemini_api_key_administrativo)
     contenido = f"{system_prompt}\n\n{prompt}" if system_prompt else prompt
-    response = await model.generate_content_async(contenido)
+    response = await client.aio.models.generate_content(
+        model="gemini-2.0-flash",
+        contents=contenido,
+    )
     return response.text
 
 
 async def _embed_func(texts: list[str]) -> list[list[float]]:
     """Embedding callable que LightRAG usa para búsqueda semántica."""
-    import google.generativeai as genai
+    from google import genai
     from app.config import settings
 
-    genai.configure(api_key=settings.gemini_api_key_gerencial or settings.gemini_api_key_administrativo)
-
-    loop = asyncio.get_event_loop()
+    client = genai.Client(api_key=settings.gemini_api_key_gerencial or settings.gemini_api_key_administrativo)
     embeddings = []
     for text in texts:
-        result = await loop.run_in_executor(
-            None,
-            partial(
-                genai.embed_content,
-                model="models/text-embedding-004",
-                content=text[:8000],  # límite de seguridad
-            ),
+        response = await client.aio.models.embed_content(
+            model="models/text-embedding-004",
+            contents=text[:8000],
         )
-        embeddings.append(result["embedding"])
+        embeddings.append(response.embeddings[0].values)
     return embeddings
 
 
