@@ -11,6 +11,9 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, s
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from sqlmodel import Session, select, desc
+
+from app.agent_database import AgentDocumento, get_agents_db
 from app.agents.tools.doc_tools import (
     buscar_en_conocimiento,
     eliminar_documento,
@@ -296,3 +299,35 @@ def sugerencias_administrativo(
         })
 
     return {"sugerencias": sugerencias, "total": len(sugerencias)}
+
+
+# ── Estado RAG ─────────────────────────────────────────────────────────────────
+
+@router.get("/documentos/estado")
+def estado_documentos(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_agents_db),
+):
+    """
+    Estado del índice RAG: cuántos documentos están indexados y cuándo fue
+    la última indexación. Útil para verificar que el piloto con Sonia está listo.
+    """
+    docs = db.exec(
+        select(AgentDocumento).order_by(desc(AgentDocumento.indexado_at))
+    ).all()
+    ultima = docs[0].indexado_at.isoformat() if docs else None
+    return {
+        "total_documentos": len(docs),
+        "ultima_indexacion": ultima,
+        "listo_para_uso": len(docs) > 0,
+        "documentos": [
+            {
+                "nombre": d.nombre,
+                "tipo": d.tipo,
+                "area": d.area,
+                "chunks_count": d.chunks_count,
+                "indexado_at": d.indexado_at.isoformat(),
+            }
+            for d in docs
+        ],
+    }
