@@ -16,24 +16,12 @@ from sqlmodel import Session, desc, select
 from app.agent_database import ZymoReporte, get_agents_db
 from app.agents.zymo_core import ZymoCore
 from app.config import settings
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, require_gerencial
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/zymo", tags=["ZYMO Core"])
-
-_ROLES_GERENCIAL = {"admin", "gerente"}
-
-
-def require_gerencial(current_user: User = Depends(get_current_user)) -> User:
-    """Guard: solo admin y gerente acceden al módulo ZYMO Core."""
-    if current_user.role not in _ROLES_GERENCIAL:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Acceso restringido al módulo gerencial.",
-        )
-    return current_user
 
 
 def _get_zymo() -> ZymoCore:

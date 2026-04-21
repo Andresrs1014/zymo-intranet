@@ -93,3 +93,14 @@ def require_any_role(allowed_roles: list[str]):
             )
         return current_user
     return guard
+
+
+def require_gerencial(current_user: User = Depends(get_current_user)) -> User:
+    """Guard: solo admin y gerente acceden al módulo gerencial."""
+    _ROLES_GERENCIAL = {"admin", "gerente"}
+    if current_user.role not in _ROLES_GERENCIAL:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acceso restringido al módulo gerencial.",
+        )
+    return current_user
