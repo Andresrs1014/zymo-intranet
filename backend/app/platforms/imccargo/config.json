@@ -8,8 +8,8 @@
   "prefijo_oc": "C",
   "logo": "imccargo_logo.jpeg",
   "logo_anchor": "C3",
-  "logo_width": 300,
-  "logo_height": 105,
+  "logo_width": 130,
+  "logo_height": 150,
   "template": "template.xlsx",
   "print_area": "A1:J45",
   "celdas_dinamicas": {

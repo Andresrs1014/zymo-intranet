@@ -8,8 +8,8 @@
   "prefijo_oc": "D",
   "logo": "imcdep_logo.jpeg",
   "logo_anchor": "C3",
-  "logo_width": 280,
-  "logo_height": 130,
+  "logo_width": 130,
+  "logo_height": 150,
   "template": "template.xlsx",
   "print_area": "A1:J43",
   "celdas_dinamicas": {
