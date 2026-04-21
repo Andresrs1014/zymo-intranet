@@ -24,19 +24,24 @@ def _get_lock() -> asyncio.Lock:
 
 # ── Funciones Gemini para LightRAG ────────────────────────────────────────────
 
-def _genai_client(api_key: str):
+def _llm_client(api_key: str):
     from google import genai
-    return genai.Client(api_key=api_key)
+    return genai.Client(api_key=api_key, http_options={"api_version": "v1"})
+
+
+def _embed_client(api_key: str):
+    from google import genai
+    return genai.Client(api_key=api_key)  # v1beta por defecto — gemini-embedding-001 vive aquí
 
 
 async def _llm_func(prompt: str, system_prompt: str | None = None, history_messages: list = [], **kwargs) -> str:
     """LLM callable que LightRAG usa para razonamiento y extracción de entidades."""
     from app.config import settings
 
-    client = _genai_client(settings.gemini_api_key_gerencial or settings.gemini_api_key_administrativo)
+    client = _llm_client(settings.gemini_api_key_gerencial or settings.gemini_api_key_administrativo)
     contenido = f"{system_prompt}\n\n{prompt}" if system_prompt else prompt
     response = await client.aio.models.generate_content(
-        model="gemini-1.5-flash",
+        model="gemini-2.0-flash",
         contents=contenido,
     )
     return response.text
@@ -47,7 +52,7 @@ async def _embed_func(texts: list[str]) -> "np.ndarray":
     import numpy as np
     from app.config import settings
 
-    client = _genai_client(settings.gemini_api_key_gerencial or settings.gemini_api_key_administrativo)
+    client = _embed_client(settings.gemini_api_key_gerencial or settings.gemini_api_key_administrativo)
     embeddings = []
     for text in texts:
         response = await client.aio.models.embed_content(
