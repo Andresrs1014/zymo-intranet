@@ -318,10 +318,15 @@ def cambiar_estado(
 def cambiar_prioridad(
     solicitud_id: uuid.UUID,
     payload: PrioridadPayload,
-    current_user: User = Depends(require_compras),
+    current_user: User = Depends(get_current_user),
     oc_db: Session = Depends(get_oc_db),
 ):
-    """Auxiliar de compras o directivo pueden ajustar la prioridad en cualquier momento."""
+    """Solo admin y administrativo pueden cambiar la prioridad de una solicitud."""
+    if current_user.role not in {"admin", "administrativo"}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo administradores o el área administrativa pueden cambiar la prioridad.",
+        )
     _PRIORIDADES = {"Alta", "Media", "Baja"}
     if payload.nivel_prioridad not in _PRIORIDADES:
         raise HTTPException(
@@ -358,6 +363,20 @@ def gestionar_solicitud(
     oc_db.commit()
     oc_db.refresh(solicitud)
     return solicitud
+
+
+@router.get("/{solicitud_id}/tiempos")
+def get_tiempos_solicitud(
+    solicitud_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    oc_db: Session = Depends(get_oc_db),
+):
+    """
+    Timeline completo de tiempos por etapa de una solicitud.
+    Muestra cuánto tardó cada transición de estado.
+    """
+    from app.agents.tools.oc_tools import ver_timeline_solicitud
+    return ver_timeline_solicitud(str(solicitud_id))
 
 
 @router.get("/{solicitud_id}/historial", response_model=list[HistorialEstadoRead])

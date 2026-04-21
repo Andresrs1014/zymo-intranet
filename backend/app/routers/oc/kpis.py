@@ -248,3 +248,16 @@ def get_kpis(
         solicitudes_recientes=solicitudes_recientes,
         por_mes=por_mes,
     )
+
+
+@router.get("/kpis/tiempos")
+def get_kpis_tiempos(
+    current_user: User = Depends(require_compras),
+):
+    """
+    KPIs de tiempos de proceso OC.
+    Calcula el tiempo promedio por etapa usando HistorialEstado.
+    Incluye alertas de etapas que superan el tiempo esperado.
+    """
+    from app.agents.tools.oc_tools import ver_tiempos_proceso_oc
+    return ver_tiempos_proceso_oc(limite_solicitudes=100)

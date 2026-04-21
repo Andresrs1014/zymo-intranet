@@ -23,6 +23,7 @@ import { PaquetesPage } from "@/pages/operativo/PaquetesPage"
 import { FinancieroPage } from "@/pages/financiero/FinancieroPage"
 import { FacturasPage } from "@/pages/financiero/FacturasPage"
 import { FacturaDetallePage } from "@/pages/financiero/FacturaDetallePage"
+import { AgentFloatingWindow } from "@/components/agent/AgentFloatingWindow"
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -71,10 +72,25 @@ function FinancieroRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+// Roles con acceso al agente administrativo
+const ROLES_AGENTE_ADMIN = new Set(["admin", "administrativo", "compras", "directivo"])
+
+function AgentLayer() {
+  const user = useAuthStore((s) => s.user)
+  if (!user || !ROLES_AGENTE_ADMIN.has(user.role)) return null
+  return (
+    <AgentFloatingWindow
+      agente="administrativo"
+      usuarioNombre={user.full_name ?? user.email}
+    />
+  )
+}
+
 export default function App() {
   return (
     <ErrorBoundary>
     <BrowserRouter>
+      <AgentLayer />
       <Routes>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route

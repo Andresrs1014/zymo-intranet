@@ -8,6 +8,17 @@ import type { SolicitudOC } from "@/types/oc"
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+// Tiempo máximo de primera respuesta del equipo de compras
+const PRIORIDAD_SLA: Record<string, { horas: number; label: string }> = {
+  Alta:  { horas: 4,  label: "Respuesta en 4 h" },
+  Media: { horas: 24, label: "Respuesta en 24 h" },
+  Baja:  { horas: 48, label: "Respuesta en 48 h" },
+}
+
+function calcularHorasTranscurridas(fechaISO: string): number {
+  return (Date.now() - new Date(fechaISO).getTime()) / 3_600_000
+}
+
 const ESTADO_CONFIG: Record<string, { label: string; className: string; descripcion: string }> = {
   nueva:                { label: "Nueva",              className: "bg-blue-100 text-blue-700",    descripcion: "Tu solicitud fue recibida y está en cola." },
   en_cotizacion:        { label: "En gestión",          className: "bg-yellow-100 text-yellow-700", descripcion: "El equipo de compras está buscando cotización." },
@@ -145,6 +156,29 @@ export function MisSolicitudesPage() {
 
 // ── Tarjeta de solicitud ──────────────────────────────────────────────────────
 
+function SlaIndicador({ solicitud: s }: { solicitud: SolicitudOC }) {
+  const sla = PRIORIDAD_SLA[s.nivel_prioridad]
+  // Solo mostrar si aún no hubo primera respuesta del equipo de compras
+  if (!sla || s.estado !== "nueva") return null
+
+  const horasTranscurridas = calcularHorasTranscurridas(s.fecha_solicitud)
+  const vencido = horasTranscurridas > sla.horas
+  const horasRestantes = Math.max(0, sla.horas - horasTranscurridas)
+
+  if (vencido) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-600">
+        ⚠ SLA vencido
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-600">
+      🕐 {horasRestantes < 1 ? "menos de 1 h" : `${Math.ceil(horasRestantes)} h`} para primera respuesta
+    </span>
+  )
+}
+
 function SolicitudCard({ solicitud: s }: { solicitud: SolicitudOC }) {
   const [confirmando, setConfirmando] = useState(false)
   const marcarEntregada = useMarcarEntregada()
@@ -199,9 +233,10 @@ function SolicitudCard({ solicitud: s }: { solicitud: SolicitudOC }) {
       <div className="p-5">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
               <span className="font-mono text-xs font-bold text-brand-blue">{s.consecutivo_os}</span>
               <EstadoBadge estado={s.estado} />
+              <SlaIndicador solicitud={s} />
             </div>
             <p className="text-sm font-semibold text-gray-900 truncate">{s.descripcion}</p>
             {cfg && (

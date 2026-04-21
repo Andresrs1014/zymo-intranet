@@ -3,10 +3,13 @@ Router de Agentes IA — endpoints del sistema RAG y agentes ZYMO.
 
 Prefijo: /api/agentes
 """
+import json
 import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
 from app.agents.tools.doc_tools import (
     buscar_en_conocimiento,
@@ -15,6 +18,8 @@ from app.agents.tools.doc_tools import (
     obtener_documento,
     subir_e_indexar,
 )
+from app.agents.tools import oc_tools
+from app.config import settings
 from app.core.deps import get_current_user, require_admin
 from app.models.user import User
 
@@ -156,3 +161,134 @@ def eliminar(
             detail=f"Documento '{doc_id}' no encontrado.",
         )
     eliminar_documento(doc_id)
+
+
+# ── Agente Administrativo ──────────────────────────────────────────────────────
+
+class ChatPayload(BaseModel):
+    mensaje: str
+    session_id: Optional[str] = None
+    historial: Optional[list[dict]] = None
+
+
+def _get_agente_administrativo():
+    """Instancia el agente administrativo con la API Key 2."""
+    from app.agents.administrativo import AgenteAdministrativo
+    api_key = settings.gemini_api_key_administrativo or settings.gemini_api_key_gerencial
+    if not api_key:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="GEMINI_API_KEY_ADMINISTRATIVO no configurada.",
+        )
+    return AgenteAdministrativo(api_key=api_key)
+
+
+@router.get("/administrativo/estado")
+def estado_administrativo(
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Resumen del área para la ventana flotante al login.
+    Retorna KPIs y alertas del módulo OC.
+    """
+    try:
+        kpis = oc_tools.ver_kpis_oc()
+        cotizaciones_pendientes = oc_tools.consultar_cotizaciones_pendientes()
+        return {
+            "solicitudes_activas": kpis.get("total_activas", 0),
+            "por_estado": kpis.get("solicitudes_por_estado", {}),
+            "cotizaciones_pendientes_aprobacion": len(cotizaciones_pendientes),
+            "cotizaciones_mas_48h": sum(1 for c in cotizaciones_pendientes if c.get("supera_limite_48h")),
+            "alertas": kpis.get("alertas", []),
+        }
+    except Exception as e:
+        logger.error("Error en estado_administrativo: %s", e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+@router.post("/administrativo/chat")
+async def chat_administrativo(
+    payload: ChatPayload,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Chat con el Agente Administrativo ZYMO (streaming SSE).
+    Responde como stream de Server-Sent Events.
+    """
+    agente = _get_agente_administrativo()
+
+    # Iniciar sesión si no viene session_id
+    if not payload.session_id:
+        agente.iniciar_sesion(user_id=current_user.id, user_email=current_user.email)
+
+    async def generar_stream():
+        try:
+            async for chunk in agente.chat_stream(
+                payload.mensaje,
+                historial=payload.historial,
+            ):
+                yield f"data: {json.dumps({'chunk': chunk}, ensure_ascii=False)}\n\n"
+            yield f"data: {json.dumps({'done': True})}\n\n"
+        except Exception as e:
+            logger.error("Error en stream administrativo: %s", e)
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+    return StreamingResponse(
+        generar_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",  # Desactiva buffering en nginx
+        },
+    )
+
+
+@router.post("/administrativo/bienvenida")
+async def bienvenida_administrativo(
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Genera el mensaje de bienvenida personalizado al login.
+    Se llama una vez cuando el usuario inicia sesión.
+    """
+    agente = _get_agente_administrativo()
+    mensaje = await agente.generar_bienvenida(current_user.full_name)
+    estado = oc_tools.ver_kpis_oc()
+    return {
+        "mensaje": mensaje,
+        "alertas": estado.get("alertas", []),
+        "cotizaciones_pendientes": estado.get("cotizaciones_pendientes_aprobacion", 0),
+    }
+
+
+@router.get("/administrativo/sugerencias")
+def sugerencias_administrativo(
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Retorna sugerencias activas generadas automáticamente.
+    El worker (APScheduler) las genera cada 30 min — se implementa en Día 5.
+    Por ahora retorna sugerencias calculadas en tiempo real.
+    """
+    cotizaciones = oc_tools.consultar_cotizaciones_pendientes()
+    tiempos = oc_tools.ver_tiempos_proceso_oc()
+
+    sugerencias = []
+    for cot in cotizaciones:
+        if cot.get("supera_limite_48h"):
+            sugerencias.append({
+                "tipo": "alerta_tiempo",
+                "prioridad": "alta",
+                "texto": f"La cotización de {cot['proveedor_nombre']} para '{cot['descripcion']}' lleva {cot['horas_esperando']}h esperando aprobación.",
+                "accion_sugerida": "Revisar y aprobar o rechazar la cotización.",
+            })
+
+    for alerta in tiempos.get("alertas_tiempo", []):
+        sugerencias.append({
+            "tipo": "tiempo_proceso",
+            "prioridad": "media",
+            "texto": alerta,
+            "accion_sugerida": "Revisar las solicitudes en esa etapa.",
+        })
+
+    return {"sugerencias": sugerencias, "total": len(sugerencias)}

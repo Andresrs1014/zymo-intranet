@@ -6,6 +6,13 @@ import { useAuthStore } from "@/store/authStore"
 import { useListasFormulario, useCrearSolicitudInterna, usePaquetes } from "@/hooks/useOC"
 import type { SolicitudInternaCreate } from "@/hooks/useOC"
 
+// Tiempo de primera respuesta del equipo de compras por nivel de prioridad
+const PRIORIDAD_SLA: Record<string, string> = {
+  Alta:  "Alta — primera respuesta en 4 horas",
+  Media: "Media — primera respuesta en 24 horas",
+  Baja:  "Baja — primera respuesta en 48 horas",
+}
+
 const FORM_VACIO: SolicitudInternaCreate = {
   nivel_prioridad: "",
   categoria: "",
@@ -211,7 +218,7 @@ export function NuevaSolicitudPage() {
                     >
                       <option value="">— Seleccionar —</option>
                       {listas?.prioridades.map((p) => (
-                        <option key={p} value={p}>{p}</option>
+                        <option key={p} value={p}>{PRIORIDAD_SLA[p] ?? p}</option>
                       ))}
                     </select>
                   </div>
