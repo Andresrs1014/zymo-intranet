@@ -535,6 +535,7 @@ async def marcar_oc_enviada(
     if orden and payload.email_proveedor:
         orden.email_proveedor = payload.email_proveedor
         orden.enviada_proveedor = True
+        orden.enviada_coordinador = True
         oc_db.add(orden)
 
     oc_db.commit()

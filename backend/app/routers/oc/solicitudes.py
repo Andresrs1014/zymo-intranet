@@ -10,7 +10,7 @@ from sqlmodel import Session, func, select
 from app.core.deps import get_current_user, require_compras
 from app.database import get_db
 from app.oc_database import get_oc_db
-from app.models.oc import EstadoOC, SolicitudOC
+from app.models.oc import CotizacionProveedor, EstadoOC, SolicitudOC
 from app.models.user import User
 from app.services.historial import registrar_cambio_estado
 from app.services.email_service import (
@@ -205,18 +205,19 @@ async def crear_solicitud_interna(
 
 @router.get("/mis-solicitudes", response_model=list[SolicitudRead])
 def mis_solicitudes(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, le=200),
+    estado: Optional[str] = Query(default=None),
     current_user: User = Depends(get_current_user),
     oc_db: Session = Depends(get_oc_db),
 ):
-    """Solicitudes donde el solicitante_email coincide con el usuario logueado.
-    Accesible para cualquier usuario autenticado (coordinadores, líderes, etc.)."""
+    """Solicitudes donde el solicitante_email coincide con el usuario logueado."""
     if not current_user.email:
         return []
-    query = (
-        select(SolicitudOC)
-        .where(SolicitudOC.solicitante_email == current_user.email)
-        .order_by(SolicitudOC.fecha_solicitud.desc())
-    )
+    query = select(SolicitudOC).where(SolicitudOC.solicitante_email == current_user.email)
+    if estado:
+        query = query.where(SolicitudOC.estado == estado)
+    query = query.order_by(SolicitudOC.fecha_solicitud.desc()).offset(skip).limit(limit)
     return oc_db.exec(query).all()
 
 
@@ -274,6 +275,19 @@ def asignar_auxiliar(
     return solicitud
 
 
+_TRANSICIONES: dict[EstadoOC, set[EstadoOC]] = {
+    EstadoOC.nueva:                {EstadoOC.en_cotizacion, EstadoOC.rechazada},
+    EstadoOC.en_cotizacion:        {EstadoOC.pendiente_aprobacion, EstadoOC.rechazada},
+    EstadoOC.pendiente_aprobacion: {EstadoOC.aprobada, EstadoOC.rechazada, EstadoOC.en_cotizacion},
+    EstadoOC.aprobada:             {EstadoOC.oc_enviada, EstadoOC.rechazada},
+    EstadoOC.rechazada:            {EstadoOC.en_cotizacion},
+    EstadoOC.oc_enviada:           {EstadoOC.oc_en_plataforma},
+    EstadoOC.oc_en_plataforma:     {EstadoOC.entregada},
+    EstadoOC.entregada:            {EstadoOC.cerrada},
+    EstadoOC.cerrada:              set(),
+}
+
+
 @router.patch("/{solicitud_id}/estado", response_model=SolicitudRead)
 def cambiar_estado(
     solicitud_id: uuid.UUID,
@@ -288,6 +302,13 @@ def cambiar_estado(
 
     estado_anterior = solicitud.estado
     nuevo_estado = payload.estado
+
+    if nuevo_estado not in _TRANSICIONES.get(estado_anterior, set()):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Transición inválida: {estado_anterior} → {nuevo_estado}",
+        )
+
     solicitud.estado = nuevo_estado
     solicitud.updated_at = datetime.now(timezone.utc)
     oc_db.add(solicitud)
@@ -304,12 +325,16 @@ def cambiar_estado(
     oc_db.commit()
     oc_db.refresh(solicitud)
 
-    # Emails automáticos según el nuevo estado
     if nuevo_estado == EstadoOC.pendiente_aprobacion:
-        background_tasks.add_task(send_cotizacion_lista, solicitud)      # Flujo 2
-        background_tasks.add_task(send_aprobacion_directora, solicitud)  # Flujo 3
+        cotizacion = oc_db.exec(
+            select(CotizacionProveedor)
+            .where(CotizacionProveedor.solicitud_id == solicitud_id)
+            .order_by(CotizacionProveedor.created_at.desc())
+        ).first()
+        background_tasks.add_task(send_cotizacion_lista, solicitud)             # Flujo 2
+        background_tasks.add_task(send_aprobacion_directora, solicitud, cotizacion)  # Flujo 3
     elif nuevo_estado == EstadoOC.oc_enviada:
-        background_tasks.add_task(send_oc_enviada, solicitud)            # Flujo 4
+        background_tasks.add_task(send_oc_enviada, solicitud)                  # Flujo 4
 
     return solicitud
 
