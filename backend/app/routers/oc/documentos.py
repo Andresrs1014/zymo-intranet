@@ -136,21 +136,25 @@ def _generar_xlsx(
     ws = wb.active
 
     # ── Logo ──────────────────────────────────────────────────────────────────
+    # Convertir a JPEG en archivo temporal — LibreOffice falla al convertir a PDF
+    # cuando el XLSX contiene PNG con canal alfa.
+    # Se usa archivo en disco (no BytesIO) porque openpyxl no garantiza seek(0)
+    # al guardar el workbook; con BytesIO la imagen queda corrupta en el XLSX.
+    import os
+    import tempfile
+    _tmp_logo: Optional[str] = None
     logo_filename = empresa.get("logo")
     if logo_filename:
         logo_path = _PLATFORMS_DIR / slug / logo_filename
         if logo_path.exists():
             from openpyxl.drawing.image import Image as XLImage
-            import io
             from PIL import Image as PILImage
-            # Convertir a JPEG en memoria — LibreOffice falla al convertir a PDF
-            # cuando el XLSX contiene imágenes PNG (especialmente con canal alfa).
             pil_img = PILImage.open(str(logo_path)).convert("RGB")
-            buf = io.BytesIO()
-            pil_img.save(buf, format="JPEG", quality=95)
-            buf.seek(0)
+            tmp_fd, _tmp_logo = tempfile.mkstemp(suffix=".jpg")
+            os.close(tmp_fd)
+            pil_img.save(_tmp_logo, format="JPEG", quality=95)
             ws._images = []
-            img = XLImage(buf)
+            img = XLImage(_tmp_logo)
             img.width  = empresa.get("logo_width", 150)
             img.height = empresa.get("logo_height", 55)
             img.anchor = empresa.get("logo_anchor", "C3")
@@ -315,6 +319,10 @@ def _generar_xlsx(
     ws.page_margins = PageMargins(left=0.5, right=0.5, top=0.75, bottom=0.75, header=0.3, footer=0.3)
 
     wb.save(str(output_path))
+
+    # Limpiar JPEG temporal después de guardar
+    if _tmp_logo and os.path.exists(_tmp_logo):
+        os.unlink(_tmp_logo)
 
 
 def _intentar_conversion_pdf(source_path: Path, output_dir: Path) -> Optional[Path]:
