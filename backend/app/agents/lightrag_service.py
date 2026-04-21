@@ -42,8 +42,9 @@ async def _llm_func(prompt: str, system_prompt: str | None = None, history_messa
     return response.text
 
 
-async def _embed_func(texts: list[str]) -> list[list[float]]:
+async def _embed_func(texts: list[str]) -> "np.ndarray":
     """Embedding callable que LightRAG usa para búsqueda semántica."""
+    import numpy as np
     from app.config import settings
 
     client = _genai_client(settings.gemini_api_key_gerencial or settings.gemini_api_key_administrativo)
@@ -54,7 +55,7 @@ async def _embed_func(texts: list[str]) -> list[list[float]]:
             contents=text[:8000],
         )
         embeddings.append(response.embeddings[0].values)
-    return embeddings
+    return np.array(embeddings)
 
 
 # ── Singleton ──────────────────────────────────────────────────────────────────
