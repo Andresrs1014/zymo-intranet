@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from sqlmodel import Session, desc, select
 
 from app.agent_database import ZymoReporte, get_agents_db
+from app.services.memory_service import cargar_memoria_usuario, actualizar_contexto_login
 from app.agents.zymo_core import ZymoCore
 from app.config import settings
 from app.core.deps import get_current_user, require_gerencial
@@ -60,27 +61,42 @@ class ReporteRead(BaseModel):
 async def chat_zymo(
     payload: ChatPayload,
     current_user: User = Depends(require_gerencial),
+    agents_db: Session = Depends(get_agents_db),
 ):
     """
     Chat con ZYMO Core — streaming SSE.
-    Solo accesible para roles: admin, gerente.
+    Inyecta memoria persistente del usuario como contexto antes de enviar a Gemini.
     """
     zymo = _get_zymo()
 
     if not payload.session_id:
         zymo.iniciar_sesion(user_id=current_user.id, user_email=current_user.email)
 
+    # Cargar memoria — enriquecer mensaje para Gemini
+    memoria_ctx = cargar_memoria_usuario(current_user.email, agents_db)
+    mensaje_para_gemini = (
+        f"{memoria_ctx}\n\n---\n{payload.mensaje}"
+        if memoria_ctx
+        else payload.mensaje
+    )
+
     async def generar_stream():
         try:
             zymo.guardar_turno_md(current_user.email, "user", payload.mensaje)
             respuesta_completa = []
             async for chunk in zymo.chat_stream(
-                payload.mensaje,
+                mensaje_para_gemini,
                 historial=payload.historial,
             ):
                 respuesta_completa.append(chunk)
                 yield f"data: {json.dumps({'chunk': chunk}, ensure_ascii=False)}\n\n"
-            zymo.guardar_turno_md(current_user.email, "agent", "".join(respuesta_completa))
+            respuesta_texto = "".join(respuesta_completa)
+            zymo.guardar_turno_md(current_user.email, "agent", respuesta_texto)
+            actualizar_contexto_login(
+                current_user.email,
+                {"ultima_consulta": payload.mensaje[:100], "agente": "zymo"},
+                agents_db,
+            )
             yield f"data: {json.dumps({'done': True})}\n\n"
         except Exception as e:
             logger.error("Error en stream ZYMO: %s", e)

@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from sqlmodel import Session, select, desc
 
 from app.agent_database import AgentDocumento, get_agents_db
+from app.services.memory_service import cargar_memoria_usuario, actualizar_contexto_login
 from app.agents.tools.doc_tools import (
     buscar_en_conocimiento,
     eliminar_documento,
@@ -213,28 +214,44 @@ def estado_administrativo(
 async def chat_administrativo(
     payload: ChatPayload,
     current_user: User = Depends(get_current_user),
+    agents_db: Session = Depends(get_agents_db),
 ):
     """
     Chat con el Agente Administrativo ZYMO (streaming SSE).
-    Responde como stream de Server-Sent Events.
+    Inyecta memoria persistente del usuario como contexto antes de enviar a Gemini.
     """
     agente = _get_agente_administrativo()
 
-    # Iniciar sesión si no viene session_id
     if not payload.session_id:
         agente.iniciar_sesion(user_id=current_user.id, user_email=current_user.email)
 
+    # Cargar memoria — enriquecer mensaje para Gemini
+    memoria_ctx = cargar_memoria_usuario(current_user.email, agents_db)
+    mensaje_para_gemini = (
+        f"{memoria_ctx}\n\n---\n{payload.mensaje}"
+        if memoria_ctx
+        else payload.mensaje
+    )
+
     async def generar_stream():
         try:
+            # Log del mensaje original (sin memoria — para logs limpios)
             agente.guardar_turno_md(current_user.email, "user", payload.mensaje)
             respuesta_completa = []
             async for chunk in agente.chat_stream(
-                payload.mensaje,
+                mensaje_para_gemini,
                 historial=payload.historial,
             ):
                 respuesta_completa.append(chunk)
                 yield f"data: {json.dumps({'chunk': chunk}, ensure_ascii=False)}\n\n"
-            agente.guardar_turno_md(current_user.email, "agent", "".join(respuesta_completa))
+            respuesta_texto = "".join(respuesta_completa)
+            agente.guardar_turno_md(current_user.email, "agent", respuesta_texto)
+            # Actualizar contexto del último login
+            actualizar_contexto_login(
+                current_user.email,
+                {"ultima_consulta": payload.mensaje[:100], "agente": "administrativo"},
+                agents_db,
+            )
             yield f"data: {json.dumps({'done': True})}\n\n"
         except Exception as e:
             logger.error("Error en stream administrativo: %s", e)
@@ -243,10 +260,7 @@ async def chat_administrativo(
     return StreamingResponse(
         generar_stream(),
         media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",  # Desactiva buffering en nginx
-        },
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
 
