@@ -18,7 +18,7 @@ from pathlib import Path
 # ── Rutas — ajustar si cambian en el servidor ──────────────────────────────────
 
 # Directorio de trabajo de LightRAG (se sobreescribe con env var si existe)
-LIGHTRAG_DIR = Path(os.getenv("LIGHTRAG_WORKING_DIR", "/home/analista_desarrollo/apps/zymo-intranet/backend/data/lightrag"))
+LIGHTRAG_DIR = Path(os.getenv("LIGHTRAG_WORKING_DIR", "/app/data/lightrag"))
 
 # Carpetas con los archivos .md a indexar
 DOCS_DIRS = [
