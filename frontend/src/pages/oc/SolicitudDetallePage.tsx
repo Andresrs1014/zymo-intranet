@@ -184,7 +184,7 @@ export function SolicitudDetallePage() {
             </div>
 
             <div className="flex gap-2 shrink-0">
-              {(esAuxiliarAsignado || puedeAsignarOtro) &&
+              {(esAuxiliarAsignado || puedeAsignarOtro || puedeAsignarse) &&
                 (solicitud.estado === "nueva" || solicitud.estado === "en_cotizacion") && (
                   <button
                     onClick={() => setModoRechazoSol(true)}
