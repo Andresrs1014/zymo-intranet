@@ -1,31 +1,41 @@
 """
 Script de indexación RAG — ZYMO Intranet
-Uso: docker exec -i zymo-intranet-backend-1 python3 indexar_rag.py
+
+Uso (en el servidor, desde ~/apps/zymo-intranet/backend/):
+    python3 indexar_rag.py
 
 Flujo:
   1. Detecta si hubo intentos previos (directorio lightrag con datos)
   2. Si los hubo, limpia antes de indexar para evitar corrupción
-  3. Indexa todos los archivos .md encontrados en /app/data/agent_docs/
+  3. Indexa todos los archivos .md de las dos carpetas de contexto
 """
 import asyncio
+import os
 import shutil
 import sys
 from pathlib import Path
 
-LIGHTRAG_DIR = Path("/app/data/lightrag")
-DOCS_DIR = Path("/app/data/agent_docs")
+# ── Rutas — ajustar si cambian en el servidor ──────────────────────────────────
 
+# Directorio de trabajo de LightRAG (se sobreescribe con env var si existe)
+LIGHTRAG_DIR = Path(os.getenv("LIGHTRAG_WORKING_DIR", "/home/analista_desarrollo/apps/zymo-intranet/backend/data/lightrag"))
+
+# Carpetas con los archivos .md a indexar
+DOCS_DIRS = [
+    Path("/tmp/docs_zymo"),
+    Path("/tmp/docs_zymo_administrativo"),
+]
+
+
+# ── Lógica principal ───────────────────────────────────────────────────────────
 
 def verificar_intento_previo() -> bool:
-    """Retorna True si existe un intento previo de indexación."""
     if not LIGHTRAG_DIR.exists():
         return False
-    archivos = list(LIGHTRAG_DIR.rglob("*"))
-    return len(archivos) > 0
+    return any(LIGHTRAG_DIR.rglob("*"))
 
 
 def limpiar_lightrag():
-    """Elimina el directorio lightrag y lo recrea vacío."""
     if LIGHTRAG_DIR.exists():
         shutil.rmtree(LIGHTRAG_DIR)
         print(f"  Directorio {LIGHTRAG_DIR} eliminado.")
@@ -34,17 +44,27 @@ def limpiar_lightrag():
 
 
 async def indexar_todo():
+    # Sobreescribir la ruta de LightRAG en settings para que el singleton use la correcta
+    os.environ["LIGHTRAG_WORKING_DIR"] = str(LIGHTRAG_DIR)
+
     from app.agents.lightrag_service import indexar_texto
 
-    archivos = sorted(DOCS_DIR.rglob("*.md"))
+    # Recopilar todos los .md de todas las carpetas
+    archivos = []
+    for d in DOCS_DIRS:
+        if not d.exists():
+            print(f"  [!] Carpeta no encontrada: {d} — se omite")
+            continue
+        encontrados = sorted(d.rglob("*.md"))
+        print(f"  {len(encontrados):>3} archivos en {d}")
+        archivos.extend(encontrados)
 
     if not archivos:
-        print(f"\n[!] No se encontraron archivos .md en {DOCS_DIR}")
-        print("    Verifica que los archivos estén en /app/data/agent_docs/")
+        print("\n[!] No se encontraron archivos .md en ninguna carpeta.")
         sys.exit(1)
 
-    print(f"\nArchivos encontrados: {len(archivos)}")
-    print("-" * 50)
+    print(f"\nTotal a indexar: {len(archivos)} archivos")
+    print("-" * 52)
 
     ok_count = 0
     fail_count = 0
@@ -55,49 +75,49 @@ async def indexar_todo():
             texto = f.read_text(encoding="utf-8", errors="ignore").strip()
 
             if not texto:
-                print(f"  [{i}/{len(archivos)}] SKIP  {f.name} — vacío")
+                print(f"  [{i:>2}/{len(archivos)}] SKIP  {f.name}")
                 skip_count += 1
                 continue
 
-            print(f"  [{i}/{len(archivos)}] ->    {f.name} ({len(texto):,} chars)...")
+            print(f"  [{i:>2}/{len(archivos)}] ->    {f.name} ({len(texto):,} chars)...")
             ok = await indexar_texto(texto)
 
             if ok:
-                print(f"  [{i}/{len(archivos)}] OK    {f.name}")
+                print(f"  [{i:>2}/{len(archivos)}] OK    {f.name}")
                 ok_count += 1
             else:
-                print(f"  [{i}/{len(archivos)}] FAIL  {f.name}")
+                print(f"  [{i:>2}/{len(archivos)}] FAIL  {f.name}")
                 fail_count += 1
 
         except Exception as e:
-            print(f"  [{i}/{len(archivos)}] ERROR {f.name}: {e}")
+            print(f"  [{i:>2}/{len(archivos)}] ERROR {f.name}: {e}")
             fail_count += 1
 
-    print("-" * 50)
-    print(f"\nResultado: {ok_count} OK  |  {fail_count} FAIL  |  {skip_count} SKIP")
+    print("-" * 52)
+    print(f"\nResultado:  {ok_count} OK  |  {fail_count} FAIL  |  {skip_count} SKIP")
 
     if fail_count > 0:
-        print("\n[!] Algunos archivos fallaron. Revisa los logs del backend para más detalle.")
+        print("\n[!] Algunos archivos fallaron. Revisa los logs para más detalle.")
         sys.exit(1)
     else:
-        print("\n[✓] Indexación completada.")
+        print("\n[✓] Indexación completada exitosamente.")
 
 
 def main():
-    print("=" * 50)
+    print("=" * 52)
     print("  ZYMO RAG — Indexación de documentos")
-    print("=" * 50)
+    print("=" * 52)
+    print(f"\nLightRAG dir : {LIGHTRAG_DIR}")
+    for d in DOCS_DIRS:
+        print(f"Docs dir     : {d}")
 
-    # Verificar intentos previos
     if verificar_intento_previo():
-        print("\n[!] Se detectó un intento previo de indexación.")
-        print("    Limpiando datos corruptos antes de reiniciar...")
+        print("\n[!] Intento previo detectado — limpiando antes de indexar...")
         limpiar_lightrag()
     else:
-        print("\n[✓] No hay datos previos. Iniciando indexación limpia.")
+        print("\n[✓] Sin datos previos. Indexación limpia.")
         LIGHTRAG_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Indexar
     print("\nIniciando indexación...")
     asyncio.run(indexar_todo())
 
