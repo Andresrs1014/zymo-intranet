@@ -20,11 +20,9 @@ logger = logging.getLogger(__name__)
 
 _rag: Optional[object] = None
 _rag_lock: Optional[asyncio.Lock] = None
-_gemini_sem: Optional[asyncio.Semaphore] = None
 
-# Pausa entre llamadas al LLM (extracción de entidades por chunk)
+# Pausa entre llamadas (LightRAG ya serializa con max_async=1, esto añade cortesía extra)
 _PAUSA_LLM_SEG = 1.5
-# Pausa entre llamadas de embedding
 _PAUSA_EMBED_SEG = 0.5
 
 
@@ -33,14 +31,6 @@ def _get_lock() -> asyncio.Lock:
     if _rag_lock is None:
         _rag_lock = asyncio.Lock()
     return _rag_lock
-
-
-def _get_semaphore() -> asyncio.Semaphore:
-    """Semáforo global: permite 1 llamada concurrente a Gemini a la vez."""
-    global _gemini_sem
-    if _gemini_sem is None:
-        _gemini_sem = asyncio.Semaphore(1)
-    return _gemini_sem
 
 
 def _es_429(exc: BaseException) -> bool:
@@ -66,33 +56,34 @@ def _embed_client(api_key: str):
 async def _llm_func(prompt: str, system_prompt: str | None = None, history_messages: list = [], **kwargs) -> str:
     """
     LLM callable que LightRAG usa para razonamiento y extracción de entidades.
-    Serializado con semáforo + pausa + reintentos en 429.
+    La concurrencia se controla desde LightRAG (llm_model_max_async=1).
+    Tenacity reintenta en 429 respetando el worker timeout de LightRAG (360s).
     """
     from app.config import settings
 
     client = _llm_client(settings.gemini_api_key_gerencial or settings.gemini_api_key_administrativo)
     contenido = f"{system_prompt}\n\n{prompt}" if system_prompt else prompt
 
-    async with _get_semaphore():
-        await asyncio.sleep(_PAUSA_LLM_SEG)
-        async for attempt in AsyncRetrying(
-            stop=stop_after_attempt(6),
-            wait=wait_exponential(multiplier=2, min=4, max=120),
-            retry=retry_if_exception(_es_429),
-            reraise=True,
-        ):
-            with attempt:
-                response = await client.aio.models.generate_content(
-                    model="gemini-2.0-flash",
-                    contents=contenido,
-                )
-                return response.text
+    await asyncio.sleep(_PAUSA_LLM_SEG)
+    async for attempt in AsyncRetrying(
+        stop=stop_after_attempt(4),
+        wait=wait_exponential(multiplier=2, min=10, max=90),
+        retry=retry_if_exception(_es_429),
+        reraise=True,
+    ):
+        with attempt:
+            response = await client.aio.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=contenido,
+            )
+            return response.text
 
 
 async def _embed_func(texts: list[str]) -> "np.ndarray":
     """
     Embedding callable que LightRAG usa para búsqueda semántica.
-    Procesa un texto a la vez con pausa + reintentos en 429.
+    La concurrencia se controla desde LightRAG (embedding_func_max_async=1).
+    Tenacity reintenta en 429 respetando el worker timeout de LightRAG (60s).
     """
     import numpy as np
     from app.config import settings
@@ -101,20 +92,19 @@ async def _embed_func(texts: list[str]) -> "np.ndarray":
     embeddings = []
 
     for text in texts:
-        async with _get_semaphore():
-            await asyncio.sleep(_PAUSA_EMBED_SEG)
-            async for attempt in AsyncRetrying(
-                stop=stop_after_attempt(6),
-                wait=wait_exponential(multiplier=2, min=4, max=120),
-                retry=retry_if_exception(_es_429),
-                reraise=True,
-            ):
-                with attempt:
-                    response = await client.aio.models.embed_content(
-                        model="gemini-embedding-001",
-                        contents=text,
-                    )
-                    embeddings.append(response.embeddings[0].values)
+        await asyncio.sleep(_PAUSA_EMBED_SEG)
+        async for attempt in AsyncRetrying(
+            stop=stop_after_attempt(3),
+            wait=wait_exponential(multiplier=1, min=5, max=20),
+            retry=retry_if_exception(_es_429),
+            reraise=True,
+        ):
+            with attempt:
+                response = await client.aio.models.embed_content(
+                    model="gemini-embedding-001",
+                    contents=text,
+                )
+                embeddings.append(response.embeddings[0].values)
 
     return np.array(embeddings)
 
@@ -148,11 +138,13 @@ async def get_rag():
             instancia = LightRAG(
                 working_dir=working_dir,
                 llm_model_func=_llm_func,
+                llm_model_max_async=1,
                 embedding_func=EmbeddingFunc(
                     embedding_dim=3072,
                     max_token_size=2048,
                     func=_embed_func,
                 ),
+                embedding_func_max_async=1,
             )
             await instancia.initialize_storages()
             _rag = instancia
