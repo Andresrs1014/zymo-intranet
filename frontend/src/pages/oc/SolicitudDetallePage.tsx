@@ -22,6 +22,7 @@ import {
   useUsuariosCompras,
   useHistorialEstados,
   usePlataformas,
+  useRechazarSolicitud,
 } from "@/hooks/useOC"
 import { useAuthStore } from "@/store/authStore"
 import { canSeeOC } from "@/lib/permissions"
@@ -49,7 +50,10 @@ export function SolicitudDetallePage() {
   const marcarEntregada = useMarcarEntregada()
   const cerrarSolicitud = useCerrarSolicitud()
   const cambiarPrioridad = useCambiarPrioridad()
+  const rechazarSolicitud = useRechazarSolicitud()
   const [errorOC, setErrorOC] = useState<string | null>(null)
+  const [modoRechazoSol, setModoRechazoSol] = useState(false)
+  const [motivoRechazoSol, setMotivoRechazoSol] = useState("")
 
   // Solo admin puede cambiar la prioridad
   const puedeEditarPrioridad = user?.role === "admin"
@@ -118,6 +122,14 @@ export function SolicitudDetallePage() {
     )
   }
 
+  function handleRechazarSolicitud() {
+    if (!id || !motivoRechazoSol.trim()) return
+    rechazarSolicitud.mutate(
+      { id, motivo_rechazo: motivoRechazoSol },
+      { onSuccess: () => { setModoRechazoSol(false); setMotivoRechazoSol("") } }
+    )
+  }
+
   async function handleDescargar() {
     if (!orden) return
     try {
@@ -172,6 +184,15 @@ export function SolicitudDetallePage() {
             </div>
 
             <div className="flex gap-2 shrink-0">
+              {(esAuxiliarAsignado || puedeAsignarOtro) &&
+                (solicitud.estado === "nueva" || solicitud.estado === "en_cotizacion") && (
+                  <button
+                    onClick={() => setModoRechazoSol(true)}
+                    className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-100 transition-colors"
+                  >
+                    Rechazar Solicitud
+                  </button>
+              )}
               {puedeAsignarse && (
                 <button
                   onClick={handleAsignarme}
@@ -447,6 +468,43 @@ export function SolicitudDetallePage() {
             </div>
           </div>
         </main>
+
+        {/* Modal rechazar solicitud */}
+        {modoRechazoSol && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+            <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4 space-y-4">
+              <h3 className="text-base font-semibold text-gray-900">Rechazar Solicitud</h3>
+              <p className="text-sm text-gray-500">
+                Por favor, escribe el motivo del rechazo. Este mensaje será enviado por correo al solicitante ({solicitud.solicitante_email}).
+              </p>
+              <div>
+                <textarea
+                  rows={3}
+                  value={motivoRechazoSol}
+                  onChange={(e) => setMotivoRechazoSol(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
+                  placeholder="Ej. El equipo no necesita compra, se puede pedir al almacén..."
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button
+                  onClick={handleRechazarSolicitud}
+                  disabled={!motivoRechazoSol.trim() || rechazarSolicitud.isPending}
+                  className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+                >
+                  {rechazarSolicitud.isPending ? "Rechazando..." : "Confirmar rechazo"}
+                </button>
+                <button
+                  onClick={() => setModoRechazoSol(false)}
+                  className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

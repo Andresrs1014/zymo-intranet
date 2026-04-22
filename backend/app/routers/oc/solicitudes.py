@@ -19,6 +19,7 @@ from app.services.email_service import (
     send_en_gestion,
     send_nueva_solicitud_interna,
     send_oc_enviada,
+    send_solicitud_rechazada,
 )
 
 router = APIRouter(prefix="/solicitudes", tags=["OC - Solicitudes"])
@@ -75,6 +76,10 @@ class AsignarPayload(BaseModel):
 
 class EstadoPayload(BaseModel):
     estado: EstadoOC
+
+
+class RechazoPayload(BaseModel):
+    motivo_rechazo: str
 
 
 class PrioridadPayload(BaseModel):
@@ -336,6 +341,47 @@ def cambiar_estado(
     elif nuevo_estado == EstadoOC.oc_enviada:
         background_tasks.add_task(send_oc_enviada, solicitud)                  # Flujo 4
 
+    return solicitud
+
+
+@router.patch("/{solicitud_id}/rechazar", response_model=SolicitudRead)
+def rechazar_solicitud(
+    solicitud_id: uuid.UUID,
+    payload: RechazoPayload,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(require_compras),
+    oc_db: Session = Depends(get_oc_db),
+):
+    """Rechaza una solicitud directamente (ej. por parte del auxiliar)."""
+    solicitud = oc_db.get(SolicitudOC, solicitud_id)
+    if not solicitud:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
+
+    estado_anterior = solicitud.estado
+    if estado_anterior not in (EstadoOC.nueva, EstadoOC.en_cotizacion, EstadoOC.pendiente_aprobacion):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Solo se pueden rechazar solicitudes en etapas iniciales.",
+        )
+
+    solicitud.estado = EstadoOC.rechazada
+    solicitud.updated_at = datetime.now(timezone.utc)
+    oc_db.add(solicitud)
+
+    registrar_cambio_estado(
+        oc_db,
+        solicitud.id,
+        estado_anterior,
+        EstadoOC.rechazada,
+        usuario_id=current_user.id,
+        usuario_nombre=current_user.full_name,
+        notas=payload.motivo_rechazo,
+    )
+
+    oc_db.commit()
+    oc_db.refresh(solicitud)
+
+    background_tasks.add_task(send_solicitud_rechazada, solicitud, payload.motivo_rechazo, current_user.full_name)
     return solicitud
 
 

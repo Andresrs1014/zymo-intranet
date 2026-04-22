@@ -744,6 +744,58 @@ async def send_entrega_confirmada(s: "SolicitudOC") -> None:
     )
 
 
+# ── Rechazo de Solicitud → solicitante ───────────────────────────────────────
+
+def _html_solicitud_rechazada(
+    s: "SolicitudOC",
+    motivo: str,
+    usuario_rechazo: str,
+    cfg: Optional[dict] = None,
+    logo_uri: str = "",
+) -> str:
+    """Notifica al solicitante que su solicitud fue rechazada."""
+    cuerpo = f"""
+    <p style="color:#374151;font-size:14px">Hola <strong>{s.solicitante_nombre}</strong>,</p>
+    <p style="color:#374151;font-size:14px">
+      El equipo de compras ha <strong>rechazado</strong> tu solicitud.
+      A continuación encontrarás el detalle y el motivo del rechazo para que puedas ajustarla si es necesario.
+    </p>
+    {_tabla(
+        _fila("Consecutivo", s.consecutivo_os),
+        _fila("Descripción", s.descripcion),
+        _fila("Fecha de solicitud", _fmt_fecha(s.fecha_solicitud)),
+        _fila("Fecha de rechazo", _fmt_fecha(s.updated_at)),
+        _fila("Rechazada por", usuario_rechazo),
+        _fila("Motivo del rechazo", motivo, destacar=True, cfg=cfg),
+    )}
+    <p style="color:#6b7280;font-size:13px">
+      Si tienes alguna duda sobre este rechazo, comunícate con compras o vuelve a generar la solicitud con los ajustes necesarios.
+    </p>
+    """
+    return _base(f"Solicitud rechazada — {s.consecutivo_os}", cuerpo, cfg, logo_uri=logo_uri)
+
+
+async def send_solicitud_rechazada(s: "SolicitudOC", motivo: str, usuario_rechazo: str) -> None:
+    """Flujo rechazo — email al solicitante cuando compras rechaza la solicitud entera."""
+    cfg = _get_runtime_config(plataforma=s.plataforma)
+    if not (cfg["smtp_user"] and cfg["smtp_password"]):
+        log.warning("[email] SMTP no configurado — omitiendo notificación rechazo solicitud")
+        return
+    if not s.solicitante_email:
+        log.warning("[email] Rechazo solicitud: %s sin email de solicitante", s.consecutivo_os)
+        return
+
+    logo_uri = _logo_base64(s.plataforma)
+    prefijo = _b(cfg, "email_prefijo")
+    await _send_html(
+        cfg,
+        subject=f"{prefijo} Solicitud rechazada — {s.consecutivo_os}",
+        recipients=[s.solicitante_email],
+        body=_html_solicitud_rechazada(s, motivo, usuario_rechazo, cfg, logo_uri=logo_uri),
+        flujo="Rechazo solicitud",
+    )
+
+
 # ── Rechazo de cotización → auxiliar ─────────────────────────────────────────
 
 def _html_rechazo_cotizacion(s: "SolicitudOC", motivo: str, cfg: Optional[dict] = None, logo_uri: str = "") -> str:

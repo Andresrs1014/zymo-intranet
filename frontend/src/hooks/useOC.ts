@@ -78,6 +78,23 @@ export function useCambiarEstado() {
   })
 }
 
+export function useRechazarSolicitud() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, motivo_rechazo }: { id: string; motivo_rechazo: string }) => {
+      const { data } = await api.patch<SolicitudOC>(`/api/oc/solicitudes/${id}/rechazar`, {
+        motivo_rechazo,
+      })
+      return data
+    },
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes", id] })
+      qc.invalidateQueries({ queryKey: ["oc", "historial", id] })
+    },
+  })
+}
+
 export interface GestionPayload {
   plataforma?: string
   numero_remision?: string
