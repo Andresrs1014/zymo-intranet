@@ -61,6 +61,19 @@ export function AgentFloatingWindow({ agente, usuarioNombre }: Props) {
     e.preventDefault()
   }, [])
 
+  // ── Touch drag (móvil) ───────────────────────────────────────────────────────
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (!windowRef.current || e.touches.length !== 1) return
+    const touch = e.touches[0]
+    const rect = windowRef.current.getBoundingClientRect()
+    dragging.current = true
+    dragOffset.current = {
+      x: touch.clientX - rect.left,
+      y: touch.clientY - rect.top,
+    }
+  }, [])
+
   useEffect(() => {
     function onMouseMove(e: MouseEvent) {
       if (!dragging.current) return
@@ -72,11 +85,27 @@ export function AgentFloatingWindow({ agente, usuarioNombre }: Props) {
     function onMouseUp() {
       dragging.current = false
     }
+    function onTouchMove(e: TouchEvent) {
+      if (!dragging.current || e.touches.length !== 1) return
+      e.preventDefault() // Evitar scroll mientras arrastra
+      const touch = e.touches[0]
+      setPos({
+        x: touch.clientX - dragOffset.current.x,
+        y: touch.clientY - dragOffset.current.y,
+      })
+    }
+    function onTouchEnd() {
+      dragging.current = false
+    }
     document.addEventListener("mousemove", onMouseMove)
     document.addEventListener("mouseup", onMouseUp)
+    document.addEventListener("touchmove", onTouchMove, { passive: false })
+    document.addEventListener("touchend", onTouchEnd)
     return () => {
       document.removeEventListener("mousemove", onMouseMove)
       document.removeEventListener("mouseup", onMouseUp)
+      document.removeEventListener("touchmove", onTouchMove)
+      document.removeEventListener("touchend", onTouchEnd)
     }
   }, [])
 
@@ -116,6 +145,7 @@ export function AgentFloatingWindow({ agente, usuarioNombre }: Props) {
       >
         <button
           onMouseDown={handleMouseDown}
+          onTouchStart={handleTouchStart}
           onClick={() => setExpanded(true)}
           className="flex items-center gap-2.5 rounded-2xl bg-white border border-gray-200 shadow-lg px-4 py-3 hover:shadow-xl transition-shadow group cursor-pointer"
         >
@@ -162,6 +192,7 @@ export function AgentFloatingWindow({ agente, usuarioNombre }: Props) {
       {/* Header (arrastrable) */}
       <div
         onMouseDown={handleMouseDown}
+        onTouchStart={handleTouchStart}
         className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 rounded-t-2xl bg-brand-blue cursor-grab active:cursor-grabbing"
       >
         <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-white text-sm font-bold shrink-0">
