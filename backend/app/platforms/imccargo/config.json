@@ -1,46 +1,10 @@
 {
   "nombre": "IMC CARGO INTERNATIONAL S.A.S.",
   "nit": "830.513.769-8",
-  "direccion": "KM 2.5 Siberia-Bogotá, Costado Sur, Centro Logístico Industrial CLIC 80",
+  "direccion_entrega": "KM 2.5 Siberia-Bogotá, Costado Sur, Centro Logístico Industrial CLIC 80",
   "ciudad": "Bogotá, Colombia",
   "pbx": "(1) 7 44 92 01",
   "email_facturacion": "830513769@factureinbox.co",
-  "prefijo_oc": "C",
   "logo": "imccargo_logo.jpeg",
-  "logo_anchor": "C3",
-  "logo_width": 130,
-  "logo_height": 150,
-  "template": "template.xlsx",
-  "print_area": "A1:J45",
-  "celdas_dinamicas": {
-    "numero_oc": "G4",
-    "fecha": "F5",
-    "proveedor_nombre": "F6",
-    "proveedor_nit": "F7",
-    "os_ref": "F9",
-    "cot_ref": "H9",
-    "solicita": "E30",
-    "area_firma": "C39",
-    "elabora": "F40",
-    "aprueba": "G40",
-    "nota": "C14",
-    "forma_pago": "E21",
-    "forma_pago_x": "G21",
-    "anticipo": "E22",
-    "pago_saldo": "E23",
-    "plazo_inmediata_x": "G26",
-    "plazo_dias": "E27",
-    "plazo_fecha": "E28",
-    "garantia": "E29"
-  },
-  "items": {
-    "fila_inicio": 11,
-    "max_filas": 20,
-    "col_item_num": "C",
-    "col_cantidad": "D",
-    "col_referencia": "E",
-    "col_descripcion": "F",
-    "col_valor_unitario": "G",
-    "col_total": "H"
-  }
+  "texto_cumplimiento": "Nuestro grupo logístico LOGIMAT SAS, IMC CARGO INTERNATIONAL SAS e IMC DEPOSITO SAS orientados bajo estándares de transparencia, seguridad e integridad empresarial y con la finalidad de asegurar relaciones comerciales saludables, dentro del marco legal y en virtud de ello siendo conscientes que a nivel global estamos expuestos a riesgos tales como, el lavado de activos, financiamiento del terrorismo, extorsión, tráfico de armas, soborno, ciberataques, contaminación de la carga, entre otros. Lo invitamos a participar en la prevención de los riesgos, manteniendo su negocio con procesos de seguridad y conocimiento de sus asociados, lo cual fortalece nuestras relaciones comerciales y evita perdida de estas y permite crecimiento entre las partes interesadas."
 }

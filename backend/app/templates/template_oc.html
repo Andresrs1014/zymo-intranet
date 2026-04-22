@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    /* ── Variables ───────────────────────────────────────────────────────── */
+    :root {
+      --blue:       #2563EB;
+      --blue-light: #EFF6FF;
+      --blue-mid:   #DBEAFE;
+      --navy:       #1E293B;
+      --slate:      #475569;
+      --border:     #CBD5E1;
+      --bg:         #F8FAFC;
+      --white:      #FFFFFF;
+    }
+
+    /* ── Página ──────────────────────────────────────────────────────────── */
+    @page {
+      size: A4 portrait;
+      margin: 1.4cm 1.6cm 1.2cm 1.6cm;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: 'Liberation Sans', Arial, Helvetica, sans-serif;
+      font-size: 9.5pt;
+      color: var(--navy);
+      margin: 0;
+      padding: 0;
+      background: var(--white);
+    }
+
+    /* ── Barra de acento superior ────────────────────────────────────────── */
+    .top-bar {
+      background: var(--blue);
+      height: 5px;
+      margin-bottom: 14px;
+    }
+
+    /* ── Encabezado: logo + datos empresa + número OC ─────────────────────── */
+    .header {
+      display: table;
+      width: 100%;
+      margin-bottom: 14px;
+    }
+    .header-logo  { display: table-cell; width: 42%; vertical-align: middle; }
+    .header-info  { display: table-cell; width: 58%; vertical-align: middle; text-align: right; }
+    .header-logo img { max-width: 190px; max-height: 68px; }
+
+    .empresa-nombre {
+      font-size: 13pt;
+      font-weight: 700;
+      color: var(--navy);
+      letter-spacing: -0.3px;
+    }
+    .empresa-nit {
+      font-size: 8.5pt;
+      color: var(--slate);
+      margin-top: 2px;
+    }
+    .oc-badge {
+      display: inline-block;
+      margin-top: 8px;
+      background: var(--blue);
+      color: var(--white);
+      font-size: 11pt;
+      font-weight: 700;
+      padding: 4px 12px;
+      border-radius: 3px;
+      letter-spacing: 0.3px;
+    }
+
+    /* ── Divisor ─────────────────────────────────────────────────────────── */
+    .divider {
+      border: none;
+      border-top: 1.5px solid var(--border);
+      margin: 0 0 10px 0;
+    }
+
+    /* ── Tablas generales ────────────────────────────────────────────────── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 9px;
+    }
+    td, th {
+      padding: 5px 7px;
+      vertical-align: top;
+      text-align: left;
+    }
+
+    /* ── Tabla de datos generales ────────────────────────────────────────── */
+    .info-table td {
+      border: 1px solid var(--border);
+      font-size: 9pt;
+    }
+    .info-table .label {
+      font-weight: 700;
+      color: var(--slate);
+      background: var(--bg);
+      width: 13%;
+      white-space: nowrap;
+    }
+
+    /* ── Tabla de ítems ──────────────────────────────────────────────────── */
+    .items-table th {
+      background: var(--blue);
+      color: var(--white);
+      font-size: 8.5pt;
+      font-weight: 700;
+      text-align: center;
+      border: 1px solid var(--blue);
+      padding: 5px 6px;
+    }
+    .items-table td {
+      border: 1px solid var(--border);
+      font-size: 9pt;
+    }
+    .items-table tbody tr:nth-child(even) td {
+      background: var(--bg);
+    }
+    .items-table .num   { text-align: center; width: 5%; }
+    .items-table .cant  { text-align: center; width: 8%; }
+    .items-table .ref   { width: 13%; }
+    .items-table .desc  { width: 46%; }
+    .items-table .money { text-align: right; width: 14%; }
+
+    /* ── Nota + Totales ──────────────────────────────────────────────────── */
+    .totals-wrap { display: table; width: 100%; margin-bottom: 9px; }
+    .totals-nota { display: table-cell; width: 62%; vertical-align: top;
+                   border: 1px solid var(--border); padding: 6px 8px; font-size: 8.5pt; }
+    .totals-nums { display: table-cell; width: 38%; vertical-align: top; }
+
+    .totals-nums table { margin: 0; }
+    .totals-nums td { border: 1px solid var(--border); font-size: 9pt; padding: 4px 7px; }
+    .totals-nums .tlabel { background: var(--bg); font-weight: 700; color: var(--slate); text-align: right; }
+    .totals-nums .tvalue { text-align: right; }
+    .totals-nums .total-row td { background: var(--blue); color: var(--white); font-weight: 700; font-size: 10pt; }
+
+    /* ── Sección de encabezado interno ──────────────────────────────────── */
+    .section-title {
+      background: var(--blue-light);
+      border-left: 3px solid var(--blue);
+      border-top: 1px solid var(--blue-mid);
+      border-bottom: 1px solid var(--blue-mid);
+      color: var(--blue);
+      font-weight: 700;
+      font-size: 8.5pt;
+      padding: 4px 8px;
+      margin-bottom: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* ── Condiciones comerciales ─────────────────────────────────────────── */
+    .cond-table td {
+      border: 1px solid var(--border);
+      font-size: 9pt;
+    }
+    .cond-table .label {
+      font-weight: 700;
+      color: var(--slate);
+      background: var(--bg);
+      width: 18%;
+      white-space: nowrap;
+    }
+
+    /* ── Texto legal ─────────────────────────────────────────────────────── */
+    .legal {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--border);
+      padding: 7px 9px;
+      font-size: 7.5pt;
+      color: var(--slate);
+      text-align: justify;
+      line-height: 1.45;
+      margin-top: 8px;
+      margin-bottom: 12px;
+    }
+    .legal strong { color: var(--navy); }
+
+    /* ── Firmas ──────────────────────────────────────────────────────────── */
+    .firmas-wrap {
+      display: table;
+      width: 100%;
+      margin-top: 18px;
+    }
+    .firma-col {
+      display: table-cell;
+      width: 33.3%;
+      text-align: center;
+      padding: 0 12px;
+      vertical-align: top;
+    }
+    .firma-line {
+      border-top: 1.2px solid var(--navy);
+      padding-top: 5px;
+    }
+    .firma-rol {
+      font-size: 8pt;
+      font-weight: 700;
+      color: var(--blue);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .firma-nombre {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-style: italic;
+      font-size: 10pt;
+      font-weight: 700;
+      color: var(--navy);
+      margin-top: 3px;
+    }
+    .firma-sub {
+      font-size: 7.5pt;
+      color: var(--slate);
+      margin-top: 2px;
+    }
+
+    /* ── Pie de página ───────────────────────────────────────────────────── */
+    .footer-bar {
+      background: var(--blue);
+      height: 3px;
+      margin-top: 14px;
+    }
+    .footer-text {
+      font-size: 7pt;
+      color: var(--slate);
+      text-align: center;
+      margin-top: 5px;
+    }
+
+    /* ── Utilidades ──────────────────────────────────────────────────────── */
+    .text-right  { text-align: right !important; }
+    .text-center { text-align: center !important; }
+    .fw-bold     { font-weight: 700; }
+  </style>
+</head>
+<body>
+
+  <!-- Barra azul superior -->
+  <div class="top-bar"></div>
+
+  <!-- ENCABEZADO -->
+  <div class="header">
+    <div class="header-logo">
+      {% if logo_url %}
+      <img src="{{ logo_url }}" alt="Logo {{ empresa.nombre }}">
+      {% endif %}
+    </div>
+    <div class="header-info">
+      <div class="empresa-nombre">{{ empresa.nombre }}</div>
+      <div class="empresa-nit">NIT: {{ empresa.nit }}</div>
+      <div class="oc-badge">ORDEN DE COMPRA &nbsp;{{ numero_oc }}</div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- DATOS GENERALES -->
+  <table class="info-table">
+    <tr>
+      <td class="label">FECHA</td>
+      <td>{{ fecha }}</td>
+      <td class="label" style="width:13%;">ORDEN SEGÚN</td>
+      <td>
+        {% if os_ref %}OS: {{ os_ref }}{% endif %}
+        {% if os_ref and cot_ref %} &nbsp;|&nbsp; {% endif %}
+        {% if cot_ref %}COT: {{ cot_ref }}{% endif %}
+        {% if not os_ref and not cot_ref %}—{% endif %}
+      </td>
+    </tr>
+    <tr>
+      <td class="label">PROVEEDOR</td>
+      <td>{{ proveedor.nombre }}</td>
+      <td class="label">NIT</td>
+      <td>{{ proveedor.nit }}</td>
+    </tr>
+    <tr>
+      <td class="label">ENTREGA EN</td>
+      <td colspan="3">{{ empresa.direccion_entrega }}</td>
+    </tr>
+    {% if entregar_a %}
+    <tr>
+      <td class="label">ENTREGAR A</td>
+      <td colspan="3">{{ entregar_a }}</td>
+    </tr>
+    {% endif %}
+  </table>
+
+  <!-- ITEMS -->
+  <div class="section-title">Detalle del Pedido</div>
+  <table class="items-table">
+    <thead>
+      <tr>
+        <th class="num">ITEM</th>
+        <th class="cant">CANT.</th>
+        <th class="ref">REFERENCIA</th>
+        <th class="desc">DESCRIPCIÓN</th>
+        <th class="money">V. UNITARIO</th>
+        <th class="money">V. TOTAL</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      <tr>
+        <td class="num">{{ item.num }}</td>
+        <td class="cant">{{ item.cantidad }}</td>
+        <td>{{ item.referencia or "—" }}</td>
+        <td>{{ item.descripcion }}</td>
+        <td class="money">${{ "{:,.0f}".format(item.valor_unitario or 0) }}</td>
+        <td class="money">${{ "{:,.0f}".format(item.valor_total or 0) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- NOTA + TOTALES -->
+  <div class="totals-wrap">
+    <div class="totals-nota">
+      <span class="fw-bold">Nota:</span><br>
+      {{ nota or "—" }}<br><br>
+      <span class="fw-bold">Buzón Facturación:</span> {{ empresa.email_facturacion }}
+    </div>
+    <div class="totals-nums">
+      <table>
+        <tr>
+          <td class="tlabel">SUBTOTAL</td>
+          <td class="tvalue">${{ "{:,.0f}".format(subtotal or 0) }}</td>
+        </tr>
+        <tr>
+          <td class="tlabel">IVA</td>
+          <td class="tvalue">${{ "{:,.0f}".format(iva or 0) }}</td>
+        </tr>
+        <tr class="total-row">
+          <td>TOTAL</td>
+          <td>${{ "{:,.0f}".format(total or 0) }}</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- CONDICIONES COMERCIALES -->
+  <div class="section-title">Condiciones Comerciales</div>
+  <table class="cond-table">
+    <tr>
+      <td class="label">FORMA DE PAGO</td>
+      <td>{{ forma_pago or "NO ESPECIFICADO" }}</td>
+      <td class="label">ANTICIPO</td>
+      <td>{{ anticipo or "N/A" }}</td>
+    </tr>
+    <tr>
+      <td class="label">PAGO SALDO</td>
+      <td>{{ pago_saldo or "N/A" }}</td>
+      <td class="label">GARANTÍA</td>
+      <td>{{ garantia or "CALIDAD" }}</td>
+    </tr>
+    <tr>
+      <td class="label">PLAZO ENTREGA</td>
+      <td colspan="3">{{ plazo_entrega or "NO ESPECIFICADO" }}</td>
+    </tr>
+  </table>
+
+  <!-- TEXTO LEGAL -->
+  <div class="legal">
+    <strong>Apreciado Proveedor:</strong><br>
+    {{ empresa.texto_cumplimiento }}
+  </div>
+
+  <!-- FIRMAS -->
+  <div class="firmas-wrap">
+    <div class="firma-col">
+      <div class="firma-line">
+        <div class="firma-rol">Solicita</div>
+        <div class="firma-nombre">{{ firmas.solicita }}</div>
+        <div class="firma-sub">{{ firmas.area }}</div>
+      </div>
+    </div>
+    <div class="firma-col">
+      <div class="firma-line">
+        <div class="firma-rol">Elabora</div>
+        <div class="firma-nombre">{{ firmas.elabora or "—" }}</div>
+      </div>
+    </div>
+    <div class="firma-col">
+      <div class="firma-line">
+        <div class="firma-rol">Aprueba</div>
+        <div class="firma-nombre">{{ firmas.aprueba or "—" }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Barra azul inferior + pie -->
+  <div class="footer-bar"></div>
+  <div class="footer-text">
+    {{ empresa.nombre }} &nbsp;·&nbsp; NIT {{ empresa.nit }}
+    &nbsp;·&nbsp; {{ empresa.ciudad }}
+    &nbsp;·&nbsp; PBX {{ empresa.pbx }}
+  </div>
+
+</body>
+</html>
