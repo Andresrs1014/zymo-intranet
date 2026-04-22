@@ -112,7 +112,7 @@ async def _embed_func(texts: list[str]) -> "np.ndarray":
                 with attempt:
                     response = await client.aio.models.embed_content(
                         model="gemini-embedding-001",
-                        contents=text[:8000],
+                        contents=text,
                     )
                     embeddings.append(response.embeddings[0].values)
 
@@ -150,7 +150,7 @@ async def get_rag():
                 llm_model_func=_llm_func,
                 embedding_func=EmbeddingFunc(
                     embedding_dim=3072,
-                    max_token_size=8192,
+                    max_token_size=2048,
                     func=_embed_func,
                 ),
             )
