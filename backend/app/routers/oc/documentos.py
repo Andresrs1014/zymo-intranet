@@ -73,11 +73,11 @@ def _load_platform_config(plataforma: Optional[str]) -> dict:
     if config_path.exists():
         return json.loads(config_path.read_text(encoding="utf-8"))
     return {
-        "nombre": "LOGIMAT S.A.S.",
-        "nit": "830.103.877-6",
-        "direccion_entrega": "Carrera 106 No. 15A-25 - Manzana 23 LTE 135M",
-        "email_facturacion": "830103877@factureinbox.co",
-        "logo": "logo_logimat.png",
+        "nombre": "Conexiones Logísticas",
+        "nit": "",
+        "direccion_entrega": "",
+        "email_facturacion": "",
+        "logo": "",
         "texto_cumplimiento": "",
     }
 
@@ -124,8 +124,8 @@ def _generar_pdf(
         "entregar_a": solicitud.solicitante_nombre or "",
         "nota": cotizacion.observaciones or solicitud.observaciones_solicitante or "",
         "items": items,
-        "subtotal": cotizacion.valor_antes_iva or cotizacion.valor_total or 0,
-        "iva": cotizacion.valor_iva or 0,
+        "subtotal": cotizacion.valor_antes_iva,   # None if not provided — template handles display
+        "iva": cotizacion.valor_iva,               # None if not applicable
         "total": cotizacion.valor_total or 0,
         "forma_pago": cotizacion.forma_pago or "",
         "anticipo": cotizacion.anticipo or "",

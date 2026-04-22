@@ -570,3 +570,21 @@ export function useDespacharPaquete() {
     },
   })
 }
+
+// ── Plataformas ───────────────────────────────────────────────────────────────
+
+export interface PlataformaOption {
+  slug: string
+  nombre: string
+}
+
+export function usePlataformas() {
+  return useQuery({
+    queryKey: ["oc", "plataformas"],
+    queryFn: async () => {
+      const { data } = await api.get<PlataformaOption[]>("/api/oc/plataformas")
+      return data
+    },
+    staleTime: 1000 * 60 * 60, // cache 1 hour
+  })
+}

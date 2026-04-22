@@ -19,6 +19,11 @@ from zoneinfo import ZoneInfo
 
 from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType
 
+import base64 as _base64
+import json as _json
+import mimetypes as _mimetypes
+from pathlib import Path as _Path
+
 from app.config import settings
 
 if TYPE_CHECKING:
@@ -26,16 +31,31 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-# ── Branding por defecto (se sobreescribe desde OcConfig en DB) ───────────────
+_PLATFORMS_DIR_EMAIL = _Path(__file__).parent.parent / "platforms"
 
+_SLUG_MAP_EMAIL: dict[str, str] = {
+    "logimat": "logimat",
+    "logimat s.a.s.": "logimat",
+    "imccargo": "imccargo",
+    "imc cargo": "imccargo",
+    "imc cargo international": "imccargo",
+    "imc cargo international s.a.s.": "imccargo",
+    "imcdep": "imcdep",
+    "imc deposito": "imcdep",
+    "imc depósito": "imcdep",
+    "imc deposito s.a.s.": "imcdep",
+    "imc depósito s.a.s.": "imcdep",
+}
+
+# Branding por defecto — datos genéricos del grupo. NITs y datos específicos van en config.json
 _BRANDING_DEFAULTS: dict[str, str] = {
-    "empresa_nombre": "LOGIMAT S.A.S.",
-    "empresa_color":  "#C8102E",
-    "empresa_nit":    "830.103.877-6",
-    "empresa_tel":    "(1) 7 44 92 00",
-    "empresa_dir":    "Zona Franca de Bogotá",
+    "empresa_nombre": "Conexiones Logísticas",
+    "empresa_color":  "#2563EB",
+    "empresa_nit":    "",
+    "empresa_tel":    "",
+    "empresa_dir":    "Bogotá, Colombia",
     "empresa_dept":   "Departamento de Compras",
-    "email_prefijo":  "[Compras LOGIMAT]",
+    "email_prefijo":  "[Compras Conexiones Logísticas]",
 }
 
 _INTRO_DEFAULTS: dict[str, str] = {
@@ -52,6 +72,65 @@ _INTRO_DEFAULTS: dict[str, str] = {
         "La Orden de Compra para tu solicitud ha sido generada y enviada al proveedor."
     ),
 }
+
+
+def _load_platform_branding(plataforma: str | None) -> dict[str, str]:
+    """Lee campos de branding desde platforms/{slug}/config.json.
+
+    Retorna dict vacío si no se reconoce la plataforma o el archivo no existe.
+    """
+    if not plataforma:
+        return {}
+    slug = _SLUG_MAP_EMAIL.get(plataforma.lower().strip())
+    if not slug:
+        return {}
+    cfg_path = _PLATFORMS_DIR_EMAIL / slug / "config.json"
+    if not cfg_path.exists():
+        return {}
+    try:
+        cfg = _json.loads(cfg_path.read_text(encoding="utf-8"))
+        return {
+            "empresa_nombre": cfg.get("nombre", ""),
+            "empresa_color":  cfg.get("empresa_color", ""),
+            "empresa_nit":    cfg.get("nit", ""),
+            "empresa_tel":    cfg.get("pbx", ""),
+            "empresa_dir":    cfg.get("ciudad", cfg.get("direccion_entrega", "")),
+            "empresa_dept":   cfg.get("empresa_dept", ""),
+            "email_prefijo":  cfg.get("email_prefijo", ""),
+        }
+    except Exception as exc:
+        log.warning("[email] No se pudo leer config de plataforma '%s': %s", slug, exc)
+        return {}
+
+
+def _logo_base64(plataforma: str | None) -> str:
+    """Retorna el logo de la plataforma como data URI base64 para incrustar en HTML.
+
+    Retorna string vacío si no se encuentra o no se reconoce la plataforma.
+    """
+    if not plataforma:
+        return ""
+    slug = _SLUG_MAP_EMAIL.get(plataforma.lower().strip())
+    if not slug:
+        return ""
+    cfg_path = _PLATFORMS_DIR_EMAIL / slug / "config.json"
+    if not cfg_path.exists():
+        return ""
+    try:
+        cfg = _json.loads(cfg_path.read_text(encoding="utf-8"))
+        logo_filename = cfg.get("logo")
+        if not logo_filename:
+            return ""
+        logo_path = _PLATFORMS_DIR_EMAIL / slug / logo_filename
+        if not logo_path.exists():
+            return ""
+        mime, _ = _mimetypes.guess_type(str(logo_path))
+        mime = mime or "image/jpeg"
+        data = _base64.b64encode(logo_path.read_bytes()).decode()
+        return f"data:{mime};base64,{data}"
+    except Exception as exc:
+        log.warning("[email] No se pudo cargar logo para '%s': %s", slug, exc)
+        return ""
 
 
 def _b(cfg: Optional[dict], key: str) -> str:
@@ -74,8 +153,12 @@ def _intro(cfg: Optional[dict], key: str, solicitante: str = "") -> str:
 
 # ── Configuración SMTP ────────────────────────────────────────────────────────
 
-def _get_runtime_config() -> dict:
-    """Lee la config SMTP y branding de oc_config (DB), con fallback a settings/.env."""
+def _get_runtime_config(plataforma: str | None = None) -> dict:
+    """Lee la config SMTP y branding de oc_config (DB), con fallback a settings/.env.
+
+    Si se proporciona `plataforma`, aplica branding específico de esa plataforma
+    encima de los defaults. La DB sobreescribe todo.
+    """
     from sqlmodel import Session, select
     from app.models.oc import OcConfig
     from app.oc_database import get_oc_engine
@@ -89,14 +172,19 @@ def _get_runtime_config() -> dict:
         "email_directora": settings.email_directora,
         "email_compras":   "",
         "intranet_url":    settings.intranet_url,
-        # Branding (defaults; sobreescritos desde DB)
         **_BRANDING_DEFAULTS,
-        # Intros configurables (vacío = usa _INTRO_DEFAULTS)
         "email_intro_flujo1": "",
         "email_intro_flujo2": "",
         "email_intro_flujo3": "",
         "email_intro_flujo4": "",
     }
+
+    # Capa 1: branding de la plataforma (desde config.json)
+    for k, v in _load_platform_branding(plataforma).items():
+        if v:
+            cfg[k] = v
+
+    # Capa 2: valores de la DB sobreescriben todo
     try:
         with Session(get_oc_engine()) as db:
             for row in db.exec(select(OcConfig)).all():
@@ -104,6 +192,7 @@ def _get_runtime_config() -> dict:
                     cfg[row.key] = int(row.value) if row.key == "smtp_port" else row.value
     except Exception as exc:
         log.warning("[email] No se pudo leer oc_config de DB: %s", exc)
+
     return cfg
 
 
@@ -169,16 +258,24 @@ def _fmt_cop(value) -> str:
 
 # ── Templates HTML ────────────────────────────────────────────────────────────
 
-def _base(titulo: str, cuerpo: str, cfg: Optional[dict] = None) -> str:
+def _base(titulo: str, cuerpo: str, cfg: Optional[dict] = None, logo_uri: str = "") -> str:
     nombre = _b(cfg, "empresa_nombre")
     color  = _b(cfg, "empresa_color")
     nit    = _b(cfg, "empresa_nit")
     tel    = _b(cfg, "empresa_tel")
     dir_   = _b(cfg, "empresa_dir")
     dept   = _b(cfg, "empresa_dept")
+    logo_html = (
+        f'<img src="{logo_uri}" alt="{nombre}" '
+        f'style="max-height:44px;max-width:140px;object-fit:contain;vertical-align:middle;margin-right:12px">'
+        if logo_uri else ""
+    )
+    footer_nit = f" · NIT: {nit}" if nit else ""
+    footer_tel = f" · PBX: {tel}" if tel else ""
     return f"""
     <div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;padding:24px">
       <div style="background:{color};padding:16px 24px;border-radius:8px 8px 0 0;display:flex;align-items:center;gap:12px">
+        {logo_html}
         <div>
           <h2 style="color:#fff;margin:0;font-size:18px;letter-spacing:1px">{nombre}</h2>
           <p style="color:rgba(255,255,255,0.75);margin:2px 0 0;font-size:12px">{dept}</p>
@@ -195,7 +292,7 @@ def _base(titulo: str, cuerpo: str, cfg: Optional[dict] = None) -> str:
       </div>
       <div style="background:#f9fafb;padding:10px 24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px">
         <p style="color:#9ca3af;font-size:11px;margin:0;text-align:center">
-          {nombre} · NIT: {nit} · {dir_} · PBX: {tel}
+          {nombre}{footer_nit} · {dir_}{footer_tel}
         </p>
       </div>
     </div>
@@ -259,7 +356,7 @@ def _tabla_items(items: list[dict]) -> str:
 
 # ── Flujo 1 — En gestión → solicitante ───────────────────────────────────────
 
-def _html_en_gestion(s: "SolicitudOC", cfg: Optional[dict] = None) -> str:
+def _html_en_gestion(s: "SolicitudOC", cfg: Optional[dict] = None, logo_uri: str = "") -> str:
     intro = _intro(cfg, "email_intro_flujo1", s.solicitante_nombre)
     cuerpo = f"""
     <p style="color:#374151;font-size:14px">Hola <strong>{s.solicitante_nombre}</strong>,</p>
@@ -276,12 +373,12 @@ def _html_en_gestion(s: "SolicitudOC", cfg: Optional[dict] = None) -> str:
       Si tienes alguna duda, puedes comunicarte con el equipo de compras.
     </p>
     """
-    return _base("Tu solicitud está siendo gestionada", cuerpo, cfg)
+    return _base("Tu solicitud está siendo gestionada", cuerpo, cfg, logo_uri=logo_uri)
 
 
 # ── Flujo 2 — Cotización lista → solicitante ─────────────────────────────────
 
-def _html_cotizacion_lista(s: "SolicitudOC", cfg: Optional[dict] = None) -> str:
+def _html_cotizacion_lista(s: "SolicitudOC", cfg: Optional[dict] = None, logo_uri: str = "") -> str:
     intro = _intro(cfg, "email_intro_flujo2", s.solicitante_nombre)
     cuerpo = f"""
     <p style="color:#374151;font-size:14px">Hola <strong>{s.solicitante_nombre}</strong>,</p>
@@ -294,7 +391,7 @@ def _html_cotizacion_lista(s: "SolicitudOC", cfg: Optional[dict] = None) -> str:
         _fila("Estado", "⏳ Pendiente de aprobación"),
     )}
     """
-    return _base("Cotización lista — pendiente de aprobación", cuerpo, cfg)
+    return _base("Cotización lista — pendiente de aprobación", cuerpo, cfg, logo_uri=logo_uri)
 
 
 # ── Flujo 3 — Aprobación directora ───────────────────────────────────────────
@@ -303,6 +400,7 @@ def _html_aprobacion_directora(
     s: "SolicitudOC",
     cot: Optional["CotizacionProveedor"],
     cfg: Optional[dict] = None,
+    logo_uri: str = "",
 ) -> str:
     intro = _intro(cfg, "email_intro_flujo3")
     seccion_cotizacion = ""
@@ -347,12 +445,12 @@ def _html_aprobacion_directora(
       Ingresa a la intranet para revisar y <strong>aprobar o rechazar</strong> la cotización.
     </p>
     """
-    return _base(f"Aprobación requerida — {s.consecutivo_os}", cuerpo, cfg)
+    return _base(f"Aprobación requerida — {s.consecutivo_os}", cuerpo, cfg, logo_uri=logo_uri)
 
 
 # ── Flujo 4 — OC enviada → solicitante ───────────────────────────────────────
 
-def _html_oc_enviada(s: "SolicitudOC", cfg: Optional[dict] = None) -> str:
+def _html_oc_enviada(s: "SolicitudOC", cfg: Optional[dict] = None, logo_uri: str = "") -> str:
     intro = _intro(cfg, "email_intro_flujo4", s.solicitante_nombre)
     fila_entrega = _fila(
         "Fecha estimada de entrega",
@@ -373,7 +471,7 @@ def _html_oc_enviada(s: "SolicitudOC", cfg: Optional[dict] = None) -> str:
       El equipo de compras te mantendrá informado sobre la entrega.
     </p>
     """
-    return _base("Tu Orden de Compra fue enviada al proveedor", cuerpo, cfg)
+    return _base("Tu Orden de Compra fue enviada al proveedor", cuerpo, cfg, logo_uri=logo_uri)
 
 
 # ── OC al proveedor ───────────────────────────────────────────────────────────
@@ -383,6 +481,7 @@ def _html_oc_proveedor(
     numero_oc: str,
     items: Optional[list[dict]] = None,
     cfg: Optional[dict] = None,
+    logo_uri: str = "",
 ) -> str:
     nombre_empresa = _b(cfg, "empresa_nombre")
     if items:
@@ -415,7 +514,7 @@ def _html_oc_proveedor(
     </p>
     <p style="color:#374151;font-size:14px">Gracias por su atención.</p>
     """
-    return _base(f"Orden de Compra {numero_oc}", cuerpo, cfg)
+    return _base(f"Orden de Compra {numero_oc}", cuerpo, cfg, logo_uri=logo_uri)
 
 
 # ── Flujo Interno — Nueva solicitud → equipo de compras ──────────────────────
@@ -424,6 +523,7 @@ def _html_nueva_solicitud_interna(
     s: "SolicitudOC",
     intranet_url: str,
     cfg: Optional[dict] = None,
+    logo_uri: str = "",
 ) -> str:
     color = _b(cfg, "empresa_color")
     link = f"{intranet_url}/oc/solicitudes/{s.id}"
@@ -452,14 +552,14 @@ def _html_nueva_solicitud_interna(
       Cordialmente,<br/><strong>{s.solicitante_nombre}</strong>
     </p>
     """
-    return _base(f"Nueva solicitud de compra — {s.consecutivo_os}", cuerpo, cfg)
+    return _base(f"Nueva solicitud de compra — {s.consecutivo_os}", cuerpo, cfg, logo_uri=logo_uri)
 
 
 # ── Funciones públicas (llamar desde background tasks) ────────────────────────
 
 async def send_en_gestion(s: "SolicitudOC") -> None:
     """Flujo 1 — email al solicitante cuando el auxiliar toma la solicitud."""
-    cfg = _get_runtime_config()
+    cfg = _get_runtime_config(plataforma=s.plataforma)
     if not (cfg["smtp_user"] and cfg["smtp_password"]):
         log.warning("[email] SMTP no configurado — omitiendo Flujo 1")
         return
@@ -467,19 +567,20 @@ async def send_en_gestion(s: "SolicitudOC") -> None:
         log.warning("[email] Flujo 1: solicitud %s sin email de solicitante", s.consecutivo_os)
         return
 
+    logo_uri = _logo_base64(s.plataforma)
     prefijo = _b(cfg, "email_prefijo")
     await _send_html(
         cfg,
         subject=f"{prefijo} Tu solicitud está siendo gestionada — {s.consecutivo_os}",
         recipients=[s.solicitante_email],
-        body=_html_en_gestion(s, cfg),
+        body=_html_en_gestion(s, cfg, logo_uri=logo_uri),
         flujo="Flujo 1",
     )
 
 
 async def send_cotizacion_lista(s: "SolicitudOC") -> None:
     """Flujo 2 — email al solicitante cuando hay cotizaciones listas."""
-    cfg = _get_runtime_config()
+    cfg = _get_runtime_config(plataforma=s.plataforma)
     if not (cfg["smtp_user"] and cfg["smtp_password"]):
         log.warning("[email] SMTP no configurado — omitiendo Flujo 2")
         return
@@ -487,12 +588,13 @@ async def send_cotizacion_lista(s: "SolicitudOC") -> None:
         log.warning("[email] Flujo 2: solicitud %s sin email de solicitante", s.consecutivo_os)
         return
 
+    logo_uri = _logo_base64(s.plataforma)
     prefijo = _b(cfg, "email_prefijo")
     await _send_html(
         cfg,
         subject=f"{prefijo} Cotización lista — {s.consecutivo_os}",
         recipients=[s.solicitante_email],
-        body=_html_cotizacion_lista(s, cfg),
+        body=_html_cotizacion_lista(s, cfg, logo_uri=logo_uri),
         flujo="Flujo 2",
     )
 
@@ -502,7 +604,7 @@ async def send_aprobacion_directora(
     cotizacion: Optional["CotizacionProveedor"] = None,
 ) -> None:
     """Flujo 3 — email a la directora con detalle completo de la cotización."""
-    cfg = _get_runtime_config()
+    cfg = _get_runtime_config(plataforma=s.plataforma)
     if not (cfg["smtp_user"] and cfg["smtp_password"]):
         log.warning("[email] SMTP no configurado — omitiendo Flujo 3")
         return
@@ -511,12 +613,13 @@ async def send_aprobacion_directora(
         log.warning("[email] Flujo 3: EMAIL_DIRECTORA no configurado")
         return
 
+    logo_uri = _logo_base64(s.plataforma)
     prefijo = _b(cfg, "email_prefijo")
     await _send_html(
         cfg,
         subject=f"{prefijo} Aprobación requerida — {s.consecutivo_os}",
         recipients=[directora_email],
-        body=_html_aprobacion_directora(s, cotizacion, cfg),
+        body=_html_aprobacion_directora(s, cotizacion, cfg, logo_uri=logo_uri),
         flujo="Flujo 3",
     )
 
@@ -529,7 +632,7 @@ async def send_oc_a_proveedor(
     items: Optional[list[dict]] = None,
 ) -> None:
     """Envía el documento OC al proveedor como adjunto + CC al solicitante."""
-    cfg = _get_runtime_config()
+    cfg = _get_runtime_config(plataforma=s.plataforma)
     if not (cfg["smtp_user"] and cfg["smtp_password"]):
         log.warning("[email] SMTP no configurado — omitiendo envío OC a proveedor")
         return
@@ -539,39 +642,31 @@ async def send_oc_a_proveedor(
         p = Path(pdf_path)
         if p.exists():
             archivo = p
-    if archivo is None:
-        xlsx = Path(f"/app/data/oc_docs/{numero_oc}.xlsx")
-        if xlsx.exists():
-            archivo = xlsx
 
     if archivo is None:
-        log.warning("[email] No se encontró el archivo OC %s para enviar al proveedor", numero_oc)
+        log.error(
+            "[email] OC %s: PDF no encontrado en '%s' — correo al proveedor no enviado",
+            numero_oc, pdf_path,
+        )
         return
-
-    ext = archivo.suffix.lstrip(".")
-    _mime_map = {
-        "pdf":  "pdf",
-        "xlsx": "vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "docx": "vnd.openxmlformats-officedocument.wordprocessingml.document",
-    }
-    mime_subtype = _mime_map.get(ext, "octet-stream")
 
     # CC al solicitante si tiene email registrado
     cc_list = [s.solicitante_email] if s.solicitante_email else []
 
+    logo_uri = _logo_base64(s.plataforma)
     nombre_empresa = _b(cfg, "empresa_nombre")
     msg = MessageSchema(
         subject=f"Orden de Compra {numero_oc} — {nombre_empresa}",
         recipients=[email_proveedor],
         cc=cc_list,
-        body=_html_oc_proveedor(s, numero_oc, items=items, cfg=cfg),
+        body=_html_oc_proveedor(s, numero_oc, items=items, cfg=cfg, logo_uri=logo_uri),
         subtype=MessageType.html,
         attachments=[{
             "file": str(archivo),
             "mime_type": "application",
-            "mime_subtype": mime_subtype,
+            "mime_subtype": "pdf",
             "headers": {
-                "Content-Disposition": f'attachment; filename="{numero_oc}.{ext}"',
+                "Content-Disposition": f'attachment; filename="{numero_oc}.pdf"',
                 "Content-ID": f"<{numero_oc}>",
             },
         }],
@@ -585,7 +680,7 @@ async def send_oc_a_proveedor(
 
 async def send_oc_enviada(s: "SolicitudOC") -> None:
     """Flujo 4 — email al solicitante cuando la OC fue enviada al proveedor."""
-    cfg = _get_runtime_config()
+    cfg = _get_runtime_config(plataforma=s.plataforma)
     if not (cfg["smtp_user"] and cfg["smtp_password"]):
         log.warning("[email] SMTP no configurado — omitiendo Flujo 4")
         return
@@ -593,19 +688,20 @@ async def send_oc_enviada(s: "SolicitudOC") -> None:
         log.warning("[email] Flujo 4: solicitud %s sin email de solicitante", s.consecutivo_os)
         return
 
+    logo_uri = _logo_base64(s.plataforma)
     prefijo = _b(cfg, "email_prefijo")
     await _send_html(
         cfg,
         subject=f"{prefijo} Orden de Compra enviada — {s.consecutivo_os}",
         recipients=[s.solicitante_email],
-        body=_html_oc_enviada(s, cfg),
+        body=_html_oc_enviada(s, cfg, logo_uri=logo_uri),
         flujo="Flujo 4",
     )
 
 
 # ── Entrega confirmada → solicitante ─────────────────────────────────────────
 
-def _html_entrega_confirmada(s: "SolicitudOC", cfg: Optional[dict] = None) -> str:
+def _html_entrega_confirmada(s: "SolicitudOC", cfg: Optional[dict] = None, logo_uri: str = "") -> str:
     """HTML para notificar al solicitante que su pedido fue confirmado como entregado."""
     cuerpo = f"""
     <p style="color:#374151;font-size:14px">Hola <strong>{s.solicitante_nombre}</strong>,</p>
@@ -624,12 +720,12 @@ def _html_entrega_confirmada(s: "SolicitudOC", cfg: Optional[dict] = None) -> st
       Si tienes alguna observación sobre el pedido recibido, comunícate con el equipo de compras.
     </p>
     """
-    return _base("Tu pedido fue recibido y confirmado", cuerpo, cfg)
+    return _base("Tu pedido fue recibido y confirmado", cuerpo, cfg, logo_uri=logo_uri)
 
 
 async def send_entrega_confirmada(s: "SolicitudOC") -> None:
     """Notifica al solicitante cuando coordinador confirma la recepción física."""
-    cfg = _get_runtime_config()
+    cfg = _get_runtime_config(plataforma=s.plataforma)
     if not (cfg["smtp_user"] and cfg["smtp_password"]):
         log.warning("[email] SMTP no configurado — omitiendo notificación entrega confirmada")
         return
@@ -637,19 +733,20 @@ async def send_entrega_confirmada(s: "SolicitudOC") -> None:
         log.warning("[email] Entrega confirmada: solicitud %s sin email de solicitante", s.consecutivo_os)
         return
 
+    logo_uri = _logo_base64(s.plataforma)
     prefijo = _b(cfg, "email_prefijo")
     await _send_html(
         cfg,
         subject=f"{prefijo} Pedido recibido — {s.consecutivo_os}",
         recipients=[s.solicitante_email],
-        body=_html_entrega_confirmada(s, cfg),
+        body=_html_entrega_confirmada(s, cfg, logo_uri=logo_uri),
         flujo="Entrega confirmada",
     )
 
 
 # ── Rechazo de cotización → auxiliar ─────────────────────────────────────────
 
-def _html_rechazo_cotizacion(s: "SolicitudOC", motivo: str, cfg: Optional[dict] = None) -> str:
+def _html_rechazo_cotizacion(s: "SolicitudOC", motivo: str, cfg: Optional[dict] = None, logo_uri: str = "") -> str:
     """Notifica al auxiliar de compras que la cotización fue rechazada."""
     cuerpo = f"""
     <p style="color:#374151;font-size:14px">
@@ -666,12 +763,12 @@ def _html_rechazo_cotizacion(s: "SolicitudOC", motivo: str, cfg: Optional[dict] 
       Ingresa a la intranet para gestionar una nueva cotización para esta solicitud.
     </p>
     """
-    return _base(f"Cotización rechazada — {s.consecutivo_os}", cuerpo, cfg)
+    return _base(f"Cotización rechazada — {s.consecutivo_os}", cuerpo, cfg, logo_uri=logo_uri)
 
 
 async def send_rechazo_cotizacion(s: "SolicitudOC", motivo: str, auxiliar_email: str) -> None:
     """Flujo rechazo — email al auxiliar cuando directora rechaza la cotización."""
-    cfg = _get_runtime_config()
+    cfg = _get_runtime_config(plataforma=s.plataforma)
     if not (cfg["smtp_user"] and cfg["smtp_password"]):
         log.warning("[email] SMTP no configurado — omitiendo notificación rechazo cotización")
         return
@@ -679,19 +776,20 @@ async def send_rechazo_cotizacion(s: "SolicitudOC", motivo: str, auxiliar_email:
         log.warning("[email] Rechazo cotización: solicitud %s sin email de auxiliar", s.consecutivo_os)
         return
 
+    logo_uri = _logo_base64(s.plataforma)
     prefijo = _b(cfg, "email_prefijo")
     await _send_html(
         cfg,
         subject=f"{prefijo} Cotización rechazada — {s.consecutivo_os}",
         recipients=[auxiliar_email],
-        body=_html_rechazo_cotizacion(s, motivo, cfg),
+        body=_html_rechazo_cotizacion(s, motivo, cfg, logo_uri=logo_uri),
         flujo="Rechazo cotización",
     )
 
 
 async def send_nueva_solicitud_interna(s: "SolicitudOC") -> None:
     """Flujo Interno — notifica al equipo de compras cuando un coordinador crea una solicitud."""
-    cfg = _get_runtime_config()
+    cfg = _get_runtime_config(plataforma=s.plataforma)
     if not (cfg["smtp_user"] and cfg["smtp_password"]):
         log.warning("[email] SMTP no configurado — omitiendo notificación interna")
         return
@@ -701,12 +799,13 @@ async def send_nueva_solicitud_interna(s: "SolicitudOC") -> None:
         log.warning("[email] Flujo Interno: email_compras no configurado")
         return
 
+    logo_uri = _logo_base64(s.plataforma)
     intranet_url = cfg.get("intranet_url") or settings.intranet_url
     prefijo = _b(cfg, "email_prefijo")
     await _send_html(
         cfg,
         subject=f"{prefijo} Nueva solicitud — {s.consecutivo_os} | {s.solicitante_nombre}",
         recipients=[email_compras],
-        body=_html_nueva_solicitud_interna(s, intranet_url, cfg),
+        body=_html_nueva_solicitud_interna(s, intranet_url, cfg, logo_uri=logo_uri),
         flujo="Flujo Interno",
     )

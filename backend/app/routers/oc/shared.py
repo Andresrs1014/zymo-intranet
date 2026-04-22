@@ -40,3 +40,30 @@ def list_usuarios_compras(
         .order_by(User.full_name)
     ).all()
     return usuarios
+
+
+import json as _json
+from pathlib import Path as _Path
+
+_PLATFORMS_DIR_SHARED = _Path(__file__).parent.parent.parent / "platforms"
+
+
+@router.get("/plataformas")
+def listar_plataformas():
+    """Retorna las plataformas OC disponibles (leídas desde el filesystem de platforms/)."""
+    plataformas = []
+    if not _PLATFORMS_DIR_SHARED.exists():
+        return plataformas
+    for slug_dir in sorted(_PLATFORMS_DIR_SHARED.iterdir()):
+        if not slug_dir.is_dir():
+            continue
+        cfg_path = slug_dir / "config.json"
+        nombre = slug_dir.name.upper()
+        if cfg_path.exists():
+            try:
+                cfg = _json.loads(cfg_path.read_text(encoding="utf-8"))
+                nombre = cfg.get("nombre", nombre)
+            except Exception:
+                pass
+        plataformas.append({"slug": slug_dir.name, "nombre": nombre})
+    return plataformas

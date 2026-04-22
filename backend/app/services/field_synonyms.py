@@ -190,8 +190,6 @@ FIELD_SYNONYMS: dict[str, list[str]] = {
         "v/r unitario",
         "vlr unitario",
         "unit price",
-        "precio neto",
-        "valor neto unitario",
         "precio sin iva",
         "precio base",
         "costo por unidad",
@@ -216,6 +214,8 @@ FIELD_SYNONYMS: dict[str, list[str]] = {
         "monto antes de iva",
         "precio neto total",
         "suma sin iva",
+        "precio neto",
+        "valor neto unitario",
     ],
     "valor_iva": [
         "iva",
