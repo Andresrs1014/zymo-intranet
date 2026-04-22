@@ -3,16 +3,29 @@ Servicio LightRAG — Motor RAG basado en grafos para los agentes ZYMO.
 
 Singleton lazy: se inicializa la primera vez que se necesita.
 Usa google-genai (nuevo SDK, v1) para LLM y embeddings.
+
+Control de rate limits Gemini:
+  - Semáforo global (_gemini_sem): serializa las llamadas a la API (1 a la vez)
+  - Pausa fija entre llamadas para no agotar el quota de requests/minuto
+  - tenacity: reintenta automáticamente con backoff exponencial en errores 429
 """
 import asyncio
 import logging
 from pathlib import Path
 from typing import Optional
 
+from tenacity import AsyncRetrying, retry_if_exception, stop_after_attempt, wait_exponential
+
 logger = logging.getLogger(__name__)
 
 _rag: Optional[object] = None
 _rag_lock: Optional[asyncio.Lock] = None
+_gemini_sem: Optional[asyncio.Semaphore] = None
+
+# Pausa entre llamadas al LLM (extracción de entidades por chunk)
+_PAUSA_LLM_SEG = 1.5
+# Pausa entre llamadas de embedding
+_PAUSA_EMBED_SEG = 0.5
 
 
 def _get_lock() -> asyncio.Lock:
@@ -22,7 +35,21 @@ def _get_lock() -> asyncio.Lock:
     return _rag_lock
 
 
-# ── Funciones Gemini para LightRAG ────────────────────────────────────────────
+def _get_semaphore() -> asyncio.Semaphore:
+    """Semáforo global: permite 1 llamada concurrente a Gemini a la vez."""
+    global _gemini_sem
+    if _gemini_sem is None:
+        _gemini_sem = asyncio.Semaphore(1)
+    return _gemini_sem
+
+
+def _es_429(exc: BaseException) -> bool:
+    """Detecta errores de rate limit / quota agotada de Gemini."""
+    msg = str(exc).lower()
+    return any(k in msg for k in ("429", "quota", "resource_exhausted", "rate_limit", "rateerror"))
+
+
+# ── Clientes Gemini ────────────────────────────────────────────────────────────
 
 def _llm_client(api_key: str):
     from google import genai
@@ -34,32 +61,61 @@ def _embed_client(api_key: str):
     return genai.Client(api_key=api_key)  # v1beta por defecto — gemini-embedding-001 vive aquí
 
 
+# ── Funciones Gemini con rate-limit control ────────────────────────────────────
+
 async def _llm_func(prompt: str, system_prompt: str | None = None, history_messages: list = [], **kwargs) -> str:
-    """LLM callable que LightRAG usa para razonamiento y extracción de entidades."""
+    """
+    LLM callable que LightRAG usa para razonamiento y extracción de entidades.
+    Serializado con semáforo + pausa + reintentos en 429.
+    """
     from app.config import settings
 
     client = _llm_client(settings.gemini_api_key_gerencial or settings.gemini_api_key_administrativo)
     contenido = f"{system_prompt}\n\n{prompt}" if system_prompt else prompt
-    response = await client.aio.models.generate_content(
-        model="gemini-2.0-flash",
-        contents=contenido,
-    )
-    return response.text
+
+    async with _get_semaphore():
+        await asyncio.sleep(_PAUSA_LLM_SEG)
+        async for attempt in AsyncRetrying(
+            stop=stop_after_attempt(6),
+            wait=wait_exponential(multiplier=2, min=4, max=120),
+            retry=retry_if_exception(_es_429),
+            reraise=True,
+        ):
+            with attempt:
+                response = await client.aio.models.generate_content(
+                    model="gemini-2.0-flash",
+                    contents=contenido,
+                )
+                return response.text
 
 
 async def _embed_func(texts: list[str]) -> "np.ndarray":
-    """Embedding callable que LightRAG usa para búsqueda semántica."""
+    """
+    Embedding callable que LightRAG usa para búsqueda semántica.
+    Procesa un texto a la vez con pausa + reintentos en 429.
+    """
     import numpy as np
     from app.config import settings
 
     client = _embed_client(settings.gemini_api_key_gerencial or settings.gemini_api_key_administrativo)
     embeddings = []
+
     for text in texts:
-        response = await client.aio.models.embed_content(
-            model="gemini-embedding-001",
-            contents=text[:8000],
-        )
-        embeddings.append(response.embeddings[0].values)
+        async with _get_semaphore():
+            await asyncio.sleep(_PAUSA_EMBED_SEG)
+            async for attempt in AsyncRetrying(
+                stop=stop_after_attempt(6),
+                wait=wait_exponential(multiplier=2, min=4, max=120),
+                retry=retry_if_exception(_es_429),
+                reraise=True,
+            ):
+                with attempt:
+                    response = await client.aio.models.embed_content(
+                        model="gemini-embedding-001",
+                        contents=text[:8000],
+                    )
+                    embeddings.append(response.embeddings[0].values)
+
     return np.array(embeddings)
 
 
