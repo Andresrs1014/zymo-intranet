@@ -33,13 +33,24 @@ def create_oc_tables() -> None:
     ]
     SQLModel.metadata.create_all(get_oc_engine(), tables=tables)
 
-    # Migración: índice único en consecutivo_os (seguro en bases existentes)
     from sqlalchemy import text
     with get_oc_engine().connect() as conn:
+        # Migración: índice único en consecutivo_os (seguro en bases existentes)
         conn.execute(text(
             "CREATE UNIQUE INDEX IF NOT EXISTS ix_oc_solicitudes_consecutivo_os "
             "ON oc_solicitudes (consecutivo_os)"
         ))
+
+        # Migración: columnas de trazabilidad de reprocesos en historial
+        for col_def in [
+            "ALTER TABLE oc_historial_estados ADD COLUMN es_reproceso BOOLEAN NOT NULL DEFAULT 0",
+            "ALTER TABLE oc_historial_estados ADD COLUMN tipo_accion VARCHAR(50)",
+        ]:
+            try:
+                conn.execute(text(col_def))
+            except Exception:
+                pass  # columna ya existe — ignorar
+
         conn.commit()
 
     print("[oc] Tablas OC verificadas en oc.db.")

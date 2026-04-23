@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
-import { useMisSolicitudes, useMarcarEntregada } from "@/hooks/useOC"
+import { useMisSolicitudes, useMarcarEntregada, useEditarCorreccion } from "@/hooks/useOC"
 import { formatFechaRelativa, formatFechaHora } from "@/lib/dates"
 import type { SolicitudOC } from "@/types/oc"
 
@@ -25,6 +25,8 @@ const ESTADO_CONFIG: Record<string, { label: string; className: string; descripc
   pendiente_aprobacion: { label: "Pend. aprobación",   className: "bg-orange-100 text-orange-700", descripcion: "La cotización está siendo revisada por el director." },
   aprobada:             { label: "Aprobada",            className: "bg-green-100 text-green-700",  descripcion: "La compra fue aprobada. Generando orden de compra." },
   rechazada:            { label: "Rechazada",           className: "bg-red-100 text-red-700",      descripcion: "La solicitud o cotización fue rechazada por compras. Revisa tu correo o contacta al equipo." },
+  cancelada:            { label: "Cancelada",           className: "bg-red-200 text-red-800",      descripcion: "La solicitud fue cancelada definitivamente. Revisa tu correo para el motivo." },
+  en_correccion:        { label: "Requiere corrección", className: "bg-amber-100 text-amber-700",  descripcion: "El equipo de compras necesita que corrijas tu solicitud antes de continuar." },
   oc_enviada:           { label: "OC enviada",          className: "bg-indigo-100 text-indigo-700", descripcion: "La orden de compra fue enviada al proveedor." },
   oc_en_plataforma:     { label: "En plataforma",       className: "bg-violet-100 text-violet-700", descripcion: "El pedido fue ingresado en la plataforma. Confirma cuando lo recibas." },
   entregada:            { label: "Recibida",            className: "bg-teal-100 text-teal-700",    descripcion: "Confirmaste la recepción. Pendiente cierre administrativo." },
@@ -52,6 +54,7 @@ export function MisSolicitudesPage() {
     : solicitudes
 
   const pendientesConfirmacion = solicitudes.filter((s) => s.estado === "oc_en_plataforma").length
+  const pendientesCorreccion = solicitudes.filter((s) => s.estado === "en_correccion").length
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -80,6 +83,19 @@ export function MisSolicitudesPage() {
             </div>
 
             <div className="flex items-center gap-3">
+              {/* Badge de correcciones pendientes */}
+              {pendientesCorreccion > 0 && (
+                <div className="flex items-center gap-2 rounded-xl bg-amber-50 border border-amber-200 px-4 py-2.5">
+                  <span className="text-amber-600 text-lg">✏️</span>
+                  <div>
+                    <p className="text-sm font-semibold text-amber-800">
+                      {pendientesCorreccion} solicitud{pendientesCorreccion > 1 ? "es" : ""} requieren corrección
+                    </p>
+                    <p className="text-xs text-amber-600">Revisa y corrige para continuar</p>
+                  </div>
+                </div>
+              )}
+
               {/* Badge de confirmaciones pendientes */}
               {pendientesConfirmacion > 0 && (
                 <div className="flex items-center gap-2 rounded-xl bg-violet-50 border border-violet-200 px-4 py-2.5">
@@ -181,10 +197,16 @@ function SlaIndicador({ solicitud: s }: { solicitud: SolicitudOC }) {
 
 function SolicitudCard({ solicitud: s }: { solicitud: SolicitudOC }) {
   const [confirmando, setConfirmando] = useState(false)
+  const [corrigiendo, setCorrigiendo] = useState(false)
+  const [corrDesc, setCorrDesc] = useState("")
+  const [corrCantidad, setCorrCantidad] = useState("")
+  const [corrObs, setCorrObs] = useState("")
   const marcarEntregada = useMarcarEntregada()
+  const editarCorreccion = useEditarCorreccion()
 
   const cfg = ESTADO_CONFIG[s.estado]
   const necesitaConfirmacion = s.estado === "oc_en_plataforma"
+  const necesitaCorreccion = s.estado === "en_correccion"
 
   function handleConfirmar() {
     marcarEntregada.mutate(s.id, {
@@ -192,10 +214,109 @@ function SolicitudCard({ solicitud: s }: { solicitud: SolicitudOC }) {
     })
   }
 
+  function handleEnviarCorreccion() {
+    const payload: { descripcion?: string; cantidad?: number; observaciones_solicitante?: string } = {}
+    if (corrDesc.trim()) payload.descripcion = corrDesc.trim()
+    if (corrCantidad.trim() && !isNaN(Number(corrCantidad))) payload.cantidad = Number(corrCantidad)
+    if (corrObs.trim()) payload.observaciones_solicitante = corrObs.trim()
+    editarCorreccion.mutate(
+      { id: s.id, payload },
+      {
+        onSuccess: () => {
+          setCorrigiendo(false)
+          setCorrDesc("")
+          setCorrCantidad("")
+          setCorrObs("")
+        },
+      }
+    )
+  }
+
   return (
     <div className={`bg-white rounded-xl border shadow-sm overflow-hidden transition-shadow hover:shadow-md ${
-      necesitaConfirmacion ? "border-violet-200" : "border-gray-100"
+      necesitaCorreccion ? "border-amber-200" : necesitaConfirmacion ? "border-violet-200" : "border-gray-100"
     }`}>
+      {/* Barra de acción si requiere corrección */}
+      {necesitaCorreccion && !corrigiendo && (
+        <div className="bg-amber-50 border-b border-amber-100 px-5 py-2.5 flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-amber-700">
+              ✏️ Compras necesita que corrijas esta solicitud
+            </p>
+            {s.observaciones_compras && (
+              <p className="text-xs text-amber-600 mt-0.5 truncate">{s.observaciones_compras}</p>
+            )}
+          </div>
+          <button
+            onClick={() => setCorrigiendo(true)}
+            className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-600 transition-colors shrink-0"
+          >
+            Corregir
+          </button>
+        </div>
+      )}
+
+      {/* Formulario de corrección inline */}
+      {necesitaCorreccion && corrigiendo && (
+        <div className="bg-amber-50 border-b border-amber-100 px-5 py-4 space-y-3">
+          {s.observaciones_compras && (
+            <div className="rounded-lg bg-amber-100 border border-amber-200 px-3 py-2">
+              <p className="text-xs font-semibold text-amber-800 mb-0.5">Qué debes corregir:</p>
+              <p className="text-xs text-amber-900">{s.observaciones_compras}</p>
+            </div>
+          )}
+          <p className="text-xs font-medium text-amber-700">Edita los campos que necesitas corregir:</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Descripción</label>
+              <input
+                type="text"
+                value={corrDesc}
+                onChange={(e) => setCorrDesc(e.target.value)}
+                placeholder={s.descripcion}
+                className="w-full rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-amber-400"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Cantidad</label>
+              <input
+                type="number"
+                value={corrCantidad}
+                onChange={(e) => setCorrCantidad(e.target.value)}
+                placeholder={String(s.cantidad)}
+                min="1"
+                className="w-full rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-amber-400"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-xs text-gray-500 mb-1">Observaciones</label>
+              <textarea
+                value={corrObs}
+                onChange={(e) => setCorrObs(e.target.value)}
+                placeholder={s.observaciones_solicitante ?? "Añade observaciones..."}
+                rows={2}
+                className="w-full rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-xs resize-none focus:outline-none focus:ring-2 focus:ring-amber-400"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleEnviarCorreccion}
+              disabled={editarCorreccion.isPending || (!corrDesc.trim() && !corrCantidad.trim() && !corrObs.trim())}
+              className="rounded-lg bg-amber-500 px-4 py-1.5 text-xs font-semibold text-white hover:bg-amber-600 disabled:opacity-50 transition-colors"
+            >
+              {editarCorreccion.isPending ? "Enviando..." : "Enviar corrección"}
+            </button>
+            <button
+              onClick={() => { setCorrigiendo(false); setCorrDesc(""); setCorrCantidad(""); setCorrObs("") }}
+              className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-50 transition-colors"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Barra de acción si necesita confirmación */}
       {necesitaConfirmacion && (
         <div className="bg-violet-50 border-b border-violet-100 px-5 py-2.5 flex items-center justify-between">

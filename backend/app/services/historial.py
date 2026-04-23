@@ -12,6 +12,8 @@ def registrar_cambio_estado(
     usuario_id: Optional[int] = None,
     usuario_nombre: Optional[str] = None,
     notas: Optional[str] = None,
+    es_reproceso: bool = False,
+    tipo_accion: Optional[str] = None,
 ) -> None:
     """Registra un cambio de estado en el historial. No hace commit — el caller debe hacerlo."""
     from app.models.oc import HistorialEstado
@@ -23,5 +25,7 @@ def registrar_cambio_estado(
         usuario_id=usuario_id,
         usuario_nombre=usuario_nombre,
         notas=notas,
+        es_reproceso=es_reproceso,
+        tipo_accion=tipo_accion,
     )
     db.add(entrada)

@@ -23,6 +23,11 @@ import {
   useHistorialEstados,
   usePlataformas,
   useRechazarSolicitud,
+  useCancelarSolicitud,
+  useCorreccionSolicitud,
+  useCancelarCotizacion,
+  useCorreccionCotizacion,
+  useEditarCorreccion,
 } from "@/hooks/useOC"
 import { useAuthStore } from "@/store/authStore"
 import { canSeeOC } from "@/lib/permissions"
@@ -51,9 +56,22 @@ export function SolicitudDetallePage() {
   const cerrarSolicitud = useCerrarSolicitud()
   const cambiarPrioridad = useCambiarPrioridad()
   const rechazarSolicitud = useRechazarSolicitud()
+  const cancelarSolicitud = useCancelarSolicitud()
+  const correccionSolicitud = useCorreccionSolicitud()
+  const cancelarCotizacion = useCancelarCotizacion()
+  const correccionCotizacion = useCorreccionCotizacion()
+  const editarCorreccion = useEditarCorreccion()
   const [errorOC, setErrorOC] = useState<string | null>(null)
-  const [modoRechazoSol, setModoRechazoSol] = useState(false)
-  const [motivoRechazoSol, setMotivoRechazoSol] = useState("")
+
+  // Modal de rechazo de solicitud (auxiliar): "cancelar" | "correccion" | null
+  type ModoRechazoSol = "cancelar" | "correccion" | null
+  const [modoRechazoSol, setModoRechazoSol] = useState<ModoRechazoSol>(null)
+  const [textoRechazoSol, setTextoRechazoSol] = useState("")
+
+  // Formulario de corrección (solicitante)
+  const [corrDesc, setCorrDesc] = useState("")
+  const [corrCantidad, setCorrCantidad] = useState("")
+  const [corrObs, setCorrObs] = useState("")
 
   // Solo admin puede cambiar la prioridad
   const puedeEditarPrioridad = user?.role === "admin"
@@ -92,6 +110,7 @@ export function SolicitudDetallePage() {
   }
 
   const esAuxiliarAsignado = solicitud.auxiliar_id === user?.id
+  const esSolicitante = user?.email === solicitud.solicitante_email
   const puedeAsignarse =
     !solicitud.auxiliar_id &&
     (user?.role === "admin" || user?.role === "compras" || user?.area === "Compras")
@@ -123,10 +142,29 @@ export function SolicitudDetallePage() {
   }
 
   function handleRechazarSolicitud() {
-    if (!id || !motivoRechazoSol.trim()) return
-    rechazarSolicitud.mutate(
-      { id, motivo_rechazo: motivoRechazoSol },
-      { onSuccess: () => { setModoRechazoSol(false); setMotivoRechazoSol("") } }
+    if (!id || !textoRechazoSol.trim()) return
+    if (modoRechazoSol === "cancelar") {
+      cancelarSolicitud.mutate(
+        { id, justificacion: textoRechazoSol },
+        { onSuccess: () => { setModoRechazoSol(null); setTextoRechazoSol("") } }
+      )
+    } else if (modoRechazoSol === "correccion") {
+      correccionSolicitud.mutate(
+        { id, que_corregir: textoRechazoSol },
+        { onSuccess: () => { setModoRechazoSol(null); setTextoRechazoSol("") } }
+      )
+    }
+  }
+
+  function handleEditarCorreccion() {
+    if (!id) return
+    const payload: { descripcion?: string; cantidad?: number; observaciones_solicitante?: string } = {}
+    if (corrDesc.trim()) payload.descripcion = corrDesc.trim()
+    if (corrCantidad.trim() && !isNaN(Number(corrCantidad))) payload.cantidad = Number(corrCantidad)
+    if (corrObs.trim()) payload.observaciones_solicitante = corrObs.trim()
+    editarCorreccion.mutate(
+      { id, payload },
+      { onSuccess: () => { setCorrDesc(""); setCorrCantidad(""); setCorrObs("") } }
     )
   }
 
@@ -185,9 +223,9 @@ export function SolicitudDetallePage() {
 
             <div className="flex gap-2 shrink-0">
               {(esAuxiliarAsignado || puedeAsignarOtro || puedeAsignarse) &&
-                (solicitud.estado === "nueva" || solicitud.estado === "en_cotizacion" || solicitud.estado === "pendiente_aprobacion") && (
+                (["nueva", "en_cotizacion", "pendiente_aprobacion", "en_correccion"] as string[]).includes(solicitud.estado) && (
                   <button
-                    onClick={() => setModoRechazoSol(true)}
+                    onClick={() => setModoRechazoSol("cancelar")}
                     className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-100 transition-colors"
                   >
                     Rechazar Solicitud
@@ -225,7 +263,13 @@ export function SolicitudDetallePage() {
                     onRechazar={(cotizacionId, obs) =>
                       rechazar.mutate({ cotizacionId, observaciones_aprobacion: obs })
                     }
-                    isLoading={aprobar.isPending || rechazar.isPending}
+                    onCancelar={(cotizacionId, justificacion) =>
+                      cancelarCotizacion.mutate({ cotizacionId, justificacion })
+                    }
+                    onCorreccion={(cotizacionId, que_corregir, destino) =>
+                      correccionCotizacion.mutate({ cotizacionId, que_corregir, destino })
+                    }
+                    isLoading={aprobar.isPending || rechazar.isPending || cancelarCotizacion.isPending || correccionCotizacion.isPending}
                   />
                 )}
 
@@ -402,7 +446,7 @@ export function SolicitudDetallePage() {
                 </Section>
               )}
 
-              {/* Solicitud rechazada por el auxiliar (sin cotizaciones previas) */}
+              {/* Solicitud rechazada (legacy) */}
               {solicitud.estado === "rechazada" && cotizaciones.length === 0 && (
                 <Section title="Estado: Rechazada">
                   <div className="rounded-lg bg-red-50 border border-red-100 p-4 space-y-2">
@@ -421,6 +465,112 @@ export function SolicitudDetallePage() {
                     })()}
                     <p className="text-xs text-red-600">
                       Se le ha notificado al solicitante por correo. No requiere más gestión de tu parte.
+                    </p>
+                  </div>
+                </Section>
+              )}
+
+              {/* Solicitud cancelada definitivamente */}
+              {solicitud.estado === "cancelada" && (
+                <Section title="Estado: Cancelada">
+                  <div className="rounded-lg bg-red-50 border border-red-200 p-4 space-y-2">
+                    <p className="text-sm font-semibold text-red-800">Solicitud cancelada definitivamente</p>
+                    {(() => {
+                      const entrada = historial.find((h) => h.estado_nuevo === "cancelada")
+                      return entrada?.notas ? (
+                        <div className="mt-1 rounded bg-red-100 border border-red-200 px-3 py-2">
+                          <p className="text-xs font-medium text-red-700 mb-0.5">Motivo</p>
+                          <p className="text-xs text-red-800">{entrada.notas}</p>
+                          {entrada.usuario_nombre && (
+                            <p className="text-xs text-red-500 mt-1">— {entrada.usuario_nombre}</p>
+                          )}
+                        </div>
+                      ) : null
+                    })()}
+                    <p className="text-xs text-red-600">No requiere más gestión.</p>
+                  </div>
+                </Section>
+              )}
+
+              {/* Solicitud en corrección — panel para el solicitante */}
+              {solicitud.estado === "en_correccion" && esSolicitante && (
+                <Section title="Corrección requerida">
+                  <div className="space-y-3">
+                    {/* Nota de corrección del equipo de compras */}
+                    {solicitud.observaciones_compras ? (
+                      <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
+                        <p className="text-xs font-semibold text-amber-800 mb-1">Qué debes corregir:</p>
+                        <p className="text-xs text-amber-900">{solicitud.observaciones_compras}</p>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-400">El equipo de compras requiere que corrijas tu solicitud.</p>
+                    )}
+
+                    {/* Formulario de edición */}
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-gray-600">Edita los campos que necesitas corregir:</p>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Descripción</label>
+                        <input
+                          type="text"
+                          value={corrDesc}
+                          onChange={(e) => setCorrDesc(e.target.value)}
+                          placeholder={solicitud.descripcion}
+                          className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Cantidad</label>
+                        <input
+                          type="number"
+                          value={corrCantidad}
+                          onChange={(e) => setCorrCantidad(e.target.value)}
+                          placeholder={String(solicitud.cantidad)}
+                          min="1"
+                          className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Observaciones</label>
+                        <textarea
+                          value={corrObs}
+                          onChange={(e) => setCorrObs(e.target.value)}
+                          placeholder={solicitud.observaciones_solicitante ?? "Añade observaciones..."}
+                          rows={3}
+                          className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:outline-none resize-none focus:ring-2 focus:ring-amber-400"
+                        />
+                      </div>
+                      {editarCorreccion.isError && (
+                        <p className="text-xs text-red-500">
+                          Error al guardar. Verifica los campos e intenta de nuevo.
+                        </p>
+                      )}
+                      <button
+                        onClick={handleEditarCorreccion}
+                        disabled={editarCorreccion.isPending || (!corrDesc.trim() && !corrCantidad.trim() && !corrObs.trim())}
+                        className="w-full rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600 disabled:opacity-50 transition-colors"
+                      >
+                        {editarCorreccion.isPending ? "Enviando..." : "Enviar corrección"}
+                      </button>
+                    </div>
+                  </div>
+                </Section>
+              )}
+
+              {/* Solicitud en corrección — vista informativa para equipo de compras */}
+              {solicitud.estado === "en_correccion" && !esSolicitante && (
+                <Section title="En corrección">
+                  <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 space-y-2">
+                    <p className="text-sm font-semibold text-amber-800">Esperando corrección del solicitante</p>
+                    {solicitud.observaciones_compras && (
+                      <div className="rounded bg-amber-100 border border-amber-200 px-3 py-2">
+                        <p className="text-xs font-medium text-amber-700 mb-0.5">Instrucción enviada:</p>
+                        <p className="text-xs text-amber-900">{solicitud.observaciones_compras}</p>
+                      </div>
+                    )}
+                    <p className="text-xs text-amber-700">
+                      Se notificó a <span className="font-medium">{solicitud.solicitante_nombre}</span>. La solicitud
+                      volverá a en gestión cuando el solicitante envíe la corrección.
                     </p>
                   </div>
                 </Section>
@@ -493,37 +643,90 @@ export function SolicitudDetallePage() {
           </div>
         </main>
 
-        {/* Modal rechazar solicitud */}
+        {/* Modal rechazar solicitud — 2 opciones: cancelar o mandar a corrección */}
         {modoRechazoSol && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
             <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4 space-y-4">
               <h3 className="text-base font-semibold text-gray-900">Rechazar Solicitud</h3>
+
+              {/* Selector de tipo */}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => { setModoRechazoSol("cancelar"); setTextoRechazoSol("") }}
+                  className={`rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors ${
+                    modoRechazoSol === "cancelar"
+                      ? "border-red-400 bg-red-50 text-red-700"
+                      : "border-gray-200 text-gray-500 hover:bg-gray-50"
+                  }`}
+                >
+                  Cancelar solicitud
+                </button>
+                <button
+                  onClick={() => { setModoRechazoSol("correccion"); setTextoRechazoSol("") }}
+                  className={`rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors ${
+                    modoRechazoSol === "correccion"
+                      ? "border-amber-400 bg-amber-50 text-amber-700"
+                      : "border-gray-200 text-gray-500 hover:bg-gray-50"
+                  }`}
+                >
+                  Mandar a corrección
+                </button>
+              </div>
+
+              {/* Descripción de la opción seleccionada */}
               <p className="text-sm text-gray-500">
-                Por favor, escribe el motivo del rechazo. Este mensaje será enviado por correo al solicitante ({solicitud.solicitante_email}).
+                {modoRechazoSol === "cancelar"
+                  ? `La solicitud quedará cancelada definitivamente. Se notificará a ${solicitud.solicitante_email} por correo.`
+                  : `La solicitud regresará al solicitante para que la corrija desde la intranet.`}
               </p>
+
               <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                  {modoRechazoSol === "cancelar" ? "Motivo de cancelación *" : "¿Qué debe corregir? *"}
+                </label>
                 <textarea
                   rows={3}
-                  value={motivoRechazoSol}
-                  onChange={(e) => setMotivoRechazoSol(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
-                  placeholder="Ej. El equipo no necesita compra, se puede pedir al almacén..."
+                  value={textoRechazoSol}
+                  onChange={(e) => setTextoRechazoSol(e.target.value)}
+                  className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none transition-colors ${
+                    modoRechazoSol === "cancelar"
+                      ? "border-gray-300 focus:ring-2 focus:ring-red-400"
+                      : "border-gray-300 focus:ring-2 focus:ring-amber-400"
+                  }`}
+                  placeholder={
+                    modoRechazoSol === "cancelar"
+                      ? "Ej. El equipo ya tiene este ítem en almacén..."
+                      : "Ej. La descripción es muy genérica, especificar marca y referencia..."
+                  }
                   autoFocus
                 />
               </div>
+
               <div className="flex gap-3 pt-1">
                 <button
                   onClick={handleRechazarSolicitud}
-                  disabled={!motivoRechazoSol.trim() || rechazarSolicitud.isPending}
-                  className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+                  disabled={
+                    !textoRechazoSol.trim() ||
+                    cancelarSolicitud.isPending ||
+                    correccionSolicitud.isPending
+                  }
+                  className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 transition-colors ${
+                    modoRechazoSol === "cancelar"
+                      ? "bg-red-600 hover:bg-red-700"
+                      : "bg-amber-500 hover:bg-amber-600"
+                  }`}
                 >
-                  {rechazarSolicitud.isPending ? "Rechazando..." : "Confirmar rechazo"}
+                  {cancelarSolicitud.isPending || correccionSolicitud.isPending
+                    ? "Procesando..."
+                    : modoRechazoSol === "cancelar"
+                    ? "Confirmar cancelación"
+                    : "Confirmar corrección"}
                 </button>
                 <button
-                  onClick={() => setModoRechazoSol(false)}
+                  onClick={() => { setModoRechazoSol(null); setTextoRechazoSol("") }}
                   className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
                 >
-                  Cancelar
+                  Cerrar
                 </button>
               </div>
             </div>
@@ -540,17 +743,24 @@ function PanelAprobacion({
   cotizacion,
   onAprobar,
   onRechazar,
+  onCancelar,
+  onCorreccion,
   isLoading,
 }: {
   cotizacion: CotizacionProveedor
   onAprobar: (id: string, valor: number, obs?: string) => void
   onRechazar: (id: string, obs: string) => void
+  onCancelar: (id: string, justificacion: string) => void
+  onCorreccion: (id: string, que_corregir: string, destino: "auxiliar" | "solicitante") => void
   isLoading: boolean
 }) {
-  const [modo, setModo] = useState<"idle" | "aprobar" | "rechazar">("idle")
+  const [modo, setModo] = useState<"idle" | "aprobar" | "rechazar" | "cancelar" | "correccion">("idle")
   const [valorAprobado, setValorAprobado] = useState(cotizacion.valor_total)
   const [observaciones, setObservaciones] = useState("")
   const [motivoRechazo, setMotivoRechazo] = useState("")
+  const [justificacionCancelar, setJustificacionCancelar] = useState("")
+  const [queCorregir, setQueCorregir] = useState("")
+  const [destinoCorreccion, setDestinoCorreccion] = useState<"auxiliar" | "solicitante">("auxiliar")
 
   function handleAprobar() {
     onAprobar(cotizacion.id, valorAprobado, observaciones || undefined)
@@ -560,6 +770,18 @@ function PanelAprobacion({
   function handleRechazar() {
     if (!motivoRechazo.trim()) return
     onRechazar(cotizacion.id, motivoRechazo)
+    setModo("idle")
+  }
+
+  function handleCancelar() {
+    if (!justificacionCancelar.trim()) return
+    onCancelar(cotizacion.id, justificacionCancelar)
+    setModo("idle")
+  }
+
+  function handleCorreccion() {
+    if (!queCorregir.trim()) return
+    onCorreccion(cotizacion.id, queCorregir, destinoCorreccion)
     setModo("idle")
   }
 
@@ -778,6 +1000,96 @@ function PanelAprobacion({
         </div>
       )}
 
+      {/* Formulario cancelar solicitud */}
+      {modo === "cancelar" && (
+        <div className="bg-white rounded-lg border border-red-200 p-4 mb-3 space-y-3">
+          <p className="text-sm font-medium text-red-800">Cancelar solicitud definitivamente</p>
+          <p className="text-xs text-gray-500">
+            La solicitud quedará cancelada y se notificará al solicitante por correo.
+          </p>
+          <textarea
+            rows={3}
+            value={justificacionCancelar}
+            onChange={(e) => setJustificacionCancelar(e.target.value)}
+            placeholder="Motivo de la cancelación..."
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-300"
+            autoFocus
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={handleCancelar}
+              disabled={isLoading || !justificacionCancelar.trim()}
+              className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+            >
+              {isLoading ? "Procesando..." : "Confirmar cancelación"}
+            </button>
+            <button onClick={() => setModo("idle")} className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+              Volver
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Formulario mandar a corrección */}
+      {modo === "correccion" && (
+        <div className="bg-white rounded-lg border border-amber-200 p-4 mb-3 space-y-3">
+          <p className="text-sm font-medium text-amber-800">Mandar a corrección</p>
+
+          {/* Selector destino */}
+          <div>
+            <p className="text-xs font-medium text-gray-500 mb-1.5">¿Quién debe corregir?</p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setDestinoCorreccion("auxiliar")}
+                className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                  destinoCorreccion === "auxiliar"
+                    ? "border-amber-400 bg-amber-50 text-amber-700"
+                    : "border-gray-200 text-gray-500 hover:bg-gray-50"
+                }`}
+              >
+                Auxiliar de compras
+              </button>
+              <button
+                onClick={() => setDestinoCorreccion("solicitante")}
+                className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                  destinoCorreccion === "solicitante"
+                    ? "border-amber-400 bg-amber-50 text-amber-700"
+                    : "border-gray-200 text-gray-500 hover:bg-gray-50"
+                }`}
+              >
+                Solicitante
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 mt-1.5">
+              {destinoCorreccion === "auxiliar"
+                ? "El auxiliar buscará una nueva cotización."
+                : "El solicitante deberá editar su solicitud desde la intranet."}
+            </p>
+          </div>
+
+          <textarea
+            rows={3}
+            value={queCorregir}
+            onChange={(e) => setQueCorregir(e.target.value)}
+            placeholder="¿Qué debe corregir?..."
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-amber-300"
+            autoFocus
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={handleCorreccion}
+              disabled={isLoading || !queCorregir.trim()}
+              className="flex-1 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-50 transition-colors"
+            >
+              {isLoading ? "Procesando..." : "Confirmar corrección"}
+            </button>
+            <button onClick={() => setModo("idle")} className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+              Volver
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Aviso POR IMPLEMENTAR: aprobación por gerencia */}
       {cotizacion.valor_total > 2_500_000 && (
         <div className="mb-3 rounded-lg bg-yellow-50 border border-yellow-200 px-4 py-2.5 flex items-start gap-2">
@@ -792,19 +1104,35 @@ function PanelAprobacion({
 
       {/* Botones principales */}
       {modo === "idle" && (
-        <div className="flex gap-2">
-          <button
-            onClick={() => setModo("aprobar")}
-            className="flex-1 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-700 transition-colors"
-          >
-            ✓ Aprobar cotización
-          </button>
-          <button
-            onClick={() => setModo("rechazar")}
-            className="flex-1 rounded-lg bg-red-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-600 transition-colors"
-          >
-            ✗ Rechazar
-          </button>
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <button
+              onClick={() => setModo("aprobar")}
+              className="flex-1 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-700 transition-colors"
+            >
+              ✓ Aprobar cotización
+            </button>
+            <button
+              onClick={() => setModo("rechazar")}
+              className="flex-1 rounded-lg bg-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-300 transition-colors"
+            >
+              ↺ Buscar nueva cotización
+            </button>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setModo("correccion")}
+              className="flex-1 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-amber-600 transition-colors"
+            >
+              ✎ Mandar a corrección
+            </button>
+            <button
+              onClick={() => setModo("cancelar")}
+              className="flex-1 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700 transition-colors"
+            >
+              ✕ Cancelar solicitud
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -1282,6 +1610,8 @@ const ESTADO_LABEL: Record<string, string> = {
   pendiente_aprobacion: "Pend. aprobación",
   aprobada: "Aprobada",
   rechazada: "Rechazada",
+  cancelada: "Cancelada",
+  en_correccion: "En corrección",
   oc_enviada: "OC Enviada",
   oc_en_plataforma: "En plataforma",
   entregada: "Entregada",
@@ -1507,6 +1837,8 @@ function estadoBadgeClass(estado: string): string {
     pendiente_aprobacion: "bg-orange-100 text-orange-700",
     aprobada: "bg-green-100 text-green-700",
     rechazada: "bg-red-100 text-red-700",
+    cancelada: "bg-red-200 text-red-800",
+    en_correccion: "bg-amber-100 text-amber-700",
     oc_enviada: "bg-indigo-100 text-indigo-700",
     oc_en_plataforma: "bg-violet-100 text-violet-700",
     entregada: "bg-teal-100 text-teal-700",

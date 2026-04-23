@@ -85,6 +85,15 @@ class RechazarPayload(BaseModel):
     observaciones_aprobacion: str
 
 
+class CancelarCotizacionPayload(BaseModel):
+    justificacion: str
+
+
+class CorreccionCotizacionPayload(BaseModel):
+    que_corregir: str
+    destino: str  # "auxiliar" | "solicitante"
+
+
 class ItemCotizacion(BaseModel):
     num: Optional[int] = None
     descripcion: str
@@ -839,5 +848,146 @@ def rechazar_cotizacion(
             "[email] Rechazo cotización: solicitud %s sin auxiliar_id asignado",
             solicitud.consecutivo_os if solicitud else cotizacion_id,
         )
+
+    return cotizacion
+
+
+@router.patch(
+    "/cotizaciones/{cotizacion_id}/cancelar",
+    response_model=CotizacionRead,
+)
+def cancelar_cotizacion(
+    cotizacion_id: uuid.UUID,
+    payload: CancelarCotizacionPayload,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    oc_db: Session = Depends(get_oc_db),
+):
+    """Cancela definitivamente la solicitud desde el panel de aprobación. KPI: rechazos_cotizacion."""
+    if current_user.role not in ("admin", "directivo", "administrativo"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo directivo, administrativo o admin pueden cancelar cotizaciones.",
+        )
+
+    cotizacion = oc_db.get(CotizacionProveedor, cotizacion_id)
+    if not cotizacion:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cotización no encontrada.")
+
+    cotizacion.aprobada = False
+    cotizacion.aprobado_por_id = current_user.id
+    cotizacion.observaciones_aprobacion = payload.justificacion
+    oc_db.add(cotizacion)
+
+    solicitud = oc_db.get(SolicitudOC, cotizacion.solicitud_id)
+    if solicitud:
+        estado_anterior = solicitud.estado
+        solicitud.estado = EstadoOC.cancelada
+        solicitud.updated_at = datetime.now(timezone.utc)
+        oc_db.add(solicitud)
+        registrar_cambio_estado(
+            oc_db,
+            solicitud.id,
+            estado_anterior,
+            EstadoOC.cancelada,
+            usuario_id=current_user.id,
+            usuario_nombre=current_user.full_name,
+            notas=payload.justificacion,
+            tipo_accion="cancelacion_cotizacion",
+        )
+
+    oc_db.commit()
+    oc_db.refresh(cotizacion)
+
+    if solicitud:
+        from app.services import email_service
+        background_tasks.add_task(
+            email_service.send_solicitud_rechazada,
+            solicitud,
+            payload.justificacion,
+            current_user.full_name,
+        )
+
+    return cotizacion
+
+
+@router.patch(
+    "/cotizaciones/{cotizacion_id}/correccion",
+    response_model=CotizacionRead,
+)
+def correccion_cotizacion(
+    cotizacion_id: uuid.UUID,
+    payload: CorreccionCotizacionPayload,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    oc_db: Session = Depends(get_oc_db),
+    db: Session = Depends(get_db),
+):
+    """Manda a corrección: al auxiliar (nueva cotización) o al solicitante. KPI: reprocesos."""
+    if current_user.role not in ("admin", "directivo", "administrativo"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo directivo, administrativo o admin pueden mandar a corrección.",
+        )
+
+    if payload.destino not in ("auxiliar", "solicitante"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="destino debe ser 'auxiliar' o 'solicitante'.",
+        )
+
+    cotizacion = oc_db.get(CotizacionProveedor, cotizacion_id)
+    if not cotizacion:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cotización no encontrada.")
+
+    cotizacion.aprobada = False
+    cotizacion.aprobado_por_id = current_user.id
+    cotizacion.observaciones_aprobacion = payload.que_corregir
+    oc_db.add(cotizacion)
+
+    solicitud = oc_db.get(SolicitudOC, cotizacion.solicitud_id)
+    if solicitud:
+        estado_anterior = solicitud.estado
+
+        if payload.destino == "auxiliar":
+            nuevo_estado = EstadoOC.en_cotizacion
+            tipo_accion = "correccion_cotizacion_a_auxiliar"
+        else:
+            nuevo_estado = EstadoOC.en_correccion
+            tipo_accion = "correccion_cotizacion_a_solicitante"
+
+        solicitud.estado = nuevo_estado
+        solicitud.updated_at = datetime.now(timezone.utc)
+        # Cuando se manda al solicitante, almacenar la instrucción en la solicitud
+        if payload.destino == "solicitante":
+            solicitud.observaciones_compras = payload.que_corregir
+        oc_db.add(solicitud)
+
+        registrar_cambio_estado(
+            oc_db,
+            solicitud.id,
+            estado_anterior,
+            nuevo_estado,
+            usuario_id=current_user.id,
+            usuario_nombre=current_user.full_name,
+            notas=payload.que_corregir,
+            es_reproceso=True,
+            tipo_accion=tipo_accion,
+        )
+
+    oc_db.commit()
+    oc_db.refresh(cotizacion)
+
+    # Notificar al auxiliar si el destino es auxiliar
+    if solicitud and payload.destino == "auxiliar" and solicitud.auxiliar_id:
+        from app.services import email_service
+        auxiliar = db.get(User, solicitud.auxiliar_id)
+        if auxiliar and auxiliar.email:
+            background_tasks.add_task(
+                email_service.send_rechazo_cotizacion,
+                solicitud,
+                payload.que_corregir,
+                auxiliar.email,
+            )
 
     return cotizacion

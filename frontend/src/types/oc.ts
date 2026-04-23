@@ -4,6 +4,8 @@ export type EstadoOC =
   | "pendiente_aprobacion"
   | "aprobada"
   | "rechazada"
+  | "cancelada"
+  | "en_correccion"
   | "oc_enviada"
   | "oc_en_plataforma"
   | "entregada"
@@ -160,4 +162,8 @@ export interface KPIData {
     plataforma: string | null
     fecha_solicitud: string
   }[]
+  reprocesos_total: number
+  tiempo_promedio_reproceso_dias: number
+  rechazos_solicitud: number
+  rechazos_cotizacion: number
 }

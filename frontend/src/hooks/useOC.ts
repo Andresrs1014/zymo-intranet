@@ -287,6 +287,95 @@ export function useRechazarCotizacion() {
   })
 }
 
+export function useCancelarSolicitud() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, justificacion }: { id: string; justificacion: string }) => {
+      const { data } = await api.patch<SolicitudOC>(`/api/oc/solicitudes/${id}/cancelar`, { justificacion })
+      return data
+    },
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes", id] })
+      qc.invalidateQueries({ queryKey: ["oc", "historial", id] })
+    },
+  })
+}
+
+export function useCorreccionSolicitud() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, que_corregir }: { id: string; que_corregir: string }) => {
+      const { data } = await api.patch<SolicitudOC>(`/api/oc/solicitudes/${id}/correccion`, { que_corregir })
+      return data
+    },
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes", id] })
+      qc.invalidateQueries({ queryKey: ["oc", "historial", id] })
+    },
+  })
+}
+
+export interface EditarCorreccionPayload {
+  descripcion?: string
+  cantidad?: number
+  observaciones_solicitante?: string
+}
+
+export function useEditarCorreccion() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: EditarCorreccionPayload }) => {
+      const { data } = await api.patch<SolicitudOC>(`/api/oc/solicitudes/${id}/editar-correccion`, payload)
+      return data
+    },
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes", id] })
+      qc.invalidateQueries({ queryKey: ["oc", "mis-solicitudes"] })
+      qc.invalidateQueries({ queryKey: ["oc", "historial", id] })
+    },
+  })
+}
+
+export function useCancelarCotizacion() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ cotizacionId, justificacion }: { cotizacionId: string; justificacion: string }) => {
+      const { data } = await api.patch<SolicitudOC>(`/api/oc/cotizaciones/${cotizacionId}/cancelar`, { justificacion })
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
+    },
+  })
+}
+
+export function useCorreccionCotizacion() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      cotizacionId,
+      que_corregir,
+      destino,
+    }: {
+      cotizacionId: string
+      que_corregir: string
+      destino: "auxiliar" | "solicitante"
+    }) => {
+      const { data } = await api.patch<SolicitudOC>(
+        `/api/oc/cotizaciones/${cotizacionId}/correccion`,
+        { que_corregir, destino }
+      )
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
+    },
+  })
+}
+
 // ── Documentos / Orden de Compra ──────────────────────────────────────────────
 
 export function useOrden(solicitudId: string | undefined) {

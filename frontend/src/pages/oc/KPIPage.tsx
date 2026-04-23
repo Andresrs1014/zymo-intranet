@@ -15,6 +15,8 @@ function estadoLabel(estado: string): string {
     pendiente_aprobacion: "Pend. aprobación",
     aprobada: "Aprobada",
     rechazada: "Rechazada",
+    cancelada: "Cancelada",
+    en_correccion: "En corrección",
     oc_enviada: "OC Enviada",
     oc_en_plataforma: "En plataforma",
     entregada: "Entregada",
@@ -30,6 +32,8 @@ function estadoBarColor(estado: string): string {
     pendiente_aprobacion: "bg-orange-400",
     aprobada: "bg-green-500",
     rechazada: "bg-red-400",
+    cancelada: "bg-red-600",
+    en_correccion: "bg-amber-400",
     oc_enviada: "bg-indigo-400",
     oc_en_plataforma: "bg-violet-400",
     entregada: "bg-teal-400",
@@ -155,6 +159,8 @@ function EstadoBadgeMini({ estado }: { estado: string }) {
     pendiente_aprobacion: { label: "Pend. aprobación", className: "bg-orange-100 text-orange-700" },
     aprobada: { label: "Aprobada", className: "bg-green-100 text-green-700" },
     rechazada: { label: "Rechazada", className: "bg-red-100 text-red-700" },
+    cancelada: { label: "Cancelada", className: "bg-red-200 text-red-800" },
+    en_correccion: { label: "En corrección", className: "bg-amber-100 text-amber-700" },
     oc_enviada: { label: "OC Enviada", className: "bg-indigo-100 text-indigo-700" },
     oc_en_plataforma: { label: "En plataforma", className: "bg-violet-100 text-violet-700" },
     entregada: { label: "Entregada", className: "bg-teal-100 text-teal-700" },
@@ -284,6 +290,47 @@ export function KPIPage() {
                   )}
                   <p className="text-xs text-gray-400 mt-1">
                     Prom. cotización: {kpis.tiempo_promedio_cotizacion_dias.toFixed(1)} días
+                  </p>
+                </div>
+              </div>
+
+              {/* Fila 1b — KPIs de calidad: reprocesos y rechazos */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-white rounded-xl border border-amber-100 shadow-sm p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm text-gray-500">Reprocesos</p>
+                    <span className="text-2xl">🔄</span>
+                  </div>
+                  <p className="text-2xl font-bold text-amber-600">{kpis.reprocesos_total}</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Solicitudes devueltas a corrección (total)
+                  </p>
+                  {kpis.reprocesos_total > 0 && (
+                    <p className="text-xs text-amber-500 mt-1">
+                      Promedio resolución: {kpis.tiempo_promedio_reproceso_dias.toFixed(1)} días
+                    </p>
+                  )}
+                </div>
+
+                <div className="bg-white rounded-xl border border-red-100 shadow-sm p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm text-gray-500">Rechazos de solicitud</p>
+                    <span className="text-2xl">🚫</span>
+                  </div>
+                  <p className="text-2xl font-bold text-red-600">{kpis.rechazos_solicitud}</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Cancelaciones definitivas generadas por el auxiliar
+                  </p>
+                </div>
+
+                <div className="bg-white rounded-xl border border-red-100 shadow-sm p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm text-gray-500">Rechazos de cotización</p>
+                    <span className="text-2xl">❌</span>
+                  </div>
+                  <p className="text-2xl font-bold text-red-700">{kpis.rechazos_cotizacion}</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Cancelaciones definitivas generadas por el directivo
                   </p>
                 </div>
               </div>

@@ -12,7 +12,9 @@ class EstadoOC(str, Enum):
     en_cotizacion = "en_cotizacion"
     pendiente_aprobacion = "pendiente_aprobacion"
     aprobada = "aprobada"
-    rechazada = "rechazada"
+    rechazada = "rechazada"          # legacy — usar cancelada para nuevos flujos
+    cancelada = "cancelada"          # rechazo definitivo (auxiliar o directivo)
+    en_correccion = "en_correccion"  # devuelta al solicitante para que corrija
     oc_enviada = "oc_enviada"
     oc_en_plataforma = "oc_en_plataforma"
     entregada = "entregada"
@@ -166,6 +168,11 @@ class HistorialEstado(SQLModel, table=True):
     usuario_nombre: Optional[str] = Field(default=None, max_length=200)
     notas: Optional[str] = Field(default=None)
     fecha: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    # Trazabilidad de reprocesos: True cuando la transición fue un reproceso
+    es_reproceso: bool = Field(default=False)
+    # "cancelacion_solicitud" | "cancelacion_cotizacion" | "correccion_solicitud" |
+    # "correccion_cotizacion_a_auxiliar" | "correccion_cotizacion_a_solicitante" | None
+    tipo_accion: Optional[str] = Field(default=None, max_length=50)
 
 
 class PaqueteSolicitud(SQLModel, table=True):

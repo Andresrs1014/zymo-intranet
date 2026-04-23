@@ -82,6 +82,20 @@ class RechazoPayload(BaseModel):
     motivo_rechazo: str
 
 
+class CancelacionPayload(BaseModel):
+    justificacion: str
+
+
+class CorreccionSolicitudPayload(BaseModel):
+    que_corregir: str
+
+
+class EditarCorreccionPayload(BaseModel):
+    descripcion: Optional[str] = None
+    cantidad: Optional[int] = None
+    observaciones_solicitante: Optional[str] = None
+
+
 class PrioridadPayload(BaseModel):
     nivel_prioridad: str
 
@@ -281,11 +295,13 @@ def asignar_auxiliar(
 
 
 _TRANSICIONES: dict[EstadoOC, set[EstadoOC]] = {
-    EstadoOC.nueva:                {EstadoOC.en_cotizacion, EstadoOC.rechazada},
-    EstadoOC.en_cotizacion:        {EstadoOC.pendiente_aprobacion, EstadoOC.rechazada},
-    EstadoOC.pendiente_aprobacion: {EstadoOC.aprobada, EstadoOC.rechazada, EstadoOC.en_cotizacion},
-    EstadoOC.aprobada:             {EstadoOC.oc_enviada, EstadoOC.rechazada},
+    EstadoOC.nueva:                {EstadoOC.en_cotizacion, EstadoOC.rechazada, EstadoOC.cancelada},
+    EstadoOC.en_cotizacion:        {EstadoOC.pendiente_aprobacion, EstadoOC.rechazada, EstadoOC.cancelada, EstadoOC.en_correccion},
+    EstadoOC.pendiente_aprobacion: {EstadoOC.aprobada, EstadoOC.rechazada, EstadoOC.en_cotizacion, EstadoOC.cancelada, EstadoOC.en_correccion},
+    EstadoOC.aprobada:             {EstadoOC.oc_enviada, EstadoOC.rechazada, EstadoOC.cancelada},
     EstadoOC.rechazada:            {EstadoOC.en_cotizacion},
+    EstadoOC.cancelada:            set(),
+    EstadoOC.en_correccion:        {EstadoOC.en_cotizacion},
     EstadoOC.oc_enviada:           {EstadoOC.oc_en_plataforma},
     EstadoOC.oc_en_plataforma:     {EstadoOC.entregada},
     EstadoOC.entregada:            {EstadoOC.cerrada},
@@ -431,6 +447,139 @@ def gestionar_solicitud(
         setattr(solicitud, field, value)
     solicitud.updated_at = datetime.now(timezone.utc)
     oc_db.add(solicitud)
+    oc_db.commit()
+    oc_db.refresh(solicitud)
+    return solicitud
+
+
+@router.patch("/{solicitud_id}/cancelar", response_model=SolicitudRead)
+def cancelar_solicitud(
+    solicitud_id: uuid.UUID,
+    payload: CancelacionPayload,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(require_compras),
+    oc_db: Session = Depends(get_oc_db),
+):
+    """Cancela definitivamente una solicitud (auxiliar o directivo). KPI: rechazos_solicitud."""
+    solicitud = oc_db.get(SolicitudOC, solicitud_id)
+    if not solicitud:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
+
+    estados_validos = {EstadoOC.nueva, EstadoOC.en_cotizacion, EstadoOC.pendiente_aprobacion, EstadoOC.en_correccion}
+    if solicitud.estado not in estados_validos:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"No se puede cancelar una solicitud en estado '{solicitud.estado}'.",
+        )
+
+    estado_anterior = solicitud.estado
+    solicitud.estado = EstadoOC.cancelada
+    solicitud.updated_at = datetime.now(timezone.utc)
+    oc_db.add(solicitud)
+
+    registrar_cambio_estado(
+        oc_db,
+        solicitud.id,
+        estado_anterior,
+        EstadoOC.cancelada,
+        usuario_id=current_user.id,
+        usuario_nombre=current_user.full_name,
+        notas=payload.justificacion,
+        tipo_accion="cancelacion_solicitud",
+    )
+
+    oc_db.commit()
+    oc_db.refresh(solicitud)
+
+    background_tasks.add_task(send_solicitud_rechazada, solicitud, payload.justificacion, current_user.full_name)
+    return solicitud
+
+
+@router.patch("/{solicitud_id}/correccion", response_model=SolicitudRead)
+def mandar_a_correccion(
+    solicitud_id: uuid.UUID,
+    payload: CorreccionSolicitudPayload,
+    current_user: User = Depends(require_compras),
+    oc_db: Session = Depends(get_oc_db),
+):
+    """Devuelve la solicitud al solicitante para que la corrija. KPI: reprocesos."""
+    solicitud = oc_db.get(SolicitudOC, solicitud_id)
+    if not solicitud:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
+
+    estados_validos = {EstadoOC.nueva, EstadoOC.en_cotizacion, EstadoOC.pendiente_aprobacion}
+    if solicitud.estado not in estados_validos:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"No se puede mandar a corrección una solicitud en estado '{solicitud.estado}'.",
+        )
+
+    estado_anterior = solicitud.estado
+    solicitud.estado = EstadoOC.en_correccion
+    solicitud.observaciones_compras = payload.que_corregir  # visible en la tarjeta del solicitante
+    solicitud.updated_at = datetime.now(timezone.utc)
+    oc_db.add(solicitud)
+
+    registrar_cambio_estado(
+        oc_db,
+        solicitud.id,
+        estado_anterior,
+        EstadoOC.en_correccion,
+        usuario_id=current_user.id,
+        usuario_nombre=current_user.full_name,
+        notas=payload.que_corregir,
+        es_reproceso=True,
+        tipo_accion="correccion_solicitud",
+    )
+
+    oc_db.commit()
+    oc_db.refresh(solicitud)
+    return solicitud
+
+
+@router.patch("/{solicitud_id}/editar-correccion", response_model=SolicitudRead)
+def editar_correccion(
+    solicitud_id: uuid.UUID,
+    payload: EditarCorreccionPayload,
+    current_user: User = Depends(get_current_user),
+    oc_db: Session = Depends(get_oc_db),
+):
+    """El solicitante corrige su solicitud y la reenvía a cotización."""
+    solicitud = oc_db.get(SolicitudOC, solicitud_id)
+    if not solicitud:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
+
+    if solicitud.estado != EstadoOC.en_correccion:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Solo se pueden editar solicitudes en estado 'en_correccion'.",
+        )
+
+    # Verificar que el solicitante sea el dueño de la solicitud
+    if solicitud.solicitante_email and current_user.email != solicitud.solicitante_email:
+        if current_user.role not in ("admin", "administrativo", "directivo", "compras"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Solo el solicitante puede editar su propia solicitud.",
+            )
+
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(solicitud, field, value)
+
+    solicitud.estado = EstadoOC.en_cotizacion
+    solicitud.updated_at = datetime.now(timezone.utc)
+    oc_db.add(solicitud)
+
+    registrar_cambio_estado(
+        oc_db,
+        solicitud.id,
+        EstadoOC.en_correccion,
+        EstadoOC.en_cotizacion,
+        usuario_id=current_user.id,
+        usuario_nombre=current_user.full_name,
+        notas="Solicitud corregida por el solicitante",
+    )
+
     oc_db.commit()
     oc_db.refresh(solicitud)
     return solicitud

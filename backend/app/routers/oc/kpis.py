@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from sqlmodel import Session, func, select
 
 from app.core.deps import get_current_user, require_compras
-from app.models.oc import CotizacionProveedor, EstadoOC, OrdenCompra, SolicitudOC
+from app.models.oc import CotizacionProveedor, EstadoOC, HistorialEstado, OrdenCompra, SolicitudOC
 from app.models.user import User
 from app.oc_database import get_oc_db
 
@@ -59,6 +59,11 @@ class KPIResponse(BaseModel):
     tiempo_promedio_cotizacion_dias: float
     solicitudes_recientes: list[SolicitudResumenKPI]
     por_mes: list[MesItem]
+    # Indicadores de rechazo y reprocesos
+    reprocesos_total: int
+    tiempo_promedio_reproceso_dias: float
+    rechazos_solicitud: int
+    rechazos_cotizacion: int
 
 
 # ── Endpoint ──────────────────────────────────────────────────────────────────
@@ -233,6 +238,52 @@ def get_kpis(
         for s in recientes_raw
     ]
 
+    # 12. Indicadores de rechazo y reprocesos
+    # Reprocesos: entradas de historial marcadas como es_reproceso = True
+    reprocesos_entradas = oc_db.exec(
+        select(HistorialEstado).where(HistorialEstado.es_reproceso == True)  # noqa: E712
+    ).all()
+    reprocesos_total = len(reprocesos_entradas)
+
+    # Tiempo promedio de reproceso: desde que entra en_correccion / en_cotizacion (reproceso)
+    # hasta la siguiente entrada de historial de esa misma solicitud
+    tiempo_promedio_reproceso_dias = 0.0
+    if reprocesos_entradas:
+        tiempos_reproceso: list[float] = []
+        for entrada in reprocesos_entradas:
+            # Buscar la siguiente entrada del historial para esta solicitud (resolución del reproceso)
+            siguiente = oc_db.exec(
+                select(HistorialEstado)
+                .where(
+                    HistorialEstado.solicitud_id == entrada.solicitud_id,
+                    HistorialEstado.fecha > entrada.fecha,
+                    HistorialEstado.es_reproceso == False,  # noqa: E712
+                )
+                .order_by(HistorialEstado.fecha)
+                .limit(1)
+            ).first()
+            if siguiente:
+                fecha_inicio = entrada.fecha.replace(tzinfo=None) if entrada.fecha.tzinfo else entrada.fecha
+                fecha_fin = siguiente.fecha.replace(tzinfo=None) if siguiente.fecha.tzinfo else siguiente.fecha
+                dias = (fecha_fin - fecha_inicio).total_seconds() / 86400
+                tiempos_reproceso.append(dias)
+        if tiempos_reproceso:
+            tiempo_promedio_reproceso_dias = sum(tiempos_reproceso) / len(tiempos_reproceso)
+
+    # Rechazos de solicitud: cancelaciones definitivas originadas desde la solicitud
+    rechazos_solicitud = oc_db.exec(
+        select(func.count(HistorialEstado.id)).where(
+            HistorialEstado.tipo_accion == "cancelacion_solicitud"
+        )
+    ).one()
+
+    # Rechazos de cotización: cancelaciones definitivas originadas desde el panel de aprobación
+    rechazos_cotizacion = oc_db.exec(
+        select(func.count(HistorialEstado.id)).where(
+            HistorialEstado.tipo_accion == "cancelacion_cotizacion"
+        )
+    ).one()
+
     return KPIResponse(
         total_solicitudes=total_solicitudes,
         por_estado=por_estado,
@@ -247,6 +298,10 @@ def get_kpis(
         tiempo_promedio_cotizacion_dias=round(tiempo_promedio_cotizacion_dias, 2),
         solicitudes_recientes=solicitudes_recientes,
         por_mes=por_mes,
+        reprocesos_total=reprocesos_total,
+        tiempo_promedio_reproceso_dias=round(tiempo_promedio_reproceso_dias, 2),
+        rechazos_solicitud=rechazos_solicitud or 0,
+        rechazos_cotizacion=rechazos_cotizacion or 0,
     )
 
 
