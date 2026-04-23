@@ -402,9 +402,21 @@ export function SolicitudDetallePage() {
                 </Section>
               )}
 
+              {/* Solicitud rechazada por el auxiliar (sin cotizaciones previas) */}
+              {solicitud.estado === "rechazada" && cotizaciones.length === 0 && (
+                <Section title="Estado: Rechazada">
+                  <div className="rounded-lg bg-red-50 border border-red-100 p-4">
+                    <p className="text-sm font-semibold text-red-800">Solicitud rechazada por el equipo de compras</p>
+                    <p className="text-xs text-red-600 mt-1">
+                      Esta solicitud ha sido rechazada y se le ha notificado al solicitante por correo. No requiere más gestión de tu parte.
+                    </p>
+                  </div>
+                </Section>
+              )}
+
               {/* Acción auxiliar: cargar cotización */}
               {(esAuxiliarAsignado || user?.role === "admin") &&
-                (solicitud.estado === "en_cotizacion" || solicitud.estado === "rechazada") && (
+                (solicitud.estado === "en_cotizacion" || (solicitud.estado === "rechazada" && cotizaciones.length > 0)) && (
                   <Section title="Gestión">
                     <p className="text-xs text-gray-500 mb-3">
                       {solicitud.estado === "rechazada"

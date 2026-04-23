@@ -24,7 +24,7 @@ const ESTADO_CONFIG: Record<string, { label: string; className: string; descripc
   en_cotizacion:        { label: "En gestión",          className: "bg-yellow-100 text-yellow-700", descripcion: "El equipo de compras está buscando cotización." },
   pendiente_aprobacion: { label: "Pend. aprobación",   className: "bg-orange-100 text-orange-700", descripcion: "La cotización está siendo revisada por el director." },
   aprobada:             { label: "Aprobada",            className: "bg-green-100 text-green-700",  descripcion: "La compra fue aprobada. Generando orden de compra." },
-  rechazada:            { label: "Rechazada",           className: "bg-red-100 text-red-700",      descripcion: "La cotización fue rechazada. Se está buscando alternativa." },
+  rechazada:            { label: "Rechazada",           className: "bg-red-100 text-red-700",      descripcion: "La solicitud o cotización fue rechazada por compras. Revisa tu correo o contacta al equipo." },
   oc_enviada:           { label: "OC enviada",          className: "bg-indigo-100 text-indigo-700", descripcion: "La orden de compra fue enviada al proveedor." },
   oc_en_plataforma:     { label: "En plataforma",       className: "bg-violet-100 text-violet-700", descripcion: "El pedido fue ingresado en la plataforma. Confirma cuando lo recibas." },
   entregada:            { label: "Recibida",            className: "bg-teal-100 text-teal-700",    descripcion: "Confirmaste la recepción. Pendiente cierre administrativo." },
