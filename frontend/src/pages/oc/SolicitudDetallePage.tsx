@@ -185,7 +185,7 @@ export function SolicitudDetallePage() {
 
             <div className="flex gap-2 shrink-0">
               {(esAuxiliarAsignado || puedeAsignarOtro || puedeAsignarse) &&
-                (solicitud.estado === "nueva" || solicitud.estado === "en_cotizacion") && (
+                (solicitud.estado === "nueva" || solicitud.estado === "en_cotizacion" || solicitud.estado === "pendiente_aprobacion") && (
                   <button
                     onClick={() => setModoRechazoSol(true)}
                     className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-100 transition-colors"
@@ -405,10 +405,22 @@ export function SolicitudDetallePage() {
               {/* Solicitud rechazada por el auxiliar (sin cotizaciones previas) */}
               {solicitud.estado === "rechazada" && cotizaciones.length === 0 && (
                 <Section title="Estado: Rechazada">
-                  <div className="rounded-lg bg-red-50 border border-red-100 p-4">
+                  <div className="rounded-lg bg-red-50 border border-red-100 p-4 space-y-2">
                     <p className="text-sm font-semibold text-red-800">Solicitud rechazada por el equipo de compras</p>
-                    <p className="text-xs text-red-600 mt-1">
-                      Esta solicitud ha sido rechazada y se le ha notificado al solicitante por correo. No requiere más gestión de tu parte.
+                    {(() => {
+                      const entradaRechazo = historial.find((h) => h.estado_nuevo === "rechazada")
+                      return entradaRechazo?.notas ? (
+                        <div className="mt-1 rounded bg-red-100 border border-red-200 px-3 py-2">
+                          <p className="text-xs font-medium text-red-700 mb-0.5">Motivo del rechazo</p>
+                          <p className="text-xs text-red-800">{entradaRechazo.notas}</p>
+                          {entradaRechazo.usuario_nombre && (
+                            <p className="text-xs text-red-500 mt-1">— {entradaRechazo.usuario_nombre}</p>
+                          )}
+                        </div>
+                      ) : null
+                    })()}
+                    <p className="text-xs text-red-600">
+                      Se le ha notificado al solicitante por correo. No requiere más gestión de tu parte.
                     </p>
                   </div>
                 </Section>
