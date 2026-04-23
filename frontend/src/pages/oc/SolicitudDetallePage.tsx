@@ -22,7 +22,6 @@ import {
   useUsuariosCompras,
   useHistorialEstados,
   usePlataformas,
-  useRechazarSolicitud,
   useCancelarSolicitud,
   useCorreccionSolicitud,
   useCancelarCotizacion,
@@ -55,7 +54,6 @@ export function SolicitudDetallePage() {
   const marcarEntregada = useMarcarEntregada()
   const cerrarSolicitud = useCerrarSolicitud()
   const cambiarPrioridad = useCambiarPrioridad()
-  const rechazarSolicitud = useRechazarSolicitud()
   const cancelarSolicitud = useCancelarSolicitud()
   const correccionSolicitud = useCorreccionSolicitud()
   const cancelarCotizacion = useCancelarCotizacion()
