@@ -12,6 +12,38 @@ class EstadoFactura(str, Enum):
     con_diferencias = "con_diferencias"
 
 
+class TipoGasto(SQLModel, table=True):
+    """Catálogo configurable de tipos de gasto (solo admin)."""
+    __tablename__ = "fin_tipos_gasto"
+
+    id: int = Field(default=None, primary_key=True)
+    nombre: str = Field(max_length=200, unique=True)
+    activo: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class CuentaContable(SQLModel, table=True):
+    """Catálogo configurable de cuentas contables (solo admin)."""
+    __tablename__ = "fin_cuentas_contables"
+
+    id: int = Field(default=None, primary_key=True)
+    numero_cuenta: str = Field(max_length=50)
+    nombre_cuenta: str = Field(max_length=300)
+    tipo_gasto_id: Optional[int] = Field(default=None, foreign_key="fin_tipos_gasto.id")
+    activo: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class FacturaCuentaContable(SQLModel, table=True):
+    """Cuentas contables asignadas a una factura (N:M)."""
+    __tablename__ = "fin_factura_cuentas"
+
+    id: int = Field(default=None, primary_key=True)
+    factura_id: uuid.UUID = Field(foreign_key="fin_facturas.id", index=True)
+    cuenta_id: int = Field(foreign_key="fin_cuentas_contables.id")
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 class FacturaProveedor(SQLModel, table=True):
     """Factura de venta subida por contabilidad para una OC entregada."""
     __tablename__ = "fin_facturas"

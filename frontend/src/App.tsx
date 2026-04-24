@@ -23,6 +23,7 @@ import { PaquetesPage } from "@/pages/operativo/PaquetesPage"
 import { FinancieroPage } from "@/pages/financiero/FinancieroPage"
 import { FacturasPage } from "@/pages/financiero/FacturasPage"
 import { FacturaDetallePage } from "@/pages/financiero/FacturaDetallePage"
+import { FinancieroConfigPage } from "@/pages/financiero/FinancieroConfigPage"
 import { AgentFloatingWindow } from "@/components/agent/AgentFloatingWindow"
 import { GerencialPage } from "@/pages/gerencial/GerencialPage"
 
@@ -285,6 +286,14 @@ export default function App() {
             <FinancieroRoute>
               <FacturaDetallePage />
             </FinancieroRoute>
+          }
+        />
+        <Route
+          path="/financiero/configuracion"
+          element={
+            <AdminRoute>
+              <FinancieroConfigPage />
+            </AdminRoute>
           }
         />
 

@@ -9,7 +9,12 @@ import {
   useSubirFactura,
   useActualizarFactura,
   useValidarFactura,
+  useFacturaCuentas,
+  useCuentasContables,
+  useAsignarCuenta,
+  useQuitarCuenta,
 } from "@/hooks/useFinanciero"
+import { Combobox } from "@/components/ui/Combobox"
 import type { EstadoFactura, FacturaUpdate } from "@/types/financiero"
 import { formatCOP, parseCOP } from "@/lib/formatters"
 
@@ -43,6 +48,16 @@ export function FacturaDetallePage() {
   const subirFactura = useSubirFactura()
   const actualizarFactura = useActualizarFactura()
   const validarFactura = useValidarFactura()
+
+  const { data: cuentasAsignadas = [] } = useFacturaCuentas(facturaId)
+  const { data: todasCuentas = [] } = useCuentasContables(true)
+  const asignarCuenta = useAsignarCuenta()
+  const quitarCuenta = useQuitarCuenta()
+  const [cuentaSeleccionada, setCuentaSeleccionada] = useState<number | null>(null)
+
+  const cuentasOpciones = todasCuentas
+    .filter((c) => !cuentasAsignadas.some((a) => a.cuenta_id === c.id))
+    .map((c) => ({ value: c.id, label: c.nombre_cuenta, sublabel: c.numero_cuenta }))
 
   // Form state for editing
   const [form, setForm] = useState<FacturaUpdate>({})
@@ -239,11 +254,26 @@ export function FacturaDetallePage() {
                       value={form.numero_factura ?? ""}
                       onChange={(v) => handleChange("numero_factura", v)}
                     />
-                    <FormFieldCOP
-                      label="Valor factura"
-                      value={form.valor_factura}
-                      onChange={(v) => handleChange("valor_factura", v ?? 0)}
-                    />
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-medium text-gray-600">Valor factura</label>
+                        {solicitud?.valor_aprobado != null && (
+                          <button
+                            type="button"
+                            onClick={() => handleChange("valor_factura", solicitud.valor_aprobado!)}
+                            className="text-xs text-brand-blue hover:underline"
+                            title={`Usar valor OC: ${formatCOP(solicitud.valor_aprobado)}`}
+                          >
+                            Usar valor OC ({formatCOP(solicitud.valor_aprobado)})
+                          </button>
+                        )}
+                      </div>
+                      <FormFieldCOP
+                        label=""
+                        value={form.valor_factura}
+                        onChange={(v) => handleChange("valor_factura", v ?? 0)}
+                      />
+                    </div>
                     <FormFieldDate
                       label="Fecha factura"
                       value={form.fecha_factura ?? ""}
@@ -354,6 +384,69 @@ export function FacturaDetallePage() {
                     </tbody>
                   </table>
                 </div>
+              </section>
+            )}
+
+            {/* ── Sección D: Cuentas Contables ──────────────────────────── */}
+            {factura && (
+              <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+                <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-4">
+                  Cuentas Contables
+                </h2>
+
+                {/* Asignar cuenta */}
+                <div className="flex gap-2 mb-4">
+                  <Combobox
+                    className="flex-1"
+                    options={cuentasOpciones}
+                    value={cuentaSeleccionada}
+                    onChange={(v) => setCuentaSeleccionada(v as number | null)}
+                    placeholder="Buscar cuenta por número o nombre..."
+                  />
+                  <button
+                    onClick={() => {
+                      if (!cuentaSeleccionada || !facturaId) return
+                      asignarCuenta.mutate(
+                        { facturaId, cuentaId: cuentaSeleccionada },
+                        { onSuccess: () => setCuentaSeleccionada(null) }
+                      )
+                    }}
+                    disabled={!cuentaSeleccionada || asignarCuenta.isPending}
+                    className="rounded-lg bg-brand-blue px-4 py-2 text-sm font-medium text-white hover:brightness-105 disabled:opacity-50 transition-all shrink-0"
+                  >
+                    Agregar
+                  </button>
+                </div>
+
+                {/* Lista de cuentas asignadas */}
+                {cuentasAsignadas.length === 0 ? (
+                  <p className="text-sm text-gray-400">No hay cuentas contables asignadas a esta factura.</p>
+                ) : (
+                  <ul className="divide-y divide-gray-50">
+                    {cuentasAsignadas.map((a) => (
+                      <li key={a.id} className="flex items-center justify-between py-2.5 text-sm">
+                        <div className="flex items-center gap-3">
+                          <span className="font-mono text-xs text-gray-400 w-14">{a.numero_cuenta}</span>
+                          <div>
+                            <p className="text-gray-800 font-medium">{a.nombre_cuenta}</p>
+                            {a.tipo_gasto_nombre && (
+                              <p className="text-xs text-gray-400">{a.tipo_gasto_nombre}</p>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            if (!facturaId) return
+                            quitarCuenta.mutate({ facturaId, asignacionId: a.id })
+                          }}
+                          className="text-xs text-red-500 hover:text-red-700 transition-colors ml-4"
+                        >
+                          Quitar
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </section>
             )}
           </div>

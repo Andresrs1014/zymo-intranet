@@ -75,3 +75,29 @@ export interface FacturaUpdate {
   estado?: EstadoFactura
   observaciones?: string
 }
+
+// ── Configuración financiera ──────────────────────────────────────────────────
+
+export interface TipoGasto {
+  id: number
+  nombre: string
+  activo: boolean
+}
+
+export interface CuentaContable {
+  id: number
+  numero_cuenta: string
+  nombre_cuenta: string
+  tipo_gasto_id: number | null
+  tipo_gasto_nombre: string | null
+  activo: boolean
+}
+
+export interface FacturaCuenta {
+  id: number
+  factura_id: string
+  cuenta_id: number
+  numero_cuenta: string
+  nombre_cuenta: string
+  tipo_gasto_nombre: string | null
+}

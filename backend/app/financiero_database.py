@@ -22,9 +22,15 @@ def get_financiero_engine():
 
 def create_financiero_tables() -> None:
     """Crea las tablas del módulo Financiero en financiero.db."""
-    from app.models.financiero import FacturaProveedor, ValidacionFactura  # noqa: F401
+    from app.models.financiero import (  # noqa: F401
+        FacturaProveedor, ValidacionFactura,
+        TipoGasto, CuentaContable, FacturaCuentaContable,
+    )
 
-    fin_table_names = {"fin_facturas", "fin_validaciones"}
+    fin_table_names = {
+        "fin_facturas", "fin_validaciones",
+        "fin_tipos_gasto", "fin_cuentas_contables", "fin_factura_cuentas",
+    }
     tables = [
         SQLModel.metadata.tables[t]
         for t in fin_table_names

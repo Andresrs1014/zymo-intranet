@@ -296,9 +296,10 @@ def _parse_date_str(raw: str) -> Optional[date]:
 # ── Estados elegibles para gestión de facturas ────────────────────────────────
 
 _ESTADOS_ELEGIBLES = {
+    EstadoOC.oc_enviada,        # desde que la OC se envía al proveedor
     EstadoOC.oc_en_plataforma,
     EstadoOC.entregada,
-    EstadoOC.cerrada,
+    EstadoOC.cerrada,           # permanece visible aunque esté cerrada
 }
 
 
