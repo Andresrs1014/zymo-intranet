@@ -95,6 +95,18 @@ export function useValidarFactura() {
   })
 }
 
+export function useEliminarFactura() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (facturaId: string) => {
+      await api.delete(`/api/financiero/facturas/${facturaId}`)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["financiero"] })
+    },
+  })
+}
+
 // ── Configuración financiera ──────────────────────────────────────────────────
 
 export function useTiposGasto() {

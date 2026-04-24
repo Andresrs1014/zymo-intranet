@@ -9,6 +9,7 @@ import {
   useSubirFactura,
   useActualizarFactura,
   useValidarFactura,
+  useEliminarFactura,
   useFacturaCuentas,
   useCuentasContables,
   useAsignarCuenta,
@@ -48,6 +49,7 @@ export function FacturaDetallePage() {
   const subirFactura = useSubirFactura()
   const actualizarFactura = useActualizarFactura()
   const validarFactura = useValidarFactura()
+  const eliminarFactura = useEliminarFactura()
 
   const { data: cuentasAsignadas = [] } = useFacturaCuentas(facturaId)
   const { data: todasCuentas = [] } = useCuentasContables(true)
@@ -98,6 +100,12 @@ export function FacturaDetallePage() {
   function handleValidar() {
     if (!facturaId) return
     validarFactura.mutate(facturaId)
+  }
+
+  function handleEliminar() {
+    if (!facturaId) return
+    if (!window.confirm("¿Estás seguro de que deseas eliminar esta factura? Tendrás que subirla y extraer sus datos nuevamente.")) return
+    eliminarFactura.mutate(facturaId)
   }
 
   // File upload
@@ -314,17 +322,30 @@ export function FacturaDetallePage() {
                   </div>
 
                   <div className="mt-5 flex items-center justify-end gap-3">
-                    <button
-                      onClick={() => window.open(`/api/financiero/facturas/${facturaId}/pdf`, "_blank")}
-                      className="mr-auto rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-1.5"
-                      title="Ver PDF en nueva pestaña"
-                    >
-                      <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M10 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />
-                        <path fillRule="evenodd" d="M.664 10.59a1.651 1.651 0 0 1 0-1.186A10.004 10.004 0 0 1 10 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0 1 10 17c-4.257 0-7.893-2.66-9.336-6.41Z" clipRule="evenodd" />
-                      </svg>
-                      Ver PDF
-                    </button>
+                    <div className="flex items-center gap-2 mr-auto">
+                      <button
+                        onClick={() => window.open(`/api/financiero/facturas/${facturaId}/pdf`, "_blank")}
+                        className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-1.5"
+                        title="Ver PDF en nueva pestaña"
+                      >
+                        <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M10 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />
+                          <path fillRule="evenodd" d="M.664 10.59a1.651 1.651 0 0 1 0-1.186A10.004 10.004 0 0 1 10 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0 1 10 17c-4.257 0-7.893-2.66-9.336-6.41Z" clipRule="evenodd" />
+                        </svg>
+                        Ver PDF
+                      </button>
+                      <button
+                        onClick={handleEliminar}
+                        disabled={eliminarFactura.isPending}
+                        className="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors flex items-center gap-1.5"
+                        title="Eliminar esta factura y volver a subir"
+                      >
+                        <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z" clipRule="evenodd" />
+                        </svg>
+                        {eliminarFactura.isPending ? "Eliminando..." : "Eliminar"}
+                      </button>
+                    </div>
                     <button
                       onClick={handleValidar}
                       disabled={validarFactura.isPending}

@@ -49,6 +49,12 @@ export function parseCOP(raw: string): number | undefined {
   if (/,/.test(cleaned))
     return parseFloat(cleaned.replace(",", "."))
 
+  // Un solo punto con 3 decimales exactos suele ser separador de miles en Colombia: 49.580 → 49580
+  const parts = cleaned.split(".")
+  if (parts.length === 2 && parts[1].length === 3) {
+    return parseFloat(cleaned.replace(".", ""))
+  }
+
   const n = parseFloat(cleaned)
   return isNaN(n) ? undefined : n
 }

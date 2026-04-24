@@ -571,6 +571,30 @@ def actualizar_factura(
     return factura  # type: ignore[return-value]
 
 
+@router.delete(
+    "/facturas/{factura_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def eliminar_factura(
+    factura_id: uuid.UUID,
+    current_user: User = Depends(require_financiero),
+    fin_db: Session = Depends(get_financiero_db),
+) -> None:
+    factura = fin_db.get(FacturaProveedor, factura_id)
+    if not factura:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Factura no encontrada.")
+
+    # Eliminar validaciones asociadas
+    validaciones = fin_db.exec(
+        select(ValidacionFactura).where(ValidacionFactura.factura_id == factura_id)
+    ).all()
+    for validacion in validaciones:
+        fin_db.delete(validacion)
+
+    fin_db.delete(factura)
+    fin_db.commit()
+
+
 @router.get(
     "/facturas/{factura_id}/validaciones",
     response_model=list[ValidacionRead],
