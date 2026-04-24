@@ -3,11 +3,11 @@ import { useNavigate } from "react-router-dom"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
 import { useSolicitudes } from "@/hooks/useOC"
+import { Combobox } from "@/components/ui/Combobox"
 import { formatFechaRelativa } from "@/lib/dates"
 import type { EstadoOC, SolicitudOC } from "@/types/oc"
 
-const ESTADOS: { value: string; label: string }[] = [
-  { value: "", label: "Todos los estados" },
+const ESTADOS_OPTIONS = [
   { value: "nueva", label: "Nueva" },
   { value: "en_cotizacion", label: "Cotización lista" },
   { value: "pendiente_aprobacion", label: "Pendiente aprobación" },
@@ -19,14 +19,20 @@ const ESTADOS: { value: string; label: string }[] = [
   { value: "cerrada", label: "Cerrada" },
 ]
 
+const PLATAFORMAS_OPTIONS = [
+  { value: "Logimat", label: "Logimat" },
+  { value: "IMC Cargo", label: "IMC Cargo" },
+  { value: "IMC Depósito", label: "IMC Depósito" },
+]
+
 export function SolicitudesPage() {
   const navigate = useNavigate()
-  const [estadoFiltro, setEstadoFiltro] = useState("")
-  const [plataformaFiltro, setPlataformaFiltro] = useState("")
+  const [estadoFiltro, setEstadoFiltro] = useState<string | null>(null)
+  const [plataformaFiltro, setPlataformaFiltro] = useState<string | null>(null)
 
   const { data: solicitudes = [], isLoading, isRefetching } = useSolicitudes({
-    estado: estadoFiltro || undefined,
-    plataforma: plataformaFiltro || undefined,
+    estado: estadoFiltro ?? undefined,
+    plataforma: plataformaFiltro ?? undefined,
   })
 
   return (
@@ -52,24 +58,19 @@ export function SolicitudesPage() {
 
           {/* Filtros */}
           <div className="flex flex-wrap gap-3 mb-4">
-            <select
+            <Combobox
+              className="w-52"
+              options={ESTADOS_OPTIONS}
               value={estadoFiltro}
-              onChange={(e) => setEstadoFiltro(e.target.value)}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
-            >
-              {ESTADOS.map((e) => (
-                <option key={e.value} value={e.value}>
-                  {e.label}
-                </option>
-              ))}
-            </select>
-
-            <input
-              type="text"
-              placeholder="Filtrar por plataforma..."
+              onChange={(v) => setEstadoFiltro(v as string | null)}
+              placeholder="Todos los estados"
+            />
+            <Combobox
+              className="w-44"
+              options={PLATAFORMAS_OPTIONS}
               value={plataformaFiltro}
-              onChange={(e) => setPlataformaFiltro(e.target.value)}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30 w-44"
+              onChange={(v) => setPlataformaFiltro(v as string | null)}
+              placeholder="Todas las plataformas"
             />
           </div>
 

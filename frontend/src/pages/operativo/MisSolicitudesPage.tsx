@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
 import { useMisSolicitudes, useMarcarEntregada, useEditarCorreccion } from "@/hooks/useOC"
+import { Combobox } from "@/components/ui/Combobox"
 import { formatFechaRelativa, formatFechaHora } from "@/lib/dates"
 import type { SolicitudOC } from "@/types/oc"
 
@@ -44,10 +45,12 @@ function EstadoBadge({ estado }: { estado: string }) {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
+const ESTADOS_OPTIONS = Object.entries(ESTADO_CONFIG).map(([value, { label }]) => ({ value, label }))
+
 export function MisSolicitudesPage() {
   const navigate = useNavigate()
   const { data: solicitudes = [], isLoading, isRefetching } = useMisSolicitudes()
-  const [filtroEstado, setFiltroEstado] = useState("")
+  const [filtroEstado, setFiltroEstado] = useState<string | null>(null)
 
   const filtradas = filtroEstado
     ? solicitudes.filter((s) => s.estado === filtroEstado)
@@ -123,16 +126,13 @@ export function MisSolicitudesPage() {
 
           {/* Filtro de estado */}
           <div className="mb-4">
-            <select
+            <Combobox
+              className="w-52"
+              options={ESTADOS_OPTIONS}
               value={filtroEstado}
-              onChange={(e) => setFiltroEstado(e.target.value)}
-              className="rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
-            >
-              <option value="">Todos los estados</option>
-              {Object.entries(ESTADO_CONFIG).map(([value, { label }]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
+              onChange={(v) => setFiltroEstado(v as string | null)}
+              placeholder="Todos los estados"
+            />
           </div>
 
           {/* Loading */}
