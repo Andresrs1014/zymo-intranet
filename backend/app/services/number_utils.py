@@ -63,3 +63,24 @@ def parse_cop(raw: str) -> Optional[float]:
 
     except Exception:
         return None
+
+
+def format_cop(value: float | int | None, with_symbol: bool = False) -> Optional[str]:
+    """Formatea un número a estilo colombiano (miles con punto, sin decimales).
+
+    Ej:
+      49850      -> "49.850"
+      1500000.4  -> "1.500.000"
+      None       -> None
+    """
+    if value is None:
+        return None
+    try:
+        n = float(value)
+    except Exception:
+        return None
+
+    # Redondear a pesos (sin decimales) y aplicar separador de miles.
+    # Python usa "," como separador de miles por defecto.
+    s = f"{round(n):,}".replace(",", ".")
+    return f"${s}" if with_symbol else s

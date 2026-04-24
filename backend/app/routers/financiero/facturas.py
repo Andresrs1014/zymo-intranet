@@ -174,7 +174,7 @@ def _extraer_texto(contenido: bytes, ext: str) -> str:
 
 
 from app.services.extraction_utils import extraer_campos_estructurado as _extraer_campos_estructurado  # noqa: E402
-from app.services.number_utils import parse_cop as _to_float  # noqa: E402
+from app.services.number_utils import format_cop as _fmt_cop, parse_cop as _to_float  # noqa: E402
 
 
 def _parsear_factura(texto: str, extra: Optional[dict[str, str]] = None) -> ExtraccionFacturaResult:
@@ -718,8 +718,8 @@ def _ejecutar_validacion(
 
     checks.append((
         "valor",
-        str(val_esperado) if val_esperado is not None else None,
-        str(val_encontrado) if val_encontrado is not None else None,
+        _fmt_cop(val_esperado),
+        _fmt_cop(val_encontrado),
         cumple_valor,
         obs_valor,
     ))
