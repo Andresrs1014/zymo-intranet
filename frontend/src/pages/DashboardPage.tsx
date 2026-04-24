@@ -1,22 +1,11 @@
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
 import { AppCard } from "@/components/apps/AppCard"
-import { ALL_APPS, getAppsForRole } from "@/lib/roles"
+import { EXTERNAL_APPS } from "@/lib/roles"
 import { useAuthStore } from "@/store/authStore"
-import { useRoles } from "@/hooks/useRoles"
 
 export function DashboardPage() {
   const user = useAuthStore((s) => s.user)
-  const { data: roles } = useRoles()
-
-  function getApps() {
-    if (!user) return []
-    if (user.role === "admin") return ALL_APPS
-    const userRole = roles?.find((r) => r.name === user.role)
-    if (!userRole) return []
-    return getAppsForRole(user.role, userRole.app_permissions)
-  }
-  const apps = getApps()
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -26,39 +15,22 @@ export function DashboardPage() {
         <TopBar title="Dashboard" />
 
         <main className="flex-1 overflow-y-auto px-6 py-8">
-          {apps.length === 0 ? (
-            <EmptyState />
-          ) : (
-            <>
-              <p className="text-sm text-gray-500 mb-6">
-                {apps.length === 1
-                  ? "1 aplicación disponible"
-                  : `${apps.length} aplicaciones disponibles`}
-              </p>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {apps.map((app) => (
-                  <AppCard key={app.id} app={app} />
-                ))}
-              </div>
-            </>
-          )}
+          <div className="mb-6">
+            <h1 className="text-xl font-bold text-gray-900">
+              Bienvenido{user?.full_name ? `, ${user.full_name.split(" ")[0]}` : ""}
+            </h1>
+            <p className="text-sm text-gray-400 mt-0.5">
+              Accesos rápidos a plataformas externas
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {EXTERNAL_APPS.map((app) => (
+              <AppCard key={app.id} app={app} />
+            ))}
+          </div>
         </main>
       </div>
-    </div>
-  )
-}
-
-function EmptyState() {
-  return (
-    <div className="flex flex-col items-center justify-center h-full text-center py-20">
-      <div className="text-5xl mb-4">🔒</div>
-      <h3 className="text-lg font-semibold text-gray-900 mb-2">
-        Sin aplicaciones asignadas
-      </h3>
-      <p className="text-sm text-gray-500 max-w-xs">
-        Tu cuenta no tiene aplicaciones habilitadas. Contacta al administrador
-        para solicitar acceso.
-      </p>
     </div>
   )
 }

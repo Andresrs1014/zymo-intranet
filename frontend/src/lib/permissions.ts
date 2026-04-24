@@ -43,3 +43,11 @@ const ROLES_FINANCIERO = new Set(["admin", "financiero"])
 export function canSeeFinanciero(role: string, area?: string | null, appPerms?: string[]): boolean {
   return ROLES_FINANCIERO.has(role) || area === "contabilidad" || appPerms?.includes("mod_financiero") === true
 }
+
+// ── Gerencial ─────────────────────────────────────────────────────────────────
+
+const ROLES_GERENCIAL = new Set(["admin", "gerente"])
+
+export function canSeeGerencial(role: string, appPerms?: string[]): boolean {
+  return ROLES_GERENCIAL.has(role) || appPerms?.includes("mod_gerencial") === true
+}

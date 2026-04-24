@@ -1,8 +1,6 @@
 import { NavLink } from "react-router-dom"
 import { useAuthStore } from "@/store/authStore"
-import { canSeeOC, canSeeSGC, canSeeOperativo, canSeeFinanciero } from "@/lib/permissions"
-
-const ROLES_GERENCIALES = new Set(["gerente", "admin"])
+import { canSeeOC, canSeeSGC, canSeeOperativo, canSeeFinanciero, canSeeGerencial } from "@/lib/permissions"
 
 export function Sidebar() {
   const user = useAuthStore((s) => s.user)
@@ -11,7 +9,7 @@ export function Sidebar() {
   const showSGC            = user ? canSeeSGC(user.role, user.area, perms) : false
   const showOperativo      = user ? canSeeOperativo(user.role, user.area, perms) : false
   const showFinanciero     = user ? canSeeFinanciero(user.role, user.area, perms) : false
-  const showGerencial      = user ? ROLES_GERENCIALES.has(user.role) : false
+  const showGerencial      = user ? canSeeGerencial(user.role, perms) : false
 
   return (
     <aside className="flex h-full w-64 flex-col bg-brand-blue">

@@ -11,6 +11,7 @@ import {
   useUpdateUser,
   useDeactivateUser,
   useReactivateUser,
+  useDeleteUser,
   getApiError,
   type CreateUserPayload,
   type UpdateUserPayload,
@@ -36,6 +37,7 @@ export function AdminPage() {
   const updateUser = useUpdateUser()
   const deactivateUser = useDeactivateUser()
   const reactivateUser = useReactivateUser()
+  const deleteUser = useDeleteUser()
 
   function openCreate() {
     setSelected(null)
@@ -85,6 +87,11 @@ export function AdminPage() {
 
   function handleReactivate(user: UserListItem) {
     reactivateUser.mutate(user.id)
+  }
+
+  function handleDelete(user: UserListItem) {
+    if (!confirm(`¿Eliminar permanentemente a ${user.full_name ?? user.email}? Esta acción no se puede deshacer.`)) return
+    deleteUser.mutate(user.id)
   }
 
   const isModalLoading = createUser.isPending || updateUser.isPending
@@ -173,6 +180,7 @@ export function AdminPage() {
                       onEdit={openEdit}
                       onDeactivate={handleDeactivate}
                       onReactivate={handleReactivate}
+                      onDelete={handleDelete}
                     />
                   ))}
                 </tbody>
@@ -201,9 +209,10 @@ interface RowProps {
   onEdit: (u: UserListItem) => void
   onDeactivate: (u: UserListItem) => void
   onReactivate: (u: UserListItem) => void
+  onDelete: (u: UserListItem) => void
 }
 
-function UserRow({ user, tab, onEdit, onDeactivate, onReactivate }: RowProps) {
+function UserRow({ user, tab, onEdit, onDeactivate, onReactivate, onDelete }: RowProps) {
   return (
     <tr className="hover:bg-gray-50 transition-colors">
       <td className="px-4 py-3">
@@ -248,12 +257,20 @@ function UserRow({ user, tab, onEdit, onDeactivate, onReactivate }: RowProps) {
               </button>
             </>
           ) : (
-            <button
-              onClick={() => onReactivate(user)}
-              className="rounded px-2 py-1 text-xs font-medium text-green-600 hover:bg-green-50 transition-colors"
-            >
-              Reactivar
-            </button>
+            <>
+              <button
+                onClick={() => onReactivate(user)}
+                className="rounded px-2 py-1 text-xs font-medium text-green-600 hover:bg-green-50 transition-colors"
+              >
+                Reactivar
+              </button>
+              <button
+                onClick={() => onDelete(user)}
+                className="rounded px-2 py-1 text-xs font-medium text-red-500 hover:bg-red-50 transition-colors"
+              >
+                Eliminar
+              </button>
+            </>
           )}
         </div>
       </td>

@@ -207,6 +207,25 @@ def deactivate_user(
     return {"ok": True}
 
 
+@router.delete("/users/{user_id}/eliminar")
+def delete_user_permanently(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Elimina permanentemente un usuario archivado (is_active=False)."""
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+    if user.is_active:
+        raise HTTPException(status_code=400, detail="Solo se pueden eliminar usuarios archivados.")
+    if user.id == current_user.id:
+        raise HTTPException(status_code=400, detail="No puedes eliminarte a ti mismo.")
+    db.delete(user)
+    db.commit()
+    return {"ok": True}
+
+
 @router.post("/users/{user_id}/reactivar", response_model=MeResponse)
 def reactivate_user(
     user_id: int,

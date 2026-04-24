@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { useAuthStore } from "@/store/authStore"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
-import { canSeeOC, canSeeSGC, canSeeOperativo, canSeeFinanciero } from "@/lib/permissions"
+import { canSeeOC, canSeeSGC, canSeeOperativo, canSeeFinanciero, canSeeGerencial } from "@/lib/permissions"
 import { LoginPage } from "@/pages/LoginPage"
 import { DashboardPage } from "@/pages/DashboardPage"
 import { AdminPage } from "@/pages/AdminPage"
@@ -75,13 +75,11 @@ function FinancieroRoute({ children }: { children: React.ReactNode }) {
 
 // Roles que ven el Agente Administrativo (Sonia y equipo compras)
 const ROLES_AGENTE_ADMIN = new Set(["administrativo", "compras", "directivo"])
-// Roles que ven ZYMO (módulo gerencial)
-const ROLES_ZYMO = new Set(["admin", "gerente"])
 
 function AgentLayer() {
   const user = useAuthStore((s) => s.user)
   if (!user) return null
-  if (ROLES_ZYMO.has(user.role)) {
+  if (canSeeGerencial(user.role, user.app_permissions)) {
     return (
       <AgentFloatingWindow
         agente="zymo"

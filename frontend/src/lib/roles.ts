@@ -70,6 +70,14 @@ export const INTERNAL_MODULES: AppDefinition[] = [
 // ── Aplicaciones externas ─────────────────────────────────────────────────────
 export const EXTERNAL_APPS: AppDefinition[] = [
   {
+    id: "brp",
+    category: "app_externa",
+    icon: "🚢",
+    name: "BRP",
+    description: "Portal BRP",
+    url: "https://brp.zymointranet.com",
+  },
+  {
     id: "matriz",
     category: "app_externa",
     icon: "📋",

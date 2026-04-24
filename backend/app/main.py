@@ -80,6 +80,24 @@ _DEFAULT_ROLES = [
         "description": "Gerencia general — acceso al módulo gerencial y ZYMO",
         "app_permissions": [],
     },
+    {
+        "name": "administrativo",
+        "label": "Administrativo",
+        "description": "Gestión administrativa y módulo OC",
+        "app_permissions": ["mod_oc_ver", "mod_oc_aprobar"],
+    },
+    {
+        "name": "compras",
+        "label": "Compras",
+        "description": "Auxiliar de compras — gestión de solicitudes y cotizaciones",
+        "app_permissions": ["mod_oc_ver"],
+    },
+    {
+        "name": "financiero",
+        "label": "Financiero",
+        "description": "Módulo de facturas y validación contable",
+        "app_permissions": ["mod_financiero"],
+    },
 ]
 
 
@@ -123,7 +141,8 @@ def _seed_roles() -> None:
 
 
 _DEFAULT_AREAS = [
-    "Comercial", "Operaciones", "Talento y Cultura", "Finanzas", "IT", "Dirección", "contabilidad",
+    "Comercial", "Operaciones", "Talento y Cultura", "Finanzas", "IT", "Dirección",
+    "contabilidad", "Compras", "Gestión de Calidad",
 ]
 
 _DEFAULT_SEDES = [
