@@ -77,10 +77,9 @@ export function NuevaSolicitudPage() {
   }
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    if (e.target.files) {
+    if (e.target.files && e.target.files.length > 0) {
       setArchivos((prev) => [...prev, ...Array.from(e.target.files!)])
     }
-    e.target.value = ""
   }
 
   function handleFileDrop(e: React.DragEvent) {
@@ -439,6 +438,7 @@ export function NuevaSolicitudPage() {
                   accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.xlsx,.docx"
                   className="hidden"
                   onChange={handleFileSelect}
+                  onClick={(e) => { (e.target as HTMLInputElement).value = '' }}
                 />
 
                 {archivos.length > 0 && (

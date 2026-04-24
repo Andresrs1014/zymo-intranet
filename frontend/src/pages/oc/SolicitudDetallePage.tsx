@@ -42,6 +42,7 @@ export function SolicitudDetallePage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
+  const token = useAuthStore((s) => s.token)
 
   const { data: solicitud, isLoading } = useSolicitud(id)
   const { data: cotizaciones = [] } = useCotizaciones(id)
@@ -694,14 +695,14 @@ export function SolicitudDetallePage() {
                       <div key={filename} className="relative group rounded-lg overflow-hidden border border-gray-100 bg-gray-50">
                         {/\.(jpg|jpeg|png|gif|webp)$/i.test(filename) ? (
                           <img
-                            src={`/api/oc/solicitudes/${solicitud.id}/fotos/${filename}`}
+                            src={`/api/oc/solicitudes/${solicitud.id}/fotos/${filename}?token=${token}`}
                             alt={filename}
                             className="w-full h-16 object-cover cursor-pointer"
-                            onClick={() => setModalImage({ url: `/api/oc/solicitudes/${solicitud.id}/fotos/${filename}`, filename })}
+                            onClick={() => setModalImage({ url: `/api/oc/solicitudes/${solicitud.id}/fotos/${filename}?token=${token}`, filename })}
                           />
                         ) : (
                           <a
-                            href={`/api/oc/solicitudes/${solicitud.id}/fotos/${filename}`}
+                            href={`/api/oc/solicitudes/${solicitud.id}/fotos/${filename}?token=${token}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex flex-col items-center justify-center h-16 gap-1 text-gray-400 hover:text-brand-blue transition-colors"

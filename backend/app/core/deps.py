@@ -1,4 +1,4 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from jose.exceptions import JWTError
 from sqlmodel import Session, select
@@ -7,11 +7,21 @@ from app.core.security import decode_token
 from app.database import get_db
 from app.models.user import User
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token", auto_error=False)
 
+def get_token(request: Request, token: str | None = Depends(oauth2_scheme)) -> str:
+    if not token and request.query_params.get("token"):
+        return request.query_params.get("token") or ""
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token inválido o expirado.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return token
 
 def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    token: str = Depends(get_token),
     db: Session = Depends(get_db),
 ) -> User:
     try:
