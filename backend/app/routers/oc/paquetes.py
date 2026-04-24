@@ -14,9 +14,6 @@ from app.models.user import User
 
 router = APIRouter(prefix="/paquetes", tags=["OC - Paquetes"])
 
-_ROLES_ADMIN = {"admin", "compras", "administrativo", "directivo"}
-
-
 # ── Schemas ───────────────────────────────────────────────────────────────────
 
 class PaqueteItemCreate(BaseModel):
@@ -60,13 +57,9 @@ class PaqueteRead(BaseModel):
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _is_admin_or_compras(user: User) -> bool:
-    return user.role in _ROLES_ADMIN or user.area == "Compras"
-
-
 def _assert_can_modify(paquete: PaqueteSolicitud, current_user: User) -> None:
-    """Lanza 403 si el usuario no es el creador ni tiene rol admin/compras."""
-    if paquete.creado_por_id != current_user.id and not _is_admin_or_compras(current_user):
+    """Lanza 403 si el usuario no es el creador ni admin."""
+    if paquete.creado_por_id != current_user.id and current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Solo el creador o un administrador puede modificar este paquete.",
@@ -80,14 +73,13 @@ def list_paquetes(
     current_user: User = Depends(get_current_user),
     oc_db: Session = Depends(get_oc_db),
 ) -> list[PaqueteSolicitud]:
-    """Lista paquetes activos.
-    - Admin/compras ven todos los paquetes activos.
-    - Cualquier otro usuario solo ve sus propios paquetes activos.
-    """
-    query = select(PaqueteSolicitud).where(PaqueteSolicitud.activo == True)  # noqa: E712
-    if not _is_admin_or_compras(current_user):
-        query = query.where(PaqueteSolicitud.creado_por_id == current_user.id)
-    query = query.order_by(PaqueteSolicitud.created_at.desc())
+    """Lista los paquetes activos del usuario autenticado. Siempre personal."""
+    query = (
+        select(PaqueteSolicitud)
+        .where(PaqueteSolicitud.activo == True)  # noqa: E712
+        .where(PaqueteSolicitud.creado_por_id == current_user.id)
+        .order_by(PaqueteSolicitud.created_at.desc())
+    )
     return oc_db.exec(query).all()
 
 
@@ -124,8 +116,7 @@ def get_paquete(
     paquete = oc_db.get(PaqueteSolicitud, paquete_id)
     if not paquete or not paquete.activo:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Paquete no encontrado.")
-    # Solo el creador o admin/compras puede ver el detalle
-    if paquete.creado_por_id != current_user.id and not _is_admin_or_compras(current_user):
+    if paquete.creado_por_id != current_user.id and current_user.role != "admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Sin acceso a este paquete.")
     return paquete
 
