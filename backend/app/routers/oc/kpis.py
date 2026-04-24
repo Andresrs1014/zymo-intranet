@@ -73,15 +73,17 @@ def get_kpis(
     current_user: User = Depends(require_compras),
     oc_db: Session = Depends(get_oc_db),
 ):
-    # 1. Conteo por estado
-    por_estado: list[ConteoItem] = []
-    total_solicitudes = 0
-    for estado in EstadoOC:
-        count = oc_db.exec(
-            select(func.count(SolicitudOC.id)).where(SolicitudOC.estado == estado.value)
-        ).one()
-        por_estado.append(ConteoItem(label=estado.value, count=count))
-        total_solicitudes += count
+    # 1. Conteo por estado — 1 query GROUP BY en lugar de 10 queries individuales
+    estado_rows = oc_db.exec(
+        select(SolicitudOC.estado, func.count(SolicitudOC.id).label("cnt"))
+        .group_by(SolicitudOC.estado)
+    ).all()
+    conteo_por_estado: dict[str, int] = {r[0]: r[1] for r in estado_rows}
+    por_estado: list[ConteoItem] = [
+        ConteoItem(label=estado.value, count=conteo_por_estado.get(estado.value, 0))
+        for estado in EstadoOC
+    ]
+    total_solicitudes = sum(conteo_por_estado.values())
 
     # 3. Por plataforma (top 6)
     plataforma_rows = oc_db.exec(
@@ -144,20 +146,15 @@ def get_kpis(
     ).all()
     top_proveedores = [ConteoItem(label=r[0], count=r[1]) for r in proveedor_rows]
 
-    # 9. Tiempo promedio de cotización en días (calculado en Python)
-    solicitudes_con_cotizacion = oc_db.exec(
-        select(SolicitudOC).where(SolicitudOC.fecha_cotizacion.is_not(None))
-    ).all()
-
-    tiempo_promedio_cotizacion_dias = 0.0
-    if solicitudes_con_cotizacion:
-        deltas = []
-        for s in solicitudes_con_cotizacion:
-            fecha_cot = s.fecha_cotizacion.replace(tzinfo=None) if s.fecha_cotizacion.tzinfo else s.fecha_cotizacion
-            fecha_sol = s.fecha_solicitud.replace(tzinfo=None) if s.fecha_solicitud.tzinfo else s.fecha_solicitud
-            delta_days = (fecha_cot - fecha_sol).total_seconds() / 86400
-            deltas.append(delta_days)
-        tiempo_promedio_cotizacion_dias = sum(deltas) / len(deltas)
+    # 9. Tiempo promedio de cotización en días — AVG calculado en SQLite con julianday
+    from sqlalchemy import text as sa_text
+    _avg_row = oc_db.exec(
+        sa_text(
+            "SELECT AVG(julianday(fecha_cotizacion) - julianday(fecha_solicitud)) "
+            "FROM oc_solicitudes WHERE fecha_cotizacion IS NOT NULL"
+        )
+    ).one()
+    tiempo_promedio_cotizacion_dias = float(_avg_row[0]) if _avg_row[0] is not None else 0.0
 
     # 10. Tendencia mensual — últimos 6 meses (calculado en Python)
     now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -245,23 +242,32 @@ def get_kpis(
     ).all()
     reprocesos_total = len(reprocesos_entradas)
 
-    # Tiempo promedio de reproceso: desde que entra en_correccion / en_cotizacion (reproceso)
-    # hasta la siguiente entrada de historial de esa misma solicitud
+    # Tiempo promedio de reproceso — precargar historial en dict para evitar N queries
     tiempo_promedio_reproceso_dias = 0.0
     if reprocesos_entradas:
+        # 1 query para traer todo el historial de las solicitudes con reprocesos
+        solicitud_ids_reproceso = {e.solicitud_id for e in reprocesos_entradas}
+        historial_completo = oc_db.exec(
+            select(HistorialEstado)
+            .where(HistorialEstado.solicitud_id.in_(solicitud_ids_reproceso))
+            .order_by(HistorialEstado.solicitud_id, HistorialEstado.fecha.asc())
+        ).all()
+
+        # Indexar en dict por solicitud_id — O(n) una sola vez
+        historial_por_solicitud: dict[str, list[HistorialEstado]] = {}
+        for h in historial_completo:
+            key = str(h.solicitud_id)
+            historial_por_solicitud.setdefault(key, []).append(h)
+
+        # Buscar siguiente entrada en memoria — sin roundtrips adicionales a BD
         tiempos_reproceso: list[float] = []
         for entrada in reprocesos_entradas:
-            # Buscar la siguiente entrada del historial para esta solicitud (resolución del reproceso)
-            siguiente = oc_db.exec(
-                select(HistorialEstado)
-                .where(
-                    HistorialEstado.solicitud_id == entrada.solicitud_id,
-                    HistorialEstado.fecha > entrada.fecha,
-                    HistorialEstado.es_reproceso == False,  # noqa: E712
-                )
-                .order_by(HistorialEstado.fecha)
-                .limit(1)
-            ).first()
+            entradas_solicitud = historial_por_solicitud.get(str(entrada.solicitud_id), [])
+            siguiente = next(
+                (e for e in entradas_solicitud
+                 if e.fecha > entrada.fecha and not e.es_reproceso),
+                None,
+            )
             if siguiente:
                 fecha_inicio = entrada.fecha.replace(tzinfo=None) if entrada.fecha.tzinfo else entrada.fecha
                 fecha_fin = siguiente.fecha.replace(tzinfo=None) if siguiente.fecha.tzinfo else siguiente.fecha

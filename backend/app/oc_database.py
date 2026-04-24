@@ -51,6 +51,20 @@ def create_oc_tables() -> None:
             except Exception:
                 pass  # columna ya existe — ignorar
 
+        # Índices de rendimiento en oc_historial_estados
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_historial_es_reproceso "
+            "ON oc_historial_estados(es_reproceso, fecha DESC)"
+        ))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_historial_tipo_accion "
+            "ON oc_historial_estados(tipo_accion)"
+        ))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_historial_solicitud_fecha "
+            "ON oc_historial_estados(solicitud_id, fecha ASC)"
+        ))
+
         conn.commit()
 
     print("[oc] Tablas OC verificadas en oc.db.")
