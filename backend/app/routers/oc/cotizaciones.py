@@ -180,123 +180,36 @@ from app.services.extraction_utils import extraer_campos_estructurado as _extrae
 
 
 from app.services.number_utils import parse_cop as _to_float  # noqa: E402
+from app.services.cotizacion_parse import parsear_campos_cotizacion  # noqa: E402
 
 
 def _parsear_campos(texto: str, extra: Optional[dict[str, str]] = None) -> ExtraccionResult:
-    """Extrae campos de texto libre con regex.
-
-    extra: dict de campos pre-resueltos vía extracción estructurada (Excel/Word).
-    Se usan como complemento cuando el regex no encuentra el campo en el texto.
-    """
-    _extra = extra or {}
-
-    def find_money(patterns: list[str]) -> Optional[float]:
-        # DOTALL permite que [\s\S]{0,20}? capture saltos de línea entre
-        # etiqueta y valor — frecuente en PDFs generados por proveedores.
-        flags = re.IGNORECASE | re.MULTILINE | re.DOTALL
-        for pat in patterns:
-            m = re.search(pat, texto, flags)
-            if m:
-                val = _to_float(m.group(1))
-                if val and val > 0:
-                    return val
-        return None
-
-    def find_text(patterns: list[str]) -> Optional[str]:
-        for pat in patterns:
-            m = re.search(pat, texto, re.IGNORECASE | re.MULTILINE)
-            if m:
-                found = m.group(1).strip()
-                if found:
-                    return found[:200]
-        return None
-
-    def money_or_extra(field: str, patterns: list[str]) -> Optional[float]:
-        return find_money(patterns) or _to_float(_extra.get(field, ""))
-
-    def text_or_extra(field: str, patterns: list[str]) -> Optional[str]:
-        return find_text(patterns) or (_extra.get(field) or None)
-
-    nit = find_text([
-        r"N\.?I\.?T\.?[:\s#]*(\d[\d.\-]+[-]\d)",
-        r"NIT[:\s#]*(\d{3}[.\s]?\d{3}[.\s]?\d{3}[-]?\d)",
-    ]) or (_extra.get("proveedor_nit") or None)
-
-    total = money_or_extra("valor_total", [
-        r"TOTAL\s+A\s+PAGAR[\s\S]{0,20}?\$?\s*([\d.,]+)",
-        r"VALOR\s+TOTAL[\s\S]{0,20}?\$?\s*([\d.,]+)",
-        r"GRAN\s+TOTAL[\s\S]{0,20}?\$?\s*([\d.,]+)",
-        r"\bTOTAL\b[\s\S]{0,15}?\$?\s*([\d.,]+)",
-    ])
-
-    _subtotal_regex = find_money([
-        r"SUBTOTAL[:\s]*\$?\s*([\d.,]+)",
-        r"SUB\s+TOTAL[:\s]*\$?\s*([\d.,]+)",
-        r"VALOR\s+ANTES\s+DE\s+IVA[:\s]*\$?\s*([\d.,]+)",
-        r"BASE\s+(?:IVA|GRAVABLE)[:\s]*\$?\s*([\d.,]+)",
-    ])
-    _subtotal_extra = _to_float(_extra.get("valor_antes_iva", ""))
-    # Usar extra solo si es distinto al total para evitar que ambos queden iguales
-    subtotal = _subtotal_regex or (_subtotal_extra if _subtotal_extra != total else None)
-
-    iva = money_or_extra("valor_iva", [
-        r"IVA\s+19%?[:\s]*\$?\s*([\d.,]+)",
-        r"IVA\s+\d+%[:\s]*\$?\s*([\d.,]+)",
-        r"\bIVA\b[:\s]*\$?\s*([\d.,]+)",
-    ])
-
-    unitario = money_or_extra("valor_unitario", [
-        r"VALOR\s+UNITARIO[:\s]*\$?\s*([\d.,]+)",
-        r"V\.?\s*UNITARIO[:\s]*\$?\s*([\d.,]+)",
-        r"PRECIO\s+UNITARIO[:\s]*\$?\s*([\d.,]+)",
-        r"P\.?\s*UNITARIO[:\s]*\$?\s*([\d.,]+)",
-    ])
-
-    forma_pago = text_or_extra("forma_pago", [
-        r"FORMA\s+DE\s+PAGO[:\s]+(.{4,100}?)(?:\n|$)",
-        r"CONDICI[OÓ]N(?:ES)?\s+DE\s+PAGO[:\s]+(.{4,100}?)(?:\n|$)",
-        r"MODALIDAD\s+DE\s+PAGO[:\s]+(.{4,100}?)(?:\n|$)",
-    ])
-
-    plazo = text_or_extra("plazo_entrega", [
-        r"PLAZO\s+DE\s+ENTREGA[:\s]+(.{3,100}?)(?:\n|$)",
-        r"TIEMPO\s+DE\s+ENTREGA[:\s]+(.{3,100}?)(?:\n|$)",
-        r"FECHA\s+(?:DE\s+)?ENTREGA[:\s]+(.{3,100}?)(?:\n|$)",
-    ])
-
-    garantia = text_or_extra("garantia", [
-        r"GARANT[IÍ]A[:\s]+(.{3,200}?)(?:\n|$)",
-        r"WARRANTY[:\s]+(.{3,200}?)(?:\n|$)",
-    ])
-
-    anticipo = text_or_extra("anticipo", [
-        r"ANTICIPO[:\s]+(.{3,100}?)(?:\n|$)",
-        r"PAGO\s+ANTICIPADO[:\s]+(.{3,100}?)(?:\n|$)",
-        r"ABONO\s+INICIAL[:\s]+(.{3,100}?)(?:\n|$)",
-    ])
-
-    pago_saldo = text_or_extra("pago_saldo", [
-        r"PAGO\s+(?:DEL\s+)?SALDO[:\s]+(.{3,100}?)(?:\n|$)",
-        r"SALDO\s+A\s+PAGAR[:\s]+(.{3,100}?)(?:\n|$)",
-        r"CONTRA\s+ENTREGA[:\s]+(.{3,100}?)(?:\n|$)",
-    ])
-
-    campos = sum(
-        1 for v in [nit, total, subtotal, iva, unitario, forma_pago, plazo, garantia, anticipo, pago_saldo]
-        if v is not None
-    )
+    data = parsear_campos_cotizacion(texto, extra)
+    values = [
+        data.get("proveedor_nit"),
+        data.get("valor_total"),
+        data.get("valor_antes_iva"),
+        data.get("valor_iva"),
+        data.get("valor_unitario"),
+        data.get("forma_pago"),
+        data.get("plazo_entrega"),
+        data.get("garantia"),
+        data.get("anticipo"),
+        data.get("pago_saldo"),
+    ]
+    campos = sum(1 for v in values if v is not None)
 
     return ExtraccionResult(
-        proveedor_nit=nit,
-        valor_unitario=unitario,
-        valor_antes_iva=subtotal,
-        valor_iva=iva,
-        valor_total=total,
-        forma_pago=forma_pago,
-        plazo_entrega=plazo,
-        garantia=garantia,
-        anticipo=anticipo,
-        pago_saldo=pago_saldo,
+        proveedor_nit=data.get("proveedor_nit"),
+        valor_unitario=data.get("valor_unitario"),
+        valor_antes_iva=data.get("valor_antes_iva"),
+        valor_iva=data.get("valor_iva"),
+        valor_total=data.get("valor_total"),
+        forma_pago=data.get("forma_pago"),
+        plazo_entrega=data.get("plazo_entrega"),
+        garantia=data.get("garantia"),
+        anticipo=data.get("anticipo"),
+        pago_saldo=data.get("pago_saldo"),
         campos_encontrados=campos,
     )
 
