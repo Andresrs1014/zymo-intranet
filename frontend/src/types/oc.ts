@@ -40,6 +40,7 @@ export interface SolicitudOC {
   aval_compra: string | null
   observacion_contabilidad: string | null
   fecha_recibida_factura: string | null
+  fotos_producto: string[] | null
   fecha_solicitud: string
   fecha_asignacion: string | null
   fecha_cotizacion: string | null

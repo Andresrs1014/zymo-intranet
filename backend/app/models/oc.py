@@ -51,6 +51,9 @@ class SolicitudOC(SQLModel, table=True):
     # Evidencia del solicitante (URL a OneDrive/SharePoint, enviada por PA)
     evidencia_url: Optional[str] = Field(default=None)
 
+    # Fotos/archivos del producto subidos desde la intranet
+    fotos_producto: Optional[list] = Field(default=None, sa_column=Column(JSON))
+
     # Campos de gestión de compras
     plataforma: Optional[str] = Field(default=None, max_length=100)
     numero_remision: Optional[str] = Field(default=None, max_length=100)

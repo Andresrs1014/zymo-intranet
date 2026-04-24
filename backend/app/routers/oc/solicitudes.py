@@ -1,8 +1,10 @@
 import uuid
 from datetime import date, datetime, timezone
+from pathlib import Path
 from typing import Literal, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, func, select
@@ -56,6 +58,7 @@ class SolicitudRead(BaseModel):
     aval_compra: Optional[str] = None
     observacion_contabilidad: Optional[str] = None
     fecha_recibida_factura: Optional[date] = None
+    fotos_producto: Optional[list] = None
     fecha_solicitud: datetime
     fecha_asignacion: Optional[datetime]
     fecha_cotizacion: Optional[datetime]
@@ -243,12 +246,17 @@ def mis_solicitudes(
 @router.get("/{solicitud_id}", response_model=SolicitudRead)
 def get_solicitud(
     solicitud_id: uuid.UUID,
-    current_user: User = Depends(require_compras),
+    current_user: User = Depends(get_current_user),
     oc_db: Session = Depends(get_oc_db),
 ):
     solicitud = oc_db.get(SolicitudOC, solicitud_id)
     if not solicitud:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
+    _OC_ROLES = {"admin", "administrativo", "directivo", "compras"}
+    is_compras = current_user.role in _OC_ROLES or current_user.area == "Compras"
+    is_solicitante = current_user.email == solicitud.solicitante_email
+    if not is_compras and not is_solicitante:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Sin acceso a esta solicitud.")
     return solicitud
 
 
@@ -618,3 +626,103 @@ def get_historial_estados(
         .order_by(HistorialEstado.fecha.asc())
     ).all()
     return entradas
+
+
+# ── Fotos / archivos del producto ─────────────────────────────────────────────
+
+_SOLICITUDES_DIR = Path("/app/data/solicitudes")
+_FORMATOS_FOTO = frozenset({"jpg", "jpeg", "png", "gif", "webp", "pdf", "xlsx", "docx"})
+_MIME_FOTO = {
+    "jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
+    "gif": "image/gif", "webp": "image/webp",
+    "pdf": "application/pdf",
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+}
+
+
+@router.post("/{solicitud_id}/fotos", status_code=status.HTTP_201_CREATED)
+async def subir_foto_solicitud(
+    solicitud_id: uuid.UUID,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    oc_db: Session = Depends(get_oc_db),
+):
+    """Sube una foto o archivo de referencia del producto a la solicitud."""
+    solicitud = oc_db.get(SolicitudOC, solicitud_id)
+    if not solicitud:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
+
+    nombre = file.filename or "archivo"
+    ext = nombre.rsplit(".", 1)[-1].lower() if "." in nombre else ""
+    if ext not in _FORMATOS_FOTO:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Formato no soportado. Use: {', '.join(sorted(_FORMATOS_FOTO))}",
+        )
+
+    contenido = await file.read()
+    folder = _SOLICITUDES_DIR / str(solicitud_id)
+    folder.mkdir(parents=True, exist_ok=True)
+    filename = f"{uuid.uuid4()}.{ext}"
+    (folder / filename).write_bytes(contenido)
+
+    current_fotos: list = list(solicitud.fotos_producto or [])
+    solicitud.fotos_producto = current_fotos + [filename]
+    solicitud.updated_at = datetime.now(timezone.utc)
+    oc_db.add(solicitud)
+    oc_db.commit()
+    oc_db.refresh(solicitud)
+
+    return {"filename": filename, "fotos_producto": solicitud.fotos_producto}
+
+
+@router.get("/{solicitud_id}/fotos/{filename}")
+def descargar_foto_solicitud(
+    solicitud_id: uuid.UUID,
+    filename: str,
+    current_user: User = Depends(get_current_user),
+    oc_db: Session = Depends(get_oc_db),
+):
+    """Sirve un archivo de referencia del producto."""
+    solicitud = oc_db.get(SolicitudOC, solicitud_id)
+    if not solicitud:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
+    if filename not in (solicitud.fotos_producto or []):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Archivo no encontrado.")
+    path = _SOLICITUDES_DIR / str(solicitud_id) / filename
+    if not path.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Archivo no encontrado en disco.")
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    media_type = _MIME_FOTO.get(ext, "application/octet-stream")
+    return FileResponse(str(path), media_type=media_type, filename=filename)
+
+
+@router.delete("/{solicitud_id}/fotos/{filename}", status_code=status.HTTP_204_NO_CONTENT)
+def eliminar_foto_solicitud(
+    solicitud_id: uuid.UUID,
+    filename: str,
+    current_user: User = Depends(get_current_user),
+    oc_db: Session = Depends(get_oc_db),
+):
+    """Elimina un archivo de referencia del producto."""
+    solicitud = oc_db.get(SolicitudOC, solicitud_id)
+    if not solicitud:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
+
+    _OC_ROLES = {"admin", "administrativo", "directivo", "compras"}
+    is_compras = current_user.role in _OC_ROLES or current_user.area == "Compras"
+    is_solicitante = current_user.email == solicitud.solicitante_email
+    if not is_compras and not is_solicitante:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Sin permiso para eliminar este archivo.")
+
+    if filename not in (solicitud.fotos_producto or []):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Archivo no encontrado.")
+    path = _SOLICITUDES_DIR / str(solicitud_id) / filename
+    if path.exists():
+        path.unlink()
+    solicitud.fotos_producto = [f for f in (solicitud.fotos_producto or []) if f != filename]
+    solicitud.updated_at = datetime.now(timezone.utc)
+    oc_db.add(solicitud)
+    oc_db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

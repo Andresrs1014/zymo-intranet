@@ -457,6 +457,7 @@ async def subir_factura(
             nit_proveedor=extraccion.nit_proveedor,
             nombre_proveedor=extraccion.nombre_proveedor,
             valor_aprobado_oc=cotizacion.valor_aprobado,
+            aval_compra=solicitud.aval_compra,
             pdf_path=str(factura_dest),
             extraccion_automatica=extraccion.campos_encontrados > 0,
             estado=EstadoFactura.pendiente,

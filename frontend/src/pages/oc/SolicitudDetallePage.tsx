@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
@@ -28,6 +28,8 @@ import {
   useCorreccionCotizacion,
   useEditarCorreccion,
   useEditarCotizacionDirector,
+  useSubirFotoSolicitud,
+  useEliminarFotoSolicitud,
   type EditarCotizacionPayload,
 } from "@/hooks/useOC"
 import { useAuthStore } from "@/store/authStore"
@@ -62,6 +64,10 @@ export function SolicitudDetallePage() {
   const cancelarCotizacion = useCancelarCotizacion()
   const correccionCotizacion = useCorreccionCotizacion()
   const editarCorreccion = useEditarCorreccion()
+  const subirFoto = useSubirFotoSolicitud()
+  const eliminarFoto = useEliminarFotoSolicitud()
+  const fotoInputRef = useRef<HTMLInputElement>(null)
+  const [fotoDragOver, setFotoDragOver] = useState(false)
   const [errorOC, setErrorOC] = useState<string | null>(null)
 
   // Modal de rechazo de solicitud (auxiliar): "cancelar" | "correccion" | null
@@ -643,6 +649,80 @@ export function SolicitudDetallePage() {
                 </Section>
               )}
 
+              {/* Fotos / archivos de referencia del producto */}
+              <Section title="Fotos del producto">
+                <p className="text-xs text-gray-400 mb-3">
+                  Sube imágenes o archivos que ayuden a identificar el producto exacto.
+                </p>
+                <div
+                  onDragOver={(e) => { e.preventDefault(); setFotoDragOver(true) }}
+                  onDragLeave={() => setFotoDragOver(false)}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    setFotoDragOver(false)
+                    const file = e.dataTransfer.files[0]
+                    if (file && id) subirFoto.mutate({ solicitudId: id, file })
+                  }}
+                  onClick={() => fotoInputRef.current?.click()}
+                  className={`flex flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed py-4 cursor-pointer transition-colors text-xs ${
+                    fotoDragOver
+                      ? "border-brand-blue bg-brand-blue/5 text-brand-blue"
+                      : "border-gray-200 text-gray-400 hover:border-brand-blue/30 hover:bg-gray-50"
+                  }`}
+                >
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+                  </svg>
+                  <span>{subirFoto.isPending ? "Subiendo..." : fotoDragOver ? "Suelta aquí" : "Arrastra o haz clic"}</span>
+                </div>
+                <input
+                  ref={fotoInputRef}
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.xlsx,.docx"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f && id) subirFoto.mutate({ solicitudId: id, file: f })
+                    e.target.value = ""
+                  }}
+                />
+                {(solicitud.fotos_producto ?? []).length > 0 && (
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    {(solicitud.fotos_producto ?? []).map((filename) => (
+                      <div key={filename} className="relative group rounded-lg overflow-hidden border border-gray-100 bg-gray-50">
+                        {/\.(jpg|jpeg|png|gif|webp)$/i.test(filename) ? (
+                          <img
+                            src={`/api/oc/solicitudes/${solicitud.id}/fotos/${filename}`}
+                            alt={filename}
+                            className="w-full h-16 object-cover cursor-pointer"
+                            onClick={() => window.open(`/api/oc/solicitudes/${solicitud.id}/fotos/${filename}`, "_blank")}
+                          />
+                        ) : (
+                          <a
+                            href={`/api/oc/solicitudes/${solicitud.id}/fotos/${filename}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex flex-col items-center justify-center h-16 gap-1 text-gray-400 hover:text-brand-blue transition-colors"
+                          >
+                            <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M4 4a2 2 0 0 1 2-2h4.586A2 2 0 0 1 12 2.586L15.414 6A2 2 0 0 1 16 7.414V16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4Z" clipRule="evenodd" />
+                            </svg>
+                            <span className="text-xs">{filename.split(".").pop()?.toUpperCase()}</span>
+                          </a>
+                        )}
+                        <button
+                          onClick={() => id && eliminarFoto.mutate({ solicitudId: id, filename })}
+                          disabled={eliminarFoto.isPending}
+                          className="absolute top-0.5 right-0.5 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Section>
+
               {/* Panel gestión de compras — PENDIENTE: se moverá a vista de Gestión Financiera (contabilidad) */}
             </div>
           </div>
@@ -833,6 +913,20 @@ function PanelAprobacion({
 
       {/* Resumen de la cotización */}
       <div className="bg-white rounded-lg border border-orange-100 p-4 mb-4 space-y-3">
+        {/* Link al archivo adjunto */}
+        {cotizacion.pdf_path && (
+          <a
+            href={`/api/oc/cotizaciones/${cotizacion.id}/pdf`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-medium text-orange-700 hover:bg-orange-100 transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M4 4a2 2 0 0 1 2-2h4.586A2 2 0 0 1 12 2.586L15.414 6A2 2 0 0 1 16 7.414V16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4Z" clipRule="evenodd" />
+            </svg>
+            Ver cotización del proveedor
+          </a>
+        )}
         {/* Proveedor + N° cotización */}
         <div className="grid grid-cols-2 gap-3">
           <div>

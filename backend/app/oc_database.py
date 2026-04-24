@@ -41,6 +41,12 @@ def create_oc_tables() -> None:
             "ON oc_solicitudes (consecutivo_os)"
         ))
 
+        # Migración: fotos del producto subidas desde la intranet
+        try:
+            conn.execute(text("ALTER TABLE oc_solicitudes ADD COLUMN fotos_producto JSON"))
+        except Exception:
+            pass  # columna ya existe
+
         # Migración: columnas de trazabilidad de reprocesos en historial
         for col_def in [
             "ALTER TABLE oc_historial_estados ADD COLUMN es_reproceso BOOLEAN NOT NULL DEFAULT 0",

@@ -68,6 +68,7 @@ export function CotizacionFormPage() {
   const [extraccion, setExtraccion] = useState<ExtraccionResult | null>(null)
   const [extStatus, setExtStatus] = useState<ExtraccionStatus>("idle")
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [dragOver, setDragOver] = useState(false)
 
   const totalItems = sumaItems(items)
   const hayItems = items.length > 0
@@ -304,11 +305,26 @@ export function CotizacionFormPage() {
                 className="hidden"
               />
 
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={extStatus === "loading"}
-                className="w-full rounded-lg border-2 border-dashed border-gray-200 py-6 flex flex-col items-center gap-2 text-gray-400 hover:border-brand-blue/40 hover:text-brand-blue/70 hover:bg-brand-blue/5 transition-all disabled:opacity-50"
+              <div
+                onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  setDragOver(false)
+                  const file = e.dataTransfer.files[0]
+                  if (file && extStatus !== "loading") {
+                    const synth = { target: { files: [file], value: "" } } as any
+                    handleFileChange(synth)
+                  }
+                }}
+                onClick={() => extStatus !== "loading" && fileInputRef.current?.click()}
+                className={`w-full rounded-lg border-2 border-dashed py-6 flex flex-col items-center gap-2 cursor-pointer transition-all ${
+                  extStatus === "loading"
+                    ? "border-gray-200 opacity-50 cursor-not-allowed"
+                    : dragOver
+                    ? "border-brand-blue bg-brand-blue/5 text-brand-blue/70"
+                    : "border-gray-200 text-gray-400 hover:border-brand-blue/40 hover:text-brand-blue/70 hover:bg-brand-blue/5"
+                }`}
               >
                 {extStatus === "loading" ? (
                   <>
@@ -318,11 +334,13 @@ export function CotizacionFormPage() {
                 ) : (
                   <>
                     <span className="text-2xl">📎</span>
-                    <span className="text-sm font-medium">Subir cotización del proveedor</span>
-                    <span className="text-xs">Haz clic para seleccionar el archivo</span>
+                    <span className="text-sm font-medium">
+                      {dragOver ? "Suelta aquí el archivo" : "Arrastra el archivo aquí o haz clic para seleccionar"}
+                    </span>
+                    <span className="text-xs">PDF, Excel (.xlsx) o Word (.docx)</span>
                   </>
                 )}
-              </button>
+              </div>
 
               {extraccion && extStatus !== "idle" && (
                 <div className={`mt-3 rounded-lg p-4 border text-sm ${

@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, Link } from "react-router-dom"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
 import { useMisSolicitudes, useMarcarEntregada, useEditarCorreccion } from "@/hooks/useOC"
@@ -391,6 +391,12 @@ function SolicitudCard({ solicitud: s }: { solicitud: SolicitudOC }) {
           {s.categoria && <span>Cat: <span className="text-gray-600">{s.categoria}</span></span>}
           {s.placa_ficha && <span>Placa: <span className="text-gray-600 font-mono">{s.placa_ficha}</span></span>}
           {s.plataforma && <span>Plataforma: <span className="text-gray-600">{s.plataforma}</span></span>}
+          <Link
+            to={`/operativo/mis-solicitudes/${s.id}`}
+            className="ml-auto text-brand-blue hover:underline font-medium"
+          >
+            Ver detalle →
+          </Link>
         </div>
       </div>
     </div>

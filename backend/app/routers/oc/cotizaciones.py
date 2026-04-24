@@ -9,6 +9,7 @@ from typing import Optional
 log = logging.getLogger(__name__)
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -776,6 +777,7 @@ def aprobar_cotizacion(
         estado_anterior = solicitud.estado
         solicitud.estado = EstadoOC.aprobada
         solicitud.fecha_aprobacion = datetime.now(timezone.utc)
+        solicitud.aval_compra = current_user.full_name  # quien autorizó la compra
         solicitud.updated_at = datetime.now(timezone.utc)
         oc_db.add(solicitud)
         registrar_cambio_estado(
@@ -1066,3 +1068,27 @@ def editar_cotizacion(
     oc_db.commit()
     oc_db.refresh(cotizacion)
     return cotizacion
+
+
+@router.get("/cotizaciones/{cotizacion_id}/pdf")
+def descargar_pdf_cotizacion(
+    cotizacion_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    oc_db: Session = Depends(get_oc_db),
+):
+    """Descarga el archivo PDF/Excel/Word adjunto a una cotización."""
+    cotizacion = oc_db.get(CotizacionProveedor, cotizacion_id)
+    if not cotizacion or not cotizacion.pdf_path:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Archivo no disponible.")
+    path = Path(cotizacion.pdf_path)
+    if not path.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Archivo no encontrado en disco.")
+    ext = path.suffix.lower().lstrip(".")
+    _MIME = {
+        "pdf": "application/pdf",
+        "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "xls": "application/vnd.ms-excel",
+        "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    }
+    media_type = _MIME.get(ext, "application/octet-stream")
+    return FileResponse(str(path), media_type=media_type, filename=f"cotizacion_{cotizacion_id}.{ext}")

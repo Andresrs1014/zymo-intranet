@@ -733,3 +733,38 @@ export function usePlataformas() {
     staleTime: 1000 * 60 * 60, // cache 1 hour
   })
 }
+
+// ── Fotos / archivos del producto ─────────────────────────────────────────────
+
+export function useSubirFotoSolicitud() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ solicitudId, file }: { solicitudId: string; file: File }) => {
+      const form = new FormData()
+      form.append("file", file)
+      const { data } = await api.post<{ filename: string; fotos_producto: string[] }>(
+        `/api/oc/solicitudes/${solicitudId}/fotos`,
+        form,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      )
+      return data
+    },
+    onSuccess: (_, { solicitudId }) => {
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes", solicitudId] })
+      qc.invalidateQueries({ queryKey: ["oc", "mis-solicitudes"] })
+    },
+  })
+}
+
+export function useEliminarFotoSolicitud() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ solicitudId, filename }: { solicitudId: string; filename: string }) => {
+      await api.delete(`/api/oc/solicitudes/${solicitudId}/fotos/${filename}`)
+    },
+    onSuccess: (_, { solicitudId }) => {
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes", solicitudId] })
+      qc.invalidateQueries({ queryKey: ["oc", "mis-solicitudes"] })
+    },
+  })
+}
