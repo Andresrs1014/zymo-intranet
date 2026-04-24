@@ -71,16 +71,39 @@ export function CotizacionFormPage() {
 
   const totalItems = sumaItems(items)
   const hayItems = items.length > 0
+  // Con ítems: los precios de fila son base sin IVA → total = suma + IVA
+  const ivaConItems = form.valor_iva ?? 0
+  const valorTotalConItems = totalItems + ivaConItems
 
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) {
     const { name, value } = e.target
     const numericos = ["valor_unitario", "valor_antes_iva", "valor_iva", "valor_total"]
-    setForm((prev) => ({
-      ...prev,
-      [name]: numericos.includes(name) ? (value === "" ? undefined : Number(value)) : value,
-    }))
+    const numVal = value === "" ? undefined : Number(value)
+
+    setForm((prev) => {
+      const next = {
+        ...prev,
+        [name]: numericos.includes(name) ? numVal : value,
+      }
+
+      // Auto-cálculo de valores cuando no hay ítems
+      if (name === "valor_antes_iva" || name === "valor_iva") {
+        const subtotal = name === "valor_antes_iva" ? numVal : prev.valor_antes_iva
+        const iva = name === "valor_iva" ? numVal : prev.valor_iva
+        if (subtotal != null && iva != null) {
+          next.valor_total = Math.round((subtotal + iva) * 100) / 100
+        }
+      } else if (name === "valor_total" && prev.valor_iva != null) {
+        // Si el usuario corrige el total manualmente y hay IVA, recalcula subtotal
+        if (numVal != null) {
+          next.valor_antes_iva = Math.round((numVal - prev.valor_iva) * 100) / 100
+        }
+      }
+
+      return next
+    })
   }
 
   function handleProveedorSelect(e: React.ChangeEvent<HTMLSelectElement>) {
@@ -178,7 +201,7 @@ export function CotizacionFormPage() {
       return
     }
 
-    const valorTotal = hayItems ? totalItems : form.valor_total
+    const valorTotal = hayItems ? valorTotalConItems : form.valor_total
     if (!valorTotal || valorTotal <= 0) {
       setError("El valor total debe ser mayor a 0.")
       return
@@ -195,6 +218,8 @@ export function CotizacionFormPage() {
     const payload: CotizacionCreatePayload = {
       ...form,
       valor_total: valorTotal,
+      // Con ítems, la suma de filas es siempre el subtotal antes de IVA
+      valor_antes_iva: hayItems ? totalItems : form.valor_antes_iva,
       proveedor_nit: form.proveedor_nit || undefined,
       proveedor_email: form.proveedor_email || undefined,
       numero_cotizacion_proveedor: form.numero_cotizacion_proveedor || undefined,
@@ -533,69 +558,114 @@ export function CotizacionFormPage() {
             <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-4">
               <h2 className="text-sm font-semibold text-gray-700">Valores</h2>
 
-              {hayItems && (
-                <div className="rounded-lg bg-indigo-50 border border-indigo-200 px-4 py-3 text-xs text-indigo-700">
-                  El valor total se calcula automáticamente desde los ítems:{" "}
-                  <span className="font-bold">
-                    ${totalItems.toLocaleString("es-CO", { minimumFractionDigits: 0 })}
-                  </span>
+              {hayItems ? (
+                /* Con ítems: subtotal = suma de filas, total = subtotal + IVA */
+                <div className="space-y-3">
+                  <div className="rounded-lg bg-indigo-50 border border-indigo-200 px-4 py-3 text-xs text-indigo-700 space-y-1">
+                    <div className="flex justify-between">
+                      <span>Subtotal ({items.length} ítem{items.length !== 1 ? "s" : ""}):</span>
+                      <span className="font-bold">
+                        ${totalItems.toLocaleString("es-CO", { minimumFractionDigits: 0 })}
+                      </span>
+                    </div>
+                    {ivaConItems > 0 && (
+                      <div className="flex justify-between text-orange-600">
+                        <span>+ IVA:</span>
+                        <span className="font-bold">
+                          ${ivaConItems.toLocaleString("es-CO", { minimumFractionDigits: 0 })}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between border-t border-indigo-200 pt-1 text-sm font-semibold text-indigo-900">
+                      <span>Total a pagar:</span>
+                      <span>
+                        ${valorTotalConItems.toLocaleString("es-CO", { minimumFractionDigits: 0 })}
+                      </span>
+                    </div>
+                  </div>
+                  <Field label="IVA (si aplica)">
+                    <input
+                      name="valor_iva"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={form.valor_iva ?? ""}
+                      onChange={handleChange}
+                      placeholder="0"
+                      className={inputCls}
+                    />
+                  </Field>
                 </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="Subtotal (antes de IVA)">
-                  <input
-                    name="valor_antes_iva"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={form.valor_antes_iva ?? ""}
-                    onChange={handleChange}
-                    placeholder="0"
-                    className={inputCls}
-                  />
-                </Field>
-                <Field label="IVA">
-                  <input
-                    name="valor_iva"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={form.valor_iva ?? ""}
-                    onChange={handleChange}
-                    placeholder="0"
-                    className={inputCls}
-                  />
-                </Field>
-              </div>
-
-              {!hayItems && (
-                <div className="grid grid-cols-2 gap-4">
-                  <Field label="Valor unitario">
-                    <input
-                      name="valor_unitario"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={form.valor_unitario || ""}
-                      onChange={handleChange}
-                      placeholder="0"
-                      className={inputCls}
-                    />
-                  </Field>
-                  <Field label="Valor total *">
-                    <input
-                      name="valor_total"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={form.valor_total || ""}
-                      onChange={handleChange}
-                      placeholder="0"
-                      className={inputCls}
-                      required
-                    />
-                  </Field>
+              ) : (
+                /* Sin ítems: campos manuales con auto-cálculo */
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <Field label="Valor unitario">
+                      <input
+                        name="valor_unitario"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={form.valor_unitario || ""}
+                        onChange={handleChange}
+                        placeholder="0"
+                        className={inputCls}
+                      />
+                    </Field>
+                    <Field label="Subtotal (antes de IVA)">
+                      <input
+                        name="valor_antes_iva"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={form.valor_antes_iva ?? ""}
+                        onChange={handleChange}
+                        placeholder="0"
+                        className={inputCls}
+                      />
+                    </Field>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Field label="IVA">
+                      <input
+                        name="valor_iva"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={form.valor_iva ?? ""}
+                        onChange={handleChange}
+                        placeholder="0"
+                        className={inputCls}
+                      />
+                    </Field>
+                    <Field label="Valor total *">
+                      <input
+                        name="valor_total"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={form.valor_total || ""}
+                        onChange={handleChange}
+                        placeholder="0"
+                        className={inputCls}
+                        required
+                      />
+                    </Field>
+                  </div>
+                  {/* Indicador de consistencia */}
+                  {form.valor_antes_iva != null && form.valor_iva != null && form.valor_total > 0 && (
+                    (() => {
+                      const esperado = Math.round((form.valor_antes_iva + form.valor_iva) * 100) / 100
+                      const diff = Math.abs(esperado - form.valor_total)
+                      return diff > 1 ? (
+                        <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                          ⚠ Subtotal + IVA = {esperado.toLocaleString("es-CO")} — no coincide con el total ingresado ({form.valor_total.toLocaleString("es-CO")})
+                        </p>
+                      ) : (
+                        <p className="text-xs text-green-600">✓ Subtotal + IVA coinciden con el total</p>
+                      )
+                    })()
+                  )}
                 </div>
               )}
 
