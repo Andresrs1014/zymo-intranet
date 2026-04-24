@@ -27,6 +27,8 @@ import {
   useCancelarCotizacion,
   useCorreccionCotizacion,
   useEditarCorreccion,
+  useEditarCotizacionDirector,
+  type EditarCotizacionPayload,
 } from "@/hooks/useOC"
 import { useAuthStore } from "@/store/authStore"
 import { canSeeOC } from "@/lib/permissions"
@@ -47,6 +49,7 @@ export function SolicitudDetallePage() {
   const asignar = useAsignarAuxiliar()
   const aprobar = useAprobarCotizacion()
   const rechazar = useRechazarCotizacion()
+  const editarCotizacion = useEditarCotizacionDirector()
   const generarOC = useGenerarOC()
   const actualizarGestion = useActualizarGestion()
   const marcarEnviada = useMarcarEnviada()
@@ -268,7 +271,10 @@ export function SolicitudDetallePage() {
                     onCorreccion={(cotizacionId, que_corregir, destino) =>
                       correccionCotizacion.mutate({ cotizacionId, que_corregir, destino })
                     }
-                    isLoading={aprobar.isPending || rechazar.isPending || cancelarCotizacion.isPending || correccionCotizacion.isPending}
+                    onEditar={(cotizacionId, payload) =>
+                      editarCotizacion.mutate({ cotizacionId, payload })
+                    }
+                    isLoading={aprobar.isPending || rechazar.isPending || cancelarCotizacion.isPending || correccionCotizacion.isPending || editarCotizacion.isPending}
                   />
                 )}
 
@@ -744,6 +750,7 @@ function PanelAprobacion({
   onRechazar,
   onCancelar,
   onCorreccion,
+  onEditar,
   isLoading,
 }: {
   cotizacion: CotizacionProveedor
@@ -751,15 +758,46 @@ function PanelAprobacion({
   onRechazar: (id: string, obs: string) => void
   onCancelar: (id: string, justificacion: string) => void
   onCorreccion: (id: string, que_corregir: string, destino: "auxiliar" | "solicitante") => void
+  onEditar: (id: string, payload: EditarCotizacionPayload) => void
   isLoading: boolean
 }) {
-  const [modo, setModo] = useState<"idle" | "aprobar" | "rechazar" | "cancelar" | "correccion">("idle")
+  const [modo, setModo] = useState<"idle" | "aprobar" | "rechazar" | "cancelar" | "correccion" | "editar">("idle")
   const [valorAprobado, setValorAprobado] = useState(cotizacion.valor_total)
   const [observaciones, setObservaciones] = useState("")
   const [motivoRechazo, setMotivoRechazo] = useState("")
   const [justificacionCancelar, setJustificacionCancelar] = useState("")
   const [queCorregir, setQueCorregir] = useState("")
   const [destinoCorreccion, setDestinoCorreccion] = useState<"auxiliar" | "solicitante">("auxiliar")
+
+  // Estado del formulario de edición
+  const [editForm, setEditForm] = useState<EditarCotizacionPayload>({
+    proveedor_nombre: cotizacion.proveedor_nombre,
+    proveedor_nit: cotizacion.proveedor_nit ?? "",
+    proveedor_email: cotizacion.proveedor_email ?? "",
+    numero_cotizacion_proveedor: cotizacion.numero_cotizacion_proveedor ?? "",
+    valor_antes_iva: cotizacion.valor_antes_iva,
+    valor_iva: cotizacion.valor_iva,
+    valor_total: cotizacion.valor_total,
+    forma_pago: cotizacion.forma_pago ?? "",
+    plazo_entrega: cotizacion.plazo_entrega ?? "",
+    observaciones: cotizacion.observaciones ?? "",
+  })
+
+  function handleEditar() {
+    const payload: EditarCotizacionPayload = {}
+    if (editForm.proveedor_nombre?.trim()) payload.proveedor_nombre = editForm.proveedor_nombre.trim()
+    if (editForm.proveedor_nit !== undefined) payload.proveedor_nit = editForm.proveedor_nit || ""
+    if (editForm.proveedor_email !== undefined) payload.proveedor_email = editForm.proveedor_email || ""
+    if (editForm.numero_cotizacion_proveedor !== undefined) payload.numero_cotizacion_proveedor = editForm.numero_cotizacion_proveedor || ""
+    if (editForm.valor_antes_iva !== undefined) payload.valor_antes_iva = editForm.valor_antes_iva
+    if (editForm.valor_iva !== undefined) payload.valor_iva = editForm.valor_iva
+    if (editForm.valor_total !== undefined) payload.valor_total = editForm.valor_total
+    if (editForm.forma_pago !== undefined) payload.forma_pago = editForm.forma_pago || ""
+    if (editForm.plazo_entrega !== undefined) payload.plazo_entrega = editForm.plazo_entrega || ""
+    if (editForm.observaciones !== undefined) payload.observaciones = editForm.observaciones || ""
+    onEditar(cotizacion.id, payload)
+    setModo("idle")
+  }
 
   function handleAprobar() {
     onAprobar(cotizacion.id, valorAprobado, observaciones || undefined)
@@ -922,6 +960,151 @@ function PanelAprobacion({
           </div>
         )}
       </div>
+
+      {/* Formulario de edición de la cotización */}
+      {modo === "editar" && (
+        <div className="bg-white rounded-lg border border-blue-200 p-4 mb-3 space-y-4">
+          <div className="flex items-center gap-2">
+            <span className="text-blue-600 text-base">✎</span>
+            <p className="text-sm font-semibold text-blue-800">Corregir datos de la cotización</p>
+          </div>
+
+          {/* Proveedor */}
+          <div>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Proveedor</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Nombre *</label>
+                <input
+                  type="text"
+                  value={editForm.proveedor_nombre ?? ""}
+                  onChange={(e) => setEditForm((f) => ({ ...f, proveedor_nombre: e.target.value }))}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">NIT</label>
+                <input
+                  type="text"
+                  value={editForm.proveedor_nit ?? ""}
+                  onChange={(e) => setEditForm((f) => ({ ...f, proveedor_nit: e.target.value }))}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={editForm.proveedor_email ?? ""}
+                  onChange={(e) => setEditForm((f) => ({ ...f, proveedor_email: e.target.value }))}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">N° cotización proveedor</label>
+                <input
+                  type="text"
+                  value={editForm.numero_cotizacion_proveedor ?? ""}
+                  onChange={(e) => setEditForm((f) => ({ ...f, numero_cotizacion_proveedor: e.target.value }))}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Valores */}
+          <div>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Valores</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Subtotal sin IVA</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={editForm.valor_antes_iva ?? ""}
+                  onChange={(e) => setEditForm((f) => ({ ...f, valor_antes_iva: e.target.value ? Number(e.target.value) : null }))}
+                  placeholder="—"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">IVA</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={editForm.valor_iva ?? ""}
+                  onChange={(e) => setEditForm((f) => ({ ...f, valor_iva: e.target.value ? Number(e.target.value) : null }))}
+                  placeholder="—"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Total con IVA *</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={editForm.valor_total ?? ""}
+                  onChange={(e) => setEditForm((f) => ({ ...f, valor_total: Number(e.target.value) }))}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-300"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Condiciones */}
+          <div>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Condiciones</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Forma de pago</label>
+                <input
+                  type="text"
+                  value={editForm.forma_pago ?? ""}
+                  onChange={(e) => setEditForm((f) => ({ ...f, forma_pago: e.target.value }))}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Plazo de entrega</label>
+                <input
+                  type="text"
+                  value={editForm.plazo_entrega ?? ""}
+                  onChange={(e) => setEditForm((f) => ({ ...f, plazo_entrega: e.target.value }))}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-xs text-gray-500 mb-1">Observaciones</label>
+                <textarea
+                  rows={2}
+                  value={editForm.observaciones ?? ""}
+                  onChange={(e) => setEditForm((f) => ({ ...f, observaciones: e.target.value }))}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-300"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={handleEditar}
+              disabled={isLoading || !editForm.proveedor_nombre?.trim() || !editForm.valor_total}
+              className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            >
+              {isLoading ? "Guardando..." : "Guardar cambios"}
+            </button>
+            <button
+              onClick={() => setModo("idle")}
+              className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Formulario de aprobación */}
       {modo === "aprobar" && (
@@ -1112,24 +1295,30 @@ function PanelAprobacion({
               ✓ Aprobar cotización
             </button>
             <button
+              onClick={() => setModo("editar")}
+              className="flex-1 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
+            >
+              ✎ Corregir datos
+            </button>
+          </div>
+          <div className="flex gap-2">
+            <button
               onClick={() => setModo("rechazar")}
               className="flex-1 rounded-lg bg-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-300 transition-colors"
             >
               ↺ Buscar nueva cotización
             </button>
-          </div>
-          <div className="flex gap-2">
             <button
               onClick={() => setModo("correccion")}
               className="flex-1 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-amber-600 transition-colors"
             >
-              ✎ Mandar a corrección
+              Mandar a corrección
             </button>
             <button
               onClick={() => setModo("cancelar")}
               className="flex-1 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700 transition-colors"
             >
-              ✕ Cancelar solicitud
+              ✕ Cancelar
             </button>
           </div>
         </div>

@@ -376,6 +376,45 @@ export function useCorreccionCotizacion() {
   })
 }
 
+export interface EditarCotizacionPayload {
+  proveedor_nombre?: string
+  proveedor_nit?: string
+  proveedor_email?: string
+  numero_cotizacion_proveedor?: string
+  valor_antes_iva?: number | null
+  valor_iva?: number | null
+  valor_total?: number
+  forma_pago?: string
+  plazo_entrega?: string
+  observaciones?: string
+  items?: object[]
+}
+
+export function useEditarCotizacionDirector() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      cotizacionId,
+      payload,
+    }: {
+      cotizacionId: string
+      payload: EditarCotizacionPayload
+    }) => {
+      const { data } = await api.patch<CotizacionProveedor>(
+        `/api/oc/cotizaciones/${cotizacionId}/editar`,
+        payload,
+      )
+      return data
+    },
+    onSuccess: (_data, { cotizacionId }) => {
+      qc.invalidateQueries({ queryKey: ["oc", "cotizaciones"] })
+      qc.invalidateQueries({ queryKey: ["oc", "solicitud"] })
+      // Invalidar por solicitud_id usando el retorno
+      void cotizacionId
+    },
+  })
+}
+
 // ── Documentos / Orden de Compra ──────────────────────────────────────────────
 
 export function useOrden(solicitudId: string | undefined) {

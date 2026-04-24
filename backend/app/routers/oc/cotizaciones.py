@@ -94,6 +94,20 @@ class CorreccionCotizacionPayload(BaseModel):
     destino: str  # "auxiliar" | "solicitante"
 
 
+class EditarCotizacionPayload(BaseModel):
+    proveedor_nombre: Optional[str] = None
+    proveedor_nit: Optional[str] = None
+    proveedor_email: Optional[str] = None
+    numero_cotizacion_proveedor: Optional[str] = None
+    valor_antes_iva: Optional[float] = None
+    valor_iva: Optional[float] = None
+    valor_total: Optional[float] = None
+    forma_pago: Optional[str] = None
+    plazo_entrega: Optional[str] = None
+    observaciones: Optional[str] = None
+    items: Optional[list[dict]] = None
+
+
 class ItemCotizacion(BaseModel):
     num: Optional[int] = None
     descripcion: str
@@ -990,4 +1004,65 @@ def correccion_cotizacion(
                 auxiliar.email,
             )
 
+    return cotizacion
+
+
+@router.patch(
+    "/cotizaciones/{cotizacion_id}/editar",
+    response_model=CotizacionRead,
+)
+def editar_cotizacion(
+    cotizacion_id: uuid.UUID,
+    payload: EditarCotizacionPayload,
+    current_user: User = Depends(get_current_user),
+    oc_db: Session = Depends(get_oc_db),
+):
+    """Permite al directivo/admin corregir datos de la cotización antes de aprobarla.
+    Solo disponible mientras la cotización esté pendiente de revisión (aprobada == null).
+    """
+    if current_user.role not in ("admin", "directivo", "administrativo"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo directivo, administrativo o admin pueden editar cotizaciones.",
+        )
+
+    cotizacion = oc_db.get(CotizacionProveedor, cotizacion_id)
+    if not cotizacion:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cotización no encontrada.")
+
+    if cotizacion.aprobada is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Solo se pueden editar cotizaciones pendientes de revisión.",
+        )
+
+    if payload.proveedor_nombre is not None:
+        cotizacion.proveedor_nombre = payload.proveedor_nombre
+    if payload.proveedor_nit is not None:
+        cotizacion.proveedor_nit = payload.proveedor_nit
+    if payload.proveedor_email is not None:
+        cotizacion.proveedor_email = payload.proveedor_email
+    if payload.numero_cotizacion_proveedor is not None:
+        cotizacion.numero_cotizacion_proveedor = payload.numero_cotizacion_proveedor
+    if payload.valor_antes_iva is not None:
+        cotizacion.valor_antes_iva = payload.valor_antes_iva
+    if payload.valor_iva is not None:
+        cotizacion.valor_iva = payload.valor_iva
+    if payload.valor_total is not None:
+        cotizacion.valor_total = payload.valor_total
+    if payload.forma_pago is not None:
+        cotizacion.forma_pago = payload.forma_pago
+    if payload.plazo_entrega is not None:
+        cotizacion.plazo_entrega = payload.plazo_entrega
+    if payload.observaciones is not None:
+        cotizacion.observaciones = payload.observaciones
+    if payload.items is not None:
+        cotizacion.items = [
+            {**item, "num": item.get("num") or (i + 1)}
+            for i, item in enumerate(payload.items)
+        ]
+
+    oc_db.add(cotizacion)
+    oc_db.commit()
+    oc_db.refresh(cotizacion)
     return cotizacion
