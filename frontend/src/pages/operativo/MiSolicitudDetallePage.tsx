@@ -6,6 +6,7 @@ import { useSolicitud, useSubirFotoSolicitud, useEliminarFotoSolicitud } from "@
 import { useAuthStore } from "@/store/authStore"
 import { formatFechaHora } from "@/lib/dates"
 import { EstadoBadge } from "@/pages/oc/SolicitudesPage"
+import { ImageModal } from "@/components/ui/ImageModal"
 
 const ESTADO_DESC: Record<string, string> = {
   nueva: "Tu solicitud fue recibida y está en cola.",
@@ -36,6 +37,7 @@ export function MiSolicitudDetallePage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState(false)
+  const [modalImage, setModalImage] = useState<{ url: string; filename: string } | null>(null)
 
   function handleUpload(file: File) {
     if (!id) return
@@ -189,7 +191,8 @@ export function MiSolicitudDetallePage() {
                         <img
                           src={`/api/oc/solicitudes/${solicitud.id}/fotos/${filename}`}
                           alt={filename}
-                          className="w-full h-24 object-cover"
+                          className="w-full h-24 object-cover cursor-pointer"
+                          onClick={() => setModalImage({ url: `/api/oc/solicitudes/${solicitud.id}/fotos/${filename}`, filename })}
                         />
                       ) : (
                         <a
@@ -221,6 +224,13 @@ export function MiSolicitudDetallePage() {
           </div>
         </main>
       </div>
+
+      <ImageModal
+        isOpen={!!modalImage}
+        imageUrl={modalImage?.url || ""}
+        filename={modalImage?.filename || ""}
+        onClose={() => setModalImage(null)}
+      />
     </div>
   )
 }

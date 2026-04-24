@@ -35,6 +35,7 @@ import {
 import { useAuthStore } from "@/store/authStore"
 import { canSeeOC } from "@/lib/permissions"
 import { EstadoBadge } from "./SolicitudesPage"
+import { ImageModal } from "@/components/ui/ImageModal"
 import type { CotizacionProveedor, HistorialEntrada, OrdenCompra } from "@/types/oc"
 
 export function SolicitudDetallePage() {
@@ -69,6 +70,7 @@ export function SolicitudDetallePage() {
   const fotoInputRef = useRef<HTMLInputElement>(null)
   const [fotoDragOver, setFotoDragOver] = useState(false)
   const [errorOC, setErrorOC] = useState<string | null>(null)
+  const [modalImage, setModalImage] = useState<{ url: string; filename: string } | null>(null)
 
   // Modal de rechazo de solicitud (auxiliar): "cancelar" | "correccion" | null
   type ModoRechazoSol = "cancelar" | "correccion" | null
@@ -695,7 +697,7 @@ export function SolicitudDetallePage() {
                             src={`/api/oc/solicitudes/${solicitud.id}/fotos/${filename}`}
                             alt={filename}
                             className="w-full h-16 object-cover cursor-pointer"
-                            onClick={() => window.open(`/api/oc/solicitudes/${solicitud.id}/fotos/${filename}`, "_blank")}
+                            onClick={() => setModalImage({ url: `/api/oc/solicitudes/${solicitud.id}/fotos/${filename}`, filename })}
                           />
                         ) : (
                           <a
@@ -818,6 +820,13 @@ export function SolicitudDetallePage() {
           </div>
         )}
       </div>
+
+      <ImageModal
+        isOpen={!!modalImage}
+        imageUrl={modalImage?.url || ""}
+        filename={modalImage?.filename || ""}
+        onClose={() => setModalImage(null)}
+      />
     </div>
   )
 }
@@ -1494,11 +1503,11 @@ function PanelOrdenCompra({
             >
               ↓ Descargar OC
             </button>
-          )}
-        </div>
+        )}
       </div>
-    )
-  }
+    </div>
+  )
+}
 
   // Estado entregada — botón para cerrar
   if (estado === "entregada") {

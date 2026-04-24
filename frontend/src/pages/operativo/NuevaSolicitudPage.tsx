@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
 import { useAuthStore } from "@/store/authStore"
-import { useListasFormulario, useCrearSolicitudInterna, usePaquetes } from "@/hooks/useOC"
+import { useListasFormulario, useCrearSolicitudInterna, usePaquetes, useSubirFotoSolicitud } from "@/hooks/useOC"
 import type { SolicitudInternaCreate } from "@/hooks/useOC"
 
 // Tiempo de primera respuesta del equipo de compras por nivel de prioridad
@@ -35,10 +35,16 @@ export function NuevaSolicitudPage() {
   const { data: listas, isLoading: listasLoading, isError: listasError } = useListasFormulario()
   const { data: paquetes } = usePaquetes()
   const crear = useCrearSolicitudInterna()
+  const subirFoto = useSubirFotoSolicitud()
 
   const [form, setForm] = useState<SolicitudInternaCreate>(FORM_VACIO)
   const [paqueteNombre, setPaqueteNombre] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [dragOver, setDragOver] = useState(false)
+  const [archivos, setArchivos] = useState<File[]>([])
+  const [subiendoArchivos, setSubiendoArchivos] = useState(false)
 
   // Pre-llenar form si viene de un paquete de 1 ítem
   useEffect(() => {
@@ -70,7 +76,26 @@ export function NuevaSolicitudPage() {
     setError(null)
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    if (e.target.files) {
+      setArchivos((prev) => [...prev, ...Array.from(e.target.files!)])
+    }
+    e.target.value = ""
+  }
+
+  function handleFileDrop(e: React.DragEvent) {
+    e.preventDefault()
+    setDragOver(false)
+    if (e.dataTransfer.files) {
+      setArchivos((prev) => [...prev, ...Array.from(e.dataTransfer.files)])
+    }
+  }
+
+  function removeFile(index: number) {
+    setArchivos((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (
       !form.nivel_prioridad ||
@@ -83,19 +108,30 @@ export function NuevaSolicitudPage() {
       setError("Por favor completa todos los campos obligatorios.")
       return
     }
-    crear.mutate(
-      {
+
+    try {
+      const solicitudCreada = await crear.mutateAsync({
         ...form,
         cliente: form.cliente || undefined,
         condicion: form.condicion || undefined,
         placa_ficha: form.placa_ficha || undefined,
         observaciones_solicitante: form.observaciones_solicitante || undefined,
-      },
-      {
-        onSuccess: () => navigate("/operativo/mis-solicitudes"),
-        onError: () => setError("Error al enviar la solicitud. Intenta de nuevo."),
+      })
+
+      if (archivos.length > 0) {
+        setSubiendoArchivos(true)
+        const promesas = archivos.map((archivo) =>
+          subirFoto.mutateAsync({ solicitudId: solicitudCreada.id, file: archivo })
+        )
+        await Promise.all(promesas)
+        setSubiendoArchivos(false)
       }
-    )
+
+      navigate("/operativo/mis-solicitudes")
+    } catch (err) {
+      setSubiendoArchivos(false)
+      setError("Error al procesar la solicitud o subir las evidencias. Intenta de nuevo.")
+    }
   }
 
   return (
@@ -367,6 +403,76 @@ export function NuevaSolicitudPage() {
                 </div>
               </section>
 
+              {/* Sección de Evidencias */}
+              <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+                <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                  Fotos / Evidencias
+                </h2>
+                <p className="text-xs text-gray-500 mb-3">
+                  Sube fotos o archivos que ayuden al equipo de compras a identificar el producto (JPG, PNG, PDF). Opcional.
+                </p>
+
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    setDragOver(true)
+                  }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={handleFileDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-8 cursor-pointer transition-colors ${
+                    dragOver
+                      ? "border-brand-blue bg-brand-blue/5"
+                      : "border-gray-200 hover:border-brand-blue/40 hover:bg-gray-50"
+                  }`}
+                >
+                  <svg className="w-8 h-8 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+                  </svg>
+                  <p className="text-sm font-medium text-gray-600">Arrastra o haz clic para subir</p>
+                  <p className="text-xs text-gray-400">Archivos máximos de 5MB por archivo</p>
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.xlsx,.docx"
+                  className="hidden"
+                  onChange={handleFileSelect}
+                />
+
+                {archivos.length > 0 && (
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {archivos.map((archivo, index) => {
+                      const isImg = archivo.type.startsWith("image/")
+                      return (
+                        <div key={`${archivo.name}-${index}`} className="group relative flex items-center gap-3 bg-gray-50 hover:bg-gray-100/50 p-2.5 rounded-lg border border-gray-200 shadow-sm transition-colors pr-10">
+                          <div className={`flex items-center justify-center w-10 h-10 rounded shrink-0 ${isImg ? 'bg-blue-100 text-brand-blue' : 'bg-gray-200 text-gray-600'}`}>
+                            {isImg ? (
+                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg>
+                            ) : (
+                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
+                            )}
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">{isImg ? 'Imagen' : 'Documento'}</span>
+                            <span className="truncate text-sm text-gray-700 font-medium">{archivo.name}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeFile(index)}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 hover:bg-red-50 p-1.5 rounded-md transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                            title="Eliminar archivo"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </section>
+
               {/* Error */}
               {error && (
                 <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
@@ -379,16 +485,21 @@ export function NuevaSolicitudPage() {
                 <button
                   type="button"
                   onClick={() => navigate("/operativo/mis-solicitudes")}
-                  className="rounded-lg border border-gray-300 px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                  disabled={crear.isPending || subiendoArchivos}
+                  className="rounded-lg border border-gray-300 px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-60"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  disabled={crear.isPending}
+                  disabled={crear.isPending || subiendoArchivos}
                   className="rounded-lg bg-brand-blue px-6 py-2 text-sm font-semibold text-white hover:brightness-105 disabled:opacity-60 transition-all"
                 >
-                  {crear.isPending ? "Enviando..." : "Enviar solicitud"}
+                  {subiendoArchivos
+                    ? "Subiendo evidencias..."
+                    : crear.isPending
+                    ? "Creando solicitud..."
+                    : "Enviar solicitud"}
                 </button>
               </div>
             </form>
