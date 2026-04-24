@@ -2,11 +2,13 @@ import { useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
-import { useSolicitud, useSubirFotoSolicitud, useEliminarFotoSolicitud } from "@/hooks/useOC"
+import { useSolicitud, useSubirFotoSolicitud, useEliminarFotoSolicitud, useCotizaciones, useOrden } from "@/hooks/useOC"
 import { useAuthStore } from "@/store/authStore"
 import { formatFechaHora } from "@/lib/dates"
+import { formatCOP } from "@/lib/formatters"
 import { EstadoBadge } from "@/pages/oc/SolicitudesPage"
 import { ImageModal } from "@/components/ui/ImageModal"
+import { api } from "@/lib/api"
 
 const ESTADO_DESC: Record<string, string> = {
   nueva: "Tu solicitud fue recibida y está en cola.",
@@ -33,8 +35,12 @@ export function MiSolicitudDetallePage() {
   const token = useAuthStore((s) => s.token)
 
   const { data: solicitud, isLoading } = useSolicitud(id)
+  const { data: cotizaciones = [] } = useCotizaciones(id)
+  const { data: orden } = useOrden(id)
   const subirFoto = useSubirFotoSolicitud()
   const eliminarFoto = useEliminarFotoSolicitud()
+
+  const cotizacionAprobada = cotizaciones.find((c) => c.aprobada === true)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState(false)
@@ -48,6 +54,31 @@ export function MiSolicitudDetallePage() {
   function handleEliminar(filename: string) {
     if (!id) return
     eliminarFoto.mutate({ solicitudId: id, filename })
+  }
+
+  async function handleDescargarOC() {
+    if (!orden) return
+    try {
+      const response = await api.get(`/api/oc/ordenes/${orden.id}/descargar`, {
+        responseType: "blob",
+      })
+      const contentType: string = response.headers["content-type"] ?? ""
+      const isPdf = contentType.includes("pdf")
+      const ext = isPdf ? "pdf" : "xlsx"
+      const mimeType = isPdf
+        ? "application/pdf"
+        : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      const blobUrl = URL.createObjectURL(new Blob([response.data], { type: mimeType }))
+      const a = document.createElement("a")
+      a.href = blobUrl
+      a.download = `${orden.numero_oc}.${ext}`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(blobUrl)
+    } catch {
+      console.error("Error al descargar OC")
+    }
   }
 
   if (isLoading) {
@@ -222,6 +253,73 @@ export function MiSolicitudDetallePage() {
                 </div>
               )}
             </div>
+
+            {/* Documentos de la Compra */}
+            {(cotizacionAprobada || orden) && (
+              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+                <h2 className="text-sm font-semibold text-gray-700 mb-4">Documentos de la Compra</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {cotizacionAprobada && (
+                    <div className="rounded-lg border border-gray-100 bg-gray-50 p-4 flex flex-col justify-between">
+                      <div>
+                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Cotización Aprobada</p>
+                        <div className="space-y-2 mb-4 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Proveedor:</span>
+                            <span className="font-medium text-gray-900 truncate ml-2 max-w-[60%]" title={cotizacionAprobada.proveedor_nombre}>{cotizacionAprobada.proveedor_nombre}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Valor Total:</span>
+                            <span className="font-medium text-gray-900">{formatCOP(cotizacionAprobada.valor_total)}</span>
+                          </div>
+                        </div>
+                      </div>
+                      {cotizacionAprobada.pdf_path && (
+                        <a
+                          href={`/api/oc/cotizaciones/${cotizacionAprobada.id}/pdf?token=${token}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center w-full gap-2 rounded-lg bg-white border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
+                        >
+                          <svg className="w-4 h-4 text-brand-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                          Ver PDF Cotización
+                        </a>
+                      )}
+                    </div>
+                  )}
+
+                  {orden && (
+                    <div className="rounded-lg border border-gray-100 bg-gray-50 p-4 flex flex-col justify-between">
+                      <div>
+                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Orden de Compra</p>
+                        <div className="space-y-2 mb-4 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Número OC:</span>
+                            <span className="font-mono font-bold text-brand-blue">{orden.numero_oc}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Plataforma:</span>
+                            <span className="font-medium text-gray-900">{solicitud.plataforma}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleDescargarOC}
+                        className="flex items-center justify-center w-full gap-2 rounded-lg bg-brand-blue px-3 py-2 text-sm font-semibold text-white hover:brightness-105 transition-all shadow-sm"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Descargar OC
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </main>
       </div>
