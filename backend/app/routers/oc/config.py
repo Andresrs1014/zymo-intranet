@@ -8,7 +8,7 @@ from datetime import date, timedelta
 from typing import Optional
 
 import openpyxl
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlmodel import Session, select
@@ -229,6 +229,60 @@ def update_listas(
             oc_db.add(OcConfig(key=key, value=serialized))
 
     oc_db.commit()
+
+
+@router.post("/config/listas/upload-clientes", response_model=ListasFormulario)
+async def upload_clientes_excel(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    oc_db: Session = Depends(get_oc_db),
+):
+    """Sube un Excel de clientes, lee la primera columna y actualiza la lista_clientes. Solo admin."""
+    _require_admin(current_user)
+
+    if not file.filename.endswith((".xlsx", ".xls")):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Formato no soportado. Sube un archivo .xlsx o .xls",
+        )
+
+    try:
+        import openpyxl
+        import io
+
+        contenido = await file.read()
+        wb = openpyxl.load_workbook(io.BytesIO(contenido), data_only=True)
+        ws = wb.active
+        nuevos_clientes = set()
+
+        for row in ws.iter_rows(values_only=True):
+            if row and row[0]:
+                cliente = str(row[0]).strip()
+                if cliente:
+                    nuevos_clientes.add(cliente)
+
+        lista_clientes = sorted(list(nuevos_clientes))
+
+        # Guardar en base de datos
+        serialized = json.dumps(lista_clientes, ensure_ascii=False)
+        existing = oc_db.get(OcConfig, "lista_clientes")
+        if existing:
+            existing.value = serialized
+            oc_db.add(existing)
+        else:
+            oc_db.add(OcConfig(key="lista_clientes", value=serialized))
+
+        oc_db.commit()
+
+        # Retornar las listas actualizadas
+        return get_listas(current_user, oc_db)
+
+    except Exception as e:
+        log.warning("[config] Error al leer excel de clientes: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Error al procesar el archivo Excel: {e}",
+        )
 
 
 @router.post("/config/test-email", response_model=TestEmailResult)

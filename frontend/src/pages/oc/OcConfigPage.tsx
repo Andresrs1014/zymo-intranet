@@ -2,7 +2,8 @@ import { useState, useEffect } from "react"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
 import { api } from "@/lib/api"
-import { useListasFormulario, useGuardarListas } from "@/hooks/useOC"
+import { useRef } from "react"
+import { useListasFormulario, useGuardarListas, useUploadClientesExcel } from "@/hooks/useOC"
 import type { ListasFormulario } from "@/hooks/useOC"
 
 async function descargarExcelPrueba(): Promise<string> {
@@ -125,6 +126,7 @@ export function OcConfigPage() {
 
   const { data: listas } = useListasFormulario()
   const guardarListas = useGuardarListas()
+  const uploadClientes = useUploadClientesExcel()
   const [listasForm, setListasForm] = useState<ListasFormulario>({
     prioridades: [],
     categorias: [],
@@ -511,10 +513,19 @@ export function OcConfigPage() {
                       items={listasForm.grupos_articulos}
                       onChange={(v) => { setListasForm(prev => ({ ...prev, grupos_articulos: v })); setListasGuardadas(false) }}
                     />
-                    <ListaEditor
+                    <ListaEditorBulk
                       label="Clientes"
                       items={listasForm.clientes}
                       onChange={(v) => { setListasForm(prev => ({ ...prev, clientes: v })); setListasGuardadas(false) }}
+                      onUploadExcel={(file) => {
+                        uploadClientes.mutate(file, {
+                          onSuccess: (data) => {
+                            setListasForm(data)
+                            setListasGuardadas(true)
+                          }
+                        })
+                      }}
+                      isUploading={uploadClientes.isPending}
                     />
                     <ListaEditor
                       label="Condiciones"
@@ -771,6 +782,100 @@ function ListaEditor({
           Agregar
         </button>
       </div>
+    </div>
+  )
+}
+
+// ── ListaEditorBulk ───────────────────────────────────────────────────────────
+
+function ListaEditorBulk({
+  label,
+  items,
+  onChange,
+  onUploadExcel,
+  isUploading,
+}: {
+  label: string
+  items: string[]
+  onChange: (items: string[]) => void
+  onUploadExcel?: (file: File) => void
+  isUploading?: boolean
+}) {
+  const [input, setInput] = useState("")
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    setInput(items.join("\n"))
+  }, [items])
+
+  function handleBlur() {
+    const newItems = input
+      .split("\n")
+      .map((i) => i.trim())
+      .filter(Boolean)
+    
+    // Solo actualizar si hay cambios reales
+    const uniqueItems = Array.from(new Set(newItems))
+    if (JSON.stringify(uniqueItems) !== JSON.stringify(items)) {
+      onChange(uniqueItems)
+    }
+  }
+
+  return (
+    <div className="sm:col-span-2">
+      <div className="flex items-center justify-between mb-2">
+        <label className="block text-sm font-medium text-gray-700">
+          {label} <span className="text-gray-400 font-normal">({items.length} registrados)</span>
+        </label>
+        {onUploadExcel && (
+          <div className="flex items-center gap-2">
+            <input
+              type="file"
+              accept=".xlsx,.xls"
+              className="hidden"
+              ref={fileRef}
+              onChange={(e) => {
+                if (e.target.files?.[0]) onUploadExcel(e.target.files[0])
+                e.target.value = ""
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={isUploading}
+              className="flex items-center gap-1.5 rounded-lg border border-brand-blue/20 bg-blue-50 px-3 py-1.5 text-xs font-medium text-brand-blue hover:bg-blue-100 transition-colors disabled:opacity-50"
+            >
+              {isUploading ? (
+                <>
+                  <svg className="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                  </svg>
+                  Cargando...
+                </>
+              ) : (
+                <>
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+                  </svg>
+                  Cargar desde Excel
+                </>
+              )}
+            </button>
+          </div>
+        )}
+      </div>
+      <textarea
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onBlur={handleBlur}
+        rows={6}
+        placeholder="Un elemento por línea. O carga un Excel y se llenará automáticamente..."
+        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono resize-y"
+      />
+      <p className="text-xs text-gray-400 mt-1">
+        Puedes editar la lista manualmente (un cliente por línea). Haz clic fuera del recuadro para actualizar y luego presiona "Guardar listas" arriba.
+      </p>
     </div>
   )
 }

@@ -562,6 +562,24 @@ export function useGuardarListas() {
   })
 }
 
+export function useUploadClientesExcel() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData()
+      formData.append("file", file)
+      const { data } = await api.post<ListasFormulario>("/api/oc/config/listas/upload-clientes", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      })
+      return data
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["oc", "config", "listas"] })
+      qc.setQueryData(["oc", "config", "listas"], data)
+    },
+  })
+}
+
 export interface SolicitudInternaCreate {
   nivel_prioridad: string
   categoria: string
