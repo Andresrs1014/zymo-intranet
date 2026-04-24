@@ -229,7 +229,8 @@ export function SolicitudDetallePage() {
                     Rechazar Solicitud
                   </button>
               )}
-              {puedeAsignarse && (
+              {puedeAsignarse &&
+                (["nueva", "en_cotizacion", "en_correccion"] as string[]).includes(solicitud.estado) && (
                 <button
                   onClick={handleAsignarme}
                   disabled={asignar.isPending}
