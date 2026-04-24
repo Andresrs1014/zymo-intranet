@@ -255,7 +255,7 @@ async def upload_clientes_excel(
         ws = wb.active
         nuevos_clientes = set()
 
-        for row in ws.iter_rows(values_only=True):
+        for row in ws.iter_rows(min_row=2, values_only=True):
             if row and row[0]:
                 cliente = str(row[0]).strip()
                 if cliente:
