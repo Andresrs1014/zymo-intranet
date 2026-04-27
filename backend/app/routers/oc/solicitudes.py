@@ -19,6 +19,7 @@ from app.services.email_service import (
     send_aprobacion_directora,
     send_cotizacion_lista,
     send_en_gestion,
+    send_en_plataforma_financiero,
     send_nueva_solicitud_interna,
     send_oc_enviada,
     send_solicitud_rechazada,
@@ -393,6 +394,13 @@ def cambiar_estado(
         background_tasks.add_task(send_aprobacion_directora, solicitud, cotizacion)  # Flujo 3
     elif nuevo_estado == EstadoOC.oc_enviada:
         background_tasks.add_task(send_oc_enviada, solicitud)                  # Flujo 4
+    elif nuevo_estado == EstadoOC.oc_en_plataforma:
+        cotizacion = oc_db.exec(
+            select(CotizacionProveedor)
+            .where(CotizacionProveedor.solicitud_id == solicitud_id)
+            .order_by(CotizacionProveedor.created_at.desc())
+        ).first()
+        background_tasks.add_task(send_en_plataforma_financiero, solicitud, cotizacion)  # Flujo 5
 
     return solicitud
 
