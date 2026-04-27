@@ -145,6 +145,11 @@ function SolicitudRow({
       </td>
       <td className="px-4 py-3">
         <PrioridadBadge prioridad={s.nivel_prioridad} />
+        <SLABadge
+          prioridad={s.nivel_prioridad}
+          estado={s.estado}
+          fechaSolicitud={s.fecha_solicitud}
+        />
       </td>
       <td className="px-4 py-3">
         <EstadoBadge estado={s.estado} />
@@ -196,6 +201,79 @@ function PrioridadBadge({ prioridad }: { prioridad: string }) {
     </span>
   )
 }
+
+// ── SLA helpers ──────────────────────────────────────────────────────────────
+
+const SLA_HORAS: Record<string, number> = {
+  Alta:  4,
+  Media: 24,
+  Baja:  72,
+}
+
+const ESTADOS_SLA_ACTIVOS = new Set([
+  "nueva",
+  "en_cotizacion",
+  "pendiente_aprobacion",
+  "aprobada",
+])
+
+interface SLAResult {
+  vencido: boolean
+  horasRestantes: number
+  horasVencido: number
+}
+
+function calcularSLA(
+  prioridad: string,
+  fechaSolicitud: string,
+  estado: string,
+): SLAResult | null {
+  if (!ESTADOS_SLA_ACTIVOS.has(estado)) return null
+  const limiteHoras = SLA_HORAS[prioridad]
+  if (limiteHoras === undefined) return null
+
+  const inicio = new Date(fechaSolicitud).getTime()
+  const ahora  = Date.now()
+  const transcurridasMs = ahora - inicio
+  const limiteMs = limiteHoras * 60 * 60 * 1000
+  const diferenciasHoras = (limiteMs - transcurridasMs) / (60 * 60 * 1000)
+
+  if (diferenciasHoras >= 0) {
+    return { vencido: false, horasRestantes: Math.round(diferenciasHoras), horasVencido: 0 }
+  }
+  return { vencido: true, horasRestantes: 0, horasVencido: Math.round(-diferenciasHoras) }
+}
+
+function SLABadge({
+  prioridad,
+  estado,
+  fechaSolicitud,
+}: {
+  prioridad: string
+  estado: string
+  fechaSolicitud: string
+}) {
+  const sla = calcularSLA(prioridad, fechaSolicitud, estado)
+  if (!sla) return null
+
+  if (sla.vencido) {
+    return (
+      <span className="mt-1 flex items-center gap-0.5 text-xs font-medium text-red-600">
+        <span>⚠</span>
+        <span>{prioridad} · Vencido {sla.horasVencido}h</span>
+      </span>
+    )
+  }
+
+  return (
+    <span className="mt-1 flex items-center gap-0.5 text-xs font-medium text-green-600">
+      <span>⏱</span>
+      <span>{prioridad} · {sla.horasRestantes}h restantes</span>
+    </span>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 function formatDate(iso: string): string {
   return formatFechaRelativa(iso)

@@ -95,6 +95,8 @@ export function SolicitudDetallePage() {
   const eliminarFoto = useEliminarFotoSolicitud()
   const fotoInputRef = useRef<HTMLInputElement>(null)
   const [fotoDragOver, setFotoDragOver] = useState(false)
+  const evidenciaInputRef = useRef<HTMLInputElement>(null)
+  const [evidenciaDragOver, setEvidenciaDragOver] = useState(false)
   const [errorOC, setErrorOC] = useState<string | null>(null)
   const [modalImage, setModalImage] = useState<{ url: string; filename: string } | null>(null)
 
@@ -380,6 +382,17 @@ export function SolicitudDetallePage() {
               {/* Cotizaciones cargadas */}
               {cotizaciones.length > 0 && (
                 <Section title={`Cotizaciones (${cotizaciones.length})`}>
+                  {/* Indicador de cuántas cotizaciones se han subido */}
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                      cotizaciones.length === 1 ? "bg-gray-100 text-gray-600" : "bg-blue-50 text-blue-700"
+                    }`}>
+                      {cotizaciones.length === 1 ? "1 cotización presentada" : `${cotizaciones.length} cotizaciones presentadas`}
+                    </span>
+                    {cotizaciones.length === 1 && (
+                      <span className="text-xs text-gray-400">El proceso recomienda 3 cotizaciones</span>
+                    )}
+                  </div>
                   <div className="space-y-3">
                     {cotizaciones.map((c) => (
                       <CotizacionCard key={c.id} cotizacion={c} />
@@ -469,6 +482,85 @@ export function SolicitudDetallePage() {
                   </div>
                 )}
               </div>
+
+              {/* Fotos de evidencia (cotización) — visible solo cuando el auxiliar está cotizando */}
+              {solicitud.estado === "en_cotizacion" && (
+                <Section title="Fotos de evidencia (cotización)">
+                  <p className="text-xs text-gray-400 mb-3">
+                    Sube fotos de lo que cotizaste: capturas de pantalla, fotos de productos, referencias visuales, etc.
+                  </p>
+                  <div
+                    onDragOver={(e) => { e.preventDefault(); setEvidenciaDragOver(true) }}
+                    onDragLeave={() => setEvidenciaDragOver(false)}
+                    onDrop={(e) => {
+                      e.preventDefault()
+                      setEvidenciaDragOver(false)
+                      const file = e.dataTransfer.files[0]
+                      if (file && id) subirFoto.mutate({ solicitudId: id, file })
+                    }}
+                    onClick={() => evidenciaInputRef.current?.click()}
+                    className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-8 cursor-pointer transition-colors ${
+                      evidenciaDragOver
+                        ? "border-brand-blue bg-brand-blue/5"
+                        : "border-gray-200 hover:border-brand-blue/40 hover:bg-gray-50"
+                    }`}
+                  >
+                    <svg className="w-8 h-8 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+                    </svg>
+                    <p className="text-sm font-medium text-gray-600">
+                      {subirFoto.isPending ? "Subiendo..." : evidenciaDragOver ? "Suelta aquí" : "Arrastra o haz clic para subir"}
+                    </p>
+                    <p className="text-xs text-gray-400">JPG, PNG, PDF, Excel, Word</p>
+                  </div>
+                  <input
+                    ref={evidenciaInputRef}
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.xlsx,.docx"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0]
+                      if (f && id) subirFoto.mutate({ solicitudId: id, file: f })
+                      e.target.value = ""
+                    }}
+                  />
+                  {(solicitud.fotos_producto ?? []).length > 0 && (
+                    <div className="mt-4 grid grid-cols-3 gap-3">
+                      {(solicitud.fotos_producto ?? []).map((filename) => (
+                        <div key={filename} className="relative group rounded-lg overflow-hidden border border-gray-100 bg-gray-50">
+                          {/\.(jpg|jpeg|png|gif|webp)$/i.test(filename) ? (
+                            <img
+                              src={buildFotoUrl(filename)}
+                              alt={filename}
+                              className="w-full h-24 object-cover cursor-pointer"
+                              onClick={() => setModalImage({ url: buildFotoUrl(filename), filename })}
+                            />
+                          ) : (
+                            <a
+                              href={buildFotoUrl(filename)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex flex-col items-center justify-center h-24 gap-1 text-gray-400 hover:text-brand-blue transition-colors"
+                            >
+                              <svg className="w-7 h-7" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M4 4a2 2 0 0 1 2-2h4.586A2 2 0 0 1 12 2.586L15.414 6A2 2 0 0 1 16 7.414V16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4Z" clipRule="evenodd" />
+                              </svg>
+                              <span className="text-xs px-1 truncate max-w-full">{filename.split(".").pop()?.toUpperCase()}</span>
+                            </a>
+                          )}
+                          <button
+                            onClick={() => id && eliminarFoto.mutate({ solicitudId: id, filename })}
+                            disabled={eliminarFoto.isPending}
+                            className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Section>
+              )}
 
               {/* Datos del pedido */}
               <Section title="Detalle del Pedido">

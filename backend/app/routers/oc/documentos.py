@@ -336,10 +336,12 @@ async def marcar_oc_enviada(
 )
 def marcar_en_plataforma(
     solicitud_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_compras),
     oc_db: Session = Depends(get_oc_db),
 ):
     from app.models.oc import EstadoOC
+    from app.services import email_service
 
     solicitud = oc_db.get(SolicitudOC, solicitud_id)
     if not solicitud:
@@ -365,6 +367,19 @@ def marcar_en_plataforma(
         usuario_nombre=current_user.full_name,
     )
     oc_db.commit()
+    oc_db.refresh(solicitud)
+
+    cotizacion = oc_db.exec(
+        select(CotizacionProveedor)
+        .where(
+            CotizacionProveedor.solicitud_id == solicitud_id,
+            CotizacionProveedor.aprobada == True,  # noqa: E712
+        )
+        .order_by(CotizacionProveedor.created_at.desc())
+    ).first()
+    background_tasks.add_task(email_service.send_en_plataforma_financiero, solicitud, cotizacion)
+    background_tasks.add_task(email_service.send_en_plataforma_solicitante, solicitud)
+
     return {"ok": True}
 
 
