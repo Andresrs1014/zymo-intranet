@@ -9,12 +9,16 @@ export const api = axios.create({
  * Construye una URL absoluta al backend para usos fuera de axios
  * (por ejemplo: <img src>, window.open, href directos).
  *
- * Si `api.baseURL` es vacío (mismo origen), retorna el path tal cual.
+ * - `path` debe comenzar siempre con "/" (p.ej. "/api/oc/...").
+ * - Normaliza el join para que nunca quede doble-slash ni slash faltante.
+ * - Si `baseURL` está vacío (mismo origen), retorna el path tal cual.
  */
 export function absoluteApiUrl(path: string): string {
   const base = api.defaults.baseURL
   if (!base) return path
-  return `${String(base).replace(/\\/$/, "")}${path}`
+  const normalizedBase = String(base).replace(/\/$/, "")
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`
+  return `${normalizedBase}${normalizedPath}`
 }
 
 // Adjunta el token en cada request
