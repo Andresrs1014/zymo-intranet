@@ -2,7 +2,7 @@ import { useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
-import { useSolicitud, useSubirFotoSolicitud, useEliminarFotoSolicitud, useCotizaciones, useOrden } from "@/hooks/useOC"
+import { useSolicitud, useSubirFotoSolicitud, useEliminarFotoSolicitud, useCotizaciones, useOrden, useMarcarEntregada } from "@/hooks/useOC"
 import { useAuthStore } from "@/store/authStore"
 import { formatFechaHora } from "@/lib/dates"
 import { formatCOP } from "@/lib/formatters"
@@ -39,6 +39,7 @@ export function MiSolicitudDetallePage() {
   const { data: orden } = useOrden(id)
   const subirFoto = useSubirFotoSolicitud()
   const eliminarFoto = useEliminarFotoSolicitud()
+  const marcarEntregada = useMarcarEntregada()
 
   const cotizacionAprobada = cotizaciones.find((c) => c.aprobada === true)
 
@@ -151,6 +152,25 @@ export function MiSolicitudDetallePage() {
               )}
             </div>
           </div>
+
+          {/* Confirmar recibo — visible solo para el solicitante cuando el pedido está en plataforma */}
+          {esMia && solicitud.estado === "oc_en_plataforma" && (
+            <div className="max-w-2xl mb-4 bg-green-50 rounded-xl border border-green-200 shadow-sm p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold text-green-800 mb-0.5">¿Ya recibiste tu pedido?</p>
+                <p className="text-sm text-green-700">
+                  Tu pedido está listo para ser retirado. Una vez que lo recibas, confírmalo aquí.
+                </p>
+              </div>
+              <button
+                onClick={() => marcarEntregada.mutate(id!)}
+                disabled={marcarEntregada.isPending}
+                className="shrink-0 bg-green-600 hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors"
+              >
+                {marcarEntregada.isPending ? "Confirmando..." : "Confirmar recibo del pedido"}
+              </button>
+            </div>
+          )}
 
           <div className="max-w-2xl space-y-4">
             {/* Datos del pedido */}
