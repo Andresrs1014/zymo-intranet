@@ -174,6 +174,7 @@ def _get_runtime_config(plataforma: str | None = None) -> dict:
         "email_directora":   settings.email_directora,
         "email_compras":     "",
         "email_financiero":  "",
+        "email_gerente":     "",
         "intranet_url":      settings.intranet_url,
         **_BRANDING_DEFAULTS,
         "email_intro_flujo1": "",
@@ -602,11 +603,19 @@ async def send_cotizacion_lista(s: "SolicitudOC") -> None:
     )
 
 
+_THRESHOLD_GERENTE = 2_500_000  # COP
+
+
 async def send_aprobacion_directora(
     s: "SolicitudOC",
     cotizacion: Optional["CotizacionProveedor"] = None,
 ) -> None:
-    """Flujo 3 — email a la directora con detalle completo de la cotización."""
+    """Flujo 3 — email a la directora con detalle completo de la cotización.
+
+    Si el valor total de la cotización es >= $2.500.000 COP y hay un
+    `email_gerente` configurado en oc_config, el gerente general es incluido
+    en CC del mismo correo.
+    """
     cfg = _get_runtime_config(plataforma=s.plataforma)
     if not (cfg["smtp_user"] and cfg["smtp_password"]):
         log.warning("[email] SMTP no configurado — omitiendo Flujo 3")
@@ -616,12 +625,25 @@ async def send_aprobacion_directora(
         log.warning("[email] Flujo 3: EMAIL_DIRECTORA no configurado")
         return
 
+    valor_total = (cotizacion.valor_total if cotizacion else None) or 0
+    requiere_gerente = valor_total >= _THRESHOLD_GERENTE
+    email_gerente = cfg.get("email_gerente") or ""
+    cc_list: list[str] = []
+    if requiere_gerente and email_gerente:
+        cc_list = [email_gerente]
+        log.info(
+            "[email] Flujo 3: compra >= $2.5M (valor=%s) — CC a gerente %s",
+            valor_total, email_gerente,
+        )
+
     logo_uri = _logo_base64(s.plataforma)
     prefijo = _b(cfg, "email_prefijo")
+    sufijo_asunto = " — ⚠️ Compra mayor a $2.5M" if requiere_gerente else ""
     await _send_html(
         cfg,
-        subject=f"{prefijo} Aprobación requerida — {s.consecutivo_os}",
+        subject=f"{prefijo} Aprobación requerida — {s.consecutivo_os}{sufijo_asunto}",
         recipients=[directora_email],
+        cc=cc_list or None,
         body=_html_aprobacion_directora(s, cotizacion, cfg, logo_uri=logo_uri),
         flujo="Flujo 3",
     )
