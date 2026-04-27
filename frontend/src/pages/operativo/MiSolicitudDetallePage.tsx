@@ -8,7 +8,7 @@ import { formatFechaHora } from "@/lib/dates"
 import { formatCOP } from "@/lib/formatters"
 import { EstadoBadge } from "@/pages/oc/SolicitudesPage"
 import { ImageModal } from "@/components/ui/ImageModal"
-import { api, absoluteApiUrl } from "@/lib/api"
+import { api } from "@/lib/api"
 
 const ESTADO_DESC: Record<string, string> = {
   nueva: "Tu solicitud fue recibida y está en cola.",
@@ -315,10 +315,19 @@ export function MiSolicitudDetallePage() {
                         </div>
                       </div>
                       {cotizacionAprobada.pdf_path && (
-                        <a
-                          href={absoluteApiUrl(`/api/oc/cotizaciones/${cotizacionAprobada.id}/pdf${token ? `?token=${encodeURIComponent(token)}` : ""}`)}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const res = await api.get(`/api/oc/cotizaciones/${cotizacionAprobada.id}/pdf`, { responseType: "blob" })
+                            const url = URL.createObjectURL(res.data as Blob)
+                            const win = window.open(url, "_blank")
+                            setTimeout(() => URL.revokeObjectURL(url), 60_000)
+                            if (!win) {
+                              const a = document.createElement("a")
+                              a.href = url; a.download = `cotizacion_${cotizacionAprobada.id}.pdf`
+                              document.body.appendChild(a); a.click(); document.body.removeChild(a)
+                            }
+                          }}
                           className="flex items-center justify-center w-full gap-2 rounded-lg bg-white border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
                         >
                           <svg className="w-4 h-4 text-brand-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -326,7 +335,7 @@ export function MiSolicitudDetallePage() {
                             <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                           </svg>
                           Ver PDF Cotización
-                        </a>
+                        </button>
                       )}
                     </div>
                   )}
