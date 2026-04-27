@@ -9,6 +9,7 @@ Flujos implementados:
   Flujo 4 — OC Enviada         → solicitante (estado: oc_enviada)
   Flujo OC Proveedor           → proveedor   (adjunto DOCX/PDF) + CC al solicitante
   Flujo 5 — En plataforma      → financiero  (estado: oc_en_plataforma)
+  Flujo Proforma               → financiero  (tiene_proforma activado: True)
 """
 from __future__ import annotations
 
@@ -906,6 +907,75 @@ async def send_en_plataforma_financiero(
         recipients=[email_financiero],
         body=_html_en_plataforma_financiero(s, cotizacion, cfg, logo_uri=logo_uri),
         flujo="Flujo 5",
+    )
+
+
+# ── Flujo Proforma — Anticipo/proforma → financiero ──────────────────────────
+
+def _html_proforma_financiero(
+    s: "SolicitudOC",
+    cot: Optional["CotizacionProveedor"],
+    cfg: Optional[dict] = None,
+    logo_uri: str = "",
+) -> str:
+    """HTML para notificar a Financiera que una solicitud requiere anticipo/proforma."""
+    filas_valores = ""
+    if cot:
+        filas_valores = "".join([
+            _fila("Proveedor", cot.proveedor_nombre or "—"),
+            _fila("Subtotal (sin IVA)", _fmt_cop(cot.valor_antes_iva)),
+            _fila("IVA", _fmt_cop(cot.valor_iva) if cot.valor_iva else "No aplica"),
+            _fila("VALOR TOTAL", _fmt_cop(cot.valor_total), destacar=True, cfg=cfg),
+            _fila("Forma de pago", cot.forma_pago or "—"),
+        ])
+    cuerpo = f"""
+    <p style="color:#374151;font-size:14px">
+      La siguiente solicitud de compra ha sido marcada como <strong>requiere anticipo / proforma</strong>.
+      Por favor proceda con la gestión del anticipo según los procedimientos del área Financiera.
+    </p>
+    <p style="color:#374151;font-size:13px;font-weight:600;margin-bottom:4px">📋 Datos de la solicitud</p>
+    {_tabla(
+        _fila("Consecutivo OS", s.consecutivo_os),
+        _fila("Descripción", s.descripcion),
+        _fila("Plataforma", s.plataforma or "—"),
+        _fila("Solicitante", s.solicitante_nombre),
+        _fila("Área", s.area_solicitante or "—"),
+        _fila("Estado actual", s.estado),
+    )}
+    {_tabla(filas_valores) if filas_valores else ""}
+    <p style="color:#374151;font-size:14px">
+      Este anticipo fue registrado por el equipo de compras. Queda pendiente de gestión por Financiera.
+    </p>
+    """
+    return _base(f"Anticipo/proforma requerido — {s.consecutivo_os}", cuerpo, cfg, logo_uri=logo_uri)
+
+
+async def send_proforma_financiero(
+    s: "SolicitudOC",
+    cotizacion: Optional["CotizacionProveedor"] = None,
+) -> None:
+    """Flujo Proforma — email a Financiera cuando se activa tiene_proforma en una solicitud."""
+    cfg = _get_runtime_config(plataforma=s.plataforma)
+    if not (cfg["smtp_user"] and cfg["smtp_password"]):
+        log.warning("[email] SMTP no configurado — omitiendo Flujo Proforma")
+        return
+    email_financiero = cfg.get("email_financiero") or ""
+    if not email_financiero:
+        log.warning(
+            "[email] Flujo Proforma: email_financiero no configurado en oc_config — "
+            "omitiendo correo para solicitud %s",
+            s.consecutivo_os,
+        )
+        return
+
+    logo_uri = _logo_base64(s.plataforma)
+    prefijo = _b(cfg, "email_prefijo")
+    await _send_html(
+        cfg,
+        subject=f"{prefijo} Anticipo/proforma requerido — {s.consecutivo_os}",
+        recipients=[email_financiero],
+        body=_html_proforma_financiero(s, cotizacion, cfg, logo_uri=logo_uri),
+        flujo="Flujo Proforma",
     )
 
 
