@@ -8,7 +8,7 @@ import { formatFechaHora } from "@/lib/dates"
 import { formatCOP } from "@/lib/formatters"
 import { EstadoBadge } from "@/pages/oc/SolicitudesPage"
 import { ImageModal } from "@/components/ui/ImageModal"
-import { api } from "@/lib/api"
+import { api, absoluteApiUrl } from "@/lib/api"
 
 const ESTADO_DESC: Record<string, string> = {
   nueva: "Tu solicitud fue recibida y está en cola.",
