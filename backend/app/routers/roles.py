@@ -9,6 +9,12 @@ from app.models.user import User
 
 router = APIRouter(prefix="/roles", tags=["Roles"])
 
+FALLBACK_ROLE_NAME = "empleado"
+
+
+class RoleDeleteResult(BaseModel):
+    reassigned_users: int
+
 
 class RoleCreate(BaseModel):
     name: str
@@ -87,7 +93,7 @@ def update_role(
     return role
 
 
-@router.delete("/{role_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{role_id}", response_model=RoleDeleteResult)
 def delete_role(
     role_id: int,
     _: User = Depends(require_admin),
@@ -96,13 +102,17 @@ def delete_role(
     role = db.get(Role, role_id)
     if not role:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rol no encontrado.")
-
-    in_use = db.exec(select(User).where(User.role == role.name)).first()
-    if in_use:
+    if role.name == "admin":
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"El rol '{role.label}' está asignado a uno o más usuarios y no puede eliminarse.",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El rol administrador no puede eliminarse.",
         )
+
+    affected = db.exec(select(User).where(User.role == role.name)).all()
+    for u in affected:
+        u.role = FALLBACK_ROLE_NAME
+        db.add(u)
 
     db.delete(role)
     db.commit()
+    return RoleDeleteResult(reassigned_users=len(affected))

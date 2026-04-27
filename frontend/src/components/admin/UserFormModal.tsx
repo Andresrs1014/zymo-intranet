@@ -27,19 +27,32 @@ export function UserFormModal({ user, onSubmit, onClose, isLoading, error }: Pro
     area: user?.area ?? "",
   })
 
+  const [passwordError, setPasswordError] = useState<string | null>(null)
+
   function set(field: string, value: string) {
+    if (field === "password") setPasswordError(null)
     setForm((prev) => ({ ...prev, [field]: value }))
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (isEdit) {
-      onSubmit({
+      const body: UpdateUserPayload = {
         full_name: form.full_name || undefined,
         role: form.role || undefined,
         sede: form.sede || undefined,
         area: form.area || undefined,
-      } satisfies UpdateUserPayload)
+      }
+      const pw = form.password.trim()
+      if (pw && pw.length < 8) {
+        setPasswordError("La contraseña debe tener al menos 8 caracteres.")
+        return
+      }
+      setPasswordError(null)
+      if (pw) {
+        body.new_password = pw
+      }
+      onSubmit(body)
     } else {
       onSubmit({
         email: form.email,
@@ -73,6 +86,9 @@ export function UserFormModal({ user, onSubmit, onClose, isLoading, error }: Pro
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
           {error && (
             <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
+          )}
+          {passwordError && (
+            <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{passwordError}</p>
           )}
 
           {!isEdit && (
@@ -109,6 +125,20 @@ export function UserFormModal({ user, onSubmit, onClose, isLoading, error }: Pro
                 onChange={(e) => set("password", e.target.value)}
                 className={inputCls}
                 placeholder="Mínimo 8 caracteres"
+              />
+            </Field>
+          )}
+
+          {isEdit && (
+            <Field label="Nueva contraseña (opcional)">
+              <input
+                type="password"
+                minLength={8}
+                autoComplete="new-password"
+                value={form.password}
+                onChange={(e) => set("password", e.target.value)}
+                className={inputCls}
+                placeholder="Dejar vacío para no cambiar · mín. 8 caracteres"
               />
             </Field>
           )}

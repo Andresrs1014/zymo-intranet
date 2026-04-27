@@ -60,6 +60,17 @@ class UpdateUserRequest(BaseModel):
     area: str | None = None
 
 
+class AdminSetPasswordRequest(BaseModel):
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def password_min_length(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("La contraseña debe tener al menos 8 caracteres.")
+        return v
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _to_me(u: User, app_permissions: list[str] | None = None) -> MeResponse:
@@ -185,7 +196,27 @@ def update_user(
     db.add(user)
     db.commit()
     db.refresh(user)
-    return _to_me(user)
+    role = db.exec(select(Role).where(Role.name == user.role)).first()
+    perms = role.app_permissions if role else []
+    return _to_me(user, perms)
+
+
+@router.patch("/users/{user_id}/password", response_model=UserListResponse)
+def admin_set_user_password(
+    user_id: int,
+    payload: AdminSetPasswordRequest,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Establece una nueva contraseña para un usuario. Solo administradores."""
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+    user.hashed_password = hash_password(payload.new_password)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return _to_list(user)
 
 
 @router.delete("/users/{user_id}")

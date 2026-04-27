@@ -54,13 +54,21 @@ export function useUpdateRole() {
   })
 }
 
+export interface RoleDeleteResult {
+  reassigned_users: number
+}
+
 export function useDeleteRole() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: number) => {
-      await api.delete(`/roles/${id}`)
+      const { data } = await api.delete<RoleDeleteResult>(`/roles/${id}`)
+      return data
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["roles"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["roles"] })
+      qc.invalidateQueries({ queryKey: ["users"] })
+    },
   })
 }
 

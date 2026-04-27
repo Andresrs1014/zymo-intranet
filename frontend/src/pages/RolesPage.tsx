@@ -24,17 +24,20 @@ export function RolesPage() {
   const [modal, setModal]               = useState<"create" | "edit" | null>(null)
   const [selected, setSelected]         = useState<RoleItem | null>(null)
   const [mutationError, setMutationError] = useState<string>()
+  const [deleteInfo, setDeleteInfo] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<RoleItem | null>(null)
 
   function openCreate() {
     setSelected(null)
     setMutationError(undefined)
+    setDeleteInfo(null)
     setModal("create")
   }
 
   function openEdit(role: RoleItem) {
     setSelected(role)
     setMutationError(undefined)
+    setDeleteInfo(null)
     setModal("edit")
   }
 
@@ -60,8 +63,12 @@ export function RolesPage() {
 
   async function handleDelete() {
     if (!deleteTarget) return
+    setDeleteInfo(null)
     try {
-      await deleteRole.mutateAsync(deleteTarget.id)
+      const result = await deleteRole.mutateAsync(deleteTarget.id)
+      setDeleteInfo(
+        `Rol eliminado. ${result.reassigned_users} usuario(s) quedaron con rol «empleado». Asígnales un rol en Gestión de usuarios.`,
+      )
       setDeleteTarget(null)
     } catch (err) {
       setDeleteTarget(null)
@@ -94,6 +101,16 @@ export function RolesPage() {
           {mutationError && !modal && (
             <p className="mb-4 text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
               {mutationError}
+            </p>
+          )}
+          {deleteInfo && (
+            <p className="mb-4 text-sm text-green-800 bg-green-50 border border-green-100 rounded-lg px-3 py-2">
+              {deleteInfo}
+            </p>
+          )}
+          {deleteInfo && (
+            <p className="mb-4 text-sm text-green-800 bg-green-50 border border-green-100 rounded-lg px-3 py-2">
+              {deleteInfo}
             </p>
           )}
 
@@ -428,8 +445,9 @@ function ConfirmDeleteModal({
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
         <h2 className="font-semibold text-gray-900 text-base mb-2">¿Eliminar rol?</h2>
         <p className="text-sm text-gray-500 mb-6">
-          Se eliminará el rol <span className="font-medium text-gray-900">{role.label}</span>.
-          Esta acción no puede deshacerse.
+          Se eliminará el rol <span className="font-medium text-gray-900">{role.label}</span>. Los usuarios que lo
+          tengan asignado pasarán automáticamente al rol <span className="font-medium text-gray-900">empleado</span> y
+          podrás asignarles otro rol después en Usuarios.
         </p>
         <div className="flex gap-3">
           <button
