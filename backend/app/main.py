@@ -36,13 +36,13 @@ _DEFAULT_ROLES = [
         "name": "admin",
         "label": "Administrador",
         "description": "Acceso total al sistema",
-        "app_permissions": [],  # admin siempre ve todo en código
+        "app_permissions": [],  # admin bypass explícito en código
     },
     {
         "name": "directivo",
         "label": "Directivo",
-        "description": "Acceso directivo y gerencial",
-        "app_permissions": ["matriz"],
+        "description": "Dirección — OC (ver/aprobar) y apps externas",
+        "app_permissions": ["matriz", "mod_oc_ver", "mod_oc_aprobar"],
     },
     {
         "name": "talento_cultura",
@@ -60,7 +60,7 @@ _DEFAULT_ROLES = [
         "name": "operativo",
         "label": "Operativo",
         "description": "Operaciones logísticas",
-        "app_permissions": ["matriz"],
+        "app_permissions": ["matriz", "mod_operativo"],
     },
     {
         "name": "empleado",
@@ -72,31 +72,31 @@ _DEFAULT_ROLES = [
         "name": "calidad",
         "label": "Gestión de Calidad",
         "description": "Administración del SGC y catálogo de proveedores",
-        "app_permissions": [],
+        "app_permissions": ["mod_sgc", "matriz"],
     },
     {
         "name": "gerente",
         "label": "Gerente",
-        "description": "Gerencia general — acceso al módulo gerencial y ZYMO",
-        "app_permissions": [],
+        "description": "Gerencia general — módulo gerencial (KPIs, ZYMO)",
+        "app_permissions": ["mod_gerencial", "matriz"],
     },
     {
         "name": "administrativo",
         "label": "Administrativo",
         "description": "Gestión administrativa y módulo OC",
-        "app_permissions": ["mod_oc_ver", "mod_oc_aprobar"],
+        "app_permissions": ["mod_oc_ver", "mod_oc_aprobar", "mod_oc_config", "matriz"],
     },
     {
         "name": "compras",
         "label": "Compras",
         "description": "Auxiliar de compras — gestión de solicitudes y cotizaciones",
-        "app_permissions": ["mod_oc_ver"],
+        "app_permissions": ["mod_oc_ver", "matriz"],
     },
     {
         "name": "financiero",
         "label": "Financiero",
         "description": "Módulo de facturas y validación contable",
-        "app_permissions": ["mod_financiero"],
+        "app_permissions": ["mod_financiero", "matriz"],
     },
 ]
 
@@ -131,8 +131,13 @@ def _seed_roles() -> None:
                 if not existing.label:  # vacío por el DEFAULT '' de la migración
                     existing.label = r["label"]
                     changed = True
+                # Repoblar desde plantilla si aún no hay permisos (migración; admin puede quedar en [])
+                tmpl = list(r["app_permissions"])
                 if existing.app_permissions is None:
-                    existing.app_permissions = r["app_permissions"]
+                    existing.app_permissions = tmpl
+                    changed = True
+                elif not existing.app_permissions and r["name"] != "admin":
+                    existing.app_permissions = tmpl
                     changed = True
                 if changed:
                     session.add(existing)

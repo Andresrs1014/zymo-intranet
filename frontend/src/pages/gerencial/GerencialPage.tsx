@@ -2,25 +2,23 @@ import { useState } from "react"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
 import { useAuthStore } from "@/store/authStore"
+import { canSeeGerencial } from "@/lib/permissions"
 import { PanelGerenteTab } from "./tabs/PanelGerenteTab"
 import { DirectoraPlaneacionTab } from "./tabs/DirectoraPlaneacionTab"
 import { DesarrolloInnovacionTab } from "./tabs/DesarrolloInnovacionTab"
 
-const ROLES_GERENCIALES = new Set(["gerente", "admin"])
-
 type Tab = "gerente" | "directora" | "desarrollo"
 
-function tabInicial(role: string): Tab {
-  if (ROLES_GERENCIALES.has(role)) return "gerente"
+function tabInicial(esGerencial: boolean): Tab {
+  if (esGerencial) return "gerente"
   return "desarrollo"
 }
 
 export function GerencialPage() {
   const user = useAuthStore((s) => s.user)
-  const role = user?.role ?? ""
-  const esGerencial = ROLES_GERENCIALES.has(role)
+  const esGerencial = user ? canSeeGerencial(user.role, user.app_permissions) : false
 
-  const [activeTab, setActiveTab] = useState<Tab>(() => tabInicial(role))
+  const [activeTab, setActiveTab] = useState<Tab>(() => tabInicial(esGerencial))
 
   const tabs: { id: Tab; label: string; visible: boolean }[] = [
     { id: "gerente", label: "Panel Gerente", visible: esGerencial },

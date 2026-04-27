@@ -1,53 +1,60 @@
-// Control de acceso basado en roles.
-// Cada función acepta opcionalmente `appPerms` (role.app_permissions de la BD)
-// como override dinámico; los Sets hardcoded son el fallback por defecto.
+// Acceso por permisos del rol (`app_permissions` desde /auth/me) + admin.
+// Compatibilidad: áreas históricas (Compras, Operaciones, etc.) hasta migrar todo a la BD.
 
-// ── OC Automatizaciones ───────────────────────────────────────────────────────
-
-const ROLES_OC_VIEWER  = new Set(["admin", "administrativo", "directivo", "compras"])
-const ROLES_OC_APPROVER = new Set(["admin", "administrativo", "directivo"])
-const ROLES_OC_CONFIG   = new Set(["admin"])
+function hasPerm(appPerms: string[] | undefined, id: string): boolean {
+  return appPerms?.includes(id) === true
+}
 
 export function canSeeOC(role: string, area?: string | null, appPerms?: string[]): boolean {
-  return ROLES_OC_VIEWER.has(role) || area === "Compras" || appPerms?.includes("mod_oc_ver") === true
+  if (role === "admin") return true
+  if (hasPerm(appPerms, "mod_oc_ver")) return true
+  if (hasPerm(appPerms, "mod_oc_config")) return true
+  if (area === "Compras") return true
+  return false
 }
 
 export function canApproveOC(role: string, appPerms?: string[]): boolean {
-  return ROLES_OC_APPROVER.has(role) || appPerms?.includes("mod_oc_aprobar") === true
+  if (role === "admin") return true
+  return hasPerm(appPerms, "mod_oc_aprobar")
 }
 
 export function canConfigureOC(role: string, appPerms?: string[]): boolean {
-  return ROLES_OC_CONFIG.has(role) || appPerms?.includes("mod_oc_config") === true
+  if (role === "admin") return true
+  return hasPerm(appPerms, "mod_oc_config")
 }
-
-// ── Módulo Operativo ──────────────────────────────────────────────────────────
-
-const ROLES_OPERATIVO = new Set(["admin", "operativo", "operaciones"])
 
 export function canSeeOperativo(role: string, area?: string | null, appPerms?: string[]): boolean {
-  return ROLES_OPERATIVO.has(role) || area === "Operaciones" || appPerms?.includes("mod_operativo") === true
+  if (role === "admin") return true
+  if (hasPerm(appPerms, "mod_operativo")) return true
+  if (area === "Operaciones") return true
+  return false
 }
-
-// ── SGC — Sistema de Gestión de Calidad ───────────────────────────────────────
-
-const ROLES_SGC = new Set(["admin", "calidad"])
 
 export function canSeeSGC(role: string, area?: string | null, appPerms?: string[]): boolean {
-  return ROLES_SGC.has(role) || area === "Gestión de Calidad" || appPerms?.includes("mod_sgc") === true
+  if (role === "admin") return true
+  if (hasPerm(appPerms, "mod_sgc")) return true
+  if (area === "Gestión de Calidad") return true
+  return false
 }
-
-// ── Financiero ────────────────────────────────────────────────────────────────
-
-const ROLES_FINANCIERO = new Set(["admin", "financiero"])
 
 export function canSeeFinanciero(role: string, area?: string | null, appPerms?: string[]): boolean {
-  return ROLES_FINANCIERO.has(role) || area === "contabilidad" || appPerms?.includes("mod_financiero") === true
+  if (role === "admin") return true
+  if (hasPerm(appPerms, "mod_financiero")) return true
+  if (area === "contabilidad") return true
+  return false
 }
 
-// ── Gerencial ─────────────────────────────────────────────────────────────────
-
-const ROLES_GERENCIAL = new Set(["admin", "gerente"])
-
 export function canSeeGerencial(role: string, appPerms?: string[]): boolean {
-  return ROLES_GERENCIAL.has(role) || appPerms?.includes("mod_gerencial") === true
+  if (role === "admin") return true
+  return hasPerm(appPerms, "mod_gerencial")
+}
+
+/** Agente flotante estilo compras (no ZYMO): quien ve OC puede usarlo. */
+export function canUseAgenteAdministrativo(
+  role: string,
+  area?: string | null,
+  appPerms?: string[],
+): boolean {
+  if (role === "admin") return true
+  return canSeeOC(role, area, appPerms)
 }

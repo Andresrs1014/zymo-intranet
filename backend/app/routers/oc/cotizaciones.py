@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from app.core.deps import get_current_user, require_compras
+from app.core.permissions import user_has_permission
 from app.database import get_db
 from app.oc_database import get_oc_db
 from app.models.oc import CotizacionProveedor, EstadoOC, SolicitudOC
@@ -667,12 +668,13 @@ def aprobar_cotizacion(
     payload: AprobarPayload,
     background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
     oc_db: Session = Depends(get_oc_db),
 ):
-    if current_user.role not in ("admin", "directivo", "administrativo"):
+    if not user_has_permission(db, current_user, "mod_oc_aprobar"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Solo directivo, administrativo o admin pueden aprobar cotizaciones.",
+            detail="Se requiere permiso para aprobar cotizaciones (mod_oc_aprobar).",
         )
 
     cotizacion = oc_db.get(CotizacionProveedor, cotizacion_id)
@@ -731,10 +733,10 @@ def rechazar_cotizacion(
 ):
     from app.services import email_service
 
-    if current_user.role not in ("admin", "directivo", "administrativo"):
+    if not user_has_permission(db, current_user, "mod_oc_aprobar"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Solo directivo, administrativo o admin pueden rechazar cotizaciones.",
+            detail="Se requiere permiso para rechazar cotizaciones (mod_oc_aprobar).",
         )
 
     cotizacion = oc_db.get(CotizacionProveedor, cotizacion_id)
@@ -800,13 +802,14 @@ def cancelar_cotizacion(
     payload: CancelarCotizacionPayload,
     background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
     oc_db: Session = Depends(get_oc_db),
 ):
     """Cancela definitivamente la solicitud desde el panel de aprobación. KPI: rechazos_cotizacion."""
-    if current_user.role not in ("admin", "directivo", "administrativo"):
+    if not user_has_permission(db, current_user, "mod_oc_aprobar"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Solo directivo, administrativo o admin pueden cancelar cotizaciones.",
+            detail="Se requiere permiso para cancelar cotizaciones (mod_oc_aprobar).",
         )
 
     cotizacion = oc_db.get(CotizacionProveedor, cotizacion_id)
@@ -863,10 +866,10 @@ def correccion_cotizacion(
     db: Session = Depends(get_db),
 ):
     """Manda a corrección: al auxiliar (nueva cotización) o al solicitante. KPI: reprocesos."""
-    if current_user.role not in ("admin", "directivo", "administrativo"):
+    if not user_has_permission(db, current_user, "mod_oc_aprobar"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Solo directivo, administrativo o admin pueden mandar a corrección.",
+            detail="Se requiere permiso para mandar a corrección (mod_oc_aprobar).",
         )
 
     if payload.destino not in ("auxiliar", "solicitante"):
@@ -940,15 +943,16 @@ def editar_cotizacion(
     cotizacion_id: uuid.UUID,
     payload: EditarCotizacionPayload,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
     oc_db: Session = Depends(get_oc_db),
 ):
     """Permite al directivo/admin corregir datos de la cotización antes de aprobarla.
     Solo disponible mientras la cotización esté pendiente de revisión (aprobada == null).
     """
-    if current_user.role not in ("admin", "directivo", "administrativo"):
+    if not user_has_permission(db, current_user, "mod_oc_aprobar"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Solo directivo, administrativo o admin pueden editar cotizaciones.",
+            detail="Se requiere permiso para editar cotizaciones (mod_oc_aprobar).",
         )
 
     cotizacion = oc_db.get(CotizacionProveedor, cotizacion_id)

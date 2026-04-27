@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, func, select
 
 from app.core.deps import get_current_user, require_compras
+from app.core.permissions import user_has_permission
 from app.database import get_db
 from app.oc_database import get_oc_db
 from app.models.oc import CotizacionProveedor, EstadoOC, SolicitudOC
@@ -280,13 +281,13 @@ def mis_solicitudes(
 def get_solicitud(
     solicitud_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
     oc_db: Session = Depends(get_oc_db),
 ):
     solicitud = oc_db.get(SolicitudOC, solicitud_id)
     if not solicitud:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
-    _OC_ROLES = {"admin", "administrativo", "directivo", "compras"}
-    is_compras = current_user.role in _OC_ROLES or current_user.area == "Compras"
+    is_compras = user_has_permission(db, current_user, "mod_oc_ver")
     is_solicitante = current_user.email == solicitud.solicitante_email
     if not is_compras and not is_solicitante:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Sin acceso a esta solicitud.")
@@ -684,6 +685,7 @@ def editar_correccion(
     solicitud_id: uuid.UUID,
     payload: EditarCorreccionPayload,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
     oc_db: Session = Depends(get_oc_db),
 ):
     """El solicitante corrige su solicitud y la reenvía a cotización."""
@@ -699,7 +701,7 @@ def editar_correccion(
 
     # Verificar que el solicitante sea el dueño de la solicitud
     if solicitud.solicitante_email and current_user.email != solicitud.solicitante_email:
-        if current_user.role not in ("admin", "administrativo", "directivo", "compras"):
+        if not user_has_permission(db, current_user, "mod_oc_ver"):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Solo el solicitante puede editar su propia solicitud.",
@@ -837,6 +839,7 @@ def eliminar_foto_solicitud(
     solicitud_id: uuid.UUID,
     filename: str,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
     oc_db: Session = Depends(get_oc_db),
 ):
     """Elimina un archivo de referencia del producto."""
@@ -844,8 +847,7 @@ def eliminar_foto_solicitud(
     if not solicitud:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
 
-    _OC_ROLES = {"admin", "administrativo", "directivo", "compras"}
-    is_compras = current_user.role in _OC_ROLES or current_user.area == "Compras"
+    is_compras = user_has_permission(db, current_user, "mod_oc_ver")
     is_solicitante = current_user.email == solicitud.solicitante_email
     if not is_compras and not is_solicitante:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Sin permiso para eliminar este archivo.")

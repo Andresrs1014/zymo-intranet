@@ -4,6 +4,7 @@ from jose.exceptions import JWTError
 from sqlmodel import Session, select
 
 from app.core.security import decode_token
+from app.core.permissions import user_has_any_permission, user_has_permission
 from app.database import get_db
 from app.models.user import User
 
@@ -54,41 +55,30 @@ def require_admin(current_user: User = Depends(get_current_user)) -> User:
     return current_user
 
 
-def require_compras(current_user: User = Depends(get_current_user)) -> User:
-    """
-    Guard del módulo OC. Pasan:
-      - role='admin'
-      - role='administrativo'
-      - role='directivo'
-      - role='compras'
-      - area='Compras'  (retrocompatibilidad con usuarios existentes)
-    """
-    OC_ROLES = {"admin", "administrativo", "directivo", "compras"}
-    if current_user.role in OC_ROLES:
-        return current_user
-    if current_user.area == "Compras":
-        return current_user
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail="Sin acceso al módulo OC Automatizaciones.",
-    )
+def require_permission(*permission_ids: str):
+    """Admin siempre. Otros: al menos un permiso (BD del rol o compat. por área)."""
+
+    def guard(
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ) -> User:
+        if current_user.role == "admin":
+            return current_user
+        if user_has_any_permission(db, current_user, list(permission_ids)):
+            return current_user
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Permisos insuficientes para esta operación.",
+        )
+
+    return guard
 
 
-def require_financiero(current_user: User = Depends(get_current_user)) -> User:
-    """
-    Guard del módulo Financiero. Pasan:
-      - role='admin'
-      - role='financiero'
-      - area='contabilidad'
-    """
-    if current_user.role == "admin":
-        return current_user
-    if current_user.role == "financiero" or current_user.area == "contabilidad":
-        return current_user
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail="Sin acceso al módulo Financiero.",
-    )
+# Atajos semánticos (módulos)
+require_compras = require_permission("mod_oc_ver")
+require_financiero = require_permission("mod_financiero")
+require_gerencial = require_permission("mod_gerencial")
+require_sgc = require_permission("mod_sgc")
 
 
 def require_any_role(allowed_roles: list[str]):
@@ -105,12 +95,16 @@ def require_any_role(allowed_roles: list[str]):
     return guard
 
 
-def require_gerencial(current_user: User = Depends(get_current_user)) -> User:
-    """Guard: solo admin y gerente acceden al módulo gerencial."""
-    _ROLES_GERENCIAL = {"admin", "gerente"}
-    if current_user.role not in _ROLES_GERENCIAL:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Acceso restringido al módulo gerencial.",
-        )
-    return current_user
+def require_oc_config_access(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> User:
+    """Configuración OC (SMTP, listas): admin o permiso mod_oc_config."""
+    if current_user.role == "admin":
+        return current_user
+    if user_has_permission(db, current_user, "mod_oc_config"):
+        return current_user
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Se requiere permiso de configuración OC.",
+    )

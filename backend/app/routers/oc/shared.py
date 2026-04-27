@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from sqlmodel import Session, or_, select
 
 from app.core.deps import require_compras
+from app.core.permissions import role_names_with_permission
 from app.database import get_db
 from app.models.user import User
 
@@ -19,21 +20,19 @@ class UsuarioBasico(BaseModel):
     role: str
 
 
-_ROLES_COMPRAS = ["admin", "compras", "administrativo", "directivo"]
-
-
 @router.get("/usuarios-compras", response_model=list[UsuarioBasico])
 def list_usuarios_compras(
     current_user: User = Depends(require_compras),
     db: Session = Depends(get_db),
 ):
-    """Lista usuarios activos del equipo de compras (por rol o por área)."""
+    """Lista usuarios activos con permiso de OC (mod_oc_ver) o área Compras (compat.)."""
+    role_names = role_names_with_permission(db, "mod_oc_ver")
     usuarios = db.exec(
         select(User)
         .where(
             User.is_active == True,  # noqa: E712
             or_(
-                User.role.in_(_ROLES_COMPRAS),
+                User.role.in_(role_names),
                 User.area == "Compras",
             ),
         )

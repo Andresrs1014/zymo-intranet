@@ -19,6 +19,7 @@ from app.gerencial_database import GerencialOrden, GerencialTarea, get_gerencial
 from app.agents.tools import oc_tools
 from app.config import settings
 from app.core.deps import get_current_user, require_gerencial
+from app.core.permissions import user_has_any_permission
 from app.database import get_db
 from app.models.user import User
 
@@ -251,12 +252,14 @@ def listar_tareas(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, le=200),
     current_user: User = Depends(get_current_user),
+    intranet_db: Session = Depends(get_db),
     db: Session = Depends(get_gerencial_db),
 ):
-    """Lista tareas con filtros. Accesible para cualquier usuario autenticado con rol gerencial o dev/admin."""
-    _ROLES_PUEDEN_VER = {"gerente", "admin", "administrativo", "directivo"}
-    if current_user.role not in _ROLES_PUEDEN_VER:
-        # Un usuario sin rol gerencial solo ve sus propias tareas
+    """Lista tareas con filtros. Vista amplia si tiene mod_gerencial o mod_oc_aprobar (p. ej. directivo)."""
+    if not user_has_any_permission(
+        intranet_db, current_user, ["mod_gerencial", "mod_oc_aprobar"]
+    ):
+        # Sin permiso de vista amplia: solo sus propias tareas
         subido_por_id = current_user.id
 
     query = select(GerencialTarea)
@@ -289,15 +292,18 @@ def actualizar_tarea(
     tarea_id: str,
     payload: TareaUpdate,
     current_user: User = Depends(get_current_user),
+    intranet_db: Session = Depends(get_db),
     db: Session = Depends(get_gerencial_db),
 ):
-    """Actualiza una tarea. Solo el dueño o roles gerenciales pueden modificarla."""
+    """Actualiza una tarea. Solo el dueño o permisos gerenciales / aprobación OC pueden modificarla."""
     tarea = db.get(GerencialTarea, tarea_id)
     if not tarea:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tarea no encontrada.")
 
-    _ROLES_ADMIN_GERENCIAL = {"gerente", "admin", "administrativo", "directivo"}
-    if tarea.subido_por_id != current_user.id and current_user.role not in _ROLES_ADMIN_GERENCIAL:
+    puede_admin = user_has_any_permission(
+        intranet_db, current_user, ["mod_gerencial", "mod_oc_aprobar"]
+    )
+    if tarea.subido_por_id != current_user.id and not puede_admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tienes permiso para modificar esta tarea.")
 
     data = payload.model_dump(exclude_unset=True)

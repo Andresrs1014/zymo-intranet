@@ -35,7 +35,7 @@ import {
   type EditarCotizacionPayload,
 } from "@/hooks/useOC"
 import { useAuthStore } from "@/store/authStore"
-import { canSeeOC } from "@/lib/permissions"
+import { canApproveOC, canConfigureOC, canSeeOC } from "@/lib/permissions"
 import { EstadoBadge } from "./SolicitudesPage"
 import { ImageModal } from "@/components/ui/ImageModal"
 import { absoluteApiUrl } from "@/lib/api"
@@ -108,8 +108,9 @@ export function SolicitudDetallePage() {
   const [corrCantidad, setCorrCantidad] = useState("")
   const [corrObs, setCorrObs] = useState("")
 
-  // Solo admin puede cambiar la prioridad
-  const puedeEditarPrioridad = user?.role === "admin"
+  const puedeEditarPrioridad =
+    user?.role === "admin" ||
+    (user ? canConfigureOC(user.role, user.app_permissions) : false)
 
   function handleAsignarme() {
     if (!id || !user) return
@@ -146,11 +147,16 @@ export function SolicitudDetallePage() {
 
   const esAuxiliarAsignado = solicitud.auxiliar_id === user?.id
   const esSolicitante = user?.email === solicitud.solicitante_email
+  const perms = user?.app_permissions ?? []
   const puedeAsignarse =
     !solicitud.auxiliar_id &&
-    (user?.role === "admin" || user?.role === "compras" || user?.area === "Compras")
-  const esAprobador = user?.role === "admin" || user?.role === "directivo" || user?.role === "administrativo"
-  const esAdmin = user?.role === "admin" || user?.role === "administrativo" || user?.role === "directivo"
+    !!user &&
+    (user.role === "admin" ||
+      user.role === "compras" ||
+      user.area === "Compras" ||
+      (perms.includes("mod_oc_ver") && !perms.includes("mod_oc_aprobar")))
+  const esAprobador = user ? canApproveOC(user.role, user.app_permissions) : false
+  const esAdmin = user ? user.role === "admin" || canApproveOC(user.role, user.app_permissions) : false
   const puedeAsignarOtro = esAdmin
   const puedeGenerarOC = user ? canSeeOC(user.role, user.area, user.app_permissions) : false
   const cotizacionPendiente = cotizaciones.find((c) => c.aprobada === null)

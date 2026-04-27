@@ -1,7 +1,14 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { useAuthStore } from "@/store/authStore"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
-import { canSeeOC, canSeeSGC, canSeeOperativo, canSeeFinanciero, canSeeGerencial } from "@/lib/permissions"
+import {
+  canSeeOC,
+  canSeeSGC,
+  canSeeOperativo,
+  canSeeFinanciero,
+  canSeeGerencial,
+  canUseAgenteAdministrativo,
+} from "@/lib/permissions"
 import { LoginPage } from "@/pages/LoginPage"
 import { DashboardPage } from "@/pages/DashboardPage"
 import { AdminPage } from "@/pages/AdminPage"
@@ -82,9 +89,6 @@ function GerencialRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
-// Roles que ven el Agente Administrativo (Sonia y equipo compras)
-const ROLES_AGENTE_ADMIN = new Set(["administrativo", "compras", "directivo"])
-
 function AgentLayer() {
   const user = useAuthStore((s) => s.user)
   if (!user) return null
@@ -96,7 +100,7 @@ function AgentLayer() {
       />
     )
   }
-  if (ROLES_AGENTE_ADMIN.has(user.role)) {
+  if (canUseAgenteAdministrativo(user.role, user.area, user.app_permissions)) {
     return (
       <AgentFloatingWindow
         agente="administrativo"

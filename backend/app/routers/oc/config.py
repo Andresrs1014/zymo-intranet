@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from app.config import settings
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, require_oc_config_access
 from app.models.oc import OcConfig
 from app.models.user import User
 from app.oc_database import get_oc_db
@@ -37,11 +37,6 @@ _ALLOWED_KEYS = {
     "email_prefijo",
     "email_intro_flujo1", "email_intro_flujo2", "email_intro_flujo3", "email_intro_flujo4",
 }
-
-
-def _require_admin(user: User) -> None:
-    if user.role != "admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Solo administradores.")
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -129,10 +124,9 @@ _DEFAULT_LISTAS: dict[str, list[str]] = {
 
 @router.get("/config", response_model=ConfigRead)
 def get_config(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_oc_config_access),
     oc_db: Session = Depends(get_oc_db),
 ):
-    _require_admin(current_user)
     rows = {r.key: r.value for r in oc_db.exec(select(OcConfig)).all()}
 
     from app.services.email_service import _BRANDING_DEFAULTS
@@ -171,10 +165,9 @@ def get_config(
 @router.patch("/config", status_code=status.HTTP_204_NO_CONTENT)
 def update_config(
     payload: ConfigUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_oc_config_access),
     oc_db: Session = Depends(get_oc_db),
 ):
-    _require_admin(current_user)
 
     for field, value in payload.model_dump(exclude_unset=True).items():
         if value is None or field not in _ALLOWED_KEYS:
@@ -220,11 +213,10 @@ def get_listas(
 @router.patch("/config/listas", status_code=status.HTTP_204_NO_CONTENT)
 def update_listas(
     payload: ListasFormulario,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_oc_config_access),
     oc_db: Session = Depends(get_oc_db),
 ) -> None:
-    """Guarda las listas configurables. Solo admin."""
-    _require_admin(current_user)
+    """Guarda las listas configurables."""
 
     mapping = {
         "lista_prioridades":      payload.prioridades,
@@ -249,11 +241,10 @@ def update_listas(
 @router.post("/config/listas/upload-clientes", response_model=ListasFormulario)
 async def upload_clientes_excel(
     file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_oc_config_access),
     oc_db: Session = Depends(get_oc_db),
 ):
-    """Sube un Excel de clientes, lee la primera columna y actualiza la lista_clientes. Solo admin."""
-    _require_admin(current_user)
+    """Sube un Excel de clientes, lee la primera columna y actualiza la lista_clientes."""
 
     if not file.filename.endswith((".xlsx", ".xls")):
         raise HTTPException(
@@ -302,13 +293,12 @@ async def upload_clientes_excel(
 
 @router.post("/config/test-email", response_model=TestEmailResult)
 def test_email(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_oc_config_access),
     oc_db: Session = Depends(get_oc_db),
 ):
     """Envía un correo de prueba al smtp_user para verificar que las credenciales funcionan.
     Usa smtplib directamente para obtener el error SMTP exacto sin capturarlo en silencio.
     """
-    _require_admin(current_user)
 
     rows = {r.key: r.value for r in oc_db.exec(select(OcConfig)).all()}
     host = rows.get("smtp_host") or settings.smtp_host
@@ -549,11 +539,10 @@ def _generar_excel_prueba() -> bytes:
 
 @router.get("/config/test/generar-excel")
 def generar_excel_prueba(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_oc_config_access),
     oc_db: Session = Depends(get_oc_db),
 ):
     """Genera un Excel de prueba con datos aleatorios usando sinónimos del motor."""
-    _require_admin(current_user)
 
     counter_row = oc_db.get(OcConfig, "test_excel_counter")
     counter = int(counter_row.value) + 1 if counter_row else 1
@@ -576,12 +565,11 @@ def generar_excel_prueba(
 
 @router.get("/config/test/generar-par")
 def generar_par_prueba(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_oc_config_access),
     oc_db: Session = Depends(get_oc_db),
 ):
     """Genera un ZIP con una cotización Excel + una factura PDF colombiana con los mismos datos.
     Útil para probar el motor de validación financiera end-to-end."""
-    _require_admin(current_user)
 
     counter_row = oc_db.get(OcConfig, "test_par_counter")
     counter = int(counter_row.value) + 1 if counter_row else 1

@@ -1,11 +1,14 @@
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
 import { AppCard } from "@/components/apps/AppCard"
-import { EXTERNAL_APPS } from "@/lib/roles"
+import { getAppsForRole } from "@/lib/roles"
 import { useAuthStore } from "@/store/authStore"
 
 export function DashboardPage() {
   const user = useAuthStore((s) => s.user)
+  const externalApps = user
+    ? getAppsForRole(user.role, user.app_permissions ?? [])
+    : []
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -24,11 +27,18 @@ export function DashboardPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {EXTERNAL_APPS.map((app) => (
-              <AppCard key={app.id} app={app} />
-            ))}
-          </div>
+          {externalApps.length === 0 ? (
+            <p className="text-sm text-gray-500">
+              No hay aplicaciones externas asignadas a tu rol. Un administrador puede añadir permisos en{" "}
+              <span className="font-medium text-gray-700">Configuración → Roles</span>.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {externalApps.map((app) => (
+                <AppCard key={app.id} app={app} />
+              ))}
+            </div>
+          )}
         </main>
       </div>
     </div>

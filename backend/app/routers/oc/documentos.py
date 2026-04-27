@@ -15,6 +15,7 @@ from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML
 
 from app.core.deps import get_current_user, require_compras
+from app.core.permissions import user_has_permission
 from app.database import get_db
 from app.models.oc import CotizacionProveedor, OrdenCompra, SolicitudOC
 from app.models.user import User
@@ -376,13 +377,13 @@ def marcar_entregada(
     solicitud_id: uuid.UUID,
     background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
     oc_db: Session = Depends(get_oc_db),
 ):
     from app.models.oc import EstadoOC
     from app.services import email_service
 
-    OC_ROLES = {"admin", "administrativo", "directivo", "compras"}
-    es_compras = current_user.role in OC_ROLES or current_user.area == "Compras"
+    es_compras = user_has_permission(db, current_user, "mod_oc_ver")
 
     solicitud = oc_db.get(SolicitudOC, solicitud_id)
     if not solicitud:
