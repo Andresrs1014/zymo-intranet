@@ -8,6 +8,8 @@ Flujos implementados:
   Flujo 3 — Aprobación Dir.    → directora   (estado: pendiente_aprobacion)  ← incluye valor cotización
   Flujo 4 — OC Enviada         → solicitante (estado: oc_enviada)
   Flujo OC Proveedor           → proveedor   (adjunto DOCX/PDF) + CC al solicitante
+  Flujo 5 — En plataforma      → financiero  (estado: oc_en_plataforma)
+  Flujo Proforma               → financiero  (tiene_proforma activado: True)
 """
 from __future__ import annotations
 
@@ -164,14 +166,16 @@ def _get_runtime_config(plataforma: str | None = None) -> dict:
     from app.oc_database import get_oc_engine
 
     cfg: dict = {
-        "smtp_user":       settings.smtp_user,
-        "smtp_password":   settings.smtp_password,
-        "smtp_from":       settings.smtp_from or settings.smtp_user,
-        "smtp_host":       settings.smtp_host,
-        "smtp_port":       settings.smtp_port,
-        "email_directora": settings.email_directora,
-        "email_compras":   "",
-        "intranet_url":    settings.intranet_url,
+        "smtp_user":         settings.smtp_user,
+        "smtp_password":     settings.smtp_password,
+        "smtp_from":         settings.smtp_from or settings.smtp_user,
+        "smtp_host":         settings.smtp_host,
+        "smtp_port":         settings.smtp_port,
+        "email_directora":   settings.email_directora,
+        "email_compras":     "",
+        "email_financiero":  "",
+        "email_gerente":     "",
+        "intranet_url":      settings.intranet_url,
         **_BRANDING_DEFAULTS,
         "email_intro_flujo1": "",
         "email_intro_flujo2": "",
@@ -599,11 +603,19 @@ async def send_cotizacion_lista(s: "SolicitudOC") -> None:
     )
 
 
+_THRESHOLD_GERENTE = 2_500_000  # COP
+
+
 async def send_aprobacion_directora(
     s: "SolicitudOC",
     cotizacion: Optional["CotizacionProveedor"] = None,
 ) -> None:
-    """Flujo 3 — email a la directora con detalle completo de la cotización."""
+    """Flujo 3 — email a la directora con detalle completo de la cotización.
+
+    Si el valor total de la cotización es >= $2.500.000 COP y hay un
+    `email_gerente` configurado en oc_config, el gerente general es incluido
+    en CC del mismo correo.
+    """
     cfg = _get_runtime_config(plataforma=s.plataforma)
     if not (cfg["smtp_user"] and cfg["smtp_password"]):
         log.warning("[email] SMTP no configurado — omitiendo Flujo 3")
@@ -613,12 +625,25 @@ async def send_aprobacion_directora(
         log.warning("[email] Flujo 3: EMAIL_DIRECTORA no configurado")
         return
 
+    valor_total = (cotizacion.valor_total if cotizacion else None) or 0
+    requiere_gerente = valor_total >= _THRESHOLD_GERENTE
+    email_gerente = cfg.get("email_gerente") or ""
+    cc_list: list[str] = []
+    if requiere_gerente and email_gerente:
+        cc_list = [email_gerente]
+        log.info(
+            "[email] Flujo 3: compra >= $2.5M (valor=%s) — CC a gerente %s",
+            valor_total, email_gerente,
+        )
+
     logo_uri = _logo_base64(s.plataforma)
     prefijo = _b(cfg, "email_prefijo")
+    sufijo_asunto = " — ⚠️ Compra mayor a $2.5M" if requiere_gerente else ""
     await _send_html(
         cfg,
-        subject=f"{prefijo} Aprobación requerida — {s.consecutivo_os}",
+        subject=f"{prefijo} Aprobación requerida — {s.consecutivo_os}{sufijo_asunto}",
         recipients=[directora_email],
+        cc=cc_list or None,
         body=_html_aprobacion_directora(s, cotizacion, cfg, logo_uri=logo_uri),
         flujo="Flujo 3",
     )
@@ -836,6 +861,143 @@ async def send_rechazo_cotizacion(s: "SolicitudOC", motivo: str, auxiliar_email:
         recipients=[auxiliar_email],
         body=_html_rechazo_cotizacion(s, motivo, cfg, logo_uri=logo_uri),
         flujo="Rechazo cotización",
+    )
+
+
+# ── Flujo 5 — En plataforma → financiero ─────────────────────────────────────
+
+def _html_en_plataforma_financiero(
+    s: "SolicitudOC",
+    cot: Optional["CotizacionProveedor"],
+    cfg: Optional[dict] = None,
+    logo_uri: str = "",
+) -> str:
+    """HTML para notificar a Financiera que la OC ya está en plataforma y puede proceder."""
+    filas_valores = ""
+    if cot:
+        filas_valores = "".join([
+            _fila("Proveedor", cot.proveedor_nombre or "—"),
+            _fila("Subtotal (sin IVA)", _fmt_cop(cot.valor_antes_iva)),
+            _fila("IVA", _fmt_cop(cot.valor_iva) if cot.valor_iva else "No aplica"),
+            _fila("VALOR TOTAL", _fmt_cop(cot.valor_total), destacar=True, cfg=cfg),
+        ])
+    cuerpo = f"""
+    <p style="color:#374151;font-size:14px">
+      La siguiente Orden de Compra ya fue ingresada en plataforma y está lista para que
+      el área Financiera realice su proceso de pago.
+    </p>
+    <p style="color:#374151;font-size:13px;font-weight:600;margin-bottom:4px">📋 Datos de la solicitud</p>
+    {_tabla(
+        _fila("Consecutivo OS", s.consecutivo_os),
+        _fila("Descripción", s.descripcion),
+        _fila("Plataforma", s.plataforma or "—"),
+        _fila("Solicitante", s.solicitante_nombre),
+        _fila("Área", s.area_solicitante or "—"),
+        _fila("Fecha en plataforma", _fmt_fecha(s.fecha_en_plataforma or s.updated_at)),
+    )}
+    {_tabla(filas_valores) if filas_valores else ""}
+    <p style="color:#374151;font-size:14px">
+      Por favor proceda con el registro y pago según los procedimientos del área Financiera.
+    </p>
+    """
+    return _base(f"OC en plataforma — {s.consecutivo_os}", cuerpo, cfg, logo_uri=logo_uri)
+
+
+async def send_en_plataforma_financiero(
+    s: "SolicitudOC",
+    cotizacion: Optional["CotizacionProveedor"] = None,
+) -> None:
+    """Flujo 5 — email a Financiera cuando la OC pasa a estado oc_en_plataforma."""
+    cfg = _get_runtime_config(plataforma=s.plataforma)
+    if not (cfg["smtp_user"] and cfg["smtp_password"]):
+        log.warning("[email] SMTP no configurado — omitiendo Flujo 5 (en plataforma)")
+        return
+    email_financiero = cfg.get("email_financiero") or ""
+    if not email_financiero:
+        log.warning(
+            "[email] Flujo 5: email_financiero no configurado en oc_config — "
+            "omitiendo correo para solicitud %s",
+            s.consecutivo_os,
+        )
+        return
+
+    logo_uri = _logo_base64(s.plataforma)
+    prefijo = _b(cfg, "email_prefijo")
+    await _send_html(
+        cfg,
+        subject=f"{prefijo} OC en plataforma — {s.consecutivo_os}",
+        recipients=[email_financiero],
+        body=_html_en_plataforma_financiero(s, cotizacion, cfg, logo_uri=logo_uri),
+        flujo="Flujo 5",
+    )
+
+
+# ── Flujo Proforma — Anticipo/proforma → financiero ──────────────────────────
+
+def _html_proforma_financiero(
+    s: "SolicitudOC",
+    cot: Optional["CotizacionProveedor"],
+    cfg: Optional[dict] = None,
+    logo_uri: str = "",
+) -> str:
+    """HTML para notificar a Financiera que una solicitud requiere anticipo/proforma."""
+    filas_valores = ""
+    if cot:
+        filas_valores = "".join([
+            _fila("Proveedor", cot.proveedor_nombre or "—"),
+            _fila("Subtotal (sin IVA)", _fmt_cop(cot.valor_antes_iva)),
+            _fila("IVA", _fmt_cop(cot.valor_iva) if cot.valor_iva else "No aplica"),
+            _fila("VALOR TOTAL", _fmt_cop(cot.valor_total), destacar=True, cfg=cfg),
+            _fila("Forma de pago", cot.forma_pago or "—"),
+        ])
+    cuerpo = f"""
+    <p style="color:#374151;font-size:14px">
+      La siguiente solicitud de compra ha sido marcada como <strong>requiere anticipo / proforma</strong>.
+      Por favor proceda con la gestión del anticipo según los procedimientos del área Financiera.
+    </p>
+    <p style="color:#374151;font-size:13px;font-weight:600;margin-bottom:4px">📋 Datos de la solicitud</p>
+    {_tabla(
+        _fila("Consecutivo OS", s.consecutivo_os),
+        _fila("Descripción", s.descripcion),
+        _fila("Plataforma", s.plataforma or "—"),
+        _fila("Solicitante", s.solicitante_nombre),
+        _fila("Área", s.area_solicitante or "—"),
+        _fila("Estado actual", s.estado),
+    )}
+    {_tabla(filas_valores) if filas_valores else ""}
+    <p style="color:#374151;font-size:14px">
+      Este anticipo fue registrado por el equipo de compras. Queda pendiente de gestión por Financiera.
+    </p>
+    """
+    return _base(f"Anticipo/proforma requerido — {s.consecutivo_os}", cuerpo, cfg, logo_uri=logo_uri)
+
+
+async def send_proforma_financiero(
+    s: "SolicitudOC",
+    cotizacion: Optional["CotizacionProveedor"] = None,
+) -> None:
+    """Flujo Proforma — email a Financiera cuando se activa tiene_proforma en una solicitud."""
+    cfg = _get_runtime_config(plataforma=s.plataforma)
+    if not (cfg["smtp_user"] and cfg["smtp_password"]):
+        log.warning("[email] SMTP no configurado — omitiendo Flujo Proforma")
+        return
+    email_financiero = cfg.get("email_financiero") or ""
+    if not email_financiero:
+        log.warning(
+            "[email] Flujo Proforma: email_financiero no configurado en oc_config — "
+            "omitiendo correo para solicitud %s",
+            s.consecutivo_os,
+        )
+        return
+
+    logo_uri = _logo_base64(s.plataforma)
+    prefijo = _b(cfg, "email_prefijo")
+    await _send_html(
+        cfg,
+        subject=f"{prefijo} Anticipo/proforma requerido — {s.consecutivo_os}",
+        recipients=[email_financiero],
+        body=_html_proforma_financiero(s, cotizacion, cfg, logo_uri=logo_uri),
+        flujo="Flujo Proforma",
     )
 
 

@@ -69,7 +69,9 @@ def parsear_campos_cotizacion(
         ]
     )
     _subtotal_extra = _to_float(_extra.get("valor_antes_iva", ""))
-    subtotal = _subtotal_regex or (_subtotal_extra if _subtotal_extra != total else None)
+    subtotal = _subtotal_regex or (
+        _subtotal_extra if _subtotal_extra is not None and (total is None or abs(_subtotal_extra - total) > 1) else None
+    )
 
     iva = money_or_extra(
         "valor_iva",

@@ -19,8 +19,10 @@ from app.services.email_service import (
     send_aprobacion_directora,
     send_cotizacion_lista,
     send_en_gestion,
+    send_en_plataforma_financiero,
     send_nueva_solicitud_interna,
     send_oc_enviada,
+    send_proforma_financiero,
     send_solicitud_rechazada,
 )
 
@@ -393,6 +395,13 @@ def cambiar_estado(
         background_tasks.add_task(send_aprobacion_directora, solicitud, cotizacion)  # Flujo 3
     elif nuevo_estado == EstadoOC.oc_enviada:
         background_tasks.add_task(send_oc_enviada, solicitud)                  # Flujo 4
+    elif nuevo_estado == EstadoOC.oc_en_plataforma:
+        cotizacion = oc_db.exec(
+            select(CotizacionProveedor)
+            .where(CotizacionProveedor.solicitud_id == solicitud_id)
+            .order_by(CotizacionProveedor.created_at.desc())
+        ).first()
+        background_tasks.add_task(send_en_plataforma_financiero, solicitud, cotizacion)  # Flujo 5
 
     return solicitud
 
@@ -476,6 +485,7 @@ class ProformaPayload(BaseModel):
 def actualizar_proforma(
     solicitud_id: uuid.UUID,
     payload: ProformaPayload,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_compras),
     oc_db: Session = Depends(get_oc_db),
 ):
@@ -484,11 +494,22 @@ def actualizar_proforma(
     if not solicitud:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
 
+    activando = payload.tiene_proforma and not solicitud.tiene_proforma
+
     solicitud.tiene_proforma = payload.tiene_proforma
     solicitud.updated_at = datetime.now(timezone.utc)
     oc_db.add(solicitud)
     oc_db.commit()
     oc_db.refresh(solicitud)
+
+    if activando:
+        cotizacion = oc_db.exec(
+            select(CotizacionProveedor)
+            .where(CotizacionProveedor.solicitud_id == solicitud_id)
+            .order_by(CotizacionProveedor.created_at.desc())
+        ).first()
+        background_tasks.add_task(send_proforma_financiero, solicitud, cotizacion)  # Flujo Proforma
+
     return solicitud
 
 
