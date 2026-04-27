@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, field_validator
 from sqlmodel import Session, select
 
-from app.core.deps import get_current_user, require_admin
+from app.core.deps import require_admin
 from app.database import get_db
 from app.models.role import Role
 from app.models.user import User
@@ -40,7 +40,7 @@ class RoleRead(BaseModel):
 
 @router.get("", response_model=list[RoleRead])
 def list_roles(
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     return db.exec(select(Role).order_by(Role.label)).all()

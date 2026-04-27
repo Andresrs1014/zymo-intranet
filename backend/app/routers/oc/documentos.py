@@ -302,9 +302,9 @@ async def marcar_oc_enviada(
     oc_db.commit()
     oc_db.refresh(solicitud)
 
-    background_tasks.add_task(email_service.send_oc_enviada, solicitud)
-
     if orden and payload.email_proveedor:
+        # El email OC al proveedor ya incluye al solicitante en CC —
+        # no enviar notificación separada para evitar que el solicitante reciba dos correos.
         cotizacion = oc_db.exec(
             select(CotizacionProveedor)
             .where(
@@ -321,6 +321,9 @@ async def marcar_oc_enviada(
             payload.email_proveedor,
             cotizacion.items if cotizacion else None,
         )
+    else:
+        # Si no hay email de proveedor, notificar al solicitante directamente.
+        background_tasks.add_task(email_service.send_oc_enviada, solicitud)
 
     return {"ok": True}
 

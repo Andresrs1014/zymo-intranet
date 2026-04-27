@@ -28,7 +28,7 @@ _ALLOWED_KEYS = {
     # SMTP
     "smtp_host", "smtp_port", "smtp_user", "smtp_password", "smtp_from",
     # Destinatarios
-    "email_directora", "email_compras", "intranet_url",
+    "email_directora", "email_compras", "email_contabilidad", "intranet_url",
     # Branding por plataforma
     "empresa_nombre", "empresa_color", "empresa_nit", "empresa_tel", "empresa_dir", "empresa_dept",
     # Asunto y plantillas de email
@@ -52,6 +52,7 @@ class ConfigRead(BaseModel):
     smtp_from: str
     email_directora: str
     email_compras: str
+    email_contabilidad: str
     intranet_url: str
     # Branding
     empresa_nombre: str
@@ -76,6 +77,7 @@ class ConfigUpdate(BaseModel):
     smtp_from: Optional[str] = None
     email_directora: Optional[str] = None
     email_compras: Optional[str] = None
+    email_contabilidad: Optional[str] = None
     intranet_url: Optional[str] = None
     # Branding
     empresa_nombre: Optional[str] = None
@@ -104,6 +106,7 @@ class ListasFormulario(BaseModel):
     grupos_articulos: list[str]
     clientes: list[str]
     condiciones: list[str]
+    placas: list[str]
 
 
 _DEFAULT_LISTAS: dict[str, list[str]] = {
@@ -112,6 +115,7 @@ _DEFAULT_LISTAS: dict[str, list[str]] = {
     "lista_grupos_articulos": ["Mecánico", "Eléctrico", "Hidráulico", "Neumático", "Lubricantes", "Papelería", "Otro"],
     "lista_clientes":         [],
     "lista_condiciones":      ["Nuevo", "Reposición", "Urgente"],
+    "lista_placas":           [],
 }
 
 
@@ -138,6 +142,7 @@ def get_config(
         smtp_from=_r("smtp_from", settings.smtp_from or settings.smtp_user),
         email_directora=_r("email_directora", settings.email_directora),
         email_compras=_r("email_compras", settings.email_directora),
+        email_contabilidad=_r("email_contabilidad"),
         intranet_url=_r("intranet_url", settings.intranet_url),
         # Branding — usa _BRANDING_DEFAULTS cuando no hay valor en DB
         empresa_nombre=_r("empresa_nombre", _BRANDING_DEFAULTS["empresa_nombre"]),
@@ -200,6 +205,7 @@ def get_listas(
         grupos_articulos=_get_lista("lista_grupos_articulos"),
         clientes=_get_lista("lista_clientes"),
         condiciones=_get_lista("lista_condiciones"),
+        placas=_get_lista("lista_placas"),
     )
 
 
@@ -218,6 +224,7 @@ def update_listas(
         "lista_grupos_articulos": payload.grupos_articulos,
         "lista_clientes":         payload.clientes,
         "lista_condiciones":      payload.condiciones,
+        "lista_placas":           payload.placas,
     }
     for key, value in mapping.items():
         serialized = json.dumps(value, ensure_ascii=False)

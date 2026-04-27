@@ -10,8 +10,12 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 480  # 8 horas
 
     # Credenciales del admin inicial (se crea solo si no existe ningún admin)
+    # Deben setearse en .env — no se proveen defaults inseguros
     first_admin_email: str = "admin@zymo.com"
-    first_admin_password: str = "Admin123*"
+    first_admin_password: str = ""
+
+    # Entorno de ejecución: "development" | "production"
+    environment: str = "development"
 
     # Orígenes CORS permitidos (separados por coma)
     cors_origins: str = "http://localhost:5173,http://localhost:81"

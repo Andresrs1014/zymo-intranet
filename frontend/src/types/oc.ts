@@ -27,7 +27,10 @@ export interface SolicitudOC {
   condicion: string | null
   observaciones_solicitante: string | null
   placa_ficha: string | null
+  tipo_solicitud: "compra" | "mantenimiento"
+  tipo_mantenimiento: "correctivo" | "preventivo" | null
   fecha_proximo_mantenimiento: string | null
+  tiene_proforma: boolean
   estado: EstadoOC
   auxiliar_id: number | null
   evidencia_url: string | null

@@ -41,7 +41,15 @@ class SolicitudOC(SQLModel, table=True):
     condicion: Optional[str] = Field(default=None, max_length=200)
     observaciones_solicitante: Optional[str] = Field(default=None)
     placa_ficha: Optional[str] = Field(default=None, max_length=100)
+
+    # Tipo de solicitud: compra normal o mantenimiento de equipos/infraestructura
+    tipo_solicitud: str = Field(default="compra", max_length=20)
+    # Solo aplica cuando tipo_solicitud = "mantenimiento"
+    tipo_mantenimiento: Optional[str] = Field(default=None, max_length=20)
     fecha_proximo_mantenimiento: Optional[date] = Field(default=None)
+
+    # Indicador de anticipo/proforma — activo en cualquier momento del proceso
+    tiene_proforma: bool = Field(default=False)
 
     # Gestión interna
     estado: str = Field(default=EstadoOC.nueva, max_length=30)

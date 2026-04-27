@@ -45,7 +45,10 @@ class SolicitudRead(BaseModel):
     condicion: Optional[str]
     observaciones_solicitante: Optional[str]
     placa_ficha: Optional[str]
+    tipo_solicitud: str = "compra"
+    tipo_mantenimiento: Optional[str] = None
     fecha_proximo_mantenimiento: Optional[date]
+    tiene_proforma: bool = False
     estado: str
     auxiliar_id: Optional[int]
     evidencia_url: Optional[str] = None
@@ -116,16 +119,34 @@ class GestionPayload(BaseModel):
 
 
 class SolicitudInternaCreate(BaseModel):
+    tipo_solicitud: Literal["compra", "mantenimiento"] = "compra"
     nivel_prioridad: Literal["Alta", "Media", "Baja"]
-    categoria: str
-    grupo_articulos: str
+    # Para compra: obligatorios. Para mantenimiento: opcionales.
+    categoria: Optional[str] = None
+    grupo_articulos: Optional[str] = None
     descripcion: str
     cantidad: int
     cliente: Optional[str] = None
     condicion: Optional[str] = None
     plataforma: str
     placa_ficha: Optional[str] = None
+    # Solo para mantenimiento
+    tipo_mantenimiento: Optional[Literal["correctivo", "preventivo"]] = None
+    fecha_proximo_mantenimiento: Optional[date] = None
     observaciones_solicitante: Optional[str] = None
+
+    def validate_campos_por_tipo(self) -> None:
+        """Valida que los campos requeridos según tipo_solicitud estén presentes."""
+        if self.tipo_solicitud == "compra":
+            if not self.categoria:
+                raise ValueError("categoria es obligatoria para solicitudes de compra.")
+            if not self.grupo_articulos:
+                raise ValueError("grupo_articulos es obligatorio para solicitudes de compra.")
+        elif self.tipo_solicitud == "mantenimiento":
+            if not self.tipo_mantenimiento:
+                raise ValueError("tipo_mantenimiento es obligatorio para solicitudes de mantenimiento.")
+            if not self.fecha_proximo_mantenimiento:
+                raise ValueError("fecha_proximo_mantenimiento es obligatoria para solicitudes de mantenimiento.")
 
 
 class HistorialEstadoRead(BaseModel):
@@ -167,9 +188,14 @@ async def crear_solicitud_interna(
     current_user: User = Depends(get_current_user),
     oc_db: Session = Depends(get_oc_db),
 ) -> SolicitudRead:
-    """Crea una solicitud de compra desde el formulario interno de la intranet.
+    """Crea una solicitud (compra o mantenimiento) desde el formulario interno.
     El nombre, email y área del solicitante se toman del usuario autenticado.
     No requiere rol especial — cualquier empleado autenticado puede crear solicitudes."""
+    try:
+        payload.validate_campos_por_tipo()
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+
     now = datetime.now(timezone.utc)
     anio = now.year
     prefijo = f"OS-{anio}-"
@@ -187,6 +213,8 @@ async def crear_solicitud_interna(
         candidato = SolicitudOC(
             consecutivo_os=consecutivo_os,
             estado=EstadoOC.nueva,
+            tipo_solicitud=payload.tipo_solicitud,
+            tipo_mantenimiento=payload.tipo_mantenimiento,
             nivel_prioridad=payload.nivel_prioridad,
             categoria=payload.categoria,
             grupo_articulos=payload.grupo_articulos,
@@ -196,6 +224,7 @@ async def crear_solicitud_interna(
             condicion=payload.condicion,
             plataforma=payload.plataforma,
             placa_ficha=payload.placa_ficha,
+            fecha_proximo_mantenimiento=payload.fecha_proximo_mantenimiento,
             observaciones_solicitante=payload.observaciones_solicitante,
             solicitante_nombre=current_user.full_name,
             solicitante_email=current_user.email,
@@ -432,6 +461,30 @@ def cambiar_prioridad(
     if not solicitud:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
     solicitud.nivel_prioridad = payload.nivel_prioridad
+    solicitud.updated_at = datetime.now(timezone.utc)
+    oc_db.add(solicitud)
+    oc_db.commit()
+    oc_db.refresh(solicitud)
+    return solicitud
+
+
+class ProformaPayload(BaseModel):
+    tiene_proforma: bool
+
+
+@router.patch("/{solicitud_id}/proforma", response_model=SolicitudRead)
+def actualizar_proforma(
+    solicitud_id: uuid.UUID,
+    payload: ProformaPayload,
+    current_user: User = Depends(require_compras),
+    oc_db: Session = Depends(get_oc_db),
+):
+    """Activa o desactiva el indicador de anticipo/proforma. Visible durante todo el proceso."""
+    solicitud = oc_db.get(SolicitudOC, solicitud_id)
+    if not solicitud:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
+
+    solicitud.tiene_proforma = payload.tiene_proforma
     solicitud.updated_at = datetime.now(timezone.utc)
     oc_db.add(solicitud)
     oc_db.commit()

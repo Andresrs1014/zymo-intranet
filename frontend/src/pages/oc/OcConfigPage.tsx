@@ -56,6 +56,7 @@ interface FormState {
   smtp_from: string
   email_directora: string
   email_compras: string
+  email_contabilidad: string
   intranet_url: string
   // Branding
   empresa_nombre: string
@@ -101,6 +102,7 @@ export function OcConfigPage() {
     smtp_from: "",
     email_directora: "",
     email_compras: "",
+    email_contabilidad: "",
     intranet_url: "",
     empresa_nombre: "",
     empresa_color: "",
@@ -133,6 +135,7 @@ export function OcConfigPage() {
     grupos_articulos: [],
     clientes: [],
     condiciones: [],
+    placas: [],
   })
   const [listasGuardadas, setListasGuardadas] = useState(false)
 
@@ -152,6 +155,7 @@ export function OcConfigPage() {
           smtp_from: data.smtp_from,
           email_directora: data.email_directora,
           email_compras: data.email_compras ?? "",
+          email_contabilidad: data.email_contabilidad ?? "",
           intranet_url: data.intranet_url ?? "",
           empresa_nombre: data.empresa_nombre ?? "",
           empresa_color: data.empresa_color ?? "",
@@ -206,6 +210,7 @@ export function OcConfigPage() {
       smtp_from: form.smtp_from,
       email_directora: form.email_directora,
       email_compras: form.email_compras,
+      email_contabilidad: form.email_contabilidad,
       intranet_url: form.intranet_url,
       empresa_nombre: form.empresa_nombre,
       empresa_color: form.empresa_color,
@@ -342,6 +347,14 @@ export function OcConfigPage() {
                     onChange={(v) => handleChange("email_compras", v)}
                     type="email"
                     hint="Recibe la notificación cuando un coordinador crea una solicitud desde la intranet."
+                  />
+                  <Field
+                    label="Email contabilidad (alertas de OC en plataforma)"
+                    placeholder="contabilidad@empresa.com"
+                    value={form.email_contabilidad}
+                    onChange={(v) => handleChange("email_contabilidad", v)}
+                    type="email"
+                    hint="Recibe el correo cuando una OC se marca como 'En plataforma' para su gestión contable."
                   />
                   <Field
                     label="URL de la intranet (para links en emails)"
@@ -531,6 +544,11 @@ export function OcConfigPage() {
                       label="Condiciones"
                       items={listasForm.condiciones}
                       onChange={(v) => { setListasForm(prev => ({ ...prev, condiciones: v })); setListasGuardadas(false) }}
+                    />
+                    <ListaEditor
+                      label="Placas / Equipos (montacargas)"
+                      items={listasForm.placas}
+                      onChange={(v) => { setListasForm(prev => ({ ...prev, placas: v })); setListasGuardadas(false) }}
                     />
                   </div>
                 </section>

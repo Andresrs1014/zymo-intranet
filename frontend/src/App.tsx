@@ -75,6 +75,13 @@ function FinancieroRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+function GerencialRoute({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user)
+  if (!user) return <Navigate to="/login" replace />
+  if (!canSeeGerencial(user.role, user.app_permissions)) return <Navigate to="/dashboard" replace />
+  return <>{children}</>
+}
+
 // Roles que ven el Agente Administrativo (Sonia y equipo compras)
 const ROLES_AGENTE_ADMIN = new Set(["administrativo", "compras", "directivo"])
 
@@ -306,13 +313,13 @@ export default function App() {
           }
         />
 
-        {/* Módulo Gerencial — accesible para cualquier usuario autenticado */}
+        {/* Módulo Gerencial */}
         <Route
           path="/gerencial"
           element={
-            <PrivateRoute>
+            <GerencialRoute>
               <GerencialPage />
-            </PrivateRoute>
+            </GerencialRoute>
           }
         />
 

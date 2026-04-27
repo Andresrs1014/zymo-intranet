@@ -6,14 +6,16 @@ import { useAuthStore } from "@/store/authStore"
 import { useListasFormulario, useCrearSolicitudInterna, usePaquetes, useSubirFotoSolicitud } from "@/hooks/useOC"
 import type { SolicitudInternaCreate } from "@/hooks/useOC"
 
-// Tiempo de primera respuesta del equipo de compras por nivel de prioridad
 const PRIORIDAD_SLA: Record<string, string> = {
   Alta:  "Alta — primera respuesta en 4 horas",
   Media: "Media — primera respuesta en 24 horas",
   Baja:  "Baja — primera respuesta en 48 horas",
 }
 
-const FORM_VACIO: SolicitudInternaCreate = {
+type TipoSolicitud = "compra" | "mantenimiento"
+
+const FORM_COMPRA_VACIO: SolicitudInternaCreate = {
+  tipo_solicitud: "compra",
   nivel_prioridad: "",
   categoria: "",
   grupo_articulos: "",
@@ -23,6 +25,18 @@ const FORM_VACIO: SolicitudInternaCreate = {
   condicion: "",
   plataforma: "Logimat",
   placa_ficha: "",
+  observaciones_solicitante: "",
+}
+
+const FORM_MANTENIMIENTO_VACIO: SolicitudInternaCreate = {
+  tipo_solicitud: "mantenimiento",
+  nivel_prioridad: "",
+  descripcion: "",
+  cantidad: 1,
+  plataforma: "Logimat",
+  placa_ficha: "",
+  tipo_mantenimiento: undefined,
+  fecha_proximo_mantenimiento: "",
   observaciones_solicitante: "",
 }
 
@@ -37,23 +51,34 @@ export function NuevaSolicitudPage() {
   const crear = useCrearSolicitudInterna()
   const subirFoto = useSubirFotoSolicitud()
 
-  const [form, setForm] = useState<SolicitudInternaCreate>(FORM_VACIO)
+  const [tipoSolicitud, setTipoSolicitud] = useState<TipoSolicitud>("compra")
+  const [form, setForm] = useState<SolicitudInternaCreate>(FORM_COMPRA_VACIO)
   const [paqueteNombre, setPaqueteNombre] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState(false)
   const [archivos, setArchivos] = useState<File[]>([])
   const [subiendoArchivos, setSubiendoArchivos] = useState(false)
 
-  // Pre-llenar form si viene de un paquete de 1 ítem
+  // Cambiar tipo de solicitud limpia el formulario
+  function cambiarTipo(tipo: TipoSolicitud) {
+    setTipoSolicitud(tipo)
+    setForm(tipo === "compra" ? FORM_COMPRA_VACIO : FORM_MANTENIMIENTO_VACIO)
+    setPaqueteNombre(null)
+    setError(null)
+  }
+
+  // Pre-llenar form si viene de un paquete de 1 ítem (solo aplica para compra)
   useEffect(() => {
     if (!paqueteId || !paquetes) return
     const paquete = paquetes.find((p) => p.id === paqueteId)
     if (!paquete || !paquete.items.length) return
 
     const item = paquete.items[0]
+    setTipoSolicitud("compra")
     setForm({
+      tipo_solicitud: "compra",
       nivel_prioridad: item.nivel_prioridad ?? "",
       categoria: item.categoria ?? "",
       grupo_articulos: item.grupo_articulos ?? "",
@@ -94,28 +119,50 @@ export function NuevaSolicitudPage() {
     setArchivos((prev) => prev.filter((_, i) => i !== index))
   }
 
+  function validarFormulario(): string | null {
+    if (!form.nivel_prioridad) return "Selecciona la prioridad."
+    if (!form.descripcion.trim()) return "Ingresa la descripción."
+    if (!form.plataforma) return "Selecciona la plataforma."
+    if (form.cantidad < 1) return "La cantidad debe ser al menos 1."
+
+    if (tipoSolicitud === "compra") {
+      if (!form.categoria) return "Selecciona la categoría."
+      if (!form.grupo_articulos) return "Selecciona el grupo de artículos."
+    }
+
+    if (tipoSolicitud === "mantenimiento") {
+      if (!form.tipo_mantenimiento) return "Selecciona el tipo de mantenimiento."
+      if (!form.fecha_proximo_mantenimiento) return "Indica la fecha del próximo mantenimiento."
+    }
+
+    return null
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (
-      !form.nivel_prioridad ||
-      !form.categoria ||
-      !form.grupo_articulos ||
-      !form.descripcion.trim() ||
-      !form.plataforma ||
-      form.cantidad < 1
-    ) {
-      setError("Por favor completa todos los campos obligatorios.")
+    const validationError = validarFormulario()
+    if (validationError) {
+      setError(validationError)
       return
     }
 
     try {
-      const solicitudCreada = await crear.mutateAsync({
+      const payload: SolicitudInternaCreate = {
         ...form,
+        tipo_solicitud: tipoSolicitud,
         cliente: form.cliente || undefined,
         condicion: form.condicion || undefined,
         placa_ficha: form.placa_ficha || undefined,
         observaciones_solicitante: form.observaciones_solicitante || undefined,
-      })
+        // Compra: limpiar campos de mantenimiento
+        tipo_mantenimiento: tipoSolicitud === "mantenimiento" ? form.tipo_mantenimiento : undefined,
+        fecha_proximo_mantenimiento: tipoSolicitud === "mantenimiento" ? form.fecha_proximo_mantenimiento : undefined,
+        // Mantenimiento: limpiar campos de compra que no aplican
+        categoria: tipoSolicitud === "compra" ? form.categoria || undefined : undefined,
+        grupo_articulos: tipoSolicitud === "compra" ? form.grupo_articulos || undefined : undefined,
+      }
+
+      const solicitudCreada = await crear.mutateAsync(payload)
 
       if (archivos.length > 0) {
         setSubiendoArchivos(true)
@@ -127,7 +174,7 @@ export function NuevaSolicitudPage() {
       }
 
       navigate("/operativo/mis-solicitudes")
-    } catch (err) {
+    } catch {
       setSubiendoArchivos(false)
       setError("Error al procesar la solicitud o subir las evidencias. Intenta de nuevo.")
     }
@@ -151,11 +198,59 @@ export function NuevaSolicitudPage() {
 
           {/* Header */}
           <div className="mb-6">
-            <h1 className="text-xl font-bold text-gray-900">Nueva Solicitud de Compra</h1>
+            <h1 className="text-xl font-bold text-gray-900">Nueva Solicitud</h1>
             <p className="text-sm text-gray-500 mt-0.5">
               Los campos marcados con * son obligatorios
             </p>
           </div>
+
+          {/* Selector de tipo de solicitud */}
+          <div className="mb-6 flex gap-3">
+            <button
+              type="button"
+              onClick={() => cambiarTipo("compra")}
+              className={`flex items-center gap-2 rounded-xl border-2 px-5 py-3 text-sm font-semibold transition-all ${
+                tipoSolicitud === "compra"
+                  ? "border-brand-blue bg-brand-blue text-white shadow-sm"
+                  : "border-gray-200 bg-white text-gray-600 hover:border-brand-blue/40 hover:bg-gray-50"
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+              </svg>
+              Solicitud de Compra
+            </button>
+            <button
+              type="button"
+              onClick={() => cambiarTipo("mantenimiento")}
+              className={`flex items-center gap-2 rounded-xl border-2 px-5 py-3 text-sm font-semibold transition-all ${
+                tipoSolicitud === "mantenimiento"
+                  ? "border-amber-500 bg-amber-500 text-white shadow-sm"
+                  : "border-gray-200 bg-white text-gray-600 hover:border-amber-400/40 hover:bg-gray-50"
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437 1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008z" />
+              </svg>
+              Solicitud de Mantenimiento
+            </button>
+          </div>
+
+          {/* Aviso de mantenimiento */}
+          {tipoSolicitud === "mantenimiento" && (
+            <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <svg className="w-5 h-5 text-amber-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+              </svg>
+              <div>
+                <p className="text-sm font-semibold text-amber-800">Solicitud de mantenimiento</p>
+                <p className="text-xs text-amber-700 mt-0.5">
+                  Si este mantenimiento requiere compra de repuestos o materiales,
+                  debes crear una <strong>solicitud de compra separada</strong> después de enviar esta.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Banner plantilla cargada */}
           {paqueteNombre && (
@@ -167,7 +262,7 @@ export function NuevaSolicitudPage() {
               </div>
               <button
                 type="button"
-                onClick={() => { setForm(FORM_VACIO); setPaqueteNombre(null) }}
+                onClick={() => { setForm(FORM_COMPRA_VACIO); setPaqueteNombre(null) }}
                 className="text-xs text-indigo-400 hover:text-indigo-600 transition-colors shrink-0"
               >
                 Limpiar
@@ -191,7 +286,7 @@ export function NuevaSolicitudPage() {
             </div>
           )}
 
-          {/* Error al cargar listas del formulario */}
+          {/* Error al cargar listas */}
           {!listasLoading && listasError && (
             <div className="flex flex-col items-center justify-center py-24 gap-3">
               <p className="text-sm text-red-600 font-medium">
@@ -234,188 +329,334 @@ export function NuevaSolicitudPage() {
                 </div>
               </section>
 
-              {/* Sección Detalle del pedido */}
-              <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
-                <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
-                  Detalle del pedido
-                </h2>
+              {/* ── FORMULARIO: MANTENIMIENTO ────────────────────────────── */}
+              {tipoSolicitud === "mantenimiento" && (
+                <section className="bg-white rounded-xl border border-amber-200 p-6 space-y-5">
+                  <h2 className="text-sm font-semibold text-amber-700 uppercase tracking-wide">
+                    Datos del mantenimiento
+                  </h2>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  {/* Prioridad */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Prioridad *
-                    </label>
-                    <select
-                      value={form.nivel_prioridad}
-                      onChange={(e) => handleChange("nivel_prioridad", e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">— Seleccionar —</option>
-                      {listas?.prioridades.map((p) => (
-                        <option key={p} value={p}>{PRIORIDAD_SLA[p] ?? p}</option>
-                      ))}
-                    </select>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    {/* Prioridad */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Prioridad *
+                      </label>
+                      <select
+                        value={form.nivel_prioridad}
+                        onChange={(e) => handleChange("nivel_prioridad", e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      >
+                        <option value="">— Seleccionar —</option>
+                        {listas?.prioridades.map((p) => (
+                          <option key={p} value={p}>{PRIORIDAD_SLA[p] ?? p}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Tipo de mantenimiento */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Tipo de mantenimiento *
+                      </label>
+                      <select
+                        value={form.tipo_mantenimiento ?? ""}
+                        onChange={(e) =>
+                          handleChange(
+                            "tipo_mantenimiento",
+                            e.target.value as "correctivo" | "preventivo" | undefined || undefined
+                          )
+                        }
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      >
+                        <option value="">— Seleccionar —</option>
+                        <option value="correctivo">Correctivo</option>
+                        <option value="preventivo">Preventivo</option>
+                      </select>
+                    </div>
+
+                    {/* Placa del equipo */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Placa / Equipo
+                      </label>
+                      {listas?.placas && listas.placas.length > 0 ? (
+                        <select
+                          value={form.placa_ficha ?? ""}
+                          onChange={(e) => handleChange("placa_ficha", e.target.value)}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                        >
+                          <option value="">— Seleccionar equipo —</option>
+                          {listas.placas.map((p) => (
+                            <option key={p} value={p}>{p}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          value={form.placa_ficha ?? ""}
+                          onChange={(e) => handleChange("placa_ficha", e.target.value)}
+                          placeholder="Ej. VH-001 o número de ficha técnica"
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                        />
+                      )}
+                    </div>
+
+                    {/* Fecha próximo mantenimiento */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Fecha próximo mantenimiento *
+                      </label>
+                      <input
+                        type="date"
+                        value={form.fecha_proximo_mantenimiento ?? ""}
+                        onChange={(e) => handleChange("fecha_proximo_mantenimiento", e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      />
+                    </div>
+
+                    {/* Plataforma */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Plataforma *
+                      </label>
+                      <select
+                        value={form.plataforma}
+                        onChange={(e) => handleChange("plataforma", e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      >
+                        <option value="Logimat">Logimat</option>
+                        <option value="IMC Cargo">IMC Cargo</option>
+                        <option value="IMC Depósito">IMC Depósito</option>
+                      </select>
+                    </div>
+
+                    {/* Cantidad */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Cantidad *
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={form.cantidad}
+                        onChange={(e) => handleChange("cantidad", parseInt(e.target.value, 10) || 1)}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      />
+                    </div>
                   </div>
 
-                  {/* Categoría */}
+                  {/* Descripción del mantenimiento */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Categoría / Estatus *
+                      Descripción del mantenimiento *
                     </label>
-                    <select
-                      value={form.categoria}
-                      onChange={(e) => handleChange("categoria", e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">— Seleccionar —</option>
-                      {listas?.categorias.map((c) => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Grupo de artículos */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Grupo de artículos *
-                    </label>
-                    <select
-                      value={form.grupo_articulos}
-                      onChange={(e) => handleChange("grupo_articulos", e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">— Seleccionar —</option>
-                      {listas?.grupos_articulos.map((g) => (
-                        <option key={g} value={g}>{g}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Cliente */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Cliente
-                    </label>
-                    <select
-                      value={form.cliente}
-                      onChange={(e) => handleChange("cliente", e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">— Sin cliente —</option>
-                      {listas?.clientes.map((c) => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Condición */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Condición
-                    </label>
-                    <select
-                      value={form.condicion}
-                      onChange={(e) => handleChange("condicion", e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">— Seleccionar —</option>
-                      {listas?.condiciones.map((c) => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Plataforma */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Plataforma *
-                    </label>
-                    <select
-                      value={form.plataforma}
-                      onChange={(e) => handleChange("plataforma", e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="Logimat">Logimat</option>
-                      <option value="IMC Cargo">IMC Cargo</option>
-                      <option value="IMC Depósito">IMC Depósito</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Descripción — full width */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Detalle / descripción material *
-                  </label>
-                  <textarea
-                    rows={4}
-                    value={form.descripcion}
-                    onChange={(e) => handleChange("descripcion", e.target.value)}
-                    placeholder="Describe el material o servicio que necesitas..."
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  {/* Cantidad */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Cantidad *
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      value={form.cantidad}
-                      onChange={(e) => handleChange("cantidad", parseInt(e.target.value, 10) || 1)}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    <textarea
+                      rows={4}
+                      value={form.descripcion}
+                      onChange={(e) => handleChange("descripcion", e.target.value)}
+                      placeholder="Describe el mantenimiento requerido, síntomas observados o trabajos a realizar..."
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
                     />
                   </div>
 
-                  {/* Placa / Ficha */}
+                  {/* Observaciones */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Placa / Ficha (referencia)
+                      Observaciones adicionales
                     </label>
-                    <input
-                      type="text"
-                      value={form.placa_ficha}
-                      onChange={(e) => handleChange("placa_ficha", e.target.value)}
-                      placeholder="Ej. VH-001"
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    <textarea
+                      rows={2}
+                      value={form.observaciones_solicitante ?? ""}
+                      onChange={(e) => handleChange("observaciones_solicitante", e.target.value)}
+                      placeholder="Información adicional para el equipo de compras..."
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
                     />
                   </div>
-                </div>
+                </section>
+              )}
 
-                {/* Observaciones — full width */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Observaciones del solicitante
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={form.observaciones_solicitante}
-                    onChange={(e) => handleChange("observaciones_solicitante", e.target.value)}
-                    placeholder="Información adicional para el equipo de compras..."
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                  />
-                </div>
-              </section>
+              {/* ── FORMULARIO: COMPRA ──────────────────────────────────── */}
+              {tipoSolicitud === "compra" && (
+                <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
+                  <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                    Detalle del pedido
+                  </h2>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    {/* Prioridad */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Prioridad *
+                      </label>
+                      <select
+                        value={form.nivel_prioridad}
+                        onChange={(e) => handleChange("nivel_prioridad", e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">— Seleccionar —</option>
+                        {listas?.prioridades.map((p) => (
+                          <option key={p} value={p}>{PRIORIDAD_SLA[p] ?? p}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Categoría */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Categoría / Estatus *
+                      </label>
+                      <select
+                        value={form.categoria ?? ""}
+                        onChange={(e) => handleChange("categoria", e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">— Seleccionar —</option>
+                        {listas?.categorias.map((c) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Grupo de artículos */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Grupo de artículos *
+                      </label>
+                      <select
+                        value={form.grupo_articulos ?? ""}
+                        onChange={(e) => handleChange("grupo_articulos", e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">— Seleccionar —</option>
+                        {listas?.grupos_articulos.map((g) => (
+                          <option key={g} value={g}>{g}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Cliente */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Cliente
+                      </label>
+                      <select
+                        value={form.cliente ?? ""}
+                        onChange={(e) => handleChange("cliente", e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">— Sin cliente —</option>
+                        {listas?.clientes.map((c) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Condición */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Condición
+                      </label>
+                      <select
+                        value={form.condicion ?? ""}
+                        onChange={(e) => handleChange("condicion", e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">— Seleccionar —</option>
+                        {listas?.condiciones.map((c) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Plataforma */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Plataforma *
+                      </label>
+                      <select
+                        value={form.plataforma}
+                        onChange={(e) => handleChange("plataforma", e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="Logimat">Logimat</option>
+                        <option value="IMC Cargo">IMC Cargo</option>
+                        <option value="IMC Depósito">IMC Depósito</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Descripción */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Detalle / descripción material *
+                    </label>
+                    <textarea
+                      rows={4}
+                      value={form.descripcion}
+                      onChange={(e) => handleChange("descripcion", e.target.value)}
+                      placeholder="Describe el material o servicio que necesitas..."
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    {/* Cantidad */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Cantidad *
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={form.cantidad}
+                        onChange={(e) => handleChange("cantidad", parseInt(e.target.value, 10) || 1)}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+
+                    {/* Placa / Ficha */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Placa / Ficha (referencia)
+                      </label>
+                      <input
+                        type="text"
+                        value={form.placa_ficha ?? ""}
+                        onChange={(e) => handleChange("placa_ficha", e.target.value)}
+                        placeholder="Ej. VH-001"
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Observaciones */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Observaciones del solicitante
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={form.observaciones_solicitante ?? ""}
+                      onChange={(e) => handleChange("observaciones_solicitante", e.target.value)}
+                      placeholder="Información adicional para el equipo de compras..."
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    />
+                  </div>
+                </section>
+              )}
 
               {/* Sección de Evidencias */}
               <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
                 <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
                   Fotos / Evidencias
                 </h2>
-                <p className="text-xs text-gray-500 mb-3">
+                <p className="text-xs text-gray-500">
                   Sube fotos o archivos que ayuden al equipo de compras a identificar el producto (JPG, PNG, PDF). Opcional.
                 </p>
 
                 <div
-                  onDragOver={(e) => {
-                    e.preventDefault()
-                    setDragOver(true)
-                  }}
+                  onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
                   onDragLeave={() => setDragOver(false)}
                   onDrop={handleFileDrop}
                   onClick={() => fileInputRef.current?.click()}
@@ -438,7 +679,7 @@ export function NuevaSolicitudPage() {
                   accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.xlsx,.docx"
                   className="hidden"
                   onChange={handleFileSelect}
-                  onClick={(e) => { (e.target as HTMLInputElement).value = '' }}
+                  onClick={(e) => { (e.target as HTMLInputElement).value = "" }}
                 />
 
                 {archivos.length > 0 && (
@@ -447,7 +688,7 @@ export function NuevaSolicitudPage() {
                       const isImg = archivo.type.startsWith("image/")
                       return (
                         <div key={`${archivo.name}-${index}`} className="group relative flex items-center gap-3 bg-gray-50 hover:bg-gray-100/50 p-2.5 rounded-lg border border-gray-200 shadow-sm transition-colors pr-10">
-                          <div className={`flex items-center justify-center w-10 h-10 rounded shrink-0 ${isImg ? 'bg-blue-100 text-brand-blue' : 'bg-gray-200 text-gray-600'}`}>
+                          <div className={`flex items-center justify-center w-10 h-10 rounded shrink-0 ${isImg ? "bg-blue-100 text-brand-blue" : "bg-gray-200 text-gray-600"}`}>
                             {isImg ? (
                               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg>
                             ) : (
@@ -455,7 +696,7 @@ export function NuevaSolicitudPage() {
                             )}
                           </div>
                           <div className="flex flex-col min-w-0">
-                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">{isImg ? 'Imagen' : 'Documento'}</span>
+                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">{isImg ? "Imagen" : "Documento"}</span>
                             <span className="truncate text-sm text-gray-700 font-medium">{archivo.name}</span>
                           </div>
                           <button
@@ -493,12 +734,18 @@ export function NuevaSolicitudPage() {
                 <button
                   type="submit"
                   disabled={crear.isPending || subiendoArchivos}
-                  className="rounded-lg bg-brand-blue px-6 py-2 text-sm font-semibold text-white hover:brightness-105 disabled:opacity-60 transition-all"
+                  className={`rounded-lg px-6 py-2 text-sm font-semibold text-white disabled:opacity-60 transition-all ${
+                    tipoSolicitud === "mantenimiento"
+                      ? "bg-amber-500 hover:brightness-105"
+                      : "bg-brand-blue hover:brightness-105"
+                  }`}
                 >
                   {subiendoArchivos
                     ? "Subiendo evidencias..."
                     : crear.isPending
                     ? "Creando solicitud..."
+                    : tipoSolicitud === "mantenimiento"
+                    ? "Enviar solicitud de mantenimiento"
                     : "Enviar solicitud"}
                 </button>
               </div>

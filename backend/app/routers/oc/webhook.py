@@ -39,10 +39,20 @@ class WebhookResponse(BaseModel):
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _verify_secret(x_pa_secret: Optional[str]) -> None:
-    """Valida el secret de PA si está configurado en el entorno."""
+    """Valida el secret de PA si está configurado en el entorno.
+
+    - Producción sin secret configurado → rechaza toda llamada (fail-safe).
+    - Desarrollo sin secret → acepta (permite pruebas locales sin PA).
+    - Con secret configurado → valida siempre, independiente del entorno.
+    """
     secret = settings.oc_webhook_secret
     if not secret:
-        return  # Sin secret configurado, acepta cualquier llamada (útil en dev)
+        if settings.environment == "production":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Webhook no disponible: OC_WEBHOOK_SECRET no está configurado en producción.",
+            )
+        return  # dev sin secret: acepta
     if x_pa_secret != secret:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

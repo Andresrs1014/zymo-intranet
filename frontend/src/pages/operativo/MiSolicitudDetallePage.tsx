@@ -139,6 +139,11 @@ export function MiSolicitudDetallePage() {
                   {solicitud.consecutivo_os}
                 </span>
                 <EstadoBadge estado={solicitud.estado} />
+                {solicitud.tipo_solicitud === "mantenimiento" && (
+                  <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
+                    Mantenimiento
+                  </span>
+                )}
               </div>
               <h1 className="text-xl font-bold text-gray-900">{solicitud.descripcion}</h1>
               {ESTADO_DESC[solicitud.estado] && (
@@ -158,6 +163,15 @@ export function MiSolicitudDetallePage() {
                 {solicitud.plataforma && <InfoItem label="Plataforma" value={solicitud.plataforma} />}
                 {solicitud.cliente && <InfoItem label="Cliente" value={solicitud.cliente} />}
                 {solicitud.placa_ficha && <InfoItem label="Placa / Ficha técnica" value={solicitud.placa_ficha} />}
+                {solicitud.tipo_solicitud === "mantenimiento" && solicitud.tipo_mantenimiento && (
+                  <InfoItem
+                    label="Tipo mantenimiento"
+                    value={solicitud.tipo_mantenimiento.charAt(0).toUpperCase() + solicitud.tipo_mantenimiento.slice(1)}
+                  />
+                )}
+                {solicitud.fecha_proximo_mantenimiento && (
+                  <InfoItem label="Próximo mantenimiento" value={solicitud.fecha_proximo_mantenimiento} />
+                )}
                 <InfoItem label="Fecha solicitud" value={formatFechaHora(solicitud.fecha_solicitud)} />
               </div>
               {solicitud.observaciones_solicitante && (

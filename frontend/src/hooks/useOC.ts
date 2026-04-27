@@ -538,6 +538,7 @@ export interface ListasFormulario {
   grupos_articulos: string[]
   clientes: string[]
   condiciones: string[]
+  placas: string[]
 }
 
 export function useListasFormulario() {
@@ -581,15 +582,20 @@ export function useUploadClientesExcel() {
 }
 
 export interface SolicitudInternaCreate {
+  tipo_solicitud: "compra" | "mantenimiento"
   nivel_prioridad: string
-  categoria: string
-  grupo_articulos: string
+  // Obligatorios para compra, opcionales para mantenimiento
+  categoria?: string
+  grupo_articulos?: string
   descripcion: string
   cantidad: number
   cliente?: string
   condicion?: string
   plataforma: string
   placa_ficha?: string
+  // Solo para mantenimiento
+  tipo_mantenimiento?: "correctivo" | "preventivo"
+  fecha_proximo_mantenimiento?: string
   observaciones_solicitante?: string
 }
 
@@ -602,6 +608,23 @@ export function useCrearSolicitudInterna() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["oc", "mis-solicitudes"] })
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
+    },
+  })
+}
+
+export function useActualizarProforma(solicitudId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (tieneProforma: boolean) => {
+      const { data } = await api.patch<SolicitudOC>(
+        `/api/oc/solicitudes/${solicitudId}/proforma`,
+        { tiene_proforma: tieneProforma }
+      )
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["oc", "solicitud", solicitudId] })
       qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
     },
   })

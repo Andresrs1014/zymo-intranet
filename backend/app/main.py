@@ -198,6 +198,9 @@ def _migrate_oc_db() -> None:
         ("fecha_recibida_factura", "DATE"),
         ("fecha_asignacion", "DATETIME"),
         ("fecha_en_plataforma", "DATETIME"),
+        ("tipo_solicitud", "VARCHAR(20) DEFAULT 'compra'"),
+        ("tipo_mantenimiento", "VARCHAR(20)"),
+        ("tiene_proforma", "BOOLEAN DEFAULT 0"),
     ]
     with get_oc_engine().connect() as conn:
         for col, tipo in nuevas_columnas:
@@ -234,6 +237,12 @@ def _migrate_oc_cotizaciones() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Validar que credenciales críticas estén configuradas
+    if not settings.first_admin_password:
+        raise RuntimeError(
+            "FIRST_ADMIN_PASSWORD no está configurada en el entorno. "
+            "Agrégala al archivo .env antes de arrancar."
+        )
     create_db_and_tables()
     _migrate_db()
     _seed_roles()
@@ -259,8 +268,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[o.strip() for o in settings.cors_origins.split(",")],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept"],
 )
 
 app.include_router(auth.router)
