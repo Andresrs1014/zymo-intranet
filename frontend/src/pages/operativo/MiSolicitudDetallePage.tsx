@@ -296,7 +296,7 @@ export function MiSolicitudDetallePage() {
                       </div>
                       {cotizacionAprobada.pdf_path && (
                         <a
-                          href={`/api/oc/cotizaciones/${cotizacionAprobada.id}/pdf?token=${token}`}
+                          href={absoluteApiUrl(`/api/oc/cotizaciones/${cotizacionAprobada.id}/pdf${token ? `?token=${encodeURIComponent(token)}` : ""}`)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center justify-center w-full gap-2 rounded-lg bg-white border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"

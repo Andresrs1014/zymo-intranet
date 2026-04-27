@@ -22,6 +22,22 @@ async function descargarExcelPrueba(): Promise<string> {
   return filename
 }
 
+async function descargarParPrueba(): Promise<string> {
+  const res = await api.get("/api/oc/config/test/generar-par", { responseType: "blob" })
+  const disposition: string = res.headers["content-disposition"] ?? ""
+  const match = disposition.match(/filename="(.+?)"/)
+  const filename = match ? match[1] : "par-prueba.zip"
+  const url = URL.createObjectURL(res.data as Blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  return filename
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface OcConfigRead {
@@ -126,6 +142,9 @@ export function OcConfigPage() {
   const [generandoExcel, setGenerandoExcel] = useState(false)
   const [ultimoArchivo, setUltimoArchivo] = useState<string | null>(null)
   const [errorExcel, setErrorExcel] = useState<string | null>(null)
+  const [generandoPar, setGenerandoPar] = useState(false)
+  const [ultimoPar, setUltimoPar] = useState<string | null>(null)
+  const [errorPar, setErrorPar] = useState<string | null>(null)
 
   const { data: listas } = useListasFormulario()
   const guardarListas = useGuardarListas()
@@ -610,16 +629,18 @@ export function OcConfigPage() {
                 </section>
 
                 {/* Herramientas de prueba del motor */}
-                <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+                <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
+                  <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                    Herramientas de prueba del motor
+                  </h2>
+
+                  {/* Excel solo */}
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
-                        Herramientas de prueba del motor
-                      </h2>
-                      <p className="text-xs text-gray-400 mt-1">
-                        Genera un Excel con datos aleatorios y sinónimos del motor para probar la extracción automática.
-                        Cada archivo tiene un consecutivo único (<code className="bg-gray-100 px-1 rounded">prueba.001.xlsx</code>,{" "}
-                        <code className="bg-gray-100 px-1 rounded">prueba.002.xlsx</code>…).
+                      <p className="text-sm font-medium text-gray-700">Cotización Excel</p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Genera un Excel con datos aleatorios y sinónimos del motor.
+                        Consecutivo único (<code className="bg-gray-100 px-1 rounded">prueba.001.xlsx</code>…).
                       </p>
                     </div>
                     <button
@@ -638,9 +659,9 @@ export function OcConfigPage() {
                           setGenerandoExcel(false)
                         }
                       }}
-                      className="shrink-0 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 transition-colors flex items-center gap-2"
+                      className="shrink-0 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 transition-colors"
                     >
-                      {generandoExcel ? "Generando…" : "Generar Excel de prueba"}
+                      {generandoExcel ? "Generando…" : "Generar Excel"}
                     </button>
                   </div>
                   {ultimoArchivo && (
@@ -650,6 +671,50 @@ export function OcConfigPage() {
                   )}
                   {errorExcel && (
                     <p className="text-xs text-red-600 font-medium">✗ {errorExcel}</p>
+                  )}
+
+                  <div className="border-t border-gray-100" />
+
+                  {/* Par Cotización + Factura */}
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">
+                        Par de prueba: Cotización + Factura PDF
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Descarga un <strong>.zip</strong> con el Excel de cotización y la factura de venta colombiana
+                        con los <strong>mismos datos</strong> (NIT, proveedor, totales). Ideal para probar la validación
+                        financiera end-to-end. Incluye resolución DIAN, IVA 19%, formato legal colombiano.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={generandoPar}
+                      onClick={async () => {
+                        setGenerandoPar(true)
+                        setUltimoPar(null)
+                        setErrorPar(null)
+                        try {
+                          const nombre = await descargarParPrueba()
+                          setUltimoPar(nombre)
+                        } catch (err: any) {
+                          setErrorPar(err?.message ?? "Error al generar el par.")
+                        } finally {
+                          setGenerandoPar(false)
+                        }
+                      }}
+                      className="shrink-0 rounded-lg border border-indigo-300 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-60 transition-colors whitespace-nowrap"
+                    >
+                      {generandoPar ? "Generando…" : "Generar par (.zip)"}
+                    </button>
+                  </div>
+                  {ultimoPar && (
+                    <p className="text-xs text-green-600 font-medium">
+                      ✓ Descargado: <span className="font-mono">{ultimoPar}</span> — descomprímelo para obtener el Excel y el PDF.
+                    </p>
+                  )}
+                  {errorPar && (
+                    <p className="text-xs text-red-600 font-medium">✗ {errorPar}</p>
                   )}
                 </section>
 

@@ -4,6 +4,7 @@ import logging
 import random
 import smtplib
 import ssl
+import zipfile
 from datetime import date, timedelta
 from typing import Optional
 
@@ -547,7 +548,6 @@ def generar_excel_prueba(
     """Genera un Excel de prueba con datos aleatorios usando sinónimos del motor."""
     _require_admin(current_user)
 
-    # Incrementar contador
     counter_row = oc_db.get(OcConfig, "test_excel_counter")
     counter = int(counter_row.value) + 1 if counter_row else 1
     if counter_row:
@@ -565,3 +565,326 @@ def generar_excel_prueba(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.get("/config/test/generar-par")
+def generar_par_prueba(
+    current_user: User = Depends(get_current_user),
+    oc_db: Session = Depends(get_oc_db),
+):
+    """Genera un ZIP con una cotización Excel + una factura PDF colombiana con los mismos datos.
+    Útil para probar el motor de validación financiera end-to-end."""
+    _require_admin(current_user)
+
+    counter_row = oc_db.get(OcConfig, "test_par_counter")
+    counter = int(counter_row.value) + 1 if counter_row else 1
+    if counter_row:
+        counter_row.value = str(counter)
+        oc_db.add(counter_row)
+    else:
+        oc_db.add(OcConfig(key="test_par_counter", value=str(counter)))
+    oc_db.commit()
+
+    datos = _generar_datos_prueba()
+    excel_bytes = _excel_desde_datos(datos)
+    pdf_bytes = _factura_pdf_desde_datos(datos)
+
+    zip_buf = io.BytesIO()
+    with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(f"cotizacion.{counter:03d}.xlsx", excel_bytes)
+        zf.writestr(f"factura.{counter:03d}.pdf", pdf_bytes)
+    zip_buf.seek(0)
+
+    return StreamingResponse(
+        zip_buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="par-prueba.{counter:03d}.zip"'},
+    )
+
+
+# ── Generadores internos ──────────────────────────────────────────────────────
+
+_CIUDADES_CO = ["Bogotá D.C.", "Medellín", "Cali", "Barranquilla", "Bucaramanga", "Pereira", "Manizales"]
+_CALLES_CO = ["Cra. 7", "Calle 72", "Av. El Dorado", "Cra. 13", "Calle 100", "Av. 68", "Cra. 30"]
+
+_ADQUIRENTE = {
+    "nombre": "Zymo Logística S.A.S.",
+    "nit": "900.123.456-7",
+    "direccion": "Calle 25 # 85-35, Bodega 3",
+    "ciudad": "Bogotá D.C.",
+    "email": "compras@zymo.com",
+    "regimen": "Responsable de IVA",
+}
+
+
+def _generar_datos_prueba() -> dict:
+    """Genera un set de datos aleatorio consistente para cotización y factura."""
+    empresa = random.choice(_EMPRESAS)
+    nit = f"{random.randint(800, 999)}.{random.randint(100, 999)}.{random.randint(100, 999)}-{random.randint(0, 9)}"
+    email = f"ventas@{empresa.split()[0].lower().replace(',', '').replace('.', '')}.com"
+    num_cot = f"COT-{date.today().year}-{random.randint(100, 999)}"
+    num_fact = f"FACT-{date.today().year}-{random.randint(1000, 9999)}"
+    vigencia = (date.today() + timedelta(days=random.randint(10, 30))).isoformat()
+    ciudad = random.choice(_CIUDADES_CO)
+    calle = random.choice(_CALLES_CO)
+    direccion = f"{calle} # {random.randint(1,99)}-{random.randint(10,99)}"
+    forma_pago = random.choice(_FORMAS_PAGO)
+    plazo = random.choice(_PLAZOS)
+    garantia = random.choice(_GARANTIAS)
+    anticipo = random.choice(_ANTICIPOS)
+    saldo = random.choice(_SALDOS)
+    resolucion_dian = f"{random.randint(18000000, 18999999)}"
+    res_desde = random.randint(1000, 4999)
+    res_hasta = res_desde + random.randint(1000, 5000)
+    res_fecha = (date.today() - timedelta(days=random.randint(30, 365))).isoformat()
+
+    n_items = random.randint(3, 8)
+    pool = random.sample(_ITEMS_POOL, min(n_items, len(_ITEMS_POOL)))
+    items = []
+    subtotal = 0.0
+    for i, (desc, ref, cant_base, precio_base) in enumerate(pool, 1):
+        cant = random.randint(1, cant_base)
+        precio = round(precio_base * random.uniform(0.9, 1.15), -2)
+        total_fila = round(cant * precio, 2)
+        subtotal += total_fila
+        items.append({"num": i, "desc": desc, "ref": ref, "cant": cant, "precio": precio, "total": total_fila})
+
+    iva = round(subtotal * 0.19, 2)
+    total = round(subtotal + iva, 2)
+
+    return {
+        "empresa": empresa, "nit": nit, "email": email, "direccion": direccion, "ciudad": ciudad,
+        "num_cot": num_cot, "num_fact": num_fact, "vigencia": vigencia,
+        "forma_pago": forma_pago, "plazo": plazo, "garantia": garantia,
+        "anticipo": anticipo, "saldo": saldo,
+        "items": items, "subtotal": subtotal, "iva": iva, "total": total,
+        "resolucion_dian": resolucion_dian, "res_fecha": res_fecha,
+        "res_desde": res_desde, "res_hasta": res_hasta,
+        "fecha_factura": date.today().isoformat(),
+    }
+
+
+def _excel_desde_datos(d: dict) -> bytes:
+    """Genera el Excel de cotización a partir del set de datos."""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Cotización"
+
+    fila = 1
+    ws.cell(fila, 1, "COTIZACIÓN DE COMPRA")
+    fila += 1
+    ws.cell(fila, 1, _rnd_syn("numero_cotizacion_proveedor").title()); ws.cell(fila, 2, d["num_cot"])
+    fila += 1
+    ws.cell(fila, 1, _rnd_syn("proveedor_nombre").title()); ws.cell(fila, 2, d["empresa"])
+    fila += 1
+    ws.cell(fila, 1, _rnd_syn("proveedor_nit").upper()); ws.cell(fila, 2, d["nit"])
+    fila += 1
+    ws.cell(fila, 1, _rnd_syn("proveedor_email").title()); ws.cell(fila, 2, d["email"])
+    fila += 1
+    ws.cell(fila, 1, _rnd_syn("fecha_vigencia").title()); ws.cell(fila, 2, d["vigencia"])
+    fila += 1
+    ws.cell(fila, 1, _rnd_syn("forma_pago").title()); ws.cell(fila, 2, d["forma_pago"])
+    fila += 1
+    ws.cell(fila, 1, _rnd_syn("plazo_entrega").title()); ws.cell(fila, 2, d["plazo"])
+    fila += 1
+    ws.cell(fila, 1, _rnd_syn("garantia").title()); ws.cell(fila, 2, d["garantia"])
+    fila += 1
+    ws.cell(fila, 1, _rnd_syn("anticipo").title()); ws.cell(fila, 2, d["anticipo"])
+    fila += 1
+    ws.cell(fila, 1, _rnd_syn("pago_saldo").title()); ws.cell(fila, 2, d["saldo"])
+    fila += 2
+
+    ws.cell(fila, 1, "No.")
+    ws.cell(fila, 2, _rnd_syn("descripcion").title())
+    ws.cell(fila, 3, _rnd_syn("referencia").title())
+    ws.cell(fila, 4, _rnd_syn("cantidad").title())
+    ws.cell(fila, 5, _rnd_syn("valor_unitario").title())
+    ws.cell(fila, 6, _rnd_syn("valor_total").title())
+    fila += 1
+
+    for it in d["items"]:
+        ws.cell(fila, 1, it["num"]); ws.cell(fila, 2, it["desc"]); ws.cell(fila, 3, it["ref"])
+        ws.cell(fila, 4, it["cant"]); ws.cell(fila, 5, it["precio"]); ws.cell(fila, 6, it["total"])
+        fila += 1
+
+    fila += 1
+    ws.cell(fila, 5, _rnd_syn("valor_antes_iva").title()); ws.cell(fila, 6, d["subtotal"])
+    fila += 1
+    ws.cell(fila, 5, _rnd_syn("valor_iva").upper()); ws.cell(fila, 6, d["iva"])
+    fila += 1
+    ws.cell(fila, 5, _rnd_syn("valor_total").title()); ws.cell(fila, 6, d["total"])
+
+    for col, w in [("A", 5), ("B", 40), ("C", 16), ("D", 10), ("E", 22), ("F", 18)]:
+        ws.column_dimensions[col].width = w
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf.read()
+
+
+def _factura_pdf_desde_datos(d: dict) -> bytes:
+    """Genera una factura de venta colombiana en PDF usando WeasyPrint."""
+    try:
+        from weasyprint import HTML as WeasyprintHTML
+    except ImportError:
+        raise RuntimeError("weasyprint no está instalado.")
+
+    def _fmt(v: float) -> str:
+        return f"$ {v:,.0f}".replace(",", ".")
+
+    filas_items = "".join(
+        f"""<tr>
+          <td style="text-align:center">{it['num']}</td>
+          <td>{it['desc']}</td>
+          <td style="text-align:center">{it['ref']}</td>
+          <td style="text-align:center">{it['cant']}</td>
+          <td style="text-align:right">{_fmt(it['precio'])}</td>
+          <td style="text-align:center">19%</td>
+          <td style="text-align:right">{_fmt(it['total'])}</td>
+        </tr>"""
+        for it in d["items"]
+    )
+
+    html = f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<style>
+  @page {{ size: letter; margin: 15mm 12mm; }}
+  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+  body {{ font-family: Arial, sans-serif; font-size: 9pt; color: #1a1a1a; }}
+  .header {{ display: flex; justify-content: space-between; align-items: flex-start;
+             border-bottom: 2px solid #1a3a5c; padding-bottom: 8px; margin-bottom: 10px; }}
+  .empresa-info h1 {{ font-size: 13pt; color: #1a3a5c; font-weight: bold; }}
+  .empresa-info p {{ font-size: 8pt; color: #555; margin-top: 2px; }}
+  .factura-box {{ border: 2px solid #1a3a5c; border-radius: 4px; padding: 8px 12px; text-align: center; min-width: 160px; }}
+  .factura-box .tipo {{ font-size: 10pt; font-weight: bold; color: #1a3a5c; letter-spacing: 1px; }}
+  .factura-box .numero {{ font-size: 14pt; font-weight: bold; color: #c0392b; margin: 4px 0; }}
+  .factura-box .fecha {{ font-size: 8pt; color: #555; }}
+  .dian-res {{ font-size: 7.5pt; color: #777; text-align: right; margin-top: 4px; }}
+  .partes {{ display: flex; gap: 12px; margin-bottom: 10px; }}
+  .parte-box {{ flex: 1; border: 1px solid #ccc; border-radius: 4px; padding: 7px 10px; }}
+  .parte-box h3 {{ font-size: 8pt; font-weight: bold; color: #1a3a5c; text-transform: uppercase;
+                  letter-spacing: 0.5px; border-bottom: 1px solid #eee; padding-bottom: 3px; margin-bottom: 5px; }}
+  .parte-box p {{ font-size: 8.5pt; margin-bottom: 2px; }}
+  .parte-box .nombre {{ font-weight: bold; font-size: 9.5pt; }}
+  .condiciones {{ display: flex; gap: 12px; margin-bottom: 10px; }}
+  .cond-item {{ flex: 1; background: #f5f7fa; border-radius: 3px; padding: 5px 8px; }}
+  .cond-item .label {{ font-size: 7pt; color: #888; text-transform: uppercase; }}
+  .cond-item .value {{ font-size: 8.5pt; font-weight: bold; color: #222; }}
+  table {{ width: 100%; border-collapse: collapse; margin-bottom: 8px; }}
+  thead tr {{ background: #1a3a5c; color: white; }}
+  thead th {{ padding: 5px 6px; font-size: 8pt; text-align: left; }}
+  tbody tr:nth-child(even) {{ background: #f8f9fb; }}
+  tbody td {{ padding: 4px 6px; font-size: 8pt; border-bottom: 1px solid #eee; }}
+  .totales {{ float: right; width: 260px; }}
+  .totales table {{ width: 100%; }}
+  .totales td {{ padding: 3px 8px; font-size: 8.5pt; }}
+  .totales td:last-child {{ text-align: right; font-weight: 500; }}
+  .totales .total-row td {{ background: #1a3a5c; color: white; font-weight: bold; font-size: 9.5pt; }}
+  .clearfix::after {{ content: ""; display: table; clear: both; }}
+  .footer {{ margin-top: 18px; border-top: 1px solid #ccc; padding-top: 8px;
+             font-size: 7.5pt; color: #888; text-align: center; }}
+  .cot-ref {{ font-size: 8pt; color: #666; margin-bottom: 8px;
+              background: #fffbe6; border: 1px solid #ffe58f; border-radius: 3px; padding: 5px 10px; }}
+</style>
+</head>
+<body>
+
+<!-- ENCABEZADO -->
+<div class="header">
+  <div class="empresa-info">
+    <h1>{d['empresa']}</h1>
+    <p><strong>NIT:</strong> {d['nit']} — Responsable de IVA</p>
+    <p><strong>Dir.:</strong> {d['direccion']}, {d['ciudad']}</p>
+    <p><strong>Email:</strong> {d['email']}</p>
+  </div>
+  <div>
+    <div class="factura-box">
+      <div class="tipo">FACTURA DE VENTA</div>
+      <div class="numero">{d['num_fact']}</div>
+      <div class="fecha">Fecha: {d['fecha_factura']}</div>
+      <div class="fecha">Ciudad: {d['ciudad']}</div>
+    </div>
+    <div class="dian-res">Res. DIAN N° {d['resolucion_dian']} del {d['res_fecha']}<br/>
+      Facturas {d['res_desde']:,} al {d['res_hasta']:,}
+    </div>
+  </div>
+</div>
+
+<!-- REFERENCIA COTIZACIÓN -->
+<div class="cot-ref">
+  📄 Esta factura corresponde a la cotización <strong>{d['num_cot']}</strong> &nbsp;|&nbsp;
+  Vigencia cotización: {d['vigencia']}
+</div>
+
+<!-- VENDEDOR / ADQUIRENTE -->
+<div class="partes">
+  <div class="parte-box">
+    <h3>Vendedor / Proveedor</h3>
+    <p class="nombre">{d['empresa']}</p>
+    <p><strong>NIT:</strong> {d['nit']}</p>
+    <p><strong>Dir.:</strong> {d['direccion']}</p>
+    <p><strong>Ciudad:</strong> {d['ciudad']}</p>
+    <p><strong>Email:</strong> {d['email']}</p>
+  </div>
+  <div class="parte-box">
+    <h3>Adquirente</h3>
+    <p class="nombre">{_ADQUIRENTE['nombre']}</p>
+    <p><strong>NIT:</strong> {_ADQUIRENTE['nit']}</p>
+    <p><strong>Dir.:</strong> {_ADQUIRENTE['direccion']}</p>
+    <p><strong>Ciudad:</strong> {_ADQUIRENTE['ciudad']}</p>
+    <p><strong>Email:</strong> {_ADQUIRENTE['email']}</p>
+    <p><strong>Régimen:</strong> {_ADQUIRENTE['regimen']}</p>
+  </div>
+</div>
+
+<!-- CONDICIONES -->
+<div class="condiciones">
+  <div class="cond-item"><div class="label">Forma de pago</div><div class="value">{d['forma_pago']}</div></div>
+  <div class="cond-item"><div class="label">Plazo de entrega</div><div class="value">{d['plazo']}</div></div>
+  <div class="cond-item"><div class="label">Garantía</div><div class="value">{d['garantia']}</div></div>
+  <div class="cond-item"><div class="label">Anticipo</div><div class="value">{d['anticipo']}</div></div>
+</div>
+
+<!-- TABLA DE ÍTEMS -->
+<table>
+  <thead>
+    <tr>
+      <th style="width:30px">No.</th>
+      <th>Descripción</th>
+      <th>Referencia</th>
+      <th style="width:45px;text-align:center">Cant.</th>
+      <th style="text-align:right">Vlr. Unit.</th>
+      <th style="width:40px;text-align:center">IVA</th>
+      <th style="text-align:right">Total</th>
+    </tr>
+  </thead>
+  <tbody>
+    {filas_items}
+  </tbody>
+</table>
+
+<!-- TOTALES -->
+<div class="clearfix">
+  <div class="totales">
+    <table>
+      <tr><td>Subtotal (sin IVA)</td><td>{_fmt(d['subtotal'])}</td></tr>
+      <tr><td>IVA 19%</td><td>{_fmt(d['iva'])}</td></tr>
+      <tr class="total-row"><td><strong>TOTAL A PAGAR</strong></td><td><strong>{_fmt(d['total'])}</strong></td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- PIE -->
+<div class="footer">
+  Documento generado electrónicamente. Resolución DIAN N° {d['resolucion_dian']} del {d['res_fecha']},
+  habilitando facturas del {d['res_desde']:,} al {d['res_hasta']:,} — {d['empresa']} NIT {d['nit']}
+</div>
+
+</body>
+</html>"""
+
+    pdf_bytes = WeasyprintHTML(string=html).write_pdf()
+    return pdf_bytes
