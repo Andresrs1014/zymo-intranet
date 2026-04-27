@@ -1272,7 +1272,7 @@ function PanelAprobacion({
           <p className="text-sm font-medium text-green-800">Confirmar aprobación</p>
           <div>
             <label className="block text-xs text-gray-500 mb-1">
-              Valor aprobado (puedes ajustarlo)
+              Valor aprobado — total con IVA (puedes ajustarlo)
             </label>
             <input
               type="number"
