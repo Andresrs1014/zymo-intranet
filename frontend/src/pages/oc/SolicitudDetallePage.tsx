@@ -40,10 +40,24 @@ import { ImageModal } from "@/components/ui/ImageModal"
 import { absoluteApiUrl } from "@/lib/api"
 import type { CotizacionProveedor, HistorialEntrada, OrdenCompra } from "@/types/oc"
 
-function buildCotizacionPdfUrl(cotizacionId: string, token: string | null): string {
-  const t = token ? encodeURIComponent(token) : ""
-  const qp = t ? `?token=${t}` : ""
-  return absoluteApiUrl(`/api/oc/cotizaciones/${cotizacionId}/pdf${qp}`)
+/** Descarga el PDF/xlsx de una cotización usando el header Authorization (no expone token en URL). */
+async function abrirCotizacionPdf(cotizacionId: string): Promise<void> {
+  const { api: apiClient } = await import("@/lib/api")
+  const res = await apiClient.get(`/api/oc/cotizaciones/${cotizacionId}/pdf`, { responseType: "blob" })
+  const blob = res.data as Blob
+  const url = URL.createObjectURL(blob)
+  const win = window.open(url, "_blank")
+  // Revocar el blob URL una vez que la ventana haya cargado el archivo
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  if (!win) {
+    // Fallback si el browser bloqueó el popup: descarga directa
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `cotizacion_${cotizacionId}.pdf`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  }
 }
 
 export function SolicitudDetallePage() {
@@ -285,7 +299,6 @@ export function SolicitudDetallePage() {
                 cotizacionPendiente && (
                   <PanelAprobacion
                     cotizacion={cotizacionPendiente}
-                    token={token}
                     onAprobar={(cotizacionId, valor, obs) =>
                       aprobar.mutate({
                         cotizacionId,
@@ -900,7 +913,6 @@ export function SolicitudDetallePage() {
 
 function PanelAprobacion({
   cotizacion,
-  token,
   onAprobar,
   onRechazar,
   onCancelar,
@@ -909,7 +921,6 @@ function PanelAprobacion({
   isLoading,
 }: {
   cotizacion: CotizacionProveedor
-  token: string | null
   onAprobar: (id: string, valor: number, obs?: string) => void
   onRechazar: (id: string, obs: string) => void
   onCancelar: (id: string, justificacion: string) => void
@@ -989,19 +1000,18 @@ function PanelAprobacion({
 
       {/* Resumen de la cotización */}
       <div className="bg-white rounded-lg border border-orange-100 p-4 mb-4 space-y-3">
-        {/* Link al archivo adjunto */}
+        {/* Botón para ver el archivo adjunto — usa blob para evitar problemas de token en URL */}
         {cotizacion.pdf_path && (
-          <a
-            href={buildCotizacionPdfUrl(cotizacion.id, token)}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
+            onClick={() => abrirCotizacionPdf(cotizacion.id)}
             className="inline-flex items-center gap-1.5 rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-medium text-orange-700 hover:bg-orange-100 transition-colors"
           >
             <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M4 4a2 2 0 0 1 2-2h4.586A2 2 0 0 1 12 2.586L15.414 6A2 2 0 0 1 16 7.414V16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4Z" clipRule="evenodd" />
             </svg>
             Ver cotización del proveedor
-          </a>
+          </button>
         )}
         {/* Proveedor + N° cotización */}
         <div className="grid grid-cols-2 gap-3">
