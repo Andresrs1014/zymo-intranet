@@ -382,6 +382,17 @@ export function SolicitudDetallePage() {
               {/* Cotizaciones cargadas */}
               {cotizaciones.length > 0 && (
                 <Section title={`Cotizaciones (${cotizaciones.length})`}>
+                  {/* Indicador de cuántas cotizaciones se han subido */}
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                      cotizaciones.length === 1 ? "bg-gray-100 text-gray-600" : "bg-blue-50 text-blue-700"
+                    }`}>
+                      {cotizaciones.length === 1 ? "1 cotización presentada" : `${cotizaciones.length} cotizaciones presentadas`}
+                    </span>
+                    {cotizaciones.length === 1 && (
+                      <span className="text-xs text-gray-400">El proceso recomienda 3 cotizaciones</span>
+                    )}
+                  </div>
                   <div className="space-y-3">
                     {cotizaciones.map((c) => (
                       <CotizacionCard key={c.id} cotizacion={c} />
