@@ -32,6 +32,7 @@ interface OcConfigRead {
   smtp_from: string
   email_directora: string
   email_compras?: string
+  email_contabilidad?: string
   intranet_url?: string
   // Branding
   empresa_nombre?: string
