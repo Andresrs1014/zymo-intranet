@@ -36,6 +36,7 @@ import { useAuthStore } from "@/store/authStore"
 import { canSeeOC } from "@/lib/permissions"
 import { EstadoBadge } from "./SolicitudesPage"
 import { ImageModal } from "@/components/ui/ImageModal"
+import { absoluteApiUrl } from "@/lib/api"
 import type { CotizacionProveedor, HistorialEntrada, OrdenCompra } from "@/types/oc"
 
 export function SolicitudDetallePage() {
@@ -130,6 +131,12 @@ export function SolicitudDetallePage() {
   const puedeGenerarOC = user ? canSeeOC(user.role, user.area, user.app_permissions) : false
   const cotizacionPendiente = cotizaciones.find((c) => c.aprobada === null)
   const cotizacionAprobada = cotizaciones.find((c) => c.aprobada === true)
+
+  const buildFotoUrl = (filename: string) => {
+    const t = token ? encodeURIComponent(token) : ""
+    const qp = t ? `?token=${t}` : ""
+    return absoluteApiUrl(`/api/oc/solicitudes/${solicitud.id}/fotos/${filename}${qp}`)
+  }
 
   function handleGenerarOC(forzar = false) {
     if (!id) return
@@ -695,14 +702,14 @@ export function SolicitudDetallePage() {
                       <div key={filename} className="relative group rounded-lg overflow-hidden border border-gray-100 bg-gray-50">
                         {/\.(jpg|jpeg|png|gif|webp)$/i.test(filename) ? (
                           <img
-                            src={`/api/oc/solicitudes/${solicitud.id}/fotos/${filename}?token=${token}`}
+                            src={buildFotoUrl(filename)}
                             alt={filename}
                             className="w-full h-16 object-cover cursor-pointer"
-                            onClick={() => setModalImage({ url: `/api/oc/solicitudes/${solicitud.id}/fotos/${filename}?token=${token}`, filename })}
+                            onClick={() => setModalImage({ url: buildFotoUrl(filename), filename })}
                           />
                         ) : (
                           <a
-                            href={`/api/oc/solicitudes/${solicitud.id}/fotos/${filename}?token=${token}`}
+                            href={buildFotoUrl(filename)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex flex-col items-center justify-center h-16 gap-1 text-gray-400 hover:text-brand-blue transition-colors"

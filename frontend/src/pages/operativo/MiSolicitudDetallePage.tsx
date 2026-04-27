@@ -9,6 +9,7 @@ import { formatCOP } from "@/lib/formatters"
 import { EstadoBadge } from "@/pages/oc/SolicitudesPage"
 import { ImageModal } from "@/components/ui/ImageModal"
 import { api } from "@/lib/api"
+import { absoluteApiUrl } from "@/lib/api"
 
 const ESTADO_DESC: Record<string, string> = {
   nueva: "Tu solicitud fue recibida y está en cola.",
@@ -111,6 +112,12 @@ export function MiSolicitudDetallePage() {
 
   const esMia = user?.email === solicitud.solicitante_email
   const fotos = solicitud.fotos_producto ?? []
+
+  const buildFotoUrl = (filename: string) => {
+    const t = token ? encodeURIComponent(token) : ""
+    const qp = t ? `?token=${t}` : ""
+    return absoluteApiUrl(`/api/oc/solicitudes/${solicitud.id}/fotos/${filename}${qp}`)
+  }
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -221,14 +228,14 @@ export function MiSolicitudDetallePage() {
                     <div key={filename} className="relative group rounded-lg overflow-hidden border border-gray-100 bg-gray-50">
                       {isImage(filename) ? (
                         <img
-                          src={`/api/oc/solicitudes/${solicitud.id}/fotos/${filename}?token=${token}`}
+                          src={buildFotoUrl(filename)}
                           alt={filename}
                           className="w-full h-24 object-cover cursor-pointer"
-                          onClick={() => setModalImage({ url: `/api/oc/solicitudes/${solicitud.id}/fotos/${filename}?token=${token}`, filename })}
+                          onClick={() => setModalImage({ url: buildFotoUrl(filename), filename })}
                         />
                       ) : (
                         <a
-                          href={`/api/oc/solicitudes/${solicitud.id}/fotos/${filename}?token=${token}`}
+                          href={buildFotoUrl(filename)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex flex-col items-center justify-center h-24 gap-1 text-gray-400 hover:text-brand-blue transition-colors"
