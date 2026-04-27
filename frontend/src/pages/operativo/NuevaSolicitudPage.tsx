@@ -25,7 +25,6 @@ const FORM_COMPRA_VACIO: SolicitudInternaCreate = {
   cliente: "",
   condicion: "",
   plataforma: "Logimat",
-  placa_ficha: "",
   observaciones_solicitante: "",
 }
 
@@ -134,7 +133,6 @@ export function NuevaSolicitudPage() {
       cliente: item.cliente ?? "",
       condicion: item.condicion ?? "",
       plataforma: item.plataforma ?? "Logimat",
-      placa_ficha: item.placa_ficha ?? "",
       observaciones_solicitante: item.observaciones_solicitante ?? "",
     })
     setPaqueteNombre(paquete.nombre)
@@ -199,7 +197,7 @@ export function NuevaSolicitudPage() {
         tipo_solicitud: tipoSolicitud,
         cliente: form.cliente || undefined,
         condicion: form.condicion || undefined,
-        placa_ficha: form.placa_ficha || undefined,
+        placa_ficha: tipoSolicitud === "mantenimiento" ? form.placa_ficha || undefined : undefined,
         observaciones_solicitante: form.observaciones_solicitante || undefined,
         // Compra: limpiar campos de mantenimiento
         tipo_mantenimiento: tipoSolicitud === "mantenimiento" ? form.tipo_mantenimiento : undefined,
@@ -620,34 +618,17 @@ export function NuevaSolicitudPage() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                    {/* Cantidad */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Cantidad *
-                      </label>
-                      <input
-                        type="number"
-                        min={1}
-                        value={form.cantidad}
-                        onChange={(e) => handleChange("cantidad", parseInt(e.target.value, 10) || 1)}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    {/* Placa / Ficha */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Placa / Ficha (referencia)
-                      </label>
-                      <input
-                        type="text"
-                        value={form.placa_ficha ?? ""}
-                        onChange={(e) => handleChange("placa_ficha", e.target.value)}
-                        placeholder="Ej. VH-001"
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
+                  <div className="max-w-xs">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Cantidad *
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={form.cantidad}
+                      onChange={(e) => handleChange("cantidad", parseInt(e.target.value, 10) || 1)}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
                   </div>
 
                   {/* Observaciones */}
