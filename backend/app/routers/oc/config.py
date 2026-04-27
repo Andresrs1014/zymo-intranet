@@ -29,7 +29,8 @@ _ALLOWED_KEYS = {
     # SMTP
     "smtp_host", "smtp_port", "smtp_user", "smtp_password", "smtp_from",
     # Destinatarios
-    "email_directora", "email_compras", "email_contabilidad", "intranet_url",
+    "email_directora", "email_compras", "email_financiero", "email_gerente",
+    "email_contabilidad", "intranet_url",
     # Branding por plataforma
     "empresa_nombre", "empresa_color", "empresa_nit", "empresa_tel", "empresa_dir", "empresa_dept",
     # Asunto y plantillas de email
@@ -53,6 +54,8 @@ class ConfigRead(BaseModel):
     smtp_from: str
     email_directora: str
     email_compras: str
+    email_financiero: str
+    email_gerente: str
     email_contabilidad: str
     intranet_url: str
     # Branding
@@ -78,6 +81,8 @@ class ConfigUpdate(BaseModel):
     smtp_from: Optional[str] = None
     email_directora: Optional[str] = None
     email_compras: Optional[str] = None
+    email_financiero: Optional[str] = None
+    email_gerente: Optional[str] = None
     email_contabilidad: Optional[str] = None
     intranet_url: Optional[str] = None
     # Branding
@@ -143,6 +148,8 @@ def get_config(
         smtp_from=_r("smtp_from", settings.smtp_from or settings.smtp_user),
         email_directora=_r("email_directora", settings.email_directora),
         email_compras=_r("email_compras", settings.email_directora),
+        email_financiero=_r("email_financiero"),
+        email_gerente=_r("email_gerente"),
         email_contabilidad=_r("email_contabilidad"),
         intranet_url=_r("intranet_url", settings.intranet_url),
         # Branding — usa _BRANDING_DEFAULTS cuando no hay valor en DB

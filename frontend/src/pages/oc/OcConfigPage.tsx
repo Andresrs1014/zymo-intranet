@@ -48,6 +48,8 @@ interface OcConfigRead {
   smtp_from: string
   email_directora: string
   email_compras?: string
+  email_financiero?: string
+  email_gerente?: string
   email_contabilidad?: string
   intranet_url?: string
   // Branding
@@ -73,6 +75,8 @@ interface FormState {
   smtp_from: string
   email_directora: string
   email_compras: string
+  email_financiero: string
+  email_gerente: string
   email_contabilidad: string
   intranet_url: string
   // Branding
@@ -119,6 +123,8 @@ export function OcConfigPage() {
     smtp_from: "",
     email_directora: "",
     email_compras: "",
+    email_financiero: "",
+    email_gerente: "",
     email_contabilidad: "",
     intranet_url: "",
     empresa_nombre: "",
@@ -175,6 +181,8 @@ export function OcConfigPage() {
           smtp_from: data.smtp_from,
           email_directora: data.email_directora,
           email_compras: data.email_compras ?? "",
+          email_financiero: data.email_financiero ?? "",
+          email_gerente: data.email_gerente ?? "",
           email_contabilidad: data.email_contabilidad ?? "",
           intranet_url: data.intranet_url ?? "",
           empresa_nombre: data.empresa_nombre ?? "",
@@ -230,6 +238,8 @@ export function OcConfigPage() {
       smtp_from: form.smtp_from,
       email_directora: form.email_directora,
       email_compras: form.email_compras,
+      email_financiero: form.email_financiero,
+      email_gerente: form.email_gerente,
       email_contabilidad: form.email_contabilidad,
       intranet_url: form.intranet_url,
       empresa_nombre: form.empresa_nombre,
@@ -367,6 +377,22 @@ export function OcConfigPage() {
                     onChange={(v) => handleChange("email_compras", v)}
                     type="email"
                     hint="Recibe la notificación cuando un coordinador crea una solicitud desde la intranet."
+                  />
+                  <Field
+                    label="Email financiero (OC en plataforma y proformas)"
+                    placeholder="financiero@empresa.com"
+                    value={form.email_financiero}
+                    onChange={(v) => handleChange("email_financiero", v)}
+                    type="email"
+                    hint="Recibe el correo cuando una OC pasa a 'En plataforma' y cuando se activa anticipo/proforma (Flujos 5 y Proforma)."
+                  />
+                  <Field
+                    label="Email gerente (CC en compras ≥ $2.5M)"
+                    placeholder="gerente@empresa.com"
+                    value={form.email_gerente}
+                    onChange={(v) => handleChange("email_gerente", v)}
+                    type="email"
+                    hint="Recibe copia del correo de aprobación cuando el valor de la cotización supera $2.500.000 COP (Flujo 3)."
                   />
                   <Field
                     label="Email contabilidad (alertas de OC en plataforma)"
