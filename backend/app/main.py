@@ -233,6 +233,15 @@ def _migrate_oc_cotizaciones() -> None:
                 print(f"[migrate_oc_cot] Columna {col} agregada.")
             except Exception:
                 pass
+        # Renombrar fecha_vigencia → fecha_estimada_entrega (SQLite 3.25+)
+        try:
+            conn.execute(text(
+                "ALTER TABLE oc_cotizaciones RENAME COLUMN fecha_vigencia TO fecha_estimada_entrega"
+            ))
+            conn.commit()
+            print("[migrate_oc_cot] Columna fecha_vigencia renombrada a fecha_estimada_entrega.")
+        except Exception:
+            pass  # Ya renombrada o columna no existía
 
 
 @asynccontextmanager

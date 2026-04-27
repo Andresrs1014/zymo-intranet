@@ -461,7 +461,7 @@ def _generar_excel_prueba() -> bytes:
     ws.cell(fila, 1, _rnd_syn("proveedor_email").title())
     ws.cell(fila, 2, email)
     fila += 1
-    ws.cell(fila, 1, _rnd_syn("fecha_vigencia").title())
+    ws.cell(fila, 1, _rnd_syn("fecha_estimada_entrega").title())
     ws.cell(fila, 2, vigencia)
     fila += 1
     ws.cell(fila, 1, _rnd_syn("forma_pago").title())
@@ -681,7 +681,7 @@ def _excel_desde_datos(d: dict) -> bytes:
     fila += 1
     ws.cell(fila, 1, _rnd_syn("proveedor_email").title()); ws.cell(fila, 2, d["email"])
     fila += 1
-    ws.cell(fila, 1, _rnd_syn("fecha_vigencia").title()); ws.cell(fila, 2, d["vigencia"])
+    ws.cell(fila, 1, _rnd_syn("fecha_estimada_entrega").title()); ws.cell(fila, 2, d["vigencia"])
     fila += 1
     ws.cell(fila, 1, _rnd_syn("forma_pago").title()); ws.cell(fila, 2, d["forma_pago"])
     fila += 1
@@ -816,7 +816,7 @@ def _factura_pdf_desde_datos(d: dict) -> bytes:
 <!-- REFERENCIA COTIZACIÓN -->
 <div class="cot-ref">
   📄 Esta factura corresponde a la cotización <strong>{d['num_cot']}</strong> &nbsp;|&nbsp;
-  Vigencia cotización: {d['vigencia']}
+  Fecha estimada de entrega: {d['vigencia']}
 </div>
 
 <!-- VENDEDOR / ADQUIRENTE -->

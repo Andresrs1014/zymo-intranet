@@ -161,7 +161,7 @@ export interface CotizacionCreatePayload {
   valor_antes_iva?: number
   valor_iva?: number
   valor_total: number
-  fecha_vigencia?: string
+  fecha_estimada_entrega?: string
   forma_pago?: string
   plazo_entrega?: string
   garantia?: string

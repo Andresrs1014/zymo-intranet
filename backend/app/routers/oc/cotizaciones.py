@@ -582,7 +582,7 @@ async def crear_cotizacion(
         valor_antes_iva=payload.valor_antes_iva,
         valor_iva=payload.valor_iva,
         valor_total=payload.valor_total,
-        fecha_vigencia=payload.fecha_vigencia,
+        fecha_estimada_entrega=payload.fecha_estimada_entrega,
         forma_pago=payload.forma_pago,
         plazo_entrega=payload.plazo_entrega,
         garantia=payload.garantia,

@@ -372,11 +372,17 @@ FIELD_SYNONYMS: dict[str, list[str]] = {
         "saldo pendiente",
     ],
 
-    # ── Vigencia de la cotización ────────────────────────────────────────────
-    "fecha_vigencia": [
-        "fecha de cotización",
-        "fecha cotización",
-        "fecha",
+    # ── Fecha estimada de entrega ────────────────────────────────────────────
+    "fecha_estimada_entrega": [
+        "fecha estimada de entrega",
+        "fecha de entrega",
+        "entrega estimada",
+        "fecha entrega",
+        "tiempo de entrega",
+        "plazo de entrega estimado",
+        "estimated delivery",
+        "delivery date",
+        # compatibilidad con documentos que usan vigencia
         "vigencia",
         "válida hasta",
         "valida hasta",
@@ -384,9 +390,6 @@ FIELD_SYNONYMS: dict[str, list[str]] = {
         "fecha validez",
         "válido hasta",
         "valido hasta",
-        "fecha de oferta",
-        "oferta válida hasta",
-        "oferta valida hasta",
         "vence",
         "vencimiento",
         "expira",

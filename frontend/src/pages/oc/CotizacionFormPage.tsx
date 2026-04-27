@@ -20,7 +20,7 @@ const EMPTY_FORM: CotizacionCreatePayload = {
   valor_antes_iva: undefined,
   valor_iva: undefined,
   valor_total: 0,
-  fecha_vigencia: "",
+  fecha_estimada_entrega: "",
   forma_pago: "",
   plazo_entrega: "",
   garantia: "",
@@ -224,7 +224,7 @@ export function CotizacionFormPage() {
       proveedor_nit: form.proveedor_nit || undefined,
       proveedor_email: form.proveedor_email || undefined,
       numero_cotizacion_proveedor: form.numero_cotizacion_proveedor || undefined,
-      fecha_vigencia: form.fecha_vigencia || undefined,
+      fecha_estimada_entrega: form.fecha_estimada_entrega || undefined,
       forma_pago: form.forma_pago || undefined,
       plazo_entrega: form.plazo_entrega || undefined,
       garantia: form.garantia || undefined,
@@ -687,11 +687,11 @@ export function CotizacionFormPage() {
                 </div>
               )}
 
-              <Field label="Fecha de vigencia de la cotización">
+              <Field label="Fecha estimada de entrega">
                 <input
-                  name="fecha_vigencia"
+                  name="fecha_estimada_entrega"
                   type="date"
-                  value={form.fecha_vigencia ?? ""}
+                  value={form.fecha_estimada_entrega ?? ""}
                   onChange={handleChange}
                   className={inputCls}
                 />

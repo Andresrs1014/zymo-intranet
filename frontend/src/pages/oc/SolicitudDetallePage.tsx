@@ -1020,10 +1020,10 @@ function PanelAprobacion({
             <p className="text-sm font-medium text-gray-800">
               {cotizacion.numero_cotizacion_proveedor ?? "—"}
             </p>
-            {cotizacion.fecha_vigencia && (
+            {cotizacion.fecha_estimada_entrega && (
               <>
-                <p className="text-xs text-gray-400 mt-1">Vigencia</p>
-                <p className="text-xs text-gray-700">{cotizacion.fecha_vigencia}</p>
+                <p className="text-xs text-gray-400 mt-1">Fecha estimada de entrega</p>
+                <p className="text-xs text-gray-700">{cotizacion.fecha_estimada_entrega}</p>
               </>
             )}
           </div>
@@ -1884,10 +1884,10 @@ function CotizacionCard({ cotizacion: c }: { cotizacion: CotizacionProveedor }) 
             <span className="font-medium text-gray-700">{c.numero_cotizacion_proveedor}</span>
           </div>
         )}
-        {c.fecha_vigencia && (
+        {c.fecha_estimada_entrega && (
           <div>
-            <span className="text-gray-400">Vigencia: </span>
-            <span className="font-medium text-gray-700">{c.fecha_vigencia}</span>
+            <span className="text-gray-400">Entrega estimada: </span>
+            <span className="font-medium text-gray-700">{c.fecha_estimada_entrega}</span>
           </div>
         )}
       </div>

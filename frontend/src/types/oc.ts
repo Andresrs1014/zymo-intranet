@@ -75,7 +75,7 @@ export interface CotizacionProveedor {
   valor_antes_iva: number | null
   valor_iva: number | null
   valor_total: number
-  fecha_vigencia: string | null
+  fecha_estimada_entrega: string | null
   forma_pago: string | null
   plazo_entrega: string | null
   garantia: string | null
