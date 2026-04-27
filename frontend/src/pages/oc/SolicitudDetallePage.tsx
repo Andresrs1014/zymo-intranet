@@ -40,6 +40,12 @@ import { ImageModal } from "@/components/ui/ImageModal"
 import { absoluteApiUrl } from "@/lib/api"
 import type { CotizacionProveedor, HistorialEntrada, OrdenCompra } from "@/types/oc"
 
+function buildCotizacionPdfUrl(cotizacionId: string, token: string | null): string {
+  const t = token ? encodeURIComponent(token) : ""
+  const qp = t ? `?token=${t}` : ""
+  return absoluteApiUrl(`/api/oc/cotizaciones/${cotizacionId}/pdf${qp}`)
+}
+
 export function SolicitudDetallePage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -140,11 +146,6 @@ export function SolicitudDetallePage() {
     return absoluteApiUrl(`/api/oc/solicitudes/${solicitud.id}/fotos/${filename}${qp}`)
   }
 
-  const buildCotizacionPdfUrl = (cotizacionId: string) => {
-    const t = token ? encodeURIComponent(token) : ""
-    const qp = t ? `?token=${t}` : ""
-    return absoluteApiUrl(`/api/oc/cotizaciones/${cotizacionId}/pdf${qp}`)
-  }
 
   function handleGenerarOC(forzar = false) {
     if (!id) return
@@ -284,6 +285,7 @@ export function SolicitudDetallePage() {
                 cotizacionPendiente && (
                   <PanelAprobacion
                     cotizacion={cotizacionPendiente}
+                    token={token}
                     onAprobar={(cotizacionId, valor, obs) =>
                       aprobar.mutate({
                         cotizacionId,
@@ -898,6 +900,7 @@ export function SolicitudDetallePage() {
 
 function PanelAprobacion({
   cotizacion,
+  token,
   onAprobar,
   onRechazar,
   onCancelar,
@@ -906,6 +909,7 @@ function PanelAprobacion({
   isLoading,
 }: {
   cotizacion: CotizacionProveedor
+  token: string | null
   onAprobar: (id: string, valor: number, obs?: string) => void
   onRechazar: (id: string, obs: string) => void
   onCancelar: (id: string, justificacion: string) => void
@@ -988,7 +992,7 @@ function PanelAprobacion({
         {/* Link al archivo adjunto */}
         {cotizacion.pdf_path && (
           <a
-            href={buildCotizacionPdfUrl(cotizacion.id)}
+            href={buildCotizacionPdfUrl(cotizacion.id, token)}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-medium text-orange-700 hover:bg-orange-100 transition-colors"
