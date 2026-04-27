@@ -35,7 +35,7 @@ class CotizacionCreate(BaseModel):
     valor_antes_iva: Optional[float] = None
     valor_iva: Optional[float] = None
     valor_total: float
-    fecha_vigencia: Optional[date] = None
+    fecha_estimada_entrega: Optional[date] = None
     forma_pago: Optional[str] = None
     plazo_entrega: Optional[str] = None
     garantia: Optional[str] = None
@@ -57,7 +57,7 @@ class CotizacionRead(BaseModel):
     valor_antes_iva: Optional[float]
     valor_iva: Optional[float]
     valor_total: float
-    fecha_vigencia: Optional[date]
+    fecha_estimada_entrega: Optional[date]
     forma_pago: Optional[str]
     plazo_entrega: Optional[str]
     garantia: Optional[str]

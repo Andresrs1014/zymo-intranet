@@ -101,7 +101,7 @@ class CotizacionProveedor(SQLModel, table=True):
     valor_antes_iva: Optional[float] = Field(default=None)
     valor_iva: Optional[float] = Field(default=None)
     valor_total: float
-    fecha_vigencia: Optional[date] = Field(default=None)
+    fecha_estimada_entrega: Optional[date] = Field(default=None)
     forma_pago: Optional[str] = Field(default=None, max_length=200)
     plazo_entrega: Optional[str] = Field(default=None, max_length=200)
     observaciones: Optional[str] = Field(default=None)
