@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
+import { Combobox } from "@/components/ui/Combobox"
 import { useAuthStore } from "@/store/authStore"
 import { useListasFormulario, useCrearSolicitudInterna, usePaquetes, useSubirFotoSolicitud } from "@/hooks/useOC"
 import type { SolicitudInternaCreate } from "@/hooks/useOC"
@@ -40,6 +41,17 @@ const FORM_MANTENIMIENTO_VACIO: SolicitudInternaCreate = {
   observaciones_solicitante: "",
 }
 
+const OPCIONES_PLATAFORMA = [
+  { value: "Logimat", label: "Logimat" },
+  { value: "IMC Cargo", label: "IMC Cargo" },
+  { value: "IMC Depósito", label: "IMC Depósito" },
+] as const
+
+const OPCIONES_TIPO_MANTENIMIENTO = [
+  { value: "correctivo", label: "Correctivo" },
+  { value: "preventivo", label: "Preventivo" },
+] as const
+
 export function NuevaSolicitudPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -60,6 +72,41 @@ export function NuevaSolicitudPage() {
   const [dragOver, setDragOver] = useState(false)
   const [archivos, setArchivos] = useState<File[]>([])
   const [subiendoArchivos, setSubiendoArchivos] = useState(false)
+
+  const opcionesPrioridad = useMemo(
+    () =>
+      (listas?.prioridades ?? []).map((p) => ({
+        value: p,
+        label: PRIORIDAD_SLA[p] ?? p,
+        sublabel: p,
+      })),
+    [listas?.prioridades]
+  )
+
+  const opcionesCategoria = useMemo(
+    () => (listas?.categorias ?? []).map((c) => ({ value: c, label: c })),
+    [listas?.categorias]
+  )
+
+  const opcionesGrupoArticulos = useMemo(
+    () => (listas?.grupos_articulos ?? []).map((g) => ({ value: g, label: g })),
+    [listas?.grupos_articulos]
+  )
+
+  const opcionesCliente = useMemo(
+    () => (listas?.clientes ?? []).map((c) => ({ value: c, label: c })),
+    [listas?.clientes]
+  )
+
+  const opcionesCondicion = useMemo(
+    () => (listas?.condiciones ?? []).map((c) => ({ value: c, label: c })),
+    [listas?.condiciones]
+  )
+
+  const opcionesPlaca = useMemo(
+    () => (listas?.placas ?? []).map((p) => ({ value: p, label: p })),
+    [listas?.placas]
+  )
 
   // Cambiar tipo de solicitud limpia el formulario
   function cambiarTipo(tipo: TipoSolicitud) {
@@ -342,16 +389,13 @@ export function NuevaSolicitudPage() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Prioridad *
                       </label>
-                      <select
-                        value={form.nivel_prioridad}
-                        onChange={(e) => handleChange("nivel_prioridad", e.target.value)}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-                      >
-                        <option value="">— Seleccionar —</option>
-                        {listas?.prioridades.map((p) => (
-                          <option key={p} value={p}>{PRIORIDAD_SLA[p] ?? p}</option>
-                        ))}
-                      </select>
+                      <Combobox
+                        className="w-full"
+                        options={opcionesPrioridad}
+                        value={form.nivel_prioridad || null}
+                        onChange={(v) => handleChange("nivel_prioridad", (v as string) ?? "")}
+                        placeholder="Buscar prioridad…"
+                      />
                     </div>
 
                     {/* Tipo de mantenimiento */}
@@ -359,20 +403,18 @@ export function NuevaSolicitudPage() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Tipo de mantenimiento *
                       </label>
-                      <select
-                        value={form.tipo_mantenimiento ?? ""}
-                        onChange={(e) =>
+                      <Combobox
+                        className="w-full"
+                        options={[...OPCIONES_TIPO_MANTENIMIENTO]}
+                        value={form.tipo_mantenimiento ?? null}
+                        onChange={(v) =>
                           handleChange(
                             "tipo_mantenimiento",
-                            e.target.value as "correctivo" | "preventivo" | undefined || undefined
+                            v ? (v as "correctivo" | "preventivo") : undefined
                           )
                         }
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-                      >
-                        <option value="">— Seleccionar —</option>
-                        <option value="correctivo">Correctivo</option>
-                        <option value="preventivo">Preventivo</option>
-                      </select>
+                        placeholder="Buscar tipo…"
+                      />
                     </div>
 
                     {/* Placa del equipo */}
@@ -381,16 +423,13 @@ export function NuevaSolicitudPage() {
                         Placa / Equipo
                       </label>
                       {listas?.placas && listas.placas.length > 0 ? (
-                        <select
-                          value={form.placa_ficha ?? ""}
-                          onChange={(e) => handleChange("placa_ficha", e.target.value)}
-                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-                        >
-                          <option value="">— Seleccionar equipo —</option>
-                          {listas.placas.map((p) => (
-                            <option key={p} value={p}>{p}</option>
-                          ))}
-                        </select>
+                        <Combobox
+                          className="w-full"
+                          options={opcionesPlaca}
+                          value={form.placa_ficha || null}
+                          onChange={(v) => handleChange("placa_ficha", (v as string) ?? "")}
+                          placeholder="Buscar placa o equipo…"
+                        />
                       ) : (
                         <input
                           type="text"
@@ -420,15 +459,13 @@ export function NuevaSolicitudPage() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Plataforma *
                       </label>
-                      <select
-                        value={form.plataforma}
-                        onChange={(e) => handleChange("plataforma", e.target.value)}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-                      >
-                        <option value="Logimat">Logimat</option>
-                        <option value="IMC Cargo">IMC Cargo</option>
-                        <option value="IMC Depósito">IMC Depósito</option>
-                      </select>
+                      <Combobox
+                        className="w-full"
+                        options={[...OPCIONES_PLATAFORMA]}
+                        value={form.plataforma || null}
+                        onChange={(v) => handleChange("plataforma", (v as string) || "Logimat")}
+                        placeholder="Buscar plataforma…"
+                      />
                     </div>
 
                     {/* Cantidad */}
@@ -489,16 +526,13 @@ export function NuevaSolicitudPage() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Prioridad *
                       </label>
-                      <select
-                        value={form.nivel_prioridad}
-                        onChange={(e) => handleChange("nivel_prioridad", e.target.value)}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">— Seleccionar —</option>
-                        {listas?.prioridades.map((p) => (
-                          <option key={p} value={p}>{PRIORIDAD_SLA[p] ?? p}</option>
-                        ))}
-                      </select>
+                      <Combobox
+                        className="w-full"
+                        options={opcionesPrioridad}
+                        value={form.nivel_prioridad || null}
+                        onChange={(v) => handleChange("nivel_prioridad", (v as string) ?? "")}
+                        placeholder="Buscar prioridad…"
+                      />
                     </div>
 
                     {/* Categoría */}
@@ -506,16 +540,13 @@ export function NuevaSolicitudPage() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Categoría / Estatus *
                       </label>
-                      <select
-                        value={form.categoria ?? ""}
-                        onChange={(e) => handleChange("categoria", e.target.value)}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">— Seleccionar —</option>
-                        {listas?.categorias.map((c) => (
-                          <option key={c} value={c}>{c}</option>
-                        ))}
-                      </select>
+                      <Combobox
+                        className="w-full"
+                        options={opcionesCategoria}
+                        value={form.categoria || null}
+                        onChange={(v) => handleChange("categoria", (v as string) ?? "")}
+                        placeholder="Buscar categoría…"
+                      />
                     </div>
 
                     {/* Grupo de artículos */}
@@ -523,16 +554,13 @@ export function NuevaSolicitudPage() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Grupo de artículos *
                       </label>
-                      <select
-                        value={form.grupo_articulos ?? ""}
-                        onChange={(e) => handleChange("grupo_articulos", e.target.value)}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">— Seleccionar —</option>
-                        {listas?.grupos_articulos.map((g) => (
-                          <option key={g} value={g}>{g}</option>
-                        ))}
-                      </select>
+                      <Combobox
+                        className="w-full"
+                        options={opcionesGrupoArticulos}
+                        value={form.grupo_articulos || null}
+                        onChange={(v) => handleChange("grupo_articulos", (v as string) ?? "")}
+                        placeholder="Buscar grupo…"
+                      />
                     </div>
 
                     {/* Cliente */}
@@ -540,16 +568,13 @@ export function NuevaSolicitudPage() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Cliente
                       </label>
-                      <select
-                        value={form.cliente ?? ""}
-                        onChange={(e) => handleChange("cliente", e.target.value)}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">— Sin cliente —</option>
-                        {listas?.clientes.map((c) => (
-                          <option key={c} value={c}>{c}</option>
-                        ))}
-                      </select>
+                      <Combobox
+                        className="w-full"
+                        options={opcionesCliente}
+                        value={form.cliente || null}
+                        onChange={(v) => handleChange("cliente", (v as string) ?? "")}
+                        placeholder="Buscar cliente (opcional)…"
+                      />
                     </div>
 
                     {/* Condición */}
@@ -557,16 +582,13 @@ export function NuevaSolicitudPage() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Condición
                       </label>
-                      <select
-                        value={form.condicion ?? ""}
-                        onChange={(e) => handleChange("condicion", e.target.value)}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">— Seleccionar —</option>
-                        {listas?.condiciones.map((c) => (
-                          <option key={c} value={c}>{c}</option>
-                        ))}
-                      </select>
+                      <Combobox
+                        className="w-full"
+                        options={opcionesCondicion}
+                        value={form.condicion || null}
+                        onChange={(v) => handleChange("condicion", (v as string) ?? "")}
+                        placeholder="Buscar condición…"
+                      />
                     </div>
 
                     {/* Plataforma */}
@@ -574,15 +596,13 @@ export function NuevaSolicitudPage() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Plataforma *
                       </label>
-                      <select
-                        value={form.plataforma}
-                        onChange={(e) => handleChange("plataforma", e.target.value)}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="Logimat">Logimat</option>
-                        <option value="IMC Cargo">IMC Cargo</option>
-                        <option value="IMC Depósito">IMC Depósito</option>
-                      </select>
+                      <Combobox
+                        className="w-full"
+                        options={[...OPCIONES_PLATAFORMA]}
+                        value={form.plataforma || null}
+                        onChange={(v) => handleChange("plataforma", (v as string) || "Logimat")}
+                        placeholder="Buscar plataforma…"
+                      />
                     </div>
                   </div>
 

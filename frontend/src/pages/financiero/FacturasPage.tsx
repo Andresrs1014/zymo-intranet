@@ -179,6 +179,14 @@ function FacturaCard({ solicitud: s }: { solicitud: SolicitudConFactura }) {
                   Anticipo
                 </span>
               )}
+              {s.observaciones_seguimiento && String(s.observaciones_seguimiento).trim() !== "" && (
+                <span
+                  className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800 border border-amber-100"
+                  title="Hay notas en la bitácora financiera"
+                >
+                  Bitácora
+                </span>
+              )}
             </div>
             {/* Botón proforma */}
             {s.tiene_proforma && s.proforma_path && (

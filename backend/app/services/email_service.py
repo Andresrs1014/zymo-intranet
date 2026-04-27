@@ -175,6 +175,7 @@ def _get_runtime_config(plataforma: str | None = None) -> dict:
         "email_directora":   settings.email_directora,
         "email_compras":     "",
         "email_financiero":  "",
+        "email_contabilidad": "",  # alias usado en UI; ver _email_destino_financiero
         "email_gerente":     "",
         "intranet_url":      settings.intranet_url,
         **_BRANDING_DEFAULTS,
@@ -199,6 +200,11 @@ def _get_runtime_config(plataforma: str | None = None) -> dict:
         log.warning("[email] No se pudo leer oc_config de DB: %s", exc)
 
     return cfg
+
+
+def _email_destino_financiero(cfg: dict) -> str:
+    """Buzón de Financiera / contabilidad: prioriza email_financiero, luego email_contabilidad."""
+    return (cfg.get("email_financiero") or cfg.get("email_contabilidad") or "").strip()
 
 
 def _build_conf(cfg: dict) -> ConnectionConfig:
@@ -913,10 +919,10 @@ async def send_en_plataforma_financiero(
     if not (cfg["smtp_user"] and cfg["smtp_password"]):
         log.warning("[email] SMTP no configurado — omitiendo Flujo 5 (en plataforma)")
         return
-    email_financiero = cfg.get("email_financiero") or ""
-    if not email_financiero:
+    email_fin = _email_destino_financiero(cfg)
+    if not email_fin:
         log.warning(
-            "[email] Flujo 5: email_financiero no configurado en oc_config — "
+            "[email] Flujo 5: email_financiero / email_contabilidad no configurado en oc_config — "
             "omitiendo correo para solicitud %s",
             s.consecutivo_os,
         )
@@ -927,7 +933,7 @@ async def send_en_plataforma_financiero(
     await _send_html(
         cfg,
         subject=f"{prefijo} OC en plataforma — {s.consecutivo_os}",
-        recipients=[email_financiero],
+        recipients=[email_fin],
         body=_html_en_plataforma_financiero(s, cotizacion, cfg, logo_uri=logo_uri),
         flujo="Flujo 5",
     )
@@ -1047,10 +1053,10 @@ async def send_proforma_financiero(
     if not (cfg["smtp_user"] and cfg["smtp_password"]):
         log.warning("[email] SMTP no configurado — omitiendo Flujo Proforma")
         return
-    email_financiero = cfg.get("email_financiero") or ""
-    if not email_financiero:
+    email_fin = _email_destino_financiero(cfg)
+    if not email_fin:
         log.warning(
-            "[email] Flujo Proforma: email_financiero no configurado en oc_config — "
+            "[email] Flujo Proforma: email_financiero / email_contabilidad no configurado en oc_config — "
             "omitiendo correo para solicitud %s",
             s.consecutivo_os,
         )
@@ -1085,7 +1091,7 @@ async def send_proforma_financiero(
 
         msg = MessageSchema(
             subject=f"{prefijo} Cotización aprobada con anticipo — {s.consecutivo_os}",
-            recipients=[email_financiero],
+            recipients=[email_fin],
             body=_html_proforma_financiero(s, cotizacion, cfg, logo_uri=logo_uri, tiene_adjunto=True),
             subtype=MessageType.html,
             attachments=[{
@@ -1100,15 +1106,15 @@ async def send_proforma_financiero(
         )
         try:
             await FastMail(_build_conf(cfg)).send_message(msg)
-            log.info("[email] Flujo Proforma con adjunto enviado a %s", email_financiero)
+            log.info("[email] Flujo Proforma con adjunto enviado a %s", email_fin)
         except Exception:
-            log.exception("[email] Error enviando Flujo Proforma a %s", email_financiero)
+            log.exception("[email] Error enviando Flujo Proforma a %s", email_fin)
     else:
         # Sin adjunto — cotización aprobada pero proforma aún no subida
         await _send_html(
             cfg,
             subject=f"{prefijo} Cotización aprobada con anticipo — {s.consecutivo_os}",
-            recipients=[email_financiero],
+            recipients=[email_fin],
             body=_html_proforma_financiero(s, cotizacion, cfg, logo_uri=logo_uri, tiene_adjunto=False),
             flujo="Flujo Proforma",
         )

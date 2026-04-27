@@ -4,6 +4,8 @@ export interface ComboboxOption {
   value: string | number
   label: string
   sublabel?: string
+  /** Texto secundario (ej. tipo de gasto en cuentas contables). */
+  detail?: string
 }
 
 interface ComboboxProps {
@@ -34,7 +36,8 @@ export function Combobox({
     ? options.filter(
         (o) =>
           o.label.toLowerCase().includes(query.toLowerCase()) ||
-          o.sublabel?.toLowerCase().includes(query.toLowerCase())
+          o.sublabel?.toLowerCase().includes(query.toLowerCase()) ||
+          o.detail?.toLowerCase().includes(query.toLowerCase())
       )
     : options
 
@@ -74,15 +77,22 @@ export function Combobox({
         }}
         className="w-full flex items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-left focus:outline-none focus:ring-2 focus:ring-brand-blue/30 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        <span className={selected ? "text-gray-900 truncate" : "text-gray-400"}>
+        <span className={`block min-w-0 ${selected ? "text-gray-900" : "text-gray-400"} text-left`}>
           {selected ? (
-            <>
-              {selected.sublabel && (
-                <span className="font-mono text-xs text-gray-500 mr-1.5">{selected.sublabel}</span>
+            <span className="flex flex-col items-start gap-0.5 min-w-0 w-full">
+              <span className="truncate w-full">
+                {selected.sublabel && (
+                  <span className="font-mono text-xs text-gray-500 mr-1.5">{selected.sublabel}</span>
+                )}
+                {selected.label}
+              </span>
+              {selected.detail && (
+                <span className="text-xs text-gray-400 truncate w-full">{selected.detail}</span>
               )}
-              {selected.label}
-            </>
-          ) : placeholder}
+            </span>
+          ) : (
+            placeholder
+          )}
         </span>
         <div className="flex items-center gap-1 shrink-0">
           {selected && (
@@ -122,7 +132,7 @@ export function Combobox({
           </div>
 
           {/* Options list */}
-          <ul className="max-h-56 overflow-y-auto py-1">
+          <ul className="max-h-60 overflow-y-auto py-1">
             {filtered.length === 0 ? (
               <li className="px-3 py-2 text-sm text-gray-400 text-center">Sin resultados</li>
             ) : (
@@ -130,14 +140,29 @@ export function Combobox({
                 <li
                   key={opt.value}
                   onClick={() => handleSelect(opt)}
-                  className={`flex items-center gap-2 px-3 py-2 text-sm cursor-pointer transition-colors hover:bg-brand-blue/5 ${
+                  className={`px-3 py-2 text-sm cursor-pointer transition-colors hover:bg-brand-blue/5 ${
                     opt.value === value ? "bg-brand-blue/10 text-brand-blue font-medium" : "text-gray-700"
                   }`}
                 >
-                  {opt.sublabel && (
-                    <span className="font-mono text-xs text-gray-400 shrink-0 w-16">{opt.sublabel}</span>
-                  )}
-                  <span className="truncate">{opt.label}</span>
+                  <div className="flex items-start gap-2">
+                    {opt.sublabel && (
+                      <span className="font-mono text-xs text-gray-400 shrink-0 pt-0.5 tabular-nums">
+                        {opt.sublabel}
+                      </span>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate">{opt.label}</div>
+                      {opt.detail && (
+                        <div
+                          className={`text-xs truncate mt-0.5 font-normal ${
+                            opt.value === value ? "text-brand-blue/80" : "text-gray-400"
+                          }`}
+                        >
+                          {opt.detail}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </li>
               ))
             )}

@@ -12,7 +12,7 @@ export interface SolicitudConFactura {
   estado: EstadoOC
   fecha_en_plataforma: string | null
   fecha_recibido: string | null
-  // Anticipo / proforma
+  // Anticipo / proforma — seguimiento
   tiene_proforma: boolean | null
   proforma_path: string | null
   forma_pago: string | null
@@ -31,6 +31,9 @@ export interface SolicitudConFactura {
   numero_factura: string | null
   valor_factura: number | null
   fecha_factura: string | null
+  /** Notas abiertas durante el ciclo de compra (anticipo/proforma, antes de validar factura). */
+  observaciones_seguimiento: string | null
+  seguimiento_updated_at: string | null
 }
 
 export interface Factura {

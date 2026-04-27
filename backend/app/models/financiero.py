@@ -3,6 +3,7 @@ from datetime import date, datetime, timezone
 from enum import Enum
 from typing import Optional
 
+from sqlalchemy import Column, Text
 from sqlmodel import Field, SQLModel
 
 
@@ -42,6 +43,17 @@ class FacturaCuentaContable(SQLModel, table=True):
     factura_id: uuid.UUID = Field(foreign_key="fin_facturas.id", index=True)
     cuenta_id: int = Field(foreign_key="fin_cuentas_contables.id")
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class SeguimientoFinancieroSolicitud(SQLModel, table=True):
+    """Bitácora abierta por solicitud: observaciones antes/durante carga de factura (p. ej. anticipo/proforma)."""
+
+    __tablename__ = "fin_seguimiento_solicitud"
+
+    solicitud_id: uuid.UUID = Field(primary_key=True)
+    observaciones: Optional[str] = Field(default=None, sa_column=Column(Text, nullable=True))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_by_id: Optional[int] = Field(default=None)
 
 
 class FacturaProveedor(SQLModel, table=True):

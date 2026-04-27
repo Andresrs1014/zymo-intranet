@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
 import {
-  useSolicitudesFinanciero,
+  useSolicitudFinancieroDetalle,
   useFactura,
   useValidaciones,
   useSubirFactura,
@@ -14,10 +14,12 @@ import {
   useCuentasContables,
   useAsignarCuenta,
   useQuitarCuenta,
+  useActualizarSeguimientoFinanciero,
 } from "@/hooks/useFinanciero"
 import { Combobox } from "@/components/ui/Combobox"
 import type { EstadoFactura, FacturaUpdate } from "@/types/financiero"
 import { formatCOP, parseCOP } from "@/lib/formatters"
+import { api, openAuthenticatedApiBlob } from "@/lib/api"
 
 function FacturaEstadoBadge({ estado }: { estado: EstadoFactura }) {
   const cfg: Record<EstadoFactura, { label: string; className: string }> = {
@@ -39,8 +41,8 @@ export function FacturaDetallePage() {
   const navigate = useNavigate()
   const { solicitudId } = useParams<{ solicitudId: string }>()
 
-  const { data: solicitudes = [] } = useSolicitudesFinanciero()
-  const solicitud = solicitudes.find((s) => s.solicitud_id === solicitudId)
+  const { data: solicitud, isLoading: loadingSolicitud, isError: errorSolicitud } =
+    useSolicitudFinancieroDetalle(solicitudId)
 
   const facturaId = solicitud?.factura_id ?? null
   const { data: factura } = useFactura(facturaId)
@@ -50,6 +52,7 @@ export function FacturaDetallePage() {
   const actualizarFactura = useActualizarFactura()
   const validarFactura = useValidarFactura()
   const eliminarFactura = useEliminarFactura()
+  const actualizarSeguimiento = useActualizarSeguimientoFinanciero()
 
   const { data: cuentasAsignadas = [] } = useFacturaCuentas(facturaId)
   const { data: todasCuentas = [] } = useCuentasContables(true)
@@ -57,9 +60,25 @@ export function FacturaDetallePage() {
   const quitarCuenta = useQuitarCuenta()
   const [cuentaSeleccionada, setCuentaSeleccionada] = useState<number | null>(null)
 
+  const [bitacora, setBitacora] = useState("")
+  const [bitacoraDirty, setBitacoraDirty] = useState(false)
+  const syncedSolicitudId = useRef<string | null>(null)
+  useEffect(() => {
+    if (solicitud && solicitud.solicitud_id !== syncedSolicitudId.current) {
+      syncedSolicitudId.current = solicitud.solicitud_id
+      setBitacora(solicitud.observaciones_seguimiento ?? "")
+      setBitacoraDirty(false)
+    }
+  }, [solicitud])
+
   const cuentasOpciones = todasCuentas
     .filter((c) => !cuentasAsignadas.some((a) => a.cuenta_id === c.id))
-    .map((c) => ({ value: c.id, label: c.nombre_cuenta, sublabel: c.numero_cuenta }))
+    .map((c) => ({
+      value: c.id,
+      label: c.nombre_cuenta,
+      sublabel: c.numero_cuenta,
+      detail: c.tipo_gasto_nombre ? `Tipo de gasto: ${c.tipo_gasto_nombre}` : "Sin tipo de gasto",
+    }))
 
   // Form state for editing
   const [form, setForm] = useState<FacturaUpdate>({})
@@ -117,6 +136,56 @@ export function FacturaDetallePage() {
     subirFactura.mutate({ solicitudId, file })
   }
 
+  async function handleVerProforma() {
+    if (!solicitudId) return
+    const resp = await api.get(`/api/financiero/facturas/${solicitudId}/proforma`, { responseType: "blob" })
+    const url = URL.createObjectURL(resp.data as Blob)
+    const win = window.open(url, "_blank", "noopener,noreferrer")
+    if (!win) URL.revokeObjectURL(url)
+    else window.setTimeout(() => URL.revokeObjectURL(url), 120_000)
+  }
+
+  function handleGuardarBitacora() {
+    if (!solicitudId) return
+    actualizarSeguimiento.mutate(
+      { solicitudId, observaciones: bitacora },
+      { onSuccess: () => setBitacoraDirty(false) }
+    )
+  }
+
+  if (loadingSolicitud) {
+    return (
+      <div className="flex h-screen bg-gray-50">
+        <Sidebar />
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <TopBar title="Financiero" />
+          <main className="flex-1 flex items-center justify-center text-gray-500 text-sm">Cargando…</main>
+        </div>
+      </div>
+    )
+  }
+
+  if (errorSolicitud || !solicitud) {
+    return (
+      <div className="flex h-screen bg-gray-50">
+        <Sidebar />
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <TopBar title="Financiero" />
+          <main className="flex-1 flex flex-col items-center justify-center gap-3 p-6">
+            <p className="text-sm text-gray-600">Esta solicitud no está disponible en Financiero o no existe.</p>
+            <button
+              type="button"
+              onClick={() => navigate("/financiero/facturas")}
+              className="text-sm text-brand-blue font-medium hover:underline"
+            >
+              Volver al listado
+            </button>
+          </main>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
@@ -149,6 +218,62 @@ export function FacturaDetallePage() {
           </div>
 
           <div className="space-y-6">
+            {/* Bitácora financiera (todo el ciclo; proforma/anticipo) */}
+            <section className="bg-white rounded-xl border border-amber-100 shadow-sm p-6">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
+                <div>
+                  <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide">
+                    Bitácora / observaciones del proceso
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-1 max-w-2xl">
+                    Notas internas de contabilidad durante la compra (anticipo, proforma, dudas antes de validar la
+                    factura). Independiente de las observaciones del documento de factura.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2 shrink-0">
+                  {solicitud.tiene_proforma && (
+                    <span className="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-semibold text-yellow-800">
+                      Anticipo / proforma
+                    </span>
+                  )}
+                  {solicitud.tiene_proforma && solicitud.proforma_path && (
+                    <button
+                      type="button"
+                      onClick={() => handleVerProforma()}
+                      className="rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-1.5 text-xs font-medium text-yellow-900 hover:bg-yellow-100 transition-colors"
+                    >
+                      Ver proforma
+                    </button>
+                  )}
+                </div>
+              </div>
+              <textarea
+                rows={4}
+                value={bitacora}
+                onChange={(e) => {
+                  setBitacora(e.target.value)
+                  setBitacoraDirty(true)
+                }}
+                placeholder="Ej.: Anticipo aprobado 15/04; pendiente conciliar con factura final…"
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30 resize-y min-h-[88px]"
+              />
+              <div className="flex items-center justify-between mt-3 gap-2">
+                <p className="text-xs text-gray-400">
+                  {solicitud.seguimiento_updated_at
+                    ? `Último guardado: ${new Date(solicitud.seguimiento_updated_at).toLocaleString("es-CO")}`
+                  : "Sin guardados aún"}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleGuardarBitacora}
+                  disabled={!bitacoraDirty || actualizarSeguimiento.isPending}
+                  className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:brightness-105 disabled:opacity-50 transition-all"
+                >
+                  {actualizarSeguimiento.isPending ? "Guardando…" : "Guardar bitácora"}
+                </button>
+              </div>
+            </section>
+
             {/* ── Sección A: Info de la OC ───────────────────────────────── */}
             <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
               <div className="flex items-center justify-between mb-4">
@@ -156,10 +281,10 @@ export function FacturaDetallePage() {
                   Información de la OC
                 </h2>
                 <button
+                  type="button"
                   onClick={() =>
-                    window.open(
-                      `/api/financiero/solicitudes/${solicitudId}/descargar-oc`,
-                      "_blank"
+                    openAuthenticatedApiBlob(
+                      `/api/financiero/solicitudes/${solicitudId}/descargar-oc`
                     )
                   }
                   className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
@@ -324,7 +449,10 @@ export function FacturaDetallePage() {
                   <div className="mt-5 flex items-center justify-end gap-3">
                     <div className="flex items-center gap-2 mr-auto">
                       <button
-                        onClick={() => window.open(`/api/financiero/facturas/${facturaId}/pdf`, "_blank")}
+                        type="button"
+                        onClick={() =>
+                          openAuthenticatedApiBlob(`/api/financiero/facturas/${facturaId}/pdf`)
+                        }
                         className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-1.5"
                         title="Ver PDF en nueva pestaña"
                       >

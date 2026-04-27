@@ -41,3 +41,19 @@ api.interceptors.response.use(
     return Promise.reject(error)
   }
 )
+
+/**
+ * GET binario con el mismo Bearer que axios; abre el blob en una pestaña nueva.
+ * `window.open` a una URL del API no adjunta Authorization — por eso 401 en PDFs/OC.
+ */
+export async function openAuthenticatedApiBlob(apiPath: string): Promise<void> {
+  const { data } = await api.get(apiPath, { responseType: "blob" })
+  const url = URL.createObjectURL(data as Blob)
+  const win = window.open(url, "_blank", "noopener,noreferrer")
+  if (!win) {
+    URL.revokeObjectURL(url)
+    return
+  }
+  // Revocar tras un margen para no romper la carga del visor PDF en la pestaña nueva
+  window.setTimeout(() => URL.revokeObjectURL(url), 120_000)
+}

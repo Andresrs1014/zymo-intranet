@@ -20,6 +20,35 @@ export function useSolicitudesFinanciero() {
   })
 }
 
+export function useSolicitudFinancieroDetalle(solicitudId: string | undefined) {
+  return useQuery({
+    queryKey: ["financiero", "solicitud", solicitudId],
+    queryFn: async () => {
+      const { data } = await api.get<SolicitudConFactura>(`/api/financiero/solicitudes/${solicitudId}`)
+      return data
+    },
+    enabled: !!solicitudId,
+  })
+}
+
+export function useActualizarSeguimientoFinanciero() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      solicitudId,
+      observaciones,
+    }: {
+      solicitudId: string
+      observaciones: string
+    }) => {
+      await api.patch(`/api/financiero/solicitudes/${solicitudId}/seguimiento`, { observaciones })
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["financiero"] })
+    },
+  })
+}
+
 export function useFactura(facturaId: string | null) {
   return useQuery({
     queryKey: ["financiero", "facturas", facturaId],

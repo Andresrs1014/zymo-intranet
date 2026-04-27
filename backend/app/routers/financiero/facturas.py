@@ -11,12 +11,18 @@ log = logging.getLogger(__name__)
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
+from sqlalchemy import and_, or_
 from sqlmodel import Session, select
 
 from app.config import settings
 from app.core.deps import require_financiero
 from app.financiero_database import get_financiero_db
-from app.models.financiero import EstadoFactura, FacturaProveedor, ValidacionFactura
+from app.models.financiero import (
+    EstadoFactura,
+    FacturaProveedor,
+    SeguimientoFinancieroSolicitud,
+    ValidacionFactura,
+)
 from app.models.oc import CotizacionProveedor, EstadoOC, OrdenCompra, SolicitudOC
 from app.models.user import User
 from app.oc_database import get_oc_db
@@ -68,9 +74,23 @@ class SolicitudConFacturaRead(BaseModel):
     numero_factura: Optional[str]
     valor_factura: Optional[float]
     fecha_factura: Optional[date]
+    # Bitácora financiera (anticipo/proforma, notas antes de validar factura)
+    observaciones_seguimiento: Optional[str] = None
+    seguimiento_updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
+
+
+class SeguimientoSolicitudUpdate(BaseModel):
+    observaciones: str = ""
+
+
+class SeguimientoSolicitudRead(BaseModel):
+    solicitud_id: uuid.UUID
+    observaciones: Optional[str] = None
+    updated_at: Optional[datetime] = None
+    updated_by_id: Optional[int] = None
 
 
 class FacturaRead(BaseModel):
@@ -181,6 +201,97 @@ def _extraer_texto(contenido: bytes, ext: str) -> str:
 from app.services.extraction_utils import extraer_campos_estructurado as _extraer_campos_estructurado  # noqa: E402
 from app.services.number_utils import format_cop as _fmt_cop, parse_cop as _to_float  # noqa: E402
 
+# Patrones que suelen confundirse con NIT (año-consecutivo, rangos cortos)
+_NIT_FALSO_ANIO_CONSECUTIVO = re.compile(
+    r"^(19|20)\d{2}\s*[-./]\s*\d{2,4}(?:\s|$)",
+    re.IGNORECASE,
+)
+
+
+def _nit_extraido_es_plausible(raw: Optional[str]) -> bool:
+    """Filtra capturas tipo '2026-3041' o cédulas demasiado cortas."""
+    if not raw or not str(raw).strip():
+        return False
+    s = str(raw).strip()
+    if _NIT_FALSO_ANIO_CONSECUTIVO.match(s):
+        return False
+    if re.fullmatch(r"\d{4}\s*[-./]\s*\d{4}", re.sub(r"\s+", " ", s)):
+        return False
+    digits = re.sub(r"\D", "", s)
+    if len(digits) < 9:
+        return False
+    if len(digits) > 15:
+        return False
+    return True
+
+
+def _limpiar_razon_social_extraida(raw: Optional[str]) -> Optional[str]:
+    """Quita fragmentos colgantes del PDF/OCR ('es Industriales...' por corte de palabra)."""
+    if not raw:
+        return None
+    t = " ".join(raw.split())
+    # Palabras sueltas al inicio que suelen ser sobras de línea anterior
+    prefixes = (
+        "el ", "la ", "los ", "las ", "del ", "de ", "al ", "y ", "es ", "en ", "o ", "un ", "una ",
+    )
+    lower = t.lower()
+    for _ in range(8):
+        hit = False
+        for p in prefixes:
+            if lower.startswith(p):
+                t = t[len(p) :].strip()
+                lower = t.lower()
+                hit = True
+                break
+        if not hit:
+            break
+    t = re.sub(r"^[:\-.\s]+", "", t)
+    if len(t) < 3:
+        return None
+    return t[:200]
+
+
+def _find_nit_factura(texto: str, flags: int, _extra: dict[str, str]) -> Optional[str]:
+    for key in ("proveedor_nit", "nit"):
+        v = _extra.get(key)
+        if v and _nit_extraido_es_plausible(v.strip()):
+            return v.strip()[:50]
+    patrones = [
+        r"\bN\.?I\.?T\.?\s*(?:N[o°]\.?)?\s*[:\-]?\s*(\d{1,3}[.\s]?\d{3}[.\s]?\d{3}\s*[-]?\s*\d)\b",
+        r"\bNIT\b\s*[:\-]?\s*(\d{1,3}[.\s]?\d{3}[.\s]?\d{3}\s*[-./]\s*\d)\b",
+        r"\bNIT\b[^\d]{0,20}(\d{2,4}[.\-]\d{2,4}[.\-]\d{2,4}[-]?\d)\b",
+        r"IDENTIFICACI[OÓ]N\s+(?:TRIBUTARIA\s+)?(?:N[°oO]\.?)?\s*[:\-]?\s*(\d[\d.\-/\s]+?\d)\b",
+    ]
+    for pat in patrones:
+        for m in re.finditer(pat, texto, flags):
+            cand = re.sub(r"\s+", "", m.group(1).strip())
+            if _nit_extraido_es_plausible(cand):
+                return m.group(1).strip()[:50]
+    return None
+
+
+def _find_nombre_factura(texto: str, flags: int, _extra: dict[str, str]) -> Optional[str]:
+    for key in ("proveedor_nombre",):
+        v = _extra.get(key)
+        if v:
+            cl = _limpiar_razon_social_extraida(v)
+            if cl:
+                return cl
+    patrones = [
+        r"(?:RAZ[OÓ]N\s+SOCIAL|NOMBRE(?:\s+O)?\s+RAZ[OÓ]N\s+SOCIAL)[^\n:]{0,45}[:#.\-]?\s*([^\n]{3,200})",
+        r"\bEMISOR\b[^\n:]{0,40}[:#.\-]?\s*([^\n]{3,200})",
+        r"(?:PROVEEDOR\s+DE\s+BIENES|VENDEDOR|PROVEEDOR)\b[^\n:]{0,40}[:#.\-]?\s*([^\n]{3,200})",
+        r"RAZ[OÓ]N\s+SOCIAL[\s\S]{0,35}?([A-ZÁÉÍÓÚÑ0-9\*][^\n]{2,180}?)(?:\n|$)",
+        r"EMPRESA[\s\S]{0,25}?([A-ZÁÉÍÓÚÑ][^\n]{2,180}?)(?:\n|$)",
+    ]
+    for pat in patrones:
+        m = re.search(pat, texto, flags)
+        if m:
+            cl = _limpiar_razon_social_extraida(m.group(1))
+            if cl:
+                return cl
+    return None
+
 
 def _parsear_factura(texto: str, extra: Optional[dict[str, str]] = None) -> ExtraccionFacturaResult:
     """Extrae campos de factura desde texto libre con regex.
@@ -225,49 +336,49 @@ def _parsear_factura(texto: str, extra: Optional[dict[str, str]] = None) -> Extr
                     pass
         return None
 
-    def text_or_extra(field: str, patterns: list[str]) -> Optional[str]:
-        return find_text(patterns) or (_extra.get(field) or None)
-
     def money_or_extra(field: str, patterns: list[str]) -> Optional[float]:
         return find_money(patterns) or _to_float(_extra.get(field, ""))
 
     # Número de factura
-    numero_factura = text_or_extra("numero_factura", [
-        r"N[oó]\.?\s*(?:DE\s+)?FACTURA[\s\S]{0,10}?([A-Z0-9\-]{3,})",
-        r"FACTURA\s+(?:DE\s+VENTA\s+)?(?:N[oó]\.?\s*|#\s*)?([FE]{2}-\d+|FV-\d+|\d{5,})",
-        r"\b(FE-\d+)\b",
-        r"\b(FV-\d+)\b",
-        r"N[ÚUu]MERO\s+DE\s+FACTURA[\s\S]{0,10}?([A-Z0-9\-]{3,})",
-    ])
+    numero_factura = find_text(
+        [
+            r"N[oó]\.?\s*(?:DE\s+)?FACTURA[\s\S]{0,12}?([A-Z0-9\-]{4,})",
+            r"FACTURA\s+(?:DE\s+VENTA\s+)?(?:N[oó]\.?\s*|#\s*)?((?:FE|FV|SETP)-[A-Z0-9\-]+|\d{5,})",
+            r"\b(FE-\d+)\b",
+            r"\b(FV-\d+)\b",
+            r"\b(SETP-[A-Z0-9\-]+)\b",
+            r"N[ÚUu]MERO\s+DE\s+FACTURA[\s\S]{0,12}?([A-Z0-9\-]{4,})",
+        ]
+    )
+    if not numero_factura:
+        numero_factura = (_extra.get("numero_factura") or "").strip() or None
 
     # Valor total de la factura
-    valor_factura = money_or_extra("valor_factura", [
-        r"TOTAL\s+A\s+PAGAR[\s\S]{0,20}?\$?\s*([\d.,]+)",
-        r"VALOR\s+TOTAL[\s\S]{0,20}?\$?\s*([\d.,]+)",
-        r"GRAN\s+TOTAL[\s\S]{0,20}?\$?\s*([\d.,]+)",
-        r"GRAND\s+TOTAL[\s\S]{0,20}?\$?\s*([\d.,]+)",
-        r"\bTOTAL\b[\s\S]{0,15}?\$?\s*([\d.,]+)",
-    ]) or money_or_extra("valor_total", [])  # alias: campo valor_total del motor cotizaciones
+    valor_factura = money_or_extra(
+        "valor_factura",
+        [
+            r"TOTAL\s+A\s+PAGAR[\s\S]{0,20}?\$?\s*([\d.,]+)",
+            r"VALOR\s+TOTAL[\s\S]{0,20}?\$?\s*([\d.,]+)",
+            r"GRAN\s+TOTAL[\s\S]{0,20}?\$?\s*([\d.,]+)",
+            r"GRAND\s+TOTAL[\s\S]{0,20}?\$?\s*([\d.,]+)",
+            r"(?:IMPORTE\s+)?TOTAL\s+FACTURA[\s\S]{0,25}?\$?\s*([\d.,]+)",
+            r"\bTOTAL\b[\s\S]{0,15}?\$?\s*([\d.,]+)",
+        ],
+    ) or money_or_extra("valor_total", [])  # alias: campo valor_total del motor cotizaciones
 
-    # Fecha de la factura — dd/mm/yyyy o yyyy-mm-dd
-    fecha_factura = find_date([
-        r"FECHA[\s\S]{0,15}?(\d{2})[/\-](\d{2})[/\-](\d{4})",
-        r"(\d{4})[/\-](\d{2})[/\-](\d{2})",
-    ]) or (_parse_date_str(_extra.get("fecha_factura") or _extra.get("fecha", "")))
+    # Fecha: patrones específicos antes del genérico
+    fecha_factura = find_date(
+        [
+            r"FECHA\s+DE\s+EMISI[OÓ]N[\s\S]{0,40}?(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})",
+            r"FECHA\s+DE\s+FACTURA[\s\S]{0,40}?(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})",
+            r"FECHA\s+DE\s+EXPEDICI[OÓ]N[\s\S]{0,40}?(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})",
+            r"FECHA(?:\s+DE)?[\s\S]{0,55}?(\d{2})[/\-](\d{2})[/\-](\d{4})",
+            r"(\d{4})[/\-](\d{2})[/\-](\d{2})",
+        ]
+    ) or (_parse_date_str(_extra.get("fecha_factura") or _extra.get("fecha", "")))
 
-    # NIT del proveedor — también usa proveedor_nit del motor de cotizaciones
-    nit_proveedor = text_or_extra("proveedor_nit", [
-        r"N\.?I\.?T\.?[\s\S]{0,10}?(\d[\d.\-]+[-]?\d)",
-        r"NIT[\s\S]{0,10}?(\d{3}[.\s]?\d{3}[.\s]?\d{3}[-]?\d)",
-        r"IDENTIFICACI[OÓ]N[\s\S]{0,10}?(\d[\d.\-]+)",
-    ])
-
-    # Nombre / razón social del proveedor — también usa proveedor_nombre
-    nombre_proveedor = text_or_extra("proveedor_nombre", [
-        r"RAZ[OÓ]N\s+SOCIAL[\s\S]{0,10}?(.{3,150}?)(?:\n|$)",
-        r"EMPRESA[\s\S]{0,10}?(.{3,150}?)(?:\n|$)",
-        r"PROVEEDOR[\s\S]{0,10}?(.{3,150}?)(?:\n|$)",
-    ])
+    nit_proveedor = _find_nit_factura(texto, flags, _extra)
+    nombre_proveedor = _find_nombre_factura(texto, flags, _extra)
 
     campos = sum(
         1
@@ -307,6 +418,74 @@ _ESTADOS_ELEGIBLES = {
     EstadoOC.cerrada,           # permanece visible aunque esté cerrada
 }
 
+# Solicitudes con anticipo/proforma: visibles desde aprobación para bitácora y seguimiento (antes de OC enviada).
+_PROFORMA_SEGUIMIENTO_ESTADOS: frozenset = frozenset({
+    EstadoOC.aprobada,
+    EstadoOC.oc_enviada,
+    EstadoOC.oc_en_plataforma,
+    EstadoOC.entregada,
+    EstadoOC.cerrada,
+})
+
+
+def _visible_en_lista_financiero(sol: SolicitudOC) -> bool:
+    if sol.estado in _ESTADOS_ELEGIBLES:
+        return True
+    if sol.tiene_proforma and sol.estado in _PROFORMA_SEGUIMIENTO_ESTADOS:
+        return True
+    return False
+
+
+def _fila_solicitud_financiero(
+    sol: SolicitudOC,
+    oc_db: Session,
+    fin_db: Session,
+) -> SolicitudConFacturaRead:
+    cotizacion = oc_db.exec(
+        select(CotizacionProveedor)
+        .where(
+            CotizacionProveedor.solicitud_id == sol.id,
+            CotizacionProveedor.aprobada == True,  # noqa: E712
+        )
+    ).first()
+    orden: Optional[OrdenCompra] = None
+    if cotizacion:
+        orden = oc_db.exec(
+            select(OrdenCompra).where(OrdenCompra.solicitud_id == sol.id)
+        ).first()
+    factura = fin_db.exec(
+        select(FacturaProveedor).where(FacturaProveedor.solicitud_id == sol.id)
+    ).first()
+    seg = fin_db.get(SeguimientoFinancieroSolicitud, sol.id)
+    return SolicitudConFacturaRead(
+        solicitud_id=sol.id,
+        consecutivo_os=sol.consecutivo_os,
+        descripcion=sol.descripcion,
+        solicitante_nombre=sol.solicitante_nombre,
+        area_solicitante=sol.area_solicitante,
+        plataforma=sol.plataforma,
+        estado=sol.estado,
+        fecha_en_plataforma=sol.fecha_en_plataforma,
+        fecha_recibido=sol.fecha_recibido,
+        tiene_proforma=sol.tiene_proforma,
+        proforma_path=sol.proforma_path,
+        forma_pago=cotizacion.forma_pago if cotizacion else None,
+        cotizacion_id=cotizacion.id if cotizacion else None,
+        proveedor_nombre=cotizacion.proveedor_nombre if cotizacion else None,
+        valor_aprobado=cotizacion.valor_aprobado if cotizacion else None,
+        valor_antes_iva=cotizacion.valor_antes_iva if cotizacion else None,
+        valor_iva=cotizacion.valor_iva if cotizacion else None,
+        orden_id=orden.id if orden else None,
+        numero_oc=orden.numero_oc if orden else None,
+        factura_id=factura.id if factura else None,
+        factura_estado=factura.estado if factura else None,
+        numero_factura=factura.numero_factura if factura else None,
+        valor_factura=factura.valor_factura if factura else None,
+        fecha_factura=factura.fecha_factura if factura else None,
+        observaciones_seguimiento=seg.observaciones if seg else None,
+        seguimiento_updated_at=seg.updated_at if seg else None,
+    )
+
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
@@ -320,65 +499,64 @@ def listar_facturas(
     oc_db: Session = Depends(get_oc_db),
     fin_db: Session = Depends(get_financiero_db),
 ) -> list[SolicitudConFacturaRead]:
-    """Lista todas las OCs en estados elegibles, enriquecidas con su factura si existe."""
-    estados = [e.value for e in _ESTADOS_ELEGIBLES]
-    solicitudes = oc_db.exec(
-        select(SolicitudOC).where(SolicitudOC.estado.in_(estados))
-    ).all()
+    """Lista OCs visibles para finanzas: envío en adelante, o aprobadas con proforma/anticipo."""
+    cond = or_(
+        SolicitudOC.estado.in_([e.value for e in _ESTADOS_ELEGIBLES]),
+        and_(
+            SolicitudOC.tiene_proforma == True,  # noqa: E712
+            SolicitudOC.estado.in_([e.value for e in _PROFORMA_SEGUIMIENTO_ESTADOS]),
+        ),
+    )
+    solicitudes = oc_db.exec(select(SolicitudOC).where(cond)).all()
+    return [_fila_solicitud_financiero(s, oc_db, fin_db) for s in solicitudes]
 
-    resultado: list[SolicitudConFacturaRead] = []
-    for sol in solicitudes:
-        # Cotización aprobada
-        cotizacion = oc_db.exec(
-            select(CotizacionProveedor)
-            .where(
-                CotizacionProveedor.solicitud_id == sol.id,
-                CotizacionProveedor.aprobada == True,  # noqa: E712
-            )
-        ).first()
 
-        # Orden de compra
-        orden: Optional[OrdenCompra] = None
-        if cotizacion:
-            orden = oc_db.exec(
-                select(OrdenCompra).where(OrdenCompra.solicitud_id == sol.id)
-            ).first()
+@router.get(
+    "/solicitudes/{solicitud_id}",
+    response_model=SolicitudConFacturaRead,
+)
+def obtener_solicitud_financiero(
+    solicitud_id: uuid.UUID,
+    current_user: User = Depends(require_financiero),
+    oc_db: Session = Depends(get_oc_db),
+    fin_db: Session = Depends(get_financiero_db),
+) -> SolicitudConFacturaRead:
+    sol = oc_db.get(SolicitudOC, solicitud_id)
+    if not sol or not _visible_en_lista_financiero(sol):
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada o no visible en Financiero.")
+    return _fila_solicitud_financiero(sol, oc_db, fin_db)
 
-        # Factura en financiero.db
-        factura = fin_db.exec(
-            select(FacturaProveedor).where(FacturaProveedor.solicitud_id == sol.id)
-        ).first()
 
-        resultado.append(
-            SolicitudConFacturaRead(
-                solicitud_id=sol.id,
-                consecutivo_os=sol.consecutivo_os,
-                descripcion=sol.descripcion,
-                solicitante_nombre=sol.solicitante_nombre,
-                area_solicitante=sol.area_solicitante,
-                plataforma=sol.plataforma,
-                estado=sol.estado,
-                fecha_en_plataforma=sol.fecha_en_plataforma,
-                fecha_recibido=sol.fecha_recibido,
-                tiene_proforma=sol.tiene_proforma,
-                proforma_path=sol.proforma_path,
-                forma_pago=cotizacion.forma_pago if cotizacion else None,
-                cotizacion_id=cotizacion.id if cotizacion else None,
-                proveedor_nombre=cotizacion.proveedor_nombre if cotizacion else None,
-                valor_aprobado=cotizacion.valor_aprobado if cotizacion else None,
-                valor_antes_iva=cotizacion.valor_antes_iva if cotizacion else None,
-                valor_iva=cotizacion.valor_iva if cotizacion else None,
-                orden_id=orden.id if orden else None,
-                numero_oc=orden.numero_oc if orden else None,
-                factura_id=factura.id if factura else None,
-                factura_estado=factura.estado if factura else None,
-                numero_factura=factura.numero_factura if factura else None,
-                valor_factura=factura.valor_factura if factura else None,
-                fecha_factura=factura.fecha_factura if factura else None,
-            )
-        )
-
-    return resultado
+@router.patch(
+    "/solicitudes/{solicitud_id}/seguimiento",
+    response_model=SeguimientoSolicitudRead,
+)
+def actualizar_seguimiento_financiero(
+    solicitud_id: uuid.UUID,
+    payload: SeguimientoSolicitudUpdate,
+    current_user: User = Depends(require_financiero),
+    oc_db: Session = Depends(get_oc_db),
+    fin_db: Session = Depends(get_financiero_db),
+) -> SeguimientoSolicitudRead:
+    sol = oc_db.get(SolicitudOC, solicitud_id)
+    if not sol or not _visible_en_lista_financiero(sol):
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada o no visible en Financiero.")
+    now = datetime.now(timezone.utc)
+    seg = fin_db.get(SeguimientoFinancieroSolicitud, solicitud_id)
+    if seg is None:
+        seg = SeguimientoFinancieroSolicitud(solicitud_id=solicitud_id)
+    seg.observaciones = payload.observaciones or None
+    seg.updated_at = now
+    seg.updated_by_id = current_user.id
+    fin_db.add(seg)
+    fin_db.commit()
+    fin_db.refresh(seg)
+    return SeguimientoSolicitudRead(
+        solicitud_id=solicitud_id,
+        observaciones=seg.observaciones,
+        updated_at=seg.updated_at,
+        updated_by_id=seg.updated_by_id,
+    )
 
 
 @router.get("/facturas/{solicitud_id}/proforma")
