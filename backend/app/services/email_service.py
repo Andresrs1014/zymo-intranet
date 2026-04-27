@@ -9,6 +9,7 @@ Flujos implementados:
   Flujo 4 — OC Enviada         → solicitante (estado: oc_enviada)
   Flujo OC Proveedor           → proveedor   (adjunto DOCX/PDF) + CC al solicitante
   Flujo 5 — En plataforma      → financiero  (estado: oc_en_plataforma)
+  Flujo 5b — En plataforma     → solicitante (estado: oc_en_plataforma)
   Flujo Proforma               → financiero  (tiene_proforma activado: True)
 """
 from __future__ import annotations
@@ -929,6 +930,64 @@ async def send_en_plataforma_financiero(
         recipients=[email_financiero],
         body=_html_en_plataforma_financiero(s, cotizacion, cfg, logo_uri=logo_uri),
         flujo="Flujo 5",
+    )
+
+
+# ── Flujo 5b — En plataforma → solicitante ───────────────────────────────────
+
+def _html_en_plataforma_solicitante(
+    s: "SolicitudOC",
+    cfg: Optional[dict] = None,
+    logo_uri: str = "",
+) -> str:
+    """HTML para avisar al solicitante que su pedido llegó a plataforma y debe confirmar recepción."""
+    color = _b(cfg, "empresa_color")
+    intranet_url = cfg.get("intranet_url", "") if cfg else ""
+    link = f"{intranet_url}/operativo/mis-solicitudes/{s.id}"
+    cuerpo = f"""
+    <p style="color:#374151;font-size:14px">Hola <strong>{s.solicitante_nombre}</strong>,</p>
+    <p style="color:#374151;font-size:14px">
+      Tu pedido llegó a plataforma. Por favor ingresa a la intranet y confirma la recepción
+      para que el proceso pueda cerrarse.
+    </p>
+    {_tabla(
+        _fila("Consecutivo OS", s.consecutivo_os),
+        _fila("Descripción", s.descripcion),
+        _fila("Plataforma", s.plataforma or "—"),
+        _fila("Fecha en plataforma", _fmt_fecha(s.fecha_en_plataforma or s.updated_at)),
+    )}
+    <p style="color:#374151;font-size:14px">
+      Haz clic aquí para confirmar la recepción:
+      <a href="{link}" style="color:{color};font-weight:600">✅ Confirmar recepción →</a>
+    </p>
+    <p style="color:#6b7280;font-size:13px">
+      Si tienes alguna duda, comunícate con el equipo de compras.
+    </p>
+    """
+    return _base("Tu pedido llegó a plataforma — confirma la recepción", cuerpo, cfg, logo_uri=logo_uri)
+
+
+async def send_en_plataforma_solicitante(s: "SolicitudOC") -> None:
+    """Flujo 5b — email al solicitante cuando la OC pasa a estado oc_en_plataforma."""
+    cfg = _get_runtime_config(plataforma=s.plataforma)
+    if not (cfg["smtp_user"] and cfg["smtp_password"]):
+        log.warning("[email] SMTP no configurado — omitiendo Flujo 5b (en plataforma solicitante)")
+        return
+    if not s.solicitante_email:
+        log.warning(
+            "[email] Flujo 5b: solicitud %s sin email de solicitante — omitiendo correo",
+            s.consecutivo_os,
+        )
+        return
+
+    logo_uri = _logo_base64(s.plataforma)
+    prefijo = _b(cfg, "email_prefijo")
+    await _send_html(
+        cfg,
+        subject=f"{prefijo} Tu pedido llegó a plataforma — {s.consecutivo_os}",
+        recipients=[s.solicitante_email],
+        body=_html_en_plataforma_solicitante(s, cfg, logo_uri=logo_uri),
+        flujo="Flujo 5b",
     )
 
 
