@@ -630,6 +630,26 @@ export function useActualizarProforma(solicitudId: string) {
   })
 }
 
+export function useSubirProforma(solicitudId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (archivo: File) => {
+      const formData = new FormData()
+      formData.append("archivo", archivo)
+      const { data } = await api.post<SolicitudOC>(
+        `/api/oc/solicitudes/${solicitudId}/proforma/upload`,
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      )
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["oc", "solicitud", solicitudId] })
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
+    },
+  })
+}
+
 export function useUsuariosCompras() {
   return useQuery({
     queryKey: ["oc", "usuarios-compras"],

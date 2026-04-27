@@ -31,6 +31,7 @@ import {
   useSubirFotoSolicitud,
   useEliminarFotoSolicitud,
   useActualizarProforma,
+  useSubirProforma,
   type EditarCotizacionPayload,
 } from "@/hooks/useOC"
 import { useAuthStore } from "@/store/authStore"
@@ -85,6 +86,7 @@ export function SolicitudDetallePage() {
   const cambiarPrioridad = useCambiarPrioridad()
   const cancelarSolicitud = useCancelarSolicitud()
   const actualizarProforma = useActualizarProforma(id ?? "")
+  const subirProforma = useSubirProforma(id ?? "")
   const correccionSolicitud = useCorreccionSolicitud()
   const cancelarCotizacion = useCancelarCotizacion()
   const correccionCotizacion = useCorreccionCotizacion()
@@ -381,39 +383,85 @@ export function SolicitudDetallePage() {
               )}
 
               {/* Widget Anticipo / Proforma — visible en cualquier estado del proceso */}
-              <div className={`flex items-center justify-between rounded-xl border px-4 py-3 ${
+              <div className={`rounded-xl border px-4 py-3 space-y-3 ${
                 solicitud.tiene_proforma
                   ? "border-yellow-300 bg-yellow-50"
                   : "border-gray-200 bg-white"
               }`}>
-                <div className="flex items-center gap-2">
-                  <svg className={`w-4 h-4 ${solicitud.tiene_proforma ? "text-yellow-600" : "text-gray-400"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" />
-                  </svg>
-                  <span className={`text-sm font-semibold ${solicitud.tiene_proforma ? "text-yellow-800" : "text-gray-500"}`}>
-                    {solicitud.tiene_proforma ? "Tiene anticipo / proforma" : "Sin anticipo / proforma"}
-                  </span>
-                  {solicitud.tiene_proforma && (
-                    <span className="rounded-full bg-yellow-200 px-2 py-0.5 text-[10px] font-bold text-yellow-800 uppercase tracking-wide">
-                      Activo
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <svg className={`w-4 h-4 ${solicitud.tiene_proforma ? "text-yellow-600" : "text-gray-400"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" />
+                    </svg>
+                    <span className={`text-sm font-semibold ${solicitud.tiene_proforma ? "text-yellow-800" : "text-gray-500"}`}>
+                      {solicitud.tiene_proforma ? "Tiene anticipo / proforma" : "Sin anticipo / proforma"}
                     </span>
-                  )}
+                    {solicitud.tiene_proforma && (
+                      <span className="rounded-full bg-yellow-200 px-2 py-0.5 text-[10px] font-bold text-yellow-800 uppercase tracking-wide">
+                        Activo
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => actualizarProforma.mutate(!solicitud.tiene_proforma)}
+                    disabled={actualizarProforma.isPending}
+                    className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50 ${
+                      solicitud.tiene_proforma
+                        ? "border-yellow-300 bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
+                        : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
+                    }`}
+                  >
+                    {actualizarProforma.isPending
+                      ? "Guardando..."
+                      : solicitud.tiene_proforma
+                      ? "Desactivar"
+                      : "Activar proforma"}
+                  </button>
                 </div>
-                <button
-                  onClick={() => actualizarProforma.mutate(!solicitud.tiene_proforma)}
-                  disabled={actualizarProforma.isPending}
-                  className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50 ${
-                    solicitud.tiene_proforma
-                      ? "border-yellow-300 bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
-                      : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
-                  }`}
-                >
-                  {actualizarProforma.isPending
-                    ? "Guardando..."
-                    : solicitud.tiene_proforma
-                    ? "Desactivar"
-                    : "Activar proforma"}
-                </button>
+
+                {/* Upload y visualización de archivo de proforma */}
+                {solicitud.tiene_proforma && (
+                  <div className="flex items-center gap-3 pt-1 border-t border-yellow-200">
+                    {solicitud.proforma_path ? (
+                      <button
+                        onClick={async () => {
+                          const resp = await api.get(
+                            `/api/oc/solicitudes/${solicitud.id}/proforma/descargar`,
+                            { responseType: "blob" }
+                          )
+                          const url = URL.createObjectURL(resp.data as Blob)
+                          window.open(url, "_blank")
+                        }}
+                        className="flex items-center gap-1.5 text-xs font-medium text-yellow-700 underline hover:text-yellow-900"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        Ver proforma subida
+                      </button>
+                    ) : (
+                      <span className="text-xs text-yellow-600 italic">Sin archivo de proforma aún</span>
+                    )}
+                    <label className="flex items-center gap-1.5 cursor-pointer rounded-lg border border-yellow-300 bg-white px-3 py-1.5 text-xs font-semibold text-yellow-700 hover:bg-yellow-50 transition-colors disabled:opacity-50">
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                      </svg>
+                      {subirProforma.isPending ? "Subiendo..." : solicitud.proforma_path ? "Reemplazar" : "Subir proforma"}
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept=".pdf,.xlsx,.xls,.docx,.jpg,.jpeg,.png"
+                        disabled={subirProforma.isPending}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0]
+                          if (file) subirProforma.mutate(file)
+                          e.target.value = ""
+                        }}
+                      />
+                    </label>
+                  </div>
+                )}
               </div>
 
               {/* Datos del pedido */}

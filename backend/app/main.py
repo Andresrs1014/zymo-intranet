@@ -201,6 +201,8 @@ def _migrate_oc_db() -> None:
         ("tipo_solicitud", "VARCHAR(20) DEFAULT 'compra'"),
         ("tipo_mantenimiento", "VARCHAR(20)"),
         ("tiene_proforma", "BOOLEAN DEFAULT 0"),
+        ("proforma_path", "TEXT"),
+        ("fecha_cerrado", "DATETIME"),
     ]
     with get_oc_engine().connect() as conn:
         for col, tipo in nuevas_columnas:

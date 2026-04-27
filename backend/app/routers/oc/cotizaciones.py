@@ -18,7 +18,7 @@ from app.database import get_db
 from app.oc_database import get_oc_db
 from app.models.oc import CotizacionProveedor, EstadoOC, SolicitudOC
 from app.models.user import User
-from app.services.email_service import send_aprobacion_directora, send_cotizacion_lista
+from app.services.email_service import send_aprobacion_directora, send_cotizacion_lista, send_proforma_financiero
 from app.services.historial import registrar_cambio_estado
 
 router = APIRouter(tags=["OC - Cotizaciones"])
@@ -665,6 +665,7 @@ def listar_cotizaciones(
 def aprobar_cotizacion(
     cotizacion_id: uuid.UUID,
     payload: AprobarPayload,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     oc_db: Session = Depends(get_oc_db),
 ):
@@ -701,6 +702,15 @@ def aprobar_cotizacion(
             usuario_id=current_user.id,
             usuario_nombre=current_user.full_name,
         )
+
+        # Si la solicitud requiere anticipo/proforma, notificar a Financiera
+        if solicitud.tiene_proforma:
+            background_tasks.add_task(
+                send_proforma_financiero,
+                solicitud,
+                cotizacion,
+                solicitud.proforma_path,
+            )
 
     oc_db.commit()
     oc_db.refresh(cotizacion)

@@ -50,6 +50,8 @@ class SolicitudOC(SQLModel, table=True):
 
     # Indicador de anticipo/proforma — activo en cualquier momento del proceso
     tiene_proforma: bool = Field(default=False)
+    # Ruta al archivo de proforma subido por compras (dentro del volumen Docker)
+    proforma_path: Optional[str] = Field(default=None)
 
     # Gestión interna
     estado: str = Field(default=EstadoOC.nueva, max_length=30)
@@ -81,6 +83,7 @@ class SolicitudOC(SQLModel, table=True):
     fecha_envio_oc: Optional[datetime] = Field(default=None)
     fecha_en_plataforma: Optional[datetime] = Field(default=None)
     fecha_recibido: Optional[datetime] = Field(default=None)
+    fecha_cerrado: Optional[datetime] = Field(default=None)
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

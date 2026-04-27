@@ -939,6 +939,7 @@ def _html_proforma_financiero(
     cot: Optional["CotizacionProveedor"],
     cfg: Optional[dict] = None,
     logo_uri: str = "",
+    tiene_adjunto: bool = False,
 ) -> str:
     """HTML para notificar a Financiera que una solicitud requiere anticipo/proforma."""
     filas_valores = ""
@@ -950,10 +951,15 @@ def _html_proforma_financiero(
             _fila("VALOR TOTAL", _fmt_cop(cot.valor_total), destacar=True, cfg=cfg),
             _fila("Forma de pago", cot.forma_pago or "—"),
         ])
+    nota_adjunto = (
+        "La proforma se adjunta a este correo. Por favor proceda con la gestión del anticipo."
+        if tiene_adjunto
+        else "El equipo de compras adjuntará la proforma cuando esté disponible."
+    )
     cuerpo = f"""
     <p style="color:#374151;font-size:14px">
-      La siguiente solicitud de compra ha sido marcada como <strong>requiere anticipo / proforma</strong>.
-      Por favor proceda con la gestión del anticipo según los procedimientos del área Financiera.
+      La siguiente solicitud de compra ha sido <strong>aprobada por la dirección</strong> y requiere
+      <strong>anticipo / proforma</strong>.
     </p>
     <p style="color:#374151;font-size:13px;font-weight:600;margin-bottom:4px">📋 Datos de la solicitud</p>
     {_tabla(
@@ -962,12 +968,10 @@ def _html_proforma_financiero(
         _fila("Plataforma", s.plataforma or "—"),
         _fila("Solicitante", s.solicitante_nombre),
         _fila("Área", s.area_solicitante or "—"),
-        _fila("Estado actual", s.estado),
+        _fila("Aprobado por", s.aval_compra or "—"),
     )}
     {_tabla(filas_valores) if filas_valores else ""}
-    <p style="color:#374151;font-size:14px">
-      Este anticipo fue registrado por el equipo de compras. Queda pendiente de gestión por Financiera.
-    </p>
+    <p style="color:#374151;font-size:14px">{nota_adjunto}</p>
     """
     return _base(f"Anticipo/proforma requerido — {s.consecutivo_os}", cuerpo, cfg, logo_uri=logo_uri)
 
@@ -975,8 +979,11 @@ def _html_proforma_financiero(
 async def send_proforma_financiero(
     s: "SolicitudOC",
     cotizacion: Optional["CotizacionProveedor"] = None,
+    proforma_path: Optional[str] = None,
 ) -> None:
-    """Flujo Proforma — email a Financiera cuando se activa tiene_proforma en una solicitud."""
+    """Flujo Proforma — email a Financiera cuando la directora aprueba una solicitud con anticipo/proforma.
+    Si existe proforma_path, adjunta el archivo al correo.
+    """
     cfg = _get_runtime_config(plataforma=s.plataforma)
     if not (cfg["smtp_user"] and cfg["smtp_password"]):
         log.warning("[email] SMTP no configurado — omitiendo Flujo Proforma")
@@ -992,13 +999,60 @@ async def send_proforma_financiero(
 
     logo_uri = _logo_base64(s.plataforma)
     prefijo = _b(cfg, "email_prefijo")
-    await _send_html(
-        cfg,
-        subject=f"{prefijo} Anticipo/proforma requerido — {s.consecutivo_os}",
-        recipients=[email_financiero],
-        body=_html_proforma_financiero(s, cotizacion, cfg, logo_uri=logo_uri),
-        flujo="Flujo Proforma",
-    )
+
+    # Verificar si existe archivo de proforma para adjuntar
+    archivo_proforma: Path | None = None
+    if proforma_path:
+        p = Path(proforma_path)
+        if p.exists():
+            archivo_proforma = p
+        else:
+            log.warning("[email] Proforma: archivo no encontrado en '%s' — se envía sin adjunto", proforma_path)
+
+    if archivo_proforma:
+        # Envío con adjunto (sin pasar por _send_html para soportar attachments)
+        extension = archivo_proforma.suffix.lower()
+        mime_map = {
+            ".pdf": ("application", "pdf"),
+            ".xlsx": ("application", "vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+            ".xls": ("application", "vnd.ms-excel"),
+            ".docx": ("application", "vnd.openxmlformats-officedocument.wordprocessingml.document"),
+            ".jpg": ("image", "jpeg"),
+            ".jpeg": ("image", "jpeg"),
+            ".png": ("image", "png"),
+        }
+        mime_type, mime_subtype = mime_map.get(extension, ("application", "octet-stream"))
+        nombre_adjunto = f"proforma_{s.consecutivo_os}{extension}"
+
+        msg = MessageSchema(
+            subject=f"{prefijo} Cotización aprobada con anticipo — {s.consecutivo_os}",
+            recipients=[email_financiero],
+            body=_html_proforma_financiero(s, cotizacion, cfg, logo_uri=logo_uri, tiene_adjunto=True),
+            subtype=MessageType.html,
+            attachments=[{
+                "file": str(archivo_proforma),
+                "mime_type": mime_type,
+                "mime_subtype": mime_subtype,
+                "headers": {
+                    "Content-Disposition": f'attachment; filename="{nombre_adjunto}"',
+                    "Content-ID": f"<proforma_{s.consecutivo_os}>",
+                },
+            }],
+        )
+        try:
+            await FastMail(_build_conf(cfg)).send_message(msg)
+            log.info("[email] Flujo Proforma con adjunto enviado a %s", email_financiero)
+        except Exception:
+            log.exception("[email] Error enviando Flujo Proforma a %s", email_financiero)
+    else:
+        # Sin adjunto — cotización aprobada pero proforma aún no subida
+        await _send_html(
+            cfg,
+            subject=f"{prefijo} Cotización aprobada con anticipo — {s.consecutivo_os}",
+            recipients=[email_financiero],
+            body=_html_proforma_financiero(s, cotizacion, cfg, logo_uri=logo_uri, tiene_adjunto=False),
+            flujo="Flujo Proforma",
+        )
 
 
 async def send_nueva_solicitud_interna(s: "SolicitudOC") -> None:

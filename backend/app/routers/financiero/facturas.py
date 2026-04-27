@@ -48,6 +48,11 @@ class SolicitudConFacturaRead(BaseModel):
     estado: str
     fecha_en_plataforma: Optional[datetime]
     fecha_recibido: Optional[datetime]
+    # Anticipo / proforma
+    tiene_proforma: Optional[bool] = False
+    proforma_path: Optional[str] = None
+    # Forma de pago de la cotización aprobada
+    forma_pago: Optional[str] = None
     # Cotización aprobada
     cotizacion_id: Optional[uuid.UUID]
     proveedor_nombre: Optional[str]
@@ -355,6 +360,9 @@ def listar_facturas(
                 estado=sol.estado,
                 fecha_en_plataforma=sol.fecha_en_plataforma,
                 fecha_recibido=sol.fecha_recibido,
+                tiene_proforma=sol.tiene_proforma,
+                proforma_path=sol.proforma_path,
+                forma_pago=cotizacion.forma_pago if cotizacion else None,
                 cotizacion_id=cotizacion.id if cotizacion else None,
                 proveedor_nombre=cotizacion.proveedor_nombre if cotizacion else None,
                 valor_aprobado=cotizacion.valor_aprobado if cotizacion else None,
@@ -371,6 +379,41 @@ def listar_facturas(
         )
 
     return resultado
+
+
+@router.get("/facturas/{solicitud_id}/proforma")
+def descargar_proforma_financiero(
+    solicitud_id: uuid.UUID,
+    current_user: User = Depends(require_financiero),
+    oc_db: Session = Depends(get_oc_db),
+):
+    """Descarga la proforma de una solicitud desde el módulo financiero."""
+    from pathlib import Path as _Path
+
+    solicitud = oc_db.get(SolicitudOC, solicitud_id)
+    if not solicitud or not solicitud.proforma_path:
+        raise HTTPException(status_code=404, detail="Proforma no disponible para esta solicitud.")
+
+    archivo = _Path(solicitud.proforma_path)
+    if not archivo.exists():
+        raise HTTPException(status_code=404, detail="Archivo de proforma no encontrado en el servidor.")
+
+    extension = archivo.suffix.lower()
+    media_types = {
+        ".pdf": "application/pdf",
+        ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ".xls": "application/vnd.ms-excel",
+        ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+    }
+    media_type = media_types.get(extension, "application/octet-stream")
+    return FileResponse(
+        str(archivo),
+        media_type=media_type,
+        filename=f"proforma_{solicitud.consecutivo_os}{extension}",
+    )
 
 
 @router.post(

@@ -22,6 +22,7 @@ class Settings(BaseSettings):
 
     # Módulo Financiero
     facturas_dir: str = "/app/data/facturas"
+    proformas_dir: str = "/app/data/proformas"
 
     # OC Automatizaciones
     # Secret para validar que el webhook viene de Power Automate (opcional)

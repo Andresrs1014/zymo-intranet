@@ -51,6 +51,7 @@ class SolicitudRead(BaseModel):
     tipo_mantenimiento: Optional[str] = None
     fecha_proximo_mantenimiento: Optional[date]
     tiene_proforma: bool = False
+    proforma_path: Optional[str] = None
     estado: str
     auxiliar_id: Optional[int]
     evidencia_url: Optional[str] = None
@@ -71,6 +72,7 @@ class SolicitudRead(BaseModel):
     fecha_envio_oc: Optional[datetime]
     fecha_en_plataforma: Optional[datetime] = None
     fecha_recibido: Optional[datetime]
+    fecha_cerrado: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
 
@@ -485,32 +487,90 @@ class ProformaPayload(BaseModel):
 def actualizar_proforma(
     solicitud_id: uuid.UUID,
     payload: ProformaPayload,
-    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_compras),
     oc_db: Session = Depends(get_oc_db),
 ):
-    """Activa o desactiva el indicador de anticipo/proforma. Visible durante todo el proceso."""
+    """Activa o desactiva el indicador de anticipo/proforma. Visible durante todo el proceso.
+    El correo a Financiera se envía cuando la directora aprueba la cotización (no al activar el toggle).
+    """
     solicitud = oc_db.get(SolicitudOC, solicitud_id)
     if not solicitud:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
-
-    activando = payload.tiene_proforma and not solicitud.tiene_proforma
 
     solicitud.tiene_proforma = payload.tiene_proforma
     solicitud.updated_at = datetime.now(timezone.utc)
     oc_db.add(solicitud)
     oc_db.commit()
     oc_db.refresh(solicitud)
-
-    if activando:
-        cotizacion = oc_db.exec(
-            select(CotizacionProveedor)
-            .where(CotizacionProveedor.solicitud_id == solicitud_id)
-            .order_by(CotizacionProveedor.created_at.desc())
-        ).first()
-        background_tasks.add_task(send_proforma_financiero, solicitud, cotizacion)  # Flujo Proforma
-
     return solicitud
+
+
+@router.post("/{solicitud_id}/proforma/upload", response_model=SolicitudRead)
+async def upload_proforma(
+    solicitud_id: uuid.UUID,
+    archivo: UploadFile = File(...),
+    current_user: User = Depends(require_compras),
+    oc_db: Session = Depends(get_oc_db),
+):
+    """Sube el archivo de proforma/anticipo para la solicitud (PDF/XLSX)."""
+    from app.config import settings
+
+    solicitud = oc_db.get(SolicitudOC, solicitud_id)
+    if not solicitud:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
+
+    extension = Path(archivo.filename or "proforma.pdf").suffix.lower()
+    if extension not in {".pdf", ".xlsx", ".xls", ".docx", ".jpg", ".jpeg", ".png"}:
+        raise HTTPException(status_code=400, detail="Formato de archivo no permitido.")
+
+    proformas_dir = Path(settings.proformas_dir)
+    proformas_dir.mkdir(parents=True, exist_ok=True)
+
+    nombre_archivo = f"{solicitud_id}{extension}"
+    destino = proformas_dir / nombre_archivo
+
+    contenido = await archivo.read()
+    destino.write_bytes(contenido)
+
+    solicitud.proforma_path = str(destino)
+    solicitud.updated_at = datetime.now(timezone.utc)
+    oc_db.add(solicitud)
+    oc_db.commit()
+    oc_db.refresh(solicitud)
+    return solicitud
+
+
+@router.get("/{solicitud_id}/proforma/descargar")
+def descargar_proforma(
+    solicitud_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    oc_db: Session = Depends(get_oc_db),
+):
+    """Descarga el archivo de proforma de la solicitud."""
+    solicitud = oc_db.get(SolicitudOC, solicitud_id)
+    if not solicitud or not solicitud.proforma_path:
+        raise HTTPException(status_code=404, detail="Proforma no encontrada.")
+
+    proforma_file = Path(solicitud.proforma_path)
+    if not proforma_file.exists():
+        raise HTTPException(status_code=404, detail="Archivo de proforma no encontrado en el servidor.")
+
+    extension = proforma_file.suffix.lower()
+    media_types = {
+        ".pdf": "application/pdf",
+        ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ".xls": "application/vnd.ms-excel",
+        ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+    }
+    media_type = media_types.get(extension, "application/octet-stream")
+    return FileResponse(
+        str(proforma_file),
+        media_type=media_type,
+        filename=f"proforma_{solicitud.consecutivo_os}{extension}",
+    )
 
 
 @router.patch("/{solicitud_id}/gestionar", response_model=SolicitudRead)

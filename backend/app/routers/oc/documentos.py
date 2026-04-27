@@ -442,6 +442,7 @@ def cerrar_solicitud(
 
     estado_anterior = solicitud.estado
     solicitud.estado = EstadoOC.cerrada
+    solicitud.fecha_cerrado = datetime.now(timezone.utc)
     solicitud.updated_at = datetime.now(timezone.utc)
     oc_db.add(solicitud)
 

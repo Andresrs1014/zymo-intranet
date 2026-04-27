@@ -31,6 +31,7 @@ export interface SolicitudOC {
   tipo_mantenimiento: "correctivo" | "preventivo" | null
   fecha_proximo_mantenimiento: string | null
   tiene_proforma: boolean
+  proforma_path: string | null
   estado: EstadoOC
   auxiliar_id: number | null
   evidencia_url: string | null
@@ -51,6 +52,7 @@ export interface SolicitudOC {
   fecha_envio_oc: string | null
   fecha_en_plataforma: string | null
   fecha_recibido: string | null
+  fecha_cerrado: string | null
   created_at: string
   updated_at: string
 }

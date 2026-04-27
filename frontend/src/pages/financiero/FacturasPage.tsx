@@ -4,6 +4,7 @@ import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
 import { useSolicitudesFinanciero } from "@/hooks/useFinanciero"
 import type { EstadoFactura, SolicitudConFactura } from "@/types/financiero"
+import { api } from "@/lib/api"
 
 // ── Tipos de tab ──────────────────────────────────────────────────────────────
 
@@ -170,7 +171,39 @@ function FacturaCard({ solicitud: s }: { solicitud: SolicitudConFactura }) {
               {s.numero_oc && (
                 <span>OC: <span className="text-gray-600 font-mono">{s.numero_oc}</span></span>
               )}
+              {s.forma_pago && (
+                <span>Pago: <span className="text-gray-600">{s.forma_pago}</span></span>
+              )}
+              {s.tiene_proforma && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-bold text-yellow-700 uppercase tracking-wide">
+                  Anticipo
+                </span>
+              )}
             </div>
+            {/* Botón proforma */}
+            {s.tiene_proforma && s.proforma_path && (
+              <button
+                onClick={async (e) => {
+                  e.stopPropagation()
+                  const resp = await api.get(
+                    `/api/financiero/facturas/${s.solicitud_id}/proforma`,
+                    { responseType: "blob" }
+                  )
+                  const url = URL.createObjectURL(resp.data as Blob)
+                  window.open(url, "_blank")
+                }}
+                className="mt-2 flex items-center gap-1.5 text-xs font-medium text-yellow-700 underline hover:text-yellow-900"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                Ver proforma
+              </button>
+            )}
+            {s.tiene_proforma && !s.proforma_path && (
+              <p className="mt-1 text-[10px] italic text-yellow-600">Proforma pendiente de subir por compras</p>
+            )}
           </div>
 
           {/* Center — valor */}

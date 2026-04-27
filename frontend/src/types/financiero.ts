@@ -12,6 +12,10 @@ export interface SolicitudConFactura {
   estado: EstadoOC
   fecha_en_plataforma: string | null
   fecha_recibido: string | null
+  // Anticipo / proforma
+  tiene_proforma: boolean | null
+  proforma_path: string | null
+  forma_pago: string | null
   // Cotización aprobada
   cotizacion_id: string | null
   proveedor_nombre: string | null

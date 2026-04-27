@@ -116,6 +116,8 @@ Antes de aprobar Y DURANTE el proceso de aprobación el sistema debe prepararse 
 3. La proforma se debe guardar por el mismo tunel o uno nuevo por donde se guardan las cotizaciones 
 4. Tiene que activar el estado de PROFORMA en la solicitud que su importancia radica en que se hizo un anticipo antes de comprar.
 
+Es importante saber que en el apartado de Financiera - debe poder ver las proformas y antes de que se pague el producto completo. Entonces el auxiliar de compras debe poder subir la proforma y esta debe cargarse en financiera cuando la directora apruebe la solicitud, ya aprobada entonces la proforma subida por el auxiliar pasa a contabilidad quien gestionara ese anticipo al proveedor.
+
 Al ser enviada a **Aprobación** se debe enviar un correo. La intranet debe poder:
 
 1. Enviar un correo a solicitante
