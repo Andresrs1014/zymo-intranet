@@ -402,58 +402,32 @@ def _items_desde_pdf_tablas(contenido: bytes) -> list[dict]:
     return []
 
 
-def _fusionar_tokens_numericos(tokens: list[str]) -> list[str]:
-    """Fusiona tokens consecutivos que forman un número partido por pdfplumber.
+def _fusionar_palabras_por_gap(
+    palabras: list[dict], gap_threshold: float = 1.8
+) -> list[str]:
+    """Fusiona palabras consecutivas de una línea cuando el espacio horizontal
+    entre ellas (next.x0 - prev.x1) es menor a ``gap_threshold`` puntos.
 
-    Ej.: ["Reja", "1", ".", "752", ".", "000"] → ["Reja", "1.752.000"]
-
-    No concatena dos enteros grandes separados como columnas distintas
-    (**4 + 805 + 548 + 055**) que producen valores del orden de los miles de millones.
-
-    Si dos tokens son solo dígitos sin separadores, solo se concatenan cuando
-    es el patrón COP típico: bloque inicial corto + bloque de 3 dígitos que empiezan
-    por 0 (ej. **48 + 055 → 48055**), o **… + 000** (miles).
+    Esto evita pegar columnas distintas (p. ej. ``25.090`` y ``100.360``) que
+    visualmente están separadas, y al mismo tiempo une fragmentos del mismo
+    número que pdfplumber reportó por separado por culpa del kerning.
     """
     resultado: list[str] = []
-    buffer = ""
+    if not palabras:
+        return resultado
 
-    def _solo_digitos(s: str) -> bool:
-        return bool(re.fullmatch(r"\d+", re.sub(r"[\$%\s]", "", s)))
-
-    def _tail_digit_run(buf: str) -> str:
-        """Último tramo de solo dígitos del buffer (sin separadores COP)."""
-        core = re.sub(r"[\$%\s]", "", buf)
-        i = len(core) - 1
-        while i >= 0 and core[i].isdigit():
-            i -= 1
-        return core[i + 1 :]
-
-    def _fusion_digitos_permitida(prev_run: str, nxt: str) -> bool:
-        """¿Permitir buffer '…prev_run' + token nxt (solo dígitos)?"""
-        if not prev_run or not nxt.isdigit():
-            return False
-        if nxt == "000" and len(prev_run) <= 4:
-            return True
-        if len(nxt) == 3 and nxt.startswith("0") and len(prev_run) <= 3:
-            return True
-        return False
-
-    for tok in tokens:
-        if re.match(r"^[\d.,\$%]+$", tok):
-            nxt_core = re.sub(r"[\$%\s]", "", tok)
-            if buffer and _solo_digitos(tok) and _solo_digitos(buffer):
-                prev_run = _tail_digit_run(buffer)
-                if not _fusion_digitos_permitida(prev_run, nxt_core):
-                    resultado.append(buffer)
-                    buffer = ""
-            buffer += tok
+    cur = str(palabras[0]["text"])
+    cur_x1 = float(palabras[0]["x1"])
+    for w in palabras[1:]:
+        x0 = float(w["x0"])
+        gap = x0 - cur_x1
+        if gap < gap_threshold:
+            cur += str(w["text"])
         else:
-            if buffer:
-                resultado.append(buffer)
-                buffer = ""
-            resultado.append(tok)
-    if buffer:
-        resultado.append(buffer)
+            resultado.append(cur)
+            cur = str(w["text"])
+        cur_x1 = float(w["x1"])
+    resultado.append(cur)
     return resultado
 
 
@@ -493,7 +467,7 @@ def _items_desde_pdf_texto(contenido: bytes) -> list[dict]:
                 items: list[dict] = []
                 for linea in lineas_words:
                     linea.sort(key=lambda w: float(w["x0"]))
-                    tokens = _fusionar_tokens_numericos([str(x["text"]) for x in linea])
+                    tokens = _fusionar_palabras_por_gap(linea)
                     if len(tokens) < 2:
                         continue
 
@@ -513,15 +487,30 @@ def _items_desde_pdf_texto(contenido: bytes) -> list[dict]:
                     if any(t.upper() in ("TOTAL", "SUBTOTAL", "IVA", "GRAN") for t in resto):
                         continue
 
+                    cantidad: Optional[float] = None
+                    if (
+                        len(resto) >= 2
+                        and re.fullmatch(r"\d{1,4}", resto[0])
+                        and len(valores_raw) >= 1
+                    ):
+                        cantidad = float(resto[0])
+                        resto = resto[1:]
+
                     descripcion = " ".join(resto)
                     valores = [v for v in (_to_float(n) for n in valores_raw) if v is not None]
 
                     item: dict = {"descripcion": descripcion}
+                    if cantidad is not None:
+                        item["cantidad"] = cantidad
                     if len(valores) >= 2:
                         item["valor_unitario"] = valores[-2]
                         item["valor_total"] = valores[-1]
                     elif len(valores) == 1:
-                        item["valor_total"] = valores[0]
+                        if cantidad is not None and cantidad > 0:
+                            item["valor_unitario"] = valores[0]
+                            item["valor_total"] = valores[0] * cantidad
+                        else:
+                            item["valor_total"] = valores[0]
 
                     items.append(item)
 
