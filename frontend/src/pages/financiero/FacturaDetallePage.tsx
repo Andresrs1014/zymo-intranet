@@ -18,7 +18,8 @@ import {
 } from "@/hooks/useFinanciero"
 import { Combobox } from "@/components/ui/Combobox"
 import type { EstadoFactura, FacturaUpdate } from "@/types/financiero"
-import { formatCOP, parseCOP } from "@/lib/formatters"
+import { formatCOP } from "@/lib/formatters"
+import { FormFieldCOP } from "@/components/forms/FormFieldCOP"
 import { api, openAuthenticatedApiBlob } from "@/lib/api"
 
 function FacturaEstadoBadge({ estado }: { estado: EstadoFactura }) {
@@ -642,50 +643,6 @@ function FormField({
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
-      />
-    </div>
-  )
-}
-
-function FormFieldCOP({
-  label,
-  value,
-  onChange,
-}: {
-  label: string
-  value: number | undefined
-  onChange: (v: number | undefined) => void
-}) {
-  const [raw, setRaw] = useState(
-    value != null ? value.toLocaleString("es-CO", { minimumFractionDigits: 0 }) : ""
-  )
-
-  // Sincronizar cuando el valor externo cambia (carga inicial desde backend)
-  useEffect(() => {
-    if (value != null) {
-      setRaw(value.toLocaleString("es-CO", { minimumFractionDigits: 0 }))
-    } else {
-      setRaw("")
-    }
-  }, [value])
-
-  return (
-    <div>
-      <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
-      <input
-        type="text"
-        inputMode="numeric"
-        value={raw}
-        onChange={(e) => setRaw(e.target.value)}
-        onBlur={() => {
-          const parsed = parseCOP(raw)
-          onChange(parsed)
-          if (parsed != null) {
-            setRaw(parsed.toLocaleString("es-CO", { minimumFractionDigits: 0 }))
-          }
-        }}
-        placeholder="0"
         className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
       />
     </div>

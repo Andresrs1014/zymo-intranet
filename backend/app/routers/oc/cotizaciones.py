@@ -405,13 +405,47 @@ def _items_desde_pdf_tablas(contenido: bytes) -> list[dict]:
 def _fusionar_tokens_numericos(tokens: list[str]) -> list[str]:
     """Fusiona tokens consecutivos que forman un número partido por pdfplumber.
 
-    Ejemplo: ["Reja", "1", ".", "752", ".", "000"] → ["Reja", "1.752.000"]
-    Un token es "numérico" si contiene solo dígitos, puntos y comas.
+    Ej.: ["Reja", "1", ".", "752", ".", "000"] → ["Reja", "1.752.000"]
+
+    No concatena dos enteros grandes separados como columnas distintas
+    (**4 + 805 + 548 + 055**) que producen valores del orden de los miles de millones.
+
+    Si dos tokens son solo dígitos sin separadores, solo se concatenan cuando
+    es el patrón COP típico: bloque inicial corto + bloque de 3 dígitos que empiezan
+    por 0 (ej. **48 + 055 → 48055**), o **… + 000** (miles).
     """
     resultado: list[str] = []
     buffer = ""
+
+    def _solo_digitos(s: str) -> bool:
+        return bool(re.fullmatch(r"\d+", re.sub(r"[\$%\s]", "", s)))
+
+    def _tail_digit_run(buf: str) -> str:
+        """Último tramo de solo dígitos del buffer (sin separadores COP)."""
+        core = re.sub(r"[\$%\s]", "", buf)
+        i = len(core) - 1
+        while i >= 0 and core[i].isdigit():
+            i -= 1
+        return core[i + 1 :]
+
+    def _fusion_digitos_permitida(prev_run: str, nxt: str) -> bool:
+        """¿Permitir buffer '…prev_run' + token nxt (solo dígitos)?"""
+        if not prev_run or not nxt.isdigit():
+            return False
+        if nxt == "000" and len(prev_run) <= 4:
+            return True
+        if len(nxt) == 3 and nxt.startswith("0") and len(prev_run) <= 3:
+            return True
+        return False
+
     for tok in tokens:
         if re.match(r"^[\d.,\$%]+$", tok):
+            nxt_core = re.sub(r"[\$%\s]", "", tok)
+            if buffer and _solo_digitos(tok) and _solo_digitos(buffer):
+                prev_run = _tail_digit_run(buffer)
+                if not _fusion_digitos_permitida(prev_run, nxt_core):
+                    resultado.append(buffer)
+                    buffer = ""
             buffer += tok
         else:
             if buffer:
@@ -443,15 +477,23 @@ def _items_desde_pdf_texto(contenido: bytes) -> list[dict]:
                 if not words:
                     continue
 
-                # Agrupar palabras por línea (bucket de 5px en Y)
-                lineas: dict[int, list[str]] = {}
-                for w in words:
-                    y_key = round(float(w["top"]) / 5) * 5
-                    lineas.setdefault(y_key, []).append(w["text"])
+                words_sorted = sorted(words, key=lambda w: (float(w["top"]), float(w["x0"])))
+                lineas_words: list[list[dict]] = []
+                for w in words_sorted:
+                    t = float(w["top"])
+                    if not lineas_words:
+                        lineas_words.append([w])
+                        continue
+                    ref_top = float(lineas_words[-1][0]["top"])
+                    if abs(ref_top - t) <= 3.0:
+                        lineas_words[-1].append(w)
+                    else:
+                        lineas_words.append([w])
 
                 items: list[dict] = []
-                for y_key in sorted(lineas.keys()):
-                    tokens = _fusionar_tokens_numericos(lineas[y_key])
+                for linea in lineas_words:
+                    linea.sort(key=lambda w: float(w["x0"]))
+                    tokens = _fusionar_tokens_numericos([str(x["text"]) for x in linea])
                     if len(tokens) < 2:
                         continue
 

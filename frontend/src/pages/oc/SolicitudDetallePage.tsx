@@ -37,6 +37,7 @@ import {
 import { useAuthStore } from "@/store/authStore"
 import { getApiError } from "@/hooks/useUsers"
 import { canApproveOC, canConfigureOC, canSeeOC } from "@/lib/permissions"
+import { FormFieldCOP } from "@/components/forms/FormFieldCOP"
 import {
   puedeGestionarProformaDesdeOc,
   solicitudOcProformaSoloFinanciero,
@@ -1402,41 +1403,24 @@ function PanelAprobacion({
           <div>
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Valores</p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Subtotal sin IVA</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={editForm.valor_antes_iva ?? ""}
-                  onChange={(e) => setEditForm((f) => ({ ...f, valor_antes_iva: e.target.value ? Number(e.target.value) : null }))}
-                  placeholder="—"
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">IVA</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={editForm.valor_iva ?? ""}
-                  onChange={(e) => setEditForm((f) => ({ ...f, valor_iva: e.target.value ? Number(e.target.value) : null }))}
-                  placeholder="—"
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Total con IVA *</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={editForm.valor_total ?? ""}
-                  onChange={(e) => setEditForm((f) => ({ ...f, valor_total: Number(e.target.value) }))}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-300"
-                />
-              </div>
+              <FormFieldCOP
+                label="Subtotal sin IVA"
+                value={editForm.valor_antes_iva ?? undefined}
+                onChange={(v) => setEditForm((f) => ({ ...f, valor_antes_iva: v ?? null }))}
+                inputClassName="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+              />
+              <FormFieldCOP
+                label="IVA"
+                value={editForm.valor_iva ?? undefined}
+                onChange={(v) => setEditForm((f) => ({ ...f, valor_iva: v ?? null }))}
+                inputClassName="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+              />
+              <FormFieldCOP
+                label="Total con IVA *"
+                value={editForm.valor_total ?? undefined}
+                onChange={(v) => setEditForm((f) => ({ ...f, valor_total: v ?? 0 }))}
+                inputClassName="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-300"
+              />
             </div>
           </div>
 

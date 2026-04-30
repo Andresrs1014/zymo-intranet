@@ -1,5 +1,6 @@
 import { useRef, useState } from "react"
 import { formatCOP } from "@/lib/formatters"
+import { FormFieldCOP, MoneyInputCOP } from "@/components/forms/FormFieldCOP"
 import { useNavigate, useParams } from "react-router-dom"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
@@ -80,31 +81,7 @@ export function CotizacionFormPage() {
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) {
     const { name, value } = e.target
-    const numericos = ["valor_unitario", "valor_antes_iva", "valor_iva", "valor_total"]
-    const numVal = value === "" ? undefined : Number(value)
-
-    setForm((prev) => {
-      const next = {
-        ...prev,
-        [name]: numericos.includes(name) ? numVal : value,
-      }
-
-      // Auto-cálculo de valores cuando no hay ítems
-      if (name === "valor_antes_iva" || name === "valor_iva") {
-        const subtotal = name === "valor_antes_iva" ? numVal : prev.valor_antes_iva
-        const iva = name === "valor_iva" ? numVal : prev.valor_iva
-        if (subtotal != null && iva != null) {
-          next.valor_total = Math.round((subtotal + iva) * 100) / 100
-        }
-      } else if (name === "valor_total" && prev.valor_iva != null) {
-        // Si el usuario corrige el total manualmente y hay IVA, recalcula subtotal
-        if (numVal != null) {
-          next.valor_antes_iva = Math.round((numVal - prev.valor_iva) * 100) / 100
-        }
-      }
-
-      return next
-    })
+    setForm((prev) => ({ ...prev, [name]: value }))
   }
 
   function handleProveedorSelect(e: React.ChangeEvent<HTMLSelectElement>) {
@@ -175,18 +152,26 @@ export function CotizacionFormPage() {
     setItems((prev) =>
       prev.map((item, i) => {
         if (i !== index) return item
-        const numericFields: (keyof ItemCotizacion)[] = ["cantidad", "valor_unitario", "valor_total"]
-        const value = numericFields.includes(field)
-          ? raw === "" ? undefined : Number(raw)
-          : raw
-        const updated = { ...item, [field]: value }
-        // Auto-calc row total when qty or unit price changes
-        if (field === "cantidad" || field === "valor_unitario") {
-          const qty = field === "cantidad" ? (raw === "" ? undefined : Number(raw)) : item.cantidad
-          const unit = field === "valor_unitario" ? (raw === "" ? undefined : Number(raw)) : item.valor_unitario
-          if (qty != null && unit != null) {
-            updated.valor_total = qty * unit
+        if (field === "cantidad") {
+          const qty = raw === "" ? undefined : Number(raw)
+          const updated = { ...item, cantidad: qty }
+          if (qty != null && item.valor_unitario != null) {
+            updated.valor_total = qty * item.valor_unitario
           }
+          return updated
+        }
+        return { ...item, [field]: raw }
+      })
+    )
+  }
+
+  function handleItemValorUnitario(index: number, unit: number | undefined) {
+    setItems((prev) =>
+      prev.map((item, i) => {
+        if (i !== index) return item
+        const updated = { ...item, valor_unitario: unit }
+        if (item.cantidad != null && unit != null) {
+          updated.valor_total = item.cantidad * unit
         }
         return updated
       })
@@ -531,12 +516,9 @@ export function CotizacionFormPage() {
                               />
                             </td>
                             <td className="py-1.5 pr-2">
-                              <input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={item.valor_unitario ?? ""}
-                                onChange={(e) => handleItemChange(i, "valor_unitario", e.target.value)}
+                              <MoneyInputCOP
+                                value={item.valor_unitario}
+                                onChange={(v) => handleItemValorUnitario(i, v)}
                                 placeholder="0"
                                 className={`${itemInputCls} text-right`}
                               />
@@ -606,13 +588,9 @@ export function CotizacionFormPage() {
                     </div>
                   </div>
                   <Field label="IVA (si aplica)">
-                    <input
-                      name="valor_iva"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={form.valor_iva ?? ""}
-                      onChange={handleChange}
+                    <MoneyInputCOP
+                      value={form.valor_iva}
+                      onChange={(v) => setForm((prev) => ({ ...prev, valor_iva: v }))}
                       placeholder="0"
                       className={inputCls}
                     />
@@ -622,57 +600,58 @@ export function CotizacionFormPage() {
                 /* Sin ítems: campos manuales con auto-cálculo */
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
-                    <Field label="Valor unitario">
-                      <input
-                        name="valor_unitario"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={form.valor_unitario || ""}
-                        onChange={handleChange}
-                        placeholder="0"
-                        className={inputCls}
-                      />
-                    </Field>
-                    <Field label="Subtotal (antes de IVA)">
-                      <input
-                        name="valor_antes_iva"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={form.valor_antes_iva ?? ""}
-                        onChange={handleChange}
-                        placeholder="0"
-                        className={inputCls}
-                      />
-                    </Field>
+                    <FormFieldCOP
+                      label="Valor unitario"
+                      value={form.valor_unitario || undefined}
+                      onChange={(v) => setForm((prev) => ({ ...prev, valor_unitario: v ?? 0 }))}
+                      inputClassName={inputCls}
+                    />
+                    <FormFieldCOP
+                      label="Subtotal (antes de IVA)"
+                      value={form.valor_antes_iva}
+                      onChange={(v) => {
+                        setForm((prev) => {
+                          const next = { ...prev, valor_antes_iva: v }
+                          if (v != null && prev.valor_iva != null) {
+                            next.valor_total = Math.round((v + prev.valor_iva) * 100) / 100
+                          }
+                          return next
+                        })
+                      }}
+                      inputClassName={inputCls}
+                    />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <Field label="IVA">
-                      <input
-                        name="valor_iva"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={form.valor_iva ?? ""}
-                        onChange={handleChange}
-                        placeholder="0"
-                        className={inputCls}
-                      />
-                    </Field>
-                    <Field label="Valor total *">
-                      <input
-                        name="valor_total"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={form.valor_total || ""}
-                        onChange={handleChange}
-                        placeholder="0"
-                        className={inputCls}
-                        required
-                      />
-                    </Field>
+                    <FormFieldCOP
+                      label="IVA"
+                      value={form.valor_iva}
+                      onChange={(v) => {
+                        setForm((prev) => {
+                          const next = { ...prev, valor_iva: v }
+                          if (prev.valor_antes_iva != null && v != null) {
+                            next.valor_total =
+                              Math.round((prev.valor_antes_iva + v) * 100) / 100
+                          }
+                          return next
+                        })
+                      }}
+                      inputClassName={inputCls}
+                    />
+                    <FormFieldCOP
+                      label="Valor total *"
+                      value={form.valor_total || undefined}
+                      onChange={(v) => {
+                        setForm((prev) => {
+                          const next = { ...prev, valor_total: v ?? 0 }
+                          if (v != null && prev.valor_iva != null) {
+                            next.valor_antes_iva =
+                              Math.round((v - prev.valor_iva) * 100) / 100
+                          }
+                          return next
+                        })
+                      }}
+                      inputClassName={inputCls}
+                    />
                   </div>
                   {/* Indicador de consistencia */}
                   {form.valor_antes_iva != null && form.valor_iva != null && form.valor_total > 0 && (
