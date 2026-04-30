@@ -48,7 +48,7 @@ class SolicitudOC(SQLModel, table=True):
     tipo_mantenimiento: Optional[str] = Field(default=None, max_length=20)
     fecha_proximo_mantenimiento: Optional[date] = Field(default=None)
 
-    # Anticipo/proforma — se gestiona desde OC solo tras cargar cotización y antes de enviar la OC al proveedor
+    # Anticipo/proforma — en «Cargar cotización» o detalle mientras la solicitud está en cotización y antes de enviar la OC
     tiene_proforma: bool = Field(default=False)
     # Ruta al archivo de proforma subido por compras (dentro del volumen Docker)
     proforma_path: Optional[str] = Field(default=None)

@@ -9,8 +9,14 @@ import {
   useCrearCotizacion,
   useProveedores,
   useExtraerCotizacion,
+  useCotizaciones,
+  useActualizarProforma,
+  useSubirProforma,
 } from "@/hooks/useOC"
 import type { CotizacionCreatePayload, ExtraccionResult, ItemCotizacion } from "@/hooks/useOC"
+import { api } from "@/lib/api"
+import { puedeGestionarProformaDesdeOc } from "@/lib/ocProforma"
+import { getApiError } from "@/hooks/useUsers"
 
 const EMPTY_FORM: CotizacionCreatePayload = {
   proveedor_nombre: "",
@@ -59,9 +65,12 @@ export function CotizacionFormPage() {
   const navigate = useNavigate()
 
   const { data: solicitud, isLoading: loadingSolicitud } = useSolicitud(id)
+  const { data: cotizaciones = [] } = useCotizaciones(id)
   const { data: proveedores = [] } = useProveedores()
   const crearCotizacion = useCrearCotizacion()
   const extraerCotizacion = useExtraerCotizacion()
+  const actualizarProforma = useActualizarProforma(id ?? "")
+  const subirProforma = useSubirProforma(id ?? "")
 
   const [form, setForm] = useState<CotizacionCreatePayload>(EMPTY_FORM)
   const [items, setItems] = useState<ItemCotizacion[]>([])
@@ -70,6 +79,10 @@ export function CotizacionFormPage() {
   const [extStatus, setExtStatus] = useState<ExtraccionStatus>("idle")
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState(false)
+  const [proformaMutationError, setProformaMutationError] = useState<string | null>(null)
+
+  const puedeProforma =
+    solicitud && puedeGestionarProformaDesdeOc(cotizaciones.length, solicitud.estado)
 
   const totalItems = sumaItems(items)
   const hayItems = items.length > 0
@@ -393,6 +406,126 @@ export function CotizacionFormPage() {
                 </div>
               )}
             </div>
+
+            {/* ── Anticipo / proforma (misma gestión que en el detalle) ───────────────── */}
+            {puedeProforma && solicitud && (
+              <div
+                className={`rounded-xl border px-5 py-4 space-y-3 ${
+                  solicitud.tiene_proforma ? "border-yellow-300 bg-yellow-50/80" : "border-gray-200 bg-white"
+                }`}
+              >
+                <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+                  <svg
+                    className={`w-4 h-4 ${solicitud.tiene_proforma ? "text-yellow-600" : "text-gray-400"}`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"
+                    />
+                  </svg>
+                  Anticipo / proforma
+                  <span className="ml-2 text-xs font-normal text-gray-500">
+                    (se enviará junto al flujo de aprobación si aplica)
+                  </span>
+                </h2>
+                <p className="text-xs text-gray-600">
+                  Active si el proveedor cobra anticipo o envió proforma. Luego puede adjuntar el PDF/documento antes de{' '}
+                  <strong className="text-gray-900">Enviar a aprobación</strong>.
+                </p>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`text-xs font-semibold ${solicitud.tiene_proforma ? "text-yellow-800" : "text-gray-500"}`}>
+                      {solicitud.tiene_proforma ? "Indicador activado" : "Sin anticipo/proforma marcado"}
+                    </span>
+                    {solicitud.tiene_proforma && (
+                      <span className="rounded-full bg-yellow-200 px-2 py-0.5 text-[10px] font-bold text-yellow-800 uppercase">
+                        Activo
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProformaMutationError(null)
+                      actualizarProforma.mutate(!solicitud.tiene_proforma, {
+                        onSuccess: () => setProformaMutationError(null),
+                        onError: (err) => setProformaMutationError(getApiError(err)),
+                      })
+                    }}
+                    disabled={actualizarProforma.isPending}
+                    className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50 ${
+                      solicitud.tiene_proforma
+                        ? "border-yellow-400 bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
+                        : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
+                    }`}
+                  >
+                    {actualizarProforma.isPending
+                      ? "Guardando..."
+                      : solicitud.tiene_proforma
+                        ? "Desactivar"
+                        : "Marcar anticipo / proforma"}
+                  </button>
+                </div>
+                {solicitud.tiene_proforma && (
+                  <div className="flex flex-col gap-2 pt-3 border-t border-yellow-200/70">
+                    <div className="flex flex-wrap items-center gap-3">
+                      {solicitud.proforma_path ? (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            setProformaMutationError(null)
+                            try {
+                              const resp = await api.get(`/api/oc/solicitudes/${solicitud.id}/proforma/descargar`, {
+                                responseType: "blob",
+                              })
+                              const url = URL.createObjectURL(resp.data as Blob)
+                              window.open(url, "_blank")
+                              setTimeout(() => URL.revokeObjectURL(url), 60_000)
+                            } catch (err) {
+                              setProformaMutationError(getApiError(err))
+                            }
+                          }}
+                          className="text-xs font-medium text-yellow-700 underline hover:text-yellow-900"
+                        >
+                          Ver archivo de proforma
+                        </button>
+                      ) : (
+                        <span className="text-xs text-yellow-700 italic">Aún sin archivo adjunto</span>
+                      )}
+                      <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-yellow-300 bg-white px-3 py-1.5 text-xs font-semibold text-yellow-800 hover:bg-yellow-50 disabled:opacity-50">
+                        {subirProforma.isPending ? "Subiendo…" : solicitud.proforma_path ? "Reemplazar archivo" : "Adjuntar proforma"}
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept=".pdf,.xlsx,.xls,.docx,.jpg,.jpeg,.png"
+                          disabled={subirProforma.isPending}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (!file) return
+                            setProformaMutationError(null)
+                            subirProforma.mutate(file, {
+                              onSuccess: () => setProformaMutationError(null),
+                              onError: (err) => setProformaMutationError(getApiError(err)),
+                            })
+                            e.target.value = ""
+                          }}
+                        />
+                      </label>
+                    </div>
+                    {proformaMutationError && (
+                      <p className="text-xs text-red-600" role="alert">
+                        {proformaMutationError}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* ── Catálogo de proveedores ───────────────────────────────────── */}
             {proveedores.length > 0 && (

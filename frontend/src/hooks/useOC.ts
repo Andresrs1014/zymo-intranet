@@ -626,7 +626,7 @@ export function useActualizarProforma(solicitudId: string) {
       return data
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["oc", "solicitud", solicitudId] })
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes", solicitudId] })
       qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
     },
   })
@@ -646,7 +646,7 @@ export function useSubirProforma(solicitudId: string) {
       return data
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["oc", "solicitud", solicitudId] })
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes", solicitudId] })
       qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
     },
   })

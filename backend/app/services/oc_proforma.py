@@ -22,9 +22,14 @@ PROFORMA_OC_READONLY_ESTADOS: frozenset[str] = frozenset(
     }
 )
 
+# Mientras está en cotización (aún sin la primera cargada): el auxiliar puede
+# marcar anticipo/proforma y subir archivo desde «Cargar cotización», antes del envío.
+PROFORMA_SIN_COTIZACION_ESTADOS: frozenset[str] = frozenset({EstadoOC.en_cotizacion.value})
+
 DETALLE_PROFORMA_NO_GESTIONABLE = (
-    "La proforma solo puede gestionarse después de cargar al menos una cotización "
-    "y antes de enviar la OC al proveedor. Para verla en etapas posteriores, use el módulo Financiero."
+    "La proforma solo puede gestionarse mientras está en cotización (incluye la primera carga desde "
+    "«Cargar cotización») y antes de enviar la OC al proveedor. En etapas posteriores, "
+    "use el módulo Financiero."
 )
 
 DETALLE_PROFORMA_DESCARGA_OC_CERRADA = (
@@ -44,7 +49,9 @@ def cotizaciones_count(oc_db: Session, solicitud_id: uuid.UUID) -> int:
 def proforma_es_gestionable_desde_oc(oc_db: Session, solicitud: SolicitudOC) -> bool:
     if solicitud.estado in PROFORMA_OC_READONLY_ESTADOS:
         return False
-    return cotizaciones_count(oc_db, solicitud.id) > 0
+    if cotizaciones_count(oc_db, solicitud.id) > 0:
+        return True
+    return solicitud.estado in PROFORMA_SIN_COTIZACION_ESTADOS
 
 
 def usuario_puede_ver_solicitud_oc(db: Session, user: User, solicitud: SolicitudOC) -> bool:

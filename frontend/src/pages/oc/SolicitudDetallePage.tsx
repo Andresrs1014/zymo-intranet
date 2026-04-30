@@ -176,6 +176,7 @@ export function SolicitudDetallePage() {
     !!user &&
     canSeeOC(user.role, user.area, perms) &&
     cotizaciones.length === 0 &&
+    solicitud.estado !== "en_cotizacion" &&
     !solicitudOcProformaSoloFinanciero(solicitud.estado)
   const muestraAvisoProformaSoloFinanciero =
     !!user &&

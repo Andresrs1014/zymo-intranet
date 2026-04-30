@@ -15,7 +15,10 @@ export function solicitudOcProformaSoloFinanciero(estado: string): boolean {
   return ESTADOS_PROFORMA_SOLO_FINANCIERO.has(estado)
 }
 
-/** Toggle y carga de archivo de proforma permitidos en detalle OC. */
+/** Toggle y carga de archivo de proforma permitidos en detalle OC o en «Cargar cotización». */
 export function puedeGestionarProformaDesdeOc(cotizacionesCount: number, estadoSolicitud: string): boolean {
-  return cotizacionesCount > 0 && !solicitudOcProformaSoloFinanciero(estadoSolicitud)
+  if (solicitudOcProformaSoloFinanciero(estadoSolicitud)) return false
+  if (cotizacionesCount > 0) return true
+  // Primera cotización pendiente de cargar — mismo ciclo «Cargar cotización»
+  return estadoSolicitud === "en_cotizacion"
 }
