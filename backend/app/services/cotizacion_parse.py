@@ -66,6 +66,10 @@ def parsear_campos_cotizacion(
             r"SUB\s+TOTAL[:\s]*\$?\s*([\d.,]+)",
             r"VALOR\s+ANTES\s+DE\s+IVA[:\s]*\$?\s*([\d.,]+)",
             r"BASE\s+(?:IVA|GRAVABLE)[:\s]*\$?\s*([\d.,]+)",
+            # "VALOR NETO" es sinónimo de subtotal antes de IVA en muchos PDFs colombianos
+            r"VALOR\s+NETO[:\s]*\$?\s*([\d.,]+)",
+            r"V\.?\s*NETO[:\s]*\$?\s*([\d.,]+)",
+            r"NETO\s+GRAVABLE[:\s]*\$?\s*([\d.,]+)",
         ]
     )
     _subtotal_extra = _to_float(_extra.get("valor_antes_iva", ""))
@@ -76,8 +80,9 @@ def parsear_campos_cotizacion(
     iva = money_or_extra(
         "valor_iva",
         [
-            # Formato DIAN UBL: "IVA 19.00 % 536,091.00" (valor a la derecha del porcentaje)
-            r"(?m)^(?!.*\bBASE\b)(?!.*\bGRAVABLE\b).*\bIVA\b\s+[\d]+(?:[.,]\d+)?\s*%\s+([\d.,]+)",
+            # "IVA 19.00 % $317.243" o "IVA 19 %  317.243" (sin : ni -)
+            r"(?m)^(?!.*\bBASE\b)(?!.*\bGRAVABLE\b).*\bIVA\b\s+[\d]+(?:[.,]\d+)?\s*%\s*\$?\s*([\d.,]+)",
+            # Formato DIAN UBL con separador : o -
             r"(?m)^(?!.*\bBASE\b)(?!.*\bGRAVABLE\b).*\bIVA\s*19%?\b\s*[:\-]\s*\$?\s*([\d.,]+)",
             r"(?m)^(?!.*\bBASE\b)(?!.*\bGRAVABLE\b).*\bIVA\s*\(?\s*\d+\s*%?\s*\)?\s*[:\-]\s*\$?\s*([\d.,]+)",
             r"(?m)^(?!.*\bBASE\b)(?!.*\bGRAVABLE\b).*(?:IMPUESTO(?:\s+AL)?\s+VALOR\s+AGREGADO|IMPU?ESTO\s+IVA)\b[\s:;\-]*\$?\s*([\d.,]+)",

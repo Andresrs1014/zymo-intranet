@@ -63,15 +63,22 @@ def parse_cop(raw: str) -> Optional[float]:
             # else: "1500.50" → decimal legítimo, no tocar
 
         else:
-            # Múltiples puntos sin coma: 1.200.000 → todos son separadores de miles
-            # Excepción DIAN UBL: "2.821.530.000" → el ".000" final son centavos cero → ignorar
+            # Múltiples puntos sin coma: 1.200.000 → todos son separadores de miles.
+            # Regla COP: máximo 2 puntos (X.XXX.XXX).  Tres puntos o más solo son
+            # válidos en el formato DIAN UBL exacto: X.XXX.XXX.000 (milipesos cero).
+            # Cualquier otro patrón con 3+ puntos es un número inválido o una fusión
+            # accidental de columnas → se rechaza con None.
             _partes = cleaned.split(".")
             if (
                 len(_partes) == 4
                 and all(len(p) == 3 for p in _partes[1:])
                 and _partes[-1] == "000"
             ):
+                # DIAN UBL: descartar el grupo de milipesos
                 cleaned = "".join(_partes[:-1])
+            elif len(_partes) > 3:
+                # 3+ puntos fuera del patrón DIAN → inválido
+                return None
             else:
                 cleaned = cleaned.replace(".", "")
 

@@ -46,12 +46,15 @@ export function parseCOP(raw: string): number | undefined {
     return parseFloat(cleaned.replace(/\./g, "").replace(",", "."))
 
   // Colombiano solo miles: 1.500.000
-  // Excepción DIAN UBL: "2.821.530.000" → último ".000" son centavos cero → ignorar
+  // Regla COP: máximo 2 puntos (X.XXX.XXX). Tres puntos o más solo son válidos
+  // en el formato DIAN UBL exacto: X.XXX.XXX.000 (milipesos cero).
+  // Cualquier otro patrón con 3+ puntos es inválido → undefined.
   if (/^\d{1,3}(\.\d{3})+$/.test(cleaned)) {
     const partes = cleaned.split(".")
     if (partes.length === 4 && partes[partes.length - 1] === "000") {
       return parseFloat(partes.slice(0, -1).join(""))
     }
+    if (partes.length > 3) return undefined
     return parseFloat(cleaned.replace(/\./g, ""))
   }
 

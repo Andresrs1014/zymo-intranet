@@ -97,6 +97,25 @@ export function CotizacionFormPage() {
   }
 
   function aplicarExtraccion(ext: ExtraccionResult) {
+    const extItems = ext.items ?? []
+    const sumaExtItems = extItems.reduce<number>((acc, it) => acc + (it.valor_total ?? 0), 0)
+
+    // Si el backend extrajo un total global pero no pudo extraer el IVA,
+    // lo derivamos aquí como (total_extraído − suma_ítems). Esto funciona
+    // para cualquier formato de cotización (con o sin label explícito de IVA).
+    let ivaDerivado: number | undefined = ext.valor_iva ?? undefined
+    if (
+      ivaDerivado == null &&
+      extItems.length > 0 &&
+      ext.valor_total != null &&
+      sumaExtItems > 0
+    ) {
+      const diff = Math.round((ext.valor_total - sumaExtItems) * 100) / 100
+      if (diff > 0 && diff <= sumaExtItems * 0.35) {
+        ivaDerivado = diff
+      }
+    }
+
     setForm((prev) => ({
       ...prev,
       proveedor_nit: ext.proveedor_nit ?? prev.proveedor_nit,
@@ -104,7 +123,7 @@ export function CotizacionFormPage() {
       numero_cotizacion_proveedor: ext.numero_cotizacion_proveedor ?? prev.numero_cotizacion_proveedor,
       valor_unitario: ext.valor_unitario ?? prev.valor_unitario,
       valor_antes_iva: ext.valor_antes_iva ?? prev.valor_antes_iva,
-      valor_iva: ext.valor_iva ?? prev.valor_iva,
+      valor_iva: ivaDerivado ?? prev.valor_iva,
       valor_total: ext.valor_total ?? prev.valor_total,
       forma_pago: ext.forma_pago ?? prev.forma_pago,
       plazo_entrega: ext.plazo_entrega ?? prev.plazo_entrega,
@@ -112,8 +131,8 @@ export function CotizacionFormPage() {
       anticipo: ext.anticipo ?? prev.anticipo,
       pago_saldo: ext.pago_saldo ?? prev.pago_saldo,
     }))
-    if (ext.items?.length) {
-      setItems(ext.items)
+    if (extItems.length) {
+      setItems(extItems)
     }
   }
 

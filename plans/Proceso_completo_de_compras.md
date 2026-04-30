@@ -66,6 +66,7 @@ Una solicitud maneja los siguientes estados:
 - En plataforma
 - Recibido por líder
 
+Con esto ya podemos iniciar nuestra primera medición importante.
 #### Inicio del primer momento: 
 Al auxiliar recibir el correo se cierra ese tiempo medible de cuanto se demoro en darle al botón **Asignarme esta solicitud** empieza nuestro primer momento. Donde la intranet debe poder:
 
