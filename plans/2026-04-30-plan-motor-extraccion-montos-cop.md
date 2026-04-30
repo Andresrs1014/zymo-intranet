@@ -212,3 +212,275 @@ Las mejoras al motor OCR/regex siguen siendo necesarias especialmente por **fact
 - Muestra archivos PDF: `plans/archivos/*.pdf` (solo 2 al momento).
 
 **Siguiente acción recomendada:** ejecutar extracción end-to-end en entorno Docker con los PDF de `plans/archivos/` y pegar resultado anonimizado en un comentario de seguimiento bajo esta misma entrada de planificación (no en logs públicos).
+
+---
+
+---
+
+## 9. Implementación ejecutada — 2026-04-30
+
+> Todos los cambios están en el commit `226a744` (sesión anterior) y en los cambios sin commitear del mismo día.
+> Rama: `master`.
+
+---
+
+### 9.1 Nuevos campos extraídos del motor de cotizaciones
+
+**Archivos modificados:**
+- `backend/app/services/cotizacion_parse.py`
+- `backend/app/routers/oc/cotizaciones.py`
+- `frontend/src/hooks/useOC.ts`
+- `frontend/src/pages/oc/CotizacionFormPage.tsx`
+
+**Qué se hizo:**
+
+El motor de extracción ya tenía sinónimos definidos en `field_synonyms.py` para `numero_cotizacion_proveedor` y `proveedor_nombre`, pero `parsear_campos_cotizacion` nunca los extraía del texto. Se agregaron dos bloques de patrones regex nuevos:
+
+```python
+# backend/app/services/cotizacion_parse.py
+
+num_cotizacion = text_or_extra("numero_cotizacion_proveedor", [
+    r"N[ÚU]MERO\s+DE\s+COTIZACI[ÓO]N[:\s]+(.{2,60}?)(?:\n|$)",
+    r"COTIZACI[ÓO]N\s+N[°O]\.?\s*[:\s]+(.{2,60}?)(?:\n|$)",
+    r"COT(?:IZACI[ÓO]N)?\s*N[°O]?\.?\s*[:\s]*([A-Za-z0-9\-/]{2,30})",
+    r"OFERTA\s+N[°O]?\.?\s*[:\s]*([A-Za-z0-9\-/]{2,30})",
+    r"PROPUESTA\s+N[°O]?\.?\s*[:\s]*([A-Za-z0-9\-/]{2,30})",
+])
+
+proveedor_nombre = text_or_extra("proveedor_nombre", [
+    r"RAZ[ÓO]N\s+SOCIAL[:\s]+(.{3,100}?)(?:\n|$)",
+    r"EMPRESA[:\s]+(.{3,100}?)(?:\n|$)",
+    r"ELABORADO\s+POR[:\s]+(.{3,100}?)(?:\n|$)",
+    r"OFERTANTE[:\s]+(.{3,100}?)(?:\n|$)",
+])
+```
+
+`ExtraccionResult` en `cotizaciones.py` se amplió con:
+```python
+numero_cotizacion_proveedor: Optional[str] = None
+proveedor_nombre: Optional[str] = None
+```
+Ambos campos se cuentan en `campos_encontrados` y se incluyen en el retorno del endpoint `/cotizacion/extraer`.
+
+**Dónde afecta en UI (`CotizacionFormPage.tsx`):**
+- El panel de "Extracción automática" ahora muestra filas **"Proveedor"** y **"N° cotización"** cuando el documento los contiene.
+- Al aceptar la extracción, `aplicarExtraccion` puebla automáticamente los campos `proveedor_nombre` y `numero_cotizacion_proveedor` del formulario.
+
+**Efecto esperado:** Al subir una cotización PDF de proveedor que incluya "RAZÓN SOCIAL", "COT N°", "OFERTA N°" u otras variantes, el formulario se pre-llena con esos datos sin digitarlos a mano.
+
+---
+
+### 9.2 Auto-discovery de campos no reconocidos
+
+**Archivo modificado:**
+- `backend/app/routers/oc/cotizaciones.py`
+
+**Qué se hizo:**
+
+Se agregó una función `_registrar_candidatos_campo` y una variable de bloqueo `_candidates_lock = threading.Lock()` a nivel de módulo. Cuando el motor detecta una tabla en un documento (Excel, PDF, Word) y encuentra columnas cuyos encabezados **no resuelven a ningún campo canónico**, los registra automáticamente en:
+
+```
+/app/data/field_candidates.json
+```
+
+Estructura del archivo generado:
+```json
+[
+  { "label": "código sap", "fuente": "encabezado_tabla", "fecha": "2026-04-30" },
+  { "label": "unidad de medida", "fuente": "encabezado_tabla", "fecha": "2026-04-30" }
+]
+```
+
+**Por qué importa:** Cada vez que un proveedor usa una terminología distinta (p.ej. "Cód. interno", "U/M", "Partida arancelaria"), queda registrada. El equipo puede revisar ese archivo periódicamente y agregar los términos útiles a `field_synonyms.py` para que el motor los reconozca en futuros documentos.
+
+**Seguridad de concurrencia:** El acceso al archivo usa `threading.Lock()` para evitar corrupción bajo carga concurrente. Los errores de I/O se capturan silenciosamente con `log.warning` para que nunca interrumpan el flujo principal de extracción.
+
+---
+
+### 9.3 Fusión de tokens numéricos partidos por pdfplumber
+
+**Archivo modificado:**
+- `backend/app/routers/oc/cotizaciones.py`
+
+**Qué se hizo:**
+
+Se agregó la función `_fusionar_tokens_numericos` justo antes de `_items_desde_pdf_texto`. pdfplumber a veces extrae un número como tokens separados; por ejemplo, el valor `1.752.000` puede llegar como `["1", ".", "752", ".", "000"]` o como `["1.752", ".000"]`. Sin fusión, el motor descartaba esas líneas o leía montos incorrectos.
+
+```python
+def _fusionar_tokens_numericos(tokens: list[str]) -> list[str]:
+    """Fusiona tokens consecutivos que forman un número partido por pdfplumber.
+    Ej: ["Reja", "1", ".", "752", ".", "000"] → ["Reja", "1.752.000"]
+    """
+    resultado: list[str] = []
+    buffer = ""
+    for tok in tokens:
+        if re.match(r"^[\d.,\$%]+$", tok):
+            buffer += tok
+        else:
+            if buffer:
+                resultado.append(buffer)
+                buffer = ""
+            resultado.append(tok)
+    if buffer:
+        resultado.append(buffer)
+    return resultado
+```
+
+En `_items_desde_pdf_texto` se aplica antes de procesar cada línea:
+```python
+tokens = _fusionar_tokens_numericos(lineas[y_key])
+```
+
+**Dónde afecta:** Cotizaciones PDF sin bordes de tabla visibles (las que usan el fallback de posición de texto). Los ítems con precios que pdfplumber partía en tokens ahora se reconocen correctamente.
+
+---
+
+### 9.4 Bug crítico — Total × 1000 en facturas DIAN UBL
+
+**Archivos modificados:**
+- `backend/app/services/number_utils.py` → función `parse_cop`
+- `frontend/src/lib/formatters.ts` → función `parseCOP`
+
+**Causa raíz identificada:**
+
+Las facturas electrónicas DIAN UBL renderizan los montos con 3 ceros de decimales al final. Ejemplo:
+
+```
+TOTAL A PAGAR:   2.821.530.000
+```
+
+Donde `2.821.530` son los pesos y `.000` son los centavos (cero). El motor anterior eliminaba **todos** los puntos ciegamente:
+
+```python
+# Antes — incorrecto para DIAN UBL
+cleaned = "2.821.530.000"
+cleaned = cleaned.replace(".", "")  # → "2821530000" → 2.821.530.000 pesos ❌
+```
+
+Resultado visible: el sistema mostraba `$2.821.530.000` (2.8 mil millones) en lugar de `$2.821.530` (2.8 millones).
+
+**Fix aplicado en `parse_cop` (backend):**
+
+```python
+# backend/app/services/number_utils.py — rama "else" (múltiples puntos, sin coma)
+
+_partes = cleaned.split(".")
+if (
+    len(_partes) == 4                          # exactamente 4 grupos
+    and all(len(p) == 3 for p in _partes[1:]) # todos los grupos post-primero son 3 dígitos
+    and _partes[-1] == "000"                   # el último grupo es centavos cero
+):
+    cleaned = "".join(_partes[:-1])  # "2.821.530.000" → "2821530" → 2.821.530 ✓
+else:
+    cleaned = cleaned.replace(".", "")
+```
+
+**Fix aplicado en `parseCOP` (frontend):**
+
+El mismo bug existía en `parseCOP` de `formatters.ts`. La rama "Colombiano solo miles" (`/^\d{1,3}(\.\d{3})+$/`) también matcheaba `"2.821.530.000"`:
+
+```typescript
+// frontend/src/lib/formatters.ts
+if (/^\d{1,3}(\.\d{3})+$/.test(cleaned)) {
+  const partes = cleaned.split(".")
+  if (partes.length === 4 && partes[partes.length - 1] === "000") {
+    return parseFloat(partes.slice(0, -1).join(""))  // → 2821530 ✓
+  }
+  return parseFloat(cleaned.replace(/\./g, ""))
+}
+```
+
+**Limitación conocida y documentada:** Si una factura es legítimamente por `1.000.000.000` de pesos (1 mil millones) en formato `X.YYY.ZZZ.000`, el fix lo leería como `1.000.000` (1 millón). Este caso es extremo para el contexto del sistema. Si ocurre, el usuario puede corregirlo manualmente en el formulario.
+
+---
+
+### 9.5 Centavos adaptativos — mostrar solo si son distintos de cero
+
+**Archivos modificados:**
+- `backend/app/services/number_utils.py` → función `format_cop`
+- `frontend/src/lib/formatters.ts` → función `formatCOP`
+
+**Qué se hizo:**
+
+Antes, `formatCOP` / `format_cop` siempre redondeaban a entero, descartando centavos válidos. Ahora el comportamiento es adaptativo:
+
+| Valor almacenado | Antes       | Ahora           |
+|------------------|-------------|-----------------|
+| `2821530`        | `$2.821.530`| `$2.821.530` ✓  |
+| `2821530.50`     | `$2.821.530`| `$2.821.530,50` ✓ |
+| `536091.00`      | `$536.091`  | `$536.091` ✓    |
+
+**Frontend (`formatCOP`):**
+```typescript
+const hasCents = Math.round((value % 1) * 100) !== 0
+return new Intl.NumberFormat("es-CO", {
+  style: "currency",
+  currency: "COP",
+  minimumFractionDigits: hasCents ? 2 : 0,
+  maximumFractionDigits: hasCents ? 2 : 0,
+}).format(value)
+```
+
+**Backend (`format_cop`):**
+```python
+cents = round(n % 1, 2)
+if cents > 0:
+    entero = int(n)
+    s = f"{entero:,}".replace(",", ".") + f",{round(cents * 100):02d}"
+else:
+    s = f"{round(n):,}".replace(",", ".")
+```
+
+**Dónde se usa `formatCOP`:** En todas las páginas que muestran valores monetarios: `SolicitudDetallePage`, `CotizacionFormPage`, `FacturaDetallePage`, panel de aprobación, reportes. El cambio es global y no requiere modificar esas páginas individualmente.
+
+---
+
+### 9.6 IVA no capturado en facturas DIAN UBL (formato sin separador)
+
+**Archivo modificado:**
+- `backend/app/services/cotizacion_parse.py`
+
+**Causa raíz identificada:**
+
+Las facturas DIAN UBL presentan el IVA en formato de tabla sin dos puntos ni guión entre la etiqueta y el valor:
+
+```
+IVA 19.00 %    536,091.00
+```
+
+Los 4 patrones regex existentes requerían `[:\-]` (dos puntos o guión) después del porcentaje:
+```python
+r".*\bIVA\s*19%?\b\s*[:\-]\s*\$?\s*([\d.,]+)"   # ← requiere : o -
+```
+Ese patrón no matcheaba el formato DIAN porque solo hay espacios entre `%` y el valor.
+
+**Fix aplicado — nuevo patrón como primera prioridad:**
+
+```python
+# backend/app/services/cotizacion_parse.py — lista de patrones IVA
+
+# NUEVO (posición 0 — mayor prioridad):
+r"(?m)^(?!.*\bBASE\b)(?!.*\bGRAVABLE\b).*\bIVA\b\s+[\d]+(?:[.,]\d+)?\s*%\s+([\d.,]+)"
+```
+
+**Cómo funciona:** Busca la secuencia `IVA` + tasa numérica (ej: `19` o `19.00`) + `%` + espacios + el valor capturado. La captura es el número **a la derecha** del porcentaje, como sugería el análisis del documento real.
+
+**Casos que matchea:**
+- `IVA 19.00 % 536,091.00` → captura `536,091.00` → `parse_cop` → `536091` ✓
+- `IVA 19 % 100.000` → captura `100.000` → `parse_cop` → `100000` ✓
+
+Los patrones anteriores siguen activos en posiciones 2–5 para documentos que sí usan `:` o `-`.
+
+---
+
+### 9.7 Checklist de revisión rápida
+
+Para validar los cambios en el entorno de prueba:
+
+- [ ] Subir `FACTURA-UBL(...).pdf` de `plans/archivos/` al formulario de cotización → **valor total debe ser `$2.821.530` o similar, NO `$2.821.530.000`**
+- [ ] Verificar que el IVA se extrae como `$536.091` (o el valor real de la factura)
+- [ ] Subir una cotización con tabla multi-ítem en PDF → verificar que los ítems con precios se detectan
+- [ ] Si una cotización tiene "RAZÓN SOCIAL: Empresa XYZ" → el campo Proveedor del formulario debe pre-llenarse
+- [ ] Si una cotización tiene "COT N° 2026-001" → el campo N° cotización debe pre-llenarse
+- [ ] Abrir `/app/data/field_candidates.json` en el servidor Docker tras varias extracciones → debe mostrar etiquetas no reconocidas acumuladas
+- [ ] Un valor con centavos reales (ej: `1.500.050,75`) debe mostrarse como `$1.500.050,75`, no como `$1.500.050`
