@@ -42,6 +42,9 @@ dist/
 # Obsidian (configuración local del vault)
 .obsidian/
 
+# Archivos adjuntos / binarios locales
+plans/archivos/
+
 # OS
 .DS_Store
 Thumbs.db
