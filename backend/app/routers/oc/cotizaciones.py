@@ -1,5 +1,7 @@
 import io
+import json
 import logging
+import threading
 import re
 import uuid
 from datetime import date, datetime, timezone
@@ -23,6 +25,52 @@ from app.services.email_service import send_aprobacion_directora, send_cotizacio
 from app.services.historial import registrar_cambio_estado
 
 router = APIRouter(tags=["OC - Cotizaciones"])
+
+
+# ── Auto-discovery de campos no reconocidos ───────────────────────────────────
+
+_CANDIDATES_FILE = Path("/app/data/field_candidates.json")
+_candidates_lock = threading.Lock()
+
+
+def _registrar_candidatos_campo(candidatos: list[str], fuente: str) -> None:
+    """Registra etiquetas no reconocidas como candidatos para nuevos sinónimos.
+
+    Args:
+        candidatos: Lista de etiquetas no reconocidas encontradas en el documento.
+        fuente: Descripción de dónde se encontró (ej: "pdf_tabla", "excel", "docx").
+    """
+    if not candidatos:
+        return
+    try:
+        with _candidates_lock:
+            _CANDIDATES_FILE.parent.mkdir(parents=True, exist_ok=True)
+            existing: list[dict] = []
+            if _CANDIDATES_FILE.exists():
+                try:
+                    existing = json.loads(_CANDIDATES_FILE.read_text(encoding="utf-8"))
+                except (json.JSONDecodeError, OSError):
+                    existing = []
+
+            hoy = date.today().isoformat()
+            labels_existentes = {
+                e.get("label", "").lower() for e in existing if e.get("label")
+            }
+            nuevos = [
+                {"label": c.strip().lower(), "fuente": fuente, "fecha": hoy}
+                for c in candidatos
+                if c.strip().lower() not in labels_existentes and len(c.strip()) > 1
+            ]
+            if nuevos:
+                existing.extend(nuevos)
+                _CANDIDATES_FILE.write_text(
+                    json.dumps(existing, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+                log.info("[auto-discovery] %d nuevos candidatos de campo registrados desde %s: %s",
+                         len(nuevos), fuente, [n["label"] for n in nuevos])
+    except Exception as e:
+        log.warning("[auto-discovery] No se pudieron registrar candidatos: %s", e)
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -122,6 +170,8 @@ class ItemCotizacion(BaseModel):
 class ExtraccionResult(BaseModel):
     # Campos escalares del encabezado de la cotización
     proveedor_nit: Optional[str] = None
+    numero_cotizacion_proveedor: Optional[str] = None
+    proveedor_nombre: Optional[str] = None
     valor_unitario: Optional[float] = None
     valor_antes_iva: Optional[float] = None
     valor_iva: Optional[float] = None
@@ -188,6 +238,8 @@ def _parsear_campos(texto: str, extra: Optional[dict[str, str]] = None) -> Extra
     data = parsear_campos_cotizacion(texto, extra)
     values = [
         data.get("proveedor_nit"),
+        data.get("numero_cotizacion_proveedor"),
+        data.get("proveedor_nombre"),
         data.get("valor_total"),
         data.get("valor_antes_iva"),
         data.get("valor_iva"),
@@ -202,6 +254,8 @@ def _parsear_campos(texto: str, extra: Optional[dict[str, str]] = None) -> Extra
 
     return ExtraccionResult(
         proveedor_nit=data.get("proveedor_nit"),
+        numero_cotizacion_proveedor=data.get("numero_cotizacion_proveedor"),
+        proveedor_nombre=data.get("proveedor_nombre"),
         valor_unitario=data.get("valor_unitario"),
         valor_antes_iva=data.get("valor_antes_iva"),
         valor_iva=data.get("valor_iva"),
@@ -276,6 +330,14 @@ def _detectar_encabezado(filas_celdas: list[list[str]]) -> Optional[tuple[int, d
         tiene_valor = any(f in col_map.values() for f in ("cantidad", "valor_unitario", "valor_total"))
 
         if tiene_desc and tiene_valor:
+            # Recolectar etiquetas no reconocidas de esta fila de encabezado
+            no_reconocidas = [
+                celda.strip()
+                for i, celda in enumerate(celdas)
+                if celda.strip() and i not in col_map
+            ]
+            if no_reconocidas:
+                _registrar_candidatos_campo(no_reconocidas, "encabezado_tabla")
             return row_idx, col_map
 
     return None
@@ -340,6 +402,27 @@ def _items_desde_pdf_tablas(contenido: bytes) -> list[dict]:
     return []
 
 
+def _fusionar_tokens_numericos(tokens: list[str]) -> list[str]:
+    """Fusiona tokens consecutivos que forman un número partido por pdfplumber.
+
+    Ejemplo: ["Reja", "1", ".", "752", ".", "000"] → ["Reja", "1.752.000"]
+    Un token es "numérico" si contiene solo dígitos, puntos y comas.
+    """
+    resultado: list[str] = []
+    buffer = ""
+    for tok in tokens:
+        if re.match(r"^[\d.,\$%]+$", tok):
+            buffer += tok
+        else:
+            if buffer:
+                resultado.append(buffer)
+                buffer = ""
+            resultado.append(tok)
+    if buffer:
+        resultado.append(buffer)
+    return resultado
+
+
 def _items_desde_pdf_texto(contenido: bytes) -> list[dict]:
     """Fallback: extrae ítems de PDFs sin bordes de tabla, usando posición X/Y de palabras.
 
@@ -368,7 +451,7 @@ def _items_desde_pdf_texto(contenido: bytes) -> list[dict]:
 
                 items: list[dict] = []
                 for y_key in sorted(lineas.keys()):
-                    tokens = lineas[y_key]
+                    tokens = _fusionar_tokens_numericos(lineas[y_key])
                     if len(tokens) < 2:
                         continue
 

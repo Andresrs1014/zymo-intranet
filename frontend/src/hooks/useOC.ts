@@ -173,6 +173,8 @@ export interface CotizacionCreatePayload {
 
 export interface ExtraccionResult {
   proveedor_nit: string | null
+  numero_cotizacion_proveedor: string | null
+  proveedor_nombre: string | null
   valor_unitario: number | null
   valor_antes_iva: number | null
   valor_iva: number | null

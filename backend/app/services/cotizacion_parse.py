@@ -151,6 +151,27 @@ def parsear_campos_cotizacion(
         ],
     )
 
+    num_cotizacion = text_or_extra(
+        "numero_cotizacion_proveedor",
+        [
+            r"N[ÚU]MERO\s+DE\s+COTIZACI[ÓO]N[:\s]+(.{2,60}?)(?:\n|$)",
+            r"COTIZACI[ÓO]N\s+N[°O]\.?\s*[:\s]+(.{2,60}?)(?:\n|$)",
+            r"COT(?:IZACI[ÓO]N)?\s*N[°O]?\.?\s*[:\s]*([A-Za-z0-9\-/]{2,30})",
+            r"OFERTA\s+N[°O]?\.?\s*[:\s]*([A-Za-z0-9\-/]{2,30})",
+            r"PROPUESTA\s+N[°O]?\.?\s*[:\s]*([A-Za-z0-9\-/]{2,30})",
+        ],
+    )
+
+    proveedor_nombre = text_or_extra(
+        "proveedor_nombre",
+        [
+            r"RAZ[ÓO]N\s+SOCIAL[:\s]+(.{3,100}?)(?:\n|$)",
+            r"EMPRESA[:\s]+(.{3,100}?)(?:\n|$)",
+            r"ELABORADO\s+POR[:\s]+(.{3,100}?)(?:\n|$)",
+            r"OFERTANTE[:\s]+(.{3,100}?)(?:\n|$)",
+        ],
+    )
+
     return {
         "proveedor_nit": nit,
         "valor_unitario": unitario,
@@ -162,5 +183,7 @@ def parsear_campos_cotizacion(
         "garantia": garantia,
         "anticipo": anticipo,
         "pago_saldo": pago_saldo,
+        "numero_cotizacion_proveedor": num_cotizacion,
+        "proveedor_nombre": proveedor_nombre,
     }
 

@@ -123,6 +123,8 @@ export function CotizacionFormPage() {
     setForm((prev) => ({
       ...prev,
       proveedor_nit: ext.proveedor_nit ?? prev.proveedor_nit,
+      proveedor_nombre: ext.proveedor_nombre ?? prev.proveedor_nombre,
+      numero_cotizacion_proveedor: ext.numero_cotizacion_proveedor ?? prev.numero_cotizacion_proveedor,
       valor_unitario: ext.valor_unitario ?? prev.valor_unitario,
       valor_antes_iva: ext.valor_antes_iva ?? prev.valor_antes_iva,
       valor_iva: ext.valor_iva ?? prev.valor_iva,
@@ -361,6 +363,8 @@ export function CotizacionFormPage() {
                   </div>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                     <ExtraidoItem label="NIT" value={extraccion.proveedor_nit} />
+                    <ExtraidoItem label="Proveedor" value={extraccion.proveedor_nombre} />
+                    <ExtraidoItem label="N° cotización" value={extraccion.numero_cotizacion_proveedor} />
                     <ExtraidoItem label="Valor unitario" value={extraccion.valor_unitario} money />
                     <ExtraidoItem label="Subtotal (antes IVA)" value={extraccion.valor_antes_iva} money />
                     <ExtraidoItem label="IVA" value={extraccion.valor_iva} money />
