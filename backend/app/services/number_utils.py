@@ -34,6 +34,13 @@ def parse_cop(raw: str) -> Optional[float]:
         if not cleaned:
             return None
 
+        # Pre-normalización DIAN UBL: "2.821.530.000" o "2.821.530.000,00"
+        # → el ".000" final son centavos cero (no miles de millones).
+        # Normalizar a "2.821.530" antes de que cualquier rama lo procese.
+        _dian_m = re.match(r"^(\d{1,3}\.\d{3}\.\d{3})\.000(?:,\d{1,2})?$", cleaned)
+        if _dian_m:
+            cleaned = _dian_m.group(1)
+
         # Colombiano con punto de miles y coma decimal: 1.200.000,00
         if re.search(r"\d{1,3}(\.\d{3})+,\d{1,2}$", cleaned):
             cleaned = cleaned.replace(".", "").replace(",", ".")
