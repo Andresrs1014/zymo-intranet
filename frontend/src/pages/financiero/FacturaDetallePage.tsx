@@ -15,6 +15,8 @@ import {
   useAsignarCuenta,
   useQuitarCuenta,
   useActualizarSeguimientoFinanciero,
+  useCotizacionesFinanciero,
+  useCrearFacturaBorrador,
 } from "@/hooks/useFinanciero"
 import { Combobox } from "@/components/ui/Combobox"
 import type { EstadoFactura, FacturaUpdate } from "@/types/financiero"
@@ -44,6 +46,16 @@ export function FacturaDetallePage() {
 
   const { data: solicitud, isLoading: loadingSolicitud, isError: errorSolicitud } =
     useSolicitudFinancieroDetalle(solicitudId)
+
+  const crearFacturaBorrador = useCrearFacturaBorrador()
+  const { data: cotizacionesLista = [] } = useCotizacionesFinanciero(solicitudId)
+
+  useEffect(() => {
+    if (!solicitudId || !solicitud || solicitud.factura_id) return
+    crearFacturaBorrador.mutate(solicitudId)
+    // Solo al cargar detalle sin factura_id; idempotente en servidor.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- evitar re-disparos por callback de mutación
+  }, [solicitudId, solicitud?.factura_id, solicitud?.solicitud_id])
 
   const facturaId = solicitud?.factura_id ?? null
   const { data: factura } = useFactura(facturaId)
@@ -154,6 +166,16 @@ export function FacturaDetallePage() {
     )
   }
 
+  async function handleVerAdjuntoCotizacion(cotizacionId: string) {
+    const resp = await api.get(`/api/financiero/cotizaciones/${cotizacionId}/adjunto`, {
+      responseType: "blob",
+    })
+    const url = URL.createObjectURL(resp.data as Blob)
+    const win = window.open(url, "_blank", "noopener,noreferrer")
+    if (!win) URL.revokeObjectURL(url)
+    else window.setTimeout(() => URL.revokeObjectURL(url), 120_000)
+  }
+
   if (loadingSolicitud) {
     return (
       <div className="flex h-screen bg-gray-50">
@@ -204,13 +226,23 @@ export function FacturaDetallePage() {
           </button>
 
           {/* Header con estado */}
-          <div className="flex items-center gap-3 mb-6">
-            <div>
-              <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3 mb-6 flex-wrap">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-xl font-bold text-gray-900">
                   {solicitud?.consecutivo_os ?? solicitudId}
                 </h1>
-                {factura && <FacturaEstadoBadge estado={factura.estado} />}
+                {(solicitud?.empresa_compra_nombre || solicitud?.plataforma) && (
+                  <span
+                    className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-800 border border-slate-200 shrink-0"
+                    title="Empresa en la que se realiza la compra"
+                  >
+                    {solicitud.empresa_compra_nombre ?? solicitud.plataforma}
+                  </span>
+                )}
+                {(factura?.estado ?? solicitud.factura_estado) && (
+                  <FacturaEstadoBadge estado={(factura?.estado ?? solicitud.factura_estado)!} />
+                )}
               </div>
               <p className="text-sm text-gray-500 mt-0.5 truncate max-w-xl">
                 {solicitud?.descripcion ?? "Sin descripción"}
@@ -275,12 +307,95 @@ export function FacturaDetallePage() {
               </div>
             </section>
 
+            {/* Cotizaciones cargadas (solo lectura + adjuntos) */}
+            <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+              <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-1">
+                Cotizaciones del proceso
+              </h2>
+              <p className="text-xs text-gray-500 mb-4">
+                Vista de cotizaciones cargadas por Compras. Puede abrir adjuntos; no se suben archivos desde Financiero.
+              </p>
+              {cotizacionesLista.length === 0 ? (
+                <p className="text-sm text-gray-400">No hay cotizaciones registradas.</p>
+              ) : (
+                <div className="overflow-x-auto rounded-lg border border-gray-100">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-xs font-medium text-gray-500 uppercase border-b border-gray-100 bg-gray-50">
+                        <th className="px-3 py-2">Fecha</th>
+                        <th className="px-3 py-2">Proveedor</th>
+                        <th className="px-3 py-2">N° cot. prov.</th>
+                        <th className="px-3 py-2">Aprobada</th>
+                        <th className="px-3 py-2 text-right">Valor total</th>
+                        <th className="px-3 py-2 text-right">Valor aprobado</th>
+                        <th className="px-3 py-2">Adjunto</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {cotizacionesLista.map((c) => (
+                        <tr key={c.id} className="text-gray-800">
+                          <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">
+                            {new Date(c.created_at).toLocaleString("es-CO", {
+                              dateStyle: "short",
+                              timeStyle: "short",
+                            })}
+                          </td>
+                          <td className="px-3 py-2">
+                            <span className="font-medium">{c.proveedor_nombre}</span>
+                            {c.proveedor_nit && (
+                              <span className="block text-xs text-gray-500">NIT {c.proveedor_nit}</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-xs font-mono">
+                            {c.numero_cotizacion_proveedor ?? "—"}
+                          </td>
+                          <td className="px-3 py-2">
+                            {c.aprobada === true ? (
+                              <span className="text-green-700 font-medium text-xs">Sí</span>
+                            ) : c.aprobada === false ? (
+                              <span className="text-gray-500 text-xs">No</span>
+                            ) : (
+                              <span className="text-gray-400 text-xs">—</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-right font-mono text-xs">
+                            {formatCOP(c.valor_total)}
+                          </td>
+                          <td className="px-3 py-2 text-right font-mono text-xs">
+                            {c.valor_aprobado != null ? formatCOP(c.valor_aprobado) : "—"}
+                          </td>
+                          <td className="px-3 py-2">
+                            {c.tiene_adjunto ? (
+                              <button
+                                type="button"
+                                onClick={() => handleVerAdjuntoCotizacion(c.id)}
+                                className="text-xs font-medium text-brand-blue hover:underline"
+                              >
+                                Ver archivo
+                              </button>
+                            ) : (
+                              <span className="text-xs text-gray-400">Sin archivo</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+
             {/* ── Sección A: Info de la OC ───────────────────────────────── */}
             <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide">
-                  Información de la OC
-                </h2>
+                <div>
+                  <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide">
+                    Información de la OC
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Datos de la orden emitida y de la cotización aprobada asociada (referencia para conciliar con la factura).
+                  </p>
+                </div>
                 <button
                   type="button"
                   onClick={() =>
@@ -301,10 +416,13 @@ export function FacturaDetallePage() {
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 text-sm">
                 <InfoField label="OS" value={solicitud?.consecutivo_os} mono />
                 <InfoField label="Número OC" value={solicitud?.numero_oc} mono />
-                <InfoField label="Proveedor" value={solicitud?.proveedor_nombre} />
+                <InfoField label="Empresa (compra)" value={solicitud?.empresa_compra_nombre ?? solicitud?.plataforma} />
+                <InfoField label="Proveedor (OC)" value={solicitud?.proveedor_nombre} />
+                <InfoField label="Aprobado por" value={solicitud?.aprobado_por_nombre} />
                 <InfoField label="Área" value={solicitud?.area_solicitante} />
                 <InfoField label="Condición" value={solicitud?.condicion} />
-                <InfoField label="Plataforma" value={solicitud?.plataforma} />
+                <InfoField label="Plataforma (código)" value={solicitud?.plataforma} />
+                <InfoField label="Forma de pago (cotización)" value={solicitud?.forma_pago} />
                 <InfoField label="Valor aprobado" value={formatCOP(solicitud?.valor_aprobado ?? null)} />
                 <InfoField label="Valor sin IVA" value={formatCOP(solicitud?.valor_antes_iva ?? null)} />
                 <InfoField label="IVA" value={formatCOP(solicitud?.valor_iva ?? null)} />
@@ -313,73 +431,91 @@ export function FacturaDetallePage() {
 
             {/* ── Sección B: Factura ─────────────────────────────────────── */}
             <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-              <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-4">
-                Factura
-              </h2>
+              <div className="mb-4">
+                <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide">
+                  Factura del proveedor
+                </h2>
+                <p className="text-xs text-gray-500 mt-1 max-w-3xl">
+                  Complete o revise los datos a mano. Si adjunta un archivo, los campos pueden prellenarse; la
+                  validación frente a la OC no corre sola — use «Correr validación» cuando corresponda.
+                </p>
+              </div>
 
-              {!factura ? (
-                /* Upload area */
-                <div>
-                  <div
-                    onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
-                    onDragLeave={() => setDragOver(false)}
-                    onDrop={(e) => {
-                      e.preventDefault()
-                      setDragOver(false)
-                      const file = e.dataTransfer.files[0]
-                      if (file) handleFileUpload(file)
-                    }}
-                    onClick={() => fileInputRef.current?.click()}
-                    className={`flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-8 py-12 cursor-pointer transition-colors ${
-                      dragOver
-                        ? "border-brand-blue bg-brand-blue/5"
-                        : "border-gray-200 hover:border-brand-blue/40 hover:bg-gray-50"
-                    }`}
-                  >
-                    <svg className="w-10 h-10 text-gray-300" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M4 4a2 2 0 0 1 2-2h4.586A2 2 0 0 1 12 2.586L15.414 6A2 2 0 0 1 16 7.414V16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4Z" clipRule="evenodd" />
-                    </svg>
-                    <div className="text-center">
-                      <p className="text-sm font-medium text-gray-700">
-                        {subirFactura.isPending ? "Subiendo..." : "Arrastra el PDF aquí o haz clic para seleccionar"}
-                      </p>
-                      <p className="text-xs text-gray-400 mt-1">PDF, Excel (.xlsx) o Word (.docx)</p>
-                    </div>
-                    {subirFactura.isError && (
-                      <p className="text-xs text-red-500">
-                        Error al subir la factura. Intenta de nuevo.
-                      </p>
-                    )}
-                  </div>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".pdf,.xlsx,.xls,.docx"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0]
-                      if (file) handleFileUpload(file)
-                    }}
-                  />
-                  <div className="mt-4 flex justify-end">
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={subirFactura.isPending}
-                      className="rounded-lg bg-brand-blue px-4 py-2 text-sm font-semibold text-white hover:brightness-105 disabled:opacity-50 transition-all"
-                    >
-                      {subirFactura.isPending ? "Subiendo..." : "Subir Factura"}
-                    </button>
-                  </div>
+              {!solicitud.factura_id && crearFacturaBorrador.isPending && (
+                <div className="py-12 text-center text-sm text-gray-500">
+                  Preparando registro de factura…
                 </div>
-              ) : (
-                /* Edit form */
+              )}
+
+              {!solicitud.factura_id && crearFacturaBorrador.isError && (
+                <div className="rounded-lg bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-700">
+                  No se pudo iniciar el registro de factura.{" "}
+                  <button
+                    type="button"
+                    className="underline font-medium"
+                    onClick={() => solicitudId && crearFacturaBorrador.mutate(solicitudId)}
+                  >
+                    Reintentar
+                  </button>
+                </div>
+              )}
+
+              {solicitud.factura_id && !factura && (
+                <div className="py-8 text-center text-sm text-gray-500">Cargando datos de factura…</div>
+              )}
+
+              {factura && (
                 <div>
+                  <div className="mb-6 rounded-lg border border-dashed border-gray-200 bg-gray-50/60 p-4">
+                    <p className="text-xs font-medium text-gray-600 mb-2">
+                      Archivo adjunto (opcional)
+                    </p>
+                    <div
+                      onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+                      onDragLeave={() => setDragOver(false)}
+                      onDrop={(e) => {
+                        e.preventDefault()
+                        setDragOver(false)
+                        const file = e.dataTransfer.files[0]
+                        if (file) handleFileUpload(file)
+                      }}
+                      onClick={() => fileInputRef.current?.click()}
+                      className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-6 py-8 cursor-pointer transition-colors ${
+                        dragOver
+                          ? "border-brand-blue bg-brand-blue/5"
+                          : "border-gray-200 hover:border-brand-blue/40 hover:bg-white"
+                      }`}
+                    >
+                      <p className="text-sm font-medium text-gray-700">
+                        {subirFactura.isPending
+                          ? "Subiendo…"
+                          : factura.pdf_path
+                            ? "Arrastre o haga clic para reemplazar archivo"
+                            : "Arrastre o haga clic para adjuntar factura"}
+                      </p>
+                      <p className="text-xs text-gray-400">PDF, Excel (.xlsx) o Word (.docx)</p>
+                      {subirFactura.isError && (
+                        <p className="text-xs text-red-500">Error al subir. Intente de nuevo.</p>
+                      )}
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".pdf,.xlsx,.xls,.docx"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) handleFileUpload(file)
+                      }}
+                    />
+                  </div>
+
                   {factura.extraccion_automatica && (
                     <div className="mb-4 inline-flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-100 px-3 py-1 text-xs font-medium text-blue-600">
                       <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-13a.75.75 0 0 0-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 0 0 0-1.5h-3.25V5Z" clipRule="evenodd" />
                       </svg>
-                      Campos extraídos automáticamente
+                      Campos prellenados desde el último archivo
                     </div>
                   )}
 
@@ -397,7 +533,7 @@ export function FacturaDetallePage() {
                             type="button"
                             onClick={() => handleChange("valor_factura", solicitud.valor_aprobado!)}
                             className="text-xs text-brand-blue hover:underline"
-                            title={`Usar valor OC: ${formatCOP(solicitud.valor_aprobado)}`}
+                            title={`Usar valor de la OC: ${formatCOP(solicitud.valor_aprobado)}`}
                           >
                             Usar valor OC ({formatCOP(solicitud.valor_aprobado)})
                           </button>
@@ -448,15 +584,25 @@ export function FacturaDetallePage() {
                     />
                   </div>
 
-                  <div className="mt-5 flex items-center justify-end gap-3">
+                  <div className="mt-5 flex flex-wrap items-center justify-end gap-3">
                     <div className="flex items-center gap-2 mr-auto">
+                      {(() => {
+                        const esPdf = factura.pdf_path?.toLowerCase().endsWith(".pdf")
+                        return (
                       <button
                         type="button"
                         onClick={() =>
                           openAuthenticatedApiBlob(`/api/financiero/facturas/${facturaId}/pdf`)
                         }
-                        className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-1.5"
-                        title="Ver PDF en nueva pestaña"
+                        disabled={!factura.pdf_path || !esPdf}
+                        className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-1.5 disabled:opacity-45 disabled:cursor-not-allowed"
+                        title={
+                          !factura.pdf_path
+                            ? "Adjunte un archivo para abrirlo"
+                            : esPdf
+                              ? "Ver PDF en nueva pestaña"
+                              : "Vista previa solo disponible para PDF; descargue desde su explorador si aplica"
+                        }
                       >
                         <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
                           <path d="M10 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />
@@ -464,19 +610,22 @@ export function FacturaDetallePage() {
                         </svg>
                         Ver PDF
                       </button>
+                        )
+                      })()}
                       <button
                         onClick={handleEliminar}
                         disabled={eliminarFactura.isPending}
                         className="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors flex items-center gap-1.5"
-                        title="Eliminar esta factura y volver a subir"
+                        title="Elimina el registro de factura (puede iniciarse de nuevo)"
                       >
                         <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
                           <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z" clipRule="evenodd" />
                         </svg>
-                        {eliminarFactura.isPending ? "Eliminando..." : "Eliminar"}
+                        {eliminarFactura.isPending ? "Eliminando..." : "Eliminar registro"}
                       </button>
                     </div>
                     <button
+                      type="button"
                       onClick={handleValidar}
                       disabled={validarFactura.isPending}
                       className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-colors"
@@ -507,7 +656,7 @@ export function FacturaDetallePage() {
                     <thead>
                       <tr className="text-xs font-medium text-gray-500 uppercase border-b border-gray-100">
                         <th className="pb-2 text-left pr-4">Campo</th>
-                        <th className="pb-2 text-left pr-4">Valor OC</th>
+                        <th className="pb-2 text-left pr-4">Según OC</th>
                         <th className="pb-2 text-left pr-4">Valor Factura</th>
                         <th className="pb-2 text-center">Estado</th>
                       </tr>

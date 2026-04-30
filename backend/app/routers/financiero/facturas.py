@@ -16,7 +16,9 @@ from sqlmodel import Session, select
 
 from app.config import settings
 from app.core.deps import require_financiero
+from app.database import get_db
 from app.financiero_database import get_financiero_db
+from app.services.platform_empresa import nombre_empresa_desde_plataforma
 from app.models.financiero import (
     EstadoFactura,
     FacturaProveedor,
@@ -51,6 +53,7 @@ class SolicitudConFacturaRead(BaseModel):
     solicitante_nombre: Optional[str]
     area_solicitante: Optional[str]
     plataforma: Optional[str]
+    empresa_compra_nombre: Optional[str] = None
     condicion: Optional[str] = None
     estado: str
     fecha_en_plataforma: Optional[datetime]
@@ -63,6 +66,7 @@ class SolicitudConFacturaRead(BaseModel):
     # Cotización aprobada
     cotizacion_id: Optional[uuid.UUID]
     proveedor_nombre: Optional[str]
+    aprobado_por_nombre: Optional[str] = None
     valor_aprobado: Optional[float]
     valor_antes_iva: Optional[float]
     valor_iva: Optional[float]
@@ -78,6 +82,24 @@ class SolicitudConFacturaRead(BaseModel):
     # Bitácora financiera (anticipo/proforma, notas antes de validar factura)
     observaciones_seguimiento: Optional[str] = None
     seguimiento_updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class CotizacionListaFinancieroRead(BaseModel):
+    """Cotización de la solicitud — vista lectura para Financiero (sin subir archivos)."""
+
+    id: uuid.UUID
+    solicitud_id: uuid.UUID
+    proveedor_nombre: str
+    proveedor_nit: Optional[str] = None
+    numero_cotizacion_proveedor: Optional[str] = None
+    aprobada: Optional[bool] = None
+    valor_total: float
+    valor_aprobado: Optional[float] = None
+    tiene_adjunto: bool = False
+    created_at: datetime
 
     class Config:
         from_attributes = True
@@ -441,6 +463,7 @@ def _fila_solicitud_financiero(
     sol: SolicitudOC,
     oc_db: Session,
     fin_db: Session,
+    db: Session,
 ) -> SolicitudConFacturaRead:
     cotizacion = oc_db.exec(
         select(CotizacionProveedor)
@@ -458,6 +481,12 @@ def _fila_solicitud_financiero(
         select(FacturaProveedor).where(FacturaProveedor.solicitud_id == sol.id)
     ).first()
     seg = fin_db.get(SeguimientoFinancieroSolicitud, sol.id)
+    empresa_nombre = nombre_empresa_desde_plataforma(sol.plataforma)
+    aprobado_por_nombre: Optional[str] = None
+    if cotizacion and cotizacion.aprobado_por_id:
+        u = db.get(User, cotizacion.aprobado_por_id)
+        if u:
+            aprobado_por_nombre = u.full_name
     return SolicitudConFacturaRead(
         solicitud_id=sol.id,
         consecutivo_os=sol.consecutivo_os,
@@ -465,6 +494,7 @@ def _fila_solicitud_financiero(
         solicitante_nombre=sol.solicitante_nombre,
         area_solicitante=sol.area_solicitante,
         plataforma=sol.plataforma,
+        empresa_compra_nombre=empresa_nombre,
         condicion=sol.condicion,
         estado=sol.estado,
         fecha_en_plataforma=sol.fecha_en_plataforma,
@@ -474,6 +504,7 @@ def _fila_solicitud_financiero(
         forma_pago=cotizacion.forma_pago if cotizacion else None,
         cotizacion_id=cotizacion.id if cotizacion else None,
         proveedor_nombre=cotizacion.proveedor_nombre if cotizacion else None,
+        aprobado_por_nombre=aprobado_por_nombre,
         valor_aprobado=cotizacion.valor_aprobado if cotizacion else None,
         valor_antes_iva=cotizacion.valor_antes_iva if cotizacion else None,
         valor_iva=cotizacion.valor_iva if cotizacion else None,
@@ -500,6 +531,7 @@ def listar_facturas(
     current_user: User = Depends(require_financiero),
     oc_db: Session = Depends(get_oc_db),
     fin_db: Session = Depends(get_financiero_db),
+    db: Session = Depends(get_db),
 ) -> list[SolicitudConFacturaRead]:
     """Lista OCs visibles para finanzas: envío en adelante, o aprobadas con proforma/anticipo."""
     cond = or_(
@@ -510,7 +542,7 @@ def listar_facturas(
         ),
     )
     solicitudes = oc_db.exec(select(SolicitudOC).where(cond)).all()
-    return [_fila_solicitud_financiero(s, oc_db, fin_db) for s in solicitudes]
+    return [_fila_solicitud_financiero(s, oc_db, fin_db, db) for s in solicitudes]
 
 
 @router.get(
@@ -522,11 +554,12 @@ def obtener_solicitud_financiero(
     current_user: User = Depends(require_financiero),
     oc_db: Session = Depends(get_oc_db),
     fin_db: Session = Depends(get_financiero_db),
+    db: Session = Depends(get_db),
 ) -> SolicitudConFacturaRead:
     sol = oc_db.get(SolicitudOC, solicitud_id)
     if not sol or not _visible_en_lista_financiero(sol):
         raise HTTPException(status_code=404, detail="Solicitud no encontrada o no visible en Financiero.")
-    return _fila_solicitud_financiero(sol, oc_db, fin_db)
+    return _fila_solicitud_financiero(sol, oc_db, fin_db, db)
 
 
 @router.patch(
@@ -558,6 +591,141 @@ def actualizar_seguimiento_financiero(
         observaciones=seg.observaciones,
         updated_at=seg.updated_at,
         updated_by_id=seg.updated_by_id,
+    )
+
+
+@router.post(
+    "/solicitudes/{solicitud_id}/factura-borrador",
+    response_model=FacturaRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def crear_factura_borrador(
+    solicitud_id: uuid.UUID,
+    current_user: User = Depends(require_financiero),
+    oc_db: Session = Depends(get_oc_db),
+    fin_db: Session = Depends(get_financiero_db),
+) -> FacturaProveedor:
+    """Crea un registro de factura sin archivo para que Finanzas cargue datos a mano antes de adjuntar PDF."""
+    sol = oc_db.get(SolicitudOC, solicitud_id)
+    if not sol or not _visible_en_lista_financiero(sol):
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada o no visible en Financiero.")
+    existente = fin_db.exec(
+        select(FacturaProveedor).where(FacturaProveedor.solicitud_id == solicitud_id)
+    ).first()
+    if existente:
+        return existente  # type: ignore[return-value]
+
+    orden = oc_db.exec(
+        select(OrdenCompra).where(OrdenCompra.solicitud_id == solicitud_id)
+    ).first()
+    if orden:
+        cotizacion = oc_db.get(CotizacionProveedor, orden.cotizacion_id)
+        if not cotizacion:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="La OC no tiene cotización asociada.",
+            )
+    else:
+        cotizacion = oc_db.exec(
+            select(CotizacionProveedor)
+            .where(
+                CotizacionProveedor.solicitud_id == solicitud_id,
+                CotizacionProveedor.aprobada == True,  # noqa: E712
+            )
+        ).first()
+        if not cotizacion:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="No hay cotización aprobada para esta solicitud.",
+            )
+
+    now = datetime.now(timezone.utc)
+    factura = FacturaProveedor(
+        solicitud_id=solicitud_id,
+        cotizacion_id=cotizacion.id,
+        orden_id=orden.id if orden else None,
+        valor_aprobado_oc=cotizacion.valor_aprobado,
+        aval_compra=sol.aval_compra,
+        pdf_path=None,
+        extraccion_automatica=False,
+        estado=EstadoFactura.pendiente,
+        registrado_por_id=current_user.id,
+        created_at=now,
+        updated_at=now,
+    )
+    fin_db.add(factura)
+    fin_db.commit()
+    fin_db.refresh(factura)
+    return factura  # type: ignore[return-value]
+
+
+@router.get(
+    "/solicitudes/{solicitud_id}/cotizaciones",
+    response_model=list[CotizacionListaFinancieroRead],
+)
+def listar_cotizaciones_financiero(
+    solicitud_id: uuid.UUID,
+    current_user: User = Depends(require_financiero),
+    oc_db: Session = Depends(get_oc_db),
+) -> list[CotizacionListaFinancieroRead]:
+    sol = oc_db.get(SolicitudOC, solicitud_id)
+    if not sol or not _visible_en_lista_financiero(sol):
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada o no visible en Financiero.")
+    rows = oc_db.exec(
+        select(CotizacionProveedor)
+        .where(CotizacionProveedor.solicitud_id == solicitud_id)
+        .order_by(CotizacionProveedor.created_at.desc())
+    ).all()
+    out: list[CotizacionListaFinancieroRead] = []
+    for c in rows:
+        out.append(
+            CotizacionListaFinancieroRead(
+                id=c.id,
+                solicitud_id=c.solicitud_id,
+                proveedor_nombre=c.proveedor_nombre,
+                proveedor_nit=c.proveedor_nit,
+                numero_cotizacion_proveedor=c.numero_cotizacion_proveedor,
+                aprobada=c.aprobada,
+                valor_total=c.valor_total,
+                valor_aprobado=c.valor_aprobado,
+                tiene_adjunto=bool(c.pdf_path and str(c.pdf_path).strip()),
+                created_at=c.created_at,
+            )
+        )
+    return out
+
+
+@router.get(
+    "/cotizaciones/{cotizacion_id}/adjunto",
+    response_class=FileResponse,
+)
+def descargar_adjunto_cotizacion_financiero(
+    cotizacion_id: uuid.UUID,
+    current_user: User = Depends(require_financiero),
+    oc_db: Session = Depends(get_oc_db),
+) -> FileResponse:
+    """Descarga el archivo adjunto de una cotización (solo lectura para Finanzas)."""
+    cotizacion = oc_db.get(CotizacionProveedor, cotizacion_id)
+    if not cotizacion or not cotizacion.pdf_path:
+        raise HTTPException(status_code=404, detail="Archivo no disponible.")
+    sol = oc_db.get(SolicitudOC, cotizacion.solicitud_id)
+    if not sol or not _visible_en_lista_financiero(sol):
+        raise HTTPException(status_code=404, detail="No autorizado o solicitud no visible en Financiero.")
+    path = Path(cotizacion.pdf_path)
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Archivo no encontrado en disco.")
+    ext = path.suffix.lower().lstrip(".")
+    mime_map = {
+        "pdf": "application/pdf",
+        "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "xls": "application/vnd.ms-excel",
+        "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    }
+    media_type = mime_map.get(ext, "application/octet-stream")
+    return FileResponse(
+        str(path),
+        media_type=media_type,
+        filename=f"cotizacion_{cotizacion_id}.{ext}",
     )
 
 
@@ -637,6 +805,10 @@ async def subir_factura(
     orden = oc_db.exec(
         select(OrdenCompra).where(OrdenCompra.solicitud_id == solicitud_id)
     ).first()
+    if orden:
+        cot_desde_oc = oc_db.get(CotizacionProveedor, orden.cotizacion_id)
+        if cot_desde_oc:
+            cotizacion = cot_desde_oc
 
     # 4. Guardar PDF
     nombre = file.filename or f"{solicitud_id}.pdf"
@@ -705,10 +877,7 @@ async def subir_factura(
     fin_db.commit()
     fin_db.refresh(factura)
 
-    # 7. Auto-validación de valor
-    _ejecutar_validacion(factura, cotizacion, fin_db)
-
-    fin_db.refresh(factura)
+    # Validación automática deshabilitada: solo al pulsar «Correr validación».
     return factura  # type: ignore[return-value]
 
 
@@ -847,19 +1016,28 @@ def validar_factura(
     fin_db: Session = Depends(get_financiero_db),
     oc_db: Session = Depends(get_oc_db),
 ) -> list[ValidacionRead]:
-    """Ejecuta la validación campo a campo contra la OC aprobada."""
+    """Ejecuta la validación manual: factura vs datos de la OC emitida."""
     factura = fin_db.get(FacturaProveedor, factura_id)
     if not factura:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Factura no encontrada.")
 
-    cotizacion = oc_db.get(CotizacionProveedor, factura.cotizacion_id)
+    orden = oc_db.exec(
+        select(OrdenCompra).where(OrdenCompra.solicitud_id == factura.solicitud_id)
+    ).first()
+    if not orden:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="No hay orden de compra para esta solicitud; no se puede validar contra la OC.",
+        )
+
+    cotizacion = oc_db.get(CotizacionProveedor, orden.cotizacion_id)
     if not cotizacion:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Cotización aprobada no encontrada en oc.db.",
+            detail="La OC no tiene cotización asociada en oc.db.",
         )
 
-    _ejecutar_validacion(factura, cotizacion, fin_db)
+    _ejecutar_validacion(factura, orden, cotizacion, fin_db)
     fin_db.refresh(factura)
 
     validaciones = fin_db.exec(
@@ -909,14 +1087,21 @@ def descargar_oc(
 
 def _ejecutar_validacion(
     factura: FacturaProveedor,
+    orden: OrdenCompra,
     cotizacion: CotizacionProveedor,
     fin_db: Session,
 ) -> None:
-    """Compara los campos de la factura contra la OC y actualiza ValidacionFactura.
+    """Compara la factura con los datos de la OC emitida (cotización vinculada a `orden`).
 
-    Campos validados: valor, nit_proveedor, nombre_proveedor.
-    Actualiza el estado de la factura a 'validada' o 'con_diferencias'.
+    Los importes y proveedor en la OC provienen de esa cotización; la referencia normativa es la OC
+    generada a partir de ella.
     """
+    if cotizacion.id != orden.cotizacion_id:
+        log.warning(
+            "[validación] cotización %s no coincide con orden.cotizacion_id %s — usando datos de la orden",
+            cotizacion.id,
+            orden.cotizacion_id,
+        )
     now = datetime.now(timezone.utc)
     checks: list[tuple[str, Optional[str], Optional[str], bool, Optional[str]]] = []
 
@@ -931,13 +1116,11 @@ def _ejecutar_validacion(
             else f"Diferencia de {diferencia_pct:.2f}% (tolerancia {TOLERANCIA_VALOR_PCT}%)"
         )
     elif val_esperado is None:
-        # La OC no tiene valor aprobado — no se puede validar
         cumple_valor = False
-        obs_valor = "La OC no tiene valor aprobado registrado"
+        obs_valor = "La OC no registra valor aprobado para comparar"
     else:
-        # El motor no extrajo el valor de la factura
         cumple_valor = False
-        obs_valor = "Valor de factura no encontrado en el documento"
+        obs_valor = "Indique el valor en el formulario de factura para comparar con la OC"
 
     checks.append((
         "valor",
@@ -961,13 +1144,11 @@ def _ejecutar_validacion(
             else f"NIT esperado: {nit_esperado}, encontrado: {nit_encontrado}"
         )
     elif not nit_esperado:
-        # La cotización no registra NIT del proveedor — no se puede validar
         cumple_nit = False
-        obs_nit = "NIT de proveedor no registrado en la cotización"
+        obs_nit = "NIT de proveedor no figura en los datos de la OC"
     else:
-        # El motor no extrajo el NIT de la factura
         cumple_nit = False
-        obs_nit = "NIT de proveedor no encontrado en el documento"
+        obs_nit = "Indique el NIT en el formulario de factura para comparar con la OC"
 
     checks.append((
         "nit_proveedor",
@@ -991,10 +1172,10 @@ def _ejecutar_validacion(
         )
     elif not nombre_esperado:
         cumple_nombre = False
-        obs_nombre = "Nombre de proveedor no registrado en la cotización"
+        obs_nombre = "Nombre de proveedor no figura en los datos de la OC"
     else:
         cumple_nombre = False
-        obs_nombre = "Nombre de proveedor no encontrado en el documento"
+        obs_nombre = "Indique el nombre en el formulario de factura para comparar con la OC"
 
     checks.append((
         "nombre_proveedor",

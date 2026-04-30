@@ -9,6 +9,8 @@ export interface SolicitudConFactura {
   solicitante_nombre: string | null
   area_solicitante: string | null
   plataforma: string | null
+  /** Razón social desde config de plataforma (empresa que compra). */
+  empresa_compra_nombre: string | null
   /** Condición indicada por el operativo en la solicitud (ej. términos de pago / condición comercial). */
   condicion: string | null
   estado: EstadoOC
@@ -21,6 +23,7 @@ export interface SolicitudConFactura {
   // Cotización aprobada
   cotizacion_id: string | null
   proveedor_nombre: string | null
+  aprobado_por_nombre: string | null
   valor_aprobado: number | null
   valor_antes_iva: number | null
   valor_iva: number | null
@@ -59,6 +62,20 @@ export interface Factura {
   registrado_por_id: number | null
   created_at: string
   updated_at: string
+}
+
+/** Cotizaciones de la solicitud — listado lectura para Financiero. */
+export interface CotizacionFinancieroLista {
+  id: string
+  solicitud_id: string
+  proveedor_nombre: string
+  proveedor_nit: string | null
+  numero_cotizacion_proveedor: string | null
+  aprobada: boolean | null
+  valor_total: number
+  valor_aprobado: number | null
+  tiene_adjunto: boolean
+  created_at: string
 }
 
 export interface ValidacionFactura {

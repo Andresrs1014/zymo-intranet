@@ -152,10 +152,18 @@ function FacturaCard({ solicitud: s }: { solicitud: SolicitudConFactura }) {
         <div className="flex items-start justify-between gap-4">
           {/* Left — info principal */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
               <span className="font-mono text-xs font-bold text-brand-blue">
                 {s.consecutivo_os ?? "—"}
               </span>
+              {(s.empresa_compra_nombre || s.plataforma) && (
+                <span
+                  className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-semibold text-slate-700 uppercase tracking-wide border border-slate-200"
+                  title="Empresa / plataforma de la compra"
+                >
+                  {s.empresa_compra_nombre ?? s.plataforma}
+                </span>
+              )}
               <FacturaEstadoBadge facturaId={s.factura_id} facturaEstado={s.factura_estado} />
             </div>
             <p className="text-sm font-semibold text-gray-900 truncate">

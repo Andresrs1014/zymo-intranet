@@ -19,3 +19,9 @@
 ## PDF de orden de compra (proveedor)
 
 En `backend/app/routers/oc/documentos.py` (`_generar_pdf`), la sección **Nota** del template `template_oc.html` usa únicamente `observaciones_solicitante`. Las observaciones de la cotización (`oc_cotizaciones.observaciones`, uso interno en el flujo auxiliar/aprobación) no se incluyen en el PDF enviado al proveedor.
+
+## Financiero — factura y validación
+
+- Registro inicial sin archivo: `POST /api/financiero/solicitudes/{solicitud_id}/factura-borrador` (permiso financiero).
+- Subir/reemplazar archivo de factura: `POST /api/financiero/facturas/{solicitud_id}` — **no** ejecuta validación automática; la validación es solo `POST /api/financiero/facturas/{factura_id}/validar` y compara contra la **OC** (cotización vinculada a la orden).
+- Cotizaciones en solo lectura: `GET /api/financiero/solicitudes/{solicitud_id}/cotizaciones`, adjunto `GET /api/financiero/cotizaciones/{cotizacion_id}/adjunto`.

@@ -6,6 +6,7 @@ import type {
   FacturaCuenta,
   FacturaUpdate,
   SolicitudConFactura,
+  CotizacionFinancieroLista,
   TipoGasto,
   ValidacionFactura,
 } from "@/types/financiero"
@@ -28,6 +29,34 @@ export function useSolicitudFinancieroDetalle(solicitudId: string | undefined) {
       return data
     },
     enabled: !!solicitudId,
+  })
+}
+
+export function useCotizacionesFinanciero(solicitudId: string | undefined) {
+  return useQuery({
+    queryKey: ["financiero", "cotizaciones", solicitudId],
+    queryFn: async () => {
+      const { data } = await api.get<CotizacionFinancieroLista[]>(
+        `/api/financiero/solicitudes/${solicitudId}/cotizaciones`
+      )
+      return data
+    },
+    enabled: !!solicitudId,
+  })
+}
+
+export function useCrearFacturaBorrador() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (solicitudId: string) => {
+      const { data } = await api.post<Factura>(
+        `/api/financiero/solicitudes/${solicitudId}/factura-borrador`
+      )
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["financiero"] })
+    },
   })
 }
 
