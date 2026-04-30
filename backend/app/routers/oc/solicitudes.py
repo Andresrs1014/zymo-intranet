@@ -16,6 +16,14 @@ from app.oc_database import get_oc_db
 from app.models.oc import CotizacionProveedor, EstadoOC, SolicitudOC
 from app.models.user import User
 from app.services.historial import registrar_cambio_estado
+from app.services.oc_proforma import (
+    cotizaciones_count,
+    DETALLE_PROFORMA_DESCARGA_OC_CERRADA,
+    DETALLE_PROFORMA_NO_GESTIONABLE,
+    proforma_es_gestionable_desde_oc,
+    PROFORMA_OC_READONLY_ESTADOS,
+    usuario_puede_ver_solicitud_oc,
+)
 from app.services.email_service import (
     send_aprobacion_directora,
     send_cotizacion_lista,
@@ -491,12 +499,18 @@ def actualizar_proforma(
     current_user: User = Depends(require_compras),
     oc_db: Session = Depends(get_oc_db),
 ):
-    """Activa o desactiva el indicador de anticipo/proforma. Visible durante todo el proceso.
+    """Activa o desactiva el indicador de anticipo/proforma (solo después de cargar cotización y antes de OC enviada).
+
     El correo a Financiera se envía cuando la directora aprueba la cotización (no al activar el toggle).
     """
     solicitud = oc_db.get(SolicitudOC, solicitud_id)
     if not solicitud:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
+    if not proforma_es_gestionable_desde_oc(oc_db, solicitud):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=DETALLE_PROFORMA_NO_GESTIONABLE,
+        )
 
     solicitud.tiene_proforma = payload.tiene_proforma
     solicitud.updated_at = datetime.now(timezone.utc)
@@ -513,12 +527,17 @@ async def upload_proforma(
     current_user: User = Depends(require_compras),
     oc_db: Session = Depends(get_oc_db),
 ):
-    """Sube el archivo de proforma/anticipo para la solicitud (PDF/XLSX)."""
+    """Sube la proforma/anticipo (PDF/XLSX, etc.). Solo después de cargar cotización y antes de OC enviada."""
     from app.config import settings
 
     solicitud = oc_db.get(SolicitudOC, solicitud_id)
     if not solicitud:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
+    if not proforma_es_gestionable_desde_oc(oc_db, solicitud):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=DETALLE_PROFORMA_NO_GESTIONABLE,
+        )
 
     extension = Path(archivo.filename or "proforma.pdf").suffix.lower()
     if extension not in {".pdf", ".xlsx", ".xls", ".docx", ".jpg", ".jpeg", ".png"}:
@@ -545,12 +564,28 @@ async def upload_proforma(
 def descargar_proforma(
     solicitud_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
     oc_db: Session = Depends(get_oc_db),
 ):
-    """Descarga el archivo de proforma de la solicitud."""
+    """Descarga la proforma mientras la solicitud está en gestión OC (antes del envío al proveedor)."""
     solicitud = oc_db.get(SolicitudOC, solicitud_id)
     if not solicitud or not solicitud.proforma_path:
         raise HTTPException(status_code=404, detail="Proforma no encontrada.")
+    if not usuario_puede_ver_solicitud_oc(db, current_user, solicitud):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Sin acceso a esta solicitud.",
+        )
+    if solicitud.estado in PROFORMA_OC_READONLY_ESTADOS:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=DETALLE_PROFORMA_DESCARGA_OC_CERRADA,
+        )
+    if cotizaciones_count(oc_db, solicitud_id) < 1:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=DETALLE_PROFORMA_NO_GESTIONABLE,
+        )
 
     proforma_file = Path(solicitud.proforma_path)
     if not proforma_file.exists():

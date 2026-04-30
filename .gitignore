@@ -39,6 +39,9 @@ dist/
 *.swp
 *.swo
 
+# Obsidian (configuración local del vault)
+.obsidian/
+
 # OS
 .DS_Store
 Thumbs.db

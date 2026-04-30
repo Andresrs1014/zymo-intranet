@@ -153,14 +153,14 @@ Solo re-indexar documentos nuevos o modificados. LightRAG soporta esto pero hay 
 
 ### 3.2 Rendimiento esperado con Ollama (CPU-only)
 
-| Modelo | Parámetros | RAM necesaria | Velocidad estimada | ¿Viable? |
-|--------|-----------|---------------|--------------------|---------:|
-| Phi-3 Mini | 3.8B | ~3 GB | 3-5 tokens/s | ⚠️ Funcional |
-| Llama 3.2 | 3B | ~2.5 GB | 4-6 tokens/s | ⚠️ Funcional |
-| Mistral 7B Q4 | 7B | ~5 GB | 2-4 tokens/s | ⚠️ Lento |
-| Gemma 2 9B Q4 | 9B | ~6 GB | 1-3 tokens/s | ❌ Muy lento |
-| Llama 3.1 8B Q4 | 8B | ~5.5 GB | 2-3 tokens/s | ⚠️ Lento |
-| Cualquier 13B+ | 13B+ | ~8+ GB | <1 token/s | ❌ Impracticable |
+| Modelo          | Parámetros | RAM necesaria | Velocidad estimada |        ¿Viable? |
+| --------------- | ---------- | ------------- | ------------------ | --------------: |
+| Phi-3 Mini      | 3.8B       | ~3 GB         | 3-5 tokens/s       |    ⚠️ Funcional |
+| Llama 3.2       | 3B         | ~2.5 GB       | 4-6 tokens/s       |    ⚠️ Funcional |
+| Mistral 7B Q4   | 7B         | ~5 GB         | 2-4 tokens/s       |        ⚠️ Lento |
+| Gemma 2 9B Q4   | 9B         | ~6 GB         | 1-3 tokens/s       |     ❌ Muy lento |
+| Llama 3.1 8B Q4 | 8B         | ~5.5 GB       | 2-3 tokens/s       |        ⚠️ Lento |
+| Cualquier 13B+  | 13B+       | ~8+ GB        | <1 token/s         | ❌ Impracticable |
 
 ### 3.3 Veredicto por caso de uso
 

@@ -35,7 +35,12 @@ import {
   type EditarCotizacionPayload,
 } from "@/hooks/useOC"
 import { useAuthStore } from "@/store/authStore"
+import { getApiError } from "@/hooks/useUsers"
 import { canApproveOC, canConfigureOC, canSeeOC } from "@/lib/permissions"
+import {
+  puedeGestionarProformaDesdeOc,
+  solicitudOcProformaSoloFinanciero,
+} from "@/lib/ocProforma"
 import { EstadoBadge } from "./SolicitudesPage"
 import { ImageModal } from "@/components/ui/ImageModal"
 import { absoluteApiUrl } from "@/lib/api"
@@ -98,6 +103,7 @@ export function SolicitudDetallePage() {
   const evidenciaInputRef = useRef<HTMLInputElement>(null)
   const [evidenciaDragOver, setEvidenciaDragOver] = useState(false)
   const [errorOC, setErrorOC] = useState<string | null>(null)
+  const [proformaMutationError, setProformaMutationError] = useState<string | null>(null)
   const [modalImage, setModalImage] = useState<{ url: string; filename: string } | null>(null)
 
   // Modal de rechazo de solicitud (auxiliar): "cancelar" | "correccion" | null
@@ -163,6 +169,18 @@ export function SolicitudDetallePage() {
   const puedeGenerarOC = user ? canSeeOC(user.role, user.area, user.app_permissions) : false
   const cotizacionPendiente = cotizaciones.find((c) => c.aprobada === null)
   const cotizacionAprobada = cotizaciones.find((c) => c.aprobada === true)
+
+  const puedeGestionarProforma = puedeGestionarProformaDesdeOc(cotizaciones.length, solicitud.estado)
+  const muestraAyudaProformaPrevCotizacion =
+    !!user &&
+    canSeeOC(user.role, user.area, perms) &&
+    cotizaciones.length === 0 &&
+    !solicitudOcProformaSoloFinanciero(solicitud.estado)
+  const muestraAvisoProformaSoloFinanciero =
+    !!user &&
+    canSeeOC(user.role, user.area, perms) &&
+    solicitudOcProformaSoloFinanciero(solicitud.estado) &&
+    solicitud.tiene_proforma
 
   const buildFotoUrl = (filename: string) => {
     const t = token ? encodeURIComponent(token) : ""
@@ -401,7 +419,23 @@ export function SolicitudDetallePage() {
                 </Section>
               )}
 
-              {/* Widget Anticipo / Proforma — visible en cualquier estado del proceso */}
+              {muestraAyudaProformaPrevCotizacion && (
+                <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+                  <span className="font-medium text-gray-700">Anticipo / proforma: </span>
+                  podrá gestionarse después de usar <strong className="text-gray-900">Cargar cotización</strong> por
+                  primera vez en esta solicitud.
+                </div>
+              )}
+
+              {muestraAvisoProformaSoloFinanciero && (
+                <div className="rounded-xl border border-yellow-200 bg-yellow-50/80 px-4 py-3 text-sm text-yellow-900">
+                  Esta solicitud tiene anticipo/proforma marcado. Una vez enviada la OC al proveedor, el archivo solo
+                  puede consultarse desde el módulo <strong className="text-yellow-950">Financiero</strong>
+                  (lista o detalle de facturas por solicitud).
+                </div>
+              )}
+
+              {puedeGestionarProforma && (
               <div className={`rounded-xl border px-4 py-3 space-y-3 ${
                 solicitud.tiene_proforma
                   ? "border-yellow-300 bg-yellow-50"
@@ -422,7 +456,14 @@ export function SolicitudDetallePage() {
                     )}
                   </div>
                   <button
-                    onClick={() => actualizarProforma.mutate(!solicitud.tiene_proforma)}
+                    type="button"
+                    onClick={() => {
+                      setProformaMutationError(null)
+                      actualizarProforma.mutate(!solicitud.tiene_proforma, {
+                        onSuccess: () => setProformaMutationError(null),
+                        onError: (err) => setProformaMutationError(getApiError(err)),
+                      })
+                    }}
                     disabled={actualizarProforma.isPending}
                     className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50 ${
                       solicitud.tiene_proforma
@@ -440,48 +481,67 @@ export function SolicitudDetallePage() {
 
                 {/* Upload y visualización de archivo de proforma */}
                 {solicitud.tiene_proforma && (
-                  <div className="flex items-center gap-3 pt-1 border-t border-yellow-200">
-                    {solicitud.proforma_path ? (
-                      <button
-                        onClick={async () => {
-                          const resp = await api.get(
-                            `/api/oc/solicitudes/${solicitud.id}/proforma/descargar`,
-                            { responseType: "blob" }
-                          )
-                          const url = URL.createObjectURL(resp.data as Blob)
-                          window.open(url, "_blank")
-                        }}
-                        className="flex items-center gap-1.5 text-xs font-medium text-yellow-700 underline hover:text-yellow-900"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  <div className="flex flex-col gap-2 pt-1 border-t border-yellow-200">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      {solicitud.proforma_path ? (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            setProformaMutationError(null)
+                            try {
+                              const resp = await api.get(
+                                `/api/oc/solicitudes/${solicitud.id}/proforma/descargar`,
+                                { responseType: "blob" }
+                              )
+                              const url = URL.createObjectURL(resp.data as Blob)
+                              window.open(url, "_blank")
+                            } catch (err) {
+                              setProformaMutationError(getApiError(err))
+                            }
+                          }}
+                          className="flex items-center gap-1.5 text-xs font-medium text-yellow-700 underline hover:text-yellow-900"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                          Ver proforma subida
+                        </button>
+                      ) : (
+                        <span className="text-xs text-yellow-600 italic">Sin archivo de proforma aún</span>
+                      )}
+                      <label className="flex items-center gap-1.5 cursor-pointer rounded-lg border border-yellow-300 bg-white px-3 py-1.5 text-xs font-semibold text-yellow-700 hover:bg-yellow-50 transition-colors disabled:opacity-50">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                         </svg>
-                        Ver proforma subida
-                      </button>
-                    ) : (
-                      <span className="text-xs text-yellow-600 italic">Sin archivo de proforma aún</span>
+                        {subirProforma.isPending ? "Subiendo..." : solicitud.proforma_path ? "Reemplazar" : "Subir proforma"}
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept=".pdf,.xlsx,.xls,.docx,.jpg,.jpeg,.png"
+                          disabled={subirProforma.isPending}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (!file) return
+                            setProformaMutationError(null)
+                            subirProforma.mutate(file, {
+                              onSuccess: () => setProformaMutationError(null),
+                              onError: (err) => setProformaMutationError(getApiError(err)),
+                            })
+                            e.target.value = ""
+                          }}
+                        />
+                      </label>
+                    </div>
+                    {proformaMutationError && (
+                      <p className="text-xs text-red-600" role="alert">
+                        {proformaMutationError}
+                      </p>
                     )}
-                    <label className="flex items-center gap-1.5 cursor-pointer rounded-lg border border-yellow-300 bg-white px-3 py-1.5 text-xs font-semibold text-yellow-700 hover:bg-yellow-50 transition-colors disabled:opacity-50">
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                      </svg>
-                      {subirProforma.isPending ? "Subiendo..." : solicitud.proforma_path ? "Reemplazar" : "Subir proforma"}
-                      <input
-                        type="file"
-                        className="hidden"
-                        accept=".pdf,.xlsx,.xls,.docx,.jpg,.jpeg,.png"
-                        disabled={subirProforma.isPending}
-                        onChange={(e) => {
-                          const file = e.target.files?.[0]
-                          if (file) subirProforma.mutate(file)
-                          e.target.value = ""
-                        }}
-                      />
-                    </label>
                   </div>
                 )}
               </div>
+              )}
 
               {/* Fotos de evidencia (cotización) — visible solo cuando el auxiliar está cotizando */}
               {solicitud.estado === "en_cotizacion" && (
