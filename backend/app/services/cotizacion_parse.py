@@ -76,6 +76,8 @@ def parsear_campos_cotizacion(
     iva = money_or_extra(
         "valor_iva",
         [
+            # Formato DIAN UBL: "IVA 19.00 % 536,091.00" (valor a la derecha del porcentaje)
+            r"(?m)^(?!.*\bBASE\b)(?!.*\bGRAVABLE\b).*\bIVA\b\s+[\d]+(?:[.,]\d+)?\s*%\s+([\d.,]+)",
             r"(?m)^(?!.*\bBASE\b)(?!.*\bGRAVABLE\b).*\bIVA\s*19%?\b\s*[:\-]\s*\$?\s*([\d.,]+)",
             r"(?m)^(?!.*\bBASE\b)(?!.*\bGRAVABLE\b).*\bIVA\s*\(?\s*\d+\s*%?\s*\)?\s*[:\-]\s*\$?\s*([\d.,]+)",
             r"(?m)^(?!.*\bBASE\b)(?!.*\bGRAVABLE\b).*(?:IMPUESTO(?:\s+AL)?\s+VALOR\s+AGREGADO|IMPU?ESTO\s+IVA)\b[\s:;\-]*\$?\s*([\d.,]+)",

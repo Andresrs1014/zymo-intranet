@@ -56,7 +56,16 @@ def parse_cop(raw: str) -> Optional[float]:
 
         else:
             # Múltiples puntos sin coma: 1.200.000 → todos son separadores de miles
-            cleaned = cleaned.replace(".", "")
+            # Excepción DIAN UBL: "2.821.530.000" → el ".000" final son centavos cero → ignorar
+            _partes = cleaned.split(".")
+            if (
+                len(_partes) == 4
+                and all(len(p) == 3 for p in _partes[1:])
+                and _partes[-1] == "000"
+            ):
+                cleaned = "".join(_partes[:-1])
+            else:
+                cleaned = cleaned.replace(".", "")
 
         result = float(cleaned)
         return result if result >= 0 else None
@@ -80,7 +89,11 @@ def format_cop(value: float | int | None, with_symbol: bool = False) -> Optional
     except Exception:
         return None
 
-    # Redondear a pesos (sin decimales) y aplicar separador de miles.
-    # Python usa "," como separador de miles por defecto.
-    s = f"{round(n):,}".replace(",", ".")
+    # Mostrar centavos solo cuando son distintos de cero.
+    cents = round(n % 1, 2)
+    if cents > 0:
+        entero = int(n)
+        s = f"{entero:,}".replace(",", ".") + f",{round(cents * 100):02d}"
+    else:
+        s = f"{round(n):,}".replace(",", ".")
     return f"${s}" if with_symbol else s
