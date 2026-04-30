@@ -51,6 +51,7 @@ class SolicitudConFacturaRead(BaseModel):
     solicitante_nombre: Optional[str]
     area_solicitante: Optional[str]
     plataforma: Optional[str]
+    condicion: Optional[str] = None
     estado: str
     fecha_en_plataforma: Optional[datetime]
     fecha_recibido: Optional[datetime]
@@ -464,6 +465,7 @@ def _fila_solicitud_financiero(
         solicitante_nombre=sol.solicitante_nombre,
         area_solicitante=sol.area_solicitante,
         plataforma=sol.plataforma,
+        condicion=sol.condicion,
         estado=sol.estado,
         fecha_en_plataforma=sol.fecha_en_plataforma,
         fecha_recibido=sol.fecha_recibido,

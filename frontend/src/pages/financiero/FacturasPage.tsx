@@ -168,6 +168,9 @@ function FacturaCard({ solicitud: s }: { solicitud: SolicitudConFactura }) {
               {s.area_solicitante && (
                 <span>Área: <span className="text-gray-600">{s.area_solicitante}</span></span>
               )}
+              {s.condicion && String(s.condicion).trim() !== "" && (
+                <span>Condición: <span className="text-gray-600">{s.condicion}</span></span>
+              )}
               {s.numero_oc && (
                 <span>OC: <span className="text-gray-600 font-mono">{s.numero_oc}</span></span>
               )}

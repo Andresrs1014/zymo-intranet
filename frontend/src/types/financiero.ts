@@ -9,6 +9,8 @@ export interface SolicitudConFactura {
   solicitante_nombre: string | null
   area_solicitante: string | null
   plataforma: string | null
+  /** Condición indicada por el operativo en la solicitud (ej. términos de pago / condición comercial). */
+  condicion: string | null
   estado: EstadoOC
   fecha_en_plataforma: string | null
   fecha_recibido: string | null

@@ -303,6 +303,7 @@ export function FacturaDetallePage() {
                 <InfoField label="Número OC" value={solicitud?.numero_oc} mono />
                 <InfoField label="Proveedor" value={solicitud?.proveedor_nombre} />
                 <InfoField label="Área" value={solicitud?.area_solicitante} />
+                <InfoField label="Condición" value={solicitud?.condicion} />
                 <InfoField label="Plataforma" value={solicitud?.plataforma} />
                 <InfoField label="Valor aprobado" value={formatCOP(solicitud?.valor_aprobado ?? null)} />
                 <InfoField label="Valor sin IVA" value={formatCOP(solicitud?.valor_antes_iva ?? null)} />

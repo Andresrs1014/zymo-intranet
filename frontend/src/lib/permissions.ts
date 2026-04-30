@@ -49,6 +49,16 @@ export function canSeeGerencial(role: string, appPerms?: string[]): boolean {
   return hasPerm(appPerms, "mod_gerencial")
 }
 
+export function canSeeIT(role: string, appPerms?: string[]): boolean {
+  if (role === "admin") return true
+  return hasPerm(appPerms, "mod_it")
+}
+
+export function canSeeSIG(role: string, appPerms?: string[]): boolean {
+  if (role === "admin") return true
+  return hasPerm(appPerms, "mod_sig")
+}
+
 /** Agente flotante estilo compras (no ZYMO): quien ve OC puede usarlo. */
 export function canUseAgenteAdministrativo(
   role: string,

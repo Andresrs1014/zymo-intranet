@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom"
 import { useAuthStore } from "@/store/authStore"
-import { canSeeOC, canSeeSGC, canSeeOperativo, canSeeFinanciero, canSeeGerencial } from "@/lib/permissions"
+import { canSeeOC, canSeeSGC, canSeeOperativo, canSeeFinanciero, canSeeGerencial, canSeeIT, canSeeSIG } from "@/lib/permissions"
 
 export function Sidebar() {
   const user = useAuthStore((s) => s.user)
@@ -10,6 +10,8 @@ export function Sidebar() {
   const showOperativo      = user ? canSeeOperativo(user.role, user.area, perms) : false
   const showFinanciero     = user ? canSeeFinanciero(user.role, user.area, perms) : false
   const showGerencial      = user ? canSeeGerencial(user.role, perms) : false
+  const showIT             = user ? canSeeIT(user.role, perms) : false
+  const showSIG            = user ? canSeeSIG(user.role, perms) : false
 
   return (
     <aside className="flex h-full w-64 flex-col bg-brand-blue">
@@ -32,11 +34,13 @@ export function Sidebar() {
           icon={<IconDashboard />}
         />
 
-        <SidebarLink
-          to="/it"
-          label="IT"
-          icon={<IconIT />}
-        />
+        {showIT && (
+          <SidebarLink
+            to="/it"
+            label="IT"
+            icon={<IconIT />}
+          />
+        )}
 
         {showSGC && (
           <SidebarLink
@@ -47,11 +51,13 @@ export function Sidebar() {
           />
         )}
 
-        <SidebarLink
-          to="/sig"
-          label="SIG"
-          icon={<IconSIG />}
-        />
+        {showSIG && (
+          <SidebarLink
+            to="/sig"
+            label="SIG"
+            icon={<IconSIG />}
+          />
+        )}
 
         {showOperativo && (
           <SidebarLink
