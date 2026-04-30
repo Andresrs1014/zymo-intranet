@@ -123,7 +123,9 @@ def _generar_pdf(
         "os_ref": solicitud.consecutivo_os or "",
         "cot_ref": cotizacion.numero_cotizacion_proveedor or "",
         "entregar_a": solicitud.solicitante_nombre or "",
-        "nota": cotizacion.observaciones or solicitud.observaciones_solicitante or "",
+        # Nota impresa al proveedor: solo observaciones del solicitante. Las de cotización
+        # son de elaboración/revisión interna y no deben salir en la OC.
+        "nota": solicitud.observaciones_solicitante or "",
         "items": items,
         "subtotal": cotizacion.valor_antes_iva,   # None if not provided — template handles display
         "iva": cotizacion.valor_iva,               # None if not applicable

@@ -15,3 +15,7 @@
 - Reglas centrales: `backend/app/services/oc_proforma.py`
 - Validación HTTP: `backend/app/routers/oc/solicitudes.py` (patch, upload, descarga)
 - Condición de UI: `frontend/src/lib/ocProforma.ts`
+
+## PDF de orden de compra (proveedor)
+
+En `backend/app/routers/oc/documentos.py` (`_generar_pdf`), la sección **Nota** del template `template_oc.html` usa únicamente `observaciones_solicitante`. Las observaciones de la cotización (`oc_cotizaciones.observaciones`, uso interno en el flujo auxiliar/aprobación) no se incluyen en el PDF enviado al proveedor.
