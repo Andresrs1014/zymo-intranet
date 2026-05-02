@@ -17,10 +17,10 @@ class BaseAgent:
     """Clase base para todos los agentes ZYMO."""
 
     nombre: str = "base"
-    modelo: str = "gemini-2.0-flash"
 
     def __init__(self, api_key: str) -> None:
         genai.configure(api_key=api_key)
+        self.modelo = settings.gemini_model
         self._model = genai.GenerativeModel(self.modelo)
         self._session_id: str | None = None
         self._user_email: str | None = None

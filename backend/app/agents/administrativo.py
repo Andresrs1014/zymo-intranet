@@ -54,7 +54,6 @@ Consulta primero los datos reales antes de responder. No inventes números.
 
 class AgenteAdministrativo(BaseAgent):
     nombre: str = "administrativo"
-    modelo: str = "gemini-2.0-flash"
 
     def __init__(self, api_key: str) -> None:
         super().__init__(api_key)

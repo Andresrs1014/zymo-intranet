@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     # ── Agentes IA ────────────────────────────────────────────────────────────
     agents_database_url: str = "sqlite:///./data/agents.db"
     gemini_api_key: str = ""
+    gemini_model: str = "gemini-2.5-flash"
     perplexity_api_key: str = ""
     agent_check_interval_minutes: int = 120
     agent_docs_dir: str = "/app/data/agent_docs"

@@ -65,7 +65,7 @@ async def _llm_func(prompt: str, system_prompt: str | None = None, history_messa
     ):
         with attempt:
             response = await client.aio.models.generate_content(
-                model="gemini-2.0-flash",
+                model=settings.gemini_model,
                 contents=contenido,
             )
             return response.text

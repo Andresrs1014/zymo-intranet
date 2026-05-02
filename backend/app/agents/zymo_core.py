@@ -62,7 +62,6 @@ Cuando el gerente pregunte algo específico, profundiza cuanto necesite.
 
 class ZymoCore(BaseAgent):
     nombre: str = "zymo_core"
-    modelo: str = "gemini-2.0-flash"
 
     def __init__(self, api_key: str) -> None:
         super().__init__(api_key)
