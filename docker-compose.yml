@@ -10,6 +10,8 @@ services:
     volumes:
       - backend_data:/app/data
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   frontend:
     build:
@@ -33,6 +35,8 @@ services:
     restart: always
     depends_on:
       - backend
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
 volumes:
   backend_data:

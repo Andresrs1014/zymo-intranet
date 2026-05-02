@@ -122,36 +122,120 @@ OLLAMA_BASE_URL=http://192.168.x.x:11434
 
 ---
 
-## Re-indexación tras la migración
+## Re-indexación paso a paso
 
-El modelo de embeddings cambió (de 3072 → 768 dims), por lo tanto el índice anterior es **incompatible** y debe regenerarse.
+El modelo de embeddings cambió (de Gemini 3072 dims → Ollama 768 dims), por lo tanto el índice anterior es **incompatible** y debe regenerarse desde cero.
 
-### Paso 1: Borrar el índice anterior
+### Paso 1: Entrar al contenedor backend
 
 ```bash
-rm -rf /app/data/lightrag/
+docker exec -it zymo-backend bash
 ```
 
-### Paso 2: Confirmar que Ollama responde
+> Si el backend no corre en Docker, entra directamente al servidor y activa el entorno virtual:
+> ```bash
+> cd ~/apps/zymo-intranet/backend
+> source .venv/bin/activate
+> ```
+
+### Paso 2: Confirmar que Ollama está corriendo y el modelo está descargado
+
+```bash
+curl http://localhost:11434
+# Respuesta esperada: {"version":"..."}
+
+ollama list
+# Debe aparecer nomic-embed-text en la lista
+```
+
+Si `nomic-embed-text` no aparece:
+```bash
+ollama pull nomic-embed-text
+```
+
+### Paso 3: Verificar que Ollama genera embeddings correctamente
 
 ```bash
 curl http://localhost:11434/api/embed \
-  -d '{"model":"nomic-embed-text","input":["prueba"]}'
-# Debe retornar {"embeddings":[[...]]}
+  -d '{"model":"nomic-embed-text","input":["prueba de conexión"]}'
+# Debe retornar: {"embeddings":[[0.023..., -0.011..., ...]]}
 ```
 
-### Paso 3: Correr el indexador
+Si este paso falla, no continúes — el indexador también fallará.
+
+### Paso 4: Copiar los documentos a las carpetas de indexación
+
+El script lee de `/tmp/docs_zymo` y `/tmp/docs_zymo_administrativo`. Asegúrate de que los archivos `.md` estén ahí:
+
+```bash
+ls /tmp/docs_zymo/
+ls /tmp/docs_zymo_administrativo/
+```
+
+Si las carpetas están vacías o no existen, cópialos:
+```bash
+mkdir -p /tmp/docs_zymo /tmp/docs_zymo_administrativo
+cp /ruta/de/tus/docs/*.md /tmp/docs_zymo/
+```
+
+### Paso 5: Correr el indexador
 
 ```bash
 cd /app
 python indexar_rag.py
 ```
 
-El script procesa todos los `.md`, `.txt`, `.pdf` y `.docx` de las carpetas de documentos y reconstruye el grafo LightRAG usando Ollama para los embeddings.
+El script hace automáticamente:
+1. Detecta si existe un índice previo y lo **elimina** antes de empezar
+2. Lee todos los `.md` de las dos carpetas
+3. Por cada archivo: extrae el texto y lo inserta en LightRAG
+4. LightRAG llama a Ollama para generar los embeddings de cada chunk
 
-### Paso 4: Verificar en la intranet
+**Salida esperada:**
+```
+====================================================
+  ZYMO RAG — Indexación de documentos
+====================================================
 
-Documentos → Buscar → cualquier término. Si devuelve resultados del grafo, el índice está operativo.
+LightRAG dir : /app/data/lightrag
+Docs dir     : /tmp/docs_zymo
+Docs dir     : /tmp/docs_zymo_administrativo
+
+[!] Intento previo detectado — limpiando antes de indexar...
+  Directorio /app/data/lightrag eliminado.
+  Directorio /app/data/lightrag recreado limpio.
+
+Iniciando indexación...
+   5 archivos en /tmp/docs_zymo
+   3 archivos en /tmp/docs_zymo_administrativo
+
+Total a indexar: 8 archivos
+----------------------------------------------------
+  [ 1/ 8] ->    proceso_compras.md (12,430 chars)...
+  [ 1/ 8] OK    proceso_compras.md
+  ...
+----------------------------------------------------
+
+Resultado:  8 OK  |  0 FAIL  |  0 SKIP
+
+[✓] Indexación completada exitosamente.
+```
+
+> **En CPU sin GPU la indexación es más lenta.** Un archivo de ~10 000 chars puede tardar 5–15 segundos. Es normal, no es un error.
+
+### Paso 6: Verificar en la intranet
+
+Abrir la intranet → módulo de documentos → Buscar con cualquier término relacionado a los documentos indexados. Si devuelve resultados del grafo, el índice está operativo.
+
+### Solución de problemas comunes
+
+| Error | Causa | Solución |
+|-------|-------|----------|
+| `Connection refused` al conectar con Ollama | Ollama no está corriendo | `systemctl start ollama` |
+| `model not found` | El modelo no fue descargado | `ollama pull nomic-embed-text` |
+| `Timeout` durante indexación | Batch muy grande en CPU | Normal si el archivo es grande, el timeout es 300 s |
+| `No se encontraron archivos .md` | Carpetas vacías o ruta incorrecta | Verificar paso 4 |
+| Script termina con `FAIL` en algún archivo | Error en LightRAG o Gemini | Revisar logs y reintentar ese archivo manualmente |
 
 ---
 
