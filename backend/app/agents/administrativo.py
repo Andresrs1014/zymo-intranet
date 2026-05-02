@@ -1,7 +1,7 @@
 """
 Agente Administrativo ZYMO — Asistente de Sonia Gómez.
 
-Usa API Key 2 (Gemini cuenta #2).
+Usa GEMINI_API_KEY (única API key del sistema).
 Tiene acceso a herramientas OC y documentos RAG.
 """
 import logging

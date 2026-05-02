@@ -1,7 +1,7 @@
 """
 ZYMO Core — Agente orquestador principal.
 
-Usa API Key 1 (cuenta Google #1 — GEMINI_API_KEY_GERENCIAL).
+Usa GEMINI_API_KEY (única API key del sistema).
 Supervisa al Agente Administrativo cada 2 horas.
 Disponible 24/7 para el gerente y Andrés.
 """

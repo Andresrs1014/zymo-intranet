@@ -139,7 +139,7 @@ def _tarea_to_read(t: GerencialTarea) -> TareaRead:
 
 async def _generar_descripcion_zymo(tarea_id: str, titulo: str, descripcion_tecnica: str) -> None:
     """Background task: ZYMO genera descripcion_gerencial e impacto."""
-    api_key = settings.gemini_api_key_gerencial
+    api_key = settings.gemini_api_key
     if not api_key:
         return
     try:

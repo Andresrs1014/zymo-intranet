@@ -176,13 +176,13 @@ class ChatPayload(BaseModel):
 
 
 def _get_agente_administrativo():
-    """Instancia el agente administrativo con la API Key 2."""
+    """Instancia el agente administrativo."""
     from app.agents.administrativo import AgenteAdministrativo
-    api_key = settings.gemini_api_key_administrativo or settings.gemini_api_key_gerencial
+    api_key = settings.gemini_api_key
     if not api_key:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="GEMINI_API_KEY_ADMINISTRATIVO no configurada.",
+            detail="GEMINI_API_KEY no configurada.",
         )
     return AgenteAdministrativo(api_key=api_key)
 

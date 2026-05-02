@@ -2,10 +2,10 @@
 Servicio LightRAG — Motor RAG basado en grafos para los agentes ZYMO.
 
 Singleton lazy: se inicializa la primera vez que se necesita.
-Usa google-genai (nuevo SDK, v1) para LLM y embeddings.
+- LLM: Google Gemini 2.0 Flash (una sola API key)
+- Embeddings: Ollama local (nomic-embed-text, 768 dims — sin cuota externa)
 
 Control de rate limits Gemini:
-  - Semáforo global (_gemini_sem): serializa las llamadas a la API (1 a la vez)
   - Pausa fija entre llamadas para no agotar el quota de requests/minuto
   - tenacity: reintenta automáticamente con backoff exponencial en errores 429
 """
@@ -14,6 +14,7 @@ import logging
 from pathlib import Path
 from typing import Optional
 
+import httpx
 from tenacity import AsyncRetrying, retry_if_exception, stop_after_attempt, wait_exponential
 
 logger = logging.getLogger(__name__)
@@ -21,9 +22,8 @@ logger = logging.getLogger(__name__)
 _rag: Optional[object] = None
 _rag_lock: Optional[asyncio.Lock] = None
 
-# Pausa entre llamadas (LightRAG ya serializa con max_async=1, esto añade cortesía extra)
+# Pausa entre llamadas LLM (LightRAG ya serializa con max_async=1)
 _PAUSA_LLM_SEG = 1.5
-_PAUSA_EMBED_SEG = 0.5
 
 
 def _get_lock() -> asyncio.Lock:
@@ -39,29 +39,21 @@ def _es_429(exc: BaseException) -> bool:
     return any(k in msg for k in ("429", "quota", "resource_exhausted", "rate_limit", "rateerror"))
 
 
-# ── Clientes Gemini ────────────────────────────────────────────────────────────
+# ── LLM: Gemini (una sola API key) ────────────────────────────────────────────
 
 def _llm_client(api_key: str):
     from google import genai
     return genai.Client(api_key=api_key, http_options={"api_version": "v1"})
 
 
-def _embed_client(api_key: str):
-    from google import genai
-    return genai.Client(api_key=api_key)  # v1beta por defecto — gemini-embedding-001 vive aquí
-
-
-# ── Funciones Gemini con rate-limit control ────────────────────────────────────
-
 async def _llm_func(prompt: str, system_prompt: str | None = None, history_messages: list = [], **kwargs) -> str:
     """
     LLM callable que LightRAG usa para razonamiento y extracción de entidades.
     La concurrencia se controla desde LightRAG (llm_model_max_async=1).
-    Tenacity reintenta en 429 respetando el worker timeout de LightRAG (360s).
     """
     from app.config import settings
 
-    client = _llm_client(settings.gemini_api_key_gerencial or settings.gemini_api_key_administrativo)
+    client = _llm_client(settings.gemini_api_key)
     contenido = f"{system_prompt}\n\n{prompt}" if system_prompt else prompt
 
     await asyncio.sleep(_PAUSA_LLM_SEG)
@@ -79,34 +71,29 @@ async def _llm_func(prompt: str, system_prompt: str | None = None, history_messa
             return response.text
 
 
+# ── Embeddings: Ollama local ───────────────────────────────────────────────────
+
 async def _embed_func(texts: list[str]) -> "np.ndarray":
     """
-    Embedding callable que LightRAG usa para búsqueda semántica.
-    La concurrencia se controla desde LightRAG (embedding_func_max_async=1).
-    Tenacity reintenta en 429 respetando el worker timeout de LightRAG (60s).
+    Embedding callable usando Ollama local (nomic-embed-text).
+    Sin cuota externa — corre completamente en el servidor.
+
+    Usa la API batch de Ollama: POST /api/embed
     """
     import numpy as np
     from app.config import settings
 
-    client = _embed_client(settings.gemini_api_key_gerencial or settings.gemini_api_key_administrativo)
-    embeddings = []
+    url = f"{settings.ollama_base_url.rstrip('/')}/api/embed"
+    payload = {"model": settings.ollama_embed_model, "input": texts}
 
-    for text in texts:
-        await asyncio.sleep(_PAUSA_EMBED_SEG)
-        async for attempt in AsyncRetrying(
-            stop=stop_after_attempt(3),
-            wait=wait_exponential(multiplier=1, min=5, max=20),
-            retry=retry_if_exception(_es_429),
-            reraise=True,
-        ):
-            with attempt:
-                response = await client.aio.models.embed_content(
-                    model="gemini-embedding-001",
-                    contents=text,
-                )
-                embeddings.append(response.embeddings[0].values)
+    # Timeout generoso: en CPU sin GPU un batch grande puede tardar varios segundos
+    async with httpx.AsyncClient(timeout=300.0) as client:
+        response = await client.post(url, json=payload)
+        response.raise_for_status()
+        data = response.json()
 
-    return np.array(embeddings)
+    embeddings = data["embeddings"]
+    return np.array(embeddings, dtype=np.float32)
 
 
 # ── Singleton ──────────────────────────────────────────────────────────────────
@@ -140,15 +127,15 @@ async def get_rag():
                 llm_model_func=_llm_func,
                 llm_model_max_async=1,
                 embedding_func=EmbeddingFunc(
-                    embedding_dim=3072,
-                    max_token_size=2048,
+                    embedding_dim=768,       # nomic-embed-text
+                    max_token_size=8192,
                     func=_embed_func,
                 ),
                 embedding_func_max_async=1,
             )
             await instancia.initialize_storages()
             _rag = instancia
-            logger.info("LightRAG inicializado en %s", working_dir)
+            logger.info("LightRAG inicializado en %s (embeddings: Ollama %s)", working_dir, settings.ollama_embed_model)
         except Exception as e:
             logger.error("Error inicializando LightRAG: %s", e)
             return None

@@ -32,9 +32,9 @@ def _get_zymo_core():
     """Instancia ZymoCore con la API Key gerencial."""
     from app.agents.zymo_core import ZymoCore
     from app.config import settings
-    api_key = settings.gemini_api_key_gerencial
+    api_key = settings.gemini_api_key
     if not api_key:
-        logger.warning("GEMINI_API_KEY_GERENCIAL no configurada — worker en modo silencioso.")
+        logger.warning("GEMINI_API_KEY no configurada — worker en modo silencioso.")
         return None
     return ZymoCore(api_key=api_key)
 

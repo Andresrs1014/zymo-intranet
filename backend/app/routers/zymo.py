@@ -26,11 +26,11 @@ router = APIRouter(prefix="/api/zymo", tags=["ZYMO Core"])
 
 
 def _get_zymo() -> ZymoCore:
-    api_key = settings.gemini_api_key_gerencial
+    api_key = settings.gemini_api_key
     if not api_key:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="GEMINI_API_KEY_GERENCIAL no configurada.",
+            detail="GEMINI_API_KEY no configurada.",
         )
     return ZymoCore(api_key=api_key)
 
