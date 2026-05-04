@@ -207,9 +207,14 @@ export function CotizacionFormPage() {
       for (const campo of (phase2Result.phase2_campos_completados as string[])) {
         const valor = phase2Result[campo]
         if (valor != null && (next as Record<string, unknown>)[campo] == null) {
-          (next as Record<string, unknown>)[campo] = CAMPOS_MONETARIOS.has(campo)
-            ? Number(valor)
-            : String(valor)
+          if (CAMPOS_MONETARIOS.has(campo)) {
+            const num = Number(valor)
+            if (isFinite(num)) {
+              (next as Record<string, unknown>)[campo] = num
+            }
+          } else {
+            (next as Record<string, unknown>)[campo] = String(valor)
+          }
         }
       }
       return next
