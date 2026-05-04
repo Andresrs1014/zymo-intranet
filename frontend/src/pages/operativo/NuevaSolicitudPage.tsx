@@ -79,7 +79,7 @@ export function NuevaSolicitudPage() {
   const deleteDraft = useDeleteDraft()
 
   // Autosave del formulario (1.5s debounced) — no guardar si viene de paquete
-  useAutosaveDraft("solicitud_nueva", undefined, draftRestored || !paqueteId ? form : null)
+  useAutosaveDraft("solicitud_nueva", undefined, draftRestored || !paqueteId ? (form as Record<string, unknown>) : null)
 
   const opcionesPrioridad = useMemo(
     () =>
@@ -200,7 +200,7 @@ export function NuevaSolicitudPage() {
 
   function restaurarBorrador() {
     if (!borrador?.payload) return
-    const payload = borrador.payload as SolicitudInternaCreate & { tipo_solicitud?: string }
+    const payload = borrador.payload as unknown as SolicitudInternaCreate & { tipo_solicitud?: string }
     const tipo = (payload.tipo_solicitud ?? "compra") as TipoSolicitud
     setTipoSolicitud(tipo)
     setForm({

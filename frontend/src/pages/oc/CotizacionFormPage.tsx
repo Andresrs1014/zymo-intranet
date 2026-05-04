@@ -102,7 +102,7 @@ export function CotizacionFormPage() {
 
   function restaurarBorrador() {
     if (!borrador?.payload) return
-    setForm((prev) => ({ ...prev, ...(borrador.payload as typeof prev) }))
+    setForm((prev) => ({ ...prev, ...(borrador.payload as unknown as typeof prev) }))
     setDraftRestored(true)
     setShowDraftModal(false)
   }
