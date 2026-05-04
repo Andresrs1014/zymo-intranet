@@ -8,7 +8,6 @@ Carga los sinónimos de BD una sola vez por proceso (caché en memoria).
 Llamar a invalidate_cache() después de aprobar un nuevo sinónimo.
 """
 import logging
-from typing import Optional
 
 from sqlmodel import Session, select
 
@@ -40,7 +39,7 @@ def _load_learned_cache() -> None:
 
 def invalidate_cache() -> None:
     """Llama esto después de aprobar/rechazar un sinónimo en BD."""
-    global _cache_loaded
+    global _cache_loaded, _learned_cache
     _cache_loaded = False
     _load_learned_cache()
     _log.info("[synonym_loader] Caché invalidada y recargada.")
@@ -67,12 +66,12 @@ def resolve_field_enhanced(raw_label: str) -> tuple[str | None, str]:
         return _learned_cache[normalized], "alta"
 
     # 2. Diccionario estático (exacto)
-    result = resolve_field(raw_label)
+    result = resolve_field(normalized)
     if result:
         return result, "alta"
 
     # 3. Fuzzy con umbral alto
-    canonical, score = fuzzy_resolve(raw_label, threshold=0.85)
+    canonical, _ = fuzzy_resolve(raw_label, threshold=0.85)
     if canonical:
         return canonical, "media"
 
