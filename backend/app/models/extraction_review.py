@@ -1,7 +1,6 @@
 # backend/app/models/extraction_review.py
 from datetime import datetime, timezone
 from typing import Optional
-from sqlalchemy import Column, JSON
 from sqlmodel import Field, SQLModel
 
 
@@ -10,7 +9,7 @@ class ExtractionReview(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     # Etiqueta cruda tal como la vio Gemini en el documento
-    label_raw: str = Field(nullable=False, max_length=200)
+    label_raw: str = Field(max_length=200)
     # Campo canónico que Gemini sugiere (puede ser None si Gemini no supo)
     campo_sugerido: Optional[str] = Field(default=None, max_length=100)
     # Confianza de Gemini: "alta" | "media" | "baja"
