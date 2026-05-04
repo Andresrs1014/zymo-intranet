@@ -147,7 +147,8 @@ def get_phase2_result(solicitud_id: str) -> Optional[dict]:
         return None
     try:
         return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
+    except Exception as e:
+        _log.warning("[phase2] No se pudo leer resultado de disco solicitud=%s: %s", solicitud_id, e)
         return None
 
 
@@ -159,22 +160,27 @@ def _registrar_candidatos_bd(candidatos: list[dict], solicitud_id: str) -> None:
         from app.models.extraction_review import ExtractionReview
 
         with Session(get_engine()) as db:
-            for c in candidatos:
-                label = (c.get("label") or "").strip().lower()
-                if not label or len(label) < 2:
-                    continue
-                # No duplicar si ya existe pendiente
-                exists = db.exec(
+            labels = [
+                (c.get("label") or "").strip().lower()
+                for c in candidatos
+                if len((c.get("label") or "").strip()) >= 2
+            ]
+            existing_labels = {
+                r.label_raw
+                for r in db.exec(
                     select(ExtractionReview).where(
-                        ExtractionReview.label_raw == label,
+                        ExtractionReview.label_raw.in_(labels),
                         ExtractionReview.estado == "pendiente",
                     )
-                ).first()
-                if exists:
+                ).all()
+            }
+            for c in candidatos:
+                label = (c.get("label") or "").strip().lower()
+                if not label or len(label) < 2 or label in existing_labels:
                     continue
                 db.add(ExtractionReview(
                     label_raw=label,
-                    campo_sugerido=None,  # Gemini no supo → admin decide
+                    campo_sugerido=None,
                     confianza_ia="baja",
                     tipo_documento="cotizacion",
                     estado="pendiente",
@@ -202,13 +208,12 @@ def _incrementar_veces_visto(campos: dict, solicitud_id: str) -> None:
             return
 
         with Session(get_engine()) as db:
-            for label in etiquetas:
-                row = db.exec(
-                    select(LearnedSynonym).where(LearnedSynonym.label == label)
-                ).first()
-                if row:
-                    row.veces_visto += 1
-                    db.add(row)
+            rows = db.exec(
+                select(LearnedSynonym).where(LearnedSynonym.label.in_(etiquetas))
+            ).all()
+            for row in rows:
+                row.veces_visto += 1
+                db.add(row)
             db.commit()
     except Exception as e:
         _log.warning("[phase2] No se pudo incrementar veces_visto: %s", e)
