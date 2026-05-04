@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     facturas_dir: str = "/app/data/facturas"
     proformas_dir: str = "/app/data/proformas"
 
+    # Módulo Borradores
+    drafts_dir: str = "/app/data/form_drafts"
+    draft_ttl_days: int = 7
+
     # OC Automatizaciones
     # Secret para validar que el webhook viene de Power Automate (opcional)
     oc_webhook_secret: str = ""

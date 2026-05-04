@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react"
+import { useDraft, useAutosaveDraft, useDeleteDraft } from "@/hooks/useDraft"
 import { useNavigate, useParams } from "react-router-dom"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
@@ -93,6 +94,12 @@ export function FacturaDetallePage() {
       detail: c.tipo_gasto_nombre ? `Tipo de gasto: ${c.tipo_gasto_nombre}` : "Sin tipo de gasto",
     }))
 
+  // Borrador (draft) hooks
+  const { data: borrador } = useDraft("factura", solicitudId)
+  const deleteDraft = useDeleteDraft()
+  const [showDraftModal, setShowDraftModal] = useState(false)
+  const [draftRestored, setDraftRestored] = useState(false)
+
   // Form state for editing
   const [form, setForm] = useState<FacturaUpdate>({})
   const [formDirty, setFormDirty] = useState(false)
@@ -116,6 +123,28 @@ export function FacturaDetallePage() {
     }
   }, [factura])
 
+  // Autosave: only when draft has been restored (or user started editing); pass null otherwise
+  useAutosaveDraft("factura", solicitudId, draftRestored ? (form as Record<string, unknown>) : null)
+
+  // Show modal when a draft exists and hasn't been acted on yet
+  useEffect(() => {
+    if (borrador && !draftRestored) {
+      setShowDraftModal(true)
+    }
+  }, [borrador, draftRestored])
+
+  function restaurarBorrador() {
+    if (!borrador?.payload) return
+    setForm((prev) => ({ ...prev, ...(borrador.payload as typeof prev) }))
+    setDraftRestored(true)
+    setShowDraftModal(false)
+  }
+
+  function descartarBorrador() {
+    if (solicitudId) deleteDraft.mutate({ tipo: "factura", solicitudId })
+    setShowDraftModal(false)
+  }
+
   function handleChange(field: keyof FacturaUpdate, value: string | number) {
     setForm((prev) => ({ ...prev, [field]: value }))
     setFormDirty(true)
@@ -125,7 +154,12 @@ export function FacturaDetallePage() {
     if (!facturaId) return
     actualizarFactura.mutate(
       { facturaId, data: form },
-      { onSuccess: () => setFormDirty(false) }
+      {
+        onSuccess: () => {
+          setFormDirty(false)
+          if (solicitudId) deleteDraft.mutate({ tipo: "factura", solicitudId })
+        },
+      }
     )
   }
 
@@ -210,7 +244,40 @@ export function FacturaDetallePage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <>
+      {showDraftModal && borrador && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full mx-4">
+            <h2 className="text-lg font-bold text-gray-900 mb-2">Borrador guardado</h2>
+            <p className="text-sm text-gray-500 mb-1">
+              Tienes un borrador de factura guardado del{" "}
+              <span className="font-medium text-gray-700">
+                {new Date(borrador.updated_at).toLocaleDateString("es-CO", {
+                  day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit",
+                })}
+              </span>
+            </p>
+            <p className="text-sm text-gray-500 mb-5">¿Deseas continuar donde lo dejaste?</p>
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={descartarBorrador}
+                className="px-4 py-2 rounded-lg text-sm text-gray-600 border border-gray-200 hover:bg-gray-50"
+              >
+                Descartar
+              </button>
+              <button
+                type="button"
+                onClick={restaurarBorrador}
+                className="px-4 py-2 rounded-lg text-sm bg-blue-600 text-white hover:bg-blue-700 font-medium"
+              >
+                Continuar borrador
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      <div className="flex h-screen bg-gray-50">
       <Sidebar />
 
       <div className="flex flex-1 flex-col overflow-hidden">
@@ -753,6 +820,7 @@ export function FacturaDetallePage() {
         </main>
       </div>
     </div>
+    </>
   )
 }
 

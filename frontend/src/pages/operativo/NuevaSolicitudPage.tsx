@@ -6,6 +6,7 @@ import { Combobox } from "@/components/ui/Combobox"
 import { useAuthStore } from "@/store/authStore"
 import { useListasFormulario, useCrearSolicitudInterna, usePaquetes, useSubirFotoSolicitud } from "@/hooks/useOC"
 import type { SolicitudInternaCreate } from "@/hooks/useOC"
+import { useDraft, useAutosaveDraft, useDeleteDraft } from "@/hooks/useDraft"
 
 const PRIORIDAD_SLA: Record<string, string> = {
   Alta:  "Alta — primera respuesta en 4 horas",
@@ -66,11 +67,19 @@ export function NuevaSolicitudPage() {
   const [form, setForm] = useState<SolicitudInternaCreate>(FORM_COMPRA_VACIO)
   const [paqueteNombre, setPaqueteNombre] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [showDraftModal, setShowDraftModal] = useState(false)
+  const [draftRestored, setDraftRestored] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState(false)
   const [archivos, setArchivos] = useState<File[]>([])
   const [subiendoArchivos, setSubiendoArchivos] = useState(false)
+
+  const { data: borrador } = useDraft("solicitud_nueva")
+  const deleteDraft = useDeleteDraft()
+
+  // Autosave del formulario (1.5s debounced) — no guardar si viene de paquete
+  useAutosaveDraft("solicitud_nueva", undefined, draftRestored || !paqueteId ? form : null)
 
   const opcionesPrioridad = useMemo(
     () =>
@@ -138,6 +147,12 @@ export function NuevaSolicitudPage() {
     setPaqueteNombre(paquete.nombre)
   }, [paqueteId, paquetes])
 
+  useEffect(() => {
+    if (borrador && !draftRestored && !paqueteId) {
+      setShowDraftModal(true)
+    }
+  }, [borrador, draftRestored, paqueteId])
+
   function handleChange<K extends keyof SolicitudInternaCreate>(
     field: K,
     value: SolicitudInternaCreate[K]
@@ -183,6 +198,24 @@ export function NuevaSolicitudPage() {
     return null
   }
 
+  function restaurarBorrador() {
+    if (!borrador?.payload) return
+    const payload = borrador.payload as SolicitudInternaCreate & { tipo_solicitud?: string }
+    const tipo = (payload.tipo_solicitud ?? "compra") as TipoSolicitud
+    setTipoSolicitud(tipo)
+    setForm({
+      ...(tipo === "compra" ? FORM_COMPRA_VACIO : FORM_MANTENIMIENTO_VACIO),
+      ...payload,
+    })
+    setDraftRestored(true)
+    setShowDraftModal(false)
+  }
+
+  function descartarBorrador() {
+    deleteDraft.mutate({ tipo: "solicitud_nueva" })
+    setShowDraftModal(false)
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const validationError = validarFormulario()
@@ -219,6 +252,7 @@ export function NuevaSolicitudPage() {
       }
 
       navigate("/operativo/mis-solicitudes")
+      deleteDraft.mutate({ tipo: "solicitud_nueva" })
     } catch {
       setSubiendoArchivos(false)
       setError("Error al procesar la solicitud o subir las evidencias. Intenta de nuevo.")
@@ -227,6 +261,38 @@ export function NuevaSolicitudPage() {
 
   return (
     <div className="flex h-screen bg-gray-50">
+      {showDraftModal && borrador && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full mx-4">
+            <h2 className="text-lg font-bold text-gray-900 mb-2">Borrador guardado</h2>
+            <p className="text-sm text-gray-500 mb-1">
+              Tienes un borrador guardado del{" "}
+              <span className="font-medium text-gray-700">
+                {new Date(borrador.updated_at).toLocaleDateString("es-CO", {
+                  day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit",
+                })}
+              </span>
+            </p>
+            <p className="text-sm text-gray-500 mb-5">¿Deseas continuar donde lo dejaste?</p>
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={descartarBorrador}
+                className="px-4 py-2 rounded-lg text-sm text-gray-600 border border-gray-200 hover:bg-gray-50 transition-colors"
+              >
+                Descartar
+              </button>
+              <button
+                type="button"
+                onClick={restaurarBorrador}
+                className="px-4 py-2 rounded-lg text-sm bg-brand-blue text-white hover:bg-brand-blue/90 transition-colors font-medium"
+              >
+                Continuar borrador
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <Sidebar />
 
       <div className="flex flex-1 flex-col overflow-hidden">

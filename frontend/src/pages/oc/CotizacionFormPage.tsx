@@ -1,4 +1,4 @@
-import { useRef, useState } from "react"
+import { useRef, useState, useEffect } from "react"
 import { formatCOP } from "@/lib/formatters"
 import { FormFieldCOP, MoneyInputCOP } from "@/components/forms/FormFieldCOP"
 import { useNavigate, useParams } from "react-router-dom"
@@ -17,6 +17,7 @@ import type { CotizacionCreatePayload, ExtraccionResult, ItemCotizacion } from "
 import { api } from "@/lib/api"
 import { puedeGestionarProformaDesdeOc } from "@/lib/ocProforma"
 import { getApiError } from "@/hooks/useUsers"
+import { useDraft, useAutosaveDraft, useDeleteDraft } from "@/hooks/useDraft"
 
 const EMPTY_FORM: CotizacionCreatePayload = {
   proveedor_nombre: "",
@@ -80,6 +81,36 @@ export function CotizacionFormPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState(false)
   const [proformaMutationError, setProformaMutationError] = useState<string | null>(null)
+
+  // ── Borradores ────────────────────────────────────────────────────────────
+  const { data: borrador } = useDraft("cotizacion", id)
+  const deleteDraft = useDeleteDraft()
+  const [showDraftModal, setShowDraftModal] = useState(false)
+  const [draftRestored, setDraftRestored] = useState(false)
+
+  useAutosaveDraft(
+    "cotizacion",
+    id,
+    form as unknown as Record<string, unknown>
+  )
+
+  useEffect(() => {
+    if (borrador && !draftRestored) {
+      setShowDraftModal(true)
+    }
+  }, [borrador, draftRestored])
+
+  function restaurarBorrador() {
+    if (!borrador?.payload) return
+    setForm((prev) => ({ ...prev, ...(borrador.payload as typeof prev) }))
+    setDraftRestored(true)
+    setShowDraftModal(false)
+  }
+
+  function descartarBorrador() {
+    if (id) deleteDraft.mutate({ tipo: "cotizacion", solicitudId: id })
+    setShowDraftModal(false)
+  }
 
   const puedeProforma =
     solicitud && puedeGestionarProformaDesdeOc(cotizaciones.length, solicitud.estado)
@@ -256,7 +287,10 @@ export function CotizacionFormPage() {
     crearCotizacion.mutate(
       { solicitudId: id!, payload },
       {
-        onSuccess: () => navigate(`/oc/solicitudes/${id}`),
+        onSuccess: () => {
+          if (id) deleteDraft.mutate({ tipo: "cotizacion", solicitudId: id })
+          navigate(`/oc/solicitudes/${id}`)
+        },
         onError: (err: any) => {
           setError(err?.response?.data?.detail ?? "Error al guardar la cotización.")
         },
@@ -280,6 +314,39 @@ export function CotizacionFormPage() {
 
   return (
     <div className="flex h-screen bg-gray-50">
+      {showDraftModal && borrador && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full mx-4">
+            <h2 className="text-lg font-bold text-gray-900 mb-2">Borrador guardado</h2>
+            <p className="text-sm text-gray-500 mb-1">
+              Tienes un borrador de cotización guardado del{" "}
+              <span className="font-medium text-gray-700">
+                {new Date(borrador.updated_at).toLocaleDateString("es-CO", {
+                  day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit",
+                })}
+              </span>
+            </p>
+            <p className="text-sm text-gray-500 mb-5">¿Deseas continuar donde lo dejaste?</p>
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={descartarBorrador}
+                className="px-4 py-2 rounded-lg text-sm text-gray-600 border border-gray-200 hover:bg-gray-50"
+              >
+                Descartar
+              </button>
+              <button
+                type="button"
+                onClick={restaurarBorrador}
+                className="px-4 py-2 rounded-lg text-sm bg-blue-600 text-white hover:bg-blue-700 font-medium"
+              >
+                Continuar borrador
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Sidebar />
 
       <div className="flex flex-1 flex-col overflow-hidden">
