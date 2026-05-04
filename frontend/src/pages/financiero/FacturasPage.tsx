@@ -5,6 +5,7 @@ import { TopBar } from "@/components/layout/TopBar"
 import { useSolicitudesFinanciero } from "@/hooks/useFinanciero"
 import type { EstadoFactura, SolicitudConFactura } from "@/types/financiero"
 import { api } from "@/lib/api"
+import { VistaFacturacionModal } from "@/components/financiero/VistaFacturacionModal"
 
 // ── Tipos de tab ──────────────────────────────────────────────────────────────
 
@@ -64,6 +65,7 @@ export function FacturasPage() {
   const navigate = useNavigate()
   const { data: solicitudes = [], isLoading } = useSolicitudesFinanciero()
   const [tab, setTab] = useState<TabKey>("todas")
+  const [vistaSolicitud, setVistaSolicitud] = useState<SolicitudConFactura | null>(null)
 
   const filtradas = solicitudes.filter((s) => {
     if (tab === "todas") return true
@@ -73,6 +75,14 @@ export function FacturasPage() {
 
   return (
     <div className="flex h-screen bg-gray-50">
+      {vistaSolicitud && (
+        <VistaFacturacionModal
+          open
+          onClose={() => setVistaSolicitud(null)}
+          solicitud={vistaSolicitud}
+          factura={null}
+        />
+      )}
       <Sidebar />
 
       <div className="flex flex-1 flex-col overflow-hidden">
@@ -156,7 +166,7 @@ export function FacturasPage() {
           {!isLoading && filtradas.length > 0 && (
             <div className="space-y-3">
               {filtradas.map((s) => (
-                <FacturaCard key={s.solicitud_id} solicitud={s} />
+                <FacturaCard key={s.solicitud_id} solicitud={s} onVistaFacturacion={() => setVistaSolicitud(s)} />
               ))}
             </div>
           )}
@@ -168,7 +178,13 @@ export function FacturasPage() {
 
 // ── Tarjeta ───────────────────────────────────────────────────────────────────
 
-function FacturaCard({ solicitud: s }: { solicitud: SolicitudConFactura }) {
+function FacturaCard({
+  solicitud: s,
+  onVistaFacturacion,
+}: {
+  solicitud: SolicitudConFactura
+  onVistaFacturacion: () => void
+}) {
   const navigate = useNavigate()
 
   return (
@@ -256,13 +272,26 @@ function FacturaCard({ solicitud: s }: { solicitud: SolicitudConFactura }) {
             <p className="text-sm font-semibold text-gray-800">{formatCOP(s.valor_aprobado)}</p>
           </div>
 
-          {/* Right — acción */}
-          <button
-            onClick={() => navigate(`/financiero/facturas/${s.solicitud_id}`)}
-            className="shrink-0 rounded-lg bg-brand-blue/8 px-3 py-1.5 text-xs font-semibold text-brand-blue hover:bg-brand-blue/15 transition-colors"
-          >
-            Ver detalle
-          </button>
+          {/* Right — acciones */}
+          <div className="shrink-0 flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                onVistaFacturacion()
+              }}
+              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              Vista facturación
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate(`/financiero/facturas/${s.solicitud_id}`)}
+              className="rounded-lg bg-brand-blue/8 px-3 py-1.5 text-xs font-semibold text-brand-blue hover:bg-brand-blue/15 transition-colors"
+            >
+              Ver detalle
+            </button>
+          </div>
         </div>
       </div>
     </div>

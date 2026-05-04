@@ -23,6 +23,8 @@ export interface SolicitudConFactura {
   // Cotización aprobada
   cotizacion_id: string | null
   proveedor_nombre: string | null
+  /** NIT en cotización aprobada (referencia OC). Ausente en respuestas de API antiguas. */
+  proveedor_nit?: string | null
   aprobado_por_nombre: string | null
   valor_aprobado: number | null
   valor_antes_iva: number | null

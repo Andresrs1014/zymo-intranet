@@ -24,6 +24,7 @@ import type { EstadoFactura, FacturaUpdate } from "@/types/financiero"
 import { formatCOP } from "@/lib/formatters"
 import { FormFieldCOP } from "@/components/forms/FormFieldCOP"
 import { api, openAuthenticatedApiBlob } from "@/lib/api"
+import { VistaFacturacionModal } from "@/components/financiero/VistaFacturacionModal"
 
 // ── Helpers de legibilidad ────────────────────────────────────────────────────
 
@@ -106,6 +107,8 @@ export function FacturaDetallePage() {
       sublabel: c.numero_cuenta,
       detail: c.tipo_gasto_nombre ? `Tipo de gasto: ${c.tipo_gasto_nombre}` : "Sin tipo de gasto",
     }))
+
+  const [showVistaFacturacion, setShowVistaFacturacion] = useState(false)
 
   // Borrador (draft) hooks
   const { data: borrador } = useDraft("factura", solicitudId)
@@ -258,6 +261,12 @@ export function FacturaDetallePage() {
 
   return (
     <>
+      <VistaFacturacionModal
+        open={showVistaFacturacion}
+        onClose={() => setShowVistaFacturacion(false)}
+        solicitud={solicitud}
+        factura={factura ?? null}
+      />
       {showDraftModal && borrador && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full mx-4">
@@ -306,7 +315,7 @@ export function FacturaDetallePage() {
           </button>
 
           {/* Header con estado */}
-          <div className="flex items-center gap-3 mb-6 flex-wrap">
+          <div className="flex items-start justify-between gap-3 mb-6 flex-wrap">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-xl font-bold text-gray-900">
@@ -328,6 +337,13 @@ export function FacturaDetallePage() {
                 {solicitud?.descripcion ?? "Sin descripción"}
               </p>
             </div>
+            <button
+              type="button"
+              onClick={() => setShowVistaFacturacion(true)}
+              className="shrink-0 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 transition-colors shadow-sm"
+            >
+              Vista facturación
+            </button>
           </div>
 
           <div className="space-y-6">

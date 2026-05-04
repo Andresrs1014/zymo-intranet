@@ -66,6 +66,7 @@ class SolicitudConFacturaRead(BaseModel):
     # Cotización aprobada
     cotizacion_id: Optional[uuid.UUID]
     proveedor_nombre: Optional[str]
+    proveedor_nit: Optional[str] = None
     aprobado_por_nombre: Optional[str] = None
     valor_aprobado: Optional[float]
     valor_antes_iva: Optional[float]
@@ -504,6 +505,7 @@ def _fila_solicitud_financiero(
         forma_pago=cotizacion.forma_pago if cotizacion else None,
         cotizacion_id=cotizacion.id if cotizacion else None,
         proveedor_nombre=cotizacion.proveedor_nombre if cotizacion else None,
+        proveedor_nit=cotizacion.proveedor_nit if cotizacion else None,
         aprobado_por_nombre=aprobado_por_nombre,
         valor_aprobado=cotizacion.valor_aprobado if cotizacion else None,
         valor_antes_iva=cotizacion.valor_antes_iva if cotizacion else None,
