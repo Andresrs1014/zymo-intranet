@@ -18,6 +18,8 @@ import { api } from "@/lib/api"
 import { puedeGestionarProformaDesdeOc } from "@/lib/ocProforma"
 import { getApiError } from "@/hooks/useUsers"
 import { useDraft, useAutosaveDraft, useDeleteDraft } from "@/hooks/useDraft"
+import { usePhase2Poll } from "@/hooks/useExtraccionIA"
+import type { Phase2Result } from "@/hooks/useExtraccionIA"
 
 const EMPTY_FORM: CotizacionCreatePayload = {
   proveedor_nombre: "",
@@ -81,6 +83,22 @@ export function CotizacionFormPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState(false)
   const [proformaMutationError, setProformaMutationError] = useState<string | null>(null)
+
+  // ── Fase 2 IA ─────────────────────────────────────────────────────────────
+  const [phase2Applied, setPhase2Applied] = useState(false)
+  const [phase2Pending, setPhase2Pending] = useState(false)
+  const [phase2Result, setPhase2Result] = useState<Phase2Result | null>(null)
+
+  // Poll de Fase 2 — activo solo después de subir un archivo
+  const { data: phase2Data } = usePhase2Poll(id, phase2Pending)
+
+  // Cuando Fase 2 llega, guardar resultado pero NO aplicar automáticamente
+  useEffect(() => {
+    if (phase2Data?.phase2_disponible && !phase2Applied) {
+      setPhase2Result(phase2Data)
+      setPhase2Pending(false)
+    }
+  }, [phase2Data, phase2Applied])
 
   // ── Borradores ────────────────────────────────────────────────────────────
   const { data: borrador } = useDraft("cotizacion", id)
@@ -180,10 +198,33 @@ export function CotizacionFormPage() {
     }
   }
 
+  function aplicarFase2() {
+    if (!phase2Result) return
+    const CAMPOS_MONETARIOS = new Set(["valor_unitario", "valor_antes_iva", "valor_iva", "valor_total"])
+
+    setForm((prev) => {
+      const next = { ...prev }
+      for (const campo of (phase2Result.phase2_campos_completados as string[])) {
+        const valor = phase2Result[campo]
+        if (valor != null && (next as Record<string, unknown>)[campo] == null) {
+          (next as Record<string, unknown>)[campo] = CAMPOS_MONETARIOS.has(campo)
+            ? Number(valor)
+            : String(valor)
+        }
+      }
+      return next
+    })
+    setPhase2Applied(true)
+    setPhase2Result(null)
+  }
+
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file || !id) return
 
+    setPhase2Pending(false)
+    setPhase2Result(null)
+    setPhase2Applied(false)
     setExtStatus("loading")
     setExtraccion(null)
 
@@ -194,6 +235,9 @@ export function CotizacionFormPage() {
           setExtraccion(data)
           setExtStatus(data.campos_encontrados >= 3 ? "ok" : "warn")
           aplicarExtraccion(data)
+          setPhase2Pending(true)
+          setPhase2Applied(false)
+          setPhase2Result(null)
         },
         onError: () => setExtStatus("error"),
       }
@@ -470,6 +514,40 @@ export function CotizacionFormPage() {
               {extStatus === "error" && (
                 <div className="mt-3 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
                   No se pudo leer el archivo. Verifica que sea un PDF de texto (no escaneado), Excel o Word válido.
+                </div>
+              )}
+
+              {/* Banner Fase 2 — aparece cuando Gemini completó campos adicionales */}
+              {phase2Result && !phase2Applied && (
+                <div className="mt-3 flex items-center justify-between gap-3 rounded-lg bg-blue-50 border border-blue-100 px-4 py-3 text-sm">
+                  <div className="flex items-center gap-2 text-blue-700">
+                    <svg className="w-4 h-4 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-13a.75.75 0 0 0-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 0 0 0-1.5h-3.25V5Z" clipRule="evenodd"/>
+                    </svg>
+                    <span>
+                      IA completó{" "}
+                      <strong>{phase2Result.phase2_campos_count as number} campo{(phase2Result.phase2_campos_count as number) !== 1 ? "s" : ""}</strong>
+                      {" "}adicional{(phase2Result.phase2_campos_count as number) !== 1 ? "es" : ""} que el motor no encontró.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={aplicarFase2}
+                    className="shrink-0 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-colors"
+                  >
+                    Aplicar campos
+                  </button>
+                </div>
+              )}
+
+              {/* Indicador mientras Gemini procesa en background */}
+              {phase2Pending && (
+                <div className="mt-2 flex items-center gap-2 text-xs text-gray-400 py-1">
+                  <svg className="animate-spin h-3.5 w-3.5 text-brand-blue" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                  </svg>
+                  IA analizando el documento en segundo plano…
                 </div>
               )}
             </div>
