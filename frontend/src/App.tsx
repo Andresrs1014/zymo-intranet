@@ -34,6 +34,7 @@ import { FacturaDetallePage } from "@/pages/financiero/FacturaDetallePage"
 import { FinancieroConfigPage } from "@/pages/financiero/FinancieroConfigPage"
 import { AgentFloatingWindow } from "@/components/agent/AgentFloatingWindow"
 import { GerencialPage } from "@/pages/gerencial/GerencialPage"
+import { ExtraccionIAPage } from "@/pages/admin/ExtraccionIAPage"
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -159,6 +160,14 @@ export default function App() {
           element={
             <AdminRoute>
               <AreasPage />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/extraccion-ia"
+          element={
+            <AdminRoute>
+              <ExtraccionIAPage />
             </AdminRoute>
           }
         />

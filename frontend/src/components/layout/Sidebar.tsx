@@ -94,6 +94,15 @@ export function Sidebar() {
             matchPaths={["/gerencial"]}
           />
         )}
+
+        {user?.role === "admin" && (
+          <SidebarLink
+            to="/admin/extraccion-ia"
+            label="Motor IA"
+            icon={<IconMotorIA />}
+            matchPaths={["/admin/extraccion-ia"]}
+          />
+        )}
       </nav>
     </aside>
   )
@@ -197,6 +206,14 @@ function IconGerencial() {
     <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
       <path fillRule="evenodd" d="M6 6V5a3 3 0 0 1 3-3h2a3 3 0 0 1 3 3v1h2a2 2 0 0 1 2 2v3.57A22.952 22.952 0 0 1 10 13a22.95 22.95 0 0 1-8-1.43V8a2 2 0 0 1 2-2h2Zm2-1a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1H8V5Zm1 5a1 1 0 0 1 1-1h.01a1 1 0 1 1 0 2H10a1 1 0 0 1-1-1Z" clipRule="evenodd" />
       <path d="M2 13.692V16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2.308A24.974 24.974 0 0 1 10 15c-2.796 0-5.487-.46-8-1.308Z" />
+    </svg>
+  )
+}
+
+function IconMotorIA() {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <path d="M13 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM18 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0ZM14 15a4 4 0 0 0-8 0v3h8v-3ZM6 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0ZM16 15a4 4 0 0 0-4-4v3h4v-3ZM4 15a4 4 0 0 0-4 4v1h4v-1a3 3 0 0 1 0-.012V15Z" />
     </svg>
   )
 }
