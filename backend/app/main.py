@@ -33,6 +33,7 @@ from app.routers.zymo import router as zymo_router
 from app.gerencial_database import create_gerencial_tables
 from app.routers.gerencial import router as gerencial_router
 from app.routers.borradores import router as borradores_router
+from app.routers.admin.extraccion import router as admin_extraccion_router
 
 
 _DEFAULT_ROLES = [
@@ -333,6 +334,7 @@ app.include_router(agentes_router)
 app.include_router(zymo_router)
 app.include_router(gerencial_router)
 app.include_router(borradores_router)
+app.include_router(admin_extraccion_router)
 
 
 @app.get("/health")
