@@ -1,5 +1,7 @@
+import logging
 from contextlib import asynccontextmanager
 
+from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
@@ -18,6 +20,7 @@ from app.models.sede import Sede  # noqa: F401
 from app.models.oc import SolicitudOC, CotizacionProveedor, OrdenCompra, Proveedor, OcConfig, HistorialEstado, PaqueteSolicitud  # noqa: F401
 from app.models.sgc import ProveedorSGC  # noqa: F401
 from app.models.financiero import FacturaProveedor, ValidacionFactura  # noqa: F401
+from app.models.draft import FormDraft  # noqa: F401
 from app.config import settings
 from app.routers import auth, users, roles
 from app.routers import areas as areas_router
@@ -29,6 +32,7 @@ from app.routers.agentes import router as agentes_router
 from app.routers.zymo import router as zymo_router
 from app.gerencial_database import create_gerencial_tables
 from app.routers.gerencial import router as gerencial_router
+from app.routers.borradores import router as borradores_router
 
 
 _DEFAULT_ROLES = [
@@ -251,6 +255,19 @@ def _migrate_oc_cotizaciones() -> None:
             pass  # Ya renombrada o columna no existía
 
 
+_log = logging.getLogger("zymo.scheduler")
+
+
+def _job_limpiar_borradores() -> None:
+    """Job APScheduler: delega la purga de borradores al servicio correspondiente."""
+    try:
+        with Session(get_engine()) as db:
+            from app.services.draft_service import purge_old_drafts
+            purge_old_drafts(db, ttl_days=settings.draft_ttl_days)
+    except Exception as exc:  # pragma: no cover
+        _log.error("[borradores] Error en limpieza automática: %s", exc)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Validar que credenciales críticas estén configuradas
@@ -271,7 +288,23 @@ async def lifespan(app: FastAPI):
     create_financiero_tables()
     create_agent_tables()
     create_gerencial_tables()
+
+    # ── Scheduler de limpieza de borradores ──────────────────────────────────
+    scheduler = BackgroundScheduler(timezone="America/Bogota")
+    scheduler.add_job(
+        _job_limpiar_borradores,
+        trigger="interval",
+        hours=24,
+        id="limpiar_borradores",
+        replace_existing=True,
+    )
+    scheduler.start()
+    _log.info("[scheduler] Job limpiar_borradores registrado (cada 24 h, TTL=%d días).", settings.draft_ttl_days)
+
     yield
+
+    scheduler.shutdown(wait=False)
+    _log.info("[scheduler] Scheduler detenido.")
 
 
 app = FastAPI(
@@ -299,6 +332,7 @@ app.include_router(financiero_router)
 app.include_router(agentes_router)
 app.include_router(zymo_router)
 app.include_router(gerencial_router)
+app.include_router(borradores_router)
 
 
 @app.get("/health")

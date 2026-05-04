@@ -26,8 +26,9 @@ def create_db_and_tables() -> None:
     from app.models.role import Role
     from app.models.area import Area
     from app.models.sede import Sede
+    from app.models.draft import FormDraft
 
-    intranet_table_names = {"user", "role", "area", "sede"}
+    intranet_table_names = {"user", "role", "area", "sede", "form_drafts"}
     tables = [
         SQLModel.metadata.tables[t]
         for t in intranet_table_names
