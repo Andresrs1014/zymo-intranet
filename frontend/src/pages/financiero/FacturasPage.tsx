@@ -10,13 +10,19 @@ import { api } from "@/lib/api"
 
 type TabKey = "todas" | "sin_factura" | "pendiente" | "validada" | "con_diferencias"
 
-const TABS: { key: TabKey; label: string }[] = [
-  { key: "todas", label: "Todas" },
-  { key: "sin_factura", label: "Sin factura" },
-  { key: "pendiente", label: "Pendientes" },
-  { key: "validada", label: "Validadas" },
-  { key: "con_diferencias", label: "Con diferencias" },
+const TABS: { key: TabKey; label: string; descripcion: string }[] = [
+  { key: "todas", label: "Todas", descripcion: "Todas las OCs elegibles para facturación." },
+  { key: "sin_factura", label: "Sin factura", descripcion: "OC aprobada pero sin factura registrada aún." },
+  { key: "pendiente", label: "Sin validar", descripcion: "Factura cargada pero pendiente de validación frente a la OC." },
+  { key: "validada", label: "Validadas", descripcion: "Facturas que coinciden con la OC en todos los campos clave." },
+  { key: "con_diferencias", label: "Con diferencias", descripcion: "Facturas con campos que no coinciden con la referencia de la OC." },
 ]
+
+function contarPorTab(solicitudes: SolicitudConFactura[], key: TabKey): number {
+  if (key === "todas") return solicitudes.length
+  if (key === "sin_factura") return solicitudes.filter((s) => !s.factura_id).length
+  return solicitudes.filter((s) => s.factura_estado === key).length
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -90,21 +96,40 @@ export function FacturasPage() {
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-1 mb-5 border-b border-gray-200">
-            {TABS.map((t) => (
-              <button
-                key={t.key}
-                onClick={() => setTab(t.key)}
-                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                  tab === t.key
-                    ? "border-brand-blue text-brand-blue"
-                    : "border-transparent text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
+          <div className="flex gap-1 border-b border-gray-200">
+            {TABS.map((t) => {
+              const conteo = contarPorTab(solicitudes, t.key)
+              return (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => setTab(t.key)}
+                  className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                    tab === t.key
+                      ? "border-brand-blue text-brand-blue"
+                      : "border-transparent text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  {t.label}
+                  {conteo > 0 && (
+                    <span
+                      className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${
+                        tab === t.key
+                          ? "bg-brand-blue/10 text-brand-blue"
+                          : "bg-gray-100 text-gray-500"
+                      }`}
+                    >
+                      {conteo}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
           </div>
+          {/* Descripción de la tab activa */}
+          <p className="text-xs text-gray-400 mt-2 mb-5">
+            {TABS.find((t) => t.key === tab)?.descripcion}
+          </p>
 
           {/* Loading */}
           {isLoading && (

@@ -21,12 +21,12 @@ Este documento define el **alcance de producto y UI** para que un implementador 
 
 ## Archivos principales a tocar
 
-| Área | Ruta |
-|------|------|
-| Listado | `frontend/src/pages/financiero/FacturasPage.tsx` |
-| Detalle | `frontend/src/pages/financiero/FacturaDetallePage.tsx` |
-| Tipos | `frontend/src/types/financiero.ts` (solo si hace falta helpers) |
-| Hooks | `frontend/src/hooks/useFinanciero.ts` (solo si hace falta) |
+| Área               | Ruta                                                                                                                               |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Listado            | `frontend/src/pages/financiero/FacturasPage.tsx`                                                                                   |
+| Detalle            | `frontend/src/pages/financiero/FacturaDetallePage.tsx`                                                                             |
+| Tipos              | `frontend/src/types/financiero.ts` (solo si hace falta helpers)                                                                    |
+| Hooks              | `frontend/src/hooks/useFinanciero.ts` (solo si hace falta)                                                                         |
 | Backend validación | `backend/app/routers/financiero/facturas.py` — **solo** si se elige exponer `campo_label` desde API; si no, mapeo solo en frontend |
 
 ## Tarea 1 — Pestañas del listado (`FacturasPage`)
@@ -64,7 +64,7 @@ Este documento define el **alcance de producto y UI** para que un implementador 
 **Implementación sugerida:**
 
 - Renderizar **siempre** la sección «Validación» cuando exista `factura` (registro de factura creado), con:
-  - **Si `validaciones.length === 0`:** texto tipo *«Aún no se ha ejecutado la validación frente a la OC»* + botón **«Correr validación»** (mismo handler que `handleValidar`).
+  - **Si `validaciones.length === 0`:** texto tipo _«Aún no se ha ejecutado la validación frente a la OC»_ + botón **«Correr validación»** (mismo handler que `handleValidar`).
   - **Si hay filas:** mantener tabla actual; opcionalmente integrar con el bloque comparación (no obligatorio en v1).
 - Mapeo `campo` → etiqueta legible, p. ej.:
   - `valor` → «Valor total» o «Valor (comparado con OC)»
@@ -80,7 +80,7 @@ Este documento define el **alcance de producto y UI** para que un implementador 
 
 **Implementación sugerida (ligera):**
 
-- Si el detalle de solicitud expone `cotizacion_id` (aprobada) o equivalente, **marcar** la fila en la tabla que coincida con ese id (badge *«Referencia OC»* o fila resaltada).
+- Si el detalle de solicitud expone `cotizacion_id` (aprobada) o equivalente, **marcar** la fila en la tabla que coincida con ese id (badge _«Referencia OC»_ o fila resaltada).
 - Si no hay id en el payload del detalle, revisar `useSolicitudFinancieroDetalle` / endpoint y **añadir** `cotizacion_id` de referencia si es trivial en backend.
 
 **Criterio de aceptación:** a simple vista se distingue la cotización **normativa** del resto.
@@ -108,3 +108,11 @@ Este documento define el **alcance de producto y UI** para que un implementador 
 ## Referencia de lógica backend (solo lectura)
 
 Validación: `POST /api/financiero/facturas/{factura_id}/validar` ejecuta `_ejecutar_validacion` y persiste filas `fin_validaciones` con `campo` ∈ `valor`, `nit_proveedor`, `nombre_proveedor`. Los campos esperados salen de **cotización asociada a la orden** (`CotizacionProveedor` vinculada a `OrdenCompra`).
+
+**APARTADO IMPORTANTE**
+
+Analiza todo el contenido de las mejoras y propon mejoras a esto
+
+Revisa por favor que NO DAÑE EL FLUJO NI EL PROCESO ACTUAL QUE HACE LA INTRANET
+
+Revisa con UI_UX PRO MAX la viabilidad de todo y si es viable hazlo, pero no implementes por implementar, usa logica que sea sostenible, ademas usa SIEMPRE LAS REGLAS QUE SE ENCUENTRAN EN .cursorrules.md

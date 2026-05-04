@@ -25,6 +25,18 @@ import { formatCOP } from "@/lib/formatters"
 import { FormFieldCOP } from "@/components/forms/FormFieldCOP"
 import { api, openAuthenticatedApiBlob } from "@/lib/api"
 
+// ── Helpers de legibilidad ────────────────────────────────────────────────────
+
+const CAMPO_LABELS: Record<string, string> = {
+  valor: "Valor total",
+  nit_proveedor: "NIT proveedor",
+  nombre_proveedor: "Razón social / nombre proveedor",
+}
+
+function labelValidacionCampo(campo: string): string {
+  return CAMPO_LABELS[campo] ?? campo
+}
+
 function FacturaEstadoBadge({ estado }: { estado: EstadoFactura }) {
   const cfg: Record<EstadoFactura, { label: string; className: string }> = {
     pendiente: { label: "Pendiente", className: "bg-yellow-100 text-yellow-700" },
@@ -50,6 +62,7 @@ export function FacturaDetallePage() {
 
   const crearFacturaBorrador = useCrearFacturaBorrador()
   const { data: cotizacionesLista = [] } = useCotizacionesFinanciero(solicitudId)
+  const cotizacionAprobada = cotizacionesLista.find((c) => c.aprobada === true) ?? null
 
   useEffect(() => {
     if (!solicitudId || !solicitud || solicitud.factura_id) return
@@ -418,7 +431,12 @@ export function FacturaDetallePage() {
                           </td>
                           <td className="px-3 py-2">
                             {c.aprobada === true ? (
-                              <span className="text-green-700 font-medium text-xs">Sí</span>
+                              <span className="inline-flex items-center gap-1.5">
+                                <span className="text-green-700 font-medium text-xs">Sí</span>
+                                <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[9px] font-bold text-green-700 uppercase tracking-wide">
+                                  Ref. OC
+                                </span>
+                              </span>
                             ) : c.aprobada === false ? (
                               <span className="text-gray-500 text-xs">No</span>
                             ) : (
@@ -495,6 +513,54 @@ export function FacturaDetallePage() {
                 <InfoField label="IVA" value={formatCOP(solicitud?.valor_iva ?? null)} />
               </div>
             </section>
+
+            {/* ── Sección: Conciliación OC vs Factura ──────────────────── */}
+            {factura && (
+              <section className="bg-white rounded-xl border border-blue-100 shadow-sm p-5">
+                <div className="mb-3">
+                  <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide">
+                    Conciliación OC vs Factura
+                  </h2>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    Campos clave lado a lado. Los valores de factura reflejan la edición actual
+                    {formDirty ? " (con cambios sin guardar)" : ""}.
+                  </p>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-xs font-medium text-gray-400 uppercase border-b border-gray-100">
+                        <th className="pb-2 text-left pr-4 w-32">Campo</th>
+                        <th className="pb-2 text-left pr-4">Referencia OC</th>
+                        <th className="pb-2 text-left">Factura</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      <ConciliarFila
+                        label="Valor total"
+                        oc={formatCOP(solicitud.valor_aprobado ?? null)}
+                        factura={form.valor_factura != null ? formatCOP(form.valor_factura) : "—"}
+                        igual={
+                          solicitud.valor_aprobado != null &&
+                          form.valor_factura != null &&
+                          Math.abs(solicitud.valor_aprobado - form.valor_factura) < 1
+                        }
+                      />
+                      <ConciliarFila
+                        label="NIT proveedor"
+                        oc={cotizacionAprobada?.proveedor_nit ?? "—"}
+                        factura={form.nit_proveedor || "—"}
+                      />
+                      <ConciliarFila
+                        label="Razón social"
+                        oc={solicitud.proveedor_nombre ?? "—"}
+                        factura={form.nombre_proveedor || "—"}
+                      />
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            )}
 
             {/* ── Sección B: Factura ─────────────────────────────────────── */}
             <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
@@ -712,45 +778,79 @@ export function FacturaDetallePage() {
             </section>
 
             {/* ── Sección C: Resultado de Validación ────────────────────── */}
-            {factura && validaciones.length > 0 && (
+            {factura && (
               <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-                <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-4">
-                  Resultado de Validación
-                </h2>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-xs font-medium text-gray-500 uppercase border-b border-gray-100">
-                        <th className="pb-2 text-left pr-4">Campo</th>
-                        <th className="pb-2 text-left pr-4">Según OC</th>
-                        <th className="pb-2 text-left pr-4">Valor Factura</th>
-                        <th className="pb-2 text-center">Estado</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      {validaciones.map((v) => (
-                        <tr key={v.id}>
-                          <td className="py-2.5 pr-4 font-medium text-gray-800">{v.campo}</td>
-                          <td className="py-2.5 pr-4 text-gray-500">{v.valor_esperado ?? "—"}</td>
-                          <td className="py-2.5 pr-4 text-gray-500">
-                            {v.valor_encontrado ?? "—"}
-                            {v.observacion && (
-                              <p className="text-xs text-gray-400 mt-0.5">{v.observacion}</p>
-                            )}
-                          </td>
-                          <td className="py-2.5 text-center">
-                            {v.cumple ? (
-                              <span className="text-green-500 font-bold" title="Cumple">✓</span>
-                            ) : (
-                              <span className="text-red-500 font-bold" title="No cumple">✗</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide">
+                    Resultado de Validación
+                  </h2>
+                  {validaciones.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleValidar}
+                      disabled={validarFactura.isPending}
+                      className="text-xs text-brand-blue hover:underline disabled:opacity-50"
+                    >
+                      {validarFactura.isPending ? "Validando…" : "Volver a validar"}
+                    </button>
+                  )}
                 </div>
+
+                {validaciones.length === 0 ? (
+                  <div className="flex flex-col items-center gap-3 py-10 text-center">
+                    <svg className="w-10 h-10 text-gray-200" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-11.25a.75.75 0 0 0-1.5 0v4.5a.75.75 0 0 0 1.5 0v-4.5Zm0 7.5a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Z" clipRule="evenodd" />
+                    </svg>
+                    <p className="text-sm text-gray-500 max-w-xs">
+                      Aún no se ha ejecutado la validación frente a la OC.
+                      Complete los campos de factura y luego corra la validación.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleValidar}
+                      disabled={validarFactura.isPending}
+                      className="rounded-lg bg-brand-blue px-4 py-2 text-sm font-semibold text-white hover:brightness-105 disabled:opacity-50 transition-all"
+                    >
+                      {validarFactura.isPending ? "Validando…" : "Correr validación"}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-xs font-medium text-gray-500 uppercase border-b border-gray-100">
+                          <th className="pb-2 text-left pr-4">Campo</th>
+                          <th className="pb-2 text-left pr-4">Según OC</th>
+                          <th className="pb-2 text-left pr-4">Valor Factura</th>
+                          <th className="pb-2 text-center">Estado</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {validaciones.map((v) => (
+                          <tr key={v.id}>
+                            <td className="py-2.5 pr-4 font-medium text-gray-800">
+                              {labelValidacionCampo(v.campo)}
+                            </td>
+                            <td className="py-2.5 pr-4 text-gray-500">{v.valor_esperado ?? "—"}</td>
+                            <td className="py-2.5 pr-4 text-gray-500">
+                              {v.valor_encontrado ?? "—"}
+                              {v.observacion && (
+                                <p className="text-xs text-gray-400 mt-0.5">{v.observacion}</p>
+                              )}
+                            </td>
+                            <td className="py-2.5 text-center">
+                              {v.cumple ? (
+                                <span className="text-green-500 font-bold" title="Cumple">✓</span>
+                              ) : (
+                                <span className="text-red-500 font-bold" title="No cumple">✗</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </section>
             )}
 
@@ -886,5 +986,39 @@ function FormFieldDate({
         className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
       />
     </div>
+  )
+}
+
+function ConciliarFila({
+  label,
+  oc,
+  factura,
+  igual,
+}: {
+  label: string
+  oc: string
+  factura: string
+  igual?: boolean
+}) {
+  const coincide = igual !== undefined
+    ? igual
+    : oc !== "—" && factura !== "—" && oc.trim().toLowerCase() === factura.trim().toLowerCase()
+  const sinDatos = oc === "—" || factura === "—"
+
+  return (
+    <tr>
+      <td className="py-2.5 pr-4 text-xs font-medium text-gray-500">{label}</td>
+      <td className="py-2.5 pr-4 text-gray-700 text-sm">{oc}</td>
+      <td className="py-2.5 text-sm">
+        <span className={!sinDatos && !coincide ? "text-red-600 font-medium" : "text-gray-700"}>
+          {factura}
+        </span>
+        {!sinDatos && (
+          coincide
+            ? <span className="ml-2 text-green-500 text-xs font-bold" title="Coincide">✓</span>
+            : <span className="ml-2 text-red-400 text-xs font-bold" title="Difiere">✗</span>
+        )}
+      </td>
+    </tr>
   )
 }
