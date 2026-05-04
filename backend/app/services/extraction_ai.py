@@ -21,6 +21,10 @@ from app.config import settings
 
 _log = logging.getLogger("zymo.extraction_ai")
 
+# Configurar SDK al cargar el módulo — evita race condition bajo concurrencia
+if settings.gemini_api_key:
+    genai.configure(api_key=settings.gemini_api_key)
+
 # Semáforo: máximo 2 llamadas Gemini simultáneas
 _semaphore = asyncio.Semaphore(2)
 
@@ -124,7 +128,6 @@ async def extraer_con_gemini(
 
     async with _semaphore:
         try:
-            genai.configure(api_key=settings.gemini_api_key)
             model = genai.GenerativeModel(settings.gemini_model)
 
             # Gemini File API: subir en archivo temporal
@@ -132,7 +135,7 @@ async def extraer_con_gemini(
                 tmp.write(contenido_bytes)
                 tmp_path = tmp.name
 
-            uploaded = genai.upload_file(tmp_path, mime_type=mime_type)
+            uploaded = await asyncio.to_thread(genai.upload_file, tmp_path, mime_type=mime_type)
             Path(tmp_path).unlink(missing_ok=True)
 
             prompt = _build_prompt(tipo_documento, synonyms_hint)
@@ -147,9 +150,9 @@ async def extraer_con_gemini(
 
             # Limpiar el archivo de Gemini (buena práctica)
             try:
-                genai.delete_file(uploaded.name)
-            except Exception:
-                pass
+                await asyncio.to_thread(genai.delete_file, uploaded.name)
+            except Exception as del_err:
+                _log.warning("[extraction_ai] No se pudo eliminar archivo Gemini %s: %s", uploaded.name, del_err)
 
             raw = response.text.strip()
             data = json.loads(raw)
