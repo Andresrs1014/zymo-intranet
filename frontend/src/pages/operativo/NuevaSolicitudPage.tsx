@@ -79,7 +79,7 @@ export function NuevaSolicitudPage() {
   const deleteDraft = useDeleteDraft()
 
   // Autosave del formulario (1.5s debounced) — no guardar si viene de paquete
-  useAutosaveDraft("solicitud_nueva", undefined, draftRestored || !paqueteId ? (form as Record<string, unknown>) : null)
+  useAutosaveDraft("solicitud_nueva", undefined, draftRestored || !paqueteId ? (form as unknown as Record<string, unknown>) : null)
 
   const opcionesPrioridad = useMemo(
     () =>
