@@ -23,6 +23,7 @@ from app.models.oc import CotizacionProveedor, EstadoOC, SolicitudOC
 from app.models.user import User
 from app.services.email_service import send_aprobacion_directora, send_cotizacion_lista, send_proforma_financiero
 from app.services.historial import registrar_cambio_estado
+from app.config import settings
 
 router = APIRouter(tags=["OC - Cotizaciones"])
 
@@ -595,11 +596,19 @@ def _extraer_tabla_items(contenido: bytes, ext: str) -> list[dict]:
 )
 async def extraer_cotizacion(
     solicitud_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     current_user: User = Depends(require_compras),
     oc_db: Session = Depends(get_oc_db),
 ):
-    """Extrae campos de un PDF/Excel/Word de cotización sin guardar nada."""
+    """Extrae campos de un PDF/Excel/Word de cotización sin guardar nada.
+
+    Fase 1 (síncrona): regex + sinónimos → respuesta inmediata.
+    Fase 2 (background): Gemini completa campos vacíos, alimenta aprendizaje.
+    El frontend hace poll a GET .../cotizacion/extraccion/resultado para Fase 2.
+    """
+    from app.services.extraction_pipeline import run_phase1, run_phase2
+
     solicitud = oc_db.get(SolicitudOC, solicitud_id)
     if not solicitud:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
@@ -614,46 +623,74 @@ async def extraer_cotizacion(
 
     contenido = await file.read()
 
-    # 1. Extraer tabla de ítems (motor de detección de encabezados)
-    items_tabla = _extraer_tabla_items(contenido, ext)
+    # ── Fase 1: síncrona ──────────────────────────────────────────────────────
+    phase1_dict = run_phase1(contenido, ext, str(solicitud_id))
 
-    # 2. Extraer campos escalares del encabezado (NIT, totales, condiciones, etc.)
-    extra: dict[str, str] = {}
-    if ext in ("xlsx", "xls", "docx"):
-        extra = _extraer_campos_estructurado(contenido, ext)
-    texto = _extraer_texto(contenido, ext)
-    resultado = _parsear_campos(texto, extra)
+    resultado = ExtraccionResult(
+        proveedor_nit=phase1_dict.get("proveedor_nit"),
+        numero_cotizacion_proveedor=phase1_dict.get("numero_cotizacion_proveedor"),
+        proveedor_nombre=phase1_dict.get("proveedor_nombre"),
+        valor_unitario=phase1_dict.get("valor_unitario"),
+        valor_antes_iva=phase1_dict.get("valor_antes_iva"),
+        valor_iva=phase1_dict.get("valor_iva"),
+        valor_total=phase1_dict.get("valor_total"),
+        forma_pago=phase1_dict.get("forma_pago"),
+        plazo_entrega=phase1_dict.get("plazo_entrega"),
+        garantia=phase1_dict.get("garantia"),
+        anticipo=phase1_dict.get("anticipo"),
+        pago_saldo=phase1_dict.get("pago_saldo"),
+        items=[ItemCotizacion(**i) for i in (phase1_dict.get("items") or [])],
+        nombre_archivo=nombre,
+        campos_encontrados=phase1_dict.get("campos_encontrados", 0),
+    )
 
-    # 3. Si la tabla de ítems tiene datos, agregar al resultado y recalcular totales
-    if items_tabla:
-        resultado.items = [ItemCotizacion(**item) for item in items_tabla]
-        # Derivar valor_total como suma de filas si el regex no lo encontró
-        if resultado.valor_total is None:
-            totales = [
-                i.get("valor_total") for i in items_tabla
-                if isinstance(i.get("valor_total"), (int, float))
-            ]
-            if totales:
-                resultado.valor_total = sum(totales)
-        # Contabilizar ítems en campos_encontrados
-        resultado.campos_encontrados += len(items_tabla)
-
-    resultado.nombre_archivo = nombre
-
-    # Guardar el archivo como temporal vinculado a esta solicitud
-    # Al crear la cotización, se moverá al destino final con el ID de cotización
+    # Guardar archivo temporal (igual que antes)
     try:
         _COTIZACIONES_DIR.mkdir(parents=True, exist_ok=True)
         temp_path = _COTIZACIONES_DIR / f"temp_{solicitud_id}.{ext}"
         temp_path.write_bytes(contenido)
         resultado.temp_file_ext = ext
     except Exception as e:
-        log.warning("[extraccion] No se pudo guardar archivo temporal para solicitud %s: %s", solicitud_id, e)
+        log.warning("[extraccion] No se pudo guardar archivo temporal %s: %s", solicitud_id, e)
+
+    # ── Fase 2: background (Gemini) ───────────────────────────────────────────
+    # Solo lanzar si hay campos vacíos que Gemini podría completar
+    campos_vacios = sum(1 for v in [
+        resultado.proveedor_nit, resultado.proveedor_nombre, resultado.valor_total,
+        resultado.forma_pago, resultado.plazo_entrega, resultado.garantia,
+    ] if v is None)
+
+    if campos_vacios > 0 and settings.gemini_api_key:
+        background_tasks.add_task(
+            run_phase2, contenido, ext, str(solicitud_id), phase1_dict
+        )
+        log.info("[extraccion] Fase 2 programada para solicitud %s (%d campos vacíos)", solicitud_id, campos_vacios)
 
     return resultado
 
 
 _COTIZACIONES_DIR = Path("/app/data/cotizaciones")
+
+
+@router.get(
+    "/solicitudes/{solicitud_id}/cotizacion/extraccion/resultado",
+    status_code=status.HTTP_200_OK,
+)
+def get_extraccion_resultado(
+    solicitud_id: uuid.UUID,
+    current_user: User = Depends(require_compras),
+):
+    """Poll: retorna el resultado de Fase 2 (Gemini) cuando esté disponible.
+
+    Retorna 204 si Fase 2 aún no terminó.
+    Retorna 200 + JSON con campos completados cuando esté listo.
+    """
+    from app.services.extraction_pipeline import get_phase2_result
+    from fastapi.responses import Response
+    result = get_phase2_result(str(solicitud_id))
+    if result is None:
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+    return result
 
 
 @router.post(
