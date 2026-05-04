@@ -27,8 +27,13 @@ def create_db_and_tables() -> None:
     from app.models.area import Area
     from app.models.sede import Sede
     from app.models.draft import FormDraft
+    from app.models.learned_synonym import LearnedSynonym      # ← agregar
+    from app.models.extraction_review import ExtractionReview  # ← agregar
 
-    intranet_table_names = {"user", "role", "area", "sede", "form_drafts"}
+    intranet_table_names = {
+        "user", "role", "area", "sede", "form_drafts",
+        "learned_synonyms", "extraction_reviews",              # ← agregar
+    }
     tables = [
         SQLModel.metadata.tables[t]
         for t in intranet_table_names
