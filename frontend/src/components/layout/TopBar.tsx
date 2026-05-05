@@ -11,21 +11,6 @@ interface TopBarProps {
   showAgentDockToggle?: boolean
 }
 
-function IconAgent() {
-  return (
-    <svg className="w-4 h-4 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
-      <path d="M13 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM18 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0ZM14 15a4 4 0 0 0-8 0v3h8v-3ZM6 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0ZM16 15a4 4 0 0 0-4-4v3h4v-3ZM4 15a4 4 0 0 0-4 4v1h4v-1a3 3 0 0 1 0-.012V15Z" />
-    </svg>
-  )
-}
-
-function IconPinned() {
-  return (
-    <svg className="w-4 h-4 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
-      <path fillRule="evenodd" d="M10 1a.75.75 0 0 1 .75.75v1.5h1.5a3.25 3.25 0 0 1 2.78 4.924l-.936 1.638a.25.25 0 0 0 .036.307l1.6 1.6A.75.75 0 0 1 15.72 13H11v5.25a.75.75 0 0 1-1.5 0V13H4.28a.75.75 0 0 1-.53-1.28l1.6-1.6a.25.25 0 0 0 .036-.308L4.45 8.174A3.25 3.25 0 0 1 7.25 3.25h1.5V1.75A.75.75 0 0 1 10 1Z" clipRule="evenodd" />
-    </svg>
-  )
-}
 
 export function TopBar({ title = "Dashboard", showAgentDockToggle = false }: TopBarProps) {
   const user = useAuthStore((s) => s.user)
@@ -70,7 +55,6 @@ export function TopBar({ title = "Dashboard", showAgentDockToggle = false }: Top
             }`}
             title={docked ? "Desanclar asistente (vista flotante)" : "Anclar asistente a la derecha"}
           >
-            {docked ? <IconPinned /> : <IconAgent />}
             {docked ? "Asistente anclado" : "Anclar IA"}
           </button>
         )}
