@@ -2,8 +2,7 @@ import { useRef, useState, useEffect } from "react"
 import { formatCOP } from "@/lib/formatters"
 import { FormFieldCOP, MoneyInputCOP } from "@/components/forms/FormFieldCOP"
 import { useNavigate, useParams } from "react-router-dom"
-import { Sidebar } from "@/components/layout/Sidebar"
-import { TopBar } from "@/components/layout/TopBar"
+import { PageLayout } from "@/components/layout/PageLayout"
 import {
   useSolicitud,
   useCrearCotizacion,
@@ -349,20 +348,14 @@ export function CotizacionFormPage() {
 
   if (loadingSolicitud) {
     return (
-      <div className="flex h-screen bg-gray-50">
-        <Sidebar />
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <TopBar title="OC Automatizaciones" />
-          <main className="flex-1 flex items-center justify-center text-gray-400 text-sm">
-            Cargando...
-          </main>
-        </div>
-      </div>
+      <PageLayout title="OC Automatizaciones" mainClassName="flex-1 flex items-center justify-center overflow-hidden text-gray-400 text-sm">
+        Cargando...
+      </PageLayout>
     )
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <>
       {showDraftModal && borrador && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full mx-4">
@@ -396,12 +389,7 @@ export function CotizacionFormPage() {
         </div>
       )}
 
-      <Sidebar />
-
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <TopBar title="OC Automatizaciones" />
-
-        <main className="flex-1 overflow-y-auto px-6 py-8">
+      <PageLayout title="OC Automatizaciones">
           <button
             onClick={() => navigate(`/oc/solicitudes/${id}`)}
             className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-600 mb-6 transition-colors"
@@ -1073,9 +1061,8 @@ export function CotizacionFormPage() {
               </button>
             </div>
           </form>
-        </main>
-      </div>
-    </div>
+      </PageLayout>
+    </>
   )
 }
 

@@ -1,19 +1,12 @@
 import { NavLink, Link } from "react-router-dom"
-import { Sidebar } from "@/components/layout/Sidebar"
-import { TopBar } from "@/components/layout/TopBar"
+import { PageLayout } from "@/components/layout/PageLayout"
 
 // URL del sistema BRP — eventualmente se reemplazará por ruta interna
 const BRP_URL = "https://brp.zymointranet.com"
 
 export function OperativoPage() {
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <TopBar title="Operativo" />
-
-        <main className="flex-1 overflow-y-auto px-6 py-8">
+    <PageLayout title="Operativo">
           {/* Section header */}
           <div className="mb-8">
             <div className="flex items-center gap-3 mb-1">
@@ -48,9 +41,7 @@ export function OperativoPage() {
               description="Sistema de gestión operativa. Acceso directo al portal BRP de ZYMO."
             />
           </div>
-        </main>
-      </div>
-    </div>
+    </PageLayout>
   )
 }
 

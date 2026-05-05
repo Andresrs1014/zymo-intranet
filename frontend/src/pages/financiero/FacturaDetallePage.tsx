@@ -1,8 +1,7 @@
 import { useState, useRef, useEffect } from "react"
 import { useDraft, useAutosaveDraft, useDeleteDraft } from "@/hooks/useDraft"
 import { useNavigate, useParams } from "react-router-dom"
-import { Sidebar } from "@/components/layout/Sidebar"
-import { TopBar } from "@/components/layout/TopBar"
+import { PageLayout } from "@/components/layout/PageLayout"
 import {
   useSolicitudFinancieroDetalle,
   useFactura,
@@ -228,34 +227,24 @@ export function FacturaDetallePage() {
 
   if (loadingSolicitud) {
     return (
-      <div className="flex h-screen bg-gray-50">
-        <Sidebar />
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <TopBar title="Financiero" />
-          <main className="flex-1 flex items-center justify-center text-gray-500 text-sm">Cargando…</main>
-        </div>
-      </div>
+      <PageLayout title="Financiero" mainClassName="flex-1 flex items-center justify-center text-gray-500 text-sm">
+        Cargando…
+      </PageLayout>
     )
   }
 
   if (errorSolicitud || !solicitud) {
     return (
-      <div className="flex h-screen bg-gray-50">
-        <Sidebar />
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <TopBar title="Financiero" />
-          <main className="flex-1 flex flex-col items-center justify-center gap-3 p-6">
-            <p className="text-sm text-gray-600">Esta solicitud no está disponible en Financiero o no existe.</p>
-            <button
-              type="button"
-              onClick={() => navigate("/financiero/facturas")}
-              className="text-sm text-brand-blue font-medium hover:underline"
-            >
-              Volver al listado
-            </button>
-          </main>
-        </div>
-      </div>
+      <PageLayout title="Financiero" mainClassName="flex-1 flex flex-col items-center justify-center gap-3 p-6">
+        <p className="text-sm text-gray-600">Esta solicitud no está disponible en Financiero o no existe.</p>
+        <button
+          type="button"
+          onClick={() => navigate("/financiero/facturas")}
+          className="text-sm text-brand-blue font-medium hover:underline"
+        >
+          Volver al listado
+        </button>
+      </PageLayout>
     )
   }
 
@@ -299,13 +288,7 @@ export function FacturaDetallePage() {
           </div>
         </div>
       )}
-      <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <TopBar title="Financiero" />
-
-        <main className="flex-1 overflow-y-auto px-6 py-8">
+      <PageLayout title="Financiero">
           {/* Back button */}
           <button
             onClick={() => navigate("/financiero/facturas")}
@@ -933,9 +916,7 @@ export function FacturaDetallePage() {
               </section>
             )}
           </div>
-        </main>
-      </div>
-    </div>
+        </PageLayout>
     </>
   )
 }

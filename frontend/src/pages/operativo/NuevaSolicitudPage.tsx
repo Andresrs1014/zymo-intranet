@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { Sidebar } from "@/components/layout/Sidebar"
-import { TopBar } from "@/components/layout/TopBar"
+import { PageLayout } from "@/components/layout/PageLayout"
 import { Combobox } from "@/components/ui/Combobox"
 import { useAuthStore } from "@/store/authStore"
 import { useListasFormulario, useCrearSolicitudInterna, usePaquetes, useSubirFotoSolicitud } from "@/hooks/useOC"
@@ -260,7 +259,7 @@ export function NuevaSolicitudPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <>
       {showDraftModal && borrador && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full mx-4">
@@ -293,12 +292,7 @@ export function NuevaSolicitudPage() {
           </div>
         </div>
       )}
-      <Sidebar />
-
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <TopBar title="Operativo" />
-
-        <main className="flex-1 overflow-y-auto px-6 py-8">
+      <PageLayout title="Operativo">
           {/* Volver */}
           <button
             onClick={() => navigate("/operativo/mis-solicitudes")}
@@ -818,8 +812,7 @@ export function NuevaSolicitudPage() {
               </div>
             </form>
           )}
-        </main>
-      </div>
-    </div>
+      </PageLayout>
+    </>
   )
 }

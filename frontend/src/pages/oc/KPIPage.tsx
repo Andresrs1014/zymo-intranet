@@ -1,6 +1,5 @@
 import { useState } from "react"
-import { Sidebar } from "@/components/layout/Sidebar"
-import { TopBar } from "@/components/layout/TopBar"
+import { PageLayout } from "@/components/layout/PageLayout"
 import { useKPIs } from "@/hooks/useOC"
 import type { ConteoItem, MesItem } from "@/types/oc"
 import { formatFechaRelativa } from "@/lib/dates"
@@ -188,13 +187,7 @@ export function KPIPage() {
     : (kpis?.valor_total_sin_iva ?? 0)
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <TopBar title="OC Automatizaciones" />
-
-        <main className="flex-1 overflow-y-auto px-6 py-8">
+    <PageLayout title="OC Automatizaciones">
           {/* Header */}
           <div className="mb-6">
             <h1 className="text-xl font-bold text-gray-900">Dashboard KPIs</h1>
@@ -480,8 +473,6 @@ export function KPIPage() {
               </div>
             </div>
           )}
-        </main>
-      </div>
-    </div>
+    </PageLayout>
   )
 }

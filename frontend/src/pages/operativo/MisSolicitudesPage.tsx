@@ -1,7 +1,6 @@
 import { useState } from "react"
 import { useNavigate, Link } from "react-router-dom"
-import { Sidebar } from "@/components/layout/Sidebar"
-import { TopBar } from "@/components/layout/TopBar"
+import { PageLayout } from "@/components/layout/PageLayout"
 import { useMisSolicitudes, useMarcarEntregada, useEditarCorreccion } from "@/hooks/useOC"
 import { Combobox } from "@/components/ui/Combobox"
 import { formatFechaRelativa, formatFechaHora } from "@/lib/dates"
@@ -60,13 +59,7 @@ export function MisSolicitudesPage() {
   const pendientesCorreccion = solicitudes.filter((s) => s.estado === "en_correccion").length
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <TopBar title="Operativo" />
-
-        <main className="flex-1 overflow-y-auto px-6 py-8">
+    <PageLayout title="Operativo">
           {/* Breadcrumb */}
           <button
             onClick={() => navigate("/operativo")}
@@ -164,9 +157,7 @@ export function MisSolicitudesPage() {
               ))}
             </div>
           )}
-        </main>
-      </div>
-    </div>
+    </PageLayout>
   )
 }
 

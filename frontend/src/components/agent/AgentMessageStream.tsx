@@ -12,14 +12,22 @@ interface Props {
   message: AgentMessage
   isLast: boolean
   isStreaming: boolean
+  /** Etiqueta sobre la burbuja del agente (p. ej. tras un mensaje del usuario) */
+  agentLabel?: string
 }
 
-export function AgentMessageStream({ message, isLast, isStreaming }: Props) {
+export function AgentMessageStream({ message, isLast, isStreaming, agentLabel }: Props) {
   const isAgent = message.role === "agent"
   const showCursor = isAgent && isLast && isStreaming
 
   return (
-    <div className={`flex ${isAgent ? "justify-start" : "justify-end"}`}>
+    <div className={`flex flex-col gap-1 ${isAgent ? "items-start" : "items-end"}`}>
+      {isAgent && agentLabel && (
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 pl-1">
+          {agentLabel}
+        </span>
+      )}
+      <div className={`flex w-full ${isAgent ? "justify-start" : "justify-end"}`}>
       <div
         className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-relaxed break-words ${
           isAgent
@@ -52,6 +60,7 @@ export function AgentMessageStream({ message, isLast, isStreaming }: Props) {
         {showCursor && (
           <span className="inline-block w-0.5 h-3.5 bg-gray-500 ml-0.5 align-middle animate-pulse" />
         )}
+      </div>
       </div>
     </div>
   )

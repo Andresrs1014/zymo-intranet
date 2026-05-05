@@ -1,6 +1,5 @@
 import { useRef, useState } from "react"
-import { Sidebar } from "@/components/layout/Sidebar"
-import { TopBar } from "@/components/layout/TopBar"
+import { PageLayout } from "@/components/layout/PageLayout"
 import {
   useProveedoresSGC,
   useCrearProveedorSGC,
@@ -61,12 +60,8 @@ export function ProveedoresPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <TopBar title="SGC — Proveedores" />
-
-        <main className="flex-1 overflow-y-auto px-6 py-6">
+    <>
+      <PageLayout title="SGC — Proveedores" mainClassName="flex-1 overflow-y-auto px-6 py-6">
           {/* Cabecera */}
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-3">
@@ -156,8 +151,7 @@ export function ProveedoresPage() {
               </table>
             </div>
           )}
-        </main>
-      </div>
+      </PageLayout>
 
       {modalOpen && (
         <ProveedorModal
@@ -165,7 +159,7 @@ export function ProveedoresPage() {
           onClose={() => setModalOpen(false)}
         />
       )}
-    </div>
+    </>
   )
 }
 

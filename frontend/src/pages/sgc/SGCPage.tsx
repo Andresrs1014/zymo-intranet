@@ -1,16 +1,9 @@
 import { NavLink } from "react-router-dom"
-import { Sidebar } from "@/components/layout/Sidebar"
-import { TopBar } from "@/components/layout/TopBar"
+import { PageLayout } from "@/components/layout/PageLayout"
 
 export function SGCPage() {
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <TopBar title="SGC" />
-
-        <main className="flex-1 overflow-y-auto px-6 py-8">
+    <PageLayout title="SGC">
           {/* Section header */}
           <div className="mb-8">
             <div className="flex items-center gap-3 mb-1">
@@ -29,9 +22,7 @@ export function SGCPage() {
             label="Proveedores"
             description="Crea, edita y administra el catálogo de proveedores. Los proveedores activos estarán disponibles en OC Automatizaciones."
           />
-        </main>
-      </div>
-    </div>
+    </PageLayout>
   )
 }
 

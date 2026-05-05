@@ -1,6 +1,5 @@
 import { useState } from "react"
-import { Sidebar } from "@/components/layout/Sidebar"
-import { TopBar } from "@/components/layout/TopBar"
+import { PageLayout } from "@/components/layout/PageLayout"
 import {
   useAreas,
   useCreateArea,
@@ -19,11 +18,7 @@ import { getApiError } from "@/hooks/useRoles"
 
 export function AreasPage() {
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <TopBar title="Áreas y Sedes" />
-        <main className="flex-1 overflow-auto p-6">
+    <PageLayout title="Áreas y Sedes" mainClassName="flex-1 overflow-auto p-6">
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-gray-900">Áreas y Sedes</h2>
             <p className="text-sm text-gray-500 mt-0.5">
@@ -34,9 +29,7 @@ export function AreasPage() {
             <AreasPanel />
             <SedesPanel />
           </div>
-        </main>
-      </div>
-    </div>
+    </PageLayout>
   )
 }
 

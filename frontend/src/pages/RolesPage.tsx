@@ -1,6 +1,5 @@
 import { useState } from "react"
-import { Sidebar } from "@/components/layout/Sidebar"
-import { TopBar } from "@/components/layout/TopBar"
+import { PageLayout } from "@/components/layout/PageLayout"
 import { INTERNAL_MODULES, EXTERNAL_APPS, type AppDefinition } from "@/lib/roles"
 import {
   useRoles,
@@ -77,11 +76,8 @@ export function RolesPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <TopBar title="Roles" />
-        <main className="flex-1 overflow-auto p-6">
+    <>
+      <PageLayout title="Roles" mainClassName="flex-1 overflow-auto p-6">
 
           <div className="mb-6 flex items-center justify-between">
             <div>
@@ -101,11 +97,6 @@ export function RolesPage() {
           {mutationError && !modal && (
             <p className="mb-4 text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
               {mutationError}
-            </p>
-          )}
-          {deleteInfo && (
-            <p className="mb-4 text-sm text-green-800 bg-green-50 border border-green-100 rounded-lg px-3 py-2">
-              {deleteInfo}
             </p>
           )}
           {deleteInfo && (
@@ -182,8 +173,7 @@ export function RolesPage() {
               </table>
             </div>
           )}
-        </main>
-      </div>
+      </PageLayout>
 
       {modal && (
         <RoleFormModal
@@ -203,7 +193,7 @@ export function RolesPage() {
           isLoading={deleteRole.isPending}
         />
       )}
-    </div>
+    </>
   )
 }
 

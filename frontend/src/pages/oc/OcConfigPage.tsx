@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react"
-import { Sidebar } from "@/components/layout/Sidebar"
-import { TopBar } from "@/components/layout/TopBar"
+import { PageLayout } from "@/components/layout/PageLayout"
 import { api } from "@/lib/api"
 import { useRef } from "react"
 import { useListasFormulario, useGuardarListas, useUploadClientesExcel } from "@/hooks/useOC"
@@ -273,11 +272,7 @@ export function OcConfigPage() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
-      <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <TopBar />
-        <main className="flex-1 overflow-y-auto p-6">
+    <PageLayout title="Configuración OC" mainClassName="flex-1 overflow-y-auto p-6">
           <div className="max-w-2xl mx-auto">
             {/* Header */}
             <div className="mb-6">
@@ -769,9 +764,7 @@ export function OcConfigPage() {
               </form>
             )}
           </div>
-        </main>
-      </div>
-    </div>
+    </PageLayout>
   )
 }
 

@@ -1,7 +1,6 @@
 import { useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
-import { Sidebar } from "@/components/layout/Sidebar"
-import { TopBar } from "@/components/layout/TopBar"
+import { PageLayout } from "@/components/layout/PageLayout"
 import { api } from "@/lib/api"
 import { formatFechaHora, formatFechaRelativa } from "@/lib/dates"
 import {
@@ -128,29 +127,17 @@ export function SolicitudDetallePage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen bg-gray-50">
-        <Sidebar />
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <TopBar title="OC Automatizaciones" />
-          <main className="flex-1 flex items-center justify-center text-gray-400 text-sm">
-            Cargando...
-          </main>
-        </div>
-      </div>
+      <PageLayout title="OC Automatizaciones" mainClassName="flex-1 flex items-center justify-center overflow-hidden text-gray-400 text-sm">
+        Cargando...
+      </PageLayout>
     )
   }
 
   if (!solicitud) {
     return (
-      <div className="flex h-screen bg-gray-50">
-        <Sidebar />
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <TopBar title="OC Automatizaciones" />
-          <main className="flex-1 flex items-center justify-center text-gray-400 text-sm">
-            Solicitud no encontrada.
-          </main>
-        </div>
-      </div>
+      <PageLayout title="OC Automatizaciones" mainClassName="flex-1 flex items-center justify-center overflow-hidden text-gray-400 text-sm">
+        Solicitud no encontrada.
+      </PageLayout>
     )
   }
 
@@ -264,13 +251,102 @@ export function SolicitudDetallePage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
+    <>
+      <PageLayout
+        title="OC Automatizaciones"
+        afterMain={
+          modoRechazoSol ? (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+              <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4 space-y-4">
+                <h3 className="text-base font-semibold text-gray-900">Rechazar Solicitud</h3>
 
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <TopBar title="OC Automatizaciones" />
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setModoRechazoSol("cancelar"); setTextoRechazoSol("") }}
+                    className={`rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors ${
+                      modoRechazoSol === "cancelar"
+                        ? "border-red-400 bg-red-50 text-red-700"
+                        : "border-gray-200 text-gray-500 hover:bg-gray-50"
+                    }`}
+                  >
+                    Cancelar solicitud
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setModoRechazoSol("correccion"); setTextoRechazoSol("") }}
+                    className={`rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors ${
+                      modoRechazoSol === "correccion"
+                        ? "border-amber-400 bg-amber-50 text-amber-700"
+                        : "border-gray-200 text-gray-500 hover:bg-gray-50"
+                    }`}
+                  >
+                    Mandar a corrección
+                  </button>
+                </div>
 
-        <main className="flex-1 overflow-y-auto px-6 py-8">
+                <p className="text-sm text-gray-500">
+                  {modoRechazoSol === "cancelar"
+                    ? `La solicitud quedará cancelada definitivamente. Se notificará a ${solicitud.solicitante_email} por correo.`
+                    : `La solicitud regresará al solicitante para que la corrija desde la intranet.`}
+                </p>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                    {modoRechazoSol === "cancelar" ? "Motivo de cancelación *" : "¿Qué debe corregir? *"}
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={textoRechazoSol}
+                    onChange={(e) => setTextoRechazoSol(e.target.value)}
+                    className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none transition-colors ${
+                      modoRechazoSol === "cancelar"
+                        ? "border-gray-300 focus:ring-2 focus:ring-red-400"
+                        : "border-gray-300 focus:ring-2 focus:ring-amber-400"
+                    }`}
+                    placeholder={
+                      modoRechazoSol === "cancelar"
+                        ? "Ej. El equipo ya tiene este ítem en almacén..."
+                        : "Ej. La descripción es muy genérica, especificar marca y referencia..."
+                    }
+                    autoFocus
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleRechazarSolicitud}
+                    disabled={
+                      !textoRechazoSol.trim() ||
+                      cancelarSolicitud.isPending ||
+                      correccionSolicitud.isPending
+                    }
+                    className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 transition-colors ${
+                      modoRechazoSol === "cancelar"
+                        ? "bg-red-600 hover:bg-red-700"
+                        : "bg-amber-500 hover:bg-amber-600"
+                    }`}
+                  >
+                    {cancelarSolicitud.isPending || correccionSolicitud.isPending
+                      ? "Procesando..."
+                      : modoRechazoSol === "cancelar"
+                        ? "Confirmar cancelación"
+                        : "Confirmar corrección"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setModoRechazoSol(null); setTextoRechazoSol("") }}
+                    className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null
+        }
+      >
           {/* Breadcrumb */}
           <button
             onClick={() => navigate("/oc/solicitudes")}
@@ -1014,98 +1090,7 @@ export function SolicitudDetallePage() {
               {/* Panel gestión de compras — PENDIENTE: se moverá a vista de Gestión Financiera (contabilidad) */}
             </div>
           </div>
-        </main>
-
-        {/* Modal rechazar solicitud — 2 opciones: cancelar o mandar a corrección */}
-        {modoRechazoSol && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-            <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4 space-y-4">
-              <h3 className="text-base font-semibold text-gray-900">Rechazar Solicitud</h3>
-
-              {/* Selector de tipo */}
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => { setModoRechazoSol("cancelar"); setTextoRechazoSol("") }}
-                  className={`rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors ${
-                    modoRechazoSol === "cancelar"
-                      ? "border-red-400 bg-red-50 text-red-700"
-                      : "border-gray-200 text-gray-500 hover:bg-gray-50"
-                  }`}
-                >
-                  Cancelar solicitud
-                </button>
-                <button
-                  onClick={() => { setModoRechazoSol("correccion"); setTextoRechazoSol("") }}
-                  className={`rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors ${
-                    modoRechazoSol === "correccion"
-                      ? "border-amber-400 bg-amber-50 text-amber-700"
-                      : "border-gray-200 text-gray-500 hover:bg-gray-50"
-                  }`}
-                >
-                  Mandar a corrección
-                </button>
-              </div>
-
-              {/* Descripción de la opción seleccionada */}
-              <p className="text-sm text-gray-500">
-                {modoRechazoSol === "cancelar"
-                  ? `La solicitud quedará cancelada definitivamente. Se notificará a ${solicitud.solicitante_email} por correo.`
-                  : `La solicitud regresará al solicitante para que la corrija desde la intranet.`}
-              </p>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1.5">
-                  {modoRechazoSol === "cancelar" ? "Motivo de cancelación *" : "¿Qué debe corregir? *"}
-                </label>
-                <textarea
-                  rows={3}
-                  value={textoRechazoSol}
-                  onChange={(e) => setTextoRechazoSol(e.target.value)}
-                  className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none transition-colors ${
-                    modoRechazoSol === "cancelar"
-                      ? "border-gray-300 focus:ring-2 focus:ring-red-400"
-                      : "border-gray-300 focus:ring-2 focus:ring-amber-400"
-                  }`}
-                  placeholder={
-                    modoRechazoSol === "cancelar"
-                      ? "Ej. El equipo ya tiene este ítem en almacén..."
-                      : "Ej. La descripción es muy genérica, especificar marca y referencia..."
-                  }
-                  autoFocus
-                />
-              </div>
-
-              <div className="flex gap-3 pt-1">
-                <button
-                  onClick={handleRechazarSolicitud}
-                  disabled={
-                    !textoRechazoSol.trim() ||
-                    cancelarSolicitud.isPending ||
-                    correccionSolicitud.isPending
-                  }
-                  className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 transition-colors ${
-                    modoRechazoSol === "cancelar"
-                      ? "bg-red-600 hover:bg-red-700"
-                      : "bg-amber-500 hover:bg-amber-600"
-                  }`}
-                >
-                  {cancelarSolicitud.isPending || correccionSolicitud.isPending
-                    ? "Procesando..."
-                    : modoRechazoSol === "cancelar"
-                    ? "Confirmar cancelación"
-                    : "Confirmar corrección"}
-                </button>
-                <button
-                  onClick={() => { setModoRechazoSol(null); setTextoRechazoSol("") }}
-                  className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
-                >
-                  Cerrar
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+    </PageLayout>
 
       <ImageModal
         isOpen={!!modalImage}
@@ -1113,7 +1098,7 @@ export function SolicitudDetallePage() {
         filename={modalImage?.filename || ""}
         onClose={() => setModalImage(null)}
       />
-    </div>
+    </>
   )
 }
 

@@ -1,7 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Sidebar } from "@/components/layout/Sidebar"
-import { TopBar } from "@/components/layout/TopBar"
+import { PageLayout } from "@/components/layout/PageLayout"
 import {
   usePaquetes,
   useCrearPaquete,
@@ -141,13 +140,8 @@ export function PaquetesPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <TopBar title="Operativo" />
-
-        <main className="flex-1 overflow-y-auto px-6 py-8">
+    <>
+    <PageLayout title="Operativo">
           {/* Back */}
           <button
             onClick={() => navigate("/operativo")}
@@ -254,8 +248,7 @@ export function PaquetesPage() {
               ))}
             </div>
           )}
-        </main>
-      </div>
+    </PageLayout>
 
       {/* ── Modal: Crear paquete ─────────────────────────────────────────────── */}
       {showForm && (
@@ -603,7 +596,7 @@ export function PaquetesPage() {
           </div>
         </div>
       )}
-    </div>
+    </>
   )
 }
 

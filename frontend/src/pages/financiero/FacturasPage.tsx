@@ -1,7 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Sidebar } from "@/components/layout/Sidebar"
-import { TopBar } from "@/components/layout/TopBar"
+import { PageLayout } from "@/components/layout/PageLayout"
 import { useSolicitudesFinanciero } from "@/hooks/useFinanciero"
 import type { EstadoFactura, SolicitudConFactura } from "@/types/financiero"
 import { api } from "@/lib/api"
@@ -74,7 +73,7 @@ export function FacturasPage() {
   })
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <>
       {vistaSolicitud && (
         <VistaFacturacionModal
           open
@@ -83,12 +82,7 @@ export function FacturasPage() {
           factura={null}
         />
       )}
-      <Sidebar />
-
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <TopBar title="Financiero" />
-
-        <main className="flex-1 overflow-y-auto px-6 py-8">
+      <PageLayout title="Financiero">
           {/* Back button */}
           <button
             onClick={() => navigate("/financiero")}
@@ -170,9 +164,8 @@ export function FacturasPage() {
               ))}
             </div>
           )}
-        </main>
-      </div>
-    </div>
+      </PageLayout>
+    </>
   )
 }
 

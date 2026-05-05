@@ -1,7 +1,6 @@
 import { useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
-import { Sidebar } from "@/components/layout/Sidebar"
-import { TopBar } from "@/components/layout/TopBar"
+import { PageLayout } from "@/components/layout/PageLayout"
 import { useSolicitud, useSubirFotoSolicitud, useEliminarFotoSolicitud, useCotizaciones, useOrden, useMarcarEntregada } from "@/hooks/useOC"
 import { useAuthStore } from "@/store/authStore"
 import { formatFechaHora } from "@/lib/dates"
@@ -84,29 +83,17 @@ export function MiSolicitudDetallePage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen bg-gray-50">
-        <Sidebar />
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <TopBar title="Mis Solicitudes" />
-          <main className="flex-1 flex items-center justify-center text-gray-400 text-sm">
-            Cargando...
-          </main>
-        </div>
-      </div>
+      <PageLayout title="Mis Solicitudes" mainClassName="flex-1 flex items-center justify-center overflow-hidden text-gray-400 text-sm">
+        Cargando...
+      </PageLayout>
     )
   }
 
   if (!solicitud) {
     return (
-      <div className="flex h-screen bg-gray-50">
-        <Sidebar />
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <TopBar title="Mis Solicitudes" />
-          <main className="flex-1 flex items-center justify-center text-gray-400 text-sm">
-            Solicitud no encontrada.
-          </main>
-        </div>
-      </div>
+      <PageLayout title="Mis Solicitudes" mainClassName="flex-1 flex items-center justify-center overflow-hidden text-gray-400 text-sm">
+        Solicitud no encontrada.
+      </PageLayout>
     )
   }
 
@@ -120,11 +107,17 @@ export function MiSolicitudDetallePage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <TopBar title="Mis Solicitudes" />
-        <main className="flex-1 overflow-y-auto px-6 py-8">
+    <PageLayout
+      title="Mis Solicitudes"
+      afterMain={
+        <ImageModal
+          isOpen={!!modalImage}
+          imageUrl={modalImage?.url || ""}
+          filename={modalImage?.filename || ""}
+          onClose={() => setModalImage(null)}
+        />
+      }
+    >
           <button
             onClick={() => navigate("/operativo/mis-solicitudes")}
             className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-600 mb-6 transition-colors"
@@ -370,16 +363,7 @@ export function MiSolicitudDetallePage() {
               </div>
             )}
           </div>
-        </main>
-      </div>
-
-      <ImageModal
-        isOpen={!!modalImage}
-        imageUrl={modalImage?.url || ""}
-        filename={modalImage?.filename || ""}
-        onClose={() => setModalImage(null)}
-      />
-    </div>
+    </PageLayout>
   )
 }
 

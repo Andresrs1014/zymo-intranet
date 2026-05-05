@@ -1,6 +1,5 @@
 import { useState } from "react"
-import { Sidebar } from "@/components/layout/Sidebar"
-import { TopBar } from "@/components/layout/TopBar"
+import { PageLayout } from "@/components/layout/PageLayout"
 import { formatFechaRelativa } from "@/lib/dates"
 import { UserFormModal } from "@/components/admin/UserFormModal"
 import { getRoleLabel } from "@/lib/roles"
@@ -99,13 +98,8 @@ export function AdminPage() {
   const isLoading = tab === "activos" ? loadingActive : loadingArchived
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <TopBar title="Gestión de Usuarios" />
-
-        <main className="flex-1 overflow-y-auto px-6 py-8">
+    <>
+      <PageLayout title="Gestión de Usuarios">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div>
@@ -187,8 +181,7 @@ export function AdminPage() {
               </table>
             )}
           </div>
-        </main>
-      </div>
+      </PageLayout>
 
       {modal && (
         <UserFormModal
@@ -199,7 +192,7 @@ export function AdminPage() {
           error={mutationError}
         />
       )}
-    </div>
+    </>
   )
 }
 

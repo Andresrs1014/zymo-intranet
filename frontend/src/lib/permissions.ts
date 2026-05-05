@@ -73,3 +73,12 @@ export function canUseAgenteAdministrativo(
   if (role === "admin") return true
   return canSeeOC(role, area, appPerms)
 }
+
+/** Panel de IA (gerencial ZYMO o agente administrativo / OC). */
+export function canUseAgentePanel(
+  role: string,
+  area?: string | null,
+  appPerms?: string[],
+): boolean {
+  return canSeeGerencial(role, appPerms) || canUseAgenteAdministrativo(role, area, appPerms)
+}

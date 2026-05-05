@@ -1,6 +1,5 @@
 import { NavLink } from "react-router-dom"
-import { Sidebar } from "@/components/layout/Sidebar"
-import { TopBar } from "@/components/layout/TopBar"
+import { PageLayout } from "@/components/layout/PageLayout"
 import { useSolicitudesFinanciero } from "@/hooks/useFinanciero"
 import { useAuthStore } from "@/store/authStore"
 
@@ -11,13 +10,7 @@ export function FinancieroPage() {
   const isAdmin = user?.role === "admin"
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <TopBar title="Financiero" />
-
-        <main className="flex-1 overflow-y-auto px-6 py-8">
+    <PageLayout title="Financiero">
           {/* Section header */}
           <div className="mb-8">
             <div className="flex items-center justify-between mb-1">
@@ -50,9 +43,7 @@ export function FinancieroPage() {
             description="Carga y valida las facturas contra las órdenes de compra aprobadas"
             badge={sinFactura > 0 ? sinFactura : undefined}
           />
-        </main>
-      </div>
-    </div>
+    </PageLayout>
   )
 }
 

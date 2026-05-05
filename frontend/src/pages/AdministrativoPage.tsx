@@ -1,6 +1,5 @@
 import { NavLink } from "react-router-dom"
-import { Sidebar } from "@/components/layout/Sidebar"
-import { TopBar } from "@/components/layout/TopBar"
+import { PageLayout } from "@/components/layout/PageLayout"
 import { useAuthStore } from "@/store/authStore"
 import { useSolicitudes } from "@/hooks/useOC"
 import { canApproveOC, canConfigureOC } from "@/lib/permissions"
@@ -17,13 +16,7 @@ export function AdministrativoPage() {
   const pendientesCount = canApprove ? pendientes.length : 0
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <TopBar title="Administrativo" />
-
-        <main className="flex-1 overflow-y-auto px-6 py-8">
+    <PageLayout title="Administrativo">
           {/* Section header */}
           <div className="mb-8">
             <div className="flex items-center gap-3 mb-1">
@@ -75,9 +68,7 @@ export function AdministrativoPage() {
               )}
             </div>
           )}
-        </main>
-      </div>
-    </div>
+    </PageLayout>
   )
 }
 

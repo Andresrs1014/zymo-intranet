@@ -1,7 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Sidebar } from "@/components/layout/Sidebar"
-import { TopBar } from "@/components/layout/TopBar"
+import { PageLayout } from "@/components/layout/PageLayout"
 import { useSolicitudes } from "@/hooks/useOC"
 import { Combobox } from "@/components/ui/Combobox"
 import { formatFechaRelativa } from "@/lib/dates"
@@ -36,13 +35,7 @@ export function SolicitudesPage() {
   })
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <TopBar title="OC Automatizaciones" />
-
-        <main className="flex-1 overflow-y-auto px-6 py-8">
+    <PageLayout title="OC Automatizaciones">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div>
@@ -110,9 +103,7 @@ export function SolicitudesPage() {
               </table>
             )}
           </div>
-        </main>
-      </div>
-    </div>
+    </PageLayout>
   )
 }
 

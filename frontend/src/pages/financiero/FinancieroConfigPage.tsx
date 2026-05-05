@@ -1,6 +1,5 @@
 import { useState } from "react"
-import { Sidebar } from "@/components/layout/Sidebar"
-import { TopBar } from "@/components/layout/TopBar"
+import { PageLayout } from "@/components/layout/PageLayout"
 import {
   useTiposGasto,
   useCrearTipoGasto,
@@ -15,16 +14,10 @@ import type { CuentaContable } from "@/types/financiero"
 
 export function FinancieroConfigPage() {
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <TopBar title="Financiero — Configuración" />
-        <main className="flex-1 overflow-y-auto px-6 py-8 space-y-8">
+    <PageLayout title="Financiero — Configuración" mainClassName="flex-1 overflow-y-auto px-6 py-8 space-y-8">
           <TiposGastoSection />
           <CuentasContablesSection />
-        </main>
-      </div>
-    </div>
+    </PageLayout>
   )
 }
 

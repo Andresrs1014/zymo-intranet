@@ -7,9 +7,11 @@ import {
   canSeeOperativo,
   canSeeFinanciero,
   canSeeGerencial,
-  canUseAgenteAdministrativo,
+  canUseAgentePanel,
   canSeeExtraccionIA,
 } from "@/lib/permissions"
+import { useAgentPanelStore } from "@/store/agentPanelStore"
+import { useMinWidth } from "@/hooks/useMinWidth"
 import { LoginPage } from "@/pages/LoginPage"
 import { DashboardPage } from "@/pages/DashboardPage"
 import { AdminPage } from "@/pages/AdminPage"
@@ -100,24 +102,22 @@ function ExtraccionIARoute({ children }: { children: React.ReactNode }) {
 
 function AgentLayer() {
   const user = useAuthStore((s) => s.user)
+  const docked = useAgentPanelStore((s) => s.docked)
+  const lg = useMinWidth(1024)
+
   if (!user) return null
-  if (canSeeGerencial(user.role, user.app_permissions)) {
-    return (
-      <AgentFloatingWindow
-        agente="zymo"
-        usuarioNombre={user.full_name ?? user.email}
-      />
-    )
-  }
-  if (canUseAgenteAdministrativo(user.role, user.area, user.app_permissions)) {
-    return (
-      <AgentFloatingWindow
-        agente="administrativo"
-        usuarioNombre={user.full_name ?? user.email}
-      />
-    )
-  }
-  return null
+  if (!canUseAgentePanel(user.role, user.area, user.app_permissions)) return null
+
+  const agente = canSeeGerencial(user.role, user.app_permissions) ? "zymo" : "administrativo"
+
+  if (docked && lg) return null
+
+  return (
+    <AgentFloatingWindow
+      agente={agente}
+      usuarioNombre={user.full_name ?? user.email}
+    />
+  )
 }
 
 export default function App() {

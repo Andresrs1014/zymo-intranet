@@ -1,6 +1,5 @@
 import { useState } from "react"
-import { Sidebar } from "@/components/layout/Sidebar"
-import { TopBar } from "@/components/layout/TopBar"
+import { PageLayout } from "@/components/layout/PageLayout"
 import { useAuthStore } from "@/store/authStore"
 import { canSeeGerencial } from "@/lib/permissions"
 import { PanelGerenteTab } from "./tabs/PanelGerenteTab"
@@ -27,13 +26,10 @@ export function GerencialPage() {
   ]
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <TopBar title="Módulo Gerencial" />
-
-        {/* Tabs */}
-        <div className="border-b border-gray-200 bg-white px-6">
+    <PageLayout
+      title="Módulo Gerencial"
+      belowTopBar={
+        <div className="border-b border-gray-200 bg-white px-6 shrink-0">
           <nav className="flex gap-1 overflow-x-auto" aria-label="Tabs">
             {tabs
               .filter((t) => t.visible)
@@ -59,15 +55,13 @@ export function GerencialPage() {
               ))}
           </nav>
         </div>
-
-        {/* Contenido del tab activo */}
-        <main className="flex-1 overflow-y-auto">
+      }
+      mainClassName="flex-1 overflow-y-auto min-h-0"
+    >
           {activeTab === "gerente" && <PanelGerenteTab />}
           {activeTab === "directora" && <DirectoraPlaneacionTab />}
           {activeTab === "desarrollo" && <DesarrolloInnovacionTab />}
-        </main>
-      </div>
-    </div>
+    </PageLayout>
   )
 }
 

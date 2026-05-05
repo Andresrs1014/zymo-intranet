@@ -1,7 +1,6 @@
 // frontend/src/pages/admin/ExtraccionIAPage.tsx
 import { useState } from "react"
-import { Sidebar } from "@/components/layout/Sidebar"
-import { TopBar } from "@/components/layout/TopBar"
+import { PageLayout } from "@/components/layout/PageLayout"
 import { useAuthStore } from "@/store/authStore"
 import { canSeeExtraccionIA } from "@/lib/permissions"
 import {
@@ -25,24 +24,14 @@ export function ExtraccionIAPage() {
 
   if (!user || !canSeeExtraccionIA(user.role, user.app_permissions)) {
     return (
-      <div className="flex h-screen bg-gray-50">
-        <Sidebar />
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <TopBar title="Admin" />
-          <main className="flex-1 flex items-center justify-center text-gray-500 text-sm">
-            Acceso restringido — solo administradores.
-          </main>
-        </div>
-      </div>
+      <PageLayout title="Admin" mainClassName="flex-1 flex items-center justify-center text-gray-500 text-sm">
+        Acceso restringido — solo administradores.
+      </PageLayout>
     )
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <TopBar title="Admin — Motor de Extracción IA" />
-        <main className="flex-1 overflow-y-auto px-6 py-8">
+    <PageLayout title="Admin — Motor de Extracción IA">
           <div className="mb-6">
             <h1 className="text-xl font-bold text-gray-900">Motor de Extracción IA</h1>
             <p className="text-sm text-gray-500 mt-0.5">
@@ -209,8 +198,6 @@ export function ExtraccionIAPage() {
               </div>
             </div>
           )}
-        </main>
-      </div>
-    </div>
+    </PageLayout>
   )
 }
