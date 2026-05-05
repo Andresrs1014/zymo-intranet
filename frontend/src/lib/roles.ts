@@ -65,6 +65,13 @@ export const INTERNAL_MODULES: AppDefinition[] = [
     name: "Módulo SIG",
     description: "Sistema Integrado de Gestión",
   },
+  {
+    id: "mod_extraccion_ia",
+    category: "modulo",
+    icon: "🤖",
+    name: "Motor IA — Extracción",
+    description: "Panel de revisión de candidatos, sinónimos aprendidos y métricas del motor de extracción",
+  },
 ]
 
 // ── Aplicaciones externas ─────────────────────────────────────────────────────

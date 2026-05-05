@@ -79,6 +79,7 @@ require_compras = require_permission("mod_oc_ver")
 require_financiero = require_permission("mod_financiero")
 require_gerencial = require_permission("mod_gerencial")
 require_sgc = require_permission("mod_sgc")
+require_extraccion_ia = require_permission("mod_extraccion_ia")
 
 
 def require_any_role(allowed_roles: list[str]):

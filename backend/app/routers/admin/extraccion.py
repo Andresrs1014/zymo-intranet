@@ -1,7 +1,7 @@
 # backend/app/routers/admin/extraccion.py
 """
 Endpoints del panel de revisión de extracción IA.
-Solo accesibles por rol admin (require_admin).
+Accesibles por rol admin O por usuarios con permiso mod_extraccion_ia.
 
 Flujo:
   GET  /api/admin/extraccion/cola          → candidatos pendientes de revisión
@@ -17,7 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlmodel import Session, select, func
 
-from app.core.deps import get_db, require_admin
+from app.core.deps import get_db, require_extraccion_ia
 from app.models.extraction_review import ExtractionReview
 from app.models.learned_synonym import LearnedSynonym
 from app.models.user import User
@@ -76,7 +76,7 @@ class MetricasRead(BaseModel):
 @router.get("/cola", response_model=list[ReviewRead])
 def get_cola(
     estado: str = "pendiente",
-    _admin: User = Depends(require_admin),
+    _admin: User = Depends(require_extraccion_ia),
     db: Session = Depends(get_db),
 ) -> list[ExtractionReview]:
     """Cola de candidatos. Por defecto muestra solo los pendientes."""
@@ -91,7 +91,7 @@ def get_cola(
 def aprobar_candidato(
     review_id: int,
     payload: AprobarPayload,
-    admin: User = Depends(require_admin),
+    admin: User = Depends(require_extraccion_ia),
     db: Session = Depends(get_db),
 ) -> LearnedSynonym:
     """Aprueba un candidato y lo registra como sinónimo aprendido."""
@@ -150,7 +150,7 @@ def aprobar_candidato(
 @router.post("/{review_id}/rechazar", status_code=status.HTTP_204_NO_CONTENT)
 def rechazar_candidato(
     review_id: int,
-    admin: User = Depends(require_admin),
+    admin: User = Depends(require_extraccion_ia),
     db: Session = Depends(get_db),
 ) -> None:
     """Descarta un candidato — no se crea sinónimo."""
@@ -168,7 +168,7 @@ def rechazar_candidato(
 
 @router.get("/sinonimos", response_model=list[SinonimosRead])
 def get_sinonimos(
-    _admin: User = Depends(require_admin),
+    _admin: User = Depends(require_extraccion_ia),
     db: Session = Depends(get_db),
 ) -> list[LearnedSynonym]:
     """Lista todos los sinónimos aprobados, ordenados por más usados."""
@@ -180,7 +180,7 @@ def get_sinonimos(
 @router.delete("/sinonimos/{synonym_id}", status_code=status.HTTP_204_NO_CONTENT)
 def eliminar_sinonimo(
     synonym_id: int,
-    _admin: User = Depends(require_admin),
+    _admin: User = Depends(require_extraccion_ia),
     db: Session = Depends(get_db),
 ) -> None:
     """Elimina un sinónimo aprendido y recarga la caché."""
@@ -195,7 +195,7 @@ def eliminar_sinonimo(
 
 @router.get("/metricas", response_model=MetricasRead)
 def get_metricas(
-    _admin: User = Depends(require_admin),
+    _admin: User = Depends(require_extraccion_ia),
     db: Session = Depends(get_db),
 ) -> MetricasRead:
     """Métricas del motor: pendientes, aprobados, rechazados, sinónimos totales."""

@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom"
 import { useAuthStore } from "@/store/authStore"
-import { canSeeOC, canSeeSGC, canSeeOperativo, canSeeFinanciero, canSeeGerencial, canSeeIT, canSeeSIG } from "@/lib/permissions"
+import { canSeeOC, canSeeSGC, canSeeOperativo, canSeeFinanciero, canSeeGerencial, canSeeIT, canSeeSIG, canSeeExtraccionIA } from "@/lib/permissions"
 
 export function Sidebar() {
   const user = useAuthStore((s) => s.user)
@@ -12,6 +12,7 @@ export function Sidebar() {
   const showGerencial      = user ? canSeeGerencial(user.role, perms) : false
   const showIT             = user ? canSeeIT(user.role, perms) : false
   const showSIG            = user ? canSeeSIG(user.role, perms) : false
+  const showExtraccionIA   = user ? canSeeExtraccionIA(user.role, perms) : false
 
   return (
     <aside className="flex h-full w-64 flex-col bg-brand-blue">
@@ -95,7 +96,7 @@ export function Sidebar() {
           />
         )}
 
-        {user?.role === "admin" && (
+        {showExtraccionIA && (
           <SidebarLink
             to="/admin/extraccion-ia"
             label="Motor IA"

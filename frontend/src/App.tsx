@@ -8,6 +8,7 @@ import {
   canSeeFinanciero,
   canSeeGerencial,
   canUseAgenteAdministrativo,
+  canSeeExtraccionIA,
 } from "@/lib/permissions"
 import { LoginPage } from "@/pages/LoginPage"
 import { DashboardPage } from "@/pages/DashboardPage"
@@ -90,6 +91,13 @@ function GerencialRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+function ExtraccionIARoute({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user)
+  if (!user) return <Navigate to="/login" replace />
+  if (!canSeeExtraccionIA(user.role, user.app_permissions)) return <Navigate to="/dashboard" replace />
+  return <>{children}</>
+}
+
 function AgentLayer() {
   const user = useAuthStore((s) => s.user)
   if (!user) return null
@@ -166,9 +174,9 @@ export default function App() {
         <Route
           path="/admin/extraccion-ia"
           element={
-            <AdminRoute>
+            <ExtraccionIARoute>
               <ExtraccionIAPage />
-            </AdminRoute>
+            </ExtraccionIARoute>
           }
         />
         {/* Administrativo */}

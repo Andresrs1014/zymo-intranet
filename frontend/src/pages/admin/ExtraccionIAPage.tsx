@@ -3,6 +3,7 @@ import { useState } from "react"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
 import { useAuthStore } from "@/store/authStore"
+import { canSeeExtraccionIA } from "@/lib/permissions"
 import {
   useColaCandidatos, useAprobarCandidato, useRechazarCandidato,
   useSinonimosAprendidos, useEliminarSinonimo, useMetricasExtraccion,
@@ -22,7 +23,7 @@ export function ExtraccionIAPage() {
   const rechazar = useRechazarCandidato()
   const eliminar = useEliminarSinonimo()
 
-  if (user?.role !== "admin") {
+  if (!user || !canSeeExtraccionIA(user.role, user.app_permissions)) {
     return (
       <div className="flex h-screen bg-gray-50">
         <Sidebar />
