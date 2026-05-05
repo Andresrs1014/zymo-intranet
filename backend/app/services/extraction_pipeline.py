@@ -21,12 +21,13 @@ import logging
 from pathlib import Path
 from typing import Optional
 
+from app.config import settings
 from app.services.number_utils import parse_cop
 
 _log = logging.getLogger("zymo.extraction_pipeline")
 
 # Directorio donde se guardan los resultados de Fase 2 para poll del frontend
-_PHASE2_RESULTS_DIR = Path("/app/data/extraction_phase2")
+_PHASE2_RESULTS_DIR = Path(settings.phase2_results_dir)
 
 
 def _ensure_dirs() -> None:

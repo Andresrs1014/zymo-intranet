@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     drafts_dir: str = "/app/data/form_drafts"
     draft_ttl_days: int = 7
 
+    # Motor de Extracción IA — Fase 2 (resultados temporales para poll)
+    phase2_results_dir: str = "/app/data/extraction_phase2"
+
     # OC Automatizaciones
     # Secret para validar que el webhook viene de Power Automate (opcional)
     oc_webhook_secret: str = ""
