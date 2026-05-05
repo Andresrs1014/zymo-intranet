@@ -45,6 +45,8 @@ def parsear_campos_cotizacion(
 
     nit = find_text(
         [
+            # Primera línea típica de órdenes de servicio / cotizaciones: "Nit 900934953"
+            r"(?im)^Nit\s+(\d{9,10})\s*$",
             r"N\.?I\.?T\.?[:\s#]*(\d[\d.\-]+[-]\d)",
             r"NIT[:\s#]*(\d{3}[.\s]?\d{3}[.\s]?\d{3}[-]?\d)",
         ]
@@ -53,10 +55,13 @@ def parsear_campos_cotizacion(
     total = money_or_extra(
         "valor_total",
         [
+            r"TOTAL\s+DOCUMENTO[\s\S]{0,28}?\$?\s*([\d.,]+)",
             r"TOTAL\s+A\s+PAGAR[\s\S]{0,20}?\$?\s*([\d.,]+)",
             r"VALOR\s+TOTAL[\s\S]{0,20}?\$?\s*([\d.,]+)",
             r"GRAN\s+TOTAL[\s\S]{0,20}?\$?\s*([\d.,]+)",
-            r"\bTOTAL\b[\s\S]{0,15}?\$?\s*([\d.,]+)",
+            # TOTAL solo en línea con separador explícito (evita columna "IVA Total" + fila "001")
+            r"(?m)^\s*TOTAL\s*[:\-]\s*\$?\s*([\d.,]+)\s*$",
+            # Evitar \bTOTAL\b genérico con lookahead corto: enlaza con encabezados de tabla.
         ],
     )
 
@@ -77,9 +82,18 @@ def parsear_campos_cotizacion(
         _subtotal_extra if _subtotal_extra is not None and (total is None or abs(_subtotal_extra - total) > 1) else None
     )
 
+    # Total espurio típico: encabezado "IVA Total" y primera celda numérica de la tabla (ej. "001")
+    if subtotal is not None and total is not None and float(subtotal) > 500:
+        tot_f = float(total)
+        sub_f = float(subtotal)
+        if tot_f < sub_f * 0.85 or tot_f <= max(50.0, sub_f * 0.02):
+            total = None
+
     iva = money_or_extra(
         "valor_iva",
         [
+            # Remisión / orden de servicio (ej. "M/CTE IVA 86.450")
+            r"(?i)\bM/CTE\s+IVA\s+([\d.,]+)",
             # "IVA 19.00 % $317.243" o "IVA 19 %  317.243" (sin : ni -)
             r"(?m)^(?!.*\bBASE\b)(?!.*\bGRAVABLE\b).*\bIVA\b\s+[\d]+(?:[.,]\d+)?\s*%\s*\$?\s*([\d.,]+)",
             # Formato DIAN UBL con separador : o -
@@ -161,6 +175,7 @@ def parsear_campos_cotizacion(
     num_cotizacion = text_or_extra(
         "numero_cotizacion_proveedor",
         [
+            r"ORDEN\s+DE\s+SERVICIO\s+N[o°º]\.?\s*(\d+)",
             r"N[ÚU]MERO\s+DE\s+COTIZACI[ÓO]N[:\s]+(.{2,60}?)(?:\n|$)",
             r"COTIZACI[ÓO]N\s+N[°O]\.?\s*[:\s]+(.{2,60}?)(?:\n|$)",
             r"COT(?:IZACI[ÓO]N)?\s*N[°O]?\.?\s*[:\s]*([A-Za-z0-9\-/]{2,30})",
@@ -172,6 +187,7 @@ def parsear_campos_cotizacion(
     proveedor_nombre = text_or_extra(
         "proveedor_nombre",
         [
+            r"(.+?\s+(?:SAS|LTDA|S\.A\.S\.?))\s+ORDEN\s+DE\s+SERVICIO",
             r"RAZ[ÓO]N\s+SOCIAL[:\s]+(.{3,100}?)(?:\n|$)",
             r"EMPRESA[:\s]+(.{3,100}?)(?:\n|$)",
             r"ELABORADO\s+POR[:\s]+(.{3,100}?)(?:\n|$)",

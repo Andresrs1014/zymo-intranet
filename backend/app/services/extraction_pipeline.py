@@ -9,7 +9,7 @@ FASE 1 (síncrona, ~1.2s):
 
 FASE 2 (background, ~4-6s):
   - Gemini analiza el mismo PDF
-  - Completa campos que quedaron None en Fase 1
+  - Completa campos None en Fase 1 y corrige totales incoherentes vs subtotal
   - Registra candidatos sin mapear en extraction_reviews
   - Incrementa veces_visto en learned_synonyms cuando reconoce etiquetas aprendidas
   - Guarda resultado parcheado en un archivo JSON temporal para que el frontend haga poll
@@ -28,6 +28,29 @@ _log = logging.getLogger("zymo.extraction_pipeline")
 
 # Directorio donde se guardan los resultados de Fase 2 para poll del frontend
 _PHASE2_RESULTS_DIR = Path(settings.phase2_results_dir)
+
+
+def _phase1_monetario_debe_corregirse(campo: str, valor_actual: object, phase1: dict) -> bool:
+    """True si el motor regex devolvió un monto incoherente (ej. total=1 por tabla mal interpretada)."""
+    if valor_actual is None:
+        return False
+    try:
+        v = float(valor_actual)
+    except (TypeError, ValueError):
+        return False
+    sub = phase1.get("valor_antes_iva")
+    if campo == "valor_total" and sub is not None:
+        try:
+            sub_f = float(sub)
+        except (TypeError, ValueError):
+            return False
+        if sub_f <= 500:
+            return False
+        if v < sub_f * 0.85:
+            return True
+        if v <= max(50.0, sub_f * 0.02):
+            return True
+    return False
 
 
 def _ensure_dirs() -> None:
@@ -95,25 +118,33 @@ async def run_phase2(
             _log.warning("[phase2] Gemini falló para solicitud %s: %s", solicitud_id, ai_result.error)
             return
 
-        # Parchar solo los campos que Fase 1 dejó vacíos
+        # Parchar vacíos de Fase 1 y corregir montos incoherentes que Gemini puede arreglar
         patched = dict(phase1_result)
         campos_completados: list[str] = []
+        campos_monetarios = {"valor_unitario", "valor_antes_iva", "valor_iva", "valor_total"}
 
         for campo, extraido in ai_result.campos.items():
             if extraido.valor is None:
                 continue
-            # Solo parchar si Fase 1 no lo encontró
-            if patched.get(campo) is None:
-                # Convertir valores monetarios a float si aplica
-                campos_monetarios = {"valor_unitario", "valor_antes_iva", "valor_iva", "valor_total"}
-                if campo in campos_monetarios:
-                    val_float = parse_cop(extraido.valor)
-                    if val_float and val_float > 0:
-                        patched[campo] = val_float
-                        campos_completados.append(campo)
-                else:
-                    patched[campo] = extraido.valor
+            debe_parchear = patched.get(campo) is None
+            if (
+                not debe_parchear
+                and campo in campos_monetarios
+                and _phase1_monetario_debe_corregirse(campo, patched.get(campo), patched)
+            ):
+                debe_parchear = True
+
+            if not debe_parchear:
+                continue
+
+            if campo in campos_monetarios:
+                val_float = parse_cop(extraido.valor)
+                if val_float and val_float > 0:
+                    patched[campo] = val_float
                     campos_completados.append(campo)
+            else:
+                patched[campo] = extraido.valor
+                campos_completados.append(campo)
 
         patched["phase2_disponible"] = True
         patched["phase2_campos_completados"] = campos_completados
