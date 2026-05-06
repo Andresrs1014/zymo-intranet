@@ -290,7 +290,8 @@ export function SolicitudDetallePage() {
 
   function abrirModalCorreccionDirectiva() {
     const c = cotizacionAprobada
-    if (!c) return
+    const sol = solicitud
+    if (!c || !sol) return
     setCorrDirProveedorNombre(c.proveedor_nombre ?? "")
     setCorrDirProveedorNit(c.proveedor_nit ?? "")
     setCorrDirProveedorEmail(c.proveedor_email ?? "")
@@ -311,9 +312,9 @@ export function SolicitudDetallePage() {
         : [
             {
               num: 1,
-              descripcion: solicitud.descripcion || "",
-              referencia: solicitud.placa_ficha || "",
-              cantidad: solicitud.cantidad ?? 1,
+              descripcion: sol.descripcion || "",
+              referencia: sol.placa_ficha || "",
+              cantidad: sol.cantidad ?? 1,
               valor_unitario: c.valor_unitario ?? undefined,
               valor_total: c.valor_total ?? undefined,
             },
