@@ -417,6 +417,46 @@ export function useEditarCotizacionDirector() {
   })
 }
 
+export interface CorregirDirectivoPayload {
+  proveedor_nombre?: string
+  proveedor_nit?: string
+  proveedor_email?: string
+  numero_cotizacion_proveedor?: string
+  valor_antes_iva?: number | null
+  valor_iva?: number | null
+  valor_total?: number
+  forma_pago?: string
+  plazo_entrega?: string
+  observaciones?: string
+  items?: object[]
+  valor_aprobado?: number
+  observacion_correccion: string  // OBLIGATORIO
+}
+
+export function useCorregirDirectivo() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: {
+      solicitudId: string
+      cotizacionId: string
+      payload: CorregirDirectivoPayload
+    }) => {
+      const { data } = await api.patch<CotizacionProveedor>(
+        `/api/oc/cotizaciones/${input.cotizacionId}/corregir-directivo`,
+        input.payload,
+      )
+      return data
+    },
+    onSuccess: (_data, { solicitudId }) => {
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes", solicitudId] })
+      qc.invalidateQueries({ queryKey: ["oc", "cotizaciones", solicitudId] })
+      qc.invalidateQueries({ queryKey: ["oc", "orden", solicitudId] })
+      qc.invalidateQueries({ queryKey: ["oc", "historial", solicitudId] })
+    },
+  })
+}
+
 // ── Documentos / Orden de Compra ──────────────────────────────────────────────
 
 export function useOrden(solicitudId: string | undefined) {

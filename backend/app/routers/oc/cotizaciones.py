@@ -12,7 +12,7 @@ log = logging.getLogger(__name__)
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from app.core.deps import get_current_user, require_compras
@@ -21,7 +21,14 @@ from app.database import get_db
 from app.oc_database import get_oc_db
 from app.models.oc import CotizacionProveedor, EstadoOC, SolicitudOC
 from app.models.user import User
-from app.services.email_service import send_aprobacion_directora, send_cotizacion_lista, send_proforma_financiero
+from app.routers.oc.documentos import regenerar_pdf_orden_por_solicitud
+from app.services.email_service import (
+    send_aprobacion_directora,
+    send_correccion_directivo,
+    send_cotizacion_lista,
+    send_oc_a_proveedor,
+    send_proforma_financiero,
+)
 from app.services.historial import registrar_cambio_estado
 from app.config import settings
 
@@ -157,6 +164,25 @@ class EditarCotizacionPayload(BaseModel):
     plazo_entrega: Optional[str] = None
     observaciones: Optional[str] = None
     items: Optional[list[dict]] = None
+
+
+class CorregirDirectivoPayload(BaseModel):
+    # Campos editables de la cotización (todos opcionales)
+    proveedor_nombre: Optional[str] = None
+    proveedor_nit: Optional[str] = None
+    proveedor_email: Optional[str] = None
+    numero_cotizacion_proveedor: Optional[str] = None
+    valor_antes_iva: Optional[float] = None
+    valor_iva: Optional[float] = None
+    valor_total: Optional[float] = None
+    forma_pago: Optional[str] = None
+    plazo_entrega: Optional[str] = None
+    observaciones: Optional[str] = None
+    items: Optional[list[dict]] = None
+    # Puede cambiar el valor aprobado
+    valor_aprobado: Optional[float] = None
+    # Nota obligatoria del director sobre la corrección (mínimo 5 caracteres)
+    observacion_correccion: str = Field(..., min_length=5, max_length=1000)
 
 
 class ItemCotizacion(BaseModel):
@@ -1145,6 +1171,142 @@ def editar_cotizacion(
     oc_db.add(cotizacion)
     oc_db.commit()
     oc_db.refresh(cotizacion)
+    return cotizacion
+
+
+_ESTADOS_CORRECCION_DIRECTIVO = {
+    EstadoOC.aprobada,
+    EstadoOC.oc_enviada,
+    EstadoOC.oc_en_plataforma,
+}
+
+
+@router.patch(
+    "/cotizaciones/{cotizacion_id}/corregir-directivo",
+    response_model=CotizacionRead,
+)
+def corregir_directivo(
+    cotizacion_id: uuid.UUID,
+    payload: CorregirDirectivoPayload,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    oc_db: Session = Depends(get_oc_db),
+):
+    """Corrección directiva post-aprobación.
+
+    Permite al director/admin corregir datos de la cotización ya aprobada
+    (estados: aprobada, oc_enviada, oc_en_plataforma) sin cambiar el estado
+    de la solicitud. Notifica al auxiliar y al solicitante.
+    """
+    if not user_has_permission(db, current_user, "mod_oc_aprobar"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Se requiere permiso mod_oc_aprobar para realizar correcciones directivas.",
+        )
+
+    cotizacion = oc_db.get(CotizacionProveedor, cotizacion_id)
+    if not cotizacion:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cotización no encontrada.")
+
+    solicitud = oc_db.get(SolicitudOC, cotizacion.solicitud_id)
+    if not solicitud:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
+
+    if solicitud.estado not in _ESTADOS_CORRECCION_DIRECTIVO:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"La solicitud debe estar en uno de los estados: "
+                f"{', '.join(e.value for e in _ESTADOS_CORRECCION_DIRECTIVO)}. "
+                f"Estado actual: {solicitud.estado}."
+            ),
+        )
+
+    # Actualizar solo los campos provistos
+    if payload.proveedor_nombre is not None:
+        cotizacion.proveedor_nombre = payload.proveedor_nombre
+    if payload.proveedor_nit is not None:
+        cotizacion.proveedor_nit = payload.proveedor_nit
+    if payload.proveedor_email is not None:
+        cotizacion.proveedor_email = payload.proveedor_email
+    if payload.numero_cotizacion_proveedor is not None:
+        cotizacion.numero_cotizacion_proveedor = payload.numero_cotizacion_proveedor
+    if payload.valor_antes_iva is not None:
+        cotizacion.valor_antes_iva = payload.valor_antes_iva
+    if payload.valor_iva is not None:
+        cotizacion.valor_iva = payload.valor_iva
+    if payload.valor_total is not None:
+        cotizacion.valor_total = payload.valor_total
+    if payload.forma_pago is not None:
+        cotizacion.forma_pago = payload.forma_pago
+    if payload.plazo_entrega is not None:
+        cotizacion.plazo_entrega = payload.plazo_entrega
+    if payload.observaciones is not None:
+        cotizacion.observaciones = payload.observaciones
+    if payload.items is not None:
+        cotizacion.items = [
+            {**item, "num": item.get("num") or (i + 1)}
+            for i, item in enumerate(payload.items)
+        ]
+    if payload.valor_aprobado is not None:
+        cotizacion.valor_aprobado = payload.valor_aprobado
+
+    # Actualizar quién realizó la última modificación y su nota.
+    # Intencional: aprobado_por_id refleja al último responsable de la cotización.
+    # La trazabilidad del aprobador original queda en el historial de estados.
+    cotizacion.aprobado_por_id = current_user.id
+    cotizacion.observaciones_aprobacion = payload.observacion_correccion
+    oc_db.add(cotizacion)
+
+    # Registrar en historial sin cambiar estado
+    estado_actual = solicitud.estado
+    registrar_cambio_estado(
+        oc_db,
+        solicitud.id,
+        estado_actual,
+        estado_actual,
+        usuario_id=current_user.id,
+        usuario_nombre=current_user.full_name,
+        notas=payload.observacion_correccion,
+        es_reproceso=True,
+        tipo_accion="correccion_directivo",
+    )
+
+    oc_db.commit()
+    oc_db.refresh(cotizacion)
+
+    if solicitud.estado in (EstadoOC.oc_enviada, EstadoOC.oc_en_plataforma):
+        regen = regenerar_pdf_orden_por_solicitud(oc_db, db, solicitud.id)
+        if regen:
+            orden, cot_actualizada = regen
+            email_prov = orden.email_proveedor or cot_actualizada.proveedor_email
+            if orden.enviada_proveedor and email_prov:
+                background_tasks.add_task(
+                    send_oc_a_proveedor,
+                    solicitud,
+                    orden.numero_oc,
+                    orden.pdf_path,
+                    email_prov,
+                    cot_actualizada.items,
+                )
+
+    # Notificar al auxiliar y al solicitante
+    auxiliar_email: Optional[str] = None
+    if solicitud.auxiliar_id:
+        auxiliar = db.get(User, solicitud.auxiliar_id)
+        if auxiliar and auxiliar.email:
+            auxiliar_email = auxiliar.email
+
+    background_tasks.add_task(
+        send_correccion_directivo,
+        solicitud,
+        cotizacion,
+        payload.observacion_correccion,
+        current_user.full_name,
+        auxiliar_email,
+    )
+
     return cotizacion
 
 

@@ -635,20 +635,44 @@ def cancelar_solicitud(
     solicitud_id: uuid.UUID,
     payload: CancelacionPayload,
     background_tasks: BackgroundTasks,
-    current_user: User = Depends(require_compras),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
     oc_db: Session = Depends(get_oc_db),
 ):
-    """Cancela definitivamente una solicitud (auxiliar o directivo). KPI: rechazos_solicitud."""
+    """Cancela definitivamente una solicitud. KPI: tipo_accion=cancelacion_solicitud (estados tempranos) o cancelacion_directivo (estados post-aprobación, solo director)."""
     solicitud = oc_db.get(SolicitudOC, solicitud_id)
     if not solicitud:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
 
-    estados_validos = {EstadoOC.nueva, EstadoOC.en_cotizacion, EstadoOC.pendiente_aprobacion, EstadoOC.en_correccion}
+    is_directivo = user_has_permission(db, current_user, "mod_oc_aprobar")
+    is_compras = user_has_permission(db, current_user, "mod_oc_ver")
+    is_auxiliar_asignado = solicitud.auxiliar_id is not None and solicitud.auxiliar_id == current_user.id
+
+    if not is_directivo and not is_compras and not is_auxiliar_asignado:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Sin permiso para cancelar esta solicitud.",
+        )
+
+    estados_validos_base = {EstadoOC.nueva, EstadoOC.en_cotizacion, EstadoOC.pendiente_aprobacion, EstadoOC.en_correccion}
+    estados_validos_directivo = {EstadoOC.aprobada, EstadoOC.oc_enviada, EstadoOC.oc_en_plataforma}
+
+    if is_directivo:
+        estados_validos = estados_validos_base | estados_validos_directivo
+    else:
+        estados_validos = estados_validos_base
+
     if solicitud.estado not in estados_validos:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"No se puede cancelar una solicitud en estado '{solicitud.estado}'.",
         )
+
+    tipo_accion = (
+        "cancelacion_directivo"
+        if solicitud.estado in estados_validos_directivo
+        else "cancelacion_solicitud"
+    )
 
     estado_anterior = solicitud.estado
     solicitud.estado = EstadoOC.cancelada
@@ -663,7 +687,7 @@ def cancelar_solicitud(
         usuario_id=current_user.id,
         usuario_nombre=current_user.full_name,
         notas=payload.justificacion,
-        tipo_accion="cancelacion_solicitud",
+        tipo_accion=tipo_accion,
     )
 
     oc_db.commit()
@@ -677,13 +701,22 @@ def cancelar_solicitud(
 def mandar_a_correccion(
     solicitud_id: uuid.UUID,
     payload: CorreccionSolicitudPayload,
-    current_user: User = Depends(require_compras),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
     oc_db: Session = Depends(get_oc_db),
 ):
     """Devuelve la solicitud al solicitante para que la corrija. KPI: reprocesos."""
     solicitud = oc_db.get(SolicitudOC, solicitud_id)
     if not solicitud:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
+
+    is_compras = user_has_permission(db, current_user, "mod_oc_ver")
+    is_auxiliar_asignado = solicitud.auxiliar_id is not None and solicitud.auxiliar_id == current_user.id
+    if not is_compras and not is_auxiliar_asignado:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Sin permiso para mandar a corrección esta solicitud.",
+        )
 
     estados_validos = {EstadoOC.nueva, EstadoOC.en_cotizacion, EstadoOC.pendiente_aprobacion}
     if solicitud.estado not in estados_validos:

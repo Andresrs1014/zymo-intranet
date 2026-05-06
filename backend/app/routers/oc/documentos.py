@@ -149,6 +149,59 @@ def _generar_pdf(
     HTML(string=html_content, base_url=str(_PLATFORMS_DIR)).write_pdf(str(output_path))
 
 
+def regenerar_pdf_orden_por_solicitud(
+    oc_db: Session,
+    db,
+    solicitud_id: uuid.UUID,
+) -> Optional[tuple[OrdenCompra, CotizacionProveedor]]:
+    """Regenera el PDF de la orden existente con la cotización aprobada más reciente."""
+    orden = oc_db.exec(select(OrdenCompra).where(OrdenCompra.solicitud_id == solicitud_id)).first()
+    if not orden:
+        return None
+
+    solicitud = oc_db.get(SolicitudOC, solicitud_id)
+    cotizacion = oc_db.exec(
+        select(CotizacionProveedor)
+        .where(
+            CotizacionProveedor.solicitud_id == solicitud_id,
+            CotizacionProveedor.aprobada == True,  # noqa: E712
+        )
+        .order_by(CotizacionProveedor.created_at.desc())
+    ).first()
+    if not solicitud or not cotizacion:
+        return None
+
+    numero_oc = orden.numero_oc
+    old_pdf = OC_DOCS_DIR / f"{numero_oc}.pdf"
+    if old_pdf.exists():
+        old_pdf.unlink(missing_ok=True)
+
+    pdf_path = OC_DOCS_DIR / f"{numero_oc}.pdf"
+
+    auxiliar_nombre = ""
+    aprobador_nombre = ""
+    if solicitud.auxiliar_id:
+        aux = db.get(User, solicitud.auxiliar_id)
+        if aux:
+            auxiliar_nombre = aux.full_name
+    if cotizacion.aprobado_por_id:
+        aprobador = db.get(User, cotizacion.aprobado_por_id)
+        if aprobador:
+            aprobador_nombre = aprobador.full_name
+
+    _generar_pdf(numero_oc, solicitud, cotizacion, pdf_path, auxiliar_nombre, aprobador_nombre)
+
+    orden.cotizacion_id = cotizacion.id
+    orden.pdf_path = str(pdf_path)
+    if cotizacion.proveedor_email:
+        orden.email_proveedor = cotizacion.proveedor_email
+    oc_db.add(orden)
+    oc_db.commit()
+    oc_db.refresh(orden)
+    oc_db.refresh(cotizacion)
+    return orden, cotizacion
+
+
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.post(

@@ -1120,6 +1120,116 @@ async def send_proforma_financiero(
         )
 
 
+# ── Corrección directiva → auxiliar + solicitante ────────────────────────────
+
+def _html_correccion_directivo_auxiliar(
+    s: "SolicitudOC",
+    cotizacion: "CotizacionProveedor",
+    observacion: str,
+    corrector_nombre: str,
+    cfg: Optional[dict] = None,
+    logo_uri: str = "",
+) -> str:
+    """HTML para notificar al auxiliar que el director corrigió los datos de la OC."""
+    cuerpo = f"""
+    <p style="color:#374151;font-size:14px">
+      El director/a <strong>{corrector_nombre}</strong> ha realizado una corrección directiva
+      sobre los datos de la cotización aprobada. Por favor revisa los datos actualizados.
+    </p>
+    {_tabla(
+        _fila("Consecutivo", s.consecutivo_os),
+        _fila("Descripción", s.descripcion),
+        _fila("Estado actual", s.estado if isinstance(s.estado, str) else s.estado.value),
+        _fila("Proveedor", cotizacion.proveedor_nombre or "—"),
+        _fila("Valor total", _fmt_cop(cotizacion.valor_total)),
+        _fila("Corregido por", corrector_nombre),
+        _fila("Observación de corrección", observacion, destacar=True, cfg=cfg),
+    )}
+    <p style="color:#374151;font-size:14px">
+      Ingresa a la intranet para verificar que los datos de la OC sean correctos
+      antes de continuar con el proceso.
+    </p>
+    """
+    return _base(f"Corrección directiva en OC — {s.consecutivo_os}", cuerpo, cfg, logo_uri=logo_uri)
+
+
+def _html_correccion_directivo_solicitante(
+    s: "SolicitudOC",
+    observacion: str,
+    corrector_nombre: str,
+    cfg: Optional[dict] = None,
+    logo_uri: str = "",
+) -> str:
+    """HTML para notificar al solicitante que el director corrigió los datos de su OC."""
+    cuerpo = f"""
+    <p style="color:#374151;font-size:14px">Hola <strong>{s.solicitante_nombre}</strong>,</p>
+    <p style="color:#374151;font-size:14px">
+      La dirección ha realizado una corrección sobre los datos de la Orden de Compra asociada a tu solicitud.
+      El proceso continúa en su estado actual sin interrupciones.
+    </p>
+    {_tabla(
+        _fila("Consecutivo", s.consecutivo_os),
+        _fila("Descripción", s.descripcion),
+        _fila("Estado actual", s.estado if isinstance(s.estado, str) else s.estado.value),
+        _fila("Corregido por", corrector_nombre),
+        _fila("Nota de corrección", observacion, destacar=True, cfg=cfg),
+    )}
+    <p style="color:#6b7280;font-size:13px">
+      Si tienes alguna duda, comunícate con el equipo de compras.
+    </p>
+    """
+    return _base(f"Corrección en tu OC — {s.consecutivo_os}", cuerpo, cfg, logo_uri=logo_uri)
+
+
+async def send_correccion_directivo(
+    s: "SolicitudOC",
+    cotizacion: "CotizacionProveedor",
+    observacion: str,
+    corrector_nombre: str,
+    auxiliar_email: Optional[str],
+) -> None:
+    """Corrección directiva — notifica al auxiliar y al solicitante."""
+    cfg = _get_runtime_config(plataforma=s.plataforma)
+    if not (cfg["smtp_user"] and cfg["smtp_password"]):
+        log.warning("[email] SMTP no configurado — omitiendo notificación corrección directiva")
+        return
+
+    logo_uri = _logo_base64(s.plataforma)
+    prefijo = _b(cfg, "email_prefijo")
+
+    if auxiliar_email:
+        await _send_html(
+            cfg,
+            subject=f"{prefijo} Corrección directiva en OC — {s.consecutivo_os}",
+            recipients=[auxiliar_email],
+            body=_html_correccion_directivo_auxiliar(
+                s, cotizacion, observacion, corrector_nombre, cfg, logo_uri=logo_uri
+            ),
+            flujo="Corrección directiva (auxiliar)",
+        )
+    else:
+        log.warning(
+            "[email] Corrección directiva: solicitud %s sin email de auxiliar — omitiendo correo auxiliar",
+            s.consecutivo_os,
+        )
+
+    if s.solicitante_email:
+        await _send_html(
+            cfg,
+            subject=f"{prefijo} Corrección en tu OC — {s.consecutivo_os}",
+            recipients=[s.solicitante_email],
+            body=_html_correccion_directivo_solicitante(
+                s, observacion, corrector_nombre, cfg, logo_uri=logo_uri
+            ),
+            flujo="Corrección directiva (solicitante)",
+        )
+    else:
+        log.warning(
+            "[email] Corrección directiva: solicitud %s sin email de solicitante — omitiendo correo solicitante",
+            s.consecutivo_os,
+        )
+
+
 async def send_nueva_solicitud_interna(s: "SolicitudOC") -> None:
     """Flujo Interno — notifica al equipo de compras cuando un coordinador crea una solicitud."""
     cfg = _get_runtime_config(plataforma=s.plataforma)

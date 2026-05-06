@@ -27,11 +27,13 @@ import {
   useCorreccionCotizacion,
   useEditarCorreccion,
   useEditarCotizacionDirector,
+  useCorregirDirectivo,
   useSubirFotoSolicitud,
   useEliminarFotoSolicitud,
   useActualizarProforma,
   useSubirProforma,
   type EditarCotizacionPayload,
+  type CorregirDirectivoPayload,
 } from "@/hooks/useOC"
 import { useAuthStore } from "@/store/authStore"
 import { getApiError } from "@/hooks/useUsers"
@@ -44,7 +46,7 @@ import {
 import { EstadoBadge } from "./SolicitudesPage"
 import { ImageModal } from "@/components/ui/ImageModal"
 import { absoluteApiUrl } from "@/lib/api"
-import type { CotizacionProveedor, HistorialEntrada, OrdenCompra } from "@/types/oc"
+import type { CotizacionProveedor, HistorialEntrada, ItemCotizacion, OrdenCompra } from "@/types/oc"
 
 /** Descarga el PDF/xlsx de una cotización usando el header Authorization (no expone token en URL). */
 async function abrirCotizacionPdf(cotizacionId: string): Promise<void> {
@@ -96,6 +98,7 @@ export function SolicitudDetallePage() {
   const cancelarCotizacion = useCancelarCotizacion()
   const correccionCotizacion = useCorreccionCotizacion()
   const editarCorreccion = useEditarCorreccion()
+  const corregirDirectivo = useCorregirDirectivo()
   const subirFoto = useSubirFotoSolicitud()
   const eliminarFoto = useEliminarFotoSolicitud()
   const fotoInputRef = useRef<HTMLInputElement>(null)
@@ -110,6 +113,28 @@ export function SolicitudDetallePage() {
   type ModoRechazoSol = "cancelar" | "correccion" | null
   const [modoRechazoSol, setModoRechazoSol] = useState<ModoRechazoSol>(null)
   const [textoRechazoSol, setTextoRechazoSol] = useState("")
+
+  // Modal de corrección directiva
+  const [mostrarCorreccionDirectivo, setMostrarCorreccionDirectivo] = useState(false)
+  const [corrDirProveedorNombre, setCorrDirProveedorNombre] = useState("")
+  const [corrDirProveedorNit, setCorrDirProveedorNit] = useState("")
+  const [corrDirProveedorEmail, setCorrDirProveedorEmail] = useState("")
+  const [corrDirNumeroCot, setCorrDirNumeroCot] = useState("")
+  const [corrDirValorAntesIva, setCorrDirValorAntesIva] = useState("")
+  const [corrDirValorIva, setCorrDirValorIva] = useState("")
+  const [corrDirValorTotal, setCorrDirValorTotal] = useState("")
+  const [corrDirValorAprobado, setCorrDirValorAprobado] = useState("")
+  const [corrDirFormaPago, setCorrDirFormaPago] = useState("")
+  const [corrDirPlazoEntrega, setCorrDirPlazoEntrega] = useState("")
+  /** Observaciones de la cotización (campo proveedor). */
+  const [corrDirObsCotizacion, setCorrDirObsCotizacion] = useState("")
+  /** Motivo obligatorio de la corrección (observacion_correccion). */
+  const [corrDirNotaDirectivo, setCorrDirNotaDirectivo] = useState("")
+  const [corrDirItems, setCorrDirItems] = useState<ItemCotizacion[]>([])
+  const [corrDirError, setCorrDirError] = useState<string | null>(null)
+
+  const [mostrarCancelarDirectivo, setMostrarCancelarDirectivo] = useState(false)
+  const [textoCancelarDirectivo, setTextoCancelarDirectivo] = useState("")
 
   // Formulario de corrección (solicitante)
   const [corrDesc, setCorrDesc] = useState("")
@@ -157,6 +182,12 @@ export function SolicitudDetallePage() {
   const puedeGenerarOC = user ? canSeeOC(user.role, user.area, user.app_permissions) : false
   const cotizacionPendiente = cotizaciones.find((c) => c.aprobada === null)
   const cotizacionAprobada = cotizaciones.find((c) => c.aprobada === true)
+
+  const estadoPermiteCorreccionDirectiva = ["aprobada", "oc_enviada", "oc_en_plataforma"].includes(
+    solicitud.estado,
+  )
+  const muestraAccionesDirectorCotizada =
+    esAprobador && !!cotizacionAprobada && estadoPermiteCorreccionDirectiva
 
   const puedeGestionarProforma = puedeGestionarProformaDesdeOc(cotizaciones.length, solicitud.estado)
   const muestraAyudaProformaPrevCotizacion =
@@ -250,12 +281,127 @@ export function SolicitudDetallePage() {
     }
   }
 
+  function parseCopNumber(raw: string): number | undefined {
+    const t = raw.trim().replace(/,/g, "")
+    if (!t) return undefined
+    const n = Number(t)
+    return Number.isFinite(n) ? n : undefined
+  }
+
+  function abrirModalCorreccionDirectiva() {
+    const c = cotizacionAprobada
+    if (!c) return
+    setCorrDirProveedorNombre(c.proveedor_nombre ?? "")
+    setCorrDirProveedorNit(c.proveedor_nit ?? "")
+    setCorrDirProveedorEmail(c.proveedor_email ?? "")
+    setCorrDirNumeroCot(c.numero_cotizacion_proveedor ?? "")
+    setCorrDirValorAntesIva(c.valor_antes_iva != null ? String(c.valor_antes_iva) : "")
+    setCorrDirValorIva(c.valor_iva != null ? String(c.valor_iva) : "")
+    setCorrDirValorTotal(c.valor_total != null ? String(c.valor_total) : "")
+    setCorrDirValorAprobado(
+      String(c.valor_aprobado ?? c.valor_total ?? ""),
+    )
+    setCorrDirFormaPago(c.forma_pago ?? "")
+    setCorrDirPlazoEntrega(c.plazo_entrega ?? "")
+    setCorrDirObsCotizacion(c.observaciones ?? "")
+    setCorrDirNotaDirectivo("")
+    const filasItems: ItemCotizacion[] =
+      c.items && c.items.length > 0
+        ? c.items.map((it, i) => ({ ...it, num: it.num ?? i + 1 }))
+        : [
+            {
+              num: 1,
+              descripcion: solicitud.descripcion || "",
+              referencia: solicitud.placa_ficha || "",
+              cantidad: solicitud.cantidad ?? 1,
+              valor_unitario: c.valor_unitario ?? undefined,
+              valor_total: c.valor_total ?? undefined,
+            },
+          ]
+    setCorrDirItems(filasItems)
+    setCorrDirError(null)
+    setMostrarCorreccionDirectivo(true)
+  }
+
+  function handleGuardarCorreccionDirectiva() {
+    const c = cotizacionAprobada
+    if (!c || !id) return
+    if (corrDirNotaDirectivo.trim().length < 5) {
+      setCorrDirError("La observación del director debe tener al menos 5 caracteres.")
+      return
+    }
+    if (!corrDirProveedorNombre.trim()) {
+      setCorrDirError("El nombre del proveedor es obligatorio.")
+      return
+    }
+    const vt = parseCopNumber(corrDirValorTotal)
+    if (vt == null || vt <= 0) {
+      setCorrDirError("Indica un total con IVA válido mayor a cero.")
+      return
+    }
+    const itemsPayload = corrDirItems
+      .filter((it) => it.descripcion?.trim())
+      .map((it, i) => ({
+        num: it.num ?? i + 1,
+        descripcion: it.descripcion.trim(),
+        referencia: it.referencia?.trim() || undefined,
+        cantidad: it.cantidad,
+        valor_unitario: it.valor_unitario,
+        valor_total: it.valor_total,
+      }))
+    if (itemsPayload.length === 0) {
+      setCorrDirError("Agrega al menos un ítem con descripción.")
+      return
+    }
+    const valorAprobadoNum = parseCopNumber(corrDirValorAprobado)
+    const payload: CorregirDirectivoPayload = {
+      proveedor_nombre: corrDirProveedorNombre.trim(),
+      proveedor_nit: corrDirProveedorNit.trim() || undefined,
+      proveedor_email: corrDirProveedorEmail.trim() || undefined,
+      numero_cotizacion_proveedor: corrDirNumeroCot.trim() || undefined,
+      valor_antes_iva: parseCopNumber(corrDirValorAntesIva),
+      valor_iva: parseCopNumber(corrDirValorIva),
+      valor_total: vt,
+      forma_pago: corrDirFormaPago.trim() || undefined,
+      plazo_entrega: corrDirPlazoEntrega.trim() || undefined,
+      observaciones: corrDirObsCotizacion.trim() || undefined,
+      items: itemsPayload,
+      valor_aprobado: valorAprobadoNum,
+      observacion_correccion: corrDirNotaDirectivo.trim(),
+    }
+    setCorrDirError(null)
+    corregirDirectivo.mutate(
+      { solicitudId: id, cotizacionId: c.id, payload },
+      {
+        onSuccess: () => {
+          setMostrarCorreccionDirectivo(false)
+          setCorrDirNotaDirectivo("")
+        },
+        onError: (err: unknown) => setCorrDirError(getApiError(err) || "No se pudo guardar la corrección."),
+      },
+    )
+  }
+
+  function handleConfirmarCancelarDirectivo() {
+    if (!id || textoCancelarDirectivo.trim().length < 3) return
+    cancelarSolicitud.mutate(
+      { id, justificacion: textoCancelarDirectivo.trim() },
+      {
+        onSuccess: () => {
+          setMostrarCancelarDirectivo(false)
+          setTextoCancelarDirectivo("")
+        },
+      },
+    )
+  }
+
   return (
     <>
       <PageLayout
         title="OC Automatizaciones"
         afterMain={
-          modoRechazoSol ? (
+          <>
+          {modoRechazoSol ? (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
               <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4 space-y-4">
                 <h3 className="text-base font-semibold text-gray-900">Rechazar Solicitud</h3>
@@ -344,7 +490,334 @@ export function SolicitudDetallePage() {
                 </div>
               </div>
             </div>
-          ) : null
+          ) : null}
+            {mostrarCancelarDirectivo ? (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md space-y-4">
+                  <h3 className="text-base font-semibold text-gray-900">Cancelar solicitud (directivo)</h3>
+                  <p className="text-sm text-gray-500">
+                    La solicitud quedará cancelada. Se notificará al solicitante por correo. Esta acción está
+                    disponible hasta que el pedido esté marcado en plataforma.
+                  </p>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5">Motivo *</label>
+                    <textarea
+                      rows={4}
+                      value={textoCancelarDirectivo}
+                      onChange={(e) => setTextoCancelarDirectivo(e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 resize-none"
+                      placeholder="Justificación de la cancelación..."
+                      autoFocus
+                    />
+                  </div>
+                  <div className="flex gap-3 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleConfirmarCancelarDirectivo}
+                      disabled={textoCancelarDirectivo.trim().length < 3 || cancelarSolicitud.isPending}
+                      className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                    >
+                      {cancelarSolicitud.isPending ? "Procesando..." : "Confirmar cancelación"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMostrarCancelarDirectivo(false)
+                        setTextoCancelarDirectivo("")
+                      }}
+                      className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+                    >
+                      Cerrar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+            {mostrarCorreccionDirectivo && cotizacionAprobada ? (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                <div
+                  className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col"
+                  role="dialog"
+                  aria-labelledby="corr-dir-title"
+                >
+                  <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 shrink-0">
+                    <div>
+                      <h3 id="corr-dir-title" className="text-base font-semibold text-gray-900">
+                        Corrección directiva de la cotización
+                      </h3>
+                      <p className="text-xs text-gray-500 mt-1">
+                        El estado del flujo no cambia. Si la OC ya fue enviada al proveedor, se regenera el PDF y se reenvía
+                        automáticamente cuando aplique.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setMostrarCorreccionDirectivo(false); setCorrDirError(null) }}
+                      className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                      aria-label="Cerrar"
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <div className="overflow-y-auto px-5 py-4 space-y-5">
+                    {corrDirError ? (
+                      <div className="rounded-lg bg-red-50 border border-red-100 px-3 py-2 text-sm text-red-700">
+                        {corrDirError}
+                      </div>
+                    ) : null}
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Proveedor</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div className="sm:col-span-2">
+                          <label className="block text-xs text-gray-500 mb-1">Nombre *</label>
+                          <input
+                            type="text"
+                            value={corrDirProveedorNombre}
+                            onChange={(e) => setCorrDirProveedorNombre(e.target.value)}
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">NIT</label>
+                          <input
+                            type="text"
+                            value={corrDirProveedorNit}
+                            onChange={(e) => setCorrDirProveedorNit(e.target.value)}
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Email</label>
+                          <input
+                            type="email"
+                            value={corrDirProveedorEmail}
+                            onChange={(e) => setCorrDirProveedorEmail(e.target.value)}
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="block text-xs text-gray-500 mb-1">N° cotización proveedor</label>
+                          <input
+                            type="text"
+                            value={corrDirNumeroCot}
+                            onChange={(e) => setCorrDirNumeroCot(e.target.value)}
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Valores</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <FormFieldCOP
+                          label="Subtotal sin IVA"
+                          value={parseCopNumber(corrDirValorAntesIva)}
+                          onChange={(v) => setCorrDirValorAntesIva(v != null ? String(v) : "")}
+                          inputClassName="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                        />
+                        <FormFieldCOP
+                          label="IVA"
+                          value={parseCopNumber(corrDirValorIva)}
+                          onChange={(v) => setCorrDirValorIva(v != null ? String(v) : "")}
+                          inputClassName="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                        />
+                        <FormFieldCOP
+                          label="Total con IVA *"
+                          value={parseCopNumber(corrDirValorTotal)}
+                          onChange={(v) => setCorrDirValorTotal(v != null ? String(v) : "")}
+                          inputClassName="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                        />
+                      </div>
+                      <div className="mt-2 max-w-xs">
+                        <FormFieldCOP
+                          label="Valor aprobado"
+                          value={parseCopNumber(corrDirValorAprobado)}
+                          onChange={(v) => setCorrDirValorAprobado(v != null ? String(v) : "")}
+                          inputClassName="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Condiciones</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Forma de pago</label>
+                          <input
+                            type="text"
+                            value={corrDirFormaPago}
+                            onChange={(e) => setCorrDirFormaPago(e.target.value)}
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Plazo de entrega</label>
+                          <input
+                            type="text"
+                            value={corrDirPlazoEntrega}
+                            onChange={(e) => setCorrDirPlazoEntrega(e.target.value)}
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="block text-xs text-gray-500 mb-1">Observaciones (cotización)</label>
+                          <textarea
+                            rows={2}
+                            value={corrDirObsCotizacion}
+                            onChange={(e) => setCorrDirObsCotizacion(e.target.value)}
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Ítems</p>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setCorrDirItems((rows) => [
+                              ...rows,
+                              { num: rows.length + 1, descripcion: "", cantidad: 1 },
+                            ])
+                          }
+                          className="text-xs font-medium text-brand-blue hover:underline"
+                        >
+                          + Agregar ítem
+                        </button>
+                      </div>
+                      <div className="overflow-x-auto rounded-lg border border-gray-200">
+                        <table className="min-w-full text-xs">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-2 py-2 text-left font-medium text-gray-500">#</th>
+                              <th className="px-2 py-2 text-left font-medium text-gray-500">Descripción *</th>
+                              <th className="px-2 py-2 text-left font-medium text-gray-500">Ref.</th>
+                              <th className="px-2 py-2 text-right font-medium text-gray-500">Cant.</th>
+                              <th className="px-2 py-2 text-right font-medium text-gray-500">V. unit.</th>
+                              <th className="px-2 py-2 text-right font-medium text-gray-500">V. total</th>
+                              <th className="px-1 py-2" />
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {corrDirItems.map((row, idx) => (
+                              <tr key={idx} className="bg-white">
+                                <td className="px-2 py-1.5 text-gray-400 font-mono w-8">{idx + 1}</td>
+                                <td className="px-2 py-1.5">
+                                  <input
+                                    type="text"
+                                    value={row.descripcion}
+                                    onChange={(e) => {
+                                      const v = e.target.value
+                                      setCorrDirItems((rows) =>
+                                        rows.map((r, i) => (i === idx ? { ...r, descripcion: v } : r)),
+                                      )
+                                    }}
+                                    className="w-full min-w-[140px] rounded border border-gray-200 px-2 py-1"
+                                  />
+                                </td>
+                                <td className="px-2 py-1.5">
+                                  <input
+                                    type="text"
+                                    value={row.referencia ?? ""}
+                                    onChange={(e) => {
+                                      const v = e.target.value
+                                      setCorrDirItems((rows) =>
+                                        rows.map((r, i) => (i === idx ? { ...r, referencia: v } : r)),
+                                      )
+                                    }}
+                                    className="w-20 rounded border border-gray-200 px-2 py-1"
+                                  />
+                                </td>
+                                <td className="px-2 py-1.5 text-right">
+                                  <input
+                                    type="number"
+                                    value={row.cantidad ?? ""}
+                                    onChange={(e) => {
+                                      const n = e.target.value === "" ? undefined : Number(e.target.value)
+                                      setCorrDirItems((rows) =>
+                                        rows.map((r, i) => (i === idx ? { ...r, cantidad: n } : r)),
+                                      )
+                                    }}
+                                    className="w-16 rounded border border-gray-200 px-2 py-1 text-right"
+                                  />
+                                </td>
+                                <td className="px-2 py-1.5 text-right">
+                                  <input
+                                    type="number"
+                                    value={row.valor_unitario ?? ""}
+                                    onChange={(e) => {
+                                      const n = e.target.value === "" ? undefined : Number(e.target.value)
+                                      setCorrDirItems((rows) =>
+                                        rows.map((r, i) => (i === idx ? { ...r, valor_unitario: n } : r)),
+                                      )
+                                    }}
+                                    className="w-24 rounded border border-gray-200 px-2 py-1 text-right"
+                                  />
+                                </td>
+                                <td className="px-2 py-1.5 text-right">
+                                  <input
+                                    type="number"
+                                    value={row.valor_total ?? ""}
+                                    onChange={(e) => {
+                                      const n = e.target.value === "" ? undefined : Number(e.target.value)
+                                      setCorrDirItems((rows) =>
+                                        rows.map((r, i) => (i === idx ? { ...r, valor_total: n } : r)),
+                                      )
+                                    }}
+                                    className="w-24 rounded border border-gray-200 px-2 py-1 text-right"
+                                  />
+                                </td>
+                                <td className="px-1 py-1.5">
+                                  <button
+                                    type="button"
+                                    disabled={corrDirItems.length <= 1}
+                                    onClick={() => setCorrDirItems((rows) => rows.filter((_, i) => i !== idx))}
+                                    className="text-red-500 hover:text-red-700 disabled:opacity-30 text-lg leading-none"
+                                    aria-label="Eliminar ítem"
+                                  >
+                                    ×
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Motivo de la corrección (visible en historial y correos) — mín. 5 caracteres *
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={corrDirNotaDirectivo}
+                        onChange={(e) => setCorrDirNotaDirectivo(e.target.value)}
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                        placeholder="Ej. Se corrigió el NIT y el valor acordado con el proveedor..."
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-3 border-t border-gray-100 px-5 py-4 shrink-0 bg-gray-50/80 rounded-b-xl">
+                    <button
+                      type="button"
+                      onClick={handleGuardarCorreccionDirectiva}
+                      disabled={corregirDirectivo.isPending}
+                      className="flex-1 rounded-lg bg-brand-blue px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-blue/90 disabled:opacity-50"
+                    >
+                      {corregirDirectivo.isPending ? "Guardando..." : "Guardar corrección"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setMostrarCorreccionDirectivo(false); setCorrDirError(null) }}
+                      className="rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </>
         }
       >
           {/* Breadcrumb */}
@@ -372,7 +845,25 @@ export function SolicitudDetallePage() {
               <h1 className="text-xl font-bold text-gray-900">{solicitud.descripcion}</h1>
             </div>
 
-            <div className="flex gap-2 shrink-0">
+            <div className="flex gap-2 shrink-0 flex-wrap justify-end">
+              {muestraAccionesDirectorCotizada ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setMostrarCancelarDirectivo(true)}
+                    className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-100 transition-colors"
+                  >
+                    Cancelar solicitud
+                  </button>
+                  <button
+                    type="button"
+                    onClick={abrirModalCorreccionDirectiva}
+                    className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100 transition-colors"
+                  >
+                    Corregir cotización directivo
+                  </button>
+                </>
+              ) : null}
               {(esAuxiliarAsignado || puedeAsignarOtro || puedeAsignarse) &&
                 (["nueva", "en_cotizacion", "pendiente_aprobacion", "en_correccion"] as string[]).includes(solicitud.estado) && (
                   <button
@@ -435,7 +926,6 @@ export function SolicitudDetallePage() {
                 solicitud.estado === "entregada" ||
                 solicitud.estado === "cerrada") && (
                 <PanelOrdenCompra
-                  solicitudId={solicitud.id}
                   estado={solicitud.estado}
                   orden={orden ?? null}
                   plataforma={solicitud.plataforma ?? ""}
@@ -1686,7 +2176,6 @@ function PanelAprobacion({
 // ── Panel Orden de Compra ─────────────────────────────────────────────────────
 
 function PanelOrdenCompra({
-  solicitudId: _solicitudId,
   estado,
   orden,
   plataforma: plataformaInicial,
@@ -1706,7 +2195,6 @@ function PanelOrdenCompra({
   onMarcarEntregada,
   onCerrar,
 }: {
-  solicitudId: string
   estado: string
   orden: OrdenCompra | null
   plataforma: string
