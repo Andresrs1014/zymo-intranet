@@ -43,9 +43,14 @@ def get_team_tasks(db: Session, filters: TaskFilters) -> list[WorkTask]:
     if filters.sin_registro_hoy:
         hoy = date.today()
         ids_con_registro = db.exec(
-            select(WorkTask.subido_por_id).where(WorkTask.fecha == hoy)
+            select(WorkTask.subido_por_id).where(
+                WorkTask.fecha == hoy,
+                WorkTask.scope == SCOPE_DEV,
+            )
         ).all()
         ids_sin_registro = [uid for uid in active_ids if uid not in ids_con_registro]
+        if not ids_sin_registro:
+            return []
         query = query.where(WorkTask.subido_por_id.in_(ids_sin_registro))  # type: ignore[union-attr]
 
     return list(db.exec(query).all())

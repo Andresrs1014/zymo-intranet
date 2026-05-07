@@ -44,12 +44,13 @@ def list_team_members(
         .where(TaskTeamMember.is_active == True)  # noqa: E712
     ).all()
 
-    result: list[tuple[TaskTeamMember, User]] = []
-    for member in members:
-        user = db.get(User, member.user_id)
-        if user:
-            result.append((member, user))
-    return result
+    member_ids = [m.user_id for m in members]
+    users_map: dict[int, User] = {
+        u.id: u
+        for u in db.exec(select(User).where(User.id.in_(member_ids))).all()  # type: ignore[union-attr]
+        if u.id is not None
+    }
+    return [(m, users_map[m.user_id]) for m in members if m.user_id in users_map]
 
 
 def list_available_users(db: Session, scope: str = SCOPE_DEV) -> list[User]:

@@ -34,6 +34,11 @@ def calcular_minutos(
     """Calculates total minutes between start and end time."""
     if hora_inicio is None or hora_cierre is None:
         return None
+    if hora_cierre <= hora_inicio:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="hora_cierre debe ser posterior a hora_inicio.",
+        )
     delta = hora_cierre - hora_inicio
     return int(delta.total_seconds() // 60)
 
@@ -139,7 +144,10 @@ def list_own_tasks(
     plataforma: str | None = None,
 ) -> list[WorkTask]:
     """Lists own tasks with optional filters."""
-    query = select(WorkTask).where(WorkTask.subido_por_id == user.id)
+    query = select(WorkTask).where(
+        WorkTask.subido_por_id == user.id,
+        WorkTask.scope == SCOPE_DEV,
+    )
 
     if fecha_desde is not None:
         query = query.where(WorkTask.fecha >= fecha_desde)
