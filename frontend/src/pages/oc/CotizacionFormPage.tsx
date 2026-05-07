@@ -104,11 +104,13 @@ export function CotizacionFormPage() {
   const deleteDraft = useDeleteDraft()
   const [showDraftModal, setShowDraftModal] = useState(false)
   const [draftRestored, setDraftRestored] = useState(false)
+  const [formDirty, setFormDirty] = useState(false)
 
+  // Autosave solo si el usuario tocó el formulario o restauró un borrador — evita crear borradores fantasma
   useAutosaveDraft(
     "cotizacion",
     id,
-    form as unknown as Record<string, unknown>
+    (draftRestored || formDirty) ? form as unknown as Record<string, unknown> : null
   )
 
   useEffect(() => {
@@ -143,6 +145,7 @@ export function CotizacionFormPage() {
   ) {
     const { name, value } = e.target
     setForm((prev) => ({ ...prev, [name]: value }))
+    setFormDirty(true)
   }
 
   function handleProveedorSelect(e: React.ChangeEvent<HTMLSelectElement>) {
@@ -154,6 +157,7 @@ export function CotizacionFormPage() {
         proveedor_nit: proveedor.nit ?? "",
         proveedor_email: proveedor.email ?? "",
       }))
+      setFormDirty(true)
     }
   }
 
@@ -195,6 +199,7 @@ export function CotizacionFormPage() {
     if (extItems.length) {
       setItems(extItems)
     }
+    setFormDirty(true)
   }
 
   function aplicarFase2() {
@@ -220,6 +225,7 @@ export function CotizacionFormPage() {
     })
     setPhase2Applied(true)
     setPhase2Result(null)
+    setFormDirty(true)
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {

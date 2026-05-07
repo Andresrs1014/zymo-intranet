@@ -68,6 +68,7 @@ export function NuevaSolicitudPage() {
   const [error, setError] = useState<string | null>(null)
   const [showDraftModal, setShowDraftModal] = useState(false)
   const [draftRestored, setDraftRestored] = useState(false)
+  const [formDirty, setFormDirty] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState(false)
@@ -77,8 +78,8 @@ export function NuevaSolicitudPage() {
   const { data: borrador } = useDraft("solicitud_nueva")
   const deleteDraft = useDeleteDraft()
 
-  // Autosave del formulario (1.5s debounced) — no guardar si viene de paquete
-  useAutosaveDraft("solicitud_nueva", undefined, draftRestored || !paqueteId ? (form as unknown as Record<string, unknown>) : null)
+  // Autosave del formulario (1.5s debounced) — solo si el usuario tocó el formulario y no viene de paquete
+  useAutosaveDraft("solicitud_nueva", undefined, (draftRestored || formDirty) && !paqueteId ? (form as unknown as Record<string, unknown>) : null)
 
   const opcionesPrioridad = useMemo(
     () =>
@@ -158,6 +159,7 @@ export function NuevaSolicitudPage() {
   ) {
     setForm((prev) => ({ ...prev, [field]: value }))
     setError(null)
+    setFormDirty(true)
   }
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
