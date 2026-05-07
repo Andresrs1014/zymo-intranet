@@ -164,14 +164,14 @@ def list_own_tasks(
 
 
 def own_metrics(db: Session, user: User) -> dict:
-    """Returns personal metrics: tareas_total, completadas, en_progreso, bloqueadas, horas_registradas."""
+    """Returns personal metrics aligned with the frontend KPI contract."""
     tasks = list_own_tasks(db, user)
     completadas = sum(1 for t in tasks if t.estado == "completada")
     en_progreso = sum(1 for t in tasks if t.estado == "en_progreso")
     bloqueadas = sum(1 for t in tasks if t.estado == "bloqueada")
     minutos = sum(t.tiempo_total_minutos for t in tasks if t.tiempo_total_minutos is not None)
     return {
-        "tareas_total": len(tasks),
+        "tareas_registradas": len(tasks),
         "completadas": completadas,
         "en_progreso": en_progreso,
         "bloqueadas": bloqueadas,

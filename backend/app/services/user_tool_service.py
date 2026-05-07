@@ -18,6 +18,11 @@ def user_has_tool(db: Session, user: User, tool_key: str, scope: str = "global")
 def require_tool_or_403(db: Session, user: User, tool_key: str, scope: str) -> None:
     from fastapi import HTTPException, status
 
+    # El admin puede operar la herramienta de tareas sin asignación manual.
+    # Mantener acotado a estas tools evita convertir esto en un bypass global.
+    if user.role == "admin" and tool_key in {"tool_task_submit_dev", "tool_task_manage_dev"}:
+        return
+
     if not user_has_tool(db, user, tool_key, scope):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

@@ -15,6 +15,7 @@ import {
 } from "@/lib/permissions"
 import { useAgentPanelStore } from "@/store/agentPanelStore"
 import { useMinWidth } from "@/hooks/useMinWidth"
+import { useMe } from "@/hooks/useAuth"
 import { LoginPage } from "@/pages/LoginPage"
 import { DashboardPage } from "@/pages/DashboardPage"
 import { AdminPage } from "@/pages/AdminPage"
@@ -168,6 +169,7 @@ function AgentLayer() {
 
 export default function App() {
   useTokenGuard()
+  useMe()
 
   return (
     <ErrorBoundary>

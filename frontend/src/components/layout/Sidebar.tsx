@@ -36,6 +36,10 @@ export function Sidebar() {
           icon={<IconDashboard />}
         />
 
+        <p className="px-3 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-wider text-white/30">
+          Módulos disponibles
+        </p>
+
         {showIT && (
           <SidebarLink
             to="/it"
