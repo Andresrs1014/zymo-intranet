@@ -22,7 +22,6 @@ from app.schemas.task_team import (
     TaskTeamMemberCreate,
     TaskTeamMemberRead,
 )
-from app.schemas.user_tool import UserToolCreate  # noqa: F401 — kept for spec alignment
 from app.services.user_tool_service import require_tool_or_403
 
 router = APIRouter(prefix="/api/herramientas/tareas", tags=["Herramientas - Tareas"])
@@ -284,8 +283,12 @@ def add_team_member_endpoint(
     require_tool_or_403(db, current_user, TOOL_MANAGE, SCOPE_DEV)
 
     from app.services.task_team_service import add_team_member
+    from app.models.user import User as UserModel
 
-    member, user = add_team_member(db, payload.user_id)
+    member = add_team_member(db, payload.user_id)
+    user = db.get(UserModel, member.user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
     return TaskTeamMemberRead(
         id=member.id,
         team_id=member.team_id,
@@ -334,7 +337,9 @@ def assign_user_tool(
     ).first()
 
     if existing:
+        from datetime import datetime, timezone
         existing.is_active = True
+        existing.updated_at = datetime.now(timezone.utc)
         db.add(existing)
     else:
         db.add(
