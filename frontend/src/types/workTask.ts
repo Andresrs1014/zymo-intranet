@@ -1,0 +1,96 @@
+export interface WorkTask {
+  id: number
+  scope: string
+  team_id: number | null
+  subido_por_id: number
+  subido_por_nombre: string
+  fecha: string
+  hora_inicio: string | null
+  hora_cierre: string | null
+  tiempo_total_minutos: number | null
+  etiqueta: string
+  plataforma: string
+  titulo: string
+  descripcion_tecnica: string
+  estado: string
+  created_at: string
+  updated_at: string
+}
+
+export interface WorkTaskCreate {
+  titulo: string
+  descripcion_tecnica: string
+  etiqueta?: string
+  plataforma?: string
+  estado?: string
+  fecha?: string
+  hora_inicio?: string
+  hora_cierre?: string
+}
+
+export interface WorkTaskUpdate {
+  titulo?: string
+  descripcion_tecnica?: string
+  etiqueta?: string
+  plataforma?: string
+  estado?: string
+  fecha?: string
+  hora_inicio?: string
+  hora_cierre?: string
+}
+
+export interface TaskKpis {
+  tareas_registradas: number
+  horas_registradas: number
+  completadas: number
+  en_progreso: number
+  bloqueadas: number
+  usuarios_activos: number
+  usuarios_sin_registro_hoy: number
+}
+
+export interface PersonTaskSummary {
+  user_id: number
+  nombre: string
+  email: string
+  tareas_totales: number
+  horas: number
+  completadas: number
+  en_progreso: number
+  bloqueadas: number
+  ultima_actividad: string | null
+  registro_hoy: boolean
+}
+
+export interface TaskTeamMember {
+  id: number
+  team_id: number
+  user_id: number
+  user_email: string
+  user_full_name: string | null
+  is_active: boolean
+  created_at: string
+}
+
+export interface AvailableUser {
+  id: number
+  email: string
+  full_name: string | null
+  role: string
+  area: string | null
+}
+
+export interface TaskFilters {
+  fecha_desde?: string
+  fecha_hasta?: string
+  responsable_id?: number
+  estado?: string
+  etiqueta?: string
+  plataforma?: string
+  q?: string
+  sin_registro_hoy?: boolean
+}
+
+export const ETIQUETAS = ["desarrollos", "actualizaciones", "auditorias", "implementacion_okr", "tareas_diarias"] as const
+export const PLATAFORMAS = ["logimat1", "logimat2", "imccargo", "imcdeposito", "transversal"] as const
+export const ESTADOS = ["completada", "en_progreso", "bloqueada"] as const

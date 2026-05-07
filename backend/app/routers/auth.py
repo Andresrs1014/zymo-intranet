@@ -30,6 +30,7 @@ class MeResponse(BaseModel):
     area: str | None
     is_active: bool
     app_permissions: list[str] = []
+    user_tools: list[str] = []
 
 
 class UserListResponse(MeResponse):
@@ -73,7 +74,7 @@ class AdminSetPasswordRequest(BaseModel):
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _to_me(u: User, app_permissions: list[str] | None = None) -> MeResponse:
+def _to_me(u: User, app_permissions: list[str] | None = None, user_tools: list[str] | None = None) -> MeResponse:
     return MeResponse(
         id=cast(int, u.id),
         email=u.email,
@@ -83,6 +84,7 @@ def _to_me(u: User, app_permissions: list[str] | None = None) -> MeResponse:
         area=u.area,
         is_active=u.is_active,
         app_permissions=app_permissions or [],
+        user_tools=user_tools or [],
     )
 
 
@@ -127,9 +129,17 @@ def login(
 
 @router.get("/me", response_model=MeResponse)
 def me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    from app.models.user_tool import UserTool
     role = db.exec(select(Role).where(Role.name == current_user.role)).first()
     perms = role.app_permissions if role else []
-    return _to_me(current_user, perms)
+    tools = db.exec(
+        select(UserTool).where(
+            UserTool.user_id == current_user.id,
+            UserTool.is_active == True,  # noqa: E712
+        )
+    ).all()
+    tool_keys = [t.tool_key for t in tools]
+    return _to_me(current_user, perms, tool_keys)
 
 
 @router.post("/register", response_model=MeResponse)

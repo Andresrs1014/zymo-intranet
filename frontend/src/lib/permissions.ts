@@ -82,3 +82,17 @@ export function canUseAgentePanel(
 ): boolean {
   return canSeeGerencial(role, appPerms) || canUseAgenteAdministrativo(role, area, appPerms)
 }
+
+// ── Herramientas de usuario ────────────────────────────────────────────────────
+
+export function hasUserTool(userTools: string[] | undefined, key: string): boolean {
+  return userTools?.includes(key) === true
+}
+
+export function canSubmitDevTasks(userTools?: string[]): boolean {
+  return hasUserTool(userTools, "tool_task_submit_dev")
+}
+
+export function canManageDevTasks(userTools?: string[]): boolean {
+  return hasUserTool(userTools, "tool_task_manage_dev")
+}

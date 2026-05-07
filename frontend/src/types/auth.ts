@@ -9,6 +9,7 @@ export interface User {
   area: string | null
   is_active: boolean
   app_permissions?: string[]
+  user_tools?: string[]
 }
 
 export interface TokenResponse {
