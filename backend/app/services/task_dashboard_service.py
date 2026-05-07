@@ -163,7 +163,7 @@ def get_chart_data(db: Session, filters: TaskFilters) -> dict:
             {"estado": k, "cantidad": v} for k, v in distribucion_estado.items()
         ],
         "tareas_por_etiqueta": [
-            {"etiqueta": k, "cantidad": v} for k, v in distribucion_estado.items()
+            {"etiqueta": k, "cantidad": v} for k, v in tareas_por_etiqueta.items()
         ],
         "evolucion_completadas": [
             {"fecha": k, "completadas": v}
