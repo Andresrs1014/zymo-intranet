@@ -4,25 +4,18 @@ import { useAuthStore } from "@/store/authStore"
 import { canSeeGerencial } from "@/lib/permissions"
 import { PanelGerenteTab } from "./tabs/PanelGerenteTab"
 import { DirectoraPlaneacionTab } from "./tabs/DirectoraPlaneacionTab"
-import { DesarrolloInnovacionTab } from "./tabs/DesarrolloInnovacionTab"
 
-type Tab = "gerente" | "directora" | "desarrollo"
-
-function tabInicial(esGerencial: boolean): Tab {
-  if (esGerencial) return "gerente"
-  return "desarrollo"
-}
+type Tab = "gerente" | "directora"
 
 export function GerencialPage() {
   const user = useAuthStore((s) => s.user)
   const esGerencial = user ? canSeeGerencial(user.role, user.app_permissions) : false
 
-  const [activeTab, setActiveTab] = useState<Tab>(() => tabInicial(esGerencial))
+  const [activeTab, setActiveTab] = useState<Tab>("gerente")
 
   const tabs: { id: Tab; label: string; visible: boolean }[] = [
     { id: "gerente", label: "Panel Gerente", visible: esGerencial },
     { id: "directora", label: "Directora Planeación y Desarrollo", visible: esGerencial },
-    { id: "desarrollo", label: "Desarrollo e Innovación & Planeación y Consultoría", visible: true },
   ]
 
   return (
@@ -60,7 +53,6 @@ export function GerencialPage() {
     >
           {activeTab === "gerente" && <PanelGerenteTab />}
           {activeTab === "directora" && <DirectoraPlaneacionTab />}
-          {activeTab === "desarrollo" && <DesarrolloInnovacionTab />}
     </PageLayout>
   )
 }
