@@ -1,9 +1,11 @@
+from datetime import date, datetime
+
 from pydantic import BaseModel
 
 
 class TaskFilters(BaseModel):
-    fecha_desde: str | None = None
-    fecha_hasta: str | None = None
+    fecha_desde: date | None = None
+    fecha_hasta: date | None = None
     responsable_id: int | None = None
     estado: str | None = None
     etiqueta: str | None = None
@@ -31,5 +33,5 @@ class PersonTaskSummary(BaseModel):
     completadas: int
     en_progreso: int
     bloqueadas: int
-    ultima_actividad: str | None
+    ultima_actividad: datetime | None
     registro_hoy: bool

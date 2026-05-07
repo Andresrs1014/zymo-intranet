@@ -1,5 +1,4 @@
-from datetime import datetime
-from typing import Optional
+from datetime import date, datetime
 
 from pydantic import BaseModel
 
@@ -10,20 +9,20 @@ class WorkTaskCreate(BaseModel):
     etiqueta: str = "tareas_diarias"
     plataforma: str = "transversal"
     estado: str = "en_progreso"
-    fecha: Optional[str] = None
-    hora_inicio: Optional[datetime] = None
-    hora_cierre: Optional[datetime] = None
+    fecha: date | None = None
+    hora_inicio: datetime | None = None
+    hora_cierre: datetime | None = None
 
 
 class WorkTaskUpdate(BaseModel):
-    titulo: Optional[str] = None
-    descripcion_tecnica: Optional[str] = None
-    etiqueta: Optional[str] = None
-    plataforma: Optional[str] = None
-    estado: Optional[str] = None
-    fecha: Optional[str] = None
-    hora_inicio: Optional[datetime] = None
-    hora_cierre: Optional[datetime] = None
+    titulo: str | None = None
+    descripcion_tecnica: str | None = None
+    etiqueta: str | None = None
+    plataforma: str | None = None
+    estado: str | None = None
+    fecha: date | None = None
+    hora_inicio: datetime | None = None
+    hora_cierre: datetime | None = None
 
 
 class WorkTaskRead(BaseModel):
@@ -32,14 +31,16 @@ class WorkTaskRead(BaseModel):
     team_id: int | None
     subido_por_id: int
     subido_por_nombre: str
-    fecha: str
-    hora_inicio: str | None
-    hora_cierre: str | None
+    fecha: date
+    hora_inicio: datetime | None
+    hora_cierre: datetime | None
     tiempo_total_minutos: int | None
     etiqueta: str
     plataforma: str
     titulo: str
     descripcion_tecnica: str
     estado: str
-    created_at: str
-    updated_at: str
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
