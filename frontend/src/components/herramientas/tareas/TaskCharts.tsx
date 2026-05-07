@@ -11,7 +11,7 @@ import {
   LineChart,
   Line,
 } from "recharts"
-import { taskCard, ESTADO_COLOR, ETIQUETA_COLOR, ESTADO_LABELS, ETIQUETA_LABELS } from "@/lib/taskTheme"
+import { taskCard, ETIQUETA_COLOR, ESTADO_LABELS, ETIQUETA_LABELS } from "@/lib/taskTheme"
 
 interface ChartData {
   tareas_por_responsable: { nombre: string; tareas: number }[]
@@ -134,8 +134,8 @@ export function TaskCharts({ data }: TaskChartsProps) {
                   cx="50%"
                   cy="50%"
                   outerRadius={70}
-                  label={({ name, percent }) =>
-                    `${name} ${(percent * 100).toFixed(0)}%`
+                  label={({ name, percent }: { name: string; percent?: number }) =>
+                    `${name} ${((percent ?? 0) * 100).toFixed(0)}%`
                   }
                   labelLine={false}
                 >
