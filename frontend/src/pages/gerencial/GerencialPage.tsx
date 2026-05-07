@@ -3,9 +3,8 @@ import { PageLayout } from "@/components/layout/PageLayout"
 import { useAuthStore } from "@/store/authStore"
 import { canSeeGerencial } from "@/lib/permissions"
 import { PanelGerenteTab } from "./tabs/PanelGerenteTab"
-import { DirectoraPlaneacionTab } from "./tabs/DirectoraPlaneacionTab"
 
-type Tab = "gerente" | "directora"
+type Tab = "gerente"
 
 export function GerencialPage() {
   const user = useAuthStore((s) => s.user)
@@ -15,7 +14,6 @@ export function GerencialPage() {
 
   const tabs: { id: Tab; label: string; visible: boolean }[] = [
     { id: "gerente", label: "Panel Gerente", visible: esGerencial },
-    { id: "directora", label: "Directora Planeación y Desarrollo", visible: esGerencial },
   ]
 
   return (
@@ -52,7 +50,6 @@ export function GerencialPage() {
       mainClassName="flex-1 overflow-y-auto min-h-0"
     >
           {activeTab === "gerente" && <PanelGerenteTab />}
-          {activeTab === "directora" && <DirectoraPlaneacionTab />}
     </PageLayout>
   )
 }

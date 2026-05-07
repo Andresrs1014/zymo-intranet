@@ -67,6 +67,11 @@ def _team_filters(
 
 @router.get("/mis-tareas", response_model=list[WorkTaskRead])
 def get_mis_tareas(
+    fecha_desde: Optional[date] = Query(default=None),
+    fecha_hasta: Optional[date] = Query(default=None),
+    estado: Optional[str] = Query(default=None),
+    etiqueta: Optional[str] = Query(default=None),
+    plataforma: Optional[str] = Query(default=None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[WorkTaskRead]:
@@ -74,7 +79,15 @@ def get_mis_tareas(
 
     from app.services.work_task_service import list_own_tasks
 
-    tasks = list_own_tasks(db, current_user)
+    tasks = list_own_tasks(
+        db,
+        current_user,
+        fecha_desde=fecha_desde,
+        fecha_hasta=fecha_hasta,
+        estado=estado,
+        etiqueta=etiqueta,
+        plataforma=plataforma,
+    )
     return [WorkTaskRead.model_validate(t) for t in tasks]
 
 

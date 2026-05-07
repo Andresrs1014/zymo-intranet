@@ -13,7 +13,7 @@ export function Sidebar() {
   const showIT             = user ? canSeeIT(user.role, perms) : false
   const showSIG            = user ? canSeeSIG(user.role, perms) : false
   const showExtraccionIA   = user ? canSeeExtraccionIA(user.role, perms) : false
-  const showGestionTareas  = user ? (canSubmitDevTasks(user.user_tools) || canManageDevTasks(user.user_tools)) : false
+  const showGestionTareas  = user ? (canSubmitDevTasks(user.user_tools) || canManageDevTasks(user.user_tools, user.role)) : false
 
   return (
     <aside className="flex h-full w-64 flex-col bg-brand-blue">
@@ -35,6 +35,10 @@ export function Sidebar() {
           label="Dashboard"
           icon={<IconDashboard />}
         />
+
+        <p className="px-3 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-wider text-white/30">
+          Módulos disponibles
+        </p>
 
         {showIT && (
           <SidebarLink

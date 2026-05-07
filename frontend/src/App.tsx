@@ -10,9 +10,12 @@ import {
   canSeeGerencial,
   canUseAgentePanel,
   canSeeExtraccionIA,
+  canManageDevTasks,
+  canSubmitDevTasks,
 } from "@/lib/permissions"
 import { useAgentPanelStore } from "@/store/agentPanelStore"
 import { useMinWidth } from "@/hooks/useMinWidth"
+import { useMe } from "@/hooks/useAuth"
 import { LoginPage } from "@/pages/LoginPage"
 import { DashboardPage } from "@/pages/DashboardPage"
 import { AdminPage } from "@/pages/AdminPage"
@@ -139,8 +142,7 @@ function ExtraccionIARoute({ children }: { children: React.ReactNode }) {
 function HerramientasTareasRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user)
   if (!user) return <Navigate to="/login" replace />
-  const tools = user.user_tools ?? []
-  const hasTool = tools.includes("tool_task_submit_dev") || tools.includes("tool_task_manage_dev")
+  const hasTool = canSubmitDevTasks(user.user_tools) || canManageDevTasks(user.user_tools, user.role)
   if (!hasTool) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
@@ -167,6 +169,7 @@ function AgentLayer() {
 
 export default function App() {
   useTokenGuard()
+  useMe()
 
   return (
     <ErrorBoundary>

@@ -6,7 +6,7 @@ import { TaskSubmitView } from "@/components/herramientas/tareas/TaskSubmitView"
 
 export function GestionTareasPage() {
   const user = useAuthStore((s) => s.user)
-  const canManage = canManageDevTasks(user?.user_tools)
+  const canManage = canManageDevTasks(user?.user_tools, user?.role)
   const canSubmit = canSubmitDevTasks(user?.user_tools)
 
   if (canManage) {

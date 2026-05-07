@@ -93,6 +93,7 @@ export function canSubmitDevTasks(userTools?: string[]): boolean {
   return hasUserTool(userTools, "tool_task_submit_dev")
 }
 
-export function canManageDevTasks(userTools?: string[]): boolean {
+export function canManageDevTasks(userTools?: string[], role?: string): boolean {
+  if (role === "admin") return true
   return hasUserTool(userTools, "tool_task_manage_dev")
 }
