@@ -39,6 +39,7 @@ import { FinancieroConfigPage } from "@/pages/financiero/FinancieroConfigPage"
 import { AgentFloatingWindow } from "@/components/agent/AgentFloatingWindow"
 import { GerencialPage } from "@/pages/gerencial/GerencialPage"
 import { ExtraccionIAPage } from "@/pages/admin/ExtraccionIAPage"
+import { GestionTareasPage } from "@/pages/herramientas/tareas/GestionTareasPage"
 
 // Decodifica el claim `exp` del JWT sin verificar firma (solo para chequeo local de expiración)
 function isTokenExpired(token: string): boolean {
@@ -132,6 +133,15 @@ function ExtraccionIARoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user)
   if (!user) return <Navigate to="/login" replace />
   if (!canSeeExtraccionIA(user.role, user.app_permissions)) return <Navigate to="/dashboard" replace />
+  return <>{children}</>
+}
+
+function HerramientasTareasRoute({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user)
+  if (!user) return <Navigate to="/login" replace />
+  const tools = user.user_tools ?? []
+  const hasTool = tools.includes("tool_task_submit_dev") || tools.includes("tool_task_manage_dev")
+  if (!hasTool) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
 
@@ -378,6 +388,16 @@ export default function App() {
             <GerencialRoute>
               <GerencialPage />
             </GerencialRoute>
+          }
+        />
+
+        {/* Herramientas */}
+        <Route
+          path="/herramientas/tareas"
+          element={
+            <HerramientasTareasRoute>
+              <GestionTareasPage />
+            </HerramientasTareasRoute>
           }
         />
 

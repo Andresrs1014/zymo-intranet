@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom"
 import { useAuthStore } from "@/store/authStore"
-import { canSeeOC, canSeeSGC, canSeeOperativo, canSeeFinanciero, canSeeGerencial, canSeeIT, canSeeSIG, canSeeExtraccionIA } from "@/lib/permissions"
+import { canSeeOC, canSeeSGC, canSeeOperativo, canSeeFinanciero, canSeeGerencial, canSeeIT, canSeeSIG, canSeeExtraccionIA, canSubmitDevTasks, canManageDevTasks } from "@/lib/permissions"
 
 export function Sidebar() {
   const user = useAuthStore((s) => s.user)
@@ -13,6 +13,7 @@ export function Sidebar() {
   const showIT             = user ? canSeeIT(user.role, perms) : false
   const showSIG            = user ? canSeeSIG(user.role, perms) : false
   const showExtraccionIA   = user ? canSeeExtraccionIA(user.role, perms) : false
+  const showGestionTareas  = user ? (canSubmitDevTasks(user.user_tools) || canManageDevTasks(user.user_tools)) : false
 
   return (
     <aside className="flex h-full w-64 flex-col bg-brand-blue">
@@ -103,6 +104,21 @@ export function Sidebar() {
             icon={<IconMotorIA />}
             matchPaths={["/admin/extraccion-ia"]}
           />
+        )}
+
+        {/* Separador visual */}
+        {showGestionTareas && (
+          <div className="pt-3 mt-1 border-t border-white/10">
+            <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-white/30">
+              Mis herramientas
+            </p>
+            <SidebarLink
+              to="/herramientas/tareas"
+              label="Gestión de Tareas"
+              icon={<IconGestionTareas />}
+              matchPaths={["/herramientas/tareas"]}
+            />
+          </div>
         )}
       </nav>
     </aside>
@@ -215,6 +231,14 @@ function IconMotorIA() {
   return (
     <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
       <path d="M13 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM18 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0ZM14 15a4 4 0 0 0-8 0v3h8v-3ZM6 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0ZM16 15a4 4 0 0 0-4-4v3h4v-3ZM4 15a4 4 0 0 0-4 4v1h4v-1a3 3 0 0 1 0-.012V15Z" />
+    </svg>
+  )
+}
+
+function IconGestionTareas() {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <path fillRule="evenodd" d="M6 2a1 1 0 0 0-1 1v1H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1V3a1 1 0 1 0-2 0v1H7V3a1 1 0 0 0-1-1Zm0 5a1 1 0 0 0 0 2h8a1 1 0 1 0 0-2H6Zm0 4a1 1 0 1 0 0 2h8a1 1 0 1 0 0-2H6Z" clipRule="evenodd" />
     </svg>
   )
 }
