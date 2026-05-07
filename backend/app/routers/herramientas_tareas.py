@@ -352,3 +352,42 @@ def assign_user_tool(
 
     db.commit()
     return {"ok": True}
+
+
+@router.get("/admin/user-tools/{user_id}")
+def get_user_tools(
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[str]:
+    if current_user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Se requiere rol 'admin'.")
+    rows = db.exec(
+        select(UserTool)
+        .where(UserTool.user_id == user_id)
+        .where(UserTool.is_active == True)  # noqa: E712
+    ).all()
+    return [r.tool_key for r in rows]
+
+
+@router.delete("/admin/revocar-tool")
+def revoke_user_tool(
+    payload: AssignUserToolPayload,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    if current_user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Se requiere rol 'admin'.")
+    from datetime import datetime, timezone
+    existing = db.exec(
+        select(UserTool)
+        .where(UserTool.user_id == payload.user_id)
+        .where(UserTool.tool_key == payload.tool_key)
+        .where(UserTool.scope == payload.scope)
+    ).first()
+    if existing:
+        existing.is_active = False
+        existing.updated_at = datetime.now(timezone.utc)
+        db.add(existing)
+        db.commit()
+    return {"ok": True}
