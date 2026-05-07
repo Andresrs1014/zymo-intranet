@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
+import { useEffect } from "react"
 import { useAuthStore } from "@/store/authStore"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
 import {
@@ -38,6 +39,40 @@ import { FinancieroConfigPage } from "@/pages/financiero/FinancieroConfigPage"
 import { AgentFloatingWindow } from "@/components/agent/AgentFloatingWindow"
 import { GerencialPage } from "@/pages/gerencial/GerencialPage"
 import { ExtraccionIAPage } from "@/pages/admin/ExtraccionIAPage"
+
+// Decodifica el claim `exp` del JWT sin verificar firma (solo para chequeo local de expiración)
+function isTokenExpired(token: string): boolean {
+  try {
+    const [, payload] = token.split(".")
+    const { exp } = JSON.parse(atob(payload)) as { exp?: number }
+    return typeof exp === "number" && exp * 1000 < Date.now()
+  } catch {
+    return true // token malformado → tratar como expirado
+  }
+}
+
+/**
+ * Limpia la sesión si el token JWT ya expiró.
+ * Se ejecuta al montar la app, al recuperar el foco y al volver a la pestaña,
+ * cubriendo el caso de cierre/reapertura del navegador y tabs dejadas abiertas.
+ */
+function useTokenGuard() {
+  useEffect(() => {
+    function check() {
+      const { token, clearAuth } = useAuthStore.getState()
+      if (token && isTokenExpired(token)) {
+        clearAuth()
+      }
+    }
+    check()
+    document.addEventListener("visibilitychange", check)
+    window.addEventListener("focus", check)
+    return () => {
+      document.removeEventListener("visibilitychange", check)
+      window.removeEventListener("focus", check)
+    }
+  }, [])
+}
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -121,6 +156,8 @@ function AgentLayer() {
 }
 
 export default function App() {
+  useTokenGuard()
+
   return (
     <ErrorBoundary>
     <BrowserRouter>
