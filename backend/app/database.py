@@ -35,12 +35,13 @@ def create_db_and_tables() -> None:
     from app.models.work_task import WorkTask
     from app.models.task_event import TaskEvent  # noqa: F401
     from app.models.task_event_participant import TaskEventParticipant  # noqa: F401
+    from app.models.task_activity_log import TaskActivityLog  # noqa: F401
 
     intranet_table_names = {
         "user", "role", "area", "sede", "form_drafts",
         "learned_synonyms", "extraction_reviews",
         "user_tools", "task_teams", "task_team_members", "work_tasks",
-        "task_events", "task_event_participants",
+        "task_events", "task_event_participants", "task_activity_log",
     }
     tables = [
         SQLModel.metadata.tables[t]
