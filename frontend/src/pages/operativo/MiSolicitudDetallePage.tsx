@@ -19,8 +19,8 @@ const ESTADO_DESC: Record<string, string> = {
   en_correccion: "El equipo de compras necesita que corrijas tu solicitud.",
   oc_enviada: "La orden de compra fue enviada al proveedor.",
   oc_en_plataforma: "El pedido fue ingresado en la plataforma.",
-  entregada: "Confirmaste la recepción.",
-  cerrada: "Proceso completado.",
+  entregada: "Confirmaste la recepción. La solicitud fue cerrada.",
+  cerrada: "Confirmaste la recepción. La solicitud está cerrada.",
 }
 
 function isImage(filename: string) {
@@ -44,6 +44,7 @@ export function MiSolicitudDetallePage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState(false)
+  const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false)
   const [modalImage, setModalImage] = useState<{ url: string; filename: string } | null>(null)
 
   function handleUpload(file: File) {
@@ -148,20 +149,47 @@ export function MiSolicitudDetallePage() {
 
           {/* Confirmar recibo — visible solo para el solicitante cuando el pedido está en plataforma */}
           {esMia && solicitud.estado === "oc_en_plataforma" && (
-            <div className="max-w-2xl mb-4 bg-green-50 rounded-xl border border-green-200 shadow-sm p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="max-w-2xl mb-4 bg-green-50 rounded-xl border border-green-200 shadow-sm p-5 flex flex-col gap-4">
               <div>
                 <p className="text-sm font-semibold text-green-800 mb-0.5">¿Ya recibiste tu pedido?</p>
                 <p className="text-sm text-green-700">
-                  Tu pedido está listo para ser retirado. Una vez que lo recibas, confírmalo aquí.
+                  Tu pedido está listo para ser retirado. Confírmalo una vez que lo tengas en mano.
                 </p>
               </div>
-              <button
-                onClick={() => marcarEntregada.mutate(id!)}
-                disabled={marcarEntregada.isPending}
-                className="shrink-0 bg-green-600 hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors"
-              >
-                {marcarEntregada.isPending ? "Confirmando..." : "Confirmar recibo del pedido"}
-              </button>
+
+              {!mostrarConfirmacion ? (
+                <button
+                  onClick={() => setMostrarConfirmacion(true)}
+                  className="self-start bg-green-600 hover:bg-green-700 text-white rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors"
+                >
+                  Confirmar recibo del pedido
+                </button>
+              ) : (
+                <div className="bg-white rounded-lg border border-green-300 p-4 flex flex-col gap-3">
+                  <p className="text-sm font-semibold text-gray-800">¿Confirmas que recibiste el pedido?</p>
+                  <p className="text-sm text-gray-600">
+                    Al aceptar, confirmas la recepción del producto y la solicitud quedará <strong>cerrada definitivamente</strong>. Esta acción no se puede deshacer.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        marcarEntregada.mutate(id!)
+                        setMostrarConfirmacion(false)
+                      }}
+                      disabled={marcarEntregada.isPending}
+                      className="bg-green-600 hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-lg px-4 py-2 text-sm font-semibold transition-colors"
+                    >
+                      {marcarEntregada.isPending ? "Confirmando..." : "Sí, recibí el pedido"}
+                    </button>
+                    <button
+                      onClick={() => setMostrarConfirmacion(false)}
+                      className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
