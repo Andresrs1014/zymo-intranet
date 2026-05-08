@@ -114,7 +114,7 @@ def equipo_tareas_paginadas(
     from app.models.task_team_member import TaskTeamMember
     from sqlmodel import select
 
-    require_tool_or_403(db, current_user, "tool_task_manage_dev", "desarrollo_innovacion")
+    require_tool_or_403(db, current_user, TOOL_MANAGE, SCOPE_DEV)
 
     team = get_or_create_dev_team(db)
     members = db.exec(
@@ -130,7 +130,7 @@ def equipo_tareas_paginadas(
         estado=estado, etiqueta=etiqueta, plataforma=plataforma,
         fecha_exacta=fecha_exacta, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta,
     )
-    return get_paginated_tasks(db, current_user.id, "desarrollo_innovacion", filters, team_member_ids=member_ids)
+    return get_paginated_tasks(db, current_user.id, SCOPE_DEV, filters, team_member_ids=member_ids)
 
 
 @router.post("/", response_model=WorkTaskRead, status_code=status.HTTP_201_CREATED)
@@ -161,7 +161,7 @@ def historial_tarea(
     if not task:
         raise HTTPException(status_code=404, detail="Tarea no encontrada.")
 
-    is_manager = user_has_tool(db, current_user, "tool_task_manage_dev", "desarrollo_innovacion")
+    is_manager = user_has_tool(db, current_user, TOOL_MANAGE, SCOPE_DEV)
     is_admin = getattr(current_user, "role", None) == "admin"
     if not is_manager and not is_admin and task.subido_por_id != current_user.id:
         raise HTTPException(status_code=403, detail="Sin acceso.")
@@ -320,11 +320,11 @@ def crear_evento_agenda(
     from app.services.task_event_service import create_event
     from app.services.user_tool_service import user_has_tool
 
-    is_manager = user_has_tool(db, current_user, "tool_task_manage_dev", "desarrollo_innovacion")
+    is_manager = user_has_tool(db, current_user, TOOL_MANAGE, SCOPE_DEV)
     is_admin = getattr(current_user, "role", None) == "admin"
     if not is_manager and not is_admin:
         # Solo puede incluirse a sí mismo
-        if payload.participant_ids != [current_user.id]:
+        if not payload.participant_ids or payload.participant_ids != [current_user.id]:
             raise HTTPException(status_code=403, detail="Solo el gestor puede agendar para otros miembros.")
 
     result = create_event(db, current_user, payload)
@@ -341,13 +341,13 @@ def eventos_por_fecha(
     from app.services.task_event_service import get_events_by_date
     from app.services.user_tool_service import user_has_tool
 
-    is_manager = user_has_tool(db, current_user, "tool_task_manage_dev", "desarrollo_innovacion")
+    is_manager = user_has_tool(db, current_user, TOOL_MANAGE, SCOPE_DEV)
     is_admin = getattr(current_user, "role", None) == "admin"
 
     if is_manager or is_admin:
         result = get_events_by_date(db, fecha, user_id=None)
     else:
-        require_tool_or_403(db, current_user, "tool_task_submit_dev", "desarrollo_innovacion")
+        require_tool_or_403(db, current_user, TOOL_SUBMIT, SCOPE_DEV)
         result = get_events_by_date(db, fecha, user_id=current_user.id)
 
     return [
