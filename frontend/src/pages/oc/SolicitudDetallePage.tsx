@@ -2,6 +2,15 @@ import { useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { api } from "@/lib/api"
+import {
+  encabezadoDesdeItems,
+  ivaYTotalDesdeSubtotal,
+  recalcLineFromCantVu,
+  recalcUnitarioFromCantVt,
+  roundCOP,
+  subtotalEIvaDesdeTotal,
+  subtotalFromItems,
+} from "@/lib/ocValoresCalculo"
 import { formatFechaHora, formatFechaRelativa } from "@/lib/dates"
 import {
   useSolicitud,
@@ -288,6 +297,36 @@ export function SolicitudDetallePage() {
     return Number.isFinite(n) ? n : undefined
   }
 
+  function syncCorrDirHeaderFromItems(items: ItemCotizacion[]) {
+    const h = encabezadoDesdeItems(items)
+    setCorrDirValorAntesIva(String(h.subtotal))
+    setCorrDirValorIva(String(h.iva))
+    setCorrDirValorTotal(String(h.total))
+  }
+
+  /** Actualiza fila según qué celda editó el usuario; sincroniza encabezado desde ítems. */
+  function patchCorrDirItem(
+    idx: number,
+    source: "cantidad" | "valor_unitario" | "valor_total" | "meta",
+    mut: (row: ItemCotizacion) => ItemCotizacion,
+  ) {
+    setCorrDirItems((rows) => {
+      const row = rows[idx]
+      if (!row) return rows
+      let updated = mut(row)
+      if (source === "cantidad" || source === "valor_unitario") {
+        const p = recalcLineFromCantVu(updated.cantidad, updated.valor_unitario)
+        if (p != null) updated = { ...updated, valor_total: p }
+      } else if (source === "valor_total") {
+        const p = recalcUnitarioFromCantVt(updated.cantidad, updated.valor_total)
+        if (p != null) updated = { ...updated, valor_unitario: p }
+      }
+      const next = rows.map((r, i) => (i === idx ? updated : r))
+      queueMicrotask(() => syncCorrDirHeaderFromItems(next))
+      return next
+    })
+  }
+
   function abrirModalCorreccionDirectiva() {
     const c = cotizacionAprobada
     const sol = solicitud
@@ -340,6 +379,12 @@ export function SolicitudDetallePage() {
       setCorrDirError("Indica un total con IVA válido mayor a cero.")
       return
     }
+    const vaIva = parseCopNumber(corrDirValorIva)
+    const vSub = parseCopNumber(corrDirValorAntesIva)
+    if (vSub != null && vaIva != null && Math.abs(vSub + vaIva - vt) > 2) {
+      setCorrDirError("Subtotal sin IVA + IVA debe coincidir con el total con IVA (tolerancia 1–2 pesos por redondeo).")
+      return
+    }
     const itemsPayload = corrDirItems
       .filter((it) => it.descripcion?.trim())
       .map((it, i) => ({
@@ -352,6 +397,16 @@ export function SolicitudDetallePage() {
       }))
     if (itemsPayload.length === 0) {
       setCorrDirError("Agrega al menos un ítem con descripción.")
+      return
+    }
+    const subCab = parseCopNumber(corrDirValorAntesIva)
+    const sumaLineas = roundCOP(
+      subtotalFromItems(corrDirItems.filter((it) => it.descripcion?.trim())),
+    )
+    if (sumaLineas > 0 && subCab != null && Math.abs(sumaLineas - roundCOP(subCab)) > 2) {
+      setCorrDirError(
+        `La suma de valores totales de ítems (${sumaLineas.toLocaleString("es-CO")}) no coincide con el subtotal sin IVA (${roundCOP(subCab).toLocaleString("es-CO")}). Revisa la tabla o los tres montos de encabezado.`,
+      )
       return
     }
     const valorAprobadoNum = parseCopNumber(corrDirValorAprobado)
@@ -613,19 +668,62 @@ export function SolicitudDetallePage() {
                         <FormFieldCOP
                           label="Subtotal sin IVA"
                           value={parseCopNumber(corrDirValorAntesIva)}
-                          onChange={(v) => setCorrDirValorAntesIva(v != null ? String(v) : "")}
+                          onChange={(v) => {
+                            if (v == null) {
+                              setCorrDirValorAntesIva("")
+                              return
+                            }
+                            const s = roundCOP(v)
+                            const { iva, total } = ivaYTotalDesdeSubtotal(s)
+                            setCorrDirValorAntesIva(String(s))
+                            setCorrDirValorIva(String(iva))
+                            setCorrDirValorTotal(String(total))
+                          }}
                           inputClassName="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
                         />
                         <FormFieldCOP
                           label="IVA"
                           value={parseCopNumber(corrDirValorIva)}
-                          onChange={(v) => setCorrDirValorIva(v != null ? String(v) : "")}
+                          onChange={(v) => {
+                            let sub = parseCopNumber(corrDirValorAntesIva)
+                            if (sub == null) {
+                              const tt = parseCopNumber(corrDirValorTotal)
+                              if (tt != null) {
+                                const { subtotal } = subtotalEIvaDesdeTotal(tt)
+                                sub = subtotal
+                                setCorrDirValorAntesIva(String(subtotal))
+                              }
+                            }
+                            if (sub == null) {
+                              setCorrDirError("Indica primero el subtotal sin IVA o el total con IVA.")
+                              return
+                            }
+                            setCorrDirError(null)
+                            if (v == null) {
+                              setCorrDirValorIva("")
+                              return
+                            }
+                            const iva = roundCOP(v)
+                            const total = roundCOP(sub + iva)
+                            setCorrDirValorIva(String(iva))
+                            setCorrDirValorTotal(String(total))
+                          }}
                           inputClassName="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
                         />
                         <FormFieldCOP
                           label="Total con IVA *"
                           value={parseCopNumber(corrDirValorTotal)}
-                          onChange={(v) => setCorrDirValorTotal(v != null ? String(v) : "")}
+                          onChange={(v) => {
+                            if (v == null) {
+                              setCorrDirValorTotal("")
+                              return
+                            }
+                            const t = roundCOP(v)
+                            const { subtotal, iva } = subtotalEIvaDesdeTotal(t)
+                            setCorrDirValorAntesIva(String(subtotal))
+                            setCorrDirValorIva(String(iva))
+                            setCorrDirValorTotal(String(t))
+                          }}
                           inputClassName="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
                         />
                       </div>
@@ -709,9 +807,7 @@ export function SolicitudDetallePage() {
                                     value={row.descripcion}
                                     onChange={(e) => {
                                       const v = e.target.value
-                                      setCorrDirItems((rows) =>
-                                        rows.map((r, i) => (i === idx ? { ...r, descripcion: v } : r)),
-                                      )
+                                      patchCorrDirItem(idx, "meta", (r) => ({ ...r, descripcion: v }))
                                     }}
                                     className="w-full min-w-[140px] rounded border border-gray-200 px-2 py-1"
                                   />
@@ -722,9 +818,7 @@ export function SolicitudDetallePage() {
                                     value={row.referencia ?? ""}
                                     onChange={(e) => {
                                       const v = e.target.value
-                                      setCorrDirItems((rows) =>
-                                        rows.map((r, i) => (i === idx ? { ...r, referencia: v } : r)),
-                                      )
+                                      patchCorrDirItem(idx, "meta", (r) => ({ ...r, referencia: v }))
                                     }}
                                     className="w-20 rounded border border-gray-200 px-2 py-1"
                                   />
@@ -735,9 +829,7 @@ export function SolicitudDetallePage() {
                                     value={row.cantidad ?? ""}
                                     onChange={(e) => {
                                       const n = e.target.value === "" ? undefined : Number(e.target.value)
-                                      setCorrDirItems((rows) =>
-                                        rows.map((r, i) => (i === idx ? { ...r, cantidad: n } : r)),
-                                      )
+                                      patchCorrDirItem(idx, "cantidad", (r) => ({ ...r, cantidad: n }))
                                     }}
                                     className="w-16 rounded border border-gray-200 px-2 py-1 text-right"
                                   />
@@ -748,9 +840,10 @@ export function SolicitudDetallePage() {
                                     value={row.valor_unitario ?? ""}
                                     onChange={(e) => {
                                       const n = e.target.value === "" ? undefined : Number(e.target.value)
-                                      setCorrDirItems((rows) =>
-                                        rows.map((r, i) => (i === idx ? { ...r, valor_unitario: n } : r)),
-                                      )
+                                      patchCorrDirItem(idx, "valor_unitario", (r) => ({
+                                        ...r,
+                                        valor_unitario: n,
+                                      }))
                                     }}
                                     className="w-24 rounded border border-gray-200 px-2 py-1 text-right"
                                   />
@@ -761,9 +854,7 @@ export function SolicitudDetallePage() {
                                     value={row.valor_total ?? ""}
                                     onChange={(e) => {
                                       const n = e.target.value === "" ? undefined : Number(e.target.value)
-                                      setCorrDirItems((rows) =>
-                                        rows.map((r, i) => (i === idx ? { ...r, valor_total: n } : r)),
-                                      )
+                                      patchCorrDirItem(idx, "valor_total", (r) => ({ ...r, valor_total: n }))
                                     }}
                                     className="w-24 rounded border border-gray-200 px-2 py-1 text-right"
                                   />
@@ -772,7 +863,13 @@ export function SolicitudDetallePage() {
                                   <button
                                     type="button"
                                     disabled={corrDirItems.length <= 1}
-                                    onClick={() => setCorrDirItems((rows) => rows.filter((_, i) => i !== idx))}
+                                    onClick={() => {
+                                      setCorrDirItems((rows) => {
+                                        const next = rows.filter((_, i) => i !== idx)
+                                        queueMicrotask(() => syncCorrDirHeaderFromItems(next))
+                                        return next
+                                      })
+                                    }}
                                     className="text-red-500 hover:text-red-700 disabled:opacity-30 text-lg leading-none"
                                     aria-label="Eliminar ítem"
                                   >
