@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -12,23 +14,34 @@ router = APIRouter(prefix="/sedes", tags=["Sedes"])
 
 class SedeCreate(BaseModel):
     name: str
+    visible_en_solicitudes_oc: bool = True
 
 
 class SedeUpdate(BaseModel):
-    name: str
+    name: Optional[str] = None
+    visible_en_solicitudes_oc: Optional[bool] = None
 
 
 class SedeRead(BaseModel):
     id: int
     name: str
+    visible_en_solicitudes_oc: bool
 
 
 @router.get("", response_model=list[SedeRead])
 def list_sedes(
+    *,
+    para_solicitudes_oc: bool = Query(
+        False,
+        description="Si es true, solo sedes configuradas como plataforma formalizadora en OC",
+    ),
     _: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return db.exec(select(Sede).order_by(Sede.name)).all()
+    stmt = select(Sede).order_by(Sede.name)
+    if para_solicitudes_oc:
+        stmt = stmt.where(Sede.visible_en_solicitudes_oc == True)  # noqa: E712
+    return db.exec(stmt).all()
 
 
 @router.post("", response_model=SedeRead, status_code=status.HTTP_201_CREATED)
@@ -43,7 +56,7 @@ def create_sede(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Ya existe una sede con el nombre '{payload.name}'.",
         )
-    sede = Sede(name=payload.name)
+    sede = Sede(name=payload.name, visible_en_solicitudes_oc=payload.visible_en_solicitudes_oc)
     db.add(sede)
     db.commit()
     db.refresh(sede)
@@ -60,13 +73,16 @@ def update_sede(
     sede = db.get(Sede, sede_id)
     if not sede:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sede no encontrada.")
-    conflict = db.exec(select(Sede).where(Sede.name == payload.name)).first()
-    if conflict and conflict.id != sede_id:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Ya existe una sede con el nombre '{payload.name}'.",
-        )
-    sede.name = payload.name
+    if payload.name is not None:
+        conflict = db.exec(select(Sede).where(Sede.name == payload.name)).first()
+        if conflict and conflict.id != sede_id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Ya existe una sede con el nombre '{payload.name}'.",
+            )
+        sede.name = payload.name
+    if payload.visible_en_solicitudes_oc is not None:
+        sede.visible_en_solicitudes_oc = payload.visible_en_solicitudes_oc
     db.add(sede)
     db.commit()
     db.refresh(sede)

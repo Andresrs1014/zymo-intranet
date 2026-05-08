@@ -6,6 +6,8 @@ import { useAuthStore } from "@/store/authStore"
 import { useListasFormulario, useCrearSolicitudInterna, usePaquetes, useSubirFotoSolicitud } from "@/hooks/useOC"
 import type { SolicitudInternaCreate } from "@/hooks/useOC"
 import { useDraft, useAutosaveDraft, useDeleteDraft } from "@/hooks/useDraft"
+import { useSedesParaSolicitudesOc } from "@/hooks/useSedes"
+import { defaultPlataformaDesdeSedes } from "@/lib/plataformaOc"
 
 const PRIORIDAD_SLA: Record<string, string> = {
   Alta:  "Alta — primera respuesta en 4 horas",
@@ -24,7 +26,7 @@ const FORM_COMPRA_VACIO: SolicitudInternaCreate = {
   cantidad: 1,
   cliente: "",
   condicion: "",
-  plataforma: "Logimat",
+  plataforma: "",
   observaciones_solicitante: "",
 }
 
@@ -33,18 +35,12 @@ const FORM_MANTENIMIENTO_VACIO: SolicitudInternaCreate = {
   nivel_prioridad: "",
   descripcion: "",
   cantidad: 1,
-  plataforma: "Logimat",
+  plataforma: "",
   placa_ficha: "",
   tipo_mantenimiento: undefined,
   fecha_proximo_mantenimiento: "",
   observaciones_solicitante: "",
 }
-
-const OPCIONES_PLATAFORMA = [
-  { value: "Logimat", label: "Logimat" },
-  { value: "IMC Cargo", label: "IMC Cargo" },
-  { value: "IMC Depósito", label: "IMC Depósito" },
-] as const
 
 const OPCIONES_TIPO_MANTENIMIENTO = [
   { value: "correctivo", label: "Correctivo" },
@@ -58,6 +54,11 @@ export function NuevaSolicitudPage() {
 
   const user = useAuthStore((s) => s.user)
   const { data: listas, isLoading: listasLoading, isError: listasError } = useListasFormulario()
+  const {
+    data: sedesOc = [],
+    isLoading: sedesLoading,
+    isError: sedesError,
+  } = useSedesParaSolicitudesOc()
   const { data: paquetes } = usePaquetes()
   const crear = useCrearSolicitudInterna()
   const subirFoto = useSubirFotoSolicitud()
@@ -116,16 +117,37 @@ export function NuevaSolicitudPage() {
     [listas?.placas]
   )
 
+  const opcionesPlataforma = useMemo(
+    () => sedesOc.map((s) => ({ value: s.name, label: s.name })),
+    [sedesOc]
+  )
+
+  const fallbackPlataforma = useMemo(
+    () => defaultPlataformaDesdeSedes(sedesOc, user?.sede),
+    [sedesOc, user?.sede]
+  )
+
+  const plataformaEfectiva = useMemo(() => {
+    const p = form.plataforma?.trim()
+    if (p) return p
+    return fallbackPlataforma
+  }, [form.plataforma, fallbackPlataforma])
+
   // Cambiar tipo de solicitud limpia el formulario
   function cambiarTipo(tipo: TipoSolicitud) {
     setTipoSolicitud(tipo)
-    setForm(tipo === "compra" ? FORM_COMPRA_VACIO : FORM_MANTENIMIENTO_VACIO)
+    const next =
+      tipo === "compra"
+        ? { ...FORM_COMPRA_VACIO }
+        : { ...FORM_MANTENIMIENTO_VACIO }
+    next.plataforma = defaultPlataformaDesdeSedes(sedesOc, user?.sede)
+    setForm(next as SolicitudInternaCreate)
     setPaqueteNombre(null)
     setError(null)
   }
 
-  // Pre-llenar form si viene de un paquete de 1 ítem (solo aplica para compra)
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- prellenar formulario desde ?paquete= */
     if (!paqueteId || !paquetes) return
     const paquete = paquetes.find((p) => p.id === paqueteId)
     if (!paquete || !paquete.items.length) return
@@ -141,14 +163,16 @@ export function NuevaSolicitudPage() {
       cantidad: item.cantidad ?? 1,
       cliente: item.cliente ?? "",
       condicion: item.condicion ?? "",
-      plataforma: item.plataforma ?? "Logimat",
+      plataforma: item.plataforma ?? defaultPlataformaDesdeSedes(sedesOc, user?.sede),
       observaciones_solicitante: item.observaciones_solicitante ?? "",
     })
     setPaqueteNombre(paquete.nombre)
-  }, [paqueteId, paquetes])
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [paqueteId, paquetes, sedesOc, user?.sede])
 
   useEffect(() => {
     if (borrador && !draftRestored && !paqueteId) {
+      /* eslint-disable-next-line react-hooks/set-state-in-effect -- modal de borrador al cargar */
       setShowDraftModal(true)
     }
   }, [borrador, draftRestored, paqueteId])
@@ -181,9 +205,12 @@ export function NuevaSolicitudPage() {
   }
 
   function validarFormulario(): string | null {
+    if (sedesOc.length === 0) {
+      return "No hay sedes habilitadas para compras (OC). Un administrador debe marcar al menos una sede con «OC compras» en Áreas y sedes."
+    }
     if (!form.nivel_prioridad) return "Selecciona la prioridad."
     if (!form.descripcion.trim()) return "Ingresa la descripción."
-    if (!form.plataforma) return "Selecciona la plataforma."
+    if (!plataformaEfectiva) return "Selecciona la plataforma."
     if (form.cantidad < 1) return "La cantidad debe ser al menos 1."
 
     if (tipoSolicitud === "compra") {
@@ -229,6 +256,7 @@ export function NuevaSolicitudPage() {
       const payload: SolicitudInternaCreate = {
         ...form,
         tipo_solicitud: tipoSolicitud,
+        plataforma: plataformaEfectiva,
         cliente: form.cliente || undefined,
         condicion: form.condicion || undefined,
         placa_ficha: tipoSolicitud === "mantenimiento" ? form.placa_ficha || undefined : undefined,
@@ -369,7 +397,13 @@ export function NuevaSolicitudPage() {
               </div>
               <button
                 type="button"
-                onClick={() => { setForm(FORM_COMPRA_VACIO); setPaqueteNombre(null) }}
+                onClick={() => {
+                  setForm({
+                    ...FORM_COMPRA_VACIO,
+                    plataforma: defaultPlataformaDesdeSedes(sedesOc, user?.sede),
+                  })
+                  setPaqueteNombre(null)
+                }}
                 className="text-xs text-indigo-400 hover:text-indigo-600 transition-colors shrink-0"
               >
                 Limpiar
@@ -378,7 +412,7 @@ export function NuevaSolicitudPage() {
           )}
 
           {/* Skeleton mientras cargan las listas */}
-          {listasLoading && (
+          {(listasLoading || sedesLoading) && (
             <div className="flex items-center justify-center py-24 text-gray-400 text-sm">
               <svg
                 className="animate-spin h-5 w-5 mr-2 text-brand-blue"
@@ -394,7 +428,7 @@ export function NuevaSolicitudPage() {
           )}
 
           {/* Error al cargar listas */}
-          {!listasLoading && listasError && (
+          {!listasLoading && !sedesLoading && (listasError || sedesError) && (
             <div className="flex flex-col items-center justify-center py-24 gap-3">
               <p className="text-sm text-red-600 font-medium">
                 No se pudieron cargar las opciones del formulario.
@@ -411,7 +445,7 @@ export function NuevaSolicitudPage() {
             </div>
           )}
 
-          {!listasLoading && !listasError && (
+          {!listasLoading && !sedesLoading && !listasError && !sedesError && (
             <form onSubmit={handleSubmit} className="space-y-6 max-w-3xl">
               {/* Sección Solicitante */}
               <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
@@ -521,10 +555,13 @@ export function NuevaSolicitudPage() {
                       </label>
                       <Combobox
                         className="w-full"
-                        options={[...OPCIONES_PLATAFORMA]}
-                        value={form.plataforma || null}
-                        onChange={(v) => handleChange("plataforma", (v as string) || "Logimat")}
+                        options={opcionesPlataforma}
+                        value={plataformaEfectiva || null}
+                        onChange={(v) =>
+                          handleChange("plataforma", (v as string) || fallbackPlataforma)
+                        }
                         placeholder="Buscar plataforma…"
+                        disabled={opcionesPlataforma.length === 0}
                       />
                     </div>
 
@@ -658,10 +695,13 @@ export function NuevaSolicitudPage() {
                       </label>
                       <Combobox
                         className="w-full"
-                        options={[...OPCIONES_PLATAFORMA]}
-                        value={form.plataforma || null}
-                        onChange={(v) => handleChange("plataforma", (v as string) || "Logimat")}
+                        options={opcionesPlataforma}
+                        value={plataformaEfectiva || null}
+                        onChange={(v) =>
+                          handleChange("plataforma", (v as string) || fallbackPlataforma)
+                        }
                         placeholder="Buscar plataforma…"
+                        disabled={opcionesPlataforma.length === 0}
                       />
                     </div>
                   </div>

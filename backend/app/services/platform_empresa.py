@@ -7,6 +7,8 @@ _PLATFORMS_DIR = Path(__file__).resolve().parent.parent / "platforms"
 
 _SLUG_MAP = {
     "logimat": "logimat",
+    "logimat 2": "logimat",
+    "logimat2": "logimat",
     "logimat s.a.s.": "logimat",
     "imccargo": "imccargo",
     "imc cargo": "imccargo",

@@ -1,6 +1,7 @@
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { PageLayout } from "@/components/layout/PageLayout"
+import { useAuthStore } from "@/store/authStore"
 import {
   usePaquetes,
   useCrearPaquete,
@@ -9,38 +10,47 @@ import {
   useListasFormulario,
 } from "@/hooks/useOC"
 import type { PaqueteItem, Paquete, DespachoResult } from "@/hooks/useOC"
+import { useSedesParaSolicitudesOc } from "@/hooks/useSedes"
+import { defaultPlataformaDesdeSedes } from "@/lib/plataformaOc"
 
-// ── Empty item template ───────────────────────────────────────────────────────
-
-function emptyItem(): PaqueteItem {
-  return {
-    nivel_prioridad: "Media",
-    categoria: "",
-    grupo_articulos: "",
-    descripcion: "",
-    cantidad: 1,
-    plataforma: "Logimat",
-    cliente: "",
-    condicion: "",
-    placa_ficha: "",
-    observaciones_solicitante: "",
-  }
+const PAQUETE_ITEM_TEMPLATE: Omit<PaqueteItem, "plataforma"> = {
+  nivel_prioridad: "Media",
+  categoria: "",
+  grupo_articulos: "",
+  descripcion: "",
+  cantidad: 1,
+  cliente: "",
+  condicion: "",
+  placa_ficha: "",
+  observaciones_solicitante: "",
 }
-
-// ── Page ──────────────────────────────────────────────────────────────────────
 
 export function PaquetesPage() {
   const navigate = useNavigate()
+  const user = useAuthStore((s) => s.user)
   const { data: paquetes, isLoading } = usePaquetes()
   const { data: listas } = useListasFormulario()
+  const { data: sedesOc = [] } = useSedesParaSolicitudesOc()
   const crear = useCrearPaquete()
   const eliminar = useEliminarPaquete()
   const despachar = useDespacharPaquete()
 
+  const defaultPlataforma = useMemo(
+    () => defaultPlataformaDesdeSedes(sedesOc, user?.sede),
+    [sedesOc, user?.sede]
+  )
+
+  const makeItem = (): PaqueteItem => ({
+    ...PAQUETE_ITEM_TEMPLATE,
+    plataforma: defaultPlataforma,
+  })
+
   const [showForm, setShowForm] = useState(false)
   const [nombre, setNombre] = useState("")
   const [descripcionUso, setDescripcionUso] = useState("")
-  const [items, setItems] = useState<PaqueteItem[]>([emptyItem()])
+  const [items, setItems] = useState<PaqueteItem[]>([
+    { ...PAQUETE_ITEM_TEMPLATE, plataforma: "" },
+  ])
   const [formError, setFormError] = useState<string | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   // Despacho multi-ítem
@@ -70,7 +80,7 @@ export function PaquetesPage() {
   function resetForm() {
     setNombre("")
     setDescripcionUso("")
-    setItems([emptyItem()])
+    setItems([makeItem()])
     setFormError(null)
   }
 
@@ -93,7 +103,7 @@ export function PaquetesPage() {
   }
 
   function addItem() {
-    setItems((prev) => [...prev, emptyItem()])
+    setItems((prev) => [...prev, makeItem()])
   }
 
   function removeItem(index: number) {
@@ -106,8 +116,12 @@ export function PaquetesPage() {
       setFormError("El nombre del paquete es obligatorio.")
       return
     }
+    if (sedesOc.length === 0) {
+      setFormError("No hay sedes habilitadas para OC. Configura «OC compras» en Áreas y sedes.")
+      return
+    }
     for (const item of items) {
-      if (!item.descripcion.trim() || !item.plataforma) {
+      if (!item.descripcion.trim() || !(item.plataforma || defaultPlataforma)) {
         setFormError("Cada item requiere descripción y plataforma.")
         return
       }
@@ -118,6 +132,7 @@ export function PaquetesPage() {
         descripcion_uso: descripcionUso.trim() || undefined,
         items: items.map((it) => ({
           ...it,
+          plataforma: it.plataforma || defaultPlataforma,
           categoria: it.categoria || undefined,
           grupo_articulos: it.grupo_articulos || undefined,
           cliente: it.cliente || undefined,
@@ -367,13 +382,15 @@ export function PaquetesPage() {
                             Plataforma *
                           </label>
                           <select
-                            value={item.plataforma}
+                            value={item.plataforma || defaultPlataforma}
                             onChange={(e) => updateItem(idx, "plataforma", e.target.value)}
                             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           >
-                            <option value="Logimat">Logimat</option>
-                            <option value="IMC Cargo">IMC Cargo</option>
-                            <option value="IMC Depósito">IMC Depósito</option>
+                            {sedesOc.map((s) => (
+                              <option key={s.id} value={s.name}>
+                                {s.name}
+                              </option>
+                            ))}
                           </select>
                         </div>
 

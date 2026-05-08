@@ -1,7 +1,8 @@
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { useSolicitudes } from "@/hooks/useOC"
+import { useSedesParaSolicitudesOc } from "@/hooks/useSedes"
 import { Combobox } from "@/components/ui/Combobox"
 import { formatFechaRelativa } from "@/lib/dates"
 import type { EstadoOC, SolicitudOC } from "@/types/oc"
@@ -18,16 +19,25 @@ const ESTADOS_OPTIONS = [
   { value: "cerrada", label: "Cerrada" },
 ]
 
-const PLATAFORMAS_OPTIONS = [
-  { value: "Logimat", label: "Logimat" },
-  { value: "IMC Cargo", label: "IMC Cargo" },
-  { value: "IMC Depósito", label: "IMC Depósito" },
+/** Valores antiguos de plataforma (antes de alinear con catálogo de sedes). */
+const PLATAFORMA_FILTRO_LEGACY: { value: string; label: string }[] = [
+  { value: "Logimat", label: "Logimat (histórico)" },
+  { value: "IMC Cargo", label: "IMC Cargo (histórico)" },
+  { value: "IMC Depósito", label: "IMC Depósito (histórico)" },
 ]
 
 export function SolicitudesPage() {
   const navigate = useNavigate()
   const [estadoFiltro, setEstadoFiltro] = useState<string | null>(null)
   const [plataformaFiltro, setPlataformaFiltro] = useState<string | null>(null)
+
+  const { data: sedesOc = [] } = useSedesParaSolicitudesOc()
+  const opcionesPlataformaFiltro = useMemo(() => {
+    const actuales = sedesOc.map((s) => ({ value: s.name, label: s.name }))
+    const seen = new Set(actuales.map((o) => o.value.toLowerCase()))
+    const legacy = PLATAFORMA_FILTRO_LEGACY.filter((o) => !seen.has(o.value.toLowerCase()))
+    return [...actuales, ...legacy]
+  }, [sedesOc])
 
   const { data: solicitudes = [], isLoading, isRefetching } = useSolicitudes({
     estado: estadoFiltro ?? undefined,
@@ -60,7 +70,7 @@ export function SolicitudesPage() {
             />
             <Combobox
               className="w-44"
-              options={PLATAFORMAS_OPTIONS}
+              options={opcionesPlataformaFiltro}
               value={plataformaFiltro}
               onChange={(v) => setPlataformaFiltro(v as string | null)}
               placeholder="Todas las plataformas"

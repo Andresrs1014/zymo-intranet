@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
 import { PageLayout } from "@/components/layout/PageLayout"
 import {
   useAreas,
@@ -118,7 +118,7 @@ function SedesPanel() {
   async function handleCreate(name: string) {
     setError(undefined)
     try {
-      await createSede.mutateAsync(name)
+      await createSede.mutateAsync({ name })
       setShowCreate(false)
     } catch (err) {
       setError(getApiError(err))
@@ -148,26 +148,55 @@ function SedesPanel() {
   }
 
   return (
-    <CatalogPanel
-      title="Sedes"
-      items={sedes}
-      isLoading={isLoading}
-      error={error}
-      isPending={createSede.isPending || updateSede.isPending || deleteSede.isPending}
-      showCreate={showCreate}
-      onOpenCreate={() => { setShowCreate(true); setError(undefined) }}
-      onCancelCreate={() => setShowCreate(false)}
-      onCreate={handleCreate}
-      editTarget={editTarget}
-      onEdit={(item) => { setEditTarget(item); setError(undefined) }}
-      onCancelEdit={() => setEditTarget(null)}
-      onUpdate={handleUpdate}
-      deleteTarget={deleteTarget}
-      onDeleteRequest={(item) => setDeleteTarget(item)}
-      onCancelDelete={() => setDeleteTarget(null)}
-      onDelete={handleDelete}
-      entityLabel="sede"
-    />
+    <div>
+      <p className="text-xs text-gray-500 mb-2 max-w-md">
+        Solo las sedes con «OC compras» aparecen como plataforma al crear solicitudes. Ej.: Transversal puede existir como sede de usuario pero no formaliza compras.
+      </p>
+      <CatalogPanel
+        title="Sedes"
+        items={sedes}
+        isLoading={isLoading}
+        error={error}
+        isPending={createSede.isPending || updateSede.isPending || deleteSede.isPending}
+        showCreate={showCreate}
+        onOpenCreate={() => { setShowCreate(true); setError(undefined) }}
+        onCancelCreate={() => setShowCreate(false)}
+        onCreate={handleCreate}
+        editTarget={editTarget}
+        onEdit={(item) => { setEditTarget(item as SedeItem); setError(undefined) }}
+        onCancelEdit={() => setEditTarget(null)}
+        onUpdate={handleUpdate}
+        deleteTarget={deleteTarget}
+        onDeleteRequest={(item) => setDeleteTarget(item as SedeItem)}
+        onCancelDelete={() => setDeleteTarget(null)}
+        onDelete={handleDelete}
+        entityLabel="sede"
+        renderAfterName={(item) => {
+          if (item.visible_en_solicitudes_oc === undefined) return null
+          return (
+            <label className="flex items-center gap-1.5 shrink-0 text-xs text-gray-600 cursor-pointer">
+              <input
+                type="checkbox"
+                className="rounded border-gray-300"
+                checked={item.visible_en_solicitudes_oc}
+                onChange={async (e) => {
+                  setError(undefined)
+                  try {
+                    await updateSede.mutateAsync({
+                      id: item.id,
+                      visible_en_solicitudes_oc: e.target.checked,
+                    })
+                  } catch (err) {
+                    setError(getApiError(err))
+                  }
+                }}
+              />
+              OC compras
+            </label>
+          )
+        }}
+      />
+    </div>
   )
 }
 
@@ -176,6 +205,7 @@ function SedesPanel() {
 interface CatalogItem {
   id: number
   name: string
+  visible_en_solicitudes_oc?: boolean
 }
 
 interface CatalogPanelProps {
@@ -197,6 +227,8 @@ interface CatalogPanelProps {
   onCancelDelete: () => void
   onDelete: () => void
   entityLabel: string
+  /** Solo para sedes: control de visibilidad en solicitudes OC */
+  renderAfterName?: (item: CatalogItem) => ReactNode
 }
 
 function CatalogPanel({
@@ -205,6 +237,7 @@ function CatalogPanel({
   editTarget, onEdit, onCancelEdit, onUpdate,
   deleteTarget, onDeleteRequest, onCancelDelete, onDelete,
   entityLabel,
+  renderAfterName,
 }: CatalogPanelProps) {
   const [newName, setNewName] = useState("")
   const [editName, setEditName] = useState("")
@@ -280,7 +313,7 @@ function CatalogPanel({
       ) : (
         <ul className="divide-y divide-gray-50">
           {items.map((item) => (
-            <li key={item.id} className="flex items-center gap-2 px-4 py-2.5 hover:bg-gray-50 transition-colors">
+            <li key={item.id} className="flex flex-wrap items-center gap-2 px-4 py-2.5 hover:bg-gray-50 transition-colors">
               {editTarget?.id === item.id ? (
                 <form onSubmit={submitEdit} className="flex flex-1 gap-2">
                   <input
@@ -326,7 +359,8 @@ function CatalogPanel({
                 </div>
               ) : (
                 <>
-                  <span className="flex-1 text-sm text-gray-800">{item.name}</span>
+                  <span className="flex-1 text-sm text-gray-800 min-w-0">{item.name}</span>
+                  {renderAfterName?.(item)}
                   <button
                     onClick={() => openEdit(item)}
                     className="rounded px-2 py-1 text-xs font-medium text-brand-blue hover:bg-brand-blue/10 transition-colors"

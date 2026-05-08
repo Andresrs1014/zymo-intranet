@@ -38,6 +38,8 @@ _PLATFORMS_DIR_EMAIL = _Path(__file__).parent.parent / "platforms"
 
 _SLUG_MAP_EMAIL: dict[str, str] = {
     "logimat": "logimat",
+    "logimat 2": "logimat",
+    "logimat2": "logimat",
     "logimat s.a.s.": "logimat",
     "imccargo": "imccargo",
     "imc cargo": "imccargo",

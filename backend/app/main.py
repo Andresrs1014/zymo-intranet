@@ -124,6 +124,23 @@ def _migrate_db() -> None:
             print("[migrate] Columna app_permissions agregada.")
         except Exception:
             pass  # La columna ya existe
+        try:
+            conn.execute(
+                text(
+                    "ALTER TABLE sede ADD COLUMN visible_en_solicitudes_oc "
+                    "INTEGER NOT NULL DEFAULT 1",
+                ),
+            )
+            conn.commit()
+            print("[migrate] Columna sede.visible_en_solicitudes_oc agregada.")
+        except Exception:
+            pass
+    with Session(get_engine()) as session:
+        for sede_row in session.exec(select(Sede)).all():
+            if sede_row.name.strip().lower() == "transversal":
+                sede_row.visible_en_solicitudes_oc = False
+                session.add(sede_row)
+        session.commit()
 
 
 def _seed_roles() -> None:
