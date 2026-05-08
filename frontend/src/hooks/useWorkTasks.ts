@@ -14,6 +14,8 @@ import type {
   TaskActivityEntry,
   PaginatedTaskFilters,
   PaginatedTasksResponse,
+  TeamChartsData,
+  MyTaskMetrics,
 } from "@/types/workTask"
 
 const BASE = "/api/herramientas/tareas"
@@ -47,7 +49,7 @@ export function useMyTaskMetrics() {
   return useQuery({
     queryKey: ["tareas", "mis-metricas"],
     queryFn: async () => {
-      const { data } = await api.get<Record<string, unknown>>(`${BASE}/mis-metricas`)
+      const { data } = await api.get<MyTaskMetrics>(`${BASE}/mis-metricas`)
       return data
     },
   })
@@ -115,7 +117,7 @@ export function useTeamCharts(filters: TaskFilters = {}) {
   return useQuery({
     queryKey: ["tareas", "graficas", filters],
     queryFn: async () => {
-      const { data } = await api.get<Record<string, unknown[]>>(`${BASE}/equipo/graficas?${filtersToParams(filters)}`)
+      const { data } = await api.get<TeamChartsData>(`${BASE}/equipo/graficas?${filtersToParams(filters)}`)
       return data
     },
   })

@@ -12,7 +12,6 @@ import { TaskManagerView } from "@/components/herramientas/tareas/TaskManagerVie
 import { TaskSubmitView } from "@/components/herramientas/tareas/TaskSubmitView"
 import { TaskChartsTab } from "@/components/herramientas/tareas/TaskChartsTab"
 import { TeamConfigTab } from "@/components/herramientas/tareas/TeamConfigTab"
-import type { TaskEvent } from "@/types/workTask"
 
 export function GestionTareasPage() {
   const user = useAuthStore((s) => s.user)
@@ -109,15 +108,11 @@ export function GestionTareasPage() {
         {/* Resizable calendar sidebar */}
         <CalendarSidebar
           isOpen={isSidebarOpen}
-          onToggle={() => setIsSidebarOpen((v) => !v)}
           onDateSelect={(date) => {
             setScheduleDate(date)
             setIsScheduleOpen(true)
           }}
-          onEventClick={(ev: TaskEvent) => {
-            // Future: open event detail modal
-            void ev
-          }}
+          onEventClick={() => {}}
           onNewEvent={(date) => {
             setScheduleDate(date)
             setIsScheduleOpen(true)

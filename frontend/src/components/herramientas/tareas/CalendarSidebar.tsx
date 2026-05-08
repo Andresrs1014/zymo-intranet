@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect } from "react"
 import { DayPicker } from "react-day-picker"
-import "react-day-picker/dist/style.css"
 import { Calendar } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -11,7 +10,6 @@ import { es } from "date-fns/locale"
 
 interface Props {
   isOpen: boolean
-  onToggle: () => void
   onDateSelect: (date: Date) => void
   onEventClick: (event: TaskEvent) => void
   onNewEvent: (date: Date) => void
@@ -23,7 +21,6 @@ const DEFAULT_WIDTH = 320
 
 export function CalendarSidebar({
   isOpen,
-  onToggle: _onToggle,
   onDateSelect,
   onEventClick,
   onNewEvent,

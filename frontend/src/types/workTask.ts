@@ -149,6 +149,23 @@ export interface TaskEventCreate {
   participant_ids: number[]
 }
 
+// --- Chart response types ---
+export interface TeamChartsData {
+  tareas_por_responsable: { nombre: string; tareas: number }[]
+  horas_por_responsable: { nombre: string; horas: number }[]
+  distribucion_estado: { estado: string; cantidad: number }[]
+  tareas_por_etiqueta: { etiqueta: string; cantidad: number }[]
+  evolucion_completadas: { fecha: string; completadas: number }[]
+}
+
+export interface MyTaskMetrics {
+  tareas_registradas: number
+  horas_registradas: number
+  completadas: number
+  en_progreso: number
+  bloqueadas: number
+}
+
 // --- Historial ---
 export interface TaskActivityEntry {
   id: number

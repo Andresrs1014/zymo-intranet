@@ -15,41 +15,24 @@ export function TaskChartsTab({ isManager }: Props) {
   const { data: myMetrics } = useMyTaskMetrics()
 
   if (isManager) {
-    const chartsData = teamCharts as {
-      tareas_por_responsable: { nombre: string; tareas: number }[]
-      horas_por_responsable: { nombre: string; horas: number }[]
-      distribucion_estado: { estado: string; cantidad: number }[]
-      tareas_por_etiqueta: { etiqueta: string; cantidad: number }[]
-      evolucion_completadas: { fecha: string; completadas: number }[]
-    } | undefined
-
     return (
       <div className="space-y-4">
         <TaskFiltersBar filters={filters} onChange={setFilters} />
-        <TaskCharts data={chartsData} />
+        <TaskCharts data={teamCharts} />
       </div>
     )
   }
 
-  // Non-manager: show personal metrics summary
-  const metrics = myMetrics as {
-    tareas_registradas?: number
-    horas_registradas?: number
-    completadas?: number
-    en_progreso?: number
-    bloqueadas?: number
-  } | undefined
-
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">Resumen de mis tareas</p>
-      {metrics ? (
+      {myMetrics ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <MetricCard label="Tareas registradas" value={metrics.tareas_registradas ?? 0} />
-          <MetricCard label="Horas registradas" value={metrics.horas_registradas ?? 0} />
-          <MetricCard label="Completadas" value={metrics.completadas ?? 0} />
-          <MetricCard label="En progreso" value={metrics.en_progreso ?? 0} />
-          <MetricCard label="Bloqueadas" value={metrics.bloqueadas ?? 0} />
+          <MetricCard label="Tareas registradas" value={myMetrics.tareas_registradas ?? 0} />
+          <MetricCard label="Horas registradas" value={myMetrics.horas_registradas ?? 0} />
+          <MetricCard label="Completadas" value={myMetrics.completadas ?? 0} />
+          <MetricCard label="En progreso" value={myMetrics.en_progreso ?? 0} />
+          <MetricCard label="Bloqueadas" value={myMetrics.bloqueadas ?? 0} />
         </div>
       ) : (
         <p className="text-sm text-muted-foreground italic">Cargando métricas...</p>
