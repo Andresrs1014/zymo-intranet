@@ -1,7 +1,13 @@
+from __future__ import annotations
+
 from datetime import date, datetime, timezone
+from typing import TYPE_CHECKING
 
 from fastapi import HTTPException, status
 from sqlmodel import Session, select
+
+if TYPE_CHECKING:
+    from app.schemas.work_task import PaginatedTaskFilters, PaginatedTasksResponse
 
 from app.models.work_task import WorkTask
 from app.models.user import User
@@ -90,6 +96,15 @@ def create_task(db: Session, user: User, payload: WorkTaskCreate) -> WorkTask:
     db.add(task)
     db.commit()
     db.refresh(task)
+    log_activity(
+        db,
+        task_id=task.id,
+        user_id=task.subido_por_id,
+        user_nombre=task.subido_por_nombre,
+        accion="creacion",
+        detalle=f"Tarea creada: {task.titulo}",
+    )
+    db.commit()
     return task
 
 
@@ -120,6 +135,7 @@ def update_own_task(
         )
 
     update_data = payload.model_dump(exclude_unset=True)
+    estado_anterior = task.estado
     for field, value in update_data.items():
         setattr(task, field, value)
 
@@ -131,6 +147,18 @@ def update_own_task(
     db.add(task)
     db.commit()
     db.refresh(task)
+
+    if "estado" in update_data and update_data["estado"] != estado_anterior:
+        log_activity(
+            db,
+            task_id=task.id,
+            user_id=user.id,
+            user_nombre=task.subido_por_nombre,
+            accion="cambio_estado",
+            detalle=f"De {estado_anterior} a {update_data['estado']}",
+        )
+        db.commit()
+
     return task
 
 
@@ -177,3 +205,102 @@ def own_metrics(db: Session, user: User) -> dict:
         "bloqueadas": bloqueadas,
         "horas_registradas": round(minutos / 60, 2),
     }
+
+
+def log_activity(
+    db: "Session",
+    task_id: int,
+    user_id: int,
+    user_nombre: str,
+    accion: str,
+    detalle: str | None = None,
+) -> None:
+    from app.models.task_activity_log import TaskActivityLog
+
+    entry = TaskActivityLog(
+        task_id=task_id,
+        user_id=user_id,
+        user_nombre=user_nombre,
+        accion=accion,
+        detalle=detalle,
+    )
+    db.add(entry)
+    # No hace commit — el llamador es responsable del commit
+
+
+def get_task_activity(db: "Session", task_id: int) -> list:
+    from app.models.task_activity_log import TaskActivityLog
+    from sqlmodel import select as sqlmodel_select
+
+    entries = db.exec(
+        sqlmodel_select(TaskActivityLog)
+        .where(TaskActivityLog.task_id == task_id)
+        .order_by(TaskActivityLog.fecha.asc())
+    ).all()
+    return list(entries)
+
+
+def get_paginated_tasks(
+    db: "Session",
+    user_id: int,
+    scope: str,
+    filters: "PaginatedTaskFilters",
+    team_member_ids: list[int] | None = None,
+) -> "PaginatedTasksResponse":
+    """
+    Devuelve tareas paginadas con filtros.
+    Si team_member_ids es None, filtra solo por user_id (vista colaborador).
+    Si team_member_ids es lista, filtra por todos esos IDs (vista gestor).
+    """
+    from app.schemas.work_task import PaginatedTaskFilters, PaginatedTasksResponse, PaginatedMeta, WorkTaskRead
+    from sqlmodel import func, or_
+    from sqlmodel import select as sqlmodel_select
+    import math
+
+    query = sqlmodel_select(WorkTask).where(WorkTask.scope == scope)
+
+    if team_member_ids is not None:
+        query = query.where(WorkTask.subido_por_id.in_(team_member_ids))
+    else:
+        query = query.where(WorkTask.subido_por_id == user_id)
+
+    if filters.search:
+        term = f"%{filters.search}%"
+        query = query.where(
+            or_(WorkTask.titulo.ilike(term), WorkTask.descripcion_tecnica.ilike(term))
+        )
+    if filters.responsable_id:
+        query = query.where(WorkTask.subido_por_id == filters.responsable_id)
+    if filters.estado:
+        query = query.where(WorkTask.estado == filters.estado)
+    if filters.etiqueta:
+        query = query.where(WorkTask.etiqueta == filters.etiqueta)
+    if filters.plataforma:
+        query = query.where(WorkTask.plataforma == filters.plataforma)
+    if filters.fecha_exacta:
+        query = query.where(WorkTask.fecha == filters.fecha_exacta)
+    if filters.fecha_desde:
+        query = query.where(WorkTask.fecha >= filters.fecha_desde)
+    if filters.fecha_hasta:
+        query = query.where(WorkTask.fecha <= filters.fecha_hasta)
+
+    # Contar total
+    count_query = sqlmodel_select(func.count()).select_from(query.subquery())
+    total_items = db.exec(count_query).one()
+    total_pages = max(1, math.ceil(total_items / filters.limit))
+
+    # Paginar
+    offset = (filters.page - 1) * filters.limit
+    query = query.order_by(WorkTask.fecha.desc(), WorkTask.created_at.desc())
+    query = query.offset(offset).limit(filters.limit)
+    tasks = db.exec(query).all()
+
+    return PaginatedTasksResponse(
+        data=[WorkTaskRead.model_validate(t) for t in tasks],
+        meta=PaginatedMeta(
+            total_items=total_items,
+            total_pages=total_pages,
+            current_page=filters.page,
+            limit=filters.limit,
+        ),
+    )
