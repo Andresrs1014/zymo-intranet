@@ -15,15 +15,22 @@ import {
   type CreateUserPayload,
   type UpdateUserPayload,
 } from "@/hooks/useUsers"
+import { useUserTools, useAssignUserTool, useRevokeUserTool } from "@/hooks/useWorkTasks"
 import type { UserListItem } from "@/types/auth"
 
 type Tab = "activos" | "archivados"
+
+const TOOLS = [
+  { key: "tool_task_submit_dev", label: "Gestión de Tareas — Colaborador", desc: "Puede registrar sus propias tareas" },
+  { key: "tool_task_manage_dev", label: "Gestión de Tareas — Directiva", desc: "Ve el dashboard completo del equipo" },
+]
 
 export function AdminPage() {
   const [tab, setTab] = useState<Tab>("activos")
   const [modal, setModal] = useState<"create" | "edit" | null>(null)
   const [selected, setSelected] = useState<UserListItem | null>(null)
   const [mutationError, setMutationError] = useState<string>()
+  const [toolsUser, setToolsUser] = useState<UserListItem | null>(null)
 
   const { data: activeUsers = [], isLoading: loadingActive } = useUsers()
   const {
@@ -175,6 +182,7 @@ export function AdminPage() {
                       onDeactivate={handleDeactivate}
                       onReactivate={handleReactivate}
                       onDelete={handleDelete}
+                      onManageTools={setToolsUser}
                     />
                   ))}
                 </tbody>
@@ -192,6 +200,10 @@ export function AdminPage() {
           error={mutationError}
         />
       )}
+
+      {toolsUser && (
+        <UserToolsModal user={toolsUser} onClose={() => setToolsUser(null)} />
+      )}
     </>
   )
 }
@@ -203,9 +215,10 @@ interface RowProps {
   onDeactivate: (u: UserListItem) => void
   onReactivate: (u: UserListItem) => void
   onDelete: (u: UserListItem) => void
+  onManageTools: (u: UserListItem) => void
 }
 
-function UserRow({ user, tab, onEdit, onDeactivate, onReactivate, onDelete }: RowProps) {
+function UserRow({ user, tab, onEdit, onDeactivate, onReactivate, onDelete, onManageTools }: RowProps) {
   return (
     <tr className="hover:bg-gray-50 transition-colors">
       <td className="px-4 py-3">
@@ -236,6 +249,12 @@ function UserRow({ user, tab, onEdit, onDeactivate, onReactivate, onDelete }: Ro
         <div className="flex items-center justify-end gap-2">
           {tab === "activos" ? (
             <>
+              <button
+                onClick={() => onManageTools(user)}
+                className="rounded px-2 py-1 text-xs font-medium text-gray-500 hover:bg-gray-100 transition-colors"
+              >
+                Herramientas
+              </button>
               <button
                 onClick={() => onEdit(user)}
                 className="rounded px-2 py-1 text-xs font-medium text-brand-blue hover:bg-brand-blue/10 transition-colors"
@@ -291,4 +310,76 @@ function RoleBadge({ role }: { role: string }) {
 
 function formatDate(iso: string): string {
   return formatFechaRelativa(iso)
+}
+
+function UserToolsModal({ user, onClose }: { user: UserListItem; onClose: () => void }) {
+  const { data: activeTools = [], isLoading } = useUserTools(user.id)
+  const assign = useAssignUserTool()
+  const revoke = useRevokeUserTool()
+
+  function toggle(tool_key: string, currentlyActive: boolean) {
+    if (currentlyActive) {
+      revoke.mutate({ user_id: user.id, tool_key })
+    } else {
+      assign.mutate({ user_id: user.id, tool_key })
+    }
+  }
+
+  const isBusy = assign.isPending || revoke.isPending
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+          <div>
+            <p className="font-semibold text-gray-900">Herramientas</p>
+            <p className="text-xs text-gray-400">{user.full_name ?? user.email}</p>
+          </div>
+          <button onClick={onClose} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+            ✕
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-3">
+          {isLoading ? (
+            <p className="text-sm text-gray-400 py-4 text-center">Cargando...</p>
+          ) : (
+            TOOLS.map((tool) => {
+              const active = activeTools.includes(tool.key)
+              return (
+                <div key={tool.key} className="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">{tool.label}</p>
+                    <p className="text-xs text-gray-400">{tool.desc}</p>
+                  </div>
+                  <button
+                    onClick={() => toggle(tool.key, active)}
+                    disabled={isBusy}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50 ${
+                      active ? "bg-gray-950" : "bg-gray-200"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ${
+                        active ? "translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+              )
+            })
+          )}
+        </div>
+
+        <div className="border-t border-gray-100 px-5 py-3 flex justify-end">
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
