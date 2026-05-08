@@ -163,6 +163,7 @@ export function useAddTeamMember() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["tareas", "equipo", "miembros"] })
       qc.invalidateQueries({ queryKey: ["tareas", "equipo", "disponibles"] })
+      qc.invalidateQueries({ queryKey: ["me"] })
     },
   })
 }
@@ -176,6 +177,7 @@ export function useRemoveTeamMember() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["tareas", "equipo", "miembros"] })
       qc.invalidateQueries({ queryKey: ["tareas", "equipo", "disponibles"] })
+      qc.invalidateQueries({ queryKey: ["me"] })
     },
   })
 }

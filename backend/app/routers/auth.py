@@ -31,6 +31,7 @@ class MeResponse(BaseModel):
     is_active: bool
     app_permissions: list[str] = []
     user_tools: list[str] = []
+    is_team_member: bool = False
 
 
 class UserListResponse(MeResponse):
@@ -74,7 +75,12 @@ class AdminSetPasswordRequest(BaseModel):
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _to_me(u: User, app_permissions: list[str] | None = None, user_tools: list[str] | None = None) -> MeResponse:
+def _to_me(
+    u: User,
+    app_permissions: list[str] | None = None,
+    user_tools: list[str] | None = None,
+    is_team_member: bool = False,
+) -> MeResponse:
     return MeResponse(
         id=cast(int, u.id),
         email=u.email,
@@ -85,6 +91,7 @@ def _to_me(u: User, app_permissions: list[str] | None = None, user_tools: list[s
         is_active=u.is_active,
         app_permissions=app_permissions or [],
         user_tools=user_tools or [],
+        is_team_member=is_team_member,
     )
 
 
@@ -129,7 +136,10 @@ def login(
 
 @router.get("/me", response_model=MeResponse)
 def me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    from app.models.task_team import TaskTeam
+    from app.models.task_team_member import TaskTeamMember
     from app.models.user_tool import UserTool
+
     role = db.exec(select(Role).where(Role.name == current_user.role)).first()
     perms = role.app_permissions if role else []
     tools = db.exec(
@@ -139,7 +149,26 @@ def me(current_user: User = Depends(get_current_user), db: Session = Depends(get
         )
     ).all()
     tool_keys = [t.tool_key for t in tools]
-    return _to_me(current_user, perms, tool_keys)
+
+    dev_team = db.exec(
+        select(TaskTeam).where(
+            TaskTeam.scope == "desarrollo_innovacion",
+            TaskTeam.is_active == True,  # noqa: E712
+        )
+    ).first()
+
+    is_team_member = False
+    if dev_team:
+        team_member_record = db.exec(
+            select(TaskTeamMember).where(
+                TaskTeamMember.team_id == dev_team.id,
+                TaskTeamMember.user_id == current_user.id,
+                TaskTeamMember.is_active == True,  # noqa: E712
+            )
+        ).first()
+        is_team_member = team_member_record is not None
+
+    return _to_me(current_user, perms, tool_keys, is_team_member)
 
 
 @router.post("/register", response_model=MeResponse)
