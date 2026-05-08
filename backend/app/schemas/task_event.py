@@ -1,6 +1,5 @@
 # backend/app/schemas/task_event.py
-from __future__ import annotations
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 
 
@@ -21,6 +20,8 @@ class TaskEventCreate(BaseModel):
 
 
 class TaskEventRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     titulo: str
     descripcion: Optional[str] = None
@@ -31,11 +32,10 @@ class TaskEventRead(BaseModel):
     creado_por_nombre: str
     participants: list[TaskEventParticipantRead] = []
 
-    class Config:
-        from_attributes = True
-
 
 class TaskActivityLogRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     task_id: int
     user_id: int
@@ -43,6 +43,3 @@ class TaskActivityLogRead(BaseModel):
     accion: str
     detalle: Optional[str] = None
     fecha: str                        # ISO string
-
-    class Config:
-        from_attributes = True
