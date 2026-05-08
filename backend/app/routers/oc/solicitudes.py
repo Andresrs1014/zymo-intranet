@@ -355,8 +355,8 @@ _TRANSICIONES: dict[EstadoOC, set[EstadoOC]] = {
     EstadoOC.cancelada:            set(),
     EstadoOC.en_correccion:        {EstadoOC.en_cotizacion},
     EstadoOC.oc_enviada:           {EstadoOC.oc_en_plataforma},
-    EstadoOC.oc_en_plataforma:     {EstadoOC.entregada},
-    EstadoOC.entregada:            {EstadoOC.cerrada},
+    EstadoOC.oc_en_plataforma:     {EstadoOC.cerrada},
+    EstadoOC.entregada:            {EstadoOC.cerrada},   # legado: solicitudes históricas
     EstadoOC.cerrada:              set(),
 }
 
