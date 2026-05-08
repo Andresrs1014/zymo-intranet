@@ -1,6 +1,7 @@
 from datetime import date, datetime
+from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class WorkTaskCreate(BaseModel):
@@ -44,3 +45,30 @@ class WorkTaskRead(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# --- Paginación ---
+
+class PaginatedTaskFilters(BaseModel):
+    page: int = Field(default=1, ge=1)
+    limit: int = Field(default=10, ge=1, le=100)
+    search: Optional[str] = None
+    responsable_id: Optional[int] = None
+    estado: Optional[str] = None
+    etiqueta: Optional[str] = None
+    plataforma: Optional[str] = None
+    fecha_exacta: Optional[str] = None    # "YYYY-MM-DD" — filtra el calendario
+    fecha_desde: Optional[str] = None
+    fecha_hasta: Optional[str] = None
+
+
+class PaginatedMeta(BaseModel):
+    total_items: int
+    total_pages: int
+    current_page: int
+    limit: int
+
+
+class PaginatedTasksResponse(BaseModel):
+    data: list[WorkTaskRead]
+    meta: PaginatedMeta
