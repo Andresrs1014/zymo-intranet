@@ -9,6 +9,11 @@ import type {
   TaskTeamMember,
   AvailableUser,
   TaskFilters,
+  TaskEvent,
+  TaskEventCreate,
+  TaskActivityEntry,
+  PaginatedTaskFilters,
+  PaginatedTasksResponse,
 } from "@/types/workTask"
 
 const BASE = "/api/herramientas/tareas"
@@ -210,6 +215,83 @@ export function useRevokeUserTool() {
     },
     onSuccess: (_d, { user_id }) => {
       qc.invalidateQueries({ queryKey: ["tareas", "admin", "user-tools", user_id] })
+    },
+  })
+}
+
+// --- Hooks de Agenda ---
+
+export function useEventsByDate(fecha: string | null) {
+  return useQuery<TaskEvent[]>({
+    queryKey: ["tareas", "agenda", fecha],
+    queryFn: async () => {
+      const { data } = await api.get<TaskEvent[]>(
+        `/api/herramientas/tareas/agenda/${fecha}`
+      )
+      return data
+    },
+    enabled: !!fecha,
+  })
+}
+
+export function useCreateEvent() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: TaskEventCreate) => {
+      const { data } = await api.post("/api/herramientas/tareas/agenda", payload)
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tareas", "agenda"] })
+    },
+  })
+}
+
+// --- Historial de tarea ---
+
+export function useTaskActivity(taskId: number | null) {
+  return useQuery<TaskActivityEntry[]>({
+    queryKey: ["tareas", "historial", taskId],
+    queryFn: async () => {
+      const { data } = await api.get<TaskActivityEntry[]>(
+        `/api/herramientas/tareas/${taskId}/historial`
+      )
+      return data
+    },
+    enabled: !!taskId,
+  })
+}
+
+// --- Hooks paginados ---
+
+export function useMyTasksPaginated(filters: PaginatedTaskFilters) {
+  return useQuery<PaginatedTasksResponse>({
+    queryKey: ["tareas", "mis-tareas-paginadas", filters],
+    queryFn: async () => {
+      const params = new URLSearchParams()
+      Object.entries(filters).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== "") params.set(k, String(v))
+      })
+      const { data } = await api.get<PaginatedTasksResponse>(
+        `/api/herramientas/tareas/mis-tareas?${params}`
+      )
+      return data
+    },
+  })
+}
+
+export function useTeamTasksPaginated(filters: PaginatedTaskFilters) {
+  return useQuery<PaginatedTasksResponse>({
+    queryKey: ["tareas", "equipo-paginadas", filters],
+    queryFn: async () => {
+      const params = new URLSearchParams()
+      Object.entries(filters).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== "") params.set(k, String(v))
+      })
+      const { data } = await api.get<PaginatedTasksResponse>(
+        `/api/herramientas/tareas/equipo/tareas-paginadas?${params}`
+      )
+      return data
     },
   })
 }

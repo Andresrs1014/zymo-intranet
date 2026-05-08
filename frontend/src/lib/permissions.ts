@@ -89,11 +89,23 @@ export function hasUserTool(userTools: string[] | undefined, key: string): boole
   return userTools?.includes(key) === true
 }
 
-export function canSubmitDevTasks(userTools?: string[]): boolean {
-  return hasUserTool(userTools, "tool_task_submit_dev")
+/**
+ * Puede registrar tareas si:
+ * - Tiene tool_task_submit_dev, O
+ * - Es miembro del equipo (is_team_member = true)
+ */
+export function canSubmitDevTasks(
+  userTools: string[],
+  isTeamMember?: boolean
+): boolean {
+  return userTools.includes("tool_task_submit_dev") || isTeamMember === true
 }
 
-export function canManageDevTasks(userTools?: string[], role?: string): boolean {
-  if (role === "admin") return true
-  return hasUserTool(userTools, "tool_task_manage_dev")
+/**
+ * Puede gestionar si:
+ * - Tiene tool_task_manage_dev, O
+ * - Es admin
+ */
+export function canManageDevTasks(userTools: string[], role?: string): boolean {
+  return userTools.includes("tool_task_manage_dev") || role === "admin"
 }

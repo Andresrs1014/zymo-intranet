@@ -94,3 +94,66 @@ export interface TaskFilters {
 export const ETIQUETAS = ["desarrollos", "actualizaciones", "auditorias", "implementacion_okr", "tareas_diarias"] as const
 export const PLATAFORMAS = ["logimat1", "logimat2", "imccargo", "imcdeposito", "transversal"] as const
 export const ESTADOS = ["completada", "en_progreso", "bloqueada"] as const
+
+// --- Paginación ---
+export interface PaginatedMeta {
+  total_items: number
+  total_pages: number
+  current_page: number
+  limit: number
+}
+
+export interface PaginatedTasksResponse {
+  data: WorkTask[]
+  meta: PaginatedMeta
+}
+
+export interface PaginatedTaskFilters {
+  page?: number
+  limit?: number
+  search?: string
+  responsable_id?: number
+  estado?: string
+  etiqueta?: string
+  plataforma?: string
+  fecha_exacta?: string
+  fecha_desde?: string
+  fecha_hasta?: string
+}
+
+// --- Agenda ---
+export interface TaskEventParticipant {
+  user_id: number
+  user_nombre: string
+  has_conflict: boolean
+  conflict_detail?: string
+}
+
+export interface TaskEvent {
+  id: number
+  titulo: string
+  descripcion?: string
+  fecha: string
+  hora_inicio: string
+  duracion_minutos: number
+  creado_por_nombre: string
+  participants: TaskEventParticipant[]
+}
+
+export interface TaskEventCreate {
+  titulo: string
+  descripcion?: string
+  fecha: string
+  hora_inicio: string
+  duracion_minutos: number
+  participant_ids: number[]
+}
+
+// --- Historial ---
+export interface TaskActivityEntry {
+  id: number
+  user_nombre: string
+  accion: string
+  detalle?: string
+  fecha: string
+}
