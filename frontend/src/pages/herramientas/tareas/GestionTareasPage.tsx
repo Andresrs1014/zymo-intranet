@@ -1,3 +1,4 @@
+import { Navigate } from "react-router-dom"
 import { useAuthStore } from "@/store/authStore"
 import { canManageDevTasks, canSubmitDevTasks } from "@/lib/permissions"
 import { PageLayout } from "@/components/layout/PageLayout"
@@ -6,30 +7,32 @@ import { TaskSubmitView } from "@/components/herramientas/tareas/TaskSubmitView"
 
 export function GestionTareasPage() {
   const user = useAuthStore((s) => s.user)
-  const canManage = canManageDevTasks(user?.user_tools, user?.role)
-  const canSubmit = canSubmitDevTasks(user?.user_tools)
+  const userTools: string[] = user?.user_tools ?? []
+  const role = user?.role
 
+  // Nueva lógica: canSubmit incluye membresía de equipo
+  // is_team_member vendrá del backend en /auth/me (Task 1.11)
+  const canManage = canManageDevTasks(userTools, role)
+  const canSubmit = canSubmitDevTasks(userTools, user?.is_team_member)
+  const hasAnyAccess = canManage || canSubmit
+
+  if (!hasAnyAccess) {
+    return <Navigate to="/dashboard" replace />
+  }
+
+  // Gestor ve TaskManagerView (que también permite registrar sus propias tareas)
   if (canManage) {
     return (
       <PageLayout title="Gestión de Tareas">
-        <TaskManagerView />
+        <TaskManagerView canSubmitOwn={true} />
       </PageLayout>
     )
   }
 
-  if (canSubmit) {
-    return (
-      <PageLayout title="Registro de Tareas">
-        <TaskSubmitView />
-      </PageLayout>
-    )
-  }
-
+  // Colaborador ve TaskSubmitView
   return (
-    <PageLayout title="Gestión de Tareas">
-      <div className="p-8 text-center text-gray-500">
-        No tienes acceso a esta herramienta.
-      </div>
+    <PageLayout title="Registro de Tareas">
+      <TaskSubmitView />
     </PageLayout>
   )
 }

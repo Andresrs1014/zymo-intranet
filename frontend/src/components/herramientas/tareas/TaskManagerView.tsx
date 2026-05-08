@@ -21,7 +21,7 @@ import {
   formatMinutos,
 } from "@/lib/taskTheme"
 
-export function TaskManagerView() {
+export function TaskManagerView({ canSubmitOwn: _canSubmitOwn }: { canSubmitOwn?: boolean } = {}) {
   const [filters, setFilters] = useState<TaskFilters>({})
   const [selectedTask, setSelectedTask] = useState<WorkTask | null>(null)
   const [teamConfigOpen, setTeamConfigOpen] = useState(false)
