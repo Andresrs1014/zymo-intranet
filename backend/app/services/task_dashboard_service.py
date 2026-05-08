@@ -78,12 +78,10 @@ def get_team_kpis(
     """
     if member_ids is not None:
         # Build a scoped query directly — bypass get_team_tasks team-membership check.
-        from datetime import date as date_type
-
         query = select(WorkTask).where(WorkTask.scope == SCOPE_DEV)
         query = query.where(WorkTask.subido_por_id.in_(member_ids))  # type: ignore[union-attr]
-        _fecha_desde = date_type.fromisoformat(fecha_desde) if fecha_desde else filters.fecha_desde
-        _fecha_hasta = date_type.fromisoformat(fecha_hasta) if fecha_hasta else filters.fecha_hasta
+        _fecha_desde = date.fromisoformat(fecha_desde) if fecha_desde else filters.fecha_desde
+        _fecha_hasta = date.fromisoformat(fecha_hasta) if fecha_hasta else filters.fecha_hasta
         if _fecha_desde is not None:
             query = query.where(WorkTask.fecha >= _fecha_desde)
         if _fecha_hasta is not None:
@@ -91,12 +89,10 @@ def get_team_kpis(
         tasks = list(db.exec(query).all())
     else:
         # Apply optional date overrides onto filters before delegating.
-        from datetime import date as date_type
-
         if fecha_desde is not None:
-            filters = filters.model_copy(update={"fecha_desde": date_type.fromisoformat(fecha_desde)})
+            filters = filters.model_copy(update={"fecha_desde": date.fromisoformat(fecha_desde)})
         if fecha_hasta is not None:
-            filters = filters.model_copy(update={"fecha_hasta": date_type.fromisoformat(fecha_hasta)})
+            filters = filters.model_copy(update={"fecha_hasta": date.fromisoformat(fecha_hasta)})
         tasks = get_team_tasks(db, filters)
 
     active_ids = get_active_member_ids(db)
@@ -109,6 +105,8 @@ def get_team_kpis(
 
     usuarios_activos = len({t.subido_por_id for t in tasks})
 
+    # NOTE: usuarios_sin_registro_hoy siempre refleja el equipo completo,
+    # independiente de member_ids — es un KPI global del equipo
     hoy = date.today()
     ids_con_registro_hoy = {
         t.subido_por_id
