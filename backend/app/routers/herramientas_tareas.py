@@ -15,8 +15,9 @@ from sqlmodel import Session, select
 from app.core.deps import get_current_user, get_db
 from app.models.user import User
 from app.models.user_tool import UserTool
-from app.schemas.work_task import WorkTaskCreate, WorkTaskRead, WorkTaskUpdate
+from app.schemas.work_task import WorkTaskCreate, WorkTaskRead, WorkTaskUpdate, PaginatedTasksResponse
 from app.schemas.task_dashboard import TaskFilters, TaskKpis, PersonTaskSummary
+from app.schemas.task_event import TaskEventCreate
 from app.schemas.task_team import (
     AvailableUserRead,
     TaskTeamMemberCreate,
@@ -65,30 +66,71 @@ def _team_filters(
 
 # ── User endpoints (TOOL_SUBMIT) ───────────────────────────────────────────────
 
-@router.get("/mis-tareas", response_model=list[WorkTaskRead])
-def get_mis_tareas(
-    fecha_desde: Optional[date] = Query(default=None),
-    fecha_hasta: Optional[date] = Query(default=None),
+@router.get("/mis-tareas", response_model=PaginatedTasksResponse)
+def mis_tareas_paginadas(
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=10, ge=1, le=100),
+    search: Optional[str] = Query(default=None),
     estado: Optional[str] = Query(default=None),
     etiqueta: Optional[str] = Query(default=None),
     plataforma: Optional[str] = Query(default=None),
+    fecha_exacta: Optional[str] = Query(default=None),
+    fecha_desde: Optional[str] = Query(default=None),
+    fecha_hasta: Optional[str] = Query(default=None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> list[WorkTaskRead]:
-    require_tool_or_403(db, current_user, TOOL_SUBMIT, SCOPE_DEV)
+):
+    from app.schemas.work_task import PaginatedTaskFilters
+    from app.services.work_task_service import get_paginated_tasks
 
-    from app.services.work_task_service import list_own_tasks
+    require_tool_or_403(db, current_user, "tool_task_submit_dev", "desarrollo_innovacion")
 
-    tasks = list_own_tasks(
-        db,
-        current_user,
-        fecha_desde=fecha_desde,
-        fecha_hasta=fecha_hasta,
-        estado=estado,
-        etiqueta=etiqueta,
-        plataforma=plataforma,
+    filters = PaginatedTaskFilters(
+        page=page, limit=limit, search=search, estado=estado,
+        etiqueta=etiqueta, plataforma=plataforma,
+        fecha_exacta=fecha_exacta, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta,
     )
-    return [WorkTaskRead.model_validate(t) for t in tasks]
+    return get_paginated_tasks(db, current_user.id, "desarrollo_innovacion", filters)
+
+
+@router.get("/equipo/tareas-paginadas", response_model=PaginatedTasksResponse)
+def equipo_tareas_paginadas(
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=10, ge=1, le=100),
+    search: Optional[str] = Query(default=None),
+    responsable_id: Optional[int] = Query(default=None),
+    estado: Optional[str] = Query(default=None),
+    etiqueta: Optional[str] = Query(default=None),
+    plataforma: Optional[str] = Query(default=None),
+    fecha_exacta: Optional[str] = Query(default=None),
+    fecha_desde: Optional[str] = Query(default=None),
+    fecha_hasta: Optional[str] = Query(default=None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.schemas.work_task import PaginatedTaskFilters
+    from app.services.work_task_service import get_paginated_tasks
+    from app.services.task_team_service import get_or_create_dev_team
+    from app.models.task_team_member import TaskTeamMember
+    from sqlmodel import select
+
+    require_tool_or_403(db, current_user, "tool_task_manage_dev", "desarrollo_innovacion")
+
+    team = get_or_create_dev_team(db)
+    members = db.exec(
+        select(TaskTeamMember).where(
+            TaskTeamMember.team_id == team.id,
+            TaskTeamMember.is_active == True,  # noqa: E712
+        )
+    ).all()
+    member_ids = [m.user_id for m in members]
+
+    filters = PaginatedTaskFilters(
+        page=page, limit=limit, search=search, responsable_id=responsable_id,
+        estado=estado, etiqueta=etiqueta, plataforma=plataforma,
+        fecha_exacta=fecha_exacta, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta,
+    )
+    return get_paginated_tasks(db, current_user.id, "desarrollo_innovacion", filters, team_member_ids=member_ids)
 
 
 @router.post("/", response_model=WorkTaskRead, status_code=status.HTTP_201_CREATED)
@@ -103,6 +145,38 @@ def create_task_endpoint(
 
     task = create_task(db, current_user, payload)
     return WorkTaskRead.model_validate(task)
+
+
+@router.get("/{task_id}/historial", response_model=None)
+def historial_tarea(
+    task_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.services.work_task_service import get_task_activity
+    from app.models.work_task import WorkTask
+    from app.services.user_tool_service import user_has_tool
+
+    task = db.get(WorkTask, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Tarea no encontrada.")
+
+    is_manager = user_has_tool(db, current_user, "tool_task_manage_dev", "desarrollo_innovacion")
+    is_admin = getattr(current_user, "role", None) == "admin"
+    if not is_manager and not is_admin and task.subido_por_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Sin acceso.")
+
+    logs = get_task_activity(db, task_id)
+    return [
+        {
+            "id": log.id,
+            "user_nombre": log.user_nombre,
+            "accion": log.accion,
+            "detalle": log.detalle,
+            "fecha": log.fecha.isoformat(),
+        }
+        for log in logs
+    ]
 
 
 @router.patch("/{task_id}", response_model=WorkTaskRead)
@@ -233,6 +307,70 @@ def export_equipo_pdf(
         media_type="application/pdf",
         headers={"Content-Disposition": "attachment; filename=tareas.pdf"},
     )
+
+
+# ── Agenda endpoints ──────────────────────────────────────────────────────────
+
+@router.post("/agenda", response_model=None, status_code=201)
+def crear_evento_agenda(
+    payload: TaskEventCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.services.task_event_service import create_event
+    from app.services.user_tool_service import user_has_tool
+
+    is_manager = user_has_tool(db, current_user, "tool_task_manage_dev", "desarrollo_innovacion")
+    is_admin = getattr(current_user, "role", None) == "admin"
+    if not is_manager and not is_admin:
+        # Solo puede incluirse a sí mismo
+        if payload.participant_ids != [current_user.id]:
+            raise HTTPException(status_code=403, detail="Solo el gestor puede agendar para otros miembros.")
+
+    result = create_event(db, current_user, payload)
+    return {"ok": True, "event_id": result["event"].id}
+
+
+@router.get("/agenda/{fecha}", response_model=None)
+def eventos_por_fecha(
+    fecha: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """fecha formato YYYY-MM-DD"""
+    from app.services.task_event_service import get_events_by_date
+    from app.services.user_tool_service import user_has_tool
+
+    is_manager = user_has_tool(db, current_user, "tool_task_manage_dev", "desarrollo_innovacion")
+    is_admin = getattr(current_user, "role", None) == "admin"
+
+    if is_manager or is_admin:
+        result = get_events_by_date(db, fecha, user_id=None)
+    else:
+        require_tool_or_403(db, current_user, "tool_task_submit_dev", "desarrollo_innovacion")
+        result = get_events_by_date(db, fecha, user_id=current_user.id)
+
+    return [
+        {
+            "id": r["event"].id,
+            "titulo": r["event"].titulo,
+            "descripcion": r["event"].descripcion,
+            "fecha": r["event"].fecha,
+            "hora_inicio": r["event"].hora_inicio,
+            "duracion_minutos": r["event"].duracion_minutos,
+            "creado_por_nombre": r["event"].creado_por_nombre,
+            "participants": [
+                {
+                    "user_id": p.user_id,
+                    "user_nombre": p.user_nombre,
+                    "has_conflict": p.has_conflict,
+                    "conflict_detail": p.conflict_detail,
+                }
+                for p in r["participants"]
+            ],
+        }
+        for r in result
+    ]
 
 
 # ── Team config endpoints (TOOL_MANAGE) ───────────────────────────────────────
