@@ -2575,7 +2575,7 @@ function PanelOrdenCompra({
             <div>
               <p className="text-sm font-semibold text-violet-800">Pedido en plataforma</p>
               {orden && <p className="text-xs text-violet-600 font-mono">{orden.numero_oc}</p>}
-              <p className="text-xs text-violet-500 mt-0.5">Esperando confirmación del líder</p>
+              <p className="text-xs text-violet-500 mt-0.5">Esperando confirmación del solicitante — al confirmar se cierra la solicitud</p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -2601,7 +2601,7 @@ function PanelOrdenCompra({
               disabled={isMarkingEntregada}
               className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-50 transition-colors"
             >
-              {isMarkingEntregada ? "Guardando..." : "Confirmar recepción"}
+              {isMarkingEntregada ? "Cerrando..." : "Confirmar recepción y cerrar"}
             </button>
           </div>
         </div>
