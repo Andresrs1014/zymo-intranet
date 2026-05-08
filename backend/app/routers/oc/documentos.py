@@ -472,17 +472,19 @@ def marcar_entregada(
             detail=f"Solo se puede confirmar recepción desde estado 'oc_en_plataforma'. Estado actual: {solicitud.estado}",
         )
 
+    now = datetime.now(timezone.utc)
     estado_anterior = solicitud.estado
-    solicitud.estado = EstadoOC.entregada
-    solicitud.fecha_recibido = datetime.now(timezone.utc)
-    solicitud.updated_at = datetime.now(timezone.utc)
+    solicitud.estado = EstadoOC.cerrada
+    solicitud.fecha_recibido = now
+    solicitud.fecha_cerrado = now
+    solicitud.updated_at = now
     oc_db.add(solicitud)
 
     registrar_cambio_estado(
         oc_db,
         solicitud.id,
         estado_anterior,
-        EstadoOC.entregada,
+        EstadoOC.cerrada,
         usuario_id=current_user.id,
         usuario_nombre=current_user.full_name,
     )
