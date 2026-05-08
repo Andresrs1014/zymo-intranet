@@ -129,10 +129,18 @@ def get_events_by_date(db: "Session", fecha: str, user_id: int | None = None) ->
             .order_by(TaskEvent.hora_inicio)
         ).all()
 
-    result = []
-    for ev in events:
-        parts = db.exec(
-            select(TaskEventParticipant).where(TaskEventParticipant.event_id == ev.id)
+    event_ids = [ev.id for ev in events]
+    if event_ids:
+        all_parts = db.exec(
+            select(TaskEventParticipant).where(
+                TaskEventParticipant.event_id.in_(event_ids)
+            )
         ).all()
-        result.append({"event": ev, "participants": parts})
-    return result
+    else:
+        all_parts = []
+
+    parts_by_event: dict[int, list] = {}
+    for p in all_parts:
+        parts_by_event.setdefault(p.event_id, []).append(p)
+
+    return [{"event": ev, "participants": parts_by_event.get(ev.id, [])} for ev in events]

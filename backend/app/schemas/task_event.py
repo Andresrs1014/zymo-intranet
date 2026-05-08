@@ -1,5 +1,6 @@
 # backend/app/schemas/task_event.py
-from pydantic import BaseModel, ConfigDict
+import re
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing import Optional
 
 
@@ -15,8 +16,22 @@ class TaskEventCreate(BaseModel):
     descripcion: Optional[str] = None
     fecha: str                         # "YYYY-MM-DD"
     hora_inicio: str                   # "HH:MM"
-    duracion_minutos: int = 60
-    participant_ids: list[int]         # IDs de usuarios participantes
+    duracion_minutos: int = Field(default=60, ge=5, le=1440)
+    participant_ids: list[int] = Field(min_length=1)         # IDs de usuarios participantes
+
+    @field_validator("fecha")
+    @classmethod
+    def validate_fecha(cls, v: str) -> str:
+        if not re.match(r"\d{4}-\d{2}-\d{2}", v):
+            raise ValueError("fecha must be YYYY-MM-DD")
+        return v
+
+    @field_validator("hora_inicio")
+    @classmethod
+    def validate_hora_inicio(cls, v: str) -> str:
+        if not re.match(r"\d{2}:\d{2}", v):
+            raise ValueError("hora_inicio must be HH:MM")
+        return v
 
 
 class TaskEventRead(BaseModel):
