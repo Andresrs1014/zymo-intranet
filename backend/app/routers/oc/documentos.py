@@ -494,6 +494,9 @@ def marcar_entregada(
     return {"ok": True}
 
 
+# LEGADO: Este endpoint solo existe para cerrar manualmente solicitudes históricas
+# que quedaron en estado 'entregada' antes del cambio al flujo automático de cierre.
+# En el flujo actual, oc_en_plataforma → cerrada ocurre directamente en marcar_entregada.
 @router.post(
     "/solicitudes/{solicitud_id}/cerrar",
     response_model=None,

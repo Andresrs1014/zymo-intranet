@@ -740,7 +740,7 @@ def _html_entrega_confirmada(s: "SolicitudOC", cfg: Optional[dict] = None, logo_
     cuerpo = f"""
     <p style="color:#374151;font-size:14px">Hola <strong>{s.solicitante_nombre}</strong>,</p>
     <p style="color:#374151;font-size:14px">
-      El coordinador ha confirmado la recepción física de tu pedido. Tu solicitud queda marcada como entregada.
+      El coordinador ha confirmado la recepción física de tu pedido. Tu solicitud queda cerrada — recepción confirmada.
     </p>
     {_tabla(
         _fila("Consecutivo", s.consecutivo_os),
@@ -748,7 +748,7 @@ def _html_entrega_confirmada(s: "SolicitudOC", cfg: Optional[dict] = None, logo_
         _fila("Fecha de solicitud", _fmt_fecha(s.fecha_solicitud)),
         _fila("Fecha de envío OC", _fmt_fecha(s.fecha_envio_oc)),
         _fila("Fecha de recepción", _fmt_fecha(s.fecha_recibido)),
-        _fila("Estado", "✅ Entregado"),
+        _fila("Estado", "✅ Cerrada — recepción confirmada"),
     )}
     <p style="color:#6b7280;font-size:13px">
       Si tienes alguna observación sobre el pedido recibido, comunícate con el equipo de compras.
