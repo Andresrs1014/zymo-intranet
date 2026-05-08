@@ -1,4 +1,4 @@
-import { useRef, useState } from "react"
+import { type ReactNode, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { api } from "@/lib/api"
@@ -43,6 +43,7 @@ import {
   useSubirProforma,
   type EditarCotizacionPayload,
   type CorregirDirectivoPayload,
+  type PlataformaOption,
 } from "@/hooks/useOC"
 import { useAuthStore } from "@/store/authStore"
 import { getApiError } from "@/hooks/useUsers"
@@ -198,6 +199,8 @@ export function SolicitudDetallePage() {
   const muestraAccionesDirectorCotizada =
     esAprobador && !!cotizacionAprobada && estadoPermiteCorreccionDirectiva
 
+  const solicitudYaEnCorreccion = solicitud.estado === "en_correccion"
+
   const puedeGestionarProforma = puedeGestionarProformaDesdeOc(cotizaciones.length, solicitud.estado)
   const muestraAyudaProformaPrevCotizacion =
     !!user &&
@@ -243,12 +246,26 @@ export function SolicitudDetallePage() {
     if (modoRechazoSol === "cancelar") {
       cancelarSolicitud.mutate(
         { id, justificacion: textoRechazoSol },
-        { onSuccess: () => { setModoRechazoSol(null); setTextoRechazoSol("") } }
+        {
+          onSuccess: () => {
+            setModoRechazoSol(null)
+            setTextoRechazoSol("")
+            setErrorOC(null)
+          },
+          onError: (err: unknown) => setErrorOC(getApiError(err) || "No se pudo cancelar la solicitud."),
+        },
       )
     } else if (modoRechazoSol === "correccion") {
       correccionSolicitud.mutate(
         { id, que_corregir: textoRechazoSol },
-        { onSuccess: () => { setModoRechazoSol(null); setTextoRechazoSol("") } }
+        {
+          onSuccess: () => {
+            setModoRechazoSol(null)
+            setTextoRechazoSol("")
+            setErrorOC(null)
+          },
+          onError: (err: unknown) => setErrorOC(getApiError(err) || "No se pudo mandar la solicitud a corrección."),
+        },
       )
     }
   }
@@ -460,35 +477,45 @@ export function SolicitudDetallePage() {
           {modoRechazoSol ? (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
               <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4 space-y-4">
-                <h3 className="text-base font-semibold text-gray-900">Rechazar Solicitud</h3>
+                <h3 className="text-base font-semibold text-gray-900">
+                  {solicitudYaEnCorreccion ? "Cancelar solicitud" : "Rechazar solicitud"}
+                </h3>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => { setModoRechazoSol("cancelar"); setTextoRechazoSol("") }}
-                    className={`rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors ${
-                      modoRechazoSol === "cancelar"
-                        ? "border-red-400 bg-red-50 text-red-700"
-                        : "border-gray-200 text-gray-500 hover:bg-gray-50"
-                    }`}
-                  >
-                    Cancelar solicitud
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setModoRechazoSol("correccion"); setTextoRechazoSol("") }}
-                    className={`rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors ${
-                      modoRechazoSol === "correccion"
-                        ? "border-amber-400 bg-amber-50 text-amber-700"
-                        : "border-gray-200 text-gray-500 hover:bg-gray-50"
-                    }`}
-                  >
-                    Mandar a corrección
-                  </button>
-                </div>
+                {!solicitudYaEnCorreccion ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setModoRechazoSol("cancelar"); setTextoRechazoSol("") }}
+                      className={`rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors ${
+                        modoRechazoSol === "cancelar"
+                          ? "border-red-400 bg-red-50 text-red-700"
+                          : "border-gray-200 text-gray-500 hover:bg-gray-50"
+                      }`}
+                    >
+                      Cancelar solicitud
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setModoRechazoSol("correccion"); setTextoRechazoSol("") }}
+                      className={`rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors ${
+                        modoRechazoSol === "correccion"
+                          ? "border-amber-400 bg-amber-50 text-amber-700"
+                          : "border-gray-200 text-gray-500 hover:bg-gray-50"
+                      }`}
+                    >
+                      Mandar a corrección
+                    </button>
+                  </div>
+                ) : (
+                  <p className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                    Esta solicitud <strong>ya está en corrección</strong>: quien pidió debe ajustarla y volver a
+                    enviarla desde la intranet. Desde aquí solo puedes <strong>cancelarla</strong> si la compra ya no
+                    aplica.
+                  </p>
+                )}
 
                 <p className="text-sm text-gray-500">
-                  {modoRechazoSol === "cancelar"
+                  {solicitudYaEnCorreccion || modoRechazoSol === "cancelar"
                     ? `La solicitud quedará cancelada definitivamente. Se notificará a ${solicitud.solicitante_email} por correo.`
                     : `La solicitud regresará al solicitante para que la corrija desde la intranet.`}
                 </p>
@@ -538,7 +565,11 @@ export function SolicitudDetallePage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setModoRechazoSol(null); setTextoRechazoSol("") }}
+                    onClick={() => {
+                      setModoRechazoSol(null)
+                      setTextoRechazoSol("")
+                      setErrorOC(null)
+                    }}
                     className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
                   >
                     Cerrar
@@ -963,14 +994,20 @@ export function SolicitudDetallePage() {
                 </>
               ) : null}
               {(esAuxiliarAsignado || puedeAsignarOtro || puedeAsignarse) &&
-                (["nueva", "en_cotizacion", "pendiente_aprobacion", "en_correccion"] as string[]).includes(solicitud.estado) && (
+                (["nueva", "en_cotizacion", "pendiente_aprobacion", "en_correccion"] as string[]).includes(
+                  solicitud.estado,
+                ) && (
                   <button
-                    onClick={() => setModoRechazoSol("cancelar")}
+                    onClick={() => {
+                      setErrorOC(null)
+                      setModoRechazoSol("cancelar")
+                      setTextoRechazoSol("")
+                    }}
                     className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-100 transition-colors"
                   >
-                    Rechazar Solicitud
+                    {solicitudYaEnCorreccion ? "Cancelar solicitud" : "Rechazar solicitud"}
                   </button>
-              )}
+                )}
               {puedeAsignarse &&
                 (["nueva", "en_cotizacion", "en_correccion"] as string[]).includes(solicitud.estado) && (
                 <button
@@ -1024,6 +1061,7 @@ export function SolicitudDetallePage() {
                 solicitud.estado === "entregada" ||
                 solicitud.estado === "cerrada") && (
                 <PanelOrdenCompra
+                  key={solicitud.estado}
                   estado={solicitud.estado}
                   orden={orden ?? null}
                   plataforma={solicitud.plataforma ?? ""}
@@ -2273,6 +2311,93 @@ function PanelAprobacion({
 
 // ── Panel Orden de Compra ─────────────────────────────────────────────────────
 
+type RegenerarOCTone = "green" | "blue" | "violet"
+
+const REGENERAR_OC_PANEL: Record<
+  RegenerarOCTone,
+  { divider: string; label: string; select: string; btnGo: string; btnCancel: string }
+> = {
+  green: {
+    divider: "border-green-200",
+    label: "text-green-700",
+    select: "border-green-300 focus:ring-green-400",
+    btnGo: "bg-green-700 hover:bg-green-800",
+    btnCancel: "border-green-300 text-green-700 hover:bg-green-100",
+  },
+  blue: {
+    divider: "border-blue-200",
+    label: "text-blue-700",
+    select: "border-blue-300 focus:ring-blue-400",
+    btnGo: "bg-blue-700 hover:bg-blue-800",
+    btnCancel: "border-blue-300 text-blue-700 hover:bg-blue-100",
+  },
+  violet: {
+    divider: "border-violet-200",
+    label: "text-violet-700",
+    select: "border-violet-300 focus:ring-violet-400",
+    btnGo: "bg-violet-700 hover:bg-violet-800",
+    btnCancel: "border-violet-300 text-violet-700 hover:bg-violet-100",
+  },
+}
+
+function RegenerarOCExpand({
+  tone,
+  plataformaRegen,
+  setPlataformaRegen,
+  plataformasDisponibles,
+  onConfirm,
+  onCancel,
+  isGenerating,
+  isBusy,
+}: {
+  tone: RegenerarOCTone
+  plataformaRegen: string
+  setPlataformaRegen: (slug: string) => void
+  plataformasDisponibles: PlataformaOption[]
+  onConfirm: () => void
+  onCancel: () => void
+  isGenerating: boolean
+  isBusy?: boolean
+}) {
+  const t = REGENERAR_OC_PANEL[tone]
+  const busy = !!(isBusy || isGenerating)
+  return (
+    <div className={`border-t ${t.divider} pt-3 space-y-2`}>
+      <p className={`text-xs font-medium ${t.label}`}>Selecciona el nuevo formato de plataforma:</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          value={plataformaRegen}
+          onChange={(e) => setPlataformaRegen(e.target.value)}
+          className={`min-w-[160px] flex-1 rounded-lg border bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 ${t.select}`}
+        >
+          <option value="">— Seleccionar —</option>
+          {plataformasDisponibles.map((p) => (
+            <option key={p.slug} value={p.slug}>
+              {p.nombre}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={onConfirm}
+          disabled={busy || !plataformaRegen}
+          className={`rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition-colors disabled:opacity-50 ${t.btnGo}`}
+        >
+          {isGenerating ? "Generando..." : "Regenerar"}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={busy}
+          className={`rounded-lg border px-3 py-1.5 text-xs transition-colors disabled:opacity-50 ${t.btnCancel}`}
+        >
+          Cancelar
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function PanelOrdenCompra({
   estado,
   orden,
@@ -2394,13 +2519,22 @@ function PanelOrdenCompra({
               {orden && <p className="text-xs text-blue-600 font-mono">{orden.numero_oc}</p>}
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {orden && (
               <button
                 onClick={onDescargar}
                 className="rounded-lg border border-blue-300 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors"
               >
                 ↓ Descargar OC
+              </button>
+            )}
+            {puedeGenerar && orden && !showRegenerar && (
+              <button
+                type="button"
+                onClick={() => setShowRegenerar(true)}
+                className="rounded-lg border border-blue-300 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors"
+              >
+                ↺ Otro formato
               </button>
             )}
             <button
@@ -2412,6 +2546,21 @@ function PanelOrdenCompra({
             </button>
           </div>
         </div>
+        {showRegenerar && puedeGenerar && orden && (
+          <RegenerarOCExpand
+            tone="blue"
+            plataformaRegen={plataformaRegen}
+            setPlataformaRegen={setPlataformaRegen}
+            plataformasDisponibles={plataformasDisponibles}
+            isGenerating={isGenerating}
+            isBusy={isActualizando}
+            onConfirm={() => {
+              onRegenerar(plataformaRegen)
+              setShowRegenerar(false)
+            }}
+            onCancel={() => setShowRegenerar(false)}
+          />
+        )}
       </div>
     )
   }
@@ -2429,13 +2578,22 @@ function PanelOrdenCompra({
               <p className="text-xs text-violet-500 mt-0.5">Esperando confirmación del líder</p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {orden && (
               <button
                 onClick={onDescargar}
                 className="rounded-lg border border-violet-300 px-3 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-100 transition-colors"
               >
                 ↓ Descargar OC
+              </button>
+            )}
+            {puedeGenerar && orden && !showRegenerar && (
+              <button
+                type="button"
+                onClick={() => setShowRegenerar(true)}
+                className="rounded-lg border border-violet-300 px-3 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-100 transition-colors"
+              >
+                ↺ Otro formato
               </button>
             )}
             <button
@@ -2447,6 +2605,21 @@ function PanelOrdenCompra({
             </button>
           </div>
         </div>
+        {showRegenerar && puedeGenerar && orden && (
+          <RegenerarOCExpand
+            tone="violet"
+            plataformaRegen={plataformaRegen}
+            setPlataformaRegen={setPlataformaRegen}
+            plataformasDisponibles={plataformasDisponibles}
+            isGenerating={isGenerating}
+            isBusy={isActualizando}
+            onConfirm={() => {
+              onRegenerar(plataformaRegen)
+              setShowRegenerar(false)
+            }}
+            onCancel={() => setShowRegenerar(false)}
+          />
+        )}
       </div>
     )
   }
@@ -2463,7 +2636,7 @@ function PanelOrdenCompra({
               <p className="text-xs text-green-600 font-mono">{orden.numero_oc}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={onDescargar}
               className="rounded-lg border border-green-300 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-100 transition-colors"
@@ -2472,6 +2645,7 @@ function PanelOrdenCompra({
             </button>
             {puedeGenerar && !showRegenerar && (
               <button
+                type="button"
                 onClick={() => setShowRegenerar(true)}
                 className="rounded-lg border border-green-300 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-100 transition-colors"
               >
@@ -2480,7 +2654,11 @@ function PanelOrdenCompra({
             )}
             {puedeGenerar && (
               <button
-                onClick={() => { setEmailInput(emailProveedorInicial); setShowModal(true) }}
+                type="button"
+                onClick={() => {
+                  setEmailInput(emailProveedorInicial)
+                  setShowModal(true)
+                }}
                 disabled={isMarkingEnviada}
                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
               >
@@ -2490,38 +2668,20 @@ function PanelOrdenCompra({
           </div>
         </div>
 
-        {/* Regenerar con otro formato */}
         {showRegenerar && puedeGenerar && (
-          <div className="border-t border-green-200 pt-3 space-y-2">
-            <p className="text-xs font-medium text-green-700">Selecciona el nuevo formato de plataforma:</p>
-            <div className="flex items-center gap-2">
-              <select
-                value={plataformaRegen}
-                onChange={(e) => setPlataformaRegen(e.target.value)}
-                className="flex-1 rounded-lg border border-green-300 px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-400"
-              >
-                <option value="">— Seleccionar —</option>
-                {plataformasDisponibles.map((p) => (
-                  <option key={p.slug} value={p.slug}>
-                    {p.nombre}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={() => { onRegenerar(plataformaRegen); setShowRegenerar(false) }}
-                disabled={isGenerating || !plataformaRegen}
-                className="rounded-lg bg-green-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-800 disabled:opacity-50 transition-colors"
-              >
-                {isGenerating ? "Generando..." : "Regenerar"}
-              </button>
-              <button
-                onClick={() => setShowRegenerar(false)}
-                className="rounded-lg border border-green-300 px-3 py-1.5 text-xs text-green-700 hover:bg-green-100 transition-colors"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
+          <RegenerarOCExpand
+            tone="green"
+            plataformaRegen={plataformaRegen}
+            setPlataformaRegen={setPlataformaRegen}
+            plataformasDisponibles={plataformasDisponibles}
+            isGenerating={isGenerating}
+            isBusy={isActualizando}
+            onConfirm={() => {
+              onRegenerar(plataformaRegen)
+              setShowRegenerar(false)
+            }}
+            onCancel={() => setShowRegenerar(false)}
+          />
         )}
 
         {/* Modal confirmación email proveedor */}
@@ -2909,55 +3069,106 @@ function ComparativaFila({
 
 // ── Historial de cambios de estado ────────────────────────────────────────────
 
+const OC_HISTORIAL_TIPO_ACCION: Record<string, string> = {
+  correccion_directivo: "Corrección directiva (datos cotización / OC actualizados, sin cambiar etapa)",
+  correccion_solicitud: "Solicitud devuelta para corrección",
+  correccion_cotizacion_a_auxiliar: "Cotización devuelta al auxiliar",
+  correccion_cotizacion_a_solicitante: "Cotización devuelta al solicitante",
+  cancelacion_solicitud: "Cancelación de solicitud",
+  cancelacion_cotizacion: "Cancelación de cotización",
+  cancelacion_directivo: "Cancelación por directivo (post-aprobación)",
+}
+
+function historialTipoAccionDescripcion(tipo: string | null | undefined): string | null {
+  if (!tipo || !tipo.trim()) return null
+  return OC_HISTORIAL_TIPO_ACCION[tipo] ?? tipo.replace(/_/g, " ")
+}
+
 function HistorialTimeline({ entradas }: { entradas: HistorialEntrada[] }) {
   return (
     <div className="space-y-3">
       {entradas.map((e, idx) => {
         const isLast = idx === entradas.length - 1
+        const esCorrDir = e.tipo_accion === "correccion_directivo"
+        const accionLabel = historialTipoAccionDescripcion(e.tipo_accion)
+
+        const dotClass = esCorrDir
+          ? "bg-amber-500"
+          : isLast
+            ? "bg-brand-blue"
+            : "bg-gray-300"
+
         return (
           <div key={e.id} className="flex gap-3">
-            {/* Indicador vertical */}
             <div className="flex flex-col items-center shrink-0">
-              <div
-                className={`h-2.5 w-2.5 rounded-full mt-1 shrink-0 ${
-                  isLast ? "bg-brand-blue" : "bg-gray-300"
-                }`}
-              />
-              {!isLast && <div className="flex-1 w-px bg-gray-100 mt-1" />}
+              <div className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${dotClass}`} />
+              {!isLast && <div className="mt-1 flex-1 w-px bg-gray-100" />}
             </div>
 
-            {/* Contenido */}
-            <div className="pb-3 min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                {e.estado_anterior && (
-                  <>
-                    <span className="text-xs text-gray-400">
-                      {estadoDisplayLabel(e.estado_anterior)}
+            <div
+              className={`min-w-0 flex-1 pb-3 ${esCorrDir ? "rounded-lg border-l-4 border-amber-400 bg-amber-50/50 pl-3 -ml-1" : ""}`}
+            >
+              {esCorrDir ? (
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-block rounded-full bg-amber-200 px-2 py-0.5 text-xs font-semibold text-amber-900">
+                      Corrección directiva
                     </span>
-                    <span className="text-xs text-gray-300">→</span>
-                  </>
-                )}
-                <span
-                  className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${estadoBadgeClass(e.estado_nuevo)}`}
-                >
-                  {estadoDisplayLabel(e.estado_nuevo)}
-                </span>
-              </div>
-              <div className="mt-0.5 flex items-center gap-2 flex-wrap">
-                {e.usuario_nombre && (
-                  <span className="text-xs text-gray-500">{e.usuario_nombre}</span>
-                )}
-                <span className="text-xs text-gray-400">{formatFechaRelativa(e.fecha)}</span>
-              </div>
-              {e.notas && (
-                <p className="mt-1 text-xs text-gray-500 italic">"{e.notas}"</p>
+                    <span className="text-xs font-medium text-gray-600">
+                      Etapa conservada · {estadoDisplayLabel(e.estado_nuevo)}
+                    </span>
+                  </div>
+                  <p className="text-[11px] leading-snug text-amber-800/90">
+                    Se actualizaron datos de la cotización u orden sin retroceder el flujo.
+                    {(e.estado_nuevo === "oc_enviada" || e.estado_nuevo === "oc_en_plataforma") && (
+                      <span className="font-medium"> Si la OC ya estaba enviada, puede haberse regenerado y reenviado al proveedor.</span>
+                    )}
+                  </p>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center gap-2">
+                  {e.estado_anterior ? (
+                    <>
+                      <span className="text-xs text-gray-400">
+                        {estadoDisplayLabel(e.estado_anterior)}
+                      </span>
+                      <span className="text-xs text-gray-300">→</span>
+                    </>
+                  ) : null}
+                  <span
+                    className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${estadoBadgeClass(e.estado_nuevo)}`}
+                  >
+                    {estadoDisplayLabel(e.estado_nuevo)}
+                  </span>
+                  {accionLabel && (
+                    <span className="inline-block max-w-full rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] font-medium leading-snug text-gray-600">
+                      {accionLabel}
+                    </span>
+                  )}
+                </div>
               )}
+
+              <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                {e.usuario_nombre ? (
+                  <span className="text-xs text-gray-500">{e.usuario_nombre}</span>
+                ) : null}
+                <span className="text-xs text-gray-400">{formatFechaRelativa(e.fecha)}</span>
+                {!esCorrDir && e.es_reproceso ? (
+                  <span className="text-[11px] font-medium text-amber-700">· Reproceso</span>
+                ) : null}
+              </div>
+              {notasParagraph(e.notas)}
             </div>
           </div>
         )
       })}
     </div>
   )
+}
+
+function notasParagraph(notas: string | null): ReactNode {
+  if (!notas?.trim()) return null
+  return <p className="mt-1 text-xs italic text-gray-600">&quot;{notas}&quot;</p>
 }
 
 function estadoBadgeClass(estado: string): string {

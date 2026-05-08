@@ -169,6 +169,8 @@ class HistorialEstadoRead(BaseModel):
     usuario_nombre: Optional[str]
     notas: Optional[str]
     fecha: datetime
+    es_reproceso: bool = False
+    tipo_accion: Optional[str] = None
 
     class Config:
         from_attributes = True

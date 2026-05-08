@@ -101,6 +101,8 @@ export interface HistorialEntrada {
   usuario_nombre: string | null
   notas: string | null
   fecha: string
+  es_reproceso?: boolean
+  tipo_accion?: string | null
 }
 
 export interface OrdenCompra {
@@ -170,6 +172,7 @@ export interface KPIData {
   }[]
   reprocesos_total: number
   tiempo_promedio_reproceso_dias: number
+  correcciones_directivo: number
   rechazos_solicitud: number
   rechazos_cotizacion: number
 }

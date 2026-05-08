@@ -288,7 +288,7 @@ export function KPIPage() {
               </div>
 
               {/* Fila 1b — KPIs de calidad: reprocesos y rechazos */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <div className="bg-white rounded-xl border border-amber-100 shadow-sm p-5">
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-sm text-gray-500">Reprocesos</p>
@@ -296,13 +296,24 @@ export function KPIPage() {
                   </div>
                   <p className="text-2xl font-bold text-amber-600">{kpis.reprocesos_total}</p>
                   <p className="text-xs text-gray-400 mt-1">
-                    Solicitudes devueltas a corrección (total)
+                    Eventos con reproceso (devoluciones, correcciones; incluye corrección directiva)
                   </p>
                   {kpis.reprocesos_total > 0 && (
                     <p className="text-xs text-amber-500 mt-1">
                       Promedio resolución: {kpis.tiempo_promedio_reproceso_dias.toFixed(1)} días
                     </p>
                   )}
+                </div>
+
+                <div className="bg-white rounded-xl border border-sky-100 shadow-sm p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm text-gray-500">Corrección directiva</p>
+                    <span className="text-2xl">✏️</span>
+                  </div>
+                  <p className="text-2xl font-bold text-sky-700">{kpis.correcciones_directivo}</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Ajustes del director/admin sobre cotización u OC sin retroceder la etapa del flujo
+                  </p>
                 </div>
 
                 <div className="bg-white rounded-xl border border-red-100 shadow-sm p-5">

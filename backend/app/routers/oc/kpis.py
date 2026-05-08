@@ -62,6 +62,7 @@ class KPIResponse(BaseModel):
     # Indicadores de rechazo y reprocesos
     reprocesos_total: int
     tiempo_promedio_reproceso_dias: float
+    correcciones_directivo: int
     rechazos_solicitud: int
     rechazos_cotizacion: int
 
@@ -236,6 +237,14 @@ def get_kpis(
     ]
 
     # 12. Indicadores de rechazo y reprocesos
+    # Correcciones directivas (cotización/OC sin retroceder etapa — se cuentan aparte para el tablero)
+    correcciones_directivo_raw = oc_db.exec(
+        select(func.count(HistorialEstado.id)).where(
+            HistorialEstado.tipo_accion == "correccion_directivo"
+        )
+    ).one()
+    correcciones_directivo = correcciones_directivo_raw or 0
+
     # Reprocesos: entradas de historial marcadas como es_reproceso = True
     reprocesos_entradas = oc_db.exec(
         select(HistorialEstado).where(HistorialEstado.es_reproceso == True)  # noqa: E712
@@ -306,6 +315,7 @@ def get_kpis(
         por_mes=por_mes,
         reprocesos_total=reprocesos_total,
         tiempo_promedio_reproceso_dias=round(tiempo_promedio_reproceso_dias, 2),
+        correcciones_directivo=int(correcciones_directivo),
         rechazos_solicitud=rechazos_solicitud or 0,
         rechazos_cotizacion=rechazos_cotizacion or 0,
     )
