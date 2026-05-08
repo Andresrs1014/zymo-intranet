@@ -1,5 +1,5 @@
 # backend/app/models/task_event.py
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Optional
 
 from sqlmodel import Field, SQLModel
@@ -13,7 +13,7 @@ class TaskEvent(SQLModel, table=True):
     team_id: Optional[int] = Field(default=None)
     titulo: str = Field(max_length=250, nullable=False)
     descripcion: Optional[str] = Field(default=None)
-    fecha: str = Field(index=True, nullable=False)                   # "YYYY-MM-DD"
+    fecha: date = Field(index=True, nullable=False)
     hora_inicio: str = Field(max_length=5, nullable=False)           # "HH:MM"
     duracion_minutos: int = Field(default=60, nullable=False)
     creado_por_id: int = Field(index=True, nullable=False)

@@ -1,14 +1,14 @@
 # backend/app/services/task_event_service.py
 from __future__ import annotations
+from datetime import date
 from typing import TYPE_CHECKING
+
+from app.core.constants import SCOPE_DEV
 
 if TYPE_CHECKING:
     from sqlmodel import Session
     from app.models.user import User
     from app.schemas.task_event import TaskEventCreate
-
-
-_SCOPE = "desarrollo_innovacion"
 
 
 def _parse_hhmm(hhmm: str) -> int:
@@ -40,10 +40,10 @@ def create_event(
     from sqlmodel import select
 
     event = TaskEvent(
-        scope=_SCOPE,
+        scope=SCOPE_DEV,
         titulo=payload.titulo,
         descripcion=payload.descripcion,
-        fecha=payload.fecha,
+        fecha=date.fromisoformat(payload.fecha),
         hora_inicio=payload.hora_inicio,
         duracion_minutos=payload.duracion_minutos,
         creado_por_id=creator.id,
@@ -67,7 +67,7 @@ def create_event(
             .join(TaskEventParticipant, TaskEvent.id == TaskEventParticipant.event_id)
             .where(
                 TaskEventParticipant.user_id == uid,
-                TaskEvent.fecha == payload.fecha,
+                TaskEvent.fecha == date.fromisoformat(payload.fecha),
                 TaskEvent.id != event.id,
             )
         ).all()
@@ -110,11 +110,13 @@ def get_events_by_date(db: "Session", fecha: str, user_id: int | None = None) ->
     from app.models.task_event_participant import TaskEventParticipant
     from sqlmodel import select
 
+    fecha_date = date.fromisoformat(fecha)
+
     if user_id is None:
         events = db.exec(
             select(TaskEvent).where(
-                TaskEvent.scope == _SCOPE,
-                TaskEvent.fecha == fecha,
+                TaskEvent.scope == SCOPE_DEV,
+                TaskEvent.fecha == fecha_date,
             ).order_by(TaskEvent.hora_inicio)
         ).all()
     else:
@@ -122,8 +124,8 @@ def get_events_by_date(db: "Session", fecha: str, user_id: int | None = None) ->
             select(TaskEvent)
             .join(TaskEventParticipant, TaskEvent.id == TaskEventParticipant.event_id)
             .where(
-                TaskEvent.scope == _SCOPE,
-                TaskEvent.fecha == fecha,
+                TaskEvent.scope == SCOPE_DEV,
+                TaskEvent.fecha == fecha_date,
                 TaskEventParticipant.user_id == user_id,
             )
             .order_by(TaskEvent.hora_inicio)

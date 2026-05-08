@@ -3,12 +3,11 @@ from datetime import date, datetime, timezone
 
 from sqlmodel import Session, select
 
+from app.core.constants import SCOPE_DEV
 from app.models.work_task import WorkTask
 from app.models.user import User
 from app.schemas.task_dashboard import TaskFilters, TaskKpis, PersonTaskSummary
 from app.services.task_team_service import get_active_member_ids, get_or_create_dev_team
-
-SCOPE_DEV = "desarrollo_innovacion"
 
 
 def get_team_tasks(db: Session, filters: TaskFilters) -> list[WorkTask]:

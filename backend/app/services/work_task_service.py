@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 from fastapi import HTTPException, status
 from sqlmodel import Session, select
 
+from app.core.constants import SCOPE_DEV
+
 if TYPE_CHECKING:
     from app.schemas.work_task import PaginatedTaskFilters, PaginatedTasksResponse
 
@@ -13,8 +15,6 @@ from app.models.work_task import WorkTask
 from app.models.user import User
 from app.schemas.work_task import WorkTaskCreate, WorkTaskUpdate
 from app.services.task_team_service import get_or_create_dev_team
-
-SCOPE_DEV = "desarrollo_innovacion"
 
 VALID_ETIQUETAS = {
     "desarrollos",

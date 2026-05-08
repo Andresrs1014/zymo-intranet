@@ -6,6 +6,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr, field_validator
 from sqlmodel import Session, select
 
+from app.core.constants import SCOPE_DEV
 from app.core.deps import get_current_user, get_db, require_admin
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models.role import Role
@@ -152,7 +153,7 @@ def me(current_user: User = Depends(get_current_user), db: Session = Depends(get
 
     dev_team = db.exec(
         select(TaskTeam).where(
-            TaskTeam.scope == "desarrollo_innovacion",
+            TaskTeam.scope == SCOPE_DEV,
             TaskTeam.is_active == True,  # noqa: E712
         )
     ).first()

@@ -2,11 +2,10 @@ from datetime import datetime, timezone
 
 from sqlmodel import Session, select
 
+from app.core.constants import SCOPE_DEV
 from app.models.task_team import TaskTeam
 from app.models.task_team_member import TaskTeamMember
 from app.models.user import User
-
-SCOPE_DEV = "desarrollo_innovacion"
 
 
 def get_or_create_dev_team(db: Session) -> TaskTeam:

@@ -12,6 +12,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
+from app.core.constants import SCOPE_DEV
 from app.core.deps import get_current_user, get_db
 from app.models.user import User
 from app.models.user_tool import UserTool
@@ -27,7 +28,6 @@ from app.services.user_tool_service import require_tool_or_403
 
 router = APIRouter(prefix="/api/herramientas/tareas", tags=["Herramientas - Tareas"])
 
-SCOPE_DEV = "desarrollo_innovacion"
 TOOL_SUBMIT = "tool_task_submit_dev"
 TOOL_MANAGE = "tool_task_manage_dev"
 
@@ -37,7 +37,7 @@ TOOL_MANAGE = "tool_task_manage_dev"
 class AssignUserToolPayload(BaseModel):
     user_id: int
     tool_key: str
-    scope: str = "desarrollo_innovacion"
+    scope: str = SCOPE_DEV
 
 
 # ── Filter dependency ──────────────────────────────────────────────────────────
@@ -83,14 +83,14 @@ def mis_tareas_paginadas(
     from app.schemas.work_task import PaginatedTaskFilters
     from app.services.work_task_service import get_paginated_tasks
 
-    require_tool_or_403(db, current_user, "tool_task_submit_dev", "desarrollo_innovacion")
+    require_tool_or_403(db, current_user, TOOL_SUBMIT, SCOPE_DEV)
 
     filters = PaginatedTaskFilters(
         page=page, limit=limit, search=search, estado=estado,
         etiqueta=etiqueta, plataforma=plataforma,
         fecha_exacta=fecha_exacta, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta,
     )
-    return get_paginated_tasks(db, current_user.id, "desarrollo_innovacion", filters)
+    return get_paginated_tasks(db, current_user.id, SCOPE_DEV, filters)
 
 
 @router.get("/equipo/tareas-paginadas", response_model=PaginatedTasksResponse)
