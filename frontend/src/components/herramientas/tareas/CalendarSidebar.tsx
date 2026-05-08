@@ -110,8 +110,8 @@ export function CalendarSidebar({
               locale={es}
               className="w-full"
               classNames={{
-                day_selected: "bg-primary text-primary-foreground rounded-md font-bold",
-                day_today: "bg-accent text-accent-foreground rounded-md font-semibold",
+                selected: "bg-primary text-primary-foreground rounded-md font-bold",
+                today: "bg-accent text-accent-foreground rounded-md font-semibold",
               }}
             />
           </div>
