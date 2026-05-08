@@ -277,12 +277,15 @@ def get_paginated_tasks(
         query = query.where(WorkTask.etiqueta == filters.etiqueta)
     if filters.plataforma:
         query = query.where(WorkTask.plataforma == filters.plataforma)
-    if filters.fecha_exacta:
-        query = query.where(WorkTask.fecha == filters.fecha_exacta)
-    if filters.fecha_desde:
-        query = query.where(WorkTask.fecha >= filters.fecha_desde)
-    if filters.fecha_hasta:
-        query = query.where(WorkTask.fecha <= filters.fecha_hasta)
+    fecha_exacta_parsed = date.fromisoformat(filters.fecha_exacta) if filters.fecha_exacta else None
+    fecha_desde_parsed = date.fromisoformat(filters.fecha_desde) if filters.fecha_desde else None
+    fecha_hasta_parsed = date.fromisoformat(filters.fecha_hasta) if filters.fecha_hasta else None
+    if fecha_exacta_parsed:
+        query = query.where(WorkTask.fecha == fecha_exacta_parsed)
+    if fecha_desde_parsed:
+        query = query.where(WorkTask.fecha >= fecha_desde_parsed)
+    if fecha_hasta_parsed:
+        query = query.where(WorkTask.fecha <= fecha_hasta_parsed)
 
     # Contar total
     count_query = sqlmodel_select(func.count()).select_from(query.subquery())
