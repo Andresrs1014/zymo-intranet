@@ -25,8 +25,7 @@ _TIEMPO_LIMITE_HORAS: dict[str, float] = {
     "pendiente_aprobacion → aprobada": 24,
     "aprobada → oc_enviada": 8,
     "oc_enviada → oc_en_plataforma": 24,
-    "oc_en_plataforma → entregada": 168,   # 7 días
-    "entregada → cerrada": 48,
+    "oc_en_plataforma → cerrada": 168,   # 7 días — el solicitante confirma y cierra
 }
 
 
