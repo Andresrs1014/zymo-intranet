@@ -8,7 +8,7 @@ class TaskActivityLog(SQLModel, table=True):
     __tablename__ = "task_activity_log"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    task_id: int = Field(index=True, nullable=False)           # FK a work_tasks.id
+    task_id: int = Field(index=True, nullable=False, foreign_key="work_tasks.id")
     user_id: int = Field(nullable=False)
     user_nombre: str = Field(max_length=200, nullable=False)
     accion: str = Field(max_length=50, nullable=False)         # "creacion", "cambio_estado", "edicion"
