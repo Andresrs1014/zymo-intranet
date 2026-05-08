@@ -46,15 +46,16 @@ export function ScheduleSheet({
   // Reset form on open/close
   useEffect(() => {
     if (!isOpen) {
+      const todayStr = format(new Date(), "yyyy-MM-dd")
       setTitulo("")
-      setFecha(preselectedDate ? format(preselectedDate, "yyyy-MM-dd") : today)
+      setFecha(preselectedDate ? format(preselectedDate, "yyyy-MM-dd") : todayStr)
       setHoraInicio("09:00")
       setDuracion("60")
       setDescripcion("")
       setSelectedIds([])
       setError(null)
     }
-  }, [isOpen]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isOpen, preselectedDate])
 
   const toggleUser = (id: number) => {
     setSelectedIds((prev) =>

@@ -1,21 +1,6 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-
-export function TeamConfigTab() {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Configuración del Equipo</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <TeamMembersList />
-      </CardContent>
-    </Card>
-  )
-}
-
-// Inline team management without the dialog chrome
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   useTeamMembers,
@@ -112,5 +97,18 @@ function TeamMembersList() {
         )}
       </div>
     </div>
+  )
+}
+
+export function TeamConfigTab() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Configuración del Equipo</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <TeamMembersList />
+      </CardContent>
+    </Card>
   )
 }
