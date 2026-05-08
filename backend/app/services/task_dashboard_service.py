@@ -56,9 +56,49 @@ def get_team_tasks(db: Session, filters: TaskFilters) -> list[WorkTask]:
     return list(db.exec(query).all())
 
 
-def get_team_kpis(db: Session, filters: TaskFilters) -> TaskKpis:
-    """Calculates KPIs from filtered tasks."""
-    tasks = get_team_tasks(db, filters)
+def get_team_kpis(
+    db: Session,
+    filters: TaskFilters,
+    member_ids: list[int] | None = None,
+    fecha_desde: str | None = None,
+    fecha_hasta: str | None = None,
+) -> TaskKpis:
+    """Calculates KPIs from filtered tasks.
+
+    Args:
+        db: Database session.
+        filters: Standard task filters (used when member_ids is None).
+        member_ids: If provided, restricts KPIs to tasks owned by these user IDs.
+            Pass ``[user_id]`` for a collaborator's own charts; pass ``None``
+            (default) to use the full team scope defined by *filters*.
+        fecha_desde: ISO date string (YYYY-MM-DD) for lower bound filter on
+            ``WorkTask.fecha``.  Overrides ``filters.fecha_desde`` when given.
+        fecha_hasta: ISO date string (YYYY-MM-DD) for upper bound filter on
+            ``WorkTask.fecha``.  Overrides ``filters.fecha_hasta`` when given.
+    """
+    if member_ids is not None:
+        # Build a scoped query directly — bypass get_team_tasks team-membership check.
+        from datetime import date as date_type
+
+        query = select(WorkTask).where(WorkTask.scope == SCOPE_DEV)
+        query = query.where(WorkTask.subido_por_id.in_(member_ids))  # type: ignore[union-attr]
+        _fecha_desde = date_type.fromisoformat(fecha_desde) if fecha_desde else filters.fecha_desde
+        _fecha_hasta = date_type.fromisoformat(fecha_hasta) if fecha_hasta else filters.fecha_hasta
+        if _fecha_desde is not None:
+            query = query.where(WorkTask.fecha >= _fecha_desde)
+        if _fecha_hasta is not None:
+            query = query.where(WorkTask.fecha <= _fecha_hasta)
+        tasks = list(db.exec(query).all())
+    else:
+        # Apply optional date overrides onto filters before delegating.
+        from datetime import date as date_type
+
+        if fecha_desde is not None:
+            filters = filters.model_copy(update={"fecha_desde": date_type.fromisoformat(fecha_desde)})
+        if fecha_hasta is not None:
+            filters = filters.model_copy(update={"fecha_hasta": date_type.fromisoformat(fecha_hasta)})
+        tasks = get_team_tasks(db, filters)
+
     active_ids = get_active_member_ids(db)
 
     completadas = sum(1 for t in tasks if t.estado == "completada")
