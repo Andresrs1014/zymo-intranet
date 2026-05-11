@@ -72,6 +72,7 @@ export function NuevaSolicitudPage() {
   const [formDirty, setFormDirty] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const initialDraftChecked = useRef(false)
   const [dragOver, setDragOver] = useState(false)
   const [archivos, setArchivos] = useState<File[]>([])
   const [subiendoArchivos, setSubiendoArchivos] = useState(false)
@@ -171,11 +172,18 @@ export function NuevaSolicitudPage() {
   }, [paqueteId, paquetes, sedesOc, user?.sede])
 
   useEffect(() => {
-    if (borrador && !draftRestored && !paqueteId) {
+    // Solo verificar el borrador una vez al montar la página.
+    // Si se revisa en cada cambio de `borrador`, el autosave posterior crea un
+    // borrador nuevo → invalida la query → vuelve a mostrar el modal mientras
+    // el usuario ya está llenando el formulario.
+    if (initialDraftChecked.current) return
+    if (borrador === undefined) return // todavía cargando
+    initialDraftChecked.current = true
+    if (borrador && !paqueteId) {
       /* eslint-disable-next-line react-hooks/set-state-in-effect -- modal de borrador al cargar */
       setShowDraftModal(true)
     }
-  }, [borrador, draftRestored, paqueteId])
+  }, [borrador, paqueteId])
 
   function handleChange<K extends keyof SolicitudInternaCreate>(
     field: K,
