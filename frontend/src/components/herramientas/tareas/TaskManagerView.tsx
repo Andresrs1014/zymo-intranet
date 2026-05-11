@@ -1,11 +1,12 @@
 import { useState } from "react"
-import type { WorkTask, TaskFilters } from "@/types/workTask"
+import type { WorkTask, TaskFilters, WorkTaskCreate } from "@/types/workTask"
 import {
   useTeamTasks,
   useTeamKpis,
   useTeamPersonSummaries,
   useTeamCharts,
   useUsersWithoutTodayEntry,
+  useCreateWorkTask,
 } from "@/hooks/useWorkTasks"
 import { exportTasksExcel, exportTasksPdf } from "@/hooks/useTaskExports"
 import { TaskFiltersBar } from "./TaskFiltersBar"
@@ -14,6 +15,7 @@ import { TaskCharts } from "./TaskCharts"
 import { TaskDataTable } from "./TaskDataTable"
 import { TaskDetailSheet } from "./TaskDetailSheet"
 import { TaskTeamConfigDialog } from "./TaskTeamConfigDialog"
+import { TaskForm } from "./TaskForm"
 import {
   taskCard,
   taskButtonPrimary,
@@ -21,11 +23,13 @@ import {
   formatMinutos,
 } from "@/lib/taskTheme"
 
-export function TaskManagerView({ canSubmitOwn: _canSubmitOwn }: { canSubmitOwn?: boolean } = {}) {
+export function TaskManagerView({ canSubmitOwn }: { canSubmitOwn?: boolean } = {}) {
   const [filters, setFilters] = useState<TaskFilters>({})
   const [selectedTask, setSelectedTask] = useState<WorkTask | null>(null)
   const [teamConfigOpen, setTeamConfigOpen] = useState(false)
   const [exporting, setExporting] = useState<"excel" | "pdf" | null>(null)
+  const [showNewTaskForm, setShowNewTaskForm] = useState(false)
+  const createTask = useCreateWorkTask()
 
   const { data: tasks } = useTeamTasks(filters)
   const { data: kpis } = useTeamKpis(filters)
@@ -56,6 +60,11 @@ export function TaskManagerView({ canSubmitOwn: _canSubmitOwn }: { canSubmitOwn?
     } finally {
       setExporting(null)
     }
+  }
+
+  const handleNewTaskSubmit = async (payload: WorkTaskCreate) => {
+    await createTask.mutateAsync(payload)
+    setShowNewTaskForm(false)
   }
 
   const chartsData = charts as {
@@ -98,8 +107,28 @@ export function TaskManagerView({ canSubmitOwn: _canSubmitOwn }: { canSubmitOwn?
           >
             Configurar equipo
           </button>
+          {canSubmitOwn && (
+            <button
+              type="button"
+              className={taskButtonPrimary}
+              onClick={() => setShowNewTaskForm((v) => !v)}
+            >
+              {showNewTaskForm ? "Cancelar" : "+ Nueva tarea"}
+            </button>
+          )}
         </div>
       </div>
+
+      {showNewTaskForm && canSubmitOwn && (
+        <div className={`${taskCard} p-6`}>
+          <h2 className="text-sm font-semibold text-gray-900 mb-4">Nueva tarea</h2>
+          <TaskForm
+            onSubmit={handleNewTaskSubmit}
+            onCancel={() => setShowNewTaskForm(false)}
+            loading={createTask.isPending}
+          />
+        </div>
+      )}
 
       {/* Filters */}
       <TaskFiltersBar
