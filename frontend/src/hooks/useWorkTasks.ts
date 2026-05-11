@@ -39,8 +39,8 @@ export function useMyTasks(filters: TaskFilters = {}) {
   return useQuery({
     queryKey: ["tareas", "mis-tareas", filters],
     queryFn: async () => {
-      const { data } = await api.get<WorkTask[]>(`${BASE}/mis-tareas?${filtersToParams(filters)}`)
-      return data
+      const { data } = await api.get<PaginatedTasksResponse>(`${BASE}/mis-tareas?${filtersToParams(filters)}`)
+      return data.data
     },
   })
 }
