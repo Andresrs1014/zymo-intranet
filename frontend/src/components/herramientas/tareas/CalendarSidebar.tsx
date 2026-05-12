@@ -48,7 +48,7 @@ export function CalendarSidebar({
   const resize = useCallback(
     (e: MouseEvent) => {
       if (!isDragging) return
-      const newWidth = document.body.clientWidth - e.clientX
+      const newWidth = window.innerWidth - e.clientX
       if (newWidth >= MIN_WIDTH && newWidth <= MAX_WIDTH) {
         setSidebarWidth(newWidth)
       }
@@ -78,9 +78,9 @@ export function CalendarSidebar({
 
   return (
     <aside
-      className={`border-l border-border bg-background flex flex-col relative transition-all duration-300 ease-in-out ${
-        isOpen ? "opacity-100" : "opacity-0 overflow-hidden border-l-0"
-      }`}
+      className={`border-l border-border bg-background flex flex-col relative ${
+        !isDragging ? "transition-all duration-300 ease-in-out" : ""
+      } ${isOpen ? "opacity-100" : "opacity-0 overflow-hidden border-l-0"}`}
       style={{ width: isOpen ? sidebarWidth : 0 }}
     >
       {isOpen && (
