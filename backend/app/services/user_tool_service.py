@@ -5,39 +5,32 @@ from app.models.user import User
 from app.models.user_tool import UserTool
 
 
-def user_has_tool(db: Session, user: User, tool_key: str, scope: str = "global") -> bool:
-    record = db.exec(
-        select(UserTool)
-        .where(UserTool.user_id == user.id)
-        .where(UserTool.tool_key == tool_key)
-        .where(UserTool.scope == scope)
-        .where(UserTool.is_active == True)  # noqa: E712
-    ).first()
-    return record is not None
+def user_has_tool(db: Session, user: User, tool_key: str, scope: str | None = None) -> bool:
+    query = select(UserTool).where(
+        UserTool.user_id == user.id,
+        UserTool.tool_key == tool_key,
+        UserTool.is_active == True,  # noqa: E712
+    )
+    if scope is not None:
+        query = query.where(UserTool.scope == scope)
+    return db.exec(query).first() is not None
 
 
 def require_tool_or_403(
     db: "Session",
     user: "User",
     tool_key: str,
-    scope: str = "global",
+    scope: str | None = None,
 ) -> None:
     """
     Permite acceso si el usuario:
     - Es admin (bypass total), O
-    - Tiene la tool activa en user_tools
+    - Tiene la tool activa en user_tools (scope ignorado si es None).
     """
     if getattr(user, "role", None) == "admin":
         return
 
-    record = db.exec(
-        select(UserTool).where(
-            UserTool.user_id == user.id,
-            UserTool.tool_key == tool_key,
-            UserTool.scope == scope,
-            UserTool.is_active == True,  # noqa: E712
-        )
-    ).first()
+    record = user_has_tool(db, user, tool_key, scope=scope)
     if record:
         return
 
