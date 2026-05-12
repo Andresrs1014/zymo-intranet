@@ -156,6 +156,40 @@ def _migrate_db() -> None:
             print("[migrate] Columna task_events.team_id agregada.")
         except Exception:
             pass  # ya existe
+        # task_events.plataforma (agregada para formulario del calendario)
+        try:
+            conn.execute(text("ALTER TABLE task_events ADD COLUMN plataforma VARCHAR(50)"))
+            conn.commit()
+            print("[migrate] Columna task_events.plataforma agregada.")
+        except Exception:
+            pass  # ya existe
+        # task_teams: eliminar restriccion NOT NULL de scope (SQLite no soporta ALTER COLUMN,
+        # se recrea la tabla copiando datos sin la columna scope)
+        try:
+            result = conn.execute(text("PRAGMA table_info(task_teams)"))
+            columns = [row[1] for row in result.fetchall()]
+            if "scope" in columns:
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS task_teams_new (
+                        id INTEGER PRIMARY KEY,
+                        owner_user_id INTEGER NOT NULL,
+                        name VARCHAR(150) NOT NULL,
+                        is_active INTEGER NOT NULL DEFAULT 1,
+                        created_at DATETIME NOT NULL,
+                        updated_at DATETIME NOT NULL
+                    )
+                """))
+                conn.execute(text("""
+                    INSERT INTO task_teams_new (id, owner_user_id, name, is_active, created_at, updated_at)
+                    SELECT id, owner_user_id, name, is_active, created_at, updated_at
+                    FROM task_teams
+                """))
+                conn.execute(text("DROP TABLE task_teams"))
+                conn.execute(text("ALTER TABLE task_teams_new RENAME TO task_teams"))
+                conn.commit()
+                print("[migrate] Tabla task_teams recreada sin columna scope.")
+        except Exception as e:
+            print(f"[migrate] task_teams ya estaba limpia o error: {e}")
     with Session(get_engine()) as session:
         for sede_row in session.exec(select(Sede)).all():
             if sede_row.name.strip().lower() == "transversal":
