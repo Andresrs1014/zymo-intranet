@@ -1,7 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ESTADOS, ETIQUETAS, PLATAFORMAS } from "@/types/workTask"
 import { ESTADO_LABELS, ETIQUETA_LABELS, PLATAFORMA_LABELS } from "@/lib/taskTheme"
-import { taskCard } from "@/lib/taskTheme"
 
 export function ListConfigTab() {
   return (
