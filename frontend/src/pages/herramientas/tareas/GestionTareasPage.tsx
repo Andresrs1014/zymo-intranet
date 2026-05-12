@@ -131,7 +131,6 @@ export function GestionTareasPage() {
                   <TaskManagerView
                     canSubmitOwn={true}
                     filters={filters}
-                    onFiltersChange={setFilters}
                   />
                 ) : (
                   <TaskSubmitView />

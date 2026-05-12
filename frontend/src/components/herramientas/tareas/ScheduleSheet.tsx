@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { useCreateEvent, useTeamMembers, useAvailableTeamUsers } from "@/hooks/useWorkTasks"
-import { PLATAFORMAS, PLATAFORMA_LABELS } from "@/lib/taskTheme"
+import { PLATAFORMA_LABELS } from "@/lib/taskTheme"
+import { PLATAFORMAS } from "@/types/workTask"
 import { useAuthStore } from "@/store/authStore"
 import type { TaskTeamMember, AvailableUser } from "@/types/workTask"
 import { format } from "date-fns"
@@ -202,7 +203,7 @@ export function ScheduleSheet({
                 className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 <option value="">Todas las plataformas</option>
-                {PLATAFORMAS.map((p) => (
+                {PLATAFORMAS.map((p: string) => (
                   <option key={p} value={p}>{PLATAFORMA_LABELS[p] ?? p}</option>
                 ))}
               </select>

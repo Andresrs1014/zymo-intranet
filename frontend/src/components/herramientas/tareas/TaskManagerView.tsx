@@ -23,10 +23,9 @@ import {
 interface Props {
   canSubmitOwn?: boolean
   filters: TaskFilters
-  onFiltersChange: (f: TaskFilters) => void
 }
 
-export function TaskManagerView({ canSubmitOwn, filters, onFiltersChange }: Props) {
+export function TaskManagerView({ canSubmitOwn, filters }: Props) {
   const [selectedTask, setSelectedTask] = useState<WorkTask | null>(null)
   const [teamConfigOpen, setTeamConfigOpen] = useState(false)
   const [exporting, setExporting] = useState<"excel" | "pdf" | null>(null)
