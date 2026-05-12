@@ -201,7 +201,7 @@ export function useAssignUserTool() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ user_id, tool_key }: { user_id: number; tool_key: string }) => {
-      await api.post(`${BASE}/admin/asignar-tool`, { user_id, tool_key, scope: "desarrollo_innovacion" })
+      await api.post(`${BASE}/admin/asignar-tool`, { user_id, tool_key, scope: "global" })
     },
     onSuccess: (_d, { user_id }) => {
       qc.invalidateQueries({ queryKey: ["tareas", "admin", "user-tools", user_id] })
@@ -214,7 +214,7 @@ export function useRevokeUserTool() {
   return useMutation({
     mutationFn: async ({ user_id, tool_key }: { user_id: number; tool_key: string }) => {
       await api.delete(`${BASE}/admin/revocar-tool`, {
-        data: { user_id, tool_key, scope: "desarrollo_innovacion" },
+        data: { user_id, tool_key, scope: "global" },
       })
     },
     onSuccess: (_d, { user_id }) => {
