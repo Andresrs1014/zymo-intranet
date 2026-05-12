@@ -43,6 +43,7 @@ def create_event(
         scope=SCOPE_DEV,
         titulo=payload.titulo,
         descripcion=payload.descripcion,
+        plataforma=payload.plataforma,
         fecha=date.fromisoformat(payload.fecha),
         hora_inicio=payload.hora_inicio,
         duracion_minutos=payload.duracion_minutos,

@@ -13,6 +13,7 @@ class TaskEvent(SQLModel, table=True):
     team_id: Optional[int] = Field(default=None)
     titulo: str = Field(max_length=250, nullable=False)
     descripcion: Optional[str] = Field(default=None)
+    plataforma: Optional[str] = Field(default=None, max_length=50)
     fecha: date = Field(index=True, nullable=False)
     hora_inicio: str = Field(max_length=5, nullable=False)           # "HH:MM"
     duracion_minutos: int = Field(default=60, nullable=False)

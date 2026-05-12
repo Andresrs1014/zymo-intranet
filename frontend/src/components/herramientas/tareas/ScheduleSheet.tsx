@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { useCreateEvent, useTeamMembers, useAvailableTeamUsers } from "@/hooks/useWorkTasks"
+import { PLATAFORMAS, PLATAFORMA_LABELS } from "@/lib/taskTheme"
 import { useAuthStore } from "@/store/authStore"
 import type { TaskTeamMember, AvailableUser } from "@/types/workTask"
 import { format } from "date-fns"
@@ -24,11 +25,14 @@ export function ScheduleSheet({
 }: Props) {
   const today = format(new Date(), "yyyy-MM-dd")
 
+  const currentUserId = useAuthStore((s) => s.user?.id)
+
   const [titulo, setTitulo] = useState("")
   const [fecha, setFecha] = useState(today)
   const [horaInicio, setHoraInicio] = useState("09:00")
   const [duracion, setDuracion] = useState("60")
   const [descripcion, setDescripcion] = useState("")
+  const [plataforma, setPlataforma] = useState("")
   const [selectedIds, setSelectedIds] = useState<number[]>(
     () => !canSelectOthers && currentUserId ? [currentUserId] : []
   )
@@ -38,8 +42,6 @@ export function ScheduleSheet({
   const createEvent = useCreateEvent()
   const { data: teamMembers = [] } = useTeamMembers()
   const { data: allUsers = [] } = useAvailableTeamUsers()
-
-  const currentUserId = useAuthStore((s) => s.user?.id)
 
   // Sync date when preselectedDate changes
   useEffect(() => {
@@ -57,6 +59,7 @@ export function ScheduleSheet({
       setHoraInicio("09:00")
       setDuracion("60")
       setDescripcion("")
+      setPlataforma("")
       setSelectedIds(!canSelectOthers && currentUserId ? [currentUserId] : [])
       setError(null)
     }
@@ -84,6 +87,7 @@ export function ScheduleSheet({
       await createEvent.mutateAsync({
         titulo: titulo.trim(),
         descripcion: descripcion.trim() || undefined,
+        plataforma: plataforma || undefined,
         fecha,
         hora_inicio: horaInicio,
         duracion_minutos: parseInt(duracion, 10) || 60,
@@ -186,6 +190,22 @@ export function ScheduleSheet({
                 placeholder="Detalles del evento..."
                 className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
               />
+            </div>
+
+            {/* Plataforma */}
+            <div className="space-y-1.5">
+              <Label htmlFor="sch-plataforma">Plataforma (opcional)</Label>
+              <select
+                id="sch-plataforma"
+                value={plataforma}
+                onChange={(e) => setPlataforma(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <option value="">Todas las plataformas</option>
+                {PLATAFORMAS.map((p) => (
+                  <option key={p} value={p}>{PLATAFORMA_LABELS[p] ?? p}</option>
+                ))}
+              </select>
             </div>
 
             {/* Participantes */}

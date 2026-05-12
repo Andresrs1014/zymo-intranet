@@ -133,9 +133,11 @@ export interface TaskEvent {
   id: number
   titulo: string
   descripcion?: string
+  plataforma?: string
   fecha: string
   hora_inicio: string
   duracion_minutos: number
+  creado_por_id: number
   creado_por_nombre: string
   participants: TaskEventParticipant[]
 }
@@ -143,6 +145,7 @@ export interface TaskEvent {
 export interface TaskEventCreate {
   titulo: string
   descripcion?: string
+  plataforma?: string
   fecha: string
   hora_inicio: string
   duracion_minutos: number

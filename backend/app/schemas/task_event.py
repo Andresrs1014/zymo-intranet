@@ -14,6 +14,7 @@ class TaskEventParticipantRead(BaseModel):
 class TaskEventCreate(BaseModel):
     titulo: str
     descripcion: Optional[str] = None
+    plataforma: Optional[str] = None
     fecha: str                         # "YYYY-MM-DD"
     hora_inicio: str                   # "HH:MM"
     duracion_minutos: int = Field(default=60, ge=5, le=1440)
@@ -40,6 +41,7 @@ class TaskEventRead(BaseModel):
     id: int
     titulo: str
     descripcion: Optional[str] = None
+    plataforma: Optional[str] = None
     fecha: str
     hora_inicio: str
     duracion_minutos: int
