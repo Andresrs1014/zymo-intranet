@@ -6,31 +6,12 @@ from typing import TYPE_CHECKING
 from fastapi import HTTPException, status
 from sqlmodel import Session, select
 
-from app.core.constants import SCOPE_DEV
-
 if TYPE_CHECKING:
     from app.schemas.work_task import PaginatedTaskFilters, PaginatedTasksResponse
 
 from app.models.work_task import WorkTask
 from app.models.user import User
 from app.schemas.work_task import WorkTaskCreate, WorkTaskUpdate
-from app.services.task_team_service import get_or_create_dev_team
-
-VALID_ETIQUETAS = {
-    "desarrollos",
-    "actualizaciones",
-    "auditorias",
-    "implementacion_okr",
-    "tareas_diarias",
-}
-VALID_PLATAFORMAS = {
-    "logimat1",
-    "logimat2",
-    "imccargo",
-    "imcdeposito",
-    "transversal",
-}
-VALID_ESTADOS = {"completada", "en_progreso", "bloqueada"}
 
 
 def calcular_minutos(
@@ -51,34 +32,33 @@ def calcular_minutos(
 
 def validate_task_values(etiqueta: str, plataforma: str, estado: str) -> None:
     """Raises 422 HTTPException if any value is invalid."""
-    if etiqueta not in VALID_ETIQUETAS:
+    if etiqueta not in {"desarrollos", "actualizaciones", "auditorias", "implementacion_okr", "tareas_diarias"}:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Etiqueta inválida '{etiqueta}'. Opciones válidas: {sorted(VALID_ETIQUETAS)}",
+            detail=f"Etiqueta inválida '{etiqueta}'.",
         )
-    if plataforma not in VALID_PLATAFORMAS:
+    if plataforma not in {"logimat1", "logimat2", "imccargo", "imcdeposito", "transversal"}:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Plataforma inválida '{plataforma}'. Opciones válidas: {sorted(VALID_PLATAFORMAS)}",
+            detail=f"Plataforma inválida '{plataforma}'.",
         )
-    if estado not in VALID_ESTADOS:
+    if estado not in {"completada", "en_progreso", "bloqueada"}:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Estado inválido '{estado}'. Opciones válidas: {sorted(VALID_ESTADOS)}",
+            detail=f"Estado inválido '{estado}'.",
         )
 
 
 def create_task(db: Session, user: User, payload: WorkTaskCreate) -> WorkTask:
-    """Creates a task for the current user. User cannot create tasks for others."""
+    """Creates a task for the current user."""
     validate_task_values(payload.etiqueta, payload.plataforma, payload.estado)
 
-    team = get_or_create_dev_team(db)
     now = datetime.now(timezone.utc)
     minutos = calcular_minutos(payload.hora_inicio, payload.hora_cierre)
 
     task = WorkTask(
-        scope=SCOPE_DEV,
-        team_id=team.id,
+        scope="desarrollo_innovacion",
+        team_id=None,
         subido_por_id=user.id,
         subido_por_nombre=user.full_name or user.email,
         fecha=payload.fecha if payload.fecha is not None else date.today(),
@@ -172,10 +152,7 @@ def list_own_tasks(
     plataforma: str | None = None,
 ) -> list[WorkTask]:
     """Lists own tasks with optional filters."""
-    query = select(WorkTask).where(
-        WorkTask.subido_por_id == user.id,
-        WorkTask.scope == SCOPE_DEV,
-    )
+    query = select(WorkTask).where(WorkTask.subido_por_id == user.id)
 
     if fecha_desde is not None:
         query = query.where(WorkTask.fecha >= fecha_desde)
@@ -225,7 +202,6 @@ def log_activity(
         detalle=detalle,
     )
     db.add(entry)
-    # No hace commit — el llamador es responsable del commit
 
 
 def get_task_activity(db: "Session", task_id: int) -> list:
@@ -243,7 +219,6 @@ def get_task_activity(db: "Session", task_id: int) -> list:
 def get_paginated_tasks(
     db: "Session",
     user_id: int,
-    scope: str,
     filters: "PaginatedTaskFilters",
     team_member_ids: list[int] | None = None,
 ) -> "PaginatedTasksResponse":
@@ -257,7 +232,7 @@ def get_paginated_tasks(
     from sqlmodel import select as sqlmodel_select
     import math
 
-    query = sqlmodel_select(WorkTask).where(WorkTask.scope == scope)
+    query = sqlmodel_select(WorkTask)
 
     if team_member_ids is not None:
         query = query.where(WorkTask.subido_por_id.in_(team_member_ids))
@@ -287,12 +262,10 @@ def get_paginated_tasks(
     if fecha_hasta_parsed:
         query = query.where(WorkTask.fecha <= fecha_hasta_parsed)
 
-    # Contar total
     count_query = sqlmodel_select(func.count()).select_from(query.subquery())
     total_items = db.exec(count_query).one()
     total_pages = max(1, math.ceil(total_items / filters.limit))
 
-    # Paginar
     offset = (filters.page - 1) * filters.limit
     query = query.order_by(WorkTask.fecha.desc(), WorkTask.created_at.desc())
     query = query.offset(offset).limit(filters.limit)

@@ -1,22 +1,25 @@
 from collections import defaultdict
-from datetime import date, datetime, timezone
+from datetime import date
 
 from sqlmodel import Session, select
 
-from app.core.constants import SCOPE_DEV
 from app.models.work_task import WorkTask
 from app.models.user import User
 from app.schemas.task_dashboard import TaskFilters, TaskKpis, PersonTaskSummary
-from app.services.task_team_service import get_active_member_ids, get_or_create_dev_team
+from app.services.task_team_service import get_active_member_ids
 
 
-def get_team_tasks(db: Session, filters: TaskFilters) -> list[WorkTask]:
-    """Returns team tasks applying all filters. Scope is always desarrollo_innovacion."""
-    active_ids = get_active_member_ids(db)
+def _get_team_member_ids(db: Session, owner_id: int) -> list[int]:
+    return get_active_member_ids(db, owner_id)
+
+
+def get_team_tasks(db: Session, filters: TaskFilters, owner_id: int) -> list[WorkTask]:
+    """Returns team tasks for the manager's workspace applying all filters."""
+    active_ids = _get_team_member_ids(db, owner_id)
     if not active_ids:
         return []
 
-    query = select(WorkTask).where(WorkTask.scope == SCOPE_DEV)
+    query = select(WorkTask)
 
     if filters.responsable_id is not None:
         query = query.where(WorkTask.subido_por_id == filters.responsable_id)
@@ -44,7 +47,6 @@ def get_team_tasks(db: Session, filters: TaskFilters) -> list[WorkTask]:
         ids_con_registro = db.exec(
             select(WorkTask.subido_por_id).where(
                 WorkTask.fecha == hoy,
-                WorkTask.scope == SCOPE_DEV,
             )
         ).all()
         ids_sin_registro = [uid for uid in active_ids if uid not in ids_con_registro]
@@ -55,46 +57,10 @@ def get_team_tasks(db: Session, filters: TaskFilters) -> list[WorkTask]:
     return list(db.exec(query).all())
 
 
-def get_team_kpis(
-    db: Session,
-    filters: TaskFilters,
-    member_ids: list[int] | None = None,
-    fecha_desde: str | None = None,
-    fecha_hasta: str | None = None,
-) -> TaskKpis:
-    """Calculates KPIs from filtered tasks.
-
-    Args:
-        db: Database session.
-        filters: Standard task filters (used when member_ids is None).
-        member_ids: If provided, restricts KPIs to tasks owned by these user IDs.
-            Pass ``[user_id]`` for a collaborator's own charts; pass ``None``
-            (default) to use the full team scope defined by *filters*.
-        fecha_desde: ISO date string (YYYY-MM-DD) for lower bound filter on
-            ``WorkTask.fecha``.  Overrides ``filters.fecha_desde`` when given.
-        fecha_hasta: ISO date string (YYYY-MM-DD) for upper bound filter on
-            ``WorkTask.fecha``.  Overrides ``filters.fecha_hasta`` when given.
-    """
-    if member_ids is not None:
-        # Build a scoped query directly — bypass get_team_tasks team-membership check.
-        query = select(WorkTask).where(WorkTask.scope == SCOPE_DEV)
-        query = query.where(WorkTask.subido_por_id.in_(member_ids))  # type: ignore[union-attr]
-        _fecha_desde = date.fromisoformat(fecha_desde) if fecha_desde else filters.fecha_desde
-        _fecha_hasta = date.fromisoformat(fecha_hasta) if fecha_hasta else filters.fecha_hasta
-        if _fecha_desde is not None:
-            query = query.where(WorkTask.fecha >= _fecha_desde)
-        if _fecha_hasta is not None:
-            query = query.where(WorkTask.fecha <= _fecha_hasta)
-        tasks = list(db.exec(query).all())
-    else:
-        # Apply optional date overrides onto filters before delegating.
-        if fecha_desde is not None:
-            filters = filters.model_copy(update={"fecha_desde": date.fromisoformat(fecha_desde)})
-        if fecha_hasta is not None:
-            filters = filters.model_copy(update={"fecha_hasta": date.fromisoformat(fecha_hasta)})
-        tasks = get_team_tasks(db, filters)
-
-    active_ids = get_active_member_ids(db)
+def get_team_kpis(db: Session, filters: TaskFilters, owner_id: int) -> TaskKpis:
+    """Calculates KPIs from filtered tasks for the manager's workspace."""
+    tasks = get_team_tasks(db, filters, owner_id)
+    active_ids = _get_team_member_ids(db, owner_id)
 
     completadas = sum(1 for t in tasks if t.estado == "completada")
     en_progreso = sum(1 for t in tasks if t.estado == "en_progreso")
@@ -104,15 +70,11 @@ def get_team_kpis(
 
     usuarios_activos = len({t.subido_por_id for t in tasks})
 
-    # NOTE: usuarios_sin_registro_hoy siempre refleja el equipo completo,
-    # independiente de member_ids — es un KPI global del equipo
     hoy = date.today()
     ids_con_registro_hoy = {
         t.subido_por_id
         for t in db.exec(
-            select(WorkTask)
-            .where(WorkTask.fecha == hoy)
-            .where(WorkTask.scope == SCOPE_DEV)
+            select(WorkTask).where(WorkTask.fecha == hoy)
         ).all()
         if t.subido_por_id in active_ids
     }
@@ -148,10 +110,10 @@ def _build_person_summary(user: User, tasks: list[WorkTask]) -> PersonTaskSummar
     )
 
 
-def get_person_summaries(db: Session, filters: TaskFilters) -> list[PersonTaskSummary]:
-    """Returns per-person summary for active team members."""
-    active_ids = get_active_member_ids(db)
-    tasks = get_team_tasks(db, filters)
+def get_person_summaries(db: Session, filters: TaskFilters, owner_id: int) -> list[PersonTaskSummary]:
+    """Returns per-person summary for active team members of the workspace."""
+    active_ids = _get_team_member_ids(db, owner_id)
+    tasks = get_team_tasks(db, filters, owner_id)
 
     tasks_by_user: dict[int, list[WorkTask]] = defaultdict(list)
     for task in tasks:
@@ -165,9 +127,9 @@ def get_person_summaries(db: Session, filters: TaskFilters) -> list[PersonTaskSu
     return summaries
 
 
-def get_chart_data(db: Session, filters: TaskFilters) -> dict:
-    """Returns chart data for dashboard visualizations."""
-    tasks = get_team_tasks(db, filters)
+def get_chart_data(db: Session, filters: TaskFilters, owner_id: int) -> dict:
+    """Returns chart data for dashboard visualizations of the workspace."""
+    tasks = get_team_tasks(db, filters, owner_id)
 
     tareas_por_responsable: dict[str, int] = defaultdict(int)
     horas_por_responsable: dict[str, float] = defaultdict(float)
@@ -214,17 +176,15 @@ def get_chart_data(db: Session, filters: TaskFilters) -> dict:
     }
 
 
-def get_users_without_today_entry(db: Session) -> list[PersonTaskSummary]:
+def get_users_without_today_entry(db: Session, owner_id: int) -> list[PersonTaskSummary]:
     """Returns PersonTaskSummary for active members with no task registered today."""
     hoy = date.today()
-    active_ids = get_active_member_ids(db)
+    active_ids = _get_team_member_ids(db, owner_id)
 
     ids_con_registro = {
         t.subido_por_id
         for t in db.exec(
-            select(WorkTask)
-            .where(WorkTask.fecha == hoy)
-            .where(WorkTask.scope == SCOPE_DEV)
+            select(WorkTask).where(WorkTask.fecha == hoy)
         ).all()
     }
 

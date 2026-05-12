@@ -10,6 +10,7 @@ class TaskTeamMember(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     team_id: int = Field(index=True, nullable=False)
     user_id: int = Field(index=True, nullable=False)
+    role: str = Field(default="member", max_length=50)
     is_active: bool = Field(default=True, nullable=False)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc), nullable=False

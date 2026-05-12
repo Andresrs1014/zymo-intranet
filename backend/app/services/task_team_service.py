@@ -2,17 +2,15 @@ from datetime import datetime, timezone
 
 from sqlmodel import Session, select
 
-from app.core.constants import SCOPE_DEV
 from app.models.task_team import TaskTeam
 from app.models.task_team_member import TaskTeamMember
 from app.models.user import User
 
 
-def get_or_create_dev_team(db: Session) -> TaskTeam:
-    """Gets or creates the 'Desarrollo e Innovación' team."""
+def get_or_create_manager_team(db: Session, owner_id: int) -> TaskTeam:
     team = db.exec(
         select(TaskTeam)
-        .where(TaskTeam.scope == SCOPE_DEV)
+        .where(TaskTeam.owner_user_id == owner_id)
         .where(TaskTeam.is_active == True)  # noqa: E712
     ).first()
     if team:
@@ -20,8 +18,8 @@ def get_or_create_dev_team(db: Session) -> TaskTeam:
 
     now = datetime.now(timezone.utc)
     team = TaskTeam(
-        scope=SCOPE_DEV,
-        name="Desarrollo e Innovación",
+        owner_user_id=owner_id,
+        name="Mi equipo",
         is_active=True,
         created_at=now,
         updated_at=now,
@@ -32,11 +30,16 @@ def get_or_create_dev_team(db: Session) -> TaskTeam:
     return team
 
 
-def list_team_members(
-    db: Session, scope: str = SCOPE_DEV
-) -> list[tuple[TaskTeamMember, User]]:
-    """Returns active team members with their User objects."""
-    team = get_or_create_dev_team(db)
+def get_manager_team(db: Session, owner_id: int) -> TaskTeam | None:
+    return db.exec(
+        select(TaskTeam)
+        .where(TaskTeam.owner_user_id == owner_id)
+        .where(TaskTeam.is_active == True)  # noqa: E712
+    ).first()
+
+
+def list_team_members(db: Session, owner_id: int) -> list[tuple[TaskTeamMember, User]]:
+    team = get_or_create_manager_team(db, owner_id)
     members = db.exec(
         select(TaskTeamMember)
         .where(TaskTeamMember.team_id == team.id)
@@ -52,18 +55,16 @@ def list_team_members(
     return [(m, users_map[m.user_id]) for m in members if m.user_id in users_map]
 
 
-def list_available_users(db: Session, scope: str = SCOPE_DEV) -> list[User]:
-    """Returns users not already active members of the team."""
-    active_member_ids = get_active_member_ids(db, scope)
+def list_available_users(db: Session, owner_id: int) -> list[User]:
+    active_member_ids = get_active_member_ids(db, owner_id)
     users = db.exec(
         select(User).where(User.is_active == True)  # noqa: E712
     ).all()
     return [u for u in users if u.id not in active_member_ids]
 
 
-def add_team_member(db: Session, user_id: int, scope: str = SCOPE_DEV) -> TaskTeamMember:
-    """Adds user to team. Reactivates existing inactive member if found."""
-    team = get_or_create_dev_team(db)
+def add_team_member(db: Session, user_id: int, owner_id: int) -> TaskTeamMember:
+    team = get_or_create_manager_team(db, owner_id)
     now = datetime.now(timezone.utc)
 
     existing = db.exec(
@@ -74,6 +75,7 @@ def add_team_member(db: Session, user_id: int, scope: str = SCOPE_DEV) -> TaskTe
 
     if existing:
         existing.is_active = True
+        existing.role = "member"
         existing.updated_at = now
         db.add(existing)
         db.commit()
@@ -83,6 +85,7 @@ def add_team_member(db: Session, user_id: int, scope: str = SCOPE_DEV) -> TaskTe
     member = TaskTeamMember(
         team_id=team.id,
         user_id=user_id,
+        role="member",
         is_active=True,
         created_at=now,
         updated_at=now,
@@ -93,9 +96,8 @@ def add_team_member(db: Session, user_id: int, scope: str = SCOPE_DEV) -> TaskTe
     return member
 
 
-def deactivate_team_member(db: Session, user_id: int, scope: str = SCOPE_DEV) -> None:
-    """Marks member as inactive. Does NOT delete the row."""
-    team = get_or_create_dev_team(db)
+def deactivate_team_member(db: Session, user_id: int, owner_id: int) -> None:
+    team = get_or_create_manager_team(db, owner_id)
     member = db.exec(
         select(TaskTeamMember)
         .where(TaskTeamMember.team_id == team.id)
@@ -110,9 +112,8 @@ def deactivate_team_member(db: Session, user_id: int, scope: str = SCOPE_DEV) ->
         db.commit()
 
 
-def get_active_member_ids(db: Session, scope: str = SCOPE_DEV) -> list[int]:
-    """Returns list of user_ids of active team members."""
-    team = get_or_create_dev_team(db)
+def get_active_member_ids(db: Session, owner_id: int) -> list[int]:
+    team = get_or_create_manager_team(db, owner_id)
     members = db.exec(
         select(TaskTeamMember)
         .where(TaskTeamMember.team_id == team.id)
