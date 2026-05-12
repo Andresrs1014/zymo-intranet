@@ -1,7 +1,6 @@
 import { X } from "lucide-react"
 import type { TaskFilters, PersonTaskSummary } from "@/types/workTask"
-import { ESTADOS, ETIQUETAS, PLATAFORMAS } from "@/types/workTask"
-import { ESTADO_LABELS, ETIQUETA_LABELS, PLATAFORMA_LABELS } from "@/lib/taskTheme"
+import { useTaskLists } from "@/hooks/useWorkTasks"
 import { PersonCompactList } from "./PersonCompactList"
 
 interface Props {
@@ -19,6 +18,11 @@ export function TaskLeftPanel({
   persons,
   onClose,
 }: Props) {
+  const { data: lists } = useTaskLists()
+  const estados = lists?.estado ?? []
+  const etiquetas = lists?.etiqueta ?? []
+  const plataformas = lists?.plataforma ?? []
+
   const set = (patch: Partial<TaskFilters>) =>
     onFiltersChange({ ...filters, ...patch })
 
@@ -101,18 +105,18 @@ export function TaskLeftPanel({
               Estado
             </p>
             <div className="flex flex-wrap gap-1.5">
-              {ESTADOS.map((s) => (
+              {estados.map((s) => (
                 <button
-                  key={s}
+                  key={s.value}
                   type="button"
-                  onClick={() => set({ estado: filters.estado === s ? undefined : s })}
+                  onClick={() => set({ estado: filters.estado === s.value ? undefined : s.value })}
                   className={`px-2 py-0.5 rounded-full text-[11px] font-medium border transition-colors ${
-                    filters.estado === s
+                    filters.estado === s.value
                       ? "bg-gray-900 text-white border-gray-900"
                       : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"
                   }`}
                 >
-                  {ESTADO_LABELS[s] ?? s}
+                  {s.label}
                 </button>
               ))}
             </div>
@@ -123,18 +127,18 @@ export function TaskLeftPanel({
               Etiqueta
             </p>
             <div className="flex flex-wrap gap-1.5">
-              {ETIQUETAS.map((et) => (
+              {etiquetas.map((et) => (
                 <button
-                  key={et}
+                  key={et.value}
                   type="button"
-                  onClick={() => set({ etiqueta: filters.etiqueta === et ? undefined : et })}
+                  onClick={() => set({ etiqueta: filters.etiqueta === et.value ? undefined : et.value })}
                   className={`px-2 py-0.5 rounded-full text-[11px] font-medium border transition-colors ${
-                    filters.etiqueta === et
+                    filters.etiqueta === et.value
                       ? "bg-gray-900 text-white border-gray-900"
                       : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"
                   }`}
                 >
-                  {ETIQUETA_LABELS[et] ?? et}
+                  {et.label}
                 </button>
               ))}
             </div>
@@ -145,20 +149,20 @@ export function TaskLeftPanel({
               Plataforma
             </p>
             <div className="flex flex-wrap gap-1.5">
-              {PLATAFORMAS.map((p) => (
+              {plataformas.map((p) => (
                 <button
-                  key={p}
+                  key={p.value}
                   type="button"
                   onClick={() =>
-                    set({ plataforma: filters.plataforma === p ? undefined : p })
+                    set({ plataforma: filters.plataforma === p.value ? undefined : p.value })
                   }
                   className={`px-2 py-0.5 rounded-full text-[11px] font-medium border transition-colors ${
-                    filters.plataforma === p
+                    filters.plataforma === p.value
                       ? "bg-gray-900 text-white border-gray-900"
                       : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"
                   }`}
                 >
-                  {PLATAFORMA_LABELS[p] ?? p}
+                  {p.label}
                 </button>
               ))}
             </div>

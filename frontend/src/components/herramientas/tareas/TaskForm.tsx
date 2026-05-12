@@ -1,14 +1,11 @@
 import { useState } from "react"
 import type { WorkTaskCreate } from "@/types/workTask"
-import { ETIQUETAS, PLATAFORMAS, ESTADOS } from "@/types/workTask"
+import { useTaskLists } from "@/hooks/useWorkTasks"
 import {
   taskInput,
   taskLabel,
   taskButtonPrimary,
   taskButtonSecondary,
-  ETIQUETA_LABELS,
-  PLATAFORMA_LABELS,
-  ESTADO_LABELS,
   formatMinutos,
 } from "@/lib/taskTheme"
 
@@ -28,13 +25,18 @@ function calcMinutos(inicio: string, cierre: string): number | null {
 
 export function TaskForm({ onSubmit, onCancel, loading }: TaskFormProps) {
   const today = new Date().toISOString().slice(0, 10)
+  const { data: lists } = useTaskLists()
+
+  const etiquetas = lists?.etiqueta ?? []
+  const plataformas = lists?.plataforma ?? []
+  const estados = lists?.estado ?? []
 
   const [titulo, setTitulo] = useState("")
   const [descripcion, setDescripcion] = useState("")
-  const [etiqueta, setEtiqueta] = useState<string>(ETIQUETAS[0])
-  const [plataforma, setPlataforma] = useState<string>(PLATAFORMAS[0])
+  const [etiqueta, setEtiqueta] = useState<string>("")
+  const [plataforma, setPlataforma] = useState<string>("")
   const [fecha, setFecha] = useState(today)
-  const [estado, setEstado] = useState<string>("en_progreso")
+  const [estado, setEstado] = useState<string>("")
   const [horaInicio, setHoraInicio] = useState("")
   const [horaCierre, setHoraCierre] = useState("")
 
@@ -56,10 +58,10 @@ export function TaskForm({ onSubmit, onCancel, loading }: TaskFormProps) {
     // Reset form
     setTitulo("")
     setDescripcion("")
-    setEtiqueta(ETIQUETAS[0])
-    setPlataforma(PLATAFORMAS[0])
+    setEtiqueta("")
+    setPlataforma("")
     setFecha(today)
-    setEstado("en_progreso")
+    setEstado("")
     setHoraInicio("")
     setHoraCierre("")
   }
@@ -96,8 +98,9 @@ export function TaskForm({ onSubmit, onCancel, loading }: TaskFormProps) {
             value={etiqueta}
             onChange={(e) => setEtiqueta(e.target.value)}
           >
-            {ETIQUETAS.map((e) => (
-              <option key={e} value={e}>{ETIQUETA_LABELS[e] ?? e}</option>
+            <option value="">Seleccionar...</option>
+            {etiquetas.map((e) => (
+              <option key={e.value} value={e.value}>{e.label}</option>
             ))}
           </select>
         </div>
@@ -109,8 +112,9 @@ export function TaskForm({ onSubmit, onCancel, loading }: TaskFormProps) {
             value={plataforma}
             onChange={(e) => setPlataforma(e.target.value)}
           >
-            {PLATAFORMAS.map((p) => (
-              <option key={p} value={p}>{PLATAFORMA_LABELS[p] ?? p}</option>
+            <option value="">Seleccionar...</option>
+            {plataformas.map((p) => (
+              <option key={p.value} value={p.value}>{p.label}</option>
             ))}
           </select>
         </div>
@@ -133,8 +137,9 @@ export function TaskForm({ onSubmit, onCancel, loading }: TaskFormProps) {
             value={estado}
             onChange={(e) => setEstado(e.target.value)}
           >
-            {ESTADOS.map((s) => (
-              <option key={s} value={s}>{ESTADO_LABELS[s] ?? s}</option>
+            <option value="">Seleccionar...</option>
+            {estados.map((s) => (
+              <option key={s.value} value={s.value}>{s.label}</option>
             ))}
           </select>
         </div>

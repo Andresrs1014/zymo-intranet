@@ -1,13 +1,6 @@
 import type { TaskFilters, PersonTaskSummary } from "@/types/workTask"
-import { ETIQUETAS, PLATAFORMAS, ESTADOS } from "@/types/workTask"
-import {
-  taskInput,
-  taskLabel,
-  taskButtonSecondary,
-  ETIQUETA_LABELS,
-  PLATAFORMA_LABELS,
-  ESTADO_LABELS,
-} from "@/lib/taskTheme"
+import { useTaskLists } from "@/hooks/useWorkTasks"
+import { taskInput, taskLabel, taskButtonSecondary } from "@/lib/taskTheme"
 
 interface TaskFiltersBarProps {
   filters: TaskFilters
@@ -16,6 +9,11 @@ interface TaskFiltersBarProps {
 }
 
 export function TaskFiltersBar({ filters, onChange, teamMembers }: TaskFiltersBarProps) {
+  const { data: lists } = useTaskLists()
+  const estados = lists?.estado ?? []
+  const etiquetas = lists?.etiqueta ?? []
+  const plataformas = lists?.plataforma ?? []
+
   const set = (patch: Partial<TaskFilters>) => onChange({ ...filters, ...patch })
 
   const clear = () =>
@@ -81,8 +79,8 @@ export function TaskFiltersBar({ filters, onChange, teamMembers }: TaskFiltersBa
             onChange={(e) => set({ estado: e.target.value || undefined })}
           >
             <option value="">Todos</option>
-            {ESTADOS.map((s) => (
-              <option key={s} value={s}>{ESTADO_LABELS[s] ?? s}</option>
+            {estados.map((s) => (
+              <option key={s.value} value={s.value}>{s.label}</option>
             ))}
           </select>
         </div>
@@ -95,8 +93,8 @@ export function TaskFiltersBar({ filters, onChange, teamMembers }: TaskFiltersBa
             onChange={(e) => set({ etiqueta: e.target.value || undefined })}
           >
             <option value="">Todas</option>
-            {ETIQUETAS.map((et) => (
-              <option key={et} value={et}>{ETIQUETA_LABELS[et] ?? et}</option>
+            {etiquetas.map((et) => (
+              <option key={et.value} value={et.value}>{et.label}</option>
             ))}
           </select>
         </div>
@@ -109,8 +107,8 @@ export function TaskFiltersBar({ filters, onChange, teamMembers }: TaskFiltersBa
             onChange={(e) => set({ plataforma: e.target.value || undefined })}
           >
             <option value="">Todas</option>
-            {PLATAFORMAS.map((p) => (
-              <option key={p} value={p}>{PLATAFORMA_LABELS[p] ?? p}</option>
+            {plataformas.map((p) => (
+              <option key={p.value} value={p.value}>{p.label}</option>
             ))}
           </select>
         </div>
