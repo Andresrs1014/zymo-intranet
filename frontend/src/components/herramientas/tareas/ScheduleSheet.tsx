@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { useCreateEvent, useTeamMembers, useAvailableTeamUsers } from "@/hooks/useWorkTasks"
+import { useAuthStore } from "@/store/authStore"
 import type { TaskTeamMember, AvailableUser } from "@/types/workTask"
 import { format } from "date-fns"
 
@@ -28,13 +29,17 @@ export function ScheduleSheet({
   const [horaInicio, setHoraInicio] = useState("09:00")
   const [duracion, setDuracion] = useState("60")
   const [descripcion, setDescripcion] = useState("")
-  const [selectedIds, setSelectedIds] = useState<number[]>([])
+  const [selectedIds, setSelectedIds] = useState<number[]>(
+    () => !canSelectOthers && currentUserId ? [currentUserId] : []
+  )
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const createEvent = useCreateEvent()
   const { data: teamMembers = [] } = useTeamMembers()
   const { data: allUsers = [] } = useAvailableTeamUsers()
+
+  const currentUserId = useAuthStore((s) => s.user?.id)
 
   // Sync date when preselectedDate changes
   useEffect(() => {
@@ -52,10 +57,10 @@ export function ScheduleSheet({
       setHoraInicio("09:00")
       setDuracion("60")
       setDescripcion("")
-      setSelectedIds([])
+      setSelectedIds(!canSelectOthers && currentUserId ? [currentUserId] : [])
       setError(null)
     }
-  }, [isOpen, preselectedDate])
+  }, [isOpen, preselectedDate, canSelectOthers, currentUserId])
 
   const toggleUser = (id: number) => {
     setSelectedIds((prev) =>
@@ -67,6 +72,10 @@ export function ScheduleSheet({
     e.preventDefault()
     if (!titulo.trim()) {
       setError("El título es obligatorio.")
+      return
+    }
+    if (selectedIds.length === 0) {
+      setError("Debes incluir al menos un participante.")
       return
     }
     setError(null)
@@ -81,8 +90,12 @@ export function ScheduleSheet({
         participant_ids: selectedIds,
       })
       onClose()
-    } catch {
-      setError("Error al crear el evento. Intenta de nuevo.")
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+        ?? "Error al crear el evento. Intenta de nuevo."
+      setError(msg)
+      console.error("[ScheduleSheet] Error al crear evento:", err)
     } finally {
       setIsSubmitting(false)
     }
@@ -180,7 +193,7 @@ export function ScheduleSheet({
               <Label>Participantes</Label>
               {!canSelectOthers ? (
                 <p className="text-sm text-muted-foreground italic">
-                  Solo a ti mismo.
+                  El evento se agendará para ti.
                 </p>
               ) : (
                 <Tabs defaultValue="equipo">
