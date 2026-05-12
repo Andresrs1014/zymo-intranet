@@ -1,59 +1,229 @@
+import { useState } from "react"
+import { Plus, Pencil, Trash2, Check, X } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ESTADOS, ETIQUETAS, PLATAFORMAS } from "@/types/workTask"
-import { ESTADO_LABELS, ETIQUETA_LABELS, PLATAFORMA_LABELS } from "@/lib/taskTheme"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import {
+  useTaskLists,
+  useCreateTaskListItem,
+  useUpdateTaskListItem,
+  useDeleteTaskListItem,
+  TaskListConfigItem,
+  TaskListsResponse,
+} from "@/hooks/useWorkTasks"
+
+function ListSection({
+  title,
+  type,
+  items,
+  onAdd,
+  onUpdate,
+  onDelete,
+  isLoading,
+}: {
+  title: string
+  type: "estado" | "etiqueta" | "plataforma"
+  items: TaskListConfigItem[]
+  onAdd: (value: string, label: string) => void
+  onUpdate: (value: string, label: string) => void
+  onDelete: (value: string) => void
+  isLoading: boolean
+}) {
+  const [adding, setAdding] = useState(false)
+  const [newValue, setNewValue] = useState("")
+  const [newLabel, setNewLabel] = useState("")
+  const [editingKey, setEditingKey] = useState<string | null>(null)
+  const [editValue, setEditValue] = useState("")
+  const [editLabel, setEditLabel] = useState("")
+
+  const handleAdd = () => {
+    if (!newValue.trim() || !newLabel.trim()) return
+    onAdd(newValue.trim().toLowerCase().replace(/\s+/g, "_"), newLabel.trim())
+    setNewValue("")
+    setNewLabel("")
+    setAdding(false)
+  }
+
+  const startEdit = (item: TaskListConfigItem) => {
+    setEditingKey(item.value)
+    setEditValue(item.value)
+    setEditLabel(item.label)
+  }
+
+  const handleEdit = () => {
+    if (!editLabel.trim()) return
+    onUpdate(editingKey!, editLabel.trim())
+    setEditingKey(null)
+  }
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">{title}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">Cargando...</p>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm">{title}</CardTitle>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setAdding(true)}
+            className="h-7 px-2 text-xs"
+          >
+            <Plus className="w-3 h-3 mr-1" />
+            Agregar
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {adding && (
+          <div className="flex gap-2 items-end">
+            <div className="flex-1 space-y-1">
+              <Input
+                placeholder="key (ej: en_progreso)"
+                value={newValue}
+                onChange={(e) => setNewValue(e.target.value)}
+                className="h-8 text-xs"
+              />
+            </div>
+            <div className="flex-1 space-y-1">
+              <Input
+                placeholder="Label (ej: En progreso)"
+                value={newLabel}
+                onChange={(e) => setNewLabel(e.target.value)}
+                className="h-8 text-xs"
+              />
+            </div>
+            <Button size="sm" variant="ghost" onClick={handleAdd} className="h-8 w-8 p-0">
+              <Check className="w-4 h-4" />
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => { setAdding(false); setNewValue(""); setNewLabel("") }} className="h-8 w-8 p-0">
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+        )}
+
+        {items.length === 0 && !adding ? (
+          <p className="text-xs text-muted-foreground italic">Sin elementos. Agrega el primero.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {items.map((item) => (
+              <div
+                key={item.value}
+                className="flex items-center gap-1 px-3 py-1 rounded-full bg-gray-100 text-sm border border-gray-200"
+              >
+                {editingKey === item.value ? (
+                  <>
+                    <Input
+                      value={editLabel}
+                      onChange={(e) => setEditLabel(e.target.value)}
+                      className="h-6 w-32 text-xs py-0"
+                      autoFocus
+                      onKeyDown={(e) => e.key === "Enter" && handleEdit()}
+                    />
+                    <Button size="sm" variant="ghost" onClick={handleEdit} className="h-6 w-6 p-0">
+                      <Check className="w-3 h-3" />
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setEditingKey(null)} className="h-6 w-6 p-0">
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-gray-700">{item.label}</span>
+                    <button
+                      type="button"
+                      onClick={() => startEdit(item)}
+                      className="ml-1 text-gray-400 hover:text-gray-600"
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onDelete(item.value)}
+                      className="ml-1 text-gray-400 hover:text-red-500"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
 
 export function ListConfigTab() {
+  const { data: lists, isLoading } = useTaskLists()
+  const createItem = useCreateTaskListItem()
+  const updateItem = useUpdateTaskListItem()
+  const deleteItem = useDeleteTaskListItem()
+
+  const handleAdd = (type: "estado" | "etiqueta" | "plataforma") => (value: string, label: string) => {
+    createItem.mutate({ list_type: type, value, label })
+  }
+
+  const handleUpdate = (type: "estado" | "etiqueta" | "plataforma") => (value: string, label: string) => {
+    updateItem.mutate({ list_type: type, value, payload: { label } })
+  }
+
+  const handleDelete = (type: "estado" | "etiqueta" | "plataforma") => (value: string) => {
+    deleteItem.mutate({ list_type: type, value })
+  }
+
+  const sectionProps = {
+    isLoading: isLoading || createItem.isPending || updateItem.isPending || deleteItem.isPending,
+  }
+
   return (
     <div className="space-y-6 max-w-4xl">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Configuración de listas</h2>
-        <p className="text-xs text-muted-foreground">Solo lectura</p>
+        <p className="text-xs text-muted-foreground">Configura los valores disponibles en los formularios</p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">Estados</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {ESTADOS.map((item) => (
-              <span key={item} className="px-3 py-1 rounded-full bg-gray-100 text-sm border border-gray-200">
-                {ESTADO_LABELS[item] ?? item}
-              </span>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <ListSection
+        title="Estados"
+        type="estado"
+        items={lists?.estado ?? []}
+        onAdd={handleAdd("estado")}
+        onUpdate={handleUpdate("estado")}
+        onDelete={handleDelete("estado")}
+        {...sectionProps}
+      />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">Etiquetas</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {ETIQUETAS.map((item) => (
-              <span key={item} className="px-3 py-1 rounded-full bg-gray-100 text-sm border border-gray-200">
-                {ETIQUETA_LABELS[item] ?? item}
-              </span>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <ListSection
+        title="Etiquetas"
+        type="etiqueta"
+        items={lists?.etiqueta ?? []}
+        onAdd={handleAdd("etiqueta")}
+        onUpdate={handleUpdate("etiqueta")}
+        onDelete={handleDelete("etiqueta")}
+        {...sectionProps}
+      />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">Plataformas</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {PLATAFORMAS.map((item) => (
-              <span key={item} className="px-3 py-1 rounded-full bg-gray-100 text-sm border border-gray-200">
-                {PLATAFORMA_LABELS[item] ?? item}
-              </span>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <ListSection
+        title="Plataformas"
+        type="plataforma"
+        items={lists?.plataforma ?? []}
+        onAdd={handleAdd("plataforma")}
+        onUpdate={handleUpdate("plataforma")}
+        onDelete={handleDelete("plataforma")}
+        {...sectionProps}
+      />
     </div>
   )
 }

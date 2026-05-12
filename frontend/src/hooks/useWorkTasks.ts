@@ -299,3 +299,76 @@ export function useTeamTasksPaginated(filters: PaginatedTaskFilters) {
     },
   })
 }
+
+export type TaskListConfigItem = {
+  id: number
+  list_type: string
+  value: string
+  label: string
+  is_active: boolean
+}
+
+export type TaskListsResponse = {
+  estado: TaskListConfigItem[]
+  etiqueta: TaskListConfigItem[]
+  plataforma: TaskListConfigItem[]
+}
+
+export function useTaskLists() {
+  return useQuery<TaskListsResponse>({
+    queryKey: ["tareas", "config", "listas"],
+    queryFn: async () => {
+      const { data } = await api.get<TaskListsResponse>(`${BASE}/config/listas`)
+      return data
+    },
+  })
+}
+
+export function useCreateTaskListItem() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: { list_type: string; value: string; label: string }) => {
+      const { data } = await api.post<TaskListConfigItem>(`${BASE}/config/listas`, payload)
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tareas", "config", "listas"] })
+    },
+  })
+}
+
+export function useUpdateTaskListItem() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      list_type,
+      value,
+      payload,
+    }: {
+      list_type: string
+      value: string
+      payload: { label?: string; is_active?: boolean }
+    }) => {
+      const { data } = await api.patch<TaskListConfigItem>(
+        `${BASE}/config/listas/${list_type}/${value}`,
+        payload
+      )
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tareas", "config", "listas"] })
+    },
+  })
+}
+
+export function useDeleteTaskListItem() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ list_type, value }: { list_type: string; value: string }) => {
+      await api.delete(`${BASE}/config/listas/${list_type}/${value}`)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tareas", "config", "listas"] })
+    },
+  })
+}
