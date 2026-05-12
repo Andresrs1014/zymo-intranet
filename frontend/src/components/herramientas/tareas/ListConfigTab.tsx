@@ -8,13 +8,12 @@ import {
   useCreateTaskListItem,
   useUpdateTaskListItem,
   useDeleteTaskListItem,
-  TaskListConfigItem,
-  TaskListsResponse,
 } from "@/hooks/useWorkTasks"
+import type { TaskListConfigItem } from "@/hooks/useWorkTasks"
 
 function ListSection({
   title,
-  type,
+  type: _type,
   items,
   onAdd,
   onUpdate,
@@ -33,7 +32,6 @@ function ListSection({
   const [newValue, setNewValue] = useState("")
   const [newLabel, setNewLabel] = useState("")
   const [editingKey, setEditingKey] = useState<string | null>(null)
-  const [editValue, setEditValue] = useState("")
   const [editLabel, setEditLabel] = useState("")
 
   const handleAdd = () => {
