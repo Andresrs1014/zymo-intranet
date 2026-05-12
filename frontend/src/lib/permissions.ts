@@ -90,15 +90,10 @@ export function hasUserTool(userTools: string[] | undefined, key: string): boole
 }
 
 /**
- * Puede registrar tareas si:
- * - Tiene tool_task_submit_dev, O
- * - Es miembro del equipo (is_team_member = true)
+ * Puede registrar tareas si tiene tool_task_submit_dev.
  */
-export function canSubmitDevTasks(
-  userTools: string[],
-  isTeamMember?: boolean
-): boolean {
-  return userTools.includes("tool_task_submit_dev") || isTeamMember === true
+export function canSubmitDevTasks(userTools: string[]): boolean {
+  return userTools.includes("tool_task_submit_dev")
 }
 
 /**

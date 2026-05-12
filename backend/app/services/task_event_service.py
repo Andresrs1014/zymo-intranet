@@ -1,9 +1,6 @@
-# backend/app/services/task_event_service.py
 from __future__ import annotations
 from datetime import date
 from typing import TYPE_CHECKING
-
-from app.core.constants import SCOPE_DEV
 
 if TYPE_CHECKING:
     from sqlmodel import Session
@@ -40,7 +37,7 @@ def create_event(
     from sqlmodel import select
 
     event = TaskEvent(
-        scope=SCOPE_DEV,
+        owner_user_id=creator.id,
         titulo=payload.titulo,
         descripcion=payload.descripcion,
         plataforma=payload.plataforma,
@@ -116,7 +113,6 @@ def get_events_by_date(db: "Session", fecha: str, user_id: int | None = None) ->
     if user_id is None:
         events = db.exec(
             select(TaskEvent).where(
-                TaskEvent.scope == SCOPE_DEV,
                 TaskEvent.fecha == fecha_date,
             ).order_by(TaskEvent.hora_inicio)
         ).all()
@@ -125,7 +121,6 @@ def get_events_by_date(db: "Session", fecha: str, user_id: int | None = None) ->
             select(TaskEvent)
             .join(TaskEventParticipant, TaskEvent.id == TaskEventParticipant.event_id)
             .where(
-                TaskEvent.scope == SCOPE_DEV,
                 TaskEvent.fecha == fecha_date,
                 TaskEventParticipant.user_id == user_id,
             )

@@ -9,8 +9,8 @@ class TaskEvent(SQLModel, table=True):
     __tablename__ = "task_events"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    scope: str = Field(max_length=100, index=True, nullable=False)
-    team_id: Optional[int] = Field(default=None)
+    owner_user_id: int = Field(index=True, nullable=False)
+    team_id: Optional[int] = Field(default=None, index=True)
     titulo: str = Field(max_length=250, nullable=False)
     descripcion: Optional[str] = Field(default=None)
     plataforma: Optional[str] = Field(default=None, max_length=50)

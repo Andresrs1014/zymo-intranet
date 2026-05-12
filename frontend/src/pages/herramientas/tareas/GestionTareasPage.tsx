@@ -24,7 +24,7 @@ export function GestionTareasPage() {
   const user = useAuthStore((s) => s.user)
   const userTools: string[] = user?.user_tools ?? []
   const canManage = canManageDevTasks(userTools, user?.role)
-  const canSubmit = canSubmitDevTasks(userTools, user?.is_team_member)
+  const canSubmit = canSubmitDevTasks(userTools)
 
   const [filters, setFilters] = useState<TaskFilters>({})
   const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(

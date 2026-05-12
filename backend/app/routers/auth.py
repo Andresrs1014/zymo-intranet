@@ -6,7 +6,6 @@ from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr, field_validator
 from sqlmodel import Session, select
 
-from app.core.constants import SCOPE_DEV
 from app.core.deps import get_current_user, get_db, require_admin
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models.role import Role
@@ -137,8 +136,6 @@ def login(
 
 @router.get("/me", response_model=MeResponse)
 def me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    from app.models.task_team import TaskTeam
-    from app.models.task_team_member import TaskTeamMember
     from app.models.user_tool import UserTool
 
     role = db.exec(select(Role).where(Role.name == current_user.role)).first()
@@ -151,25 +148,7 @@ def me(current_user: User = Depends(get_current_user), db: Session = Depends(get
     ).all()
     tool_keys = [t.tool_key for t in tools]
 
-    dev_team = db.exec(
-        select(TaskTeam).where(
-            TaskTeam.scope == SCOPE_DEV,
-            TaskTeam.is_active == True,  # noqa: E712
-        )
-    ).first()
-
-    is_team_member = False
-    if dev_team:
-        team_member_record = db.exec(
-            select(TaskTeamMember).where(
-                TaskTeamMember.team_id == dev_team.id,
-                TaskTeamMember.user_id == current_user.id,
-                TaskTeamMember.is_active == True,  # noqa: E712
-            )
-        ).first()
-        is_team_member = team_member_record is not None
-
-    return _to_me(current_user, perms, tool_keys, is_team_member)
+    return _to_me(current_user, perms, tool_keys, False)
 
 
 @router.post("/register", response_model=MeResponse)
