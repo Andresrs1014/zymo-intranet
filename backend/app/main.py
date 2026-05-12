@@ -164,11 +164,13 @@ def _migrate_db() -> None:
         except Exception:
             pass  # ya existe
         # task_teams: eliminar restriccion NOT NULL de scope (SQLite no soporta ALTER COLUMN,
-        # se recrea la tabla copiando datos sin la columna scope)
+        # se recrea la tabla copiando datos sin la columna scope).
+        # Se desactivan FK temporalmente para evitar error al hacer DROP en SQLite.
         try:
             result = conn.execute(text("PRAGMA table_info(task_teams)"))
             columns = [row[1] for row in result.fetchall()]
             if "scope" in columns:
+                conn.execute(text("PRAGMA foreign_keys = OFF"))
                 conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS task_teams_new (
                         id INTEGER PRIMARY KEY,
@@ -186,6 +188,7 @@ def _migrate_db() -> None:
                 """))
                 conn.execute(text("DROP TABLE task_teams"))
                 conn.execute(text("ALTER TABLE task_teams_new RENAME TO task_teams"))
+                conn.execute(text("PRAGMA foreign_keys = ON"))
                 conn.commit()
                 print("[migrate] Tabla task_teams recreada sin columna scope.")
         except Exception as e:
