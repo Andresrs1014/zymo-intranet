@@ -13,7 +13,6 @@
     --card-foreground: 222.2 84% 4.9%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    /* Primary = brand-blue (#003087 ≈ hsl(218 100% 27%)) */
     --primary: 218 100% 27%;
     --primary-foreground: 0 0% 100%;
     --secondary: 210 40% 96.1%;
@@ -70,5 +69,11 @@
     font-family: 'Barlow', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+@layer components {
+  [data-radix-popper-content-wrapper] {
+    z-index: 50 !important;
   }
 }
