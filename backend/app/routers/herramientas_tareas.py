@@ -90,7 +90,7 @@ def mis_tareas_paginadas(
     return get_paginated_tasks(db, current_user.id, filters)
 
 
-@router.post("/", response_model=WorkTaskRead, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=WorkTaskRead, status_code=status.HTTP_201_CREATED)
 def create_task_endpoint(
     payload: WorkTaskCreate,
     current_user: User = Depends(get_current_user),
@@ -545,11 +545,33 @@ def get_listas(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict:
-    require_tool_or_403(db, current_user, TOOL_MANAGE)
-
+    from app.services.user_tool_service import user_has_tool
     from app.services.task_list_config_service import get_lists_by_owner
+    from app.models.task_team_member import TaskTeamMember
+    from app.models.task_team import TaskTeam
 
-    return get_lists_by_owner(db, current_user.id)
+    is_admin = getattr(current_user, "role", None) == "admin"
+    has_manage = user_has_tool(db, current_user, TOOL_MANAGE)
+    has_submit = user_has_tool(db, current_user, TOOL_SUBMIT)
+
+    if not is_admin and not has_manage and not has_submit:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Sin acceso.")
+
+    if is_admin or has_manage:
+        return get_lists_by_owner(db, current_user.id)
+
+    # Usuario con TOOL_SUBMIT: devolver listas de su gestor
+    membership = db.exec(
+        select(TaskTeamMember)
+        .where(TaskTeamMember.user_id == current_user.id)
+        .where(TaskTeamMember.is_active == True)  # noqa: E712
+    ).first()
+    if not membership:
+        return {"estado": [], "etiqueta": [], "plataforma": []}
+    team = db.get(TaskTeam, membership.team_id)
+    if not team:
+        return {"estado": [], "etiqueta": [], "plataforma": []}
+    return get_lists_by_owner(db, team.owner_user_id)
 
 
 @router.post(

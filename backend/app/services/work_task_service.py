@@ -51,8 +51,6 @@ def validate_task_values(etiqueta: str, plataforma: str, estado: str) -> None:
 
 def create_task(db: Session, user: User, payload: WorkTaskCreate) -> WorkTask:
     """Creates a task for the current user."""
-    validate_task_values(payload.etiqueta, payload.plataforma, payload.estado)
-
     now = datetime.now(timezone.utc)
     minutos = calcular_minutos(payload.hora_inicio, payload.hora_cierre)
 

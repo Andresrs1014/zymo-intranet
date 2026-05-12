@@ -47,10 +47,10 @@ export function TaskForm({ onSubmit, onCancel, loading }: TaskFormProps) {
     const payload: WorkTaskCreate = {
       titulo,
       descripcion_tecnica: descripcion,
-      etiqueta,
-      plataforma,
+      ...(etiqueta && { etiqueta }),
+      ...(plataforma && { plataforma }),
+      ...(estado && { estado }),
       fecha,
-      estado,
       hora_inicio: horaInicio ? new Date(`${fecha}T${horaInicio}:00`).toISOString() : undefined,
       hora_cierre: horaCierre ? new Date(`${fecha}T${horaCierre}:00`).toISOString() : undefined,
     }

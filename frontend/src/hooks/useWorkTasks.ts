@@ -59,7 +59,7 @@ export function useCreateWorkTask() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (payload: WorkTaskCreate) => {
-      const { data } = await api.post<WorkTask>(`${BASE}/`, payload)
+      const { data } = await api.post<WorkTask>(`${BASE}`, payload)
       return data
     },
     onSuccess: () => {
