@@ -185,6 +185,7 @@ def _migrate_db() -> None:
                     INSERT INTO task_teams_new (id, owner_user_id, name, is_active, created_at, updated_at)
                     SELECT id, owner_user_id, name, is_active, created_at, updated_at
                     FROM task_teams
+                    WHERE owner_user_id IS NOT NULL
                 """))
                 conn.execute(text("DROP TABLE task_teams"))
                 conn.execute(text("ALTER TABLE task_teams_new RENAME TO task_teams"))
