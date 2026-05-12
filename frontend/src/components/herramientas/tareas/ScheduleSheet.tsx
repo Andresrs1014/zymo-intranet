@@ -4,9 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { useCreateEvent, useTeamMembers, useAvailableTeamUsers } from "@/hooks/useWorkTasks"
-import { PLATAFORMA_LABELS } from "@/lib/taskTheme"
-import { PLATAFORMAS } from "@/types/workTask"
+import { useCreateEvent, useTeamMembers, useAvailableTeamUsers, useTaskLists } from "@/hooks/useWorkTasks"
 import { useAuthStore } from "@/store/authStore"
 import type { TaskTeamMember, AvailableUser } from "@/types/workTask"
 import { format } from "date-fns"
@@ -34,15 +32,24 @@ export function ScheduleSheet({
   const [duracion, setDuracion] = useState("60")
   const [descripcion, setDescripcion] = useState("")
   const [plataforma, setPlataforma] = useState("")
-  const [selectedIds, setSelectedIds] = useState<number[]>(
-    () => !canSelectOthers && currentUserId ? [currentUserId] : []
+  const [selectedIds, setSelectedIds] = useState<number[]>(() =>
+    !canSelectOthers && currentUserId != null ? [currentUserId] : []
   )
+
+  // Si el userId aún no estaba disponible al montar, sincronizarlo
+  useEffect(() => {
+    if (!canSelectOthers && currentUserId != null && selectedIds.length === 0) {
+      setSelectedIds([currentUserId])
+    }
+  }, [canSelectOthers, currentUserId]) // eslint-disable-line react-hooks/exhaustive-deps
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const createEvent = useCreateEvent()
   const { data: teamMembers = [] } = useTeamMembers()
   const { data: allUsers = [] } = useAvailableTeamUsers()
+  const { data: lists } = useTaskLists()
+  const plataformas = lists?.plataforma ?? []
 
   // Sync date when preselectedDate changes
   useEffect(() => {
@@ -203,8 +210,8 @@ export function ScheduleSheet({
                 className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 <option value="">Todas las plataformas</option>
-                {PLATAFORMAS.map((p: string) => (
-                  <option key={p} value={p}>{PLATAFORMA_LABELS[p] ?? p}</option>
+                {plataformas.map((p) => (
+                  <option key={p.value} value={p.value}>{p.label}</option>
                 ))}
               </select>
             </div>

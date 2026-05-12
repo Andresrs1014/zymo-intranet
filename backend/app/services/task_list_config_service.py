@@ -3,6 +3,29 @@ from sqlmodel import Session, select
 from app.models.task_list_config import TaskListConfig
 from app.schemas.task_list_config import TaskListConfigCreate, TaskListConfigUpdate
 
+_DEFAULT_LIST_ITEMS = [
+    ("estado",     "completada",         "Completada"),
+    ("estado",     "en_progreso",        "En progreso"),
+    ("estado",     "bloqueada",          "Bloqueada"),
+    ("etiqueta",   "desarrollos",        "Desarrollos"),
+    ("etiqueta",   "actualizaciones",    "Actualizaciones"),
+    ("etiqueta",   "auditorias",         "Auditorías"),
+    ("etiqueta",   "implementacion_okr", "Implementación OKR"),
+    ("etiqueta",   "tareas_diarias",     "Tareas diarias"),
+    ("plataforma", "logimat1",           "Logimat 1"),
+    ("plataforma", "logimat2",           "Logimat 2"),
+    ("plataforma", "imccargo",           "IMC Cargo"),
+    ("plataforma", "imcdeposito",        "IMC Depósito"),
+    ("plataforma", "transversal",        "Transversal"),
+]
+
+
+def _seed_defaults(db: Session, owner_id: int) -> None:
+    """Crea los items de lista por defecto para un manager que aún no tiene ninguno."""
+    for list_type, value, label in _DEFAULT_LIST_ITEMS:
+        db.add(TaskListConfig(owner_user_id=owner_id, list_type=list_type, value=value, label=label))
+    db.commit()
+
 
 def get_lists_by_owner(db: Session, owner_id: int) -> dict[str, list[TaskListConfig]]:
     rows = db.exec(
@@ -11,6 +34,15 @@ def get_lists_by_owner(db: Session, owner_id: int) -> dict[str, list[TaskListCon
         .where(TaskListConfig.is_active == True)  # noqa: E712
         .order_by(TaskListConfig.created_at)
     ).all()
+
+    if not rows:
+        _seed_defaults(db, owner_id)
+        rows = db.exec(
+            select(TaskListConfig)
+            .where(TaskListConfig.owner_user_id == owner_id)
+            .where(TaskListConfig.is_active == True)  # noqa: E712
+            .order_by(TaskListConfig.created_at)
+        ).all()
 
     by_type: dict[str, list[TaskListConfig]] = {
         "estado": [],

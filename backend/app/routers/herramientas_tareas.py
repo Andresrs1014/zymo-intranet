@@ -204,6 +204,13 @@ def equipo_tareas_paginadas(
     return get_paginated_tasks(db, current_user.id, filters, team_member_ids=member_ids)
 
 
+def _owner_id(current_user: User) -> int | None:
+    """Admin ve todo (owner_id=None). Manager ve su workspace."""
+    if getattr(current_user, "role", None) == "admin":
+        return None
+    return current_user.id
+
+
 @router.get("/equipo", response_model=list[WorkTaskRead])
 def get_equipo_tasks(
     filters: TaskFilters = Depends(_team_filters),
@@ -214,7 +221,7 @@ def get_equipo_tasks(
 
     from app.services.task_dashboard_service import get_team_tasks
 
-    tasks = get_team_tasks(db, filters, current_user.id)
+    tasks = get_team_tasks(db, filters, _owner_id(current_user))
     return [WorkTaskRead.model_validate(t) for t in tasks]
 
 
@@ -228,7 +235,7 @@ def get_equipo_kpis(
 
     from app.services.task_dashboard_service import get_team_kpis
 
-    return get_team_kpis(db, filters, current_user.id)
+    return get_team_kpis(db, filters, _owner_id(current_user))
 
 
 @router.get("/equipo/personas", response_model=list[PersonTaskSummary])
@@ -241,7 +248,7 @@ def get_equipo_personas(
 
     from app.services.task_dashboard_service import get_person_summaries
 
-    return get_person_summaries(db, filters, current_user.id)
+    return get_person_summaries(db, filters, _owner_id(current_user))
 
 
 @router.get("/equipo/graficas")
@@ -254,7 +261,7 @@ def get_equipo_graficas(
 
     from app.services.task_dashboard_service import get_chart_data
 
-    return get_chart_data(db, filters, current_user.id)
+    return get_chart_data(db, filters, _owner_id(current_user))
 
 
 @router.get("/equipo/sin-registro-hoy", response_model=list[PersonTaskSummary])
