@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Navigate } from "react-router-dom"
 import { Plus, PanelRightClose, PanelRightOpen } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -12,6 +12,12 @@ import { TaskManagerView } from "@/components/herramientas/tareas/TaskManagerVie
 import { TaskSubmitView } from "@/components/herramientas/tareas/TaskSubmitView"
 import { TaskChartsTab } from "@/components/herramientas/tareas/TaskChartsTab"
 import { TeamConfigTab } from "@/components/herramientas/tareas/TeamConfigTab"
+import { TaskLeftRail } from "@/components/herramientas/tareas/TaskLeftRail"
+import { TaskLeftPanel } from "@/components/herramientas/tareas/TaskLeftPanel"
+import { useTeamPersonSummaries } from "@/hooks/useWorkTasks"
+import type { TaskFilters } from "@/types/workTask"
+
+const LEFT_PANEL_KEY = "task-left-panel-open"
 
 export function GestionTareasPage() {
   const user = useAuthStore((s) => s.user)
@@ -19,9 +25,19 @@ export function GestionTareasPage() {
   const canManage = canManageDevTasks(userTools, user?.role)
   const canSubmit = canSubmitDevTasks(userTools, user?.is_team_member)
 
+  const [filters, setFilters] = useState<TaskFilters>({})
+  const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(
+    () => localStorage.getItem(LEFT_PANEL_KEY) === "true"
+  )
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [scheduleDate, setScheduleDate] = useState<Date | null>(null)
   const [isScheduleOpen, setIsScheduleOpen] = useState(false)
+
+  const { data: persons = [] } = useTeamPersonSummaries(filters)
+
+  useEffect(() => {
+    localStorage.setItem(LEFT_PANEL_KEY, String(isLeftPanelOpen))
+  }, [isLeftPanelOpen])
 
   if (!canManage && !canSubmit) {
     return <Navigate to="/dashboard" replace />
@@ -29,16 +45,43 @@ export function GestionTareasPage() {
 
   const pageTitle = canManage ? "Gestión de Tareas" : "Registro de Tareas"
 
+  const hasActiveFilters = !!(
+    filters.fecha_desde ||
+    filters.fecha_hasta ||
+    filters.estado ||
+    filters.etiqueta ||
+    filters.plataforma ||
+    filters.q ||
+    filters.sin_registro_hoy
+  )
+
   return (
     <PageLayout
       title={pageTitle}
       mainClassName="flex flex-1 min-h-0 overflow-hidden p-0"
     >
-      {/* Inner layout: main content + resizable calendar sidebar */}
       <div className="flex flex-1 min-h-0 overflow-hidden w-full">
-        {/* Main content */}
-        <main className="flex-1 overflow-y-auto">
-          {/* Sub-header */}
+
+        {canManage && (
+          <TaskLeftRail
+            isPanelOpen={isLeftPanelOpen}
+            onToggle={() => setIsLeftPanelOpen((v) => !v)}
+            hasActiveFilters={hasActiveFilters}
+            hasSelectedPerson={!!filters.responsable_id}
+          />
+        )}
+
+        {canManage && (
+          <TaskLeftPanel
+            isOpen={isLeftPanelOpen}
+            filters={filters}
+            onFiltersChange={setFilters}
+            persons={persons}
+            onClose={() => setIsLeftPanelOpen(false)}
+          />
+        )}
+
+        <main className="flex-1 overflow-y-auto min-w-0">
           <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-background shrink-0">
             <div className="flex items-center gap-3">
               <div className="h-6 w-1.5 bg-primary rounded-full" />
@@ -71,7 +114,6 @@ export function GestionTareasPage() {
             </div>
           </div>
 
-          {/* Tabs */}
           <div className="px-6 py-4">
             <Tabs defaultValue="tareas" className="space-y-4">
               <TabsList>
@@ -86,7 +128,11 @@ export function GestionTareasPage() {
 
               <TabsContent value="tareas">
                 {canManage ? (
-                  <TaskManagerView canSubmitOwn={true} />
+                  <TaskManagerView
+                    canSubmitOwn={true}
+                    filters={filters}
+                    onFiltersChange={setFilters}
+                  />
                 ) : (
                   <TaskSubmitView />
                 )}
@@ -105,7 +151,6 @@ export function GestionTareasPage() {
           </div>
         </main>
 
-        {/* Resizable calendar sidebar */}
         <CalendarSidebar
           isOpen={isSidebarOpen}
           onDateSelect={(date) => {
@@ -120,7 +165,6 @@ export function GestionTareasPage() {
         />
       </div>
 
-      {/* Schedule sheet (portal-style, outside the flex layout) */}
       <ScheduleSheet
         isOpen={isScheduleOpen}
         onClose={() => setIsScheduleOpen(false)}
