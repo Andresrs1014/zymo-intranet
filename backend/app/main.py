@@ -135,6 +135,27 @@ def _migrate_db() -> None:
             print("[migrate] Columna sede.visible_en_solicitudes_oc agregada.")
         except Exception:
             pass
+        # task_team_members.role (agregada en feat multi-workspace)
+        try:
+            conn.execute(text("ALTER TABLE task_team_members ADD COLUMN role TEXT NOT NULL DEFAULT 'member'"))
+            conn.commit()
+            print("[migrate] Columna task_team_members.role agregada.")
+        except Exception:
+            pass  # ya existe
+        # task_events.owner_user_id (reemplaza scope en feat multi-workspace)
+        try:
+            conn.execute(text("ALTER TABLE task_events ADD COLUMN owner_user_id INTEGER NOT NULL DEFAULT 0"))
+            conn.commit()
+            print("[migrate] Columna task_events.owner_user_id agregada.")
+        except Exception:
+            pass  # ya existe
+        # task_events.team_id (opcional, puede ser NULL)
+        try:
+            conn.execute(text("ALTER TABLE task_events ADD COLUMN team_id INTEGER"))
+            conn.commit()
+            print("[migrate] Columna task_events.team_id agregada.")
+        except Exception:
+            pass  # ya existe
     with Session(get_engine()) as session:
         for sede_row in session.exec(select(Sede)).all():
             if sede_row.name.strip().lower() == "transversal":
