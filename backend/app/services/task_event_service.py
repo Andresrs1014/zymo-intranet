@@ -45,7 +45,7 @@ def create_event(
         hora_inicio=payload.hora_inicio,
         duracion_minutos=payload.duracion_minutos,
         creado_por_id=creator.id,
-        creado_por_nombre=creator.full_name,
+        creado_por_nombre=creator.full_name or creator.email,
     )
     db.add(event)
     db.flush()  # Obtener event.id sin hacer commit aún
@@ -82,7 +82,7 @@ def create_event(
         participant = TaskEventParticipant(
             event_id=event.id,
             user_id=uid,
-            user_nombre=user.full_name,
+            user_nombre=user.full_name or user.email,
             has_conflict=has_conflict,
             conflict_detail=conflict_detail,
         )
