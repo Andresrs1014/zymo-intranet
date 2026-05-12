@@ -3,12 +3,10 @@ import type { WorkTask, TaskFilters, WorkTaskCreate } from "@/types/workTask"
 import {
   useTeamTasks,
   useTeamKpis,
-  useTeamCharts,
   useUsersWithoutTodayEntry,
   useCreateWorkTask,
 } from "@/hooks/useWorkTasks"
 import { exportTasksExcel, exportTasksPdf } from "@/hooks/useTaskExports"
-import { TaskCharts } from "./TaskCharts"
 import { TaskDataTable } from "./TaskDataTable"
 import { TaskDetailSheet } from "./TaskDetailSheet"
 import { TaskTeamConfigDialog } from "./TaskTeamConfigDialog"
@@ -34,7 +32,6 @@ export function TaskManagerView({ canSubmitOwn, filters }: Props) {
 
   const { data: tasks } = useTeamTasks(filters)
   const { data: kpis } = useTeamKpis(filters)
-  const { data: charts } = useTeamCharts(filters)
   const { data: sinRegistro } = useUsersWithoutTodayEntry()
 
   const handleExportExcel = async () => {
@@ -52,14 +49,6 @@ export function TaskManagerView({ canSubmitOwn, filters }: Props) {
     setShowNewTaskForm(false)
   }
 
-  const chartsData = charts as {
-    tareas_por_responsable: { nombre: string; tareas: number }[]
-    horas_por_responsable: { nombre: string; horas: number }[]
-    distribucion_estado: { estado: string; cantidad: number }[]
-    tareas_por_etiqueta: { etiqueta: string; cantidad: number }[]
-    evolucion_completadas: { fecha: string; completadas: number }[]
-  } | undefined
-
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -68,35 +57,14 @@ export function TaskManagerView({ canSubmitOwn, filters }: Props) {
           <p className="text-sm text-gray-500 mt-0.5">Equipo de Desarrollo e Innovación</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            className={taskButtonSecondary}
-            onClick={handleExportExcel}
-            disabled={exporting !== null}
-          >
+          <button type="button" className={taskButtonSecondary} onClick={handleExportExcel} disabled={exporting !== null}>
             {exporting === "excel" ? "Exportando..." : "Exportar Excel"}
           </button>
-          <button
-            type="button"
-            className={taskButtonSecondary}
-            onClick={handleExportPdf}
-            disabled={exporting !== null}
-          >
+          <button type="button" className={taskButtonSecondary} onClick={handleExportPdf} disabled={exporting !== null}>
             {exporting === "pdf" ? "Exportando..." : "Exportar PDF"}
           </button>
-          <button
-            type="button"
-            className={taskButtonPrimary}
-            onClick={() => setTeamConfigOpen(true)}
-          >
-            Configurar equipo
-          </button>
           {canSubmitOwn && (
-            <button
-              type="button"
-              className={taskButtonPrimary}
-              onClick={() => setShowNewTaskForm((v) => !v)}
-            >
+            <button type="button" className={taskButtonPrimary} onClick={() => setShowNewTaskForm((v) => !v)}>
               {showNewTaskForm ? "Cancelar" : "+ Nueva tarea"}
             </button>
           )}
@@ -106,18 +74,14 @@ export function TaskManagerView({ canSubmitOwn, filters }: Props) {
       {showNewTaskForm && canSubmitOwn && (
         <div className={`${taskCard} p-6`}>
           <h2 className="text-sm font-semibold text-gray-900 mb-4">Nueva tarea</h2>
-          <TaskForm
-            onSubmit={handleNewTaskSubmit}
-            onCancel={() => setShowNewTaskForm(false)}
-            loading={createTask.isPending}
-          />
+          <TaskForm onSubmit={handleNewTaskSubmit} onCancel={() => setShowNewTaskForm(false)} loading={createTask.isPending} />
         </div>
       )}
 
       {sinRegistro && sinRegistro.length > 0 && (
         <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-800">
           <strong>{sinRegistro.length} miembro{sinRegistro.length > 1 ? "s" : ""} sin registro hoy:</strong>{" "}
-          {sinRegistro.map((u) => u.nombre).join(", ")}.
+          {sinRegistro.map((u: { nombre: string }) => u.nombre).join(", ")}.
         </div>
       )}
 
@@ -132,21 +96,11 @@ export function TaskManagerView({ canSubmitOwn, filters }: Props) {
         </div>
       )}
 
-      {charts && (
-        <div>
-          <h2 className="text-sm font-semibold text-gray-700 mb-3">Gráficas</h2>
-          <TaskCharts data={chartsData} />
-        </div>
-      )}
-
       <div>
         <h2 className="text-sm font-semibold text-gray-700 mb-3">
           Tareas ({tasks?.length ?? 0})
         </h2>
-        <TaskDataTable
-          tasks={tasks ?? []}
-          onRowClick={(t) => setSelectedTask(t)}
-        />
+        <TaskDataTable tasks={tasks ?? []} onRowClick={(t) => setSelectedTask(t)} />
       </div>
 
       <TaskDetailSheet task={selectedTask} onClose={() => setSelectedTask(null)} />
@@ -155,15 +109,7 @@ export function TaskManagerView({ canSubmitOwn, filters }: Props) {
   )
 }
 
-function KpiCard({
-  label,
-  value,
-  color = "text-gray-900",
-}: {
-  label: string
-  value: number | string
-  color?: string
-}) {
+function KpiCard({ label, value, color = "text-gray-900" }: { label: string; value: number | string; color?: string }) {
   return (
     <div className={`${taskCard} p-4`}>
       <p className="text-xs font-medium text-gray-500">{label}</p>
