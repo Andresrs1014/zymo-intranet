@@ -24,6 +24,7 @@ from app.schemas.task_team import (
     TaskTeamMemberCreate,
     TaskTeamMemberRead,
 )
+from app.schemas.task_list_config import TaskListConfigCreate, TaskListConfigUpdate, TaskListConfigRead
 from app.services.user_tool_service import require_tool_or_403
 
 router = APIRouter(prefix="/api/herramientas/tareas", tags=["Herramientas - Tareas"])
@@ -542,3 +543,65 @@ def revoke_user_tool(
         db.add(existing)
         db.commit()
     return {"ok": True}
+
+
+# ── List config endpoints (TOOL_MANAGE) ─────────────────────────────────────
+
+@router.get("/config/listas")
+def get_listas(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    require_tool_or_403(db, current_user, TOOL_MANAGE, SCOPE_DEV)
+
+    from app.services.task_list_config_service import get_lists_by_owner
+
+    return get_lists_by_owner(db, current_user.id)
+
+
+@router.post(
+    "/config/listas",
+    response_model=TaskListConfigRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_lista_item(
+    payload: TaskListConfigCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> TaskListConfigRead:
+    require_tool_or_403(db, current_user, TOOL_MANAGE, SCOPE_DEV)
+
+    from app.services.task_list_config_service import create_list_item
+
+    item = create_list_item(db, current_user.id, payload)
+    return TaskListConfigRead.model_validate(item)
+
+
+@router.patch("/config/listas/{list_type}/{value}", response_model=TaskListConfigRead)
+def update_lista_item(
+    list_type: str,
+    value: str,
+    payload: TaskListConfigUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> TaskListConfigRead:
+    require_tool_or_403(db, current_user, TOOL_MANAGE, SCOPE_DEV)
+
+    from app.services.task_list_config_service import update_list_item
+
+    item = update_list_item(db, current_user.id, list_type, value, payload)
+    return TaskListConfigRead.model_validate(item)
+
+
+@router.delete("/config/listas/{list_type}/{value}")
+def delete_lista_item(
+    list_type: str,
+    value: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    require_tool_or_403(db, current_user, TOOL_MANAGE, SCOPE_DEV)
+
+    from app.services.task_list_config_service import delete_list_item
+
+    return delete_list_item(db, current_user.id, list_type, value)
