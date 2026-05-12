@@ -1,0 +1,4 @@
+ El plan `2026-05-11-mejoras-gestion-tareas-sidebar-calendario.md` de ese plan hay partes o que no se contemplaron, primero el tiene 3 taps, una para ver el registro de tareas con un primer dash que es el unico que se tiene que ver que es, numero de tareas, horas, completadas, en progreso, bloqueadas, usuarios activos, (para un admin), esto ya esta, el problema en ese tab se ve TODOS los graficos y ese tab es para tareas que he hecho y ese dash que te comento. El segundo tab Si es de graficas y es para el admin no para cualquiera y el tab 3 la configuración, tenemos que implementar las listas de los formularios que los admin los puedan arreglar. Eso es lo que hay que implementar
+
+ Entonces has un plan correcto para hacer estas cosas.
+ ASEGURATE DE USAR LAS .cursorrules.md
