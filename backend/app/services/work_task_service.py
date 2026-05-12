@@ -30,27 +30,66 @@ def calcular_minutos(
     return int(delta.total_seconds() // 60)
 
 
-def validate_task_values(etiqueta: str, plataforma: str, estado: str) -> None:
-    """Raises 422 HTTPException if any value is invalid."""
-    if etiqueta not in {"desarrollos", "actualizaciones", "auditorias", "implementacion_okr", "tareas_diarias"}:
+def validate_task_values(db: Session, user: User, etiqueta: str, plataforma: str, estado: str) -> None:
+    """Valida etiqueta/plataforma/estado contra TaskListConfig en BD.
+    Si no hay listas configuradas para el workspace, omite la validación.
+    """
+    from app.models.task_list_config import TaskListConfig
+    from app.models.task_team_member import TaskTeamMember
+    from app.models.task_team import TaskTeam
+    from app.services.user_tool_service import user_has_tool
+
+    is_admin = getattr(user, "role", None) == "admin"
+    has_manage = user_has_tool(db, user, "tool_task_manage_dev")
+
+    if is_admin or has_manage:
+        owner_id = user.id
+    else:
+        membership = db.exec(
+            select(TaskTeamMember)
+            .where(TaskTeamMember.user_id == user.id)
+            .where(TaskTeamMember.is_active == True)  # noqa: E712
+        ).first()
+        if not membership:
+            return
+        team = db.get(TaskTeam, membership.team_id)
+        if not team:
+            return
+        owner_id = team.owner_user_id
+
+    active = db.exec(
+        select(TaskListConfig)
+        .where(TaskListConfig.owner_user_id == owner_id)
+        .where(TaskListConfig.is_active == True)  # noqa: E712
+    ).all()
+
+    if not active:
+        return  # Sin listas configuradas — no validar
+
+    by_type: dict[str, set[str]] = {}
+    for item in active:
+        by_type.setdefault(item.list_type, set()).add(item.value)
+
+    if "etiqueta" in by_type and etiqueta and etiqueta not in by_type["etiqueta"]:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Etiqueta inválida '{etiqueta}'.",
+            detail=f"Etiqueta inválida: '{etiqueta}'.",
         )
-    if plataforma not in {"logimat1", "logimat2", "imccargo", "imcdeposito", "transversal"}:
+    if "plataforma" in by_type and plataforma and plataforma not in by_type["plataforma"]:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Plataforma inválida '{plataforma}'.",
+            detail=f"Plataforma inválida: '{plataforma}'.",
         )
-    if estado not in {"completada", "en_progreso", "bloqueada"}:
+    if "estado" in by_type and estado and estado not in by_type["estado"]:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Estado inválido '{estado}'.",
+            detail=f"Estado inválido: '{estado}'.",
         )
 
 
 def create_task(db: Session, user: User, payload: WorkTaskCreate) -> WorkTask:
     """Creates a task for the current user."""
+    validate_task_values(db, user, payload.etiqueta, payload.plataforma, payload.estado)
     now = datetime.now(timezone.utc)
     minutos = calcular_minutos(payload.hora_inicio, payload.hora_cierre)
 
@@ -107,6 +146,7 @@ def update_own_task(
 
     if payload.etiqueta is not None or payload.plataforma is not None or payload.estado is not None:
         validate_task_values(
+            db, user,
             payload.etiqueta if payload.etiqueta is not None else task.etiqueta,
             payload.plataforma if payload.plataforma is not None else task.plataforma,
             payload.estado if payload.estado is not None else task.estado,

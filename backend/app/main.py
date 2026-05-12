@@ -194,6 +194,52 @@ def _migrate_db() -> None:
                 print("[migrate] Tabla task_teams recreada sin columna scope.")
         except Exception as e:
             print(f"[migrate] task_teams ya estaba limpia o error: {e}")
+        # task_events: eliminar columna scope (reemplazada por owner_user_id en multi-workspace).
+        # También corrige filas con owner_user_id = 0 usando creado_por_id como fallback.
+        try:
+            result = conn.execute(text("PRAGMA table_info(task_events)"))
+            columns = [row[1] for row in result.fetchall()]
+            if "scope" in columns:
+                conn.execute(text("PRAGMA foreign_keys = OFF"))
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS task_events_new (
+                        id INTEGER PRIMARY KEY,
+                        owner_user_id INTEGER NOT NULL,
+                        team_id INTEGER,
+                        titulo VARCHAR(250) NOT NULL,
+                        descripcion TEXT,
+                        plataforma VARCHAR(50),
+                        fecha DATE NOT NULL,
+                        hora_inicio VARCHAR(5) NOT NULL,
+                        duracion_minutos INTEGER NOT NULL DEFAULT 60,
+                        creado_por_id INTEGER NOT NULL,
+                        creado_por_nombre VARCHAR(200) NOT NULL,
+                        created_at DATETIME NOT NULL,
+                        updated_at DATETIME NOT NULL
+                    )
+                """))
+                conn.execute(text("""
+                    INSERT INTO task_events_new (
+                        id, owner_user_id, team_id, titulo, descripcion, plataforma,
+                        fecha, hora_inicio, duracion_minutos,
+                        creado_por_id, creado_por_nombre, created_at, updated_at
+                    )
+                    SELECT
+                        id,
+                        CASE WHEN owner_user_id IS NULL OR owner_user_id = 0
+                             THEN creado_por_id ELSE owner_user_id END,
+                        team_id, titulo, descripcion, plataforma,
+                        fecha, hora_inicio, duracion_minutos,
+                        creado_por_id, creado_por_nombre, created_at, updated_at
+                    FROM task_events
+                """))
+                conn.execute(text("DROP TABLE task_events"))
+                conn.execute(text("ALTER TABLE task_events_new RENAME TO task_events"))
+                conn.execute(text("PRAGMA foreign_keys = ON"))
+                conn.commit()
+                print("[migrate] Tabla task_events recreada sin columna scope.")
+        except Exception as e:
+            print(f"[migrate] task_events ya estaba limpia o error: {e}")
     with Session(get_engine()) as session:
         for sede_row in session.exec(select(Sede)).all():
             if sede_row.name.strip().lower() == "transversal":
