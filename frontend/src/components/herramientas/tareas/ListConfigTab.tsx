@@ -44,7 +44,6 @@ function ListSection({
 
   const startEdit = (item: TaskListConfigItem) => {
     setEditingKey(item.value)
-    setEditValue(item.value)
     setEditLabel(item.label)
   }
 
