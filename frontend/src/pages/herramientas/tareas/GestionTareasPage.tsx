@@ -12,6 +12,7 @@ import { TaskManagerView } from "@/components/herramientas/tareas/TaskManagerVie
 import { TaskSubmitView } from "@/components/herramientas/tareas/TaskSubmitView"
 import { TaskChartsTab } from "@/components/herramientas/tareas/TaskChartsTab"
 import { TeamConfigTab } from "@/components/herramientas/tareas/TeamConfigTab"
+import { ListConfigTab } from "@/components/herramientas/tareas/ListConfigTab"
 import { TaskLeftRail } from "@/components/herramientas/tareas/TaskLeftRail"
 import { TaskLeftPanel } from "@/components/herramientas/tareas/TaskLeftPanel"
 import { useTeamPersonSummaries } from "@/hooks/useWorkTasks"
@@ -142,8 +143,9 @@ export function GestionTareasPage() {
               </TabsContent>
 
               {canManage && (
-                <TabsContent value="configuracion">
+                <TabsContent value="configuracion" className="space-y-6">
                   <TeamConfigTab />
+                  <ListConfigTab />
                 </TabsContent>
               )}
             </Tabs>
