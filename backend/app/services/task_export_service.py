@@ -38,12 +38,12 @@ def _task_to_row(task: WorkTask) -> list:
     ]
 
 
-def build_tasks_excel(db: Session, filters: TaskFilters, owner_id: int) -> bytes:
+def build_tasks_excel(db: Session, filters: TaskFilters) -> bytes:
     """Generates Excel file with filtered tasks. Uses openpyxl."""
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment
 
-    tasks = get_team_tasks(db, filters, owner_id)
+    tasks = get_team_tasks(db, filters)
 
     wb = Workbook()
     ws = wb.active
@@ -71,12 +71,12 @@ def build_tasks_excel(db: Session, filters: TaskFilters, owner_id: int) -> bytes
     return buffer.getvalue()
 
 
-def build_tasks_pdf(db: Session, filters: TaskFilters, owner_id: int) -> bytes:
+def build_tasks_pdf(db: Session, filters: TaskFilters) -> bytes:
     """Generates PDF file with filtered tasks. Uses weasyprint + jinja2."""
     from jinja2 import Environment, BaseLoader
     from weasyprint import HTML
 
-    tasks = get_team_tasks(db, filters, owner_id)
+    tasks = get_team_tasks(db, filters)
 
     _HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -97,7 +97,7 @@ def build_tasks_pdf(db: Session, filters: TaskFilters, owner_id: int) -> bytes:
 </style>
 </head>
 <body>
-  <h1>Reporte de Tareas</h1>
+  <h1>Reporte de Tareas — Desarrollo e Innovación</h1>
   <p class="subtitle">Generado: {{ today }} | Total: {{ tasks|length }} tareas</p>
   <table>
     <thead>

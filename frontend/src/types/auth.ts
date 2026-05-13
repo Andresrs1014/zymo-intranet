@@ -10,6 +10,7 @@ export interface User {
   is_active: boolean
   app_permissions?: string[]
   user_tools?: string[]
+  is_team_member?: boolean
 }
 
 export interface TokenResponse {

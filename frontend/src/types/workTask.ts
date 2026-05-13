@@ -1,5 +1,6 @@
 export interface WorkTask {
   id: number
+  scope: string
   team_id: number | null
   subido_por_id: number
   subido_por_nombre: string
@@ -61,19 +62,12 @@ export interface PersonTaskSummary {
   registro_hoy: boolean
 }
 
-export interface TaskWorkspaceInfo {
-  name: string
-  owner_user_id: number
-  is_owner: boolean
-}
-
 export interface TaskTeamMember {
   id: number
   team_id: number
   user_id: number
   user_email: string
   user_full_name: string | null
-  role: string
   is_active: boolean
   created_at: string
 }

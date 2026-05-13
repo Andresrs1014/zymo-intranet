@@ -28,6 +28,7 @@ class WorkTaskUpdate(BaseModel):
 
 class WorkTaskRead(BaseModel):
     id: int
+    scope: str
     team_id: int | None
     subido_por_id: int
     subido_por_nombre: str

@@ -16,7 +16,6 @@ import type {
   PaginatedTasksResponse,
   TeamChartsData,
   MyTaskMetrics,
-  TaskWorkspaceInfo,
 } from "@/types/workTask"
 
 const BASE = "/api/herramientas/tareas"
@@ -180,47 +179,6 @@ export function useRemoveTeamMember() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["tareas", "equipo", "miembros"] })
       qc.invalidateQueries({ queryKey: ["tareas", "equipo", "disponibles"] })
-      qc.invalidateQueries({ queryKey: ["me"] })
-    },
-  })
-}
-
-export function useTaskWorkspaceInfo(options?: { enabled?: boolean }) {
-  return useQuery({
-    queryKey: ["tareas", "equipo", "workspace"],
-    queryFn: async () => {
-      const { data } = await api.get<TaskWorkspaceInfo>(`${BASE}/equipo/config/workspace`)
-      return data
-    },
-    enabled: options?.enabled ?? true,
-  })
-}
-
-export function useUpdateWorkspaceName() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (name: string) => {
-      const { data } = await api.patch<TaskWorkspaceInfo>(`${BASE}/equipo/config/workspace`, { name })
-      return data
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["tareas", "equipo", "workspace"] })
-    },
-  })
-}
-
-export function usePatchMemberRole() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async ({ user_id, role }: { user_id: number; role: "member" | "manager" }) => {
-      const { data } = await api.patch<TaskTeamMember>(
-        `${BASE}/equipo/config/miembros/${user_id}/rol`,
-        { role },
-      )
-      return data
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["tareas", "equipo", "miembros"] })
       qc.invalidateQueries({ queryKey: ["me"] })
     },
   })

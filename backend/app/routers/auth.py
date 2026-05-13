@@ -31,6 +31,7 @@ class MeResponse(BaseModel):
     is_active: bool
     app_permissions: list[str] = []
     user_tools: list[str] = []
+    is_team_member: bool = False
 
 
 class UserListResponse(MeResponse):
@@ -78,6 +79,7 @@ def _to_me(
     u: User,
     app_permissions: list[str] | None = None,
     user_tools: list[str] | None = None,
+    is_team_member: bool = False,
 ) -> MeResponse:
     return MeResponse(
         id=cast(int, u.id),
@@ -89,6 +91,7 @@ def _to_me(
         is_active=u.is_active,
         app_permissions=app_permissions or [],
         user_tools=user_tools or [],
+        is_team_member=is_team_member,
     )
 
 
@@ -145,7 +148,7 @@ def me(current_user: User = Depends(get_current_user), db: Session = Depends(get
     ).all()
     tool_keys = [t.tool_key for t in tools]
 
-    return _to_me(current_user, perms, tool_keys)
+    return _to_me(current_user, perms, tool_keys, False)
 
 
 @router.post("/register", response_model=MeResponse)
