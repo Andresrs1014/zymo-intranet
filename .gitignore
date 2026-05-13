@@ -18,7 +18,9 @@ zymo/
 *.db-wal
 data/
 
-# Variables de entorno
+# Variables de entorno (jamás secrets en el índice; si aparecen: git rm --cached -- archivo)
+/backend/.env
+/frontend/.env
 .env
 .env.*
 !.env.example
