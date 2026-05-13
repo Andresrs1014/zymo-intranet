@@ -1455,7 +1455,9 @@ export function SolicitudDetallePage() {
                     onDrop={(e) => {
                       e.preventDefault()
                       setEvidenciaDragOver(false)
-                      const files = Array.from(e.dataTransfer.files).slice(0, 5)
+                      const existentes = (solicitud.fotos_producto ?? []).length
+                      const disponibles = Math.max(0, 5 - existentes)
+                      const files = Array.from(e.dataTransfer.files).slice(0, disponibles)
                       for (const f of files) {
                         if (f.size > 20 * 1024 * 1024) { alert(`"${f.name}" supera el límite de 20 MB.`); continue }
                         if (id) subirFoto.mutate({ solicitudId: id, file: f })
@@ -1483,7 +1485,9 @@ export function SolicitudDetallePage() {
                     multiple
                     className="hidden"
                     onChange={(e) => {
-                      const files = Array.from(e.target.files ?? []).slice(0, 5)
+                      const existentes = (solicitud.fotos_producto ?? []).length
+                      const disponibles = Math.max(0, 5 - existentes)
+                      const files = Array.from(e.target.files ?? []).slice(0, disponibles)
                       for (const f of files) {
                         if (f.size > 20 * 1024 * 1024) { alert(`"${f.name}" supera el límite de 20 MB.`); continue }
                         if (id) subirFoto.mutate({ solicitudId: id, file: f })
@@ -1853,7 +1857,9 @@ export function SolicitudDetallePage() {
                   onDrop={(e) => {
                     e.preventDefault()
                     setFotoDragOver(false)
-                    const files = Array.from(e.dataTransfer.files).slice(0, 5)
+                    const existentes = (solicitud.fotos_producto ?? []).length
+                    const disponibles = Math.max(0, 5 - existentes)
+                    const files = Array.from(e.dataTransfer.files).slice(0, disponibles)
                     for (const f of files) {
                       if (f.size > 20 * 1024 * 1024) { alert(`"${f.name}" supera el límite de 20 MB.`); continue }
                       if (id) subirFoto.mutate({ solicitudId: id, file: f })
@@ -1878,7 +1884,9 @@ export function SolicitudDetallePage() {
                   multiple
                   className="hidden"
                   onChange={(e) => {
-                    const files = Array.from(e.target.files ?? []).slice(0, 5)
+                    const existentes = (solicitud.fotos_producto ?? []).length
+                    const disponibles = Math.max(0, 5 - existentes)
+                    const files = Array.from(e.target.files ?? []).slice(0, disponibles)
                     for (const f of files) {
                       if (f.size > 20 * 1024 * 1024) { alert(`"${f.name}" supera el límite de 20 MB.`); continue }
                       if (id) subirFoto.mutate({ solicitudId: id, file: f })

@@ -949,7 +949,9 @@ _MIME_FOTO = {
     "gif": "image/gif", "webp": "image/webp",
     "pdf": "application/pdf",
     "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "xls": "application/vnd.ms-excel",
     "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "msg": "application/vnd.ms-outlook",
 }
 
 
