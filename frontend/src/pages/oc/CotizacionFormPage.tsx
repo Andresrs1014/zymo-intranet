@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from "react"
+import { useRef, useState, useEffect, useCallback } from "react"
 import { formatCOP } from "@/lib/formatters"
 import { FormFieldCOP, MoneyInputCOP } from "@/components/forms/FormFieldCOP"
 import { useNavigate, useParams } from "react-router-dom"
@@ -297,17 +297,25 @@ export function CotizacionFormPage() {
 
   // ── Submit ────────────────────────────────────────────────────────────────
 
-  function handleSubmit(e: React.FormEvent) {
+  // Guard síncrono para evitar doble envío por clics rápidos antes del re-render
+  const submitInFlight = useRef(false)
+
+  const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault()
+
+    if (submitInFlight.current || crearCotizacion.isPending) return
+    submitInFlight.current = true
     setError(undefined)
 
     if (!form.proveedor_nombre.trim()) {
+      submitInFlight.current = false
       setError("El nombre del proveedor es requerido.")
       return
     }
 
     const valorTotal = hayItems ? valorTotalConItems : form.valor_total
     if (!valorTotal || valorTotal <= 0) {
+      submitInFlight.current = false
       setError("El valor total debe ser mayor a 0.")
       return
     }
@@ -315,6 +323,7 @@ export function CotizacionFormPage() {
     if (hayItems) {
       const sinDescripcion = items.some((it) => !it.descripcion.trim())
       if (sinDescripcion) {
+        submitInFlight.current = false
         setError("Todos los ítems deben tener descripción.")
         return
       }
@@ -342,15 +351,18 @@ export function CotizacionFormPage() {
       { solicitudId: id!, payload },
       {
         onSuccess: () => {
+          submitInFlight.current = false
           if (id) deleteDraft.mutate({ tipo: "cotizacion", solicitudId: id })
           navigate(`/oc/solicitudes/${id}`)
         },
         onError: (err: any) => {
+          submitInFlight.current = false
           setError(err?.response?.data?.detail ?? "Error al guardar la cotización.")
         },
       }
     )
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, items, hayItems, valorTotalConItems, totalItems, id, crearCotizacion, deleteDraft, navigate])
 
   if (loadingSolicitud) {
     return (

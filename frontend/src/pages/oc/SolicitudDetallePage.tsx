@@ -85,7 +85,7 @@ export function SolicitudDetallePage() {
   const token = useAuthStore((s) => s.token)
 
   const { data: solicitud, isLoading } = useSolicitud(id)
-  const { data: cotizaciones = [] } = useCotizaciones(id)
+  const { data: cotizaciones = [], isLoading: cotizacionesLoading } = useCotizaciones(id)
   const { data: orden } = useOrden(id)
   const { data: auxiliar } = useUsuario(solicitud?.auxiliar_id)
   const { data: usuariosCompras = [] } = useUsuariosCompras()
@@ -201,10 +201,19 @@ export function SolicitudDetallePage() {
 
   const solicitudYaEnCorreccion = solicitud.estado === "en_correccion"
 
-  const puedeGestionarProforma = puedeGestionarProformaDesdeOc(cotizaciones.length, solicitud.estado)
+  // Mientras cotizaciones carga (isLoading), evitar ocultar la sección por count=0
+  // si el estado no es "en_cotizacion". Una vez cargado, la lógica normal aplica.
+  // Solo usuarios de compras/admin pueden gestionar proforma (el backend también lo exige).
+  const esUsuarioCompras = user ? canSeeOC(user.role, user.area, perms) : false
+  const puedeGestionarProforma = esUsuarioCompras && (
+    cotizacionesLoading
+      ? !solicitudOcProformaSoloFinanciero(solicitud.estado)
+      : puedeGestionarProformaDesdeOc(cotizaciones.length, solicitud.estado)
+  )
   const muestraAyudaProformaPrevCotizacion =
     !!user &&
     canSeeOC(user.role, user.area, perms) &&
+    !cotizacionesLoading &&
     cotizaciones.length === 0 &&
     solicitud.estado !== "en_cotizacion" &&
     !solicitudOcProformaSoloFinanciero(solicitud.estado)
