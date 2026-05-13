@@ -87,7 +87,9 @@ export function GestionTareasPage() {
             <div className="flex items-center gap-3">
               <div className="h-6 w-1.5 bg-primary rounded-full" />
               <span className="text-base font-semibold">
-                {canManage ? "Equipo de Desarrollo e Innovación" : "Mis tareas"}
+                {canManage
+                  ? `Equipo de ${user?.full_name?.split(" ")[0] ?? "Desarrollo e Innovación"}`
+                  : "Mis tareas"}
               </span>
             </div>
             <div className="flex items-center gap-2">

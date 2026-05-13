@@ -436,9 +436,12 @@ def add_team_member_endpoint(
     require_tool_or_403(db, current_user, TOOL_MANAGE)
 
     from app.services.task_team_service import add_team_member
+    from app.services.user_tool_service import ensure_user_has_tool
     from app.models.user import User as UserModel
 
     member = add_team_member(db, payload.user_id, current_user.id)
+    ensure_user_has_tool(db, payload.user_id, TOOL_SUBMIT)
+
     user = db.get(UserModel, member.user_id)
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado.")

@@ -141,7 +141,7 @@ def get_person_summaries(db: Session, filters: TaskFilters, owner_id: int | None
     for uid in active_ids:
         user = db.get(User, uid)
         if user:
-            summaries.append(_build_person_summary(user, tasks_by_user[uid]))
+            summaries.append(_build_person_summary(user, tasks_by_user.get(uid, [])))
     return summaries
 
 
