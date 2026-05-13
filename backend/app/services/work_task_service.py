@@ -39,11 +39,13 @@ def validate_task_values(db: Session, user: User, etiqueta: str, plataforma: str
     from app.models.task_team import TaskTeam
     from app.services.user_tool_service import user_has_tool
 
-    is_admin = getattr(user, "role", None) == "admin"
+    from app.services.task_team_service import resolve_task_workspace_owner_id
+
     has_manage = user_has_tool(db, user, "tool_task_manage_dev")
 
-    if is_admin or has_manage:
-        owner_id = user.id
+    if has_manage:
+        oid = resolve_task_workspace_owner_id(db, user)
+        owner_id = oid if oid is not None else user.id
     else:
         membership = db.exec(
             select(TaskTeamMember)
@@ -94,7 +96,6 @@ def create_task(db: Session, user: User, payload: WorkTaskCreate) -> WorkTask:
     minutos = calcular_minutos(payload.hora_inicio, payload.hora_cierre)
 
     task = WorkTask(
-        scope="desarrollo_innovacion",
         team_id=None,
         subido_por_id=user.id,
         subido_por_nombre=user.full_name or user.email,

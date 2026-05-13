@@ -142,7 +142,7 @@ function ExtraccionIARoute({ children }: { children: React.ReactNode }) {
 function HerramientasTareasRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user)
   if (!user) return <Navigate to="/login" replace />
-  const hasTool = canSubmitDevTasks(user.user_tools ?? []) || canManageDevTasks(user.user_tools ?? [], user.role)
+  const hasTool = canSubmitDevTasks(user.user_tools ?? []) || canManageDevTasks(user.user_tools)
   if (!hasTool) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }

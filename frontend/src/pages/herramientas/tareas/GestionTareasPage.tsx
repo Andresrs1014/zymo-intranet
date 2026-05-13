@@ -15,7 +15,7 @@ import { TeamConfigTab } from "@/components/herramientas/tareas/TeamConfigTab"
 import { ListConfigTab } from "@/components/herramientas/tareas/ListConfigTab"
 import { TaskLeftRail } from "@/components/herramientas/tareas/TaskLeftRail"
 import { TaskLeftPanel } from "@/components/herramientas/tareas/TaskLeftPanel"
-import { useTeamPersonSummaries } from "@/hooks/useWorkTasks"
+import { useTeamPersonSummaries, useTaskWorkspaceInfo } from "@/hooks/useWorkTasks"
 import type { TaskFilters } from "@/types/workTask"
 
 const LEFT_PANEL_KEY = "task-left-panel-open"
@@ -23,8 +23,10 @@ const LEFT_PANEL_KEY = "task-left-panel-open"
 export function GestionTareasPage() {
   const user = useAuthStore((s) => s.user)
   const userTools: string[] = user?.user_tools ?? []
-  const canManage = canManageDevTasks(userTools, user?.role)
+  const canManage = canManageDevTasks(userTools)
   const canSubmit = canSubmitDevTasks(userTools)
+
+  const { data: workspace } = useTaskWorkspaceInfo({ enabled: canManage })
 
   const [filters, setFilters] = useState<TaskFilters>({})
   const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(
@@ -87,7 +89,7 @@ export function GestionTareasPage() {
             <div className="flex items-center gap-3">
               <div className="h-6 w-1.5 bg-primary rounded-full" />
               <span className="text-base font-semibold">
-                {canManage ? "Equipo de Desarrollo e Innovación" : "Mis tareas"}
+                {canManage ? (workspace?.name?.trim() || "Mi equipo") : "Mis tareas"}
               </span>
             </div>
             <div className="flex items-center gap-2">

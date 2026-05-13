@@ -9,6 +9,7 @@ class TaskTeamMemberRead(BaseModel):
     # user_email y user_full_name se rellenan desde User en el service layer (join), no son columnas de TaskTeamMember
     user_email: str
     user_full_name: str | None
+    role: str = "member"
     is_active: bool
     created_at: datetime
 

@@ -6,32 +6,25 @@ from sqlmodel import Session, select
 from app.models.work_task import WorkTask
 from app.models.user import User
 from app.schemas.task_dashboard import TaskFilters, TaskKpis, PersonTaskSummary
-from app.services.task_team_service import get_active_member_ids
+from app.services.task_team_service import get_workspace_scope_user_ids
 
 
-def _get_team_member_ids(db: Session, owner_id: int) -> list[int]:
-    return get_active_member_ids(db, owner_id)
+def _get_team_scope_ids(db: Session, owner_id: int) -> list[int]:
+    return get_workspace_scope_user_ids(db, owner_id)
 
 
-def get_team_tasks(db: Session, filters: TaskFilters, owner_id: int | None) -> list[WorkTask]:
-    """Returns tasks applying all filters.
-    owner_id=None → admin mode: no team filter, all tasks visible.
-    owner_id=int  → manager mode: only tasks from their team members.
-    """
-    if owner_id is not None:
-        active_ids = _get_team_member_ids(db, owner_id)
-        if not active_ids:
-            return []
-    else:
-        active_ids = None  # admin: sin restricción de equipo
+def get_team_tasks(db: Session, filters: TaskFilters, owner_id: int) -> list[WorkTask]:
+    """Tareas del workspace: responsables activos + dueño."""
+    active_ids = _get_team_scope_ids(db, owner_id)
+    if not active_ids:
+        return []
 
     query = select(WorkTask)
 
     if filters.responsable_id is not None:
         query = query.where(WorkTask.subido_por_id == filters.responsable_id)
-    elif active_ids is not None:
+    else:
         query = query.where(WorkTask.subido_por_id.in_(active_ids))  # type: ignore[union-attr]
-    # Si active_ids is None (admin), no se filtra por usuario
 
     if filters.fecha_desde is not None:
         query = query.where(WorkTask.fecha >= filters.fecha_desde)
@@ -54,23 +47,18 @@ def get_team_tasks(db: Session, filters: TaskFilters, owner_id: int | None) -> l
         ids_con_registro = set(db.exec(
             select(WorkTask.subido_por_id).where(WorkTask.fecha == hoy)
         ).all())
-        if active_ids is not None:
-            ids_sin_registro = [uid for uid in active_ids if uid not in ids_con_registro]
-            if not ids_sin_registro:
-                return []
-            query = query.where(WorkTask.subido_por_id.in_(ids_sin_registro))  # type: ignore[union-attr]
-        else:
-            # Admin: excluir todos los usuarios que ya registraron hoy
-            if ids_con_registro:
-                query = query.where(WorkTask.subido_por_id.not_in(ids_con_registro))  # type: ignore[union-attr]
+        ids_sin_registro = [uid for uid in active_ids if uid not in ids_con_registro]
+        if not ids_sin_registro:
+            return []
+        query = query.where(WorkTask.subido_por_id.in_(ids_sin_registro))  # type: ignore[union-attr]
 
     return list(db.exec(query).all())
 
 
-def get_team_kpis(db: Session, filters: TaskFilters, owner_id: int | None) -> TaskKpis:
-    """Calculates KPIs from filtered tasks."""
+def get_team_kpis(db: Session, filters: TaskFilters, owner_id: int) -> TaskKpis:
+    """Calcula KPIs a partir de tareas filtradas."""
     tasks = get_team_tasks(db, filters, owner_id)
-    active_ids = _get_team_member_ids(db, owner_id) if owner_id is not None else []
+    active_ids = _get_team_scope_ids(db, owner_id)
 
     completadas = sum(1 for t in tasks if t.estado == "completada")
     en_progreso = sum(1 for t in tasks if t.estado == "en_progreso")
@@ -84,12 +72,9 @@ def get_team_kpis(db: Session, filters: TaskFilters, owner_id: int | None) -> Ta
     ids_con_registro_hoy = {
         t.subido_por_id
         for t in db.exec(select(WorkTask).where(WorkTask.fecha == hoy)).all()
-        if not active_ids or t.subido_por_id in active_ids
+        if t.subido_por_id in active_ids
     }
-    if active_ids:
-        usuarios_sin_registro_hoy = len([uid for uid in active_ids if uid not in ids_con_registro_hoy])
-    else:
-        usuarios_sin_registro_hoy = 0  # admin: no aplica sin equipo definido
+    usuarios_sin_registro_hoy = len([uid for uid in active_ids if uid not in ids_con_registro_hoy])
 
     return TaskKpis(
         tareas_registradas=len(tasks),
@@ -121,32 +106,26 @@ def _build_person_summary(user: User, tasks: list[WorkTask]) -> PersonTaskSummar
     )
 
 
-def get_person_summaries(db: Session, filters: TaskFilters, owner_id: int | None) -> list[PersonTaskSummary]:
-    """Returns per-person summary.
-    owner_id=None → admin: agrupa por todos los usuarios que tienen tareas.
-    owner_id=int  → manager: solo sus miembros activos.
-    """
+def get_person_summaries(db: Session, filters: TaskFilters, owner_id: int) -> list[PersonTaskSummary]:
+    """Resumen por persona: todos los miembros del roster aunque no tengan tareas en el filtro."""
     tasks = get_team_tasks(db, filters, owner_id)
 
     tasks_by_user: dict[int, list[WorkTask]] = defaultdict(list)
     for task in tasks:
         tasks_by_user[task.subido_por_id].append(task)
 
-    if owner_id is not None:
-        active_ids = _get_team_member_ids(db, owner_id)
-    else:
-        active_ids = list(tasks_by_user.keys())  # admin: todos los que tienen tareas
+    active_ids = _get_team_scope_ids(db, owner_id)
 
     summaries: list[PersonTaskSummary] = []
     for uid in active_ids:
         user = db.get(User, uid)
         if user:
-            summaries.append(_build_person_summary(user, tasks_by_user[uid]))
+            summaries.append(_build_person_summary(user, tasks_by_user.get(uid, [])))
     return summaries
 
 
-def get_chart_data(db: Session, filters: TaskFilters, owner_id: int | None) -> dict:
-    """Returns chart data for dashboard visualizations of the workspace."""
+def get_chart_data(db: Session, filters: TaskFilters, owner_id: int) -> dict:
+    """Datos para gráficas del dashboard del workspace."""
     tasks = get_team_tasks(db, filters, owner_id)
 
     tareas_por_responsable: dict[str, int] = defaultdict(int)
@@ -194,10 +173,10 @@ def get_chart_data(db: Session, filters: TaskFilters, owner_id: int | None) -> d
     }
 
 
-def get_users_without_today_entry(db: Session, owner_id: int | None) -> list[PersonTaskSummary]:
-    """Returns PersonTaskSummary for active members with no task registered today."""
+def get_users_without_today_entry(db: Session, owner_id: int) -> list[PersonTaskSummary]:
+    """Miembros activos sin registro de tarea hoy."""
     hoy = date.today()
-    active_ids = _get_team_member_ids(db, owner_id) if owner_id is not None else []
+    active_ids = _get_team_scope_ids(db, owner_id)
 
     ids_con_registro = {
         t.subido_por_id

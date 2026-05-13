@@ -28,16 +28,32 @@ def create_event(
 ) -> dict:
     """
     Crea un TaskEvent con sus participantes.
-    Para cada participante verifica si tiene conflicto de horario en la misma fecha.
-    Retorna el evento con la lista de participantes y sus flags de conflicto.
+    Por workspace: owner_user_id y team_id del espacio del gestor; si solo tiene submit, va al usuario.
     """
     from app.models.task_event import TaskEvent
     from app.models.task_event_participant import TaskEventParticipant
     from app.models.user import User as UserModel
+    from app.services.task_team_service import (
+        get_or_create_manager_team,
+        resolve_task_workspace_owner_id,
+    )
+    from app.services.user_tool_service import user_has_tool
     from sqlmodel import select
 
+    if user_has_tool(db, creator, "tool_task_manage_dev"):
+        wid = resolve_task_workspace_owner_id(db, creator)
+        if wid is None:
+            wid = creator.id
+        ev_owner = wid
+        team = get_or_create_manager_team(db, wid)
+        ev_team_id = team.id
+    else:
+        ev_owner = creator.id
+        ev_team_id = None
+
     event = TaskEvent(
-        owner_user_id=creator.id,
+        owner_user_id=ev_owner,
+        team_id=ev_team_id,
         titulo=payload.titulo,
         descripcion=payload.descripcion,
         plataforma=payload.plataforma,
@@ -98,11 +114,17 @@ def create_event(
     }
 
 
-def get_events_by_date(db: "Session", fecha: str, user_id: int | None = None) -> list:
+def get_events_by_date(
+    db: "Session",
+    fecha: str,
+    *,
+    user_id: int | None = None,
+    workspace_owner_id: int | None = None,
+) -> list:
     """
     Devuelve eventos de una fecha.
-    Si user_id es None → todos (vista gestor).
-    Si user_id es int → solo los del usuario (vista colaborador).
+    workspace_owner_id: vista gestor — solo eventos de ese workspace.
+    user_id: vista colaborador — eventos donde participa.
     """
     from app.models.task_event import TaskEvent
     from app.models.task_event_participant import TaskEventParticipant
@@ -110,13 +132,14 @@ def get_events_by_date(db: "Session", fecha: str, user_id: int | None = None) ->
 
     fecha_date = date.fromisoformat(fecha)
 
-    if user_id is None:
+    if workspace_owner_id is not None:
         events = db.exec(
             select(TaskEvent).where(
                 TaskEvent.fecha == fecha_date,
+                TaskEvent.owner_user_id == workspace_owner_id,
             ).order_by(TaskEvent.hora_inicio)
         ).all()
-    else:
+    elif user_id is not None:
         events = db.exec(
             select(TaskEvent)
             .join(TaskEventParticipant, TaskEvent.id == TaskEventParticipant.event_id)
@@ -126,6 +149,8 @@ def get_events_by_date(db: "Session", fecha: str, user_id: int | None = None) ->
             )
             .order_by(TaskEvent.hora_inicio)
         ).all()
+    else:
+        events = []
 
     event_ids = [ev.id for ev in events]
     if event_ids:
