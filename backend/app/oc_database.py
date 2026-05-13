@@ -1,8 +1,7 @@
-import os
-
 from sqlmodel import SQLModel, Session, create_engine
 
 from app.config import settings
+from app.sqlite_paths import ensure_sqlite_parent_dir
 
 _oc_engine = None
 
@@ -11,8 +10,7 @@ def get_oc_engine():
     global _oc_engine
     if _oc_engine is None:
         if settings.oc_database_url.startswith("sqlite"):
-            db_path = settings.oc_database_url.replace("sqlite:///", "")
-            os.makedirs(os.path.dirname(db_path), exist_ok=True)
+            ensure_sqlite_parent_dir(settings.oc_database_url)
         _oc_engine = create_engine(
             settings.oc_database_url,
             connect_args={"check_same_thread": False} if "sqlite" in settings.oc_database_url else {},

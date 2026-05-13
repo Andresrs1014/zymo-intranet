@@ -26,7 +26,6 @@ Proceso por schema:
 No se requieren cambios en el código — solo en las variables de entorno.
 ══════════════════════════════════════════════════════════════════
 """
-import os
 import uuid
 from datetime import date, datetime
 from typing import Optional
@@ -34,6 +33,7 @@ from typing import Optional
 from sqlmodel import Field, SQLModel, Session, create_engine
 
 from app.config import settings
+from app.sqlite_paths import ensure_sqlite_parent_dir
 
 _gerencial_engine = None
 
@@ -43,11 +43,8 @@ def get_gerencial_engine():
     if _gerencial_engine is None:
         url = settings.gerencial_database_url
         connect_args = {}
-        if "sqlite" in url:
-            # Fallback a SQLite si no hay PostgreSQL configurado
-            db_path = url.replace("sqlite:///", "")
-            if db_path.startswith("./"):
-                os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        if "sqlite" in url.lower():
+            ensure_sqlite_parent_dir(url)
             connect_args = {"check_same_thread": False}
         _gerencial_engine = create_engine(url, connect_args=connect_args)
     return _gerencial_engine

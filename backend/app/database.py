@@ -1,7 +1,6 @@
-import os
 from sqlmodel import SQLModel, create_engine, Session
-
 from app.config import settings
+from app.sqlite_paths import ensure_sqlite_parent_dir
 
 _engine = None
 
@@ -11,8 +10,7 @@ def get_engine():
     if _engine is None:
         # Crear directorio data/ si no existe (para SQLite)
         if settings.database_url.startswith("sqlite"):
-            db_path = settings.database_url.replace("sqlite:///", "")
-            os.makedirs(os.path.dirname(db_path), exist_ok=True)
+            ensure_sqlite_parent_dir(settings.database_url)
         _engine = create_engine(
             settings.database_url,
             connect_args={"check_same_thread": False} if "sqlite" in settings.database_url else {},

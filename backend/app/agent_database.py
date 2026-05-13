@@ -1,4 +1,3 @@
-import os
 import uuid
 from datetime import date, datetime
 from typing import Optional
@@ -6,6 +5,7 @@ from typing import Optional
 from sqlmodel import Field, SQLModel, Session, create_engine
 
 from app.config import settings
+from app.sqlite_paths import ensure_sqlite_parent_dir
 
 _agents_engine = None
 
@@ -14,8 +14,7 @@ def get_agents_engine():
     global _agents_engine
     if _agents_engine is None:
         if settings.agents_database_url.startswith("sqlite"):
-            db_path = settings.agents_database_url.replace("sqlite:///", "")
-            os.makedirs(os.path.dirname(db_path), exist_ok=True)
+            ensure_sqlite_parent_dir(settings.agents_database_url)
         _agents_engine = create_engine(
             settings.agents_database_url,
             connect_args={"check_same_thread": False} if "sqlite" in settings.agents_database_url else {},
