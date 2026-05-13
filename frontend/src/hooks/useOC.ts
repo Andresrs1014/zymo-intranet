@@ -869,6 +869,7 @@ export function useArchivarSolicitud() {
     onSuccess: (_, solicitudId) => {
       qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
       qc.invalidateQueries({ queryKey: ["oc", "solicitudes", solicitudId] })
+      qc.invalidateQueries({ queryKey: ["oc", "mis-solicitudes"] })
       qc.invalidateQueries({ queryKey: ["oc", "kpis"] })
     },
   })
