@@ -240,6 +240,23 @@ def _migrate_db() -> None:
                 print("[migrate] Tabla task_events recreada sin columna scope.")
         except Exception as e:
             print(f"[migrate] task_events ya estaba limpia o error: {e}")
+        # work_tasks.scope: restaurar si falta — la tabla pudo migrarse quitando scope (feat revertido).
+        try:
+            result = conn.execute(text("PRAGMA table_info(work_tasks)"))
+            columns = [row[1] for row in result.fetchall()]
+            if columns and "scope" not in columns:
+                conn.execute(
+                    text(
+                        "ALTER TABLE work_tasks ADD COLUMN scope "
+                        "VARCHAR(100) NOT NULL DEFAULT 'desarrollo_innovacion'",
+                    ),
+                )
+                conn.commit()
+                print("[migrate] Columna work_tasks.scope restaurada.")
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_work_tasks_scope ON work_tasks(scope)"))
+                conn.commit()
+        except Exception as e:
+            print(f"[migrate] work_tasks.scope: {e}")
     with Session(get_engine()) as session:
         for sede_row in session.exec(select(Sede)).all():
             if sede_row.name.strip().lower() == "transversal":
