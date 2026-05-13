@@ -39,6 +39,8 @@ import {
   useCorregirDirectivo,
   useSubirFotoSolicitud,
   useEliminarFotoSolicitud,
+  useArchivarSolicitud,
+  useEliminarSolicitud,
   useActualizarProforma,
   useSubirProforma,
   type EditarCotizacionPayload,
@@ -111,6 +113,12 @@ export function SolicitudDetallePage() {
   const corregirDirectivo = useCorregirDirectivo()
   const subirFoto = useSubirFotoSolicitud()
   const eliminarFoto = useEliminarFotoSolicitud()
+  const archivarSolicitud = useArchivarSolicitud()
+  const eliminarSolicitud = useEliminarSolicitud()
+  const [mostrarModalArchivar, setMostrarModalArchivar] = useState(false)
+  const [errorArchivar, setErrorArchivar] = useState<string | null>(null)
+  const [mostrarModalEliminar, setMostrarModalEliminar] = useState(false)
+  const [errorEliminar, setErrorEliminar] = useState<string | null>(null)
   const fotoInputRef = useRef<HTMLInputElement>(null)
   const [fotoDragOver, setFotoDragOver] = useState(false)
   const evidenciaInputRef = useRef<HTMLInputElement>(null)
@@ -629,6 +637,148 @@ export function SolicitudDetallePage() {
                 </div>
               </div>
             ) : null}
+
+            {/* Modal de archivado — solo admin */}
+            {mostrarModalArchivar && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100">
+                      <svg className="h-5 w-5 text-amber-600" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M2 3a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1H2Z" />
+                        <path fillRule="evenodd" d="M2 7.5h16l-1.577 8.239A2 2 0 0 1 14.438 17H5.562a2 2 0 0 1-1.985-1.76L2 7.5ZM7.5 11a.75.75 0 0 1 .75-.75h3.5a.75.75 0 0 1 0 1.5h-3.5A.75.75 0 0 1 7.5 11Z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-base font-semibold text-gray-900">
+                        {solicitud.archivada ? "Desarchivar solicitud" : "Archivar solicitud"}
+                      </h3>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {solicitud.archivada ? "La solicitud volverá a aparecer en listas y KPIs" : "La solicitud se ocultará de listas y KPIs"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+                    <p className="font-semibold">{solicitud.consecutivo_os}</p>
+                    <p className="text-xs mt-0.5 text-amber-700">{solicitud.descripcion}</p>
+                  </div>
+
+                  {!solicitud.archivada && (
+                    <p className="text-sm text-gray-600">
+                      Los datos se conservan intactos. La solicitud no aparecerá en los KPIs ni en el listado de compras.
+                      Puedes desarchivarla en cualquier momento.
+                    </p>
+                  )}
+
+                  {errorArchivar && (
+                    <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                      {errorArchivar}
+                    </p>
+                  )}
+
+                  <div className="flex gap-3 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setErrorArchivar(null)
+                        archivarSolicitud.mutate(solicitud.id, {
+                          onSuccess: () => {
+                            setMostrarModalArchivar(false)
+                            if (!solicitud.archivada) navigate("/oc/solicitudes")
+                          },
+                          onError: (err: unknown) => {
+                            const e = err as { response?: { data?: { detail?: string } } }
+                            setErrorArchivar(e?.response?.data?.detail ?? "Error al archivar la solicitud.")
+                          },
+                        })
+                      }}
+                      disabled={archivarSolicitud.isPending}
+                      className="flex-1 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600 disabled:opacity-50 transition-colors"
+                    >
+                      {archivarSolicitud.isPending
+                        ? "Procesando..."
+                        : solicitud.archivada
+                          ? "Sí, desarchivar"
+                          : "Sí, archivar"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setMostrarModalArchivar(false); setErrorArchivar(null) }}
+                      disabled={archivarSolicitud.isPending}
+                      className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Modal de eliminación permanente — solo admin */}
+            {mostrarModalEliminar && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100">
+                      <svg className="h-5 w-5 text-red-600" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 5zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-base font-semibold text-gray-900">Eliminar solicitud</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">Esta acción es permanente e irreversible</p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-800">
+                    <p className="font-semibold">{solicitud.consecutivo_os}</p>
+                    <p className="text-xs mt-0.5 text-red-700">{solicitud.descripcion}</p>
+                  </div>
+
+                  <p className="text-sm text-gray-600">
+                    Se eliminarán permanentemente la solicitud, sus cotizaciones, historial, órdenes de compra
+                    y todos los archivos asociados (PDFs, fotos, proforma).
+                    <strong className="text-gray-900"> Los KPIs se actualizarán automáticamente.</strong>
+                  </p>
+
+                  {errorEliminar && (
+                    <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                      {errorEliminar}
+                    </p>
+                  )}
+
+                  <div className="flex gap-3 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setErrorEliminar(null)
+                        eliminarSolicitud.mutate(solicitud.id, {
+                          onSuccess: () => navigate("/oc/solicitudes"),
+                          onError: (err: unknown) => {
+                            const e = err as { response?: { data?: { detail?: string } } }
+                            setErrorEliminar(e?.response?.data?.detail ?? "Error al eliminar la solicitud.")
+                          },
+                        })
+                      }}
+                      disabled={eliminarSolicitud.isPending}
+                      className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+                    >
+                      {eliminarSolicitud.isPending ? "Eliminando..." : "Sí, eliminar definitivamente"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setMostrarModalEliminar(false); setErrorEliminar(null) }}
+                      disabled={eliminarSolicitud.isPending}
+                      className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {mostrarCorreccionDirectivo && cotizacionAprobada ? (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
                 <div
@@ -974,6 +1124,11 @@ export function SolicitudDetallePage() {
                   {solicitud.consecutivo_os}
                 </span>
                 <EstadoBadge estado={solicitud.estado} />
+                {solicitud.archivada && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
+                    Archivada
+                  </span>
+                )}
                 {solicitud.tipo_solicitud === "mantenimiento" && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
                     Mantenimiento
@@ -1025,6 +1180,37 @@ export function SolicitudDetallePage() {
                   className="rounded-lg bg-brand-blue px-4 py-2 text-sm font-medium text-white hover:bg-brand-blue/90 disabled:opacity-50 transition-colors"
                 >
                   {asignar.isPending ? "Asignando..." : "Asignarme esta solicitud"}
+                </button>
+              )}
+              {/* Archivar / Desarchivar — solo admin */}
+              {user?.role === "admin" && (
+                <button
+                  type="button"
+                  onClick={() => { setMostrarModalArchivar(true); setErrorArchivar(null) }}
+                  title={solicitud.archivada ? "Desarchivar solicitud (solo admin)" : "Archivar solicitud — oculta de KPIs (solo admin)"}
+                  className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                    solicitud.archivada
+                      ? "border-amber-400 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                      : "border-amber-300 bg-white text-amber-500 hover:bg-amber-50 hover:border-amber-400"
+                  }`}
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M2 3a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1H2Z" />
+                    <path fillRule="evenodd" d="M2 7.5h16l-1.577 8.239A2 2 0 0 1 14.438 17H5.562a2 2 0 0 1-1.985-1.76L2 7.5ZM7.5 11a.75.75 0 0 1 .75-.75h3.5a.75.75 0 0 1 0 1.5h-3.5A.75.75 0 0 1 7.5 11Z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              )}
+              {/* Eliminar solicitud — solo admin, para limpiar duplicados/errores */}
+              {user?.role === "admin" && (
+                <button
+                  type="button"
+                  onClick={() => { setMostrarModalEliminar(true); setErrorEliminar(null) }}
+                  title="Eliminar solicitud permanentemente (solo admin)"
+                  className="rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-50 hover:border-red-400 transition-colors"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z" clipRule="evenodd" />
+                  </svg>
                 </button>
               )}
             </div>

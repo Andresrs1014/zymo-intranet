@@ -859,6 +859,34 @@ export function useSubirFotoSolicitud() {
   })
 }
 
+export function useArchivarSolicitud() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (solicitudId: string) => {
+      const { data } = await api.patch<SolicitudOC>(`/api/oc/solicitudes/${solicitudId}/archivar`, {})
+      return data
+    },
+    onSuccess: (_, solicitudId) => {
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes", solicitudId] })
+      qc.invalidateQueries({ queryKey: ["oc", "kpis"] })
+    },
+  })
+}
+
+export function useEliminarSolicitud() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (solicitudId: string) => {
+      await api.delete(`/api/oc/solicitudes/${solicitudId}`)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
+      qc.invalidateQueries({ queryKey: ["oc", "kpis"] })
+    },
+  })
+}
+
 export function useEliminarFotoSolicitud() {
   const qc = useQueryClient()
   return useMutation({

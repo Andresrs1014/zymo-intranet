@@ -353,6 +353,7 @@ def _migrate_oc_db() -> None:
         ("tiene_proforma", "BOOLEAN DEFAULT 0"),
         ("proforma_path", "TEXT"),
         ("fecha_cerrado", "DATETIME"),
+        ("archivada", "BOOLEAN DEFAULT 0"),
     ]
     with get_oc_engine().connect() as conn:
         for col, tipo in nuevas_columnas:

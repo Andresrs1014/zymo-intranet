@@ -48,6 +48,9 @@ class SolicitudOC(SQLModel, table=True):
     tipo_mantenimiento: Optional[str] = Field(default=None, max_length=20)
     fecha_proximo_mantenimiento: Optional[date] = Field(default=None)
 
+    # Archivado (soft-delete): oculta la solicitud de listas y KPIs sin borrar datos
+    archivada: bool = Field(default=False)
+
     # Anticipo/proforma — en «Cargar cotización» o detalle mientras la solicitud está en cotización y antes de enviar la OC
     tiene_proforma: bool = Field(default=False)
     # Ruta al archivo de proforma subido por compras (dentro del volumen Docker)

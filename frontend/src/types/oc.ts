@@ -30,6 +30,7 @@ export interface SolicitudOC {
   tipo_solicitud: "compra" | "mantenimiento"
   tipo_mantenimiento: "correctivo" | "preventivo" | null
   fecha_proximo_mantenimiento: string | null
+  archivada: boolean
   tiene_proforma: boolean
   proforma_path: string | null
   estado: EstadoOC

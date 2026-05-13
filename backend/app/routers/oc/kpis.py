@@ -74,9 +74,10 @@ def get_kpis(
     current_user: User = Depends(require_compras),
     oc_db: Session = Depends(get_oc_db),
 ):
-    # 1. Conteo por estado — 1 query GROUP BY en lugar de 10 queries individuales
+    # 1. Conteo por estado — excluye solicitudes archivadas
     estado_rows = oc_db.exec(
         select(SolicitudOC.estado, func.count(SolicitudOC.id).label("cnt"))
+        .where(SolicitudOC.archivada == False)  # noqa: E712
         .group_by(SolicitudOC.estado)
     ).all()
     conteo_por_estado: dict[str, int] = {r[0]: r[1] for r in estado_rows}
@@ -89,6 +90,7 @@ def get_kpis(
     # 3. Por plataforma (top 6)
     plataforma_rows = oc_db.exec(
         select(SolicitudOC.plataforma, func.count(SolicitudOC.id).label("cnt"))
+        .where(SolicitudOC.archivada == False)  # noqa: E712
         .where(SolicitudOC.plataforma.is_not(None))
         .group_by(SolicitudOC.plataforma)
         .order_by(func.count(SolicitudOC.id).desc())
@@ -99,6 +101,7 @@ def get_kpis(
     # 4. Por prioridad
     prioridad_rows = oc_db.exec(
         select(SolicitudOC.nivel_prioridad, func.count(SolicitudOC.id).label("cnt"))
+        .where(SolicitudOC.archivada == False)  # noqa: E712
         .group_by(SolicitudOC.nivel_prioridad)
         .order_by(func.count(SolicitudOC.id).desc())
     ).all()
@@ -107,6 +110,7 @@ def get_kpis(
     # 5. Por área solicitante (top 5)
     area_rows = oc_db.exec(
         select(SolicitudOC.area_solicitante, func.count(SolicitudOC.id).label("cnt"))
+        .where(SolicitudOC.archivada == False)  # noqa: E712
         .where(SolicitudOC.area_solicitante.is_not(None))
         .group_by(SolicitudOC.area_solicitante)
         .order_by(func.count(SolicitudOC.id).desc())
@@ -152,7 +156,7 @@ def get_kpis(
     _avg_row = oc_db.exec(
         sa_text(
             "SELECT AVG(julianday(fecha_cotizacion) - julianday(fecha_solicitud)) "
-            "FROM oc_solicitudes WHERE fecha_cotizacion IS NOT NULL"
+            "FROM oc_solicitudes WHERE fecha_cotizacion IS NOT NULL AND (archivada = 0 OR archivada IS NULL)"
         )
     ).one()
     tiempo_promedio_cotizacion_dias = float(_avg_row[0]) if _avg_row[0] is not None else 0.0
@@ -175,7 +179,9 @@ def get_kpis(
     inicio_ventana = datetime(inicio_anio, inicio_mes, 1, 0, 0, 0)
 
     solicitudes_ventana = oc_db.exec(
-        select(SolicitudOC).where(SolicitudOC.fecha_solicitud >= inicio_ventana)
+        select(SolicitudOC)
+        .where(SolicitudOC.fecha_solicitud >= inicio_ventana)
+        .where(SolicitudOC.archivada == False)  # noqa: E712
     ).all()
 
     cotizaciones_ventana = oc_db.exec(
@@ -217,9 +223,10 @@ def get_kpis(
             )
         )
 
-    # 11. Solicitudes recientes (últimas 10)
+    # 11. Solicitudes recientes (últimas 10, excluye archivadas)
     recientes_raw = oc_db.exec(
         select(SolicitudOC)
+        .where(SolicitudOC.archivada == False)  # noqa: E712
         .order_by(SolicitudOC.fecha_solicitud.desc())
         .limit(10)
     ).all()

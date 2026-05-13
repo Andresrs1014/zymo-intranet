@@ -73,6 +73,8 @@ export function NuevaSolicitudPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const initialDraftChecked = useRef(false)
+  // Guard síncrono: evita doble envío por clics rápidos antes de que isPending actualice
+  const submitInFlight = useRef(false)
   const [dragOver, setDragOver] = useState(false)
   const [archivos, setArchivos] = useState<File[]>([])
   const [subiendoArchivos, setSubiendoArchivos] = useState(false)
@@ -254,9 +256,16 @@ export function NuevaSolicitudPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+
+    // Bloqueo inmediato: evita que clics rápidos disparen varias requests
+    // antes de que React Query cambie isPending a true
+    if (submitInFlight.current || crear.isPending) return
+    submitInFlight.current = true
+
     const validationError = validarFormulario()
     if (validationError) {
       setError(validationError)
+      submitInFlight.current = false
       return
     }
 
@@ -288,9 +297,11 @@ export function NuevaSolicitudPage() {
         setSubiendoArchivos(false)
       }
 
+      // submitInFlight no necesita reset aquí: la navegación desmonta el componente
       navigate("/operativo/mis-solicitudes")
       deleteDraft.mutate({ tipo: "solicitud_nueva" })
     } catch {
+      submitInFlight.current = false
       setSubiendoArchivos(false)
       setError("Error al procesar la solicitud o subir las evidencias. Intenta de nuevo.")
     }

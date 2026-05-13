@@ -1,3 +1,4 @@
+import shutil
 import uuid
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -9,11 +10,11 @@ from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, func, select
 
-from app.core.deps import get_current_user, require_compras
+from app.core.deps import get_current_user, require_admin, require_compras
 from app.core.permissions import user_has_permission
 from app.database import get_db
 from app.oc_database import get_oc_db
-from app.models.oc import CotizacionProveedor, EstadoOC, SolicitudOC
+from app.models.oc import CotizacionProveedor, EstadoOC, HistorialEstado, OrdenCompra, SolicitudOC
 from app.models.user import User
 from app.services.historial import registrar_cambio_estado
 from app.services.oc_proforma import (
@@ -59,6 +60,7 @@ class SolicitudRead(BaseModel):
     tipo_solicitud: str = "compra"
     tipo_mantenimiento: Optional[str] = None
     fecha_proximo_mantenimiento: Optional[date]
+    archivada: bool = False
     tiene_proforma: bool = False
     proforma_path: Optional[str] = None
     estado: str
@@ -187,7 +189,7 @@ def list_solicitudes(
     current_user: User = Depends(require_compras),
     oc_db: Session = Depends(get_oc_db),
 ):
-    query = select(SolicitudOC)
+    query = select(SolicitudOC).where(SolicitudOC.archivada == False)  # noqa: E712
     if estado:
         query = query.where(SolicitudOC.estado == estado)
     if plataforma:
@@ -280,7 +282,11 @@ def mis_solicitudes(
     """Solicitudes donde el solicitante_email coincide con el usuario logueado."""
     if not current_user.email:
         return []
-    query = select(SolicitudOC).where(SolicitudOC.solicitante_email == current_user.email)
+    query = (
+        select(SolicitudOC)
+        .where(SolicitudOC.solicitante_email == current_user.email)
+        .where(SolicitudOC.archivada == False)  # noqa: E712
+    )
     if estado:
         query = query.where(SolicitudOC.estado == estado)
     query = query.order_by(SolicitudOC.fecha_solicitud.desc()).offset(skip).limit(limit)
@@ -832,6 +838,102 @@ def get_historial_estados(
         .order_by(HistorialEstado.fecha.asc())
     ).all()
     return entradas
+
+
+# ── Archivado (soft-delete, solo admin) ───────────────────────────────────────
+
+@router.patch("/{solicitud_id}/archivar", response_model=SolicitudRead)
+def archivar_solicitud(
+    solicitud_id: uuid.UUID,
+    current_user: User = Depends(require_admin),
+    oc_db: Session = Depends(get_oc_db),
+):
+    """Alterna el estado de archivado de una solicitud (toggle).
+
+    Las solicitudes archivadas se ocultan de listas y KPIs pero sus datos
+    permanecen intactos. Solo administradores pueden archivar/desarchivar.
+    """
+    solicitud = oc_db.get(SolicitudOC, solicitud_id)
+    if not solicitud:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
+
+    solicitud.archivada = not solicitud.archivada
+    solicitud.updated_at = datetime.now(timezone.utc)
+    oc_db.add(solicitud)
+    oc_db.commit()
+    oc_db.refresh(solicitud)
+    return solicitud
+
+
+# ── Eliminación permanente (solo admin) ───────────────────────────────────────
+
+_COTIZACIONES_DIR_SOL = Path("/app/data/cotizaciones")
+_OC_DOCS_DIR_SOL = Path("/app/data/oc_docs")
+
+
+@router.delete("/{solicitud_id}", status_code=status.HTTP_204_NO_CONTENT)
+def eliminar_solicitud(
+    solicitud_id: uuid.UUID,
+    current_user: User = Depends(require_admin),
+    oc_db: Session = Depends(get_oc_db),
+):
+    """Elimina permanentemente una solicitud con todos sus datos y archivos.
+
+    Solo accesible para administradores. Usa este endpoint para limpiar
+    solicitudes duplicadas o erróneas que distorsionen los KPIs.
+    Borra: historial, cotizaciones (+ PDFs en disco), órdenes de compra
+    (+ PDFs), fotos del producto y el archivo de proforma.
+    """
+    solicitud = oc_db.get(SolicitudOC, solicitud_id)
+    if not solicitud:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
+
+    # ── 1. Archivos de fotos / referencias del producto ───────────────────────
+    fotos_dir = _SOLICITUDES_DIR / str(solicitud_id)
+    if fotos_dir.exists():
+        shutil.rmtree(fotos_dir, ignore_errors=True)
+
+    # ── 2. Archivo de proforma ────────────────────────────────────────────────
+    if solicitud.proforma_path:
+        proforma_file = Path(solicitud.proforma_path)
+        proforma_file.unlink(missing_ok=True)
+
+    # ── 3. PDFs de cotizaciones ───────────────────────────────────────────────
+    cotizaciones = oc_db.exec(
+        select(CotizacionProveedor).where(CotizacionProveedor.solicitud_id == solicitud_id)
+    ).all()
+    for cot in cotizaciones:
+        if cot.pdf_path:
+            Path(cot.pdf_path).unlink(missing_ok=True)
+        # Limpiar también el archivo temporal si existiera
+        for tmp in _COTIZACIONES_DIR_SOL.glob(f"temp_{solicitud_id}.*"):
+            tmp.unlink(missing_ok=True)
+
+    # ── 4. PDFs de órdenes de compra ──────────────────────────────────────────
+    ordenes = oc_db.exec(
+        select(OrdenCompra).where(OrdenCompra.solicitud_id == solicitud_id)
+    ).all()
+    for orden in ordenes:
+        if orden.pdf_path:
+            Path(orden.pdf_path).unlink(missing_ok=True)
+
+    # ── 5. Registros en DB (historial → cotizaciones → órdenes → solicitud) ───
+    historial = oc_db.exec(
+        select(HistorialEstado).where(HistorialEstado.solicitud_id == solicitud_id)
+    ).all()
+    for h in historial:
+        oc_db.delete(h)
+
+    for cot in cotizaciones:
+        oc_db.delete(cot)
+
+    for orden in ordenes:
+        oc_db.delete(orden)
+
+    oc_db.delete(solicitud)
+    oc_db.commit()
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # ── Fotos / archivos del producto ─────────────────────────────────────────────
