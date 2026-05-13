@@ -1417,11 +1417,12 @@ export function SolicitudDetallePage() {
                         <input
                           type="file"
                           className="hidden"
-                          accept=".pdf,.xlsx,.xls,.docx,.jpg,.jpeg,.png"
+                          accept=".pdf,.xlsx,.xls,.docx,.jpg,.jpeg,.png,.msg"
                           disabled={subirProforma.isPending}
                           onChange={(e) => {
                             const file = e.target.files?.[0]
                             if (!file) return
+                            if (file.size > 20 * 1024 * 1024) { setProformaMutationError("El archivo supera el límite de 20 MB."); e.target.value = ""; return }
                             setProformaMutationError(null)
                             subirProforma.mutate(file, {
                               onSuccess: () => setProformaMutationError(null),
@@ -1454,8 +1455,11 @@ export function SolicitudDetallePage() {
                     onDrop={(e) => {
                       e.preventDefault()
                       setEvidenciaDragOver(false)
-                      const file = e.dataTransfer.files[0]
-                      if (file && id) subirFoto.mutate({ solicitudId: id, file })
+                      const files = Array.from(e.dataTransfer.files).slice(0, 5)
+                      for (const f of files) {
+                        if (f.size > 20 * 1024 * 1024) { alert(`"${f.name}" supera el límite de 20 MB.`); continue }
+                        if (id) subirFoto.mutate({ solicitudId: id, file: f })
+                      }
                     }}
                     onClick={() => evidenciaInputRef.current?.click()}
                     className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-8 cursor-pointer transition-colors ${
@@ -1470,16 +1474,20 @@ export function SolicitudDetallePage() {
                     <p className="text-sm font-medium text-gray-600">
                       {subirFoto.isPending ? "Subiendo..." : evidenciaDragOver ? "Suelta aquí" : "Arrastra o haz clic para subir"}
                     </p>
-                    <p className="text-xs text-gray-400">JPG, PNG, PDF, Excel, Word</p>
+                    <p className="text-xs text-gray-400">JPG, PNG, PDF, Excel, Word, MSG — hasta 5 archivos, máx 20 MB c/u</p>
                   </div>
                   <input
                     ref={evidenciaInputRef}
                     type="file"
-                    accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.xlsx,.docx"
+                    accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.xlsx,.docx,.msg"
+                    multiple
                     className="hidden"
                     onChange={(e) => {
-                      const f = e.target.files?.[0]
-                      if (f && id) subirFoto.mutate({ solicitudId: id, file: f })
+                      const files = Array.from(e.target.files ?? []).slice(0, 5)
+                      for (const f of files) {
+                        if (f.size > 20 * 1024 * 1024) { alert(`"${f.name}" supera el límite de 20 MB.`); continue }
+                        if (id) subirFoto.mutate({ solicitudId: id, file: f })
+                      }
                       e.target.value = ""
                     }}
                   />
@@ -1845,8 +1853,11 @@ export function SolicitudDetallePage() {
                   onDrop={(e) => {
                     e.preventDefault()
                     setFotoDragOver(false)
-                    const file = e.dataTransfer.files[0]
-                    if (file && id) subirFoto.mutate({ solicitudId: id, file })
+                    const files = Array.from(e.dataTransfer.files).slice(0, 5)
+                    for (const f of files) {
+                      if (f.size > 20 * 1024 * 1024) { alert(`"${f.name}" supera el límite de 20 MB.`); continue }
+                      if (id) subirFoto.mutate({ solicitudId: id, file: f })
+                    }
                   }}
                   onClick={() => fotoInputRef.current?.click()}
                   className={`flex flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed py-4 cursor-pointer transition-colors text-xs ${
@@ -1863,11 +1874,15 @@ export function SolicitudDetallePage() {
                 <input
                   ref={fotoInputRef}
                   type="file"
-                  accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.xlsx,.docx"
+                  accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.xlsx,.docx,.msg"
+                  multiple
                   className="hidden"
                   onChange={(e) => {
-                    const f = e.target.files?.[0]
-                    if (f && id) subirFoto.mutate({ solicitudId: id, file: f })
+                    const files = Array.from(e.target.files ?? []).slice(0, 5)
+                    for (const f of files) {
+                      if (f.size > 20 * 1024 * 1024) { alert(`"${f.name}" supera el límite de 20 MB.`); continue }
+                      if (id) subirFoto.mutate({ solicitudId: id, file: f })
+                    }
                     e.target.value = ""
                   }}
                 />

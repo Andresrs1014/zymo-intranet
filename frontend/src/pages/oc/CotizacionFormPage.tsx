@@ -658,11 +658,12 @@ export function CotizacionFormPage() {
                         <input
                           type="file"
                           className="hidden"
-                          accept=".pdf,.xlsx,.xls,.docx,.jpg,.jpeg,.png"
+                          accept=".pdf,.xlsx,.xls,.docx,.jpg,.jpeg,.png,.msg"
                           disabled={subirProforma.isPending}
                           onChange={(e) => {
                             const file = e.target.files?.[0]
                             if (!file) return
+                            if (file.size > 20 * 1024 * 1024) { setProformaMutationError("El archivo supera el límite de 20 MB."); e.target.value = ""; return }
                             setProformaMutationError(null)
                             subirProforma.mutate(file, {
                               onSuccess: () => setProformaMutationError(null),

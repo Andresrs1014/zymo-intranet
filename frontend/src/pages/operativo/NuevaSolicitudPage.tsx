@@ -196,9 +196,23 @@ export function NuevaSolicitudPage() {
     setFormDirty(true)
   }
 
+  const MAX_FILES = 5
+  const MAX_FILE_BYTES = 20 * 1024 * 1024
+
+  function _filtrarNuevosArchivos(nuevos: File[], actuales: File[]): File[] {
+    const validos = nuevos.filter((f) => {
+      if (f.size > MAX_FILE_BYTES) { alert(`"${f.name}" supera el límite de 20 MB.`); return false }
+      return true
+    })
+    const disponibles = MAX_FILES - actuales.length
+    if (disponibles <= 0) return []
+    return validos.slice(0, disponibles)
+  }
+
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     if (e.target.files && e.target.files.length > 0) {
-      setArchivos((prev) => [...prev, ...Array.from(e.target.files!)])
+      const nuevos = Array.from(e.target.files)
+      setArchivos((prev) => [...prev, ..._filtrarNuevosArchivos(nuevos, prev)])
     }
   }
 
@@ -206,7 +220,8 @@ export function NuevaSolicitudPage() {
     e.preventDefault()
     setDragOver(false)
     if (e.dataTransfer.files) {
-      setArchivos((prev) => [...prev, ...Array.from(e.dataTransfer.files)])
+      const nuevos = Array.from(e.dataTransfer.files)
+      setArchivos((prev) => [...prev, ..._filtrarNuevosArchivos(nuevos, prev)])
     }
   }
 
@@ -792,13 +807,13 @@ export function NuevaSolicitudPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
                   </svg>
                   <p className="text-sm font-medium text-gray-600">Arrastra o haz clic para subir</p>
-                  <p className="text-xs text-gray-400">Archivos máximos de 5MB por archivo</p>
+                  <p className="text-xs text-gray-400">Hasta 5 archivos — JPG, PNG, PDF, Excel, Word, MSG — máx 20 MB c/u</p>
                 </div>
                 <input
                   ref={fileInputRef}
                   type="file"
                   multiple
-                  accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.xlsx,.docx"
+                  accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.xlsx,.docx,.msg"
                   className="hidden"
                   onChange={handleFileSelect}
                   onClick={(e) => { (e.target as HTMLInputElement).value = "" }}

@@ -548,8 +548,12 @@ async def upload_proforma(
         )
 
     extension = Path(archivo.filename or "proforma.pdf").suffix.lower()
-    if extension not in {".pdf", ".xlsx", ".xls", ".docx", ".jpg", ".jpeg", ".png"}:
+    if extension not in {".pdf", ".xlsx", ".xls", ".docx", ".jpg", ".jpeg", ".png", ".msg"}:
         raise HTTPException(status_code=400, detail="Formato de archivo no permitido.")
+
+    contenido = await archivo.read()
+    if len(contenido) > _MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=400, detail="El archivo supera el límite de 20 MB.")
 
     proformas_dir = Path(settings.proformas_dir)
     proformas_dir.mkdir(parents=True, exist_ok=True)
@@ -557,7 +561,6 @@ async def upload_proforma(
     nombre_archivo = f"{solicitud_id}{extension}"
     destino = proformas_dir / nombre_archivo
 
-    contenido = await archivo.read()
     destino.write_bytes(contenido)
 
     solicitud.proforma_path = str(destino)
@@ -602,6 +605,7 @@ def descargar_proforma(
     extension = proforma_file.suffix.lower()
     media_types = {
         ".pdf": "application/pdf",
+        ".msg": "application/vnd.ms-outlook",
         ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         ".xls": "application/vnd.ms-excel",
         ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -939,7 +943,8 @@ def eliminar_solicitud(
 # ── Fotos / archivos del producto ─────────────────────────────────────────────
 
 _SOLICITUDES_DIR = Path("/app/data/solicitudes")
-_FORMATOS_FOTO = frozenset({"jpg", "jpeg", "png", "gif", "webp", "pdf", "xlsx", "docx"})
+_FORMATOS_FOTO = frozenset({"jpg", "jpeg", "png", "gif", "webp", "pdf", "xlsx", "docx", "msg"})
+_MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20 MB
 _MIME_FOTO = {
     "jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
     "gif": "image/gif", "webp": "image/webp",
@@ -970,6 +975,9 @@ async def subir_foto_solicitud(
         )
 
     contenido = await file.read()
+    if len(contenido) > _MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=400, detail="El archivo supera el límite de 20 MB.")
+
     folder = _SOLICITUDES_DIR / str(solicitud_id)
     folder.mkdir(parents=True, exist_ok=True)
     filename = f"{uuid.uuid4()}.{ext}"
