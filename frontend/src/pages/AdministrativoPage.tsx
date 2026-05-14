@@ -10,10 +10,11 @@ export function AdministrativoPage() {
   const canApprove   = user ? canApproveOC(user.role, perms) : false
   const canConfigure = user ? canConfigureOC(user.role, perms) : false
 
-  const { data: pendientes = [] } = useSolicitudes(
-    canApprove ? { estado: "pendiente_aprobacion" } : undefined,
+  const { data } = useSolicitudes(
+    canApprove ? { estado: "pendiente_aprobacion" } : {},
+    1,
   )
-  const pendientesCount = canApprove ? pendientes.length : 0
+  const pendientesCount = canApprove ? (data?.total ?? 0) : 0
 
   return (
     <PageLayout title="Administrativo">

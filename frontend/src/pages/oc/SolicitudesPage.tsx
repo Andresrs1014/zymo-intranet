@@ -1,7 +1,8 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { PageLayout } from "@/components/layout/PageLayout"
-import { useSolicitudes } from "@/hooks/useOC"
+import { OcSolicitudesPagination } from "@/components/oc/OcSolicitudesPagination"
+import { useSolicitudes, OC_SOLICITUDES_PAGE_SIZE, type SolicitudesFilters } from "@/hooks/useOC"
 import { useSedesParaSolicitudesOc } from "@/hooks/useSedes"
 import { Combobox } from "@/components/ui/Combobox"
 import { formatFechaRelativa } from "@/lib/dates"
@@ -30,6 +31,7 @@ export function SolicitudesPage() {
   const navigate = useNavigate()
   const [estadoFiltro, setEstadoFiltro] = useState<string | null>(null)
   const [plataformaFiltro, setPlataformaFiltro] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
 
   const { data: sedesOc = [] } = useSedesParaSolicitudesOc()
   const opcionesPlataformaFiltro = useMemo(() => {
@@ -39,10 +41,26 @@ export function SolicitudesPage() {
     return [...actuales, ...legacy]
   }, [sedesOc])
 
-  const { data: solicitudes = [], isLoading, isRefetching } = useSolicitudes({
-    estado: estadoFiltro ?? undefined,
-    plataforma: plataformaFiltro ?? undefined,
-  })
+  const listFilters = useMemo((): SolicitudesFilters => {
+    const f: SolicitudesFilters = {}
+    if (estadoFiltro) f.estado = estadoFiltro
+    if (plataformaFiltro) f.plataforma = plataformaFiltro
+    return f
+  }, [estadoFiltro, plataformaFiltro])
+
+  useEffect(() => {
+    setPage(1)
+  }, [estadoFiltro, plataformaFiltro])
+
+  const { data, isLoading, isRefetching } = useSolicitudes(listFilters, page)
+  const solicitudes = data?.items ?? []
+  const total = data?.total ?? 0
+
+  useEffect(() => {
+    if (total === 0) return
+    const totalPages = Math.max(1, Math.ceil(total / OC_SOLICITUDES_PAGE_SIZE))
+    if (page > totalPages) setPage(totalPages)
+  }, [total, page])
 
   return (
     <PageLayout title="OC Automatizaciones">
@@ -88,29 +106,39 @@ export function SolicitudesPage() {
                 <p className="text-gray-400 text-sm">No hay solicitudes con los filtros aplicados.</p>
               </div>
             ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-100 text-left">
-                    <th className="px-4 py-3 font-medium text-gray-500">Consecutivo</th>
-                    <th className="px-4 py-3 font-medium text-gray-500">Descripción</th>
-                    <th className="px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Solicitante</th>
-                    <th className="px-4 py-3 font-medium text-gray-500 hidden lg:table-cell">Plataforma</th>
-                    <th className="px-4 py-3 font-medium text-gray-500">Prioridad</th>
-                    <th className="px-4 py-3 font-medium text-gray-500">Estado</th>
-                    <th className="px-4 py-3 font-medium text-gray-500 hidden lg:table-cell">Fecha</th>
-                    <th className="px-4 py-3 font-medium text-gray-500 text-right">Acción</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {solicitudes.map((s) => (
-                    <SolicitudRow
-                      key={s.id}
-                      solicitud={s}
-                      onView={() => navigate(`/oc/solicitudes/${s.id}`)}
-                    />
-                  ))}
-                </tbody>
-              </table>
+              <>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100 text-left">
+                      <th className="px-4 py-3 font-medium text-gray-500">Consecutivo</th>
+                      <th className="px-4 py-3 font-medium text-gray-500">Descripción</th>
+                      <th className="px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Solicitante</th>
+                      <th className="px-4 py-3 font-medium text-gray-500 hidden lg:table-cell">Plataforma</th>
+                      <th className="px-4 py-3 font-medium text-gray-500">Prioridad</th>
+                      <th className="px-4 py-3 font-medium text-gray-500">Estado</th>
+                      <th className="px-4 py-3 font-medium text-gray-500 hidden lg:table-cell">Fecha</th>
+                      <th className="px-4 py-3 font-medium text-gray-500 text-right">Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {solicitudes.map((s) => (
+                      <SolicitudRow
+                        key={s.id}
+                        solicitud={s}
+                        onView={() => navigate(`/oc/solicitudes/${s.id}`)}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+                <div className="px-4 pb-2">
+                  <OcSolicitudesPagination
+                    currentPage={page}
+                    totalItems={total}
+                    pageSize={OC_SOLICITUDES_PAGE_SIZE}
+                    onPageChange={setPage}
+                  />
+                </div>
+              </>
             )}
           </div>
     </PageLayout>

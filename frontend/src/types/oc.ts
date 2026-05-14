@@ -58,6 +58,12 @@ export interface SolicitudOC {
   updated_at: string
 }
 
+/** Respuesta de GET /api/oc/solicitudes (listado paginado). */
+export interface SolicitudesListResponse {
+  items: SolicitudOC[]
+  total: number
+}
+
 export interface ItemCotizacion {
   num?: number
   descripcion: string
