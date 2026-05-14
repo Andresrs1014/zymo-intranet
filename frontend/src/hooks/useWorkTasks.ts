@@ -195,6 +195,36 @@ export function useRemoveTeamMember() {
   })
 }
 
+export function usePromoteToCogestor() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (user_id: number) => {
+      const { data } = await api.post<TaskTeamMember>(
+        `${BASE}/equipo/config/miembros/${user_id}/promover`
+      )
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tareas", "equipo", "miembros"] })
+    },
+  })
+}
+
+export function useDemoteToMember() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (user_id: number) => {
+      const { data } = await api.post<TaskTeamMember>(
+        `${BASE}/equipo/config/miembros/${user_id}/degradar`
+      )
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tareas", "equipo", "miembros"] })
+    },
+  })
+}
+
 // ── Admin tool hooks ──────────────────────────────────────────────────────────
 
 export function useUserTools(userId: number | null) {
