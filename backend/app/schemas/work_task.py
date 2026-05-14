@@ -10,6 +10,8 @@ class WorkTaskCreate(BaseModel):
     etiqueta: str = "tareas_diarias"
     plataforma: str = "transversal"
     estado: str = "en_progreso"
+    prioridad: str = "media"
+    team_id: int | None = None
     fecha: date | None = None
     hora_inicio: datetime | None = None
     hora_cierre: datetime | None = None
@@ -21,6 +23,7 @@ class WorkTaskUpdate(BaseModel):
     etiqueta: str | None = None
     plataforma: str | None = None
     estado: str | None = None
+    prioridad: str | None = None
     fecha: date | None = None
     hora_inicio: datetime | None = None
     hora_cierre: datetime | None = None
@@ -41,6 +44,7 @@ class WorkTaskRead(BaseModel):
     titulo: str
     descripcion_tecnica: str
     estado: str
+    prioridad: str
     created_at: datetime
     updated_at: datetime
 
@@ -57,7 +61,7 @@ class PaginatedTaskFilters(BaseModel):
     estado: Optional[str] = None
     etiqueta: Optional[str] = None
     plataforma: Optional[str] = None
-    fecha_exacta: Optional[str] = None    # "YYYY-MM-DD" — filtra el calendario
+    fecha_exacta: Optional[str] = None
     fecha_desde: Optional[str] = None
     fecha_hasta: Optional[str] = None
 

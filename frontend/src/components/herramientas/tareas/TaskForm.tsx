@@ -1,6 +1,6 @@
 import { useState } from "react"
 import type { WorkTaskCreate } from "@/types/workTask"
-import { useTaskLists } from "@/hooks/useWorkTasks"
+import { useTaskLists, useMyTeams } from "@/hooks/useWorkTasks"
 import {
   taskInput,
   taskLabel,
@@ -26,6 +26,7 @@ function calcMinutos(inicio: string, cierre: string): number | null {
 export function TaskForm({ onSubmit, onCancel, loading }: TaskFormProps) {
   const today = new Date().toISOString().slice(0, 10)
   const { data: lists } = useTaskLists()
+  const { data: myTeams = [] } = useMyTeams()
 
   const etiquetas = lists?.etiqueta ?? []
   const plataformas = lists?.plataforma ?? []
@@ -37,10 +38,13 @@ export function TaskForm({ onSubmit, onCancel, loading }: TaskFormProps) {
   const [plataforma, setPlataforma] = useState<string>("")
   const [fecha, setFecha] = useState(today)
   const [estado, setEstado] = useState<string>("")
+  const [prioridad, setPrioridad] = useState<string>("media")
+  const [teamId, setTeamId] = useState<number | undefined>(undefined)
   const [horaInicio, setHoraInicio] = useState("")
   const [horaCierre, setHoraCierre] = useState("")
 
   const minutos = calcMinutos(horaInicio, horaCierre)
+  const needsTeamSelector = myTeams.length > 1
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -50,24 +54,46 @@ export function TaskForm({ onSubmit, onCancel, loading }: TaskFormProps) {
       ...(etiqueta && { etiqueta }),
       ...(plataforma && { plataforma }),
       ...(estado && { estado }),
+      prioridad,
+      // Single-team users: backend auto-assigns team_id from their only membership.
+      // Multi-team users: team_id is required via the selector above.
+      ...(needsTeamSelector && teamId ? { team_id: teamId } : {}),
       fecha,
       hora_inicio: horaInicio ? new Date(`${fecha}T${horaInicio}:00`).toISOString() : undefined,
       hora_cierre: horaCierre ? new Date(`${fecha}T${horaCierre}:00`).toISOString() : undefined,
     }
     await onSubmit(payload)
-    // Reset form
     setTitulo("")
     setDescripcion("")
     setEtiqueta("")
     setPlataforma("")
     setFecha(today)
     setEstado("")
+    setPrioridad("media")
+    setTeamId(undefined)
     setHoraInicio("")
     setHoraCierre("")
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {needsTeamSelector && (
+        <div>
+          <label className={taskLabel}>Equipo *</label>
+          <select
+            className={taskInput}
+            value={teamId ?? ""}
+            onChange={(e) => setTeamId(e.target.value ? Number(e.target.value) : undefined)}
+            required
+          >
+            <option value="">Seleccionar equipo...</option>
+            {myTeams.map((t) => (
+              <option key={t.team_id} value={t.team_id}>{t.team_name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <div>
         <label className={taskLabel}>Título *</label>
         <input
@@ -93,29 +119,17 @@ export function TaskForm({ onSubmit, onCancel, loading }: TaskFormProps) {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className={taskLabel}>Etiqueta</label>
-          <select
-            className={taskInput}
-            value={etiqueta}
-            onChange={(e) => setEtiqueta(e.target.value)}
-          >
+          <select className={taskInput} value={etiqueta} onChange={(e) => setEtiqueta(e.target.value)}>
             <option value="">Seleccionar...</option>
-            {etiquetas.map((e) => (
-              <option key={e.value} value={e.value}>{e.label}</option>
-            ))}
+            {etiquetas.map((e) => <option key={e.value} value={e.value}>{e.label}</option>)}
           </select>
         </div>
 
         <div>
           <label className={taskLabel}>Plataforma</label>
-          <select
-            className={taskInput}
-            value={plataforma}
-            onChange={(e) => setPlataforma(e.target.value)}
-          >
+          <select className={taskInput} value={plataforma} onChange={(e) => setPlataforma(e.target.value)}>
             <option value="">Seleccionar...</option>
-            {plataformas.map((p) => (
-              <option key={p.value} value={p.value}>{p.label}</option>
-            ))}
+            {plataformas.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
           </select>
         </div>
 
@@ -132,36 +146,29 @@ export function TaskForm({ onSubmit, onCancel, loading }: TaskFormProps) {
 
         <div>
           <label className={taskLabel}>Estado</label>
-          <select
-            className={taskInput}
-            value={estado}
-            onChange={(e) => setEstado(e.target.value)}
-          >
+          <select className={taskInput} value={estado} onChange={(e) => setEstado(e.target.value)}>
             <option value="">Seleccionar...</option>
-            {estados.map((s) => (
-              <option key={s.value} value={s.value}>{s.label}</option>
-            ))}
+            {estados.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+          </select>
+        </div>
+
+        <div>
+          <label className={taskLabel}>Prioridad</label>
+          <select className={taskInput} value={prioridad} onChange={(e) => setPrioridad(e.target.value)}>
+            <option value="alta">Alta</option>
+            <option value="media">Media</option>
+            <option value="baja">Baja</option>
           </select>
         </div>
 
         <div>
           <label className={taskLabel}>Hora inicio</label>
-          <input
-            type="time"
-            className={taskInput}
-            value={horaInicio}
-            onChange={(e) => setHoraInicio(e.target.value)}
-          />
+          <input type="time" className={taskInput} value={horaInicio} onChange={(e) => setHoraInicio(e.target.value)} />
         </div>
 
         <div>
           <label className={taskLabel}>Hora cierre</label>
-          <input
-            type="time"
-            className={taskInput}
-            value={horaCierre}
-            onChange={(e) => setHoraCierre(e.target.value)}
-          />
+          <input type="time" className={taskInput} value={horaCierre} onChange={(e) => setHoraCierre(e.target.value)} />
         </div>
       </div>
 

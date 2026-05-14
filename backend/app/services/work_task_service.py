@@ -88,14 +88,39 @@ def validate_task_values(db: Session, user: User, etiqueta: str, plataforma: str
 
 
 def create_task(db: Session, user: User, payload: WorkTaskCreate) -> WorkTask:
-    """Creates a task for the current user."""
+    """Crea una tarea. Asigna team_id automáticamente si el usuario tiene un solo equipo.
+    Si tiene múltiples equipos, el payload debe incluir team_id explícito.
+    Si no tiene equipo, la tarea queda huérfana (team_id=None).
+    """
+    from app.services.task_team_service import get_user_active_teams
+
     validate_task_values(db, user, payload.etiqueta, payload.plataforma, payload.estado)
     now = datetime.now(timezone.utc)
     minutos = calcular_minutos(payload.hora_inicio, payload.hora_cierre)
 
+    active_teams = get_user_active_teams(db, user.id)  # type: ignore[arg-type]
+    valid_team_ids = {t["team_id"] for t in active_teams}
+
+    team_id = payload.team_id
+    if team_id is not None:
+        if team_id not in valid_team_ids:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No perteneces al equipo seleccionado.",
+            )
+    else:
+        if len(active_teams) == 1:
+            team_id = active_teams[0]["team_id"]
+        elif len(active_teams) > 1:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Perteneces a múltiples equipos. Selecciona el equipo para esta tarea.",
+            )
+        # len == 0: sin equipo, team_id queda None (tarea huérfana)
+
     task = WorkTask(
         scope="desarrollo_innovacion",
-        team_id=None,
+        team_id=team_id,
         subido_por_id=user.id,
         subido_por_nombre=user.full_name or user.email,
         fecha=payload.fecha if payload.fecha is not None else date.today(),
@@ -107,6 +132,7 @@ def create_task(db: Session, user: User, payload: WorkTaskCreate) -> WorkTask:
         titulo=payload.titulo,
         descripcion_tecnica=payload.descripcion_tecnica,
         estado=payload.estado,
+        prioridad=payload.prioridad,
         created_at=now,
         updated_at=now,
     )
@@ -259,11 +285,13 @@ def get_paginated_tasks(
     user_id: int,
     filters: "PaginatedTaskFilters",
     team_member_ids: list[int] | None = None,
+    team_id: int | None = None,
 ) -> "PaginatedTasksResponse":
     """
     Devuelve tareas paginadas con filtros.
     Si team_member_ids es None, filtra solo por user_id (vista colaborador).
     Si team_member_ids es lista, filtra por todos esos IDs (vista gestor).
+    Si team_id se provee, restringe adicionalmente por team_id para aislamiento correcto.
     """
     from app.schemas.work_task import PaginatedTaskFilters, PaginatedTasksResponse, PaginatedMeta, WorkTaskRead
     from sqlmodel import func, or_
@@ -271,6 +299,9 @@ def get_paginated_tasks(
     import math
 
     query = sqlmodel_select(WorkTask)
+
+    if team_id is not None:
+        query = query.where(WorkTask.team_id == team_id)
 
     if team_member_ids is not None:
         query = query.where(WorkTask.subido_por_id.in_(team_member_ids))

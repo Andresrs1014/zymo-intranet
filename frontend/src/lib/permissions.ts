@@ -97,10 +97,16 @@ export function canSubmitDevTasks(userTools: string[]): boolean {
 }
 
 /**
- * Puede gestionar si:
- * - Tiene tool_task_manage_dev, O
- * - Es admin
+ * Puede gestionar si tiene tool_task_manage_dev.
  */
-export function canManageDevTasks(userTools: string[], role?: string): boolean {
-  return userTools.includes("tool_task_manage_dev") || role === "admin"
+export function canManageDevTasks(userTools: string[]): boolean {
+  return userTools.includes("tool_task_manage_dev")
+}
+
+/**
+ * Puede co-gestionar si es co_gestor en al menos un equipo.
+ * Se determina verificando los miembros del equipo que retorna el backend.
+ */
+export function isCoGestor(members: Array<{ user_id: number; role: string }>, userId: number): boolean {
+  return members.some((m) => m.user_id === userId && m.role === "co_gestor")
 }

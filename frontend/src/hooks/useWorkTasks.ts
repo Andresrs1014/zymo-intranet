@@ -16,6 +16,7 @@ import type {
   PaginatedTasksResponse,
   TeamChartsData,
   MyTaskMetrics,
+  UserTeamInfo,
 } from "@/types/workTask"
 
 const BASE = "/api/herramientas/tareas"
@@ -50,6 +51,16 @@ export function useMyTaskMetrics() {
     queryKey: ["tareas", "mis-metricas"],
     queryFn: async () => {
       const { data } = await api.get<MyTaskMetrics>(`${BASE}/mis-metricas`)
+      return data
+    },
+  })
+}
+
+export function useMyTeams() {
+  return useQuery({
+    queryKey: ["tareas", "mis-equipos"],
+    queryFn: async () => {
+      const { data } = await api.get<UserTeamInfo[]>(`${BASE}/mis-equipos`)
       return data
     },
   })
@@ -135,13 +146,14 @@ export function useUsersWithoutTodayEntry() {
 
 // ── Team config hooks ─────────────────────────────────────────────────────────
 
-export function useTeamMembers() {
+export function useTeamMembers(enabled = true) {
   return useQuery({
     queryKey: ["tareas", "equipo", "miembros"],
     queryFn: async () => {
       const { data } = await api.get<TaskTeamMember[]>(`${BASE}/equipo/config/miembros`)
       return data
     },
+    enabled,
   })
 }
 
@@ -180,6 +192,36 @@ export function useRemoveTeamMember() {
       qc.invalidateQueries({ queryKey: ["tareas", "equipo", "miembros"] })
       qc.invalidateQueries({ queryKey: ["tareas", "equipo", "disponibles"] })
       qc.invalidateQueries({ queryKey: ["me"] })
+    },
+  })
+}
+
+export function usePromoteToCogestor() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (user_id: number) => {
+      const { data } = await api.post<TaskTeamMember>(
+        `${BASE}/equipo/config/miembros/${user_id}/promover`
+      )
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tareas", "equipo", "miembros"] })
+    },
+  })
+}
+
+export function useDemoteToMember() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (user_id: number) => {
+      const { data } = await api.post<TaskTeamMember>(
+        `${BASE}/equipo/config/miembros/${user_id}/degradar`
+      )
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tareas", "equipo", "miembros"] })
     },
   })
 }
@@ -369,6 +411,30 @@ export function useDeleteTaskListItem() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["tareas", "config", "listas"] })
+    },
+  })
+}
+
+export function useAdminUserTasks(userId: number | null) {
+  return useQuery({
+    queryKey: ["tareas", "admin", "user-tasks", userId],
+    queryFn: async () => {
+      if (userId === null) throw new Error("userId required")
+      const { data } = await api.get<WorkTask[]>(`${BASE}/admin/tareas-usuario/${userId}`)
+      return data
+    },
+    enabled: userId !== null,
+  })
+}
+
+export function useAdminDeleteTask() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (taskId: number) => {
+      await api.delete(`${BASE}/admin/tareas/${taskId}`)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tareas", "admin", "user-tasks"] })
     },
   })
 }

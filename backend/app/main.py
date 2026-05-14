@@ -257,6 +257,15 @@ def _migrate_db() -> None:
                 conn.commit()
         except Exception as e:
             print(f"[migrate] work_tasks.scope: {e}")
+        # work_tasks.prioridad (feat gestion-tareas-v2)
+        try:
+            conn.execute(text(
+                "ALTER TABLE work_tasks ADD COLUMN prioridad VARCHAR(10) NOT NULL DEFAULT 'media'"
+            ))
+            conn.commit()
+            print("[migrate] Columna work_tasks.prioridad agregada.")
+        except Exception:
+            pass  # ya existe
     with Session(get_engine()) as session:
         for sede_row in session.exec(select(Sede)).all():
             if sede_row.name.strip().lower() == "transversal":

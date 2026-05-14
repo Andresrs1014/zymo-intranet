@@ -4,7 +4,7 @@ import { Plus, PanelRightClose, PanelRightOpen } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { useAuthStore } from "@/store/authStore"
-import { canManageDevTasks, canSubmitDevTasks } from "@/lib/permissions"
+import { canManageDevTasks, canSubmitDevTasks, isCoGestor } from "@/lib/permissions"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { CalendarSidebar } from "@/components/herramientas/tareas/CalendarSidebar"
 import { ScheduleSheet } from "@/components/herramientas/tareas/ScheduleSheet"
@@ -15,7 +15,7 @@ import { TeamConfigTab } from "@/components/herramientas/tareas/TeamConfigTab"
 import { ListConfigTab } from "@/components/herramientas/tareas/ListConfigTab"
 import { TaskLeftRail } from "@/components/herramientas/tareas/TaskLeftRail"
 import { TaskLeftPanel } from "@/components/herramientas/tareas/TaskLeftPanel"
-import { useTeamPersonSummaries } from "@/hooks/useWorkTasks"
+import { useTeamPersonSummaries, useTeamMembers } from "@/hooks/useWorkTasks"
 import type { TaskFilters } from "@/types/workTask"
 
 const LEFT_PANEL_KEY = "task-left-panel-open"
@@ -23,7 +23,14 @@ const LEFT_PANEL_KEY = "task-left-panel-open"
 export function GestionTareasPage() {
   const user = useAuthStore((s) => s.user)
   const userTools: string[] = user?.user_tools ?? []
-  const canManage = canManageDevTasks(userTools, user?.role)
+  // Only fetch team members for users who could be co-gestors (have TOOL_SUBMIT).
+  // Submit-only users get a 403 from the backend; the query returns [] safely.
+  const { data: teamMembers = [] } = useTeamMembers(canSubmitDevTasks(userTools))
+  const isUserCoGestor = isCoGestor(
+    teamMembers.map((m) => ({ user_id: m.user_id, role: m.role })),
+    user?.id ?? -1
+  )
+  const canManage = canManageDevTasks(userTools) || isUserCoGestor
   const canSubmit = canSubmitDevTasks(userTools)
 
   const [filters, setFilters] = useState<TaskFilters>({})
@@ -87,7 +94,9 @@ export function GestionTareasPage() {
             <div className="flex items-center gap-3">
               <div className="h-6 w-1.5 bg-primary rounded-full" />
               <span className="text-base font-semibold">
-                {canManage ? "Equipo de Desarrollo e Innovación" : "Mis tareas"}
+                {canManage
+                  ? `Equipo de ${user?.full_name?.split(" ")[0] ?? "Desarrollo e Innovación"}`
+                  : "Mis tareas"}
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -144,7 +153,7 @@ export function GestionTareasPage() {
 
               {canManage && (
                 <TabsContent value="configuracion" className="space-y-6">
-                  <TeamConfigTab />
+                  <TeamConfigTab canPromoteDemote={canManageDevTasks(userTools)} />
                   <ListConfigTab />
                 </TabsContent>
               )}

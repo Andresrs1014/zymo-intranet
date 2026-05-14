@@ -120,3 +120,77 @@ def get_active_member_ids(db: Session, owner_id: int) -> list[int]:
         .where(TaskTeamMember.is_active == True)  # noqa: E712
     ).all()
     return [m.user_id for m in members]
+
+
+def get_user_active_teams(db: Session, user_id: int) -> list[dict]:
+    """Retorna todos los equipos donde el usuario tiene membresía activa."""
+    memberships = db.exec(
+        select(TaskTeamMember, TaskTeam)
+        .join(TaskTeam, TaskTeamMember.team_id == TaskTeam.id)
+        .where(TaskTeamMember.user_id == user_id)
+        .where(TaskTeamMember.is_active == True)  # noqa: E712
+    ).all()
+    return [
+        {
+            "team_id": team.id,
+            "team_name": team.name,
+            "owner_id": team.owner_user_id,
+        }
+        for membership, team in memberships
+    ]
+
+
+def get_comanaged_owner_id(db: Session, user_id: int) -> int | None:
+    """Si el usuario es co_gestor en algún equipo activo, retorna el owner_user_id de ese equipo.
+    Retorna None si el usuario no es co-gestor de ningún equipo.
+    """
+    membership = db.exec(
+        select(TaskTeamMember)
+        .where(TaskTeamMember.user_id == user_id)
+        .where(TaskTeamMember.role == "co_gestor")
+        .where(TaskTeamMember.is_active == True)  # noqa: E712
+    ).first()
+    if not membership:
+        return None
+    team = db.get(TaskTeam, membership.team_id)
+    return team.owner_user_id if team else None
+
+
+def promote_to_cogestor(db: Session, user_id: int, owner_id: int) -> TaskTeamMember:
+    """Promueve un miembro activo a co_gestor. Solo el gestor primario puede llamar esto."""
+    team = get_or_create_manager_team(db, owner_id)
+    member = db.exec(
+        select(TaskTeamMember)
+        .where(TaskTeamMember.team_id == team.id)
+        .where(TaskTeamMember.user_id == user_id)
+        .where(TaskTeamMember.is_active == True)  # noqa: E712
+    ).first()
+    if not member:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Miembro no encontrado en el equipo.")
+    member.role = "co_gestor"
+    member.updated_at = datetime.now(timezone.utc)
+    db.add(member)
+    db.commit()
+    db.refresh(member)
+    return member
+
+
+def demote_to_member(db: Session, user_id: int, owner_id: int) -> TaskTeamMember:
+    """Degrada un co_gestor a miembro normal. Solo el gestor primario puede llamar esto."""
+    team = get_or_create_manager_team(db, owner_id)
+    member = db.exec(
+        select(TaskTeamMember)
+        .where(TaskTeamMember.team_id == team.id)
+        .where(TaskTeamMember.user_id == user_id)
+        .where(TaskTeamMember.is_active == True)  # noqa: E712
+    ).first()
+    if not member:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Miembro no encontrado en el equipo.")
+    member.role = "member"
+    member.updated_at = datetime.now(timezone.utc)
+    db.add(member)
+    db.commit()
+    db.refresh(member)
+    return member

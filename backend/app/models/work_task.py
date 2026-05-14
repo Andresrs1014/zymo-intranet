@@ -28,6 +28,7 @@ class WorkTask(SQLModel, table=True):
     descripcion_tecnica: str = Field(nullable=False)
 
     estado: str = Field(default="en_progreso", index=True, max_length=50, nullable=False)
+    prioridad: str = Field(default="media", index=True, max_length=10, nullable=False)
 
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc), nullable=False
