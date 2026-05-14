@@ -88,14 +88,31 @@ def validate_task_values(db: Session, user: User, etiqueta: str, plataforma: str
 
 
 def create_task(db: Session, user: User, payload: WorkTaskCreate) -> WorkTask:
-    """Creates a task for the current user."""
+    """Crea una tarea. Asigna team_id automáticamente si el usuario tiene un solo equipo.
+    Si tiene múltiples equipos, el payload debe incluir team_id explícito.
+    Si no tiene equipo, la tarea queda huérfana (team_id=None).
+    """
+    from app.services.task_team_service import get_user_active_teams
+
     validate_task_values(db, user, payload.etiqueta, payload.plataforma, payload.estado)
     now = datetime.now(timezone.utc)
     minutos = calcular_minutos(payload.hora_inicio, payload.hora_cierre)
 
+    team_id = payload.team_id
+    if team_id is None:
+        active_teams = get_user_active_teams(db, user.id)  # type: ignore[arg-type]
+        if len(active_teams) == 1:
+            team_id = active_teams[0]["team_id"]
+        elif len(active_teams) > 1:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Perteneces a múltiples equipos. Selecciona el equipo para esta tarea.",
+            )
+        # len == 0: sin equipo, team_id queda None (tarea huérfana)
+
     task = WorkTask(
         scope="desarrollo_innovacion",
-        team_id=None,
+        team_id=team_id,
         subido_por_id=user.id,
         subido_por_nombre=user.full_name or user.email,
         fecha=payload.fecha if payload.fecha is not None else date.today(),
@@ -107,6 +124,7 @@ def create_task(db: Session, user: User, payload: WorkTaskCreate) -> WorkTask:
         titulo=payload.titulo,
         descripcion_tecnica=payload.descripcion_tecnica,
         estado=payload.estado,
+        prioridad=payload.prioridad,
         created_at=now,
         updated_at=now,
     )

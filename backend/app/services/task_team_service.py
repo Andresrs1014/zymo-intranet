@@ -120,3 +120,21 @@ def get_active_member_ids(db: Session, owner_id: int) -> list[int]:
         .where(TaskTeamMember.is_active == True)  # noqa: E712
     ).all()
     return [m.user_id for m in members]
+
+
+def get_user_active_teams(db: Session, user_id: int) -> list[dict]:
+    """Retorna todos los equipos donde el usuario tiene membresía activa."""
+    memberships = db.exec(
+        select(TaskTeamMember, TaskTeam)
+        .join(TaskTeam, TaskTeamMember.team_id == TaskTeam.id)
+        .where(TaskTeamMember.user_id == user_id)
+        .where(TaskTeamMember.is_active == True)  # noqa: E712
+    ).all()
+    return [
+        {
+            "team_id": team.id,
+            "team_name": team.name,
+            "owner_id": team.owner_user_id,
+        }
+        for membership, team in memberships
+    ]

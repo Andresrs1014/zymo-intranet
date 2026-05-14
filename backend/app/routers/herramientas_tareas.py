@@ -39,6 +39,12 @@ class AssignUserToolPayload(BaseModel):
     scope: str = "global"
 
 
+class UserTeamInfo(BaseModel):
+    team_id: int
+    team_name: str
+    owner_id: int
+
+
 def _team_filters(
     fecha_desde: Optional[date] = Query(default=None),
     fecha_hasta: Optional[date] = Query(default=None),
@@ -161,6 +167,18 @@ def get_mis_metricas(
     from app.services.work_task_service import own_metrics
 
     return own_metrics(db, current_user)
+
+
+@router.get("/mis-equipos", response_model=list[UserTeamInfo])
+def get_mis_equipos(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[UserTeamInfo]:
+    """Retorna los equipos activos del usuario. Usado para el selector de equipo en el formulario."""
+    require_tool_or_403(db, current_user, TOOL_SUBMIT)
+    from app.services.task_team_service import get_user_active_teams
+    teams = get_user_active_teams(db, current_user.id)  # type: ignore[arg-type]
+    return [UserTeamInfo(**t) for t in teams]
 
 
 # ── Manager endpoints (TOOL_MANAGE) ─────────────────────────────────────────
