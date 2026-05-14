@@ -94,10 +94,12 @@ export function useDeactivateUser() {
 export function useDeleteUser() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (id: number) => {
-      await api.delete(`/auth/users/${id}/eliminar`)
+    mutationFn: async ({ id, deleteTasks = false }: { id: number; deleteTasks?: boolean }) => {
+      await api.delete(`/auth/users/${id}/eliminar?delete_tasks=${deleteTasks}`)
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["users"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["users"] })
+    },
   })
 }
 

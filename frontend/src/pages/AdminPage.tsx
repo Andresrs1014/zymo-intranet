@@ -15,7 +15,7 @@ import {
   type CreateUserPayload,
   type UpdateUserPayload,
 } from "@/hooks/useUsers"
-import { useUserTools, useAssignUserTool, useRevokeUserTool } from "@/hooks/useWorkTasks"
+import { useUserTools, useAssignUserTool, useRevokeUserTool, useAdminUserTasks, useAdminDeleteTask } from "@/hooks/useWorkTasks"
 import type { UserListItem } from "@/types/auth"
 
 type Tab = "activos" | "archivados"
@@ -30,6 +30,8 @@ export function AdminPage() {
   const [selected, setSelected] = useState<UserListItem | null>(null)
   const [mutationError, setMutationError] = useState<string>()
   const [toolsUser, setToolsUser] = useState<UserListItem | null>(null)
+  const [deleteTasksConfirm, setDeleteTasksConfirm] = useState<"idle" | "ask">("idle")
+  const [pendingDeleteUser, setPendingDeleteUser] = useState<UserListItem | null>(null)
 
   const { data: activeUsers = [], isLoading: loadingActive } = useUsers()
   const {
@@ -95,8 +97,8 @@ export function AdminPage() {
   }
 
   function handleDelete(user: UserListItem) {
-    if (!confirm(`¿Eliminar permanentemente a ${user.full_name ?? user.email}? Esta acción no se puede deshacer.`)) return
-    deleteUser.mutate(user.id)
+    setPendingDeleteUser(user)
+    setDeleteTasksConfirm("ask")
   }
 
   const isModalLoading = createUser.isPending || updateUser.isPending
@@ -202,6 +204,35 @@ export function AdminPage() {
 
       {toolsUser && (
         <UserToolsModal user={toolsUser} onClose={() => setToolsUser(null)} />
+      )}
+
+      {deleteTasksConfirm === "ask" && pendingDeleteUser && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full shadow-xl space-y-3">
+            <h3 className="font-semibold text-gray-900">Eliminar usuario</h3>
+            <p className="text-sm text-gray-600">¿Qué hacer con las tareas de este usuario?</p>
+            <div className="flex flex-col gap-2 pt-1">
+              <button
+                onClick={() => { deleteUser.mutate({ id: pendingDeleteUser.id, deleteTasks: true }); setDeleteTasksConfirm("idle"); setPendingDeleteUser(null) }}
+                className="w-full py-2 bg-red-600 text-white rounded-lg text-sm font-medium"
+              >
+                Eliminar usuario y sus tareas
+              </button>
+              <button
+                onClick={() => { deleteUser.mutate({ id: pendingDeleteUser.id, deleteTasks: false }); setDeleteTasksConfirm("idle"); setPendingDeleteUser(null) }}
+                className="w-full py-2 bg-gray-100 text-gray-700 rounded-lg text-sm"
+              >
+                Eliminar usuario, dejar tareas dormidas
+              </button>
+              <button
+                onClick={() => { setDeleteTasksConfirm("idle"); setPendingDeleteUser(null) }}
+                className="w-full py-2 text-gray-400 text-sm"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   )
@@ -311,6 +342,49 @@ function formatDate(iso: string): string {
   return formatFechaRelativa(iso)
 }
 
+function UserTasksPanel({ userId }: { userId: number }) {
+  const { data: tasks = [], isLoading } = useAdminUserTasks(userId)
+  const deleteTask = useAdminDeleteTask()
+  const [confirmId, setConfirmId] = useState<number | null>(null)
+
+  if (isLoading) return <p className="text-xs text-gray-400 py-2">Cargando tareas...</p>
+  if (tasks.length === 0) return <p className="text-xs text-gray-400 py-2">Sin tareas registradas.</p>
+
+  return (
+    <div className="space-y-1 max-h-60 overflow-y-auto">
+      {tasks.map((task) => (
+        <div key={task.id} className="flex items-center justify-between gap-2 py-1.5 border-b border-gray-100 text-xs">
+          <div className="flex-1 min-w-0">
+            <span className="font-medium text-gray-800 truncate block">{task.titulo}</span>
+            <span className="text-gray-400">{task.fecha} · {task.prioridad} · {task.estado}</span>
+          </div>
+          {confirmId === task.id ? (
+            <div className="flex gap-1 shrink-0">
+              <button
+                onClick={() => { deleteTask.mutate(task.id); setConfirmId(null) }}
+                className="text-red-600 hover:text-red-800 font-semibold"
+              >
+                Confirmar
+              </button>
+              <button onClick={() => setConfirmId(null)} className="text-gray-400">
+                Cancelar
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmId(task.id)}
+              className="shrink-0 text-gray-300 hover:text-red-500 transition-colors"
+              title="Borrar tarea"
+            >
+              🗑
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function UserToolsModal({ user, onClose }: { user: UserListItem; onClose: () => void }) {
   const { data: activeTools = [], isLoading } = useUserTools(user.id)
   const assign = useAssignUserTool()
@@ -368,6 +442,11 @@ function UserToolsModal({ user, onClose }: { user: UserListItem; onClose: () => 
               )
             })
           )}
+        </div>
+
+        <div className="px-5 pb-4">
+          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Tareas</h4>
+          <UserTasksPanel userId={user.id} />
         </div>
 
         <div className="border-t border-gray-100 px-5 py-3 flex justify-end">

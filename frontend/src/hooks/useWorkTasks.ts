@@ -414,3 +414,26 @@ export function useDeleteTaskListItem() {
     },
   })
 }
+
+export function useAdminUserTasks(userId: number | null) {
+  return useQuery({
+    queryKey: ["tareas", "admin", "user-tasks", userId],
+    queryFn: async () => {
+      const { data } = await api.get<WorkTask[]>(`${BASE}/admin/tareas-usuario/${userId}`)
+      return data
+    },
+    enabled: userId !== null,
+  })
+}
+
+export function useAdminDeleteTask() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (taskId: number) => {
+      await api.delete(`${BASE}/admin/tareas/${taskId}`)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tareas", "admin", "user-tasks"] })
+    },
+  })
+}
