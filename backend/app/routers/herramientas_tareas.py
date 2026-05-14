@@ -394,6 +394,7 @@ def get_team_members(
             user_id=member.user_id,
             user_email=user.email,
             user_full_name=user.full_name,
+            role=member.role,
             is_active=member.is_active,
             created_at=member.created_at,
         )
@@ -451,6 +452,7 @@ def add_team_member_endpoint(
         user_id=member.user_id,
         user_email=user.email,
         user_full_name=user.full_name,
+        role=member.role,
         is_active=member.is_active,
         created_at=member.created_at,
     )
