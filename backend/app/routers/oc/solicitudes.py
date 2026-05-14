@@ -204,6 +204,8 @@ def list_solicitudes(
     current_user: User = Depends(require_compras),
     oc_db: Session = Depends(get_oc_db),
 ):
+    """Listado paginado para panel de compras. Respuesta `{items, total}` (no un array raíz).
+    Documentación operativa: `ESTADO_PROYECTO.md` (módulo OC)."""
     conds = [SolicitudOC.archivada == False]  # noqa: E712
     if estado:
         conds.append(SolicitudOC.estado == estado)

@@ -221,7 +221,9 @@ Al recibir una conversación, OpenClaw tiene acceso completo al workspace `/root
 
 ### Agente Administrativo (para Sonia y compras)
 - Lee: `/workspace/brain/administrativo/`
-- Puede llamar: `GET http://backend:8000/api/oc/solicitudes`, `/api/oc/kpis`, etc.
+- Puede llamar HTTP al backend, p. ej. KPIs y listado OC:
+  - `GET http://backend:8000/api/oc/kpis`
+  - `GET http://backend:8000/api/oc/solicitudes?skip=0&limit=50` — **no** devuelve un array raíz: el JSON es **`{ "items": [ ...solicitudes ], "total": <entero> }`**. Para la siguiente página usar `skip=50`, `skip=100`, etc., hasta agotar `total`. Filtros opcionales: `estado`, `plataforma` (mismos valores que la intranet).
 - Workflow de 9 estados definido en los `.md` de MENTE_AGENTE_ADMINISTRATIVO
 
 **Regla de oro:** Si OpenClaw necesita un dato en tiempo real (estado de una solicitud, KPIs actuales), llama al backend. Si necesita contexto de negocio (qué significa cada estado, cómo debe responder), lo lee de los `.md`. Los `.md` son el cerebro; la BD es la fuente de verdad.

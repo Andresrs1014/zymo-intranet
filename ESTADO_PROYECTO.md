@@ -1,6 +1,6 @@
 # ZYMO Intranet — Estado del Proyecto
 
-**Última actualización:** 2026-04-17 (sesión 2)
+**Última actualización:** 2026-05-14 (paginación listado OC)
 **Branch activo:** `master`
 **Repositorio:** `Andresrs1014/zymo-intranet`
 
@@ -174,7 +174,7 @@ Cada empresa tiene su carpeta en `backend/app/platforms/{slug}/` con template pr
 |--------|------|-------------|
 | POST | `/api/oc/webhook/nueva-solicitud` | Recibe solicitud desde Power Automate (backward compat.) |
 | POST | `/api/oc/solicitudes/crear-interna` | Crea solicitud desde el formulario nativo (cualquier empleado autenticado) |
-| GET | `/api/oc/solicitudes` | Lista todas (filtros: estado, plataforma) |
+| GET | `/api/oc/solicitudes` | Listado **paginado** (rol compras u equivalente): cuerpo `{ "items": [...], "total": number }`. Query: `estado`, `plataforma`, `skip`, `limit` (default **50**, máx. **200**). Orden: `fecha_solicitud` desc, `id` desc. **Migración:** antes respondía un array plano; los clientes deben usar `response.items`. |
 | GET | `/api/oc/solicitudes/mis-solicitudes` | Solicitudes del usuario autenticado (por email) |
 | GET | `/api/oc/solicitudes/{id}` | Detalle de una solicitud |
 | PATCH | `/api/oc/solicitudes/{id}/asignar` | Asigna auxiliar de compras |
@@ -201,13 +201,15 @@ Cada empresa tiene su carpeta en `backend/app/platforms/{slug}/` con template pr
 | GET | `/api/oc/config/listas` | Lee listas del formulario (cualquier autenticado) |
 | PATCH | `/api/oc/config/listas` | Guarda listas del formulario (admin) |
 
+**Nota — listado OC (`GET /api/oc/solicitudes`):** respuesta JSON `{ "items", "total" }`. Para listar todo desde un script u otro servicio, iterar con `skip`/`limit` hasta cubrir `total`, o solicitar `limit=200` si basta para el volumen esperado.
+
 ---
 
 #### Frontend — Páginas del módulo OC
 
 | Archivo | Ruta | Descripción |
 |---------|------|-------------|
-| `SolicitudesPage.tsx` | `/oc/solicitudes` | Tabla de todas las solicitudes con filtros |
+| `SolicitudesPage.tsx` | `/oc/solicitudes` | Tabla con filtros y barra de paginación (50 por página, componente shadcn `Pagination`) |
 | `SolicitudDetallePage.tsx` | `/oc/solicitudes/:id` | Detalle: info, cotizaciones, OC, timeline, acciones por estado |
 | `CotizacionFormPage.tsx` | `/oc/solicitudes/:id/cotizacion` | Formulario con extracción automática y 10 campos |
 | `AprobacionPage.tsx` | `/oc/aprobacion` | Vista del aprobador |
