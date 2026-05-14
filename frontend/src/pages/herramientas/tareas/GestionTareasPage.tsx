@@ -15,8 +15,9 @@ import { TeamConfigTab } from "@/components/herramientas/tareas/TeamConfigTab"
 import { ListConfigTab } from "@/components/herramientas/tareas/ListConfigTab"
 import { TaskLeftRail } from "@/components/herramientas/tareas/TaskLeftRail"
 import { TaskLeftPanel } from "@/components/herramientas/tareas/TaskLeftPanel"
+import { EventDetailSheet } from "@/components/herramientas/tareas/EventDetailSheet"
 import { useTeamPersonSummaries, useTeamMembers } from "@/hooks/useWorkTasks"
-import type { TaskFilters } from "@/types/workTask"
+import type { TaskFilters, TaskEvent } from "@/types/workTask"
 
 const LEFT_PANEL_KEY = "task-left-panel-open"
 
@@ -40,6 +41,7 @@ export function GestionTareasPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [scheduleDate, setScheduleDate] = useState<Date | null>(null)
   const [isScheduleOpen, setIsScheduleOpen] = useState(false)
+  const [selectedEvent, setSelectedEvent] = useState<TaskEvent | null>(null)
 
   const { data: persons = [] } = useTeamPersonSummaries(filters)
 
@@ -164,7 +166,7 @@ export function GestionTareasPage() {
             setScheduleDate(date)
             setIsScheduleOpen(true)
           }}
-          onEventClick={() => {}}
+          onEventClick={(event) => setSelectedEvent(event)}
           onNewEvent={(date) => {
             setScheduleDate(date)
             setIsScheduleOpen(true)
@@ -176,7 +178,12 @@ export function GestionTareasPage() {
         isOpen={isScheduleOpen}
         onClose={() => setIsScheduleOpen(false)}
         preselectedDate={scheduleDate}
-        canSelectOthers={canManage}
+      />
+
+      <EventDetailSheet
+        event={selectedEvent}
+        onClose={() => setSelectedEvent(null)}
+        isManager={canManage}
       />
     </PageLayout>
   )

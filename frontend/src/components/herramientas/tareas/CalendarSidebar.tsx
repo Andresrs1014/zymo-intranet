@@ -78,8 +78,8 @@ export function CalendarSidebar({
 
   return (
     <aside
-      className={`border-l border-border bg-background flex flex-col relative ${
-        !isDragging ? "transition-all duration-300 ease-in-out" : ""
+      className={`border-l border-border bg-background flex flex-col relative overflow-x-hidden ${
+        !isDragging ? "transition-[width,opacity] duration-300 ease-in-out" : ""
       } ${isOpen ? "opacity-100" : "opacity-0 overflow-hidden border-l-0"}`}
       style={{ width: isOpen ? sidebarWidth : 0 }}
     >
@@ -92,7 +92,7 @@ export function CalendarSidebar({
         />
       )}
 
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full w-full">
         <div className="p-4 border-b border-border flex items-center gap-2 shrink-0">
           <Calendar className="h-4 w-4 text-primary" />
           <span className="font-semibold text-sm">Agenda</span>
