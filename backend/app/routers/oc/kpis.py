@@ -45,6 +45,25 @@ class SolicitudResumenKPI(BaseModel):
     fecha_solicitud: datetime
 
 
+class MetricaTiempoProceso(BaseModel):
+    clave: str
+    etiqueta: str
+    subtitulo: str
+    valor: float
+    unidad: str
+    ayuda: str
+
+
+class ReporteTiemposOC(BaseModel):
+    """Resumen de tiempos de proceso para KPIs e informes (humanos o agentes)."""
+
+    texto_para_informe: str
+    metricas: list[MetricaTiempoProceso]
+    generado_en_utc: datetime
+    nota_metodologia: str
+    sugerencia_agentes: str
+
+
 class KPIResponse(BaseModel):
     total_solicitudes: int
     por_estado: list[ConteoItem]
@@ -65,6 +84,84 @@ class KPIResponse(BaseModel):
     correcciones_directivo: int
     rechazos_solicitud: int
     rechazos_cotizacion: int
+    reporte_tiempos: ReporteTiemposOC
+
+
+def _build_reporte_tiempos_oc(
+    *,
+    tiempo_promedio_cotizacion_dias: float,
+    reprocesos_total: int,
+    tiempo_promedio_reproceso_dias: float,
+    pendientes_aprobacion: int,
+    total_solicitudes: int,
+) -> ReporteTiemposOC:
+    generado = datetime.now(timezone.utc)
+    metricas: list[MetricaTiempoProceso] = [
+        MetricaTiempoProceso(
+            clave="hasta_cotizacion",
+            etiqueta="Tiempo de proceso",
+            subtitulo="Demora media hasta registrar la cotización",
+            valor=round(tiempo_promedio_cotizacion_dias, 2),
+            unidad="días",
+            ayuda=(
+                "Promedio de días entre la fecha de solicitud y la fecha en que quedó registrada la cotización "
+                "(solo solicitudes con fecha_cotizacion; excluye archivadas). Indica qué tan rápido el área de compras "
+                "deja lista la cotización en el flujo."
+            ),
+        ),
+        MetricaTiempoProceso(
+            clave="resolucion_reproceso",
+            etiqueta="Tiempo de proceso",
+            subtitulo="Demora media para salir de un reproceso",
+            valor=round(tiempo_promedio_reproceso_dias, 2) if reprocesos_total > 0 else 0.0,
+            unidad="días",
+            ayuda=(
+                "Tras un evento marcado como reproceso en el historial, tiempo promedio hasta la siguiente transición "
+                "que no es reproceso. Solo aplica si hay reprocesos registrados."
+            ),
+        ),
+    ]
+
+    if tiempo_promedio_cotizacion_dias > 0:
+        fr_cot = (
+            f"La demora media del proceso hasta dejar registrada la cotización es de "
+            f"{tiempo_promedio_cotizacion_dias:.1f} días (desde la solicitud hasta fecha_cotizacion)."
+        )
+    else:
+        fr_cot = (
+            "Aún no hay datos suficientes para la demora media hasta cotización "
+            "(se requiere fecha_cotizacion en solicitudes no archivadas)."
+        )
+
+    if reprocesos_total > 0:
+        fr_rep = (
+            f"En calidad del proceso: {reprocesos_total} evento(s) de reproceso; "
+            f"la demora media para resolver cada devolución es de {tiempo_promedio_reproceso_dias:.1f} días."
+        )
+    else:
+        fr_rep = "No hay reprocesos registrados en el historial en este momento."
+
+    fr_pend = (
+        f"Cola actual: {pendientes_aprobacion} solicitud(es) en pendiente de aprobación "
+        f"sobre {total_solicitudes} solicitudes activas en KPIs."
+    )
+    texto = " ".join([fr_cot, fr_rep, fr_pend])
+
+    metodologia = (
+        "Las métricas de días provienen de campos en oc_solicitudes (cotización) y de oc_historial_estados "
+        "(reprocesos). Las solicitudes archivadas no entran en los cálculos."
+    )
+    sugerencia = (
+        "Para detalle por etapa del flujo (horas entre estados, umbrales y alertas), usar GET /api/oc/kpis/tiempos."
+    )
+
+    return ReporteTiemposOC(
+        texto_para_informe=texto,
+        metricas=metricas,
+        generado_en_utc=generado,
+        nota_metodologia=metodologia,
+        sugerencia_agentes=sugerencia,
+    )
 
 
 # ── Endpoint ──────────────────────────────────────────────────────────────────
@@ -317,6 +414,15 @@ def get_kpis(
         .where(SolicitudOC.archivada == False)  # noqa: E712
     ).one()
 
+    pendientes_aprobacion = conteo_por_estado.get("pendiente_aprobacion", 0)
+    reporte_tiempos = _build_reporte_tiempos_oc(
+        tiempo_promedio_cotizacion_dias=round(tiempo_promedio_cotizacion_dias, 2),
+        reprocesos_total=reprocesos_total,
+        tiempo_promedio_reproceso_dias=round(tiempo_promedio_reproceso_dias, 2),
+        pendientes_aprobacion=pendientes_aprobacion,
+        total_solicitudes=total_solicitudes,
+    )
+
     return KPIResponse(
         total_solicitudes=total_solicitudes,
         por_estado=por_estado,
@@ -336,6 +442,7 @@ def get_kpis(
         correcciones_directivo=int(correcciones_directivo),
         rechazos_solicitud=rechazos_solicitud or 0,
         rechazos_cotizacion=rechazos_cotizacion or 0,
+        reporte_tiempos=reporte_tiempos,
     )
 
 
@@ -344,9 +451,9 @@ def get_kpis_tiempos(
     current_user: User = Depends(require_compras),
 ):
     """
-    KPIs de tiempos de proceso OC.
-    Calcula el tiempo promedio por etapa usando HistorialEstado.
-    Incluye alertas de etapas que superan el tiempo esperado.
+    Tiempos de proceso por transición de estado (últimas solicitudes, horas).
+    Umbrales y alertas para seguimiento operativo. Complementa `GET /api/oc/kpis`
+    (campo `reporte_tiempos.texto_para_informe` y métricas en días).
     """
     from app.agents.tools.oc_tools import ver_tiempos_proceso_oc
     return ver_tiempos_proceso_oc(limite_solicitudes=100)

@@ -182,4 +182,18 @@ export interface KPIData {
   correcciones_directivo: number
   rechazos_solicitud: number
   rechazos_cotizacion: number
+  reporte_tiempos: {
+    texto_para_informe: string
+    metricas: {
+      clave: string
+      etiqueta: string
+      subtitulo: string
+      valor: number
+      unidad: string
+      ayuda: string
+    }[]
+    generado_en_utc: string
+    nota_metodologia: string
+    sugerencia_agentes: string
+  }
 }

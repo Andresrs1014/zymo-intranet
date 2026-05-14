@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { useKPIs } from "@/hooks/useOC"
-import type { ConteoItem, MesItem } from "@/types/oc"
+import type { ConteoItem, KPIData, MesItem } from "@/types/oc"
 import { formatFechaRelativa } from "@/lib/dates"
 import { formatCOP } from "@/lib/formatters"
 
@@ -98,6 +98,87 @@ function StatCard({ label, icon, value, sub, accent }: StatCardProps) {
       </div>
       <p className={`text-2xl font-bold ${accent ?? "text-gray-900"}`}>{value}</p>
       {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
+    </div>
+  )
+}
+
+function TiempoProcesoCard({
+  metric,
+  reprocesosTotal,
+}: {
+  metric: KPIData["reporte_tiempos"]["metricas"][number]
+  reprocesosTotal: number
+}) {
+  const esRepro = metric.clave === "resolucion_reproceso"
+  const sinDatoRepro = esRepro && reprocesosTotal === 0
+  const valorTexto = sinDatoRepro ? "—" : `${metric.valor.toFixed(1)}`
+  const unidadTexto = sinDatoRepro ? "" : ` ${metric.unidad}`
+
+  return (
+    <div className="bg-white rounded-xl border border-[#003087]/20 shadow-sm p-5 ring-1 ring-[#003087]/5">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-[#003087] mb-0.5">
+        {metric.etiqueta}
+      </p>
+      <p className="text-sm font-medium text-gray-800 mb-3">{metric.subtitulo}</p>
+      <p className={`text-3xl font-bold tabular-nums ${sinDatoRepro ? "text-gray-400" : "text-[#003087]"}`}>
+        {valorTexto}
+        <span className="text-lg font-semibold text-gray-500">{unidadTexto}</span>
+      </p>
+      {sinDatoRepro && (
+        <p className="text-xs text-amber-700 mt-1">No hay reprocesos; esta métrica aún no aplica.</p>
+      )}
+      <p className="text-xs text-gray-500 mt-3 leading-relaxed border-t border-gray-100 pt-3">
+        {metric.ayuda}
+      </p>
+    </div>
+  )
+}
+
+function BloqueInformeAgentes({ reporte }: { reporte: KPIData["reporte_tiempos"] }) {
+  const [copiado, setCopiado] = useState(false)
+
+  async function copiar() {
+    const bloque = [
+      "=== Informe OC Automatizaciones — tiempos de proceso ===",
+      "",
+      reporte.texto_para_informe,
+      "",
+      reporte.nota_metodologia,
+      reporte.sugerencia_agentes,
+      "",
+      `Generado (UTC): ${reporte.generado_en_utc}`,
+    ].join("\n")
+    try {
+      await navigator.clipboard.writeText(bloque)
+      setCopiado(true)
+      window.setTimeout(() => setCopiado(false), 2000)
+    } catch {
+      setCopiado(false)
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-800">Texto para informes y agentes</h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Resumen en lenguaje natural de la demora del proceso; puedes pegarlo en correos, chats o reportes del agente.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void copiar()}
+          className="shrink-0 rounded-lg bg-[#003087] px-4 py-2 text-xs font-medium text-white hover:bg-[#002266] transition-colors"
+        >
+          {copiado ? "Copiado" : "Copiar informe"}
+        </button>
+      </div>
+      <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+        {reporte.texto_para_informe}
+      </p>
+      <p className="text-xs text-slate-500 mt-3">{reporte.sugerencia_agentes}</p>
+      <p className="text-[11px] text-slate-400 mt-2">{reporte.nota_metodologia}</p>
     </div>
   )
 }
@@ -281,11 +362,31 @@ export function KPIPage() {
                       + {formatCOP(kpis.valor_iva_acumulado)} IVA
                     </p>
                   )}
-                  <p className="text-xs text-gray-400 mt-1">
-                    Prom. cotización: {kpis.tiempo_promedio_cotizacion_dias.toFixed(1)} días
+                  <p className="text-xs text-gray-400 mt-2">
+                    Los tiempos de proceso del flujo se muestran en la sección siguiente.
                   </p>
                 </div>
               </div>
+
+              {/* Tiempos de proceso — lectura clara + datos para informes */}
+              {kpis.reporte_tiempos && (
+                <>
+                  <div>
+                    <h2 className="text-sm font-semibold text-gray-800 mb-1">Tiempos del proceso</h2>
+                    <p className="text-xs text-gray-500 mb-3">
+                      Indicadores de <strong className="font-medium text-gray-700">cuánto se demora</strong> el circuito
+                      de compras; mismos datos que recibe el bloque «informe» debajo.
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {kpis.reporte_tiempos.metricas.map((m) => (
+                        <TiempoProcesoCard key={m.clave} metric={m} reprocesosTotal={kpis.reprocesos_total} />
+                      ))}
+                    </div>
+                  </div>
+
+                  <BloqueInformeAgentes reporte={kpis.reporte_tiempos} />
+                </>
+              )}
 
               {/* Fila 1b — KPIs de calidad: reprocesos y rechazos */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -294,15 +395,15 @@ export function KPIPage() {
                     <p className="text-sm text-gray-500">Reprocesos</p>
                     <span className="text-2xl">🔄</span>
                   </div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-800/90 mb-1">
+                    Tiempo de proceso (volumen)
+                  </p>
                   <p className="text-2xl font-bold text-amber-600">{kpis.reprocesos_total}</p>
                   <p className="text-xs text-gray-400 mt-1">
-                    Eventos con reproceso (devoluciones, correcciones; incluye corrección directiva)
+                    Eventos con reproceso (devoluciones, correcciones; incluye corrección directiva). La{" "}
+                    <strong className="font-medium text-gray-600">demora media para resolverlos</strong> está arriba en
+                    «Demora media para salir de un reproceso».
                   </p>
-                  {kpis.reprocesos_total > 0 && (
-                    <p className="text-xs text-amber-500 mt-1">
-                      Promedio resolución: {kpis.tiempo_promedio_reproceso_dias.toFixed(1)} días
-                    </p>
-                  )}
                 </div>
 
                 <div className="bg-white rounded-xl border border-sky-100 shadow-sm p-5">
