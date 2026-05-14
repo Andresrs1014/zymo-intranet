@@ -55,6 +55,8 @@ export function TaskForm({ onSubmit, onCancel, loading }: TaskFormProps) {
       ...(plataforma && { plataforma }),
       ...(estado && { estado }),
       prioridad,
+      // Single-team users: backend auto-assigns team_id from their only membership.
+      // Multi-team users: team_id is required via the selector above.
       ...(needsTeamSelector && teamId ? { team_id: teamId } : {}),
       fecha,
       hora_inicio: horaInicio ? new Date(`${fecha}T${horaInicio}:00`).toISOString() : undefined,
