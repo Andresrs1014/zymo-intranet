@@ -1,4 +1,6 @@
+import { useState } from "react"
 import type { WorkTask } from "@/types/workTask"
+import { useTaskLists } from "@/hooks/useWorkTasks"
 import {
   taskBadge,
   ETIQUETA_COLOR,
@@ -12,10 +14,29 @@ import {
 interface TaskDetailSheetProps {
   task: WorkTask | null
   onClose: () => void
+  onStatusChange?: (taskId: number, newEstado: string) => Promise<void>
 }
 
-export function TaskDetailSheet({ task, onClose }: TaskDetailSheetProps) {
+export function TaskDetailSheet({ task, onClose, onStatusChange }: TaskDetailSheetProps) {
+  const [isChangingStatus, setIsChangingStatus] = useState(false)
+  const [statusError, setStatusError] = useState<string | null>(null)
+  const { data: lists } = useTaskLists()
+  const estadoOptions = lists?.estado ?? []
+
   if (!task) return null
+
+  const handleStatusChange = async (newEstado: string) => {
+    if (!onStatusChange || newEstado === task.estado) return
+    setIsChangingStatus(true)
+    setStatusError(null)
+    try {
+      await onStatusChange(task.id, newEstado)
+    } catch {
+      setStatusError("Error al cambiar el estado.")
+    } finally {
+      setIsChangingStatus(false)
+    }
+  }
 
   return (
     <>
@@ -58,12 +79,35 @@ export function TaskDetailSheet({ task, onClose }: TaskDetailSheetProps) {
             <Field label="Responsable" value={task.subido_por_nombre} />
             <Field label="Fecha" value={task.fecha} />
             <Field label="Tiempo registrado" value={formatMinutos(task.tiempo_total_minutos)} />
+
+            {/* Estado — inline changer if onStatusChange provided */}
             <div>
               <p className="text-xs font-medium text-gray-500 mb-1">Estado</p>
-              <span className={`${taskBadge} ${ESTADO_COLOR[task.estado] ?? "bg-gray-100 text-gray-600"}`}>
-                {ESTADO_LABELS[task.estado] ?? task.estado}
-              </span>
+              {onStatusChange && estadoOptions.length > 0 ? (
+                <div className="space-y-1">
+                  <select
+                    value={task.estado}
+                    onChange={(e) => handleStatusChange(e.target.value)}
+                    disabled={isChangingStatus}
+                    className="w-full rounded-md border border-gray-200 bg-white px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-gray-300 disabled:opacity-50"
+                  >
+                    {estadoOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                        {opt.is_final ? " 🏁" : opt.is_canceled ? " ✕" : ""}
+                      </option>
+                    ))}
+                  </select>
+                  {statusError && <p className="text-xs text-red-500">{statusError}</p>}
+                  {isChangingStatus && <p className="text-xs text-gray-400">Guardando...</p>}
+                </div>
+              ) : (
+                <span className={`${taskBadge} ${ESTADO_COLOR[task.estado] ?? "bg-gray-100 text-gray-600"}`}>
+                  {ESTADO_LABELS[task.estado] ?? task.estado}
+                </span>
+              )}
             </div>
+
             <div>
               <p className="text-xs font-medium text-gray-500 mb-1">Etiqueta</p>
               <span className={`${taskBadge} ${ETIQUETA_COLOR[task.etiqueta] ?? "bg-gray-100 text-gray-600"}`}>

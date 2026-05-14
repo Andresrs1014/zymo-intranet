@@ -3,6 +3,7 @@ import {
   useMyTasks,
   useMyTaskMetrics,
   useCreateWorkTask,
+  useUpdateWorkTask,
 } from "@/hooks/useWorkTasks"
 import type { WorkTask, WorkTaskCreate, TaskFilters } from "@/types/workTask"
 import { TaskForm } from "./TaskForm"
@@ -24,6 +25,7 @@ export function TaskSubmitView({ filters }: Props) {
   const { data: todayTasks } = useMyTasks({ fecha_desde: today, fecha_hasta: today })
   const { data: allTasks } = useMyTasks(filters)
   const createTask = useCreateWorkTask()
+  const updateTask = useUpdateWorkTask()
 
   const registeredToday = (todayTasks?.length ?? 0) > 0
 
@@ -102,7 +104,14 @@ export function TaskSubmitView({ filters }: Props) {
       </div>
 
       {/* Detail sheet */}
-      <TaskDetailSheet task={selectedTask} onClose={() => setSelectedTask(null)} />
+      <TaskDetailSheet
+        task={selectedTask}
+        onClose={() => setSelectedTask(null)}
+        onStatusChange={async (taskId, newEstado) => {
+          await updateTask.mutateAsync({ id: taskId, payload: { estado: newEstado } })
+          setSelectedTask((prev) => prev ? { ...prev, estado: newEstado } : null)
+        }}
+      />
     </div>
   )
 }
