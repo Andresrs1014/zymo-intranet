@@ -41,6 +41,7 @@ def create_event(
         titulo=payload.titulo,
         descripcion=payload.descripcion,
         plataforma=payload.plataforma,
+        prioridad=getattr(payload, "prioridad", None),
         fecha=date.fromisoformat(payload.fecha),
         hora_inicio=payload.hora_inicio,
         duracion_minutos=payload.duracion_minutos,
@@ -142,3 +143,120 @@ def get_events_by_date(db: "Session", fecha: str, user_id: int | None = None) ->
         parts_by_event.setdefault(p.event_id, []).append(p)
 
     return [{"event": ev, "participants": parts_by_event.get(ev.id, [])} for ev in events]
+
+
+def delete_event(db: "Session", event_id: int, requesting_user_id: int, is_manager: bool) -> None:
+    """
+    Deletes an event and all its participants.
+    Only the event creator or a manager can delete.
+    """
+    from app.models.task_event import TaskEvent
+    from app.models.task_event_participant import TaskEventParticipant
+    from fastapi import HTTPException
+    from sqlmodel import select as sqlmodel_select
+
+    event = db.get(TaskEvent, event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail="Evento no encontrado.")
+    if not is_manager and event.creado_por_id != requesting_user_id:
+        raise HTTPException(status_code=403, detail="Solo el creador o un gestor puede cancelar este evento.")
+
+    participants = db.exec(
+        sqlmodel_select(TaskEventParticipant).where(TaskEventParticipant.event_id == event_id)
+    ).all()
+    for p in participants:
+        db.delete(p)
+    db.delete(event)
+    db.commit()
+
+
+def update_event_participants(
+    db: "Session",
+    event_id: int,
+    requesting_user_id: int,
+    is_manager: bool,
+    add_ids: list[int],
+    remove_ids: list[int],
+) -> dict:
+    """
+    Adds or removes participants from an existing event.
+    Only creator or manager can modify participants.
+    Re-runs conflict detection for added users.
+    """
+    from app.models.task_event import TaskEvent
+    from app.models.task_event_participant import TaskEventParticipant
+    from app.models.user import User as UserModel
+    from fastapi import HTTPException
+    from sqlmodel import select as sqlmodel_select
+
+    event = db.get(TaskEvent, event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail="Evento no encontrado.")
+    if not is_manager and event.creado_por_id != requesting_user_id:
+        raise HTTPException(status_code=403, detail="Solo el creador o un gestor puede modificar participantes.")
+
+    # Remove participants
+    for uid in remove_ids:
+        existing = db.exec(
+            sqlmodel_select(TaskEventParticipant)
+            .where(TaskEventParticipant.event_id == event_id)
+            .where(TaskEventParticipant.user_id == uid)
+        ).first()
+        if existing:
+            db.delete(existing)
+
+    # Add participants (skip if already present)
+    new_start = _parse_hhmm(event.hora_inicio)
+    new_dur = event.duracion_minutos
+
+    for uid in add_ids:
+        already = db.exec(
+            sqlmodel_select(TaskEventParticipant)
+            .where(TaskEventParticipant.event_id == event_id)
+            .where(TaskEventParticipant.user_id == uid)
+        ).first()
+        if already:
+            continue
+
+        user = db.get(UserModel, uid)
+        if not user:
+            continue
+
+        existing_events = db.exec(
+            sqlmodel_select(TaskEvent)
+            .join(TaskEventParticipant, TaskEvent.id == TaskEventParticipant.event_id)
+            .where(
+                TaskEventParticipant.user_id == uid,
+                TaskEvent.fecha == event.fecha,
+                TaskEvent.id != event_id,
+            )
+        ).all()
+
+        has_conflict = False
+        conflict_detail = None
+        for ex in existing_events:
+            ex_start = _parse_hhmm(ex.hora_inicio)
+            if _events_overlap(new_start, new_dur, ex_start, ex.duracion_minutos):
+                has_conflict = True
+                conflict_detail = f"Choca con: '{ex.titulo}' a las {ex.hora_inicio}"
+                break
+
+        participant = TaskEventParticipant(
+            event_id=event_id,
+            user_id=uid,
+            user_nombre=user.full_name or user.email,
+            has_conflict=has_conflict,
+            conflict_detail=conflict_detail,
+        )
+        db.add(participant)
+
+    db.commit()
+
+    # Return refreshed participants list
+    participants = db.exec(
+        sqlmodel_select(TaskEventParticipant).where(TaskEventParticipant.event_id == event_id)
+    ).all()
+    return {
+        "event": event,
+        "participants": list(participants),
+    }

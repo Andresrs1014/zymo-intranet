@@ -151,6 +151,41 @@ def create_task(db: Session, user: User, payload: WorkTaskCreate) -> WorkTask:
     return task
 
 
+def _maybe_auto_close(db: Session, user: User, task: "WorkTask") -> None:
+    """If the new estado is is_final or is_canceled, auto-set hora_cierre to now."""
+    from app.models.task_list_config import TaskListConfig
+    from app.services.task_team_service import get_user_active_teams
+    from app.models.task_team import TaskTeam
+
+    if task.hora_cierre is not None:
+        return  # Already has a close time
+
+    active_teams = get_user_active_teams(db, user.id)  # type: ignore[arg-type]
+    if active_teams:
+        team_id = active_teams[0]["team_id"]
+        team = db.get(TaskTeam, team_id)
+        if not team:
+            return
+        owner_id = team.owner_user_id
+    else:
+        is_admin = getattr(user, "role", None) == "admin"
+        from app.services.user_tool_service import user_has_tool
+        if user_has_tool(db, user, "tool_task_manage_dev") or is_admin:
+            owner_id = user.id
+        else:
+            return
+
+    config = db.exec(
+        select(TaskListConfig)
+        .where(TaskListConfig.owner_user_id == owner_id)
+        .where(TaskListConfig.list_type == "estado")
+        .where(TaskListConfig.value == task.estado)
+    ).first()
+
+    if config and (config.is_final or config.is_canceled):
+        task.hora_cierre = datetime.now(timezone.utc)
+
+
 def update_own_task(
     db: Session,
     user: User,
@@ -182,6 +217,10 @@ def update_own_task(
     estado_anterior = task.estado
     for field, value in update_data.items():
         setattr(task, field, value)
+
+    # Auto-close time when transitioning to a final or canceled state
+    if "estado" in update_data and update_data["estado"] != estado_anterior:
+        _maybe_auto_close(db, user, task)
 
     hora_inicio = task.hora_inicio
     hora_cierre = task.hora_cierre
@@ -349,3 +388,73 @@ def get_paginated_tasks(
             limit=filters.limit,
         ),
     )
+
+
+def update_team_task(
+    db: Session,
+    manager_user: User,
+    task_id: int,
+    payload: WorkTaskUpdate,
+) -> WorkTask:
+    """Manager updates any task in their team (e.g. change estado)."""
+    task = db.get(WorkTask, task_id)
+    if task is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tarea no encontrada.",
+        )
+
+    if payload.etiqueta is not None or payload.plataforma is not None or payload.estado is not None:
+        validate_task_values(
+            db, manager_user,
+            payload.etiqueta if payload.etiqueta is not None else task.etiqueta,
+            payload.plataforma if payload.plataforma is not None else task.plataforma,
+            payload.estado if payload.estado is not None else task.estado,
+        )
+
+    update_data = payload.model_dump(exclude_unset=True)
+    estado_anterior = task.estado
+    for field, value in update_data.items():
+        setattr(task, field, value)
+
+    if "estado" in update_data and update_data["estado"] != estado_anterior:
+        if task.hora_cierre is None:
+            from app.models.task_list_config import TaskListConfig
+            from app.services.user_tool_service import user_has_tool
+            from app.services.task_team_service import get_comanaged_owner_id
+
+            if user_has_tool(db, manager_user, "tool_task_manage_dev"):
+                config_owner_id = manager_user.id
+            else:
+                config_owner_id = get_comanaged_owner_id(db, manager_user.id) or manager_user.id
+
+            config = db.exec(
+                select(TaskListConfig)
+                .where(TaskListConfig.owner_user_id == config_owner_id)
+                .where(TaskListConfig.list_type == "estado")
+                .where(TaskListConfig.value == task.estado)
+            ).first()
+            if config and (config.is_final or config.is_canceled):
+                task.hora_cierre = datetime.now(timezone.utc)
+
+    hora_inicio = task.hora_inicio
+    hora_cierre = task.hora_cierre
+    task.tiempo_total_minutos = calcular_minutos(hora_inicio, hora_cierre)
+    task.updated_at = datetime.now(timezone.utc)
+
+    db.add(task)
+    db.commit()
+    db.refresh(task)
+
+    if "estado" in update_data and update_data["estado"] != estado_anterior:
+        log_activity(
+            db,
+            task_id=task.id,
+            user_id=manager_user.id,
+            user_nombre=manager_user.full_name or manager_user.email,
+            accion="cambio_estado",
+            detalle=f"De {estado_anterior} a {update_data['estado']} (gestor)",
+        )
+        db.commit()
+
+    return task

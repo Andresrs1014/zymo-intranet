@@ -157,6 +157,22 @@ def update_task_endpoint(
     return WorkTaskRead.model_validate(task)
 
 
+@router.patch("/equipo/tareas/{task_id}", response_model=WorkTaskRead)
+def update_team_task_endpoint(
+    task_id: int,
+    payload: WorkTaskUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> WorkTaskRead:
+    """Manager updates any team task (e.g. change estado)."""
+    _require_manage_access(db, current_user)
+
+    from app.services.work_task_service import update_team_task
+
+    task = update_team_task(db, current_user, task_id, payload)
+    return WorkTaskRead.model_validate(task)
+
+
 @router.get("/mis-metricas")
 def get_mis_metricas(
     current_user: User = Depends(get_current_user),
@@ -355,14 +371,8 @@ def crear_evento_agenda(
     db: Session = Depends(get_db),
 ):
     from app.services.task_event_service import create_event
-    from app.services.user_tool_service import user_has_tool
 
-    is_manager = user_has_tool(db, current_user, TOOL_MANAGE)
-    is_admin = getattr(current_user, "role", None) == "admin"
-    if not is_manager and not is_admin:
-        if not payload.participant_ids or payload.participant_ids != [current_user.id]:
-            raise HTTPException(status_code=403, detail="Solo el gestor puede agendar para otros miembros.")
-
+    require_tool_or_403(db, current_user, TOOL_SUBMIT)
     result = create_event(db, current_user, payload)
     return {"ok": True, "event_id": result["event"].id}
 
@@ -391,9 +401,11 @@ def eventos_por_fecha(
             "titulo": r["event"].titulo,
             "descripcion": r["event"].descripcion,
             "plataforma": getattr(r["event"], "plataforma", None),
-            "fecha": r["event"].fecha,
+            "prioridad": getattr(r["event"], "prioridad", None),
+            "fecha": str(r["event"].fecha),
             "hora_inicio": r["event"].hora_inicio,
             "duracion_minutos": r["event"].duracion_minutos,
+            "creado_por_id": r["event"].creado_por_id,
             "creado_por_nombre": r["event"].creado_por_nombre,
             "participants": [
                 {
@@ -407,6 +419,51 @@ def eventos_por_fecha(
         }
         for r in result
     ]
+
+
+@router.delete("/agenda/{event_id}")
+def cancelar_evento(
+    event_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    from app.services.task_event_service import delete_event
+
+    require_tool_or_403(db, current_user, TOOL_SUBMIT)
+    is_manager = user_has_tool(db, current_user, TOOL_MANAGE)
+    is_admin = getattr(current_user, "role", None) == "admin"
+    delete_event(db, event_id, current_user.id, is_manager or is_admin)
+    return {"ok": True}
+
+
+@router.patch("/agenda/{event_id}/participantes")
+def actualizar_participantes_evento(
+    event_id: int,
+    payload: TaskEventParticipantsUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    from app.services.task_event_service import update_event_participants
+
+    require_tool_or_403(db, current_user, TOOL_SUBMIT)
+    is_manager = user_has_tool(db, current_user, TOOL_MANAGE)
+    is_admin = getattr(current_user, "role", None) == "admin"
+    result = update_event_participants(
+        db, event_id, current_user.id, is_manager or is_admin,
+        payload.add_ids, payload.remove_ids,
+    )
+    return {
+        "ok": True,
+        "participants": [
+            {
+                "user_id": p.user_id,
+                "user_nombre": p.user_nombre,
+                "has_conflict": p.has_conflict,
+                "conflict_detail": p.conflict_detail,
+            }
+            for p in result["participants"]
+        ],
+    }
 
 
 # ── Team config endpoints (TOOL_MANAGE) ───────────────────────────────────────
