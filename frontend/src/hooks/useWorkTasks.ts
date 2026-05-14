@@ -419,6 +419,7 @@ export function useAdminUserTasks(userId: number | null) {
   return useQuery({
     queryKey: ["tareas", "admin", "user-tasks", userId],
     queryFn: async () => {
+      if (userId === null) throw new Error("userId required")
       const { data } = await api.get<WorkTask[]>(`${BASE}/admin/tareas-usuario/${userId}`)
       return data
     },

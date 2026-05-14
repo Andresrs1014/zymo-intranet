@@ -207,8 +207,11 @@ export function AdminPage() {
       )}
 
       {deleteTasksConfirm === "ask" && pendingDeleteUser && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-sm w-full shadow-xl space-y-3">
+        <div
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+          onClick={() => { setDeleteTasksConfirm("idle"); setPendingDeleteUser(null) }}
+        >
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full shadow-xl space-y-3" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-semibold text-gray-900">Eliminar usuario</h3>
             <p className="text-sm text-gray-600">¿Qué hacer con las tareas de este usuario?</p>
             <div className="flex flex-col gap-2 pt-1">
