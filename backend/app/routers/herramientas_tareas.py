@@ -13,7 +13,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from app.core.deps import get_current_user, get_db
+from app.core.deps import get_current_user, get_db, require_admin
 from app.models.user import User
 from app.models.user_tool import UserTool
 from app.schemas.work_task import WorkTaskCreate, WorkTaskRead, WorkTaskUpdate, PaginatedTasksResponse
@@ -638,6 +638,40 @@ def revoke_user_tool(
         db.add(existing)
         db.commit()
     return {"ok": True}
+
+
+@router.get("/admin/tareas-usuario/{user_id}", response_model=list[WorkTaskRead])
+def get_user_tasks_admin(
+    user_id: int,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> list[WorkTaskRead]:
+    """Retorna todas las tareas de un usuario (admin only). Incluye tareas huérfanas."""
+    from app.models.work_task import WorkTask
+
+    tasks = db.exec(
+        select(WorkTask)
+        .where(WorkTask.subido_por_id == user_id)
+        .order_by(WorkTask.fecha.desc(), WorkTask.created_at.desc())
+    ).all()
+    return [WorkTaskRead.model_validate(t) for t in tasks]
+
+
+@router.delete("/admin/tareas/{task_id}")
+def delete_task_admin(
+    task_id: int,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Elimina permanentemente una tarea específica (admin only)."""
+    from app.models.work_task import WorkTask
+
+    task = db.get(WorkTask, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Tarea no encontrada.")
+    db.delete(task)
+    db.commit()
+    return {"ok": True, "deleted_id": task_id}
 
 
 # ── List config endpoints (TOOL_MANAGE) ─────────────────────────────────────

@@ -257,10 +257,16 @@ def deactivate_user(
 @router.delete("/users/{user_id}/eliminar")
 def delete_user_permanently(
     user_id: int,
+    delete_tasks: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
-    """Elimina permanentemente un usuario archivado (is_active=False)."""
+    """Elimina permanentemente un usuario archivado.
+    delete_tasks=True: borra todas sus tareas.
+    delete_tasks=False (default): las tareas quedan huérfanas (team_id sin cambio).
+    """
+    from app.models.work_task import WorkTask as WorkTaskModel
+
     user = db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado.")
@@ -268,6 +274,14 @@ def delete_user_permanently(
         raise HTTPException(status_code=400, detail="Solo se pueden eliminar usuarios archivados.")
     if user.id == current_user.id:
         raise HTTPException(status_code=400, detail="No puedes eliminarte a ti mismo.")
+
+    if delete_tasks:
+        tasks = db.exec(
+            select(WorkTaskModel).where(WorkTaskModel.subido_por_id == user_id)
+        ).all()
+        for task in tasks:
+            db.delete(task)
+
     db.delete(user)
     db.commit()
     return {"ok": True}
