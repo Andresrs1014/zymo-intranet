@@ -75,9 +75,12 @@ def get_team_kpis(db: Session, filters: TaskFilters, owner_id: int) -> TaskKpis:
     usuarios_activos = len({t.subido_por_id for t in tasks})
 
     hoy = date.today()
+    from app.services.task_team_service import get_manager_team
+    team = get_manager_team(db, owner_id)
+    team_filter = WorkTask.team_id == team.id if team else (WorkTask.team_id == None)  # noqa: E711
     ids_con_registro_hoy = {
         t.subido_por_id
-        for t in db.exec(select(WorkTask).where(WorkTask.fecha == hoy)).all()
+        for t in db.exec(select(WorkTask).where(team_filter, WorkTask.fecha == hoy)).all()
         if t.subido_por_id in active_ids
     }
     usuarios_sin_registro_hoy = len([uid for uid in active_ids if uid not in ids_con_registro_hoy])
@@ -184,10 +187,13 @@ def get_users_without_today_entry(db: Session, owner_id: int) -> list[PersonTask
     hoy = date.today()
     active_ids = _get_team_member_ids(db, owner_id)
 
+    from app.services.task_team_service import get_manager_team
+    team = get_manager_team(db, owner_id)
+    team_filter = WorkTask.team_id == team.id if team else (WorkTask.team_id == None)  # noqa: E711
     ids_con_registro = {
         t.subido_por_id
         for t in db.exec(
-            select(WorkTask).where(WorkTask.fecha == hoy)
+            select(WorkTask).where(team_filter, WorkTask.fecha == hoy)
         ).all()
     }
 
