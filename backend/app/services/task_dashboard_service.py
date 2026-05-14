@@ -13,6 +13,12 @@ def _get_team_member_ids(db: Session, owner_id: int) -> list[int]:
     return get_active_member_ids(db, owner_id)
 
 
+def _hoy(filters: TaskFilters) -> date:
+    if filters.fecha_referencia is not None:
+        return filters.fecha_referencia
+    return date.today()
+
+
 def _team_tasks_scope(team_id: int, member_ids: list[int]):
     """Incluye tareas del equipo y legado huérfanas (team_id nulo) de colaboradores activos."""
     if member_ids:
@@ -52,16 +58,19 @@ def get_team_tasks(db: Session, filters: TaskFilters, owner_id: int) -> list[Wor
         )
 
     if filters.sin_registro_hoy:
-        hoy = date.today()
+        hoy = _hoy(filters)
         active_ids = _get_team_member_ids(db, owner_id)
-        ids_con_registro = set(db.exec(
-            select(WorkTask.subido_por_id).where(
-                and_(
-                    _team_tasks_scope(team.id, active_ids),
-                    WorkTask.fecha == hoy,
-                ),
-            )
-        ).all())
+        ids_con_registro = {
+            row.subido_por_id
+            for row in db.exec(
+                select(WorkTask).where(
+                    and_(
+                        _team_tasks_scope(team.id, active_ids),
+                        WorkTask.fecha == hoy,
+                    ),
+                )
+            ).all()
+        }
         ids_sin_registro = [uid for uid in active_ids if uid not in ids_con_registro]
         if not ids_sin_registro:
             return []
@@ -83,7 +92,7 @@ def get_team_kpis(db: Session, filters: TaskFilters, owner_id: int) -> TaskKpis:
 
     usuarios_activos = len({t.subido_por_id for t in tasks})
 
-    hoy = date.today()
+    hoy = _hoy(filters)
     team = get_or_create_manager_team(db, owner_id)
     ids_con_registro_hoy = {
         t.subido_por_id
@@ -107,8 +116,7 @@ def get_team_kpis(db: Session, filters: TaskFilters, owner_id: int) -> TaskKpis:
     )
 
 
-def _build_person_summary(user: User, tasks: list[WorkTask]) -> PersonTaskSummary:
-    hoy = date.today()
+def _build_person_summary(user: User, tasks: list[WorkTask], hoy: date) -> PersonTaskSummary:
     minutos = sum(t.tiempo_total_minutos for t in tasks if t.tiempo_total_minutos is not None)
     ultima = max((t.created_at for t in tasks), default=None)
     registro_hoy = any(t.fecha == hoy for t in tasks)
@@ -135,12 +143,13 @@ def get_person_summaries(db: Session, filters: TaskFilters, owner_id: int) -> li
         tasks_by_user[task.subido_por_id].append(task)
 
     active_ids = _get_team_member_ids(db, owner_id)
+    hoy = _hoy(filters)
 
     summaries: list[PersonTaskSummary] = []
     for uid in active_ids:
         user = db.get(User, uid)
         if user:
-            summaries.append(_build_person_summary(user, tasks_by_user.get(uid, [])))
+            summaries.append(_build_person_summary(user, tasks_by_user.get(uid, []), hoy))
     return summaries
 
 
@@ -193,9 +202,13 @@ def get_chart_data(db: Session, filters: TaskFilters, owner_id: int) -> dict:
     }
 
 
-def get_users_without_today_entry(db: Session, owner_id: int) -> list[PersonTaskSummary]:
+def get_users_without_today_entry(
+    db: Session,
+    owner_id: int,
+    fecha_referencia: date | None = None,
+) -> list[PersonTaskSummary]:
     """Returns PersonTaskSummary for active members with no task registered today."""
-    hoy = date.today()
+    hoy = fecha_referencia or date.today()
     active_ids = _get_team_member_ids(db, owner_id)
 
     team = get_or_create_manager_team(db, owner_id)
@@ -213,5 +226,5 @@ def get_users_without_today_entry(db: Session, owner_id: int) -> list[PersonTask
         if uid not in ids_con_registro:
             user = db.get(User, uid)
             if user:
-                summaries.append(_build_person_summary(user, []))
+                summaries.append(_build_person_summary(user, [], hoy))
     return summaries

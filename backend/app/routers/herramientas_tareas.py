@@ -54,6 +54,7 @@ def _team_filters(
     plataforma: Optional[str] = Query(default=None),
     q: Optional[str] = Query(default=None),
     sin_registro_hoy: bool = Query(default=False),
+    fecha_referencia: Optional[date] = Query(default=None),
 ) -> TaskFilters:
     return TaskFilters(
         fecha_desde=fecha_desde,
@@ -64,6 +65,7 @@ def _team_filters(
         plataforma=plataforma,
         q=q,
         sin_registro_hoy=sin_registro_hoy,
+        fecha_referencia=fecha_referencia,
     )
 
 
@@ -74,6 +76,8 @@ def mis_tareas_paginadas(
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=10, ge=1, le=100),
     search: Optional[str] = Query(default=None),
+    q: Optional[str] = Query(default=None),
+    responsable_id: Optional[int] = Query(default=None),
     estado: Optional[str] = Query(default=None),
     etiqueta: Optional[str] = Query(default=None),
     plataforma: Optional[str] = Query(default=None),
@@ -88,9 +92,11 @@ def mis_tareas_paginadas(
 
     require_tool_or_403(db, current_user, TOOL_SUBMIT)
 
+    effective_search = search if (search is not None and search != "") else q
+
     filters = PaginatedTaskFilters(
-        page=page, limit=limit, search=search, estado=estado,
-        etiqueta=etiqueta, plataforma=plataforma,
+        page=page, limit=limit, search=effective_search, responsable_id=responsable_id,
+        estado=estado, etiqueta=etiqueta, plataforma=plataforma,
         fecha_exacta=fecha_exacta, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta,
     )
     return get_paginated_tasks(db, current_user.id, filters)
@@ -316,6 +322,7 @@ def get_equipo_graficas(
 
 @router.get("/equipo/sin-registro-hoy", response_model=list[PersonTaskSummary])
 def get_sin_registro_hoy(
+    fecha_referencia: Optional[date] = Query(default=None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[PersonTaskSummary]:
@@ -323,7 +330,7 @@ def get_sin_registro_hoy(
 
     from app.services.task_dashboard_service import get_users_without_today_entry
 
-    return get_users_without_today_entry(db, owner_id)
+    return get_users_without_today_entry(db, owner_id, fecha_referencia=fecha_referencia)
 
 
 @router.get("/equipo/export/excel")

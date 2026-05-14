@@ -94,6 +94,8 @@ export interface TaskFilters {
   plataforma?: string
   q?: string
   sin_registro_hoy?: boolean
+  /** Día local YYYY-MM-DD para avisos de “registro hoy” (debe enviar el cliente). */
+  fecha_referencia?: string
 }
 
 export const ETIQUETAS = ["desarrollos", "actualizaciones", "auditorias", "implementacion_okr", "tareas_diarias"] as const
