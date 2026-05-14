@@ -204,7 +204,7 @@ def equipo_tareas_paginadas(
     return get_paginated_tasks(db, current_user.id, filters, team_member_ids=member_ids)
 
 
-def _owner_id(current_user: User) -> int | None:
+def _owner_id(current_user: User) -> int:
     """Retorna el ID del usuario actual para filtrar su workspace."""
     return current_user.id
 
