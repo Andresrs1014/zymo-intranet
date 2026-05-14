@@ -18,6 +18,8 @@ import type {
   TeamChartsData,
   MyTaskMetrics,
   UserTeamInfo,
+  TaskListConfigItem,
+  TaskListsResponse,
 } from "@/types/workTask"
 
 const BASE = "/api/herramientas/tareas"
@@ -408,22 +410,9 @@ export function useTeamTasksPaginated(filters: PaginatedTaskFilters) {
   })
 }
 
-export type TaskListConfigItem = {
-  id: number
-  list_type: string
-  value: string
-  label: string
-  is_active: boolean
-  is_final: boolean
-  is_canceled: boolean
-}
-
-export type TaskListsResponse = {
-  estado: TaskListConfigItem[]
-  etiqueta: TaskListConfigItem[]
-  plataforma: TaskListConfigItem[]
-  prioridad_agenda: TaskListConfigItem[]
-}
+// TaskListConfigItem and TaskListsResponse are defined in @/types/workTask
+// Re-exported here for backwards compatibility with existing consumers.
+export type { TaskListConfigItem, TaskListsResponse }
 
 export function useTaskLists() {
   return useQuery<TaskListsResponse>({

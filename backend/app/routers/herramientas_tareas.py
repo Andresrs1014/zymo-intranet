@@ -786,6 +786,24 @@ def create_lista_item(
     return TaskListConfigRead.model_validate(item)
 
 
+@router.patch("/config/listas/estado/{value}/especial", response_model=TaskListConfigRead)
+def marcar_estado_especial(
+    value: str,
+    payload: TaskEstadoEspecialPayload,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> TaskListConfigRead:
+    """Marca un estado como 'final' o 'cancelado'. Solo uno de cada tipo por workspace.
+    Must be registered BEFORE the generic /config/listas/{list_type}/{value} route.
+    """
+    owner_id = _require_manage_access(db, current_user)
+
+    from app.services.task_list_config_service import mark_estado_especial
+
+    item = mark_estado_especial(db, owner_id, value, payload.tipo)
+    return TaskListConfigRead.model_validate(item)
+
+
 @router.patch("/config/listas/{list_type}/{value}", response_model=TaskListConfigRead)
 def update_lista_item(
     list_type: str,
@@ -814,19 +832,3 @@ def delete_lista_item(
     from app.services.task_list_config_service import delete_list_item
 
     return delete_list_item(db, owner_id, list_type, value)
-
-
-@router.patch("/config/listas/estado/{value}/especial", response_model=TaskListConfigRead)
-def marcar_estado_especial(
-    value: str,
-    payload: TaskEstadoEspecialPayload,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> TaskListConfigRead:
-    """Marca un estado como 'final' o 'cancelado'. Solo uno de cada tipo por workspace."""
-    owner_id = _require_manage_access(db, current_user)
-
-    from app.services.task_list_config_service import mark_estado_especial
-
-    item = mark_estado_especial(db, owner_id, value, payload.tipo)
-    return TaskListConfigRead.model_validate(item)
