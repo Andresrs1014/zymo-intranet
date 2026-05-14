@@ -272,8 +272,6 @@ export function KPIPage() {
     ? (kpis?.valor_total_aprobado ?? 0)
     : (kpis?.valor_total_sin_iva ?? 0)
 
-  const reporteTiemposKpi = kpis ? resolverReporteTiemposKpis(kpis) : null
-
   return (
     <PageLayout title="OC Automatizaciones">
           {/* Header */}
@@ -322,7 +320,9 @@ export function KPIPage() {
           )}
 
           {/* Dashboard content */}
-          {kpis && (
+          {kpis ? (() => {
+            const reporteTiempos = resolverReporteTiemposKpis(kpis)
+            return (
             <div className="space-y-6">
               {/* Fila 1 — Stat Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -383,13 +383,13 @@ export function KPIPage() {
                   de compras; mismos datos que recibe el bloque «informe» debajo.
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {reporteTiemposKpi.metricas.map((m) => (
+                  {reporteTiempos.metricas.map((m) => (
                     <TiempoProcesoCard key={m.clave} metric={m} reprocesosTotal={kpis.reprocesos_total} />
                   ))}
                 </div>
               </div>
 
-              <BloqueInformeAgentes reporte={reporteTiemposKpi} />
+              <BloqueInformeAgentes reporte={reporteTiempos} />
 
               {/* Fila 1b — KPIs de calidad: reprocesos y rechazos */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -587,7 +587,8 @@ export function KPIPage() {
                 )}
               </div>
             </div>
-          )}
+            )
+          })() : null}
     </PageLayout>
   )
 }
