@@ -25,7 +25,7 @@ from app.schemas.task_team import (
     TaskTeamMemberRead,
 )
 from app.schemas.task_list_config import TaskListConfigCreate, TaskListConfigUpdate, TaskListConfigRead
-from app.services.user_tool_service import require_tool_or_403
+from app.services.user_tool_service import require_tool_or_403, user_has_tool
 
 router = APIRouter(prefix="/api/herramientas/tareas", tags=["Herramientas - Tareas"])
 
@@ -203,9 +203,9 @@ def equipo_tareas_paginadas(
     from app.services.task_team_service import get_or_create_manager_team
     from app.models.task_team_member import TaskTeamMember
 
-    require_tool_or_403(db, current_user, TOOL_MANAGE)
+    owner_id = _require_manage_access(db, current_user)
 
-    team = get_or_create_manager_team(db, current_user.id)
+    team = get_or_create_manager_team(db, owner_id)
     members = db.exec(
         select(TaskTeamMember).where(
             TaskTeamMember.team_id == team.id,
@@ -219,12 +219,30 @@ def equipo_tareas_paginadas(
         estado=estado, etiqueta=etiqueta, plataforma=plataforma,
         fecha_exacta=fecha_exacta, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta,
     )
-    return get_paginated_tasks(db, current_user.id, filters, team_member_ids=member_ids)
+    return get_paginated_tasks(db, owner_id, filters, team_member_ids=member_ids)
 
 
 def _owner_id(current_user: User) -> int:
     """Retorna el ID del usuario actual para filtrar su workspace."""
     return current_user.id
+
+
+def _require_manage_access(db: Session, current_user: User) -> int:
+    """Valida que el usuario puede gestionar un equipo.
+    Permite: gestor primario (TOOL_MANAGE) o co-gestor (role=co_gestor en algún equipo).
+    Retorna el owner_id del equipo a gestionar.
+    Lanza 403 si no tiene acceso.
+    """
+    from app.services.task_team_service import get_comanaged_owner_id
+
+    if user_has_tool(db, current_user, TOOL_MANAGE):
+        return current_user.id
+
+    owner_id = get_comanaged_owner_id(db, current_user.id)
+    if owner_id:
+        return owner_id
+
+    raise HTTPException(status_code=403, detail="Acceso denegado. Se requiere rol de gestor o co-gestor.")
 
 
 @router.get("/equipo", response_model=list[WorkTaskRead])
@@ -233,11 +251,11 @@ def get_equipo_tasks(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[WorkTaskRead]:
-    require_tool_or_403(db, current_user, TOOL_MANAGE)
+    owner_id = _require_manage_access(db, current_user)
 
     from app.services.task_dashboard_service import get_team_tasks
 
-    tasks = get_team_tasks(db, filters, _owner_id(current_user))
+    tasks = get_team_tasks(db, filters, owner_id)
     return [WorkTaskRead.model_validate(t) for t in tasks]
 
 
@@ -247,11 +265,11 @@ def get_equipo_kpis(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> TaskKpis:
-    require_tool_or_403(db, current_user, TOOL_MANAGE)
+    owner_id = _require_manage_access(db, current_user)
 
     from app.services.task_dashboard_service import get_team_kpis
 
-    return get_team_kpis(db, filters, _owner_id(current_user))
+    return get_team_kpis(db, filters, owner_id)
 
 
 @router.get("/equipo/personas", response_model=list[PersonTaskSummary])
@@ -260,11 +278,11 @@ def get_equipo_personas(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[PersonTaskSummary]:
-    require_tool_or_403(db, current_user, TOOL_MANAGE)
+    owner_id = _require_manage_access(db, current_user)
 
     from app.services.task_dashboard_service import get_person_summaries
 
-    return get_person_summaries(db, filters, _owner_id(current_user))
+    return get_person_summaries(db, filters, owner_id)
 
 
 @router.get("/equipo/graficas")
@@ -273,11 +291,11 @@ def get_equipo_graficas(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict:
-    require_tool_or_403(db, current_user, TOOL_MANAGE)
+    owner_id = _require_manage_access(db, current_user)
 
     from app.services.task_dashboard_service import get_chart_data
 
-    return get_chart_data(db, filters, _owner_id(current_user))
+    return get_chart_data(db, filters, owner_id)
 
 
 @router.get("/equipo/sin-registro-hoy", response_model=list[PersonTaskSummary])
@@ -285,11 +303,11 @@ def get_sin_registro_hoy(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[PersonTaskSummary]:
-    require_tool_or_403(db, current_user, TOOL_MANAGE)
+    owner_id = _require_manage_access(db, current_user)
 
     from app.services.task_dashboard_service import get_users_without_today_entry
 
-    return get_users_without_today_entry(db, current_user.id)
+    return get_users_without_today_entry(db, owner_id)
 
 
 @router.get("/equipo/export/excel")
@@ -398,11 +416,11 @@ def get_team_members(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[TaskTeamMemberRead]:
-    require_tool_or_403(db, current_user, TOOL_MANAGE)
+    owner_id = _require_manage_access(db, current_user)
 
     from app.services.task_team_service import list_team_members
 
-    rows = list_team_members(db, current_user.id)
+    rows = list_team_members(db, owner_id)
     return [
         TaskTeamMemberRead(
             id=member.id,
@@ -423,11 +441,11 @@ def get_available_users(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[AvailableUserRead]:
-    require_tool_or_403(db, current_user, TOOL_MANAGE)
+    owner_id = _require_manage_access(db, current_user)
 
     from app.services.task_team_service import list_available_users
 
-    users = list_available_users(db, current_user.id)
+    users = list_available_users(db, owner_id)
     return [
         AvailableUserRead(
             id=u.id,
@@ -450,13 +468,13 @@ def add_team_member_endpoint(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> TaskTeamMemberRead:
-    require_tool_or_403(db, current_user, TOOL_MANAGE)
+    owner_id = _require_manage_access(db, current_user)
 
     from app.services.task_team_service import add_team_member
     from app.services.user_tool_service import ensure_user_has_tool
     from app.models.user import User as UserModel
 
-    member = add_team_member(db, payload.user_id, current_user.id)
+    member = add_team_member(db, payload.user_id, owner_id)
     ensure_user_has_tool(db, payload.user_id, TOOL_SUBMIT)
 
     user = db.get(UserModel, member.user_id)
@@ -480,12 +498,68 @@ def remove_team_member(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict:
-    require_tool_or_403(db, current_user, TOOL_MANAGE)
+    owner_id = _require_manage_access(db, current_user)
 
     from app.services.task_team_service import deactivate_team_member
 
-    deactivate_team_member(db, user_id, current_user.id)
+    deactivate_team_member(db, user_id, owner_id)
     return {"ok": True}
+
+
+@router.post("/equipo/config/miembros/{user_id}/promover", response_model=TaskTeamMemberRead)
+def promote_team_member(
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> TaskTeamMemberRead:
+    """Promueve un miembro a co-gestor. Solo el gestor primario puede hacer esto."""
+    require_tool_or_403(db, current_user, TOOL_MANAGE)
+
+    from app.services.task_team_service import promote_to_cogestor
+    from app.models.user import User as UserModel
+
+    member = promote_to_cogestor(db, user_id, current_user.id)
+    user = db.get(UserModel, member.user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+    return TaskTeamMemberRead(
+        id=member.id,
+        team_id=member.team_id,
+        user_id=member.user_id,
+        user_email=user.email,
+        user_full_name=user.full_name,
+        role=member.role,
+        is_active=member.is_active,
+        created_at=member.created_at,
+    )
+
+
+@router.post("/equipo/config/miembros/{user_id}/degradar", response_model=TaskTeamMemberRead)
+def demote_team_member(
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> TaskTeamMemberRead:
+    """Degrada un co-gestor a miembro. Solo el gestor primario puede hacer esto."""
+    require_tool_or_403(db, current_user, TOOL_MANAGE)
+
+    from app.services.task_team_service import demote_to_member
+    from app.models.user import User as UserModel
+
+    member = demote_to_member(db, user_id, current_user.id)
+    user = db.get(UserModel, member.user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+    return TaskTeamMemberRead(
+        id=member.id,
+        team_id=member.team_id,
+        user_id=member.user_id,
+        user_email=user.email,
+        user_full_name=user.full_name,
+        role=member.role,
+        is_active=member.is_active,
+        created_at=member.created_at,
+    )
 
 
 # ── Admin endpoint ─────────────────────────────────────────────────────────────
@@ -612,11 +686,11 @@ def create_lista_item(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> TaskListConfigRead:
-    require_tool_or_403(db, current_user, TOOL_MANAGE)
+    owner_id = _require_manage_access(db, current_user)
 
     from app.services.task_list_config_service import create_list_item
 
-    item = create_list_item(db, current_user.id, payload)
+    item = create_list_item(db, owner_id, payload)
     return TaskListConfigRead.model_validate(item)
 
 
@@ -628,11 +702,11 @@ def update_lista_item(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> TaskListConfigRead:
-    require_tool_or_403(db, current_user, TOOL_MANAGE)
+    owner_id = _require_manage_access(db, current_user)
 
     from app.services.task_list_config_service import update_list_item
 
-    item = update_list_item(db, current_user.id, list_type, value, payload)
+    item = update_list_item(db, owner_id, list_type, value, payload)
     return TaskListConfigRead.model_validate(item)
 
 
@@ -643,8 +717,8 @@ def delete_lista_item(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict:
-    require_tool_or_403(db, current_user, TOOL_MANAGE)
+    owner_id = _require_manage_access(db, current_user)
 
     from app.services.task_list_config_service import delete_list_item
 
-    return delete_list_item(db, current_user.id, list_type, value)
+    return delete_list_item(db, owner_id, list_type, value)
