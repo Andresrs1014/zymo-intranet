@@ -165,11 +165,11 @@ def update_team_task_endpoint(
     db: Session = Depends(get_db),
 ) -> WorkTaskRead:
     """Manager updates any team task (e.g. change estado)."""
-    _require_manage_access(db, current_user)
+    owner_id = _require_manage_access(db, current_user)
 
     from app.services.work_task_service import update_team_task
 
-    task = update_team_task(db, current_user, task_id, payload)
+    task = update_team_task(db, current_user, task_id, payload, owner_id=owner_id)
     return WorkTaskRead.model_validate(task)
 
 

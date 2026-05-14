@@ -205,6 +205,9 @@ def update_event_participants(
         if existing:
             db.delete(existing)
 
+    # Flush deletes so the "already present" check below doesn't see stale rows.
+    db.flush()
+
     # Add participants (skip if already present)
     new_start = _parse_hhmm(event.hora_inicio)
     new_dur = event.duracion_minutos

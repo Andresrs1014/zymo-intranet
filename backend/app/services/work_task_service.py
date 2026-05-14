@@ -154,16 +154,15 @@ def create_task(db: Session, user: User, payload: WorkTaskCreate) -> WorkTask:
 def _maybe_auto_close(db: Session, user: User, task: "WorkTask") -> None:
     """If the new estado is is_final or is_canceled, auto-set hora_cierre to now."""
     from app.models.task_list_config import TaskListConfig
-    from app.services.task_team_service import get_user_active_teams
     from app.models.task_team import TaskTeam
 
     if task.hora_cierre is not None:
         return  # Already has a close time
 
-    active_teams = get_user_active_teams(db, user.id)  # type: ignore[arg-type]
-    if active_teams:
-        team_id = active_teams[0]["team_id"]
-        team = db.get(TaskTeam, team_id)
+    # Resolve the workspace owner via the task's own team, not the user's first team.
+    # This is correct even when a user belongs to multiple teams.
+    if task.team_id is not None:
+        team = db.get(TaskTeam, task.team_id)
         if not team:
             return
         owner_id = team.owner_user_id
@@ -395,14 +394,34 @@ def update_team_task(
     manager_user: User,
     task_id: int,
     payload: WorkTaskUpdate,
+    owner_id: int | None = None,
 ) -> WorkTask:
-    """Manager updates any task in their team (e.g. change estado)."""
+    """Manager updates any task in their team (e.g. change estado).
+
+    owner_id: the workspace owner resolved by _require_manage_access. Used to
+    enforce workspace isolation — the task must belong to this manager's team.
+    """
+    from app.models.task_team import TaskTeam
+    from sqlmodel import select as sqlmodel_select
+
     task = db.get(WorkTask, task_id)
     if task is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Tarea no encontrada.",
         )
+
+    # Workspace boundary check: verify the task belongs to this manager's team.
+    if owner_id is not None and task.team_id is not None:
+        manager_team = db.exec(
+            sqlmodel_select(TaskTeam)
+            .where(TaskTeam.owner_user_id == owner_id)
+        ).first()
+        if manager_team is None or task.team_id != manager_team.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Esta tarea no pertenece a tu equipo.",
+            )
 
     if payload.etiqueta is not None or payload.plataforma is not None or payload.estado is not None:
         validate_task_values(
