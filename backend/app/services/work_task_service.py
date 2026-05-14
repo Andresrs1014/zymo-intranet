@@ -394,12 +394,12 @@ def update_team_task(
     manager_user: User,
     task_id: int,
     payload: WorkTaskUpdate,
-    owner_id: int | None = None,
+    owner_id: int,
 ) -> WorkTask:
     """Manager updates any task in their team (e.g. change estado).
 
-    owner_id: the workspace owner resolved by _require_manage_access. Used to
-    enforce workspace isolation — the task must belong to this manager's team.
+    owner_id: the workspace owner resolved by _require_manage_access. Required
+    to enforce workspace isolation — the task must belong to this manager's team.
     """
     from app.models.task_team import TaskTeam
     from sqlmodel import select as sqlmodel_select
@@ -412,7 +412,7 @@ def update_team_task(
         )
 
     # Workspace boundary check: verify the task belongs to this manager's team.
-    if owner_id is not None and task.team_id is not None:
+    if task.team_id is not None:
         manager_team = db.exec(
             sqlmodel_select(TaskTeam)
             .where(TaskTeam.owner_user_id == owner_id)
