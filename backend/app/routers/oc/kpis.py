@@ -118,15 +118,19 @@ def get_kpis(
     ).all()
     por_area = [ConteoItem(label=r[0], count=r[1]) for r in area_rows]
 
-    # 6. Valores monetarios aprobados
+    # 6. Valores monetarios aprobados (excluye solicitudes archivadas)
     valor_total_aprobado = oc_db.exec(
         select(func.sum(CotizacionProveedor.valor_aprobado))
+        .join(SolicitudOC, CotizacionProveedor.solicitud_id == SolicitudOC.id)
         .where(CotizacionProveedor.aprobada == True)  # noqa: E712
+        .where(SolicitudOC.archivada == False)  # noqa: E712
     ).one() or 0.0
 
-    # Suma de valor_antes_iva donde existe; si no existe, se usa valor_aprobado (sin IVA desconocido)
     cotizaciones_aprobadas = oc_db.exec(
-        select(CotizacionProveedor).where(CotizacionProveedor.aprobada == True)  # noqa: E712
+        select(CotizacionProveedor)
+        .join(SolicitudOC, CotizacionProveedor.solicitud_id == SolicitudOC.id)
+        .where(CotizacionProveedor.aprobada == True)  # noqa: E712
+        .where(SolicitudOC.archivada == False)  # noqa: E712
     ).all()
     valor_total_sin_iva = 0.0
     valor_iva_acumulado = 0.0
@@ -136,15 +140,19 @@ def get_kpis(
         valor_total_sin_iva += base
         valor_iva_acumulado += iva
 
-    # 7. Número de OCs generadas
+    # 7. Número de OCs generadas (excluye solicitudes archivadas)
     total_ordenes_generadas = oc_db.exec(
         select(func.count(OrdenCompra.id))
+        .join(SolicitudOC, OrdenCompra.solicitud_id == SolicitudOC.id)
+        .where(SolicitudOC.archivada == False)  # noqa: E712
     ).one()
 
-    # 8. Top proveedores aprobados (top 5)
+    # 8. Top proveedores aprobados — top 5, excluye solicitudes archivadas
     proveedor_rows = oc_db.exec(
         select(CotizacionProveedor.proveedor_nombre, func.count(CotizacionProveedor.id).label("cnt"))
+        .join(SolicitudOC, CotizacionProveedor.solicitud_id == SolicitudOC.id)
         .where(CotizacionProveedor.aprobada == True)  # noqa: E712
+        .where(SolicitudOC.archivada == False)  # noqa: E712
         .group_by(CotizacionProveedor.proveedor_nombre)
         .order_by(func.count(CotizacionProveedor.id).desc())
         .limit(5)
@@ -185,9 +193,10 @@ def get_kpis(
     ).all()
 
     cotizaciones_ventana = oc_db.exec(
-        select(CotizacionProveedor).where(
-            CotizacionProveedor.aprobada == True  # noqa: E712
-        )
+        select(CotizacionProveedor)
+        .join(SolicitudOC, CotizacionProveedor.solicitud_id == SolicitudOC.id)
+        .where(CotizacionProveedor.aprobada == True)  # noqa: E712
+        .where(SolicitudOC.archivada == False)  # noqa: E712
     ).all()
 
     # Indexar cotizaciones aprobadas por solicitud_id → valor_aprobado total
@@ -243,18 +252,20 @@ def get_kpis(
         for s in recientes_raw
     ]
 
-    # 12. Indicadores de rechazo y reprocesos
-    # Correcciones directivas (cotización/OC sin retroceder etapa — se cuentan aparte para el tablero)
+    # 12. Indicadores de rechazo y reprocesos (excluye solicitudes archivadas)
     correcciones_directivo_raw = oc_db.exec(
-        select(func.count(HistorialEstado.id)).where(
-            HistorialEstado.tipo_accion == "correccion_directivo"
-        )
+        select(func.count(HistorialEstado.id))
+        .join(SolicitudOC, HistorialEstado.solicitud_id == SolicitudOC.id)
+        .where(HistorialEstado.tipo_accion == "correccion_directivo")
+        .where(SolicitudOC.archivada == False)  # noqa: E712
     ).one()
     correcciones_directivo = correcciones_directivo_raw or 0
 
-    # Reprocesos: entradas de historial marcadas como es_reproceso = True
     reprocesos_entradas = oc_db.exec(
-        select(HistorialEstado).where(HistorialEstado.es_reproceso == True)  # noqa: E712
+        select(HistorialEstado)
+        .join(SolicitudOC, HistorialEstado.solicitud_id == SolicitudOC.id)
+        .where(HistorialEstado.es_reproceso == True)  # noqa: E712
+        .where(SolicitudOC.archivada == False)  # noqa: E712
     ).all()
     reprocesos_total = len(reprocesos_entradas)
 
@@ -292,18 +303,18 @@ def get_kpis(
         if tiempos_reproceso:
             tiempo_promedio_reproceso_dias = sum(tiempos_reproceso) / len(tiempos_reproceso)
 
-    # Rechazos de solicitud: cancelaciones definitivas originadas desde la solicitud
     rechazos_solicitud = oc_db.exec(
-        select(func.count(HistorialEstado.id)).where(
-            HistorialEstado.tipo_accion == "cancelacion_solicitud"
-        )
+        select(func.count(HistorialEstado.id))
+        .join(SolicitudOC, HistorialEstado.solicitud_id == SolicitudOC.id)
+        .where(HistorialEstado.tipo_accion == "cancelacion_solicitud")
+        .where(SolicitudOC.archivada == False)  # noqa: E712
     ).one()
 
-    # Rechazos de cotización: cancelaciones definitivas originadas desde el panel de aprobación
     rechazos_cotizacion = oc_db.exec(
-        select(func.count(HistorialEstado.id)).where(
-            HistorialEstado.tipo_accion == "cancelacion_cotizacion"
-        )
+        select(func.count(HistorialEstado.id))
+        .join(SolicitudOC, HistorialEstado.solicitud_id == SolicitudOC.id)
+        .where(HistorialEstado.tipo_accion == "cancelacion_cotizacion")
+        .where(SolicitudOC.archivada == False)  # noqa: E712
     ).one()
 
     return KPIResponse(

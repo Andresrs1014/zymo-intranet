@@ -38,6 +38,14 @@ from app.services.email_service import (
 
 router = APIRouter(prefix="/solicitudes", tags=["OC - Solicitudes"])
 
+# ── Constantes de rutas y uploads ─────────────────────────────────────────────
+
+_SOLICITUDES_DIR = Path("/app/data/solicitudes")
+_COTIZACIONES_DIR_SOL = Path("/app/data/cotizaciones")
+_OC_DOCS_DIR_SOL = Path("/app/data/oc_docs")
+_FORMATOS_FOTO = frozenset({"jpg", "jpeg", "png", "gif", "webp", "pdf", "xlsx", "docx", "msg"})
+_MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20 MB
+
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
 
@@ -871,9 +879,6 @@ def archivar_solicitud(
 
 # ── Eliminación permanente (solo admin) ───────────────────────────────────────
 
-_COTIZACIONES_DIR_SOL = Path("/app/data/cotizaciones")
-_OC_DOCS_DIR_SOL = Path("/app/data/oc_docs")
-
 
 @router.delete("/{solicitud_id}", status_code=status.HTTP_204_NO_CONTENT)
 def eliminar_solicitud(
@@ -909,9 +914,6 @@ def eliminar_solicitud(
     for cot in cotizaciones:
         if cot.pdf_path:
             Path(cot.pdf_path).unlink(missing_ok=True)
-        # Limpiar también el archivo temporal si existiera
-        for tmp in _COTIZACIONES_DIR_SOL.glob(f"temp_{solicitud_id}.*"):
-            tmp.unlink(missing_ok=True)
 
     # ── 4. PDFs de órdenes de compra ──────────────────────────────────────────
     ordenes = oc_db.exec(
@@ -942,15 +944,14 @@ def eliminar_solicitud(
 
 # ── Fotos / archivos del producto ─────────────────────────────────────────────
 
-_SOLICITUDES_DIR = Path("/app/data/solicitudes")
-_FORMATOS_FOTO = frozenset({"jpg", "jpeg", "png", "gif", "webp", "pdf", "xlsx", "docx", "msg"})
-_MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20 MB
 _MIME_FOTO = {
     "jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
     "gif": "image/gif", "webp": "image/webp",
     "pdf": "application/pdf",
     "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "xls": "application/vnd.ms-excel",
     "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "msg": "application/vnd.ms-outlook",
 }
 
 

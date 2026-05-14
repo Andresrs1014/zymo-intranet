@@ -869,6 +869,7 @@ export function useArchivarSolicitud() {
     onSuccess: (_, solicitudId) => {
       qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
       qc.invalidateQueries({ queryKey: ["oc", "solicitudes", solicitudId] })
+      qc.invalidateQueries({ queryKey: ["oc", "mis-solicitudes"] })
       qc.invalidateQueries({ queryKey: ["oc", "kpis"] })
     },
   })
@@ -880,8 +881,10 @@ export function useEliminarSolicitud() {
     mutationFn: async (solicitudId: string) => {
       await api.delete(`/api/oc/solicitudes/${solicitudId}`)
     },
-    onSuccess: () => {
+    onSuccess: (_data, solicitudId) => {
       qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes", solicitudId] })
+      qc.invalidateQueries({ queryKey: ["oc", "mis-solicitudes"] })
       qc.invalidateQueries({ queryKey: ["oc", "kpis"] })
     },
   })
