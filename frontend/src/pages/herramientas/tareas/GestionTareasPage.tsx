@@ -23,7 +23,7 @@ const LEFT_PANEL_KEY = "task-left-panel-open"
 export function GestionTareasPage() {
   const user = useAuthStore((s) => s.user)
   const userTools: string[] = user?.user_tools ?? []
-  const canManage = canManageDevTasks(userTools, user?.role)
+  const canManage = canManageDevTasks(userTools)
   const canSubmit = canSubmitDevTasks(userTools)
 
   const [filters, setFilters] = useState<TaskFilters>({})

@@ -97,10 +97,8 @@ export function canSubmitDevTasks(userTools: string[]): boolean {
 }
 
 /**
- * Puede gestionar si:
- * - Tiene tool_task_manage_dev, O
- * - Es admin
+ * Puede gestionar si tiene tool_task_manage_dev.
  */
-export function canManageDevTasks(userTools: string[], role?: string): boolean {
-  return userTools.includes("tool_task_manage_dev") || role === "admin"
+export function canManageDevTasks(userTools: string[]): boolean {
+  return userTools.includes("tool_task_manage_dev")
 }

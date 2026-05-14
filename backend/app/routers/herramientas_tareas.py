@@ -205,9 +205,7 @@ def equipo_tareas_paginadas(
 
 
 def _owner_id(current_user: User) -> int | None:
-    """Admin ve todo (owner_id=None). Manager ve su workspace."""
-    if getattr(current_user, "role", None) == "admin":
-        return None
+    """Retorna el ID del usuario actual para filtrar su workspace."""
     return current_user.id
 
 
