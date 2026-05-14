@@ -122,6 +122,8 @@ Desde la alineación UI + agentes, la respuesta de KPI incluye **`reporte_tiempo
 
 En la intranet, **Dashboard KPIs** muestra dos tarjetas claras bajo «Tiempos del proceso» y un recuadro **«Texto para informes y agentes»** con botón **Copiar informe**.
 
+**Presentación legible:** el cálculo y el API siguen expresando promedios como **fracción de día** (`valor` / `tiempo_promedio_*_dias`). En UI y en `texto_para_informe` se muestran **minutos y segundos** si la demora es menor a 1 h; de 1 h a menos de 24 h en **horas y minutos**; a partir de 24 h en **días y horas** (implementación: `formatDuracionDesdeDias` en el frontend y `_format_duracion_desde_dias` en `kpis.py`). Si el backend antiguo no envía `reporte_tiempos`, el cliente lo sintetiza con `resolverReporteTiemposKpis`.
+
 ---
 
 ## Referencias rápidas en código
@@ -133,6 +135,8 @@ En la intranet, **Dashboard KPIs** muestra dos tarjetas claras bajo «Tiempos de
 | Endpoint timeline | `backend/app/routers/oc/solicitudes.py` — `GET .../tiempos` |
 | Límites y timeline agregado | `backend/app/agents/tools/oc_tools.py` |
 | Tarjetas KPI en UI | `frontend/src/pages/oc/KPIPage.tsx` |
+| Formato duración desde días (UI) | `frontend/src/lib/durationFromDays.ts` |
+| Fallback / informe legible en cliente | `frontend/src/lib/ocKpiReporteTiempos.ts` |
 | SLA lista compras | `frontend/src/pages/oc/SolicitudesPage.tsx` — `SLA_HORAS`, `calcularSLA` |
 
 ---

@@ -1,9 +1,11 @@
 import { useState } from "react"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { useKPIs } from "@/hooks/useOC"
-import type { ConteoItem, KPIData, MesItem } from "@/types/oc"
+import type { ConteoItem, MesItem } from "@/types/oc"
 import { formatFechaRelativa } from "@/lib/dates"
 import { formatCOP } from "@/lib/formatters"
+import { formatDuracionDesdeDias } from "@/lib/durationFromDays"
+import { type ReporteTiemposOCData, resolverReporteTiemposKpis } from "@/lib/ocKpiReporteTiempos"
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -106,13 +108,17 @@ function TiempoProcesoCard({
   metric,
   reprocesosTotal,
 }: {
-  metric: KPIData["reporte_tiempos"]["metricas"][number]
+  metric: ReporteTiemposOCData["metricas"][number]
   reprocesosTotal: number
 }) {
   const esRepro = metric.clave === "resolucion_reproceso"
   const sinDatoRepro = esRepro && reprocesosTotal === 0
-  const valorTexto = sinDatoRepro ? "—" : `${metric.valor.toFixed(1)}`
-  const unidadTexto = sinDatoRepro ? "" : ` ${metric.unidad}`
+  const duracionLegible =
+    sinDatoRepro
+      ? null
+      : metric.unidad === "días"
+        ? formatDuracionDesdeDias(metric.valor)
+        : `${Number(metric.valor).toFixed(2)} ${metric.unidad}`
 
   return (
     <div className="bg-white rounded-xl border border-[#003087]/20 shadow-sm p-5 ring-1 ring-[#003087]/5">
@@ -121,8 +127,7 @@ function TiempoProcesoCard({
       </p>
       <p className="text-sm font-medium text-gray-800 mb-3">{metric.subtitulo}</p>
       <p className={`text-3xl font-bold tabular-nums ${sinDatoRepro ? "text-gray-400" : "text-[#003087]"}`}>
-        {valorTexto}
-        <span className="text-lg font-semibold text-gray-500">{unidadTexto}</span>
+        {sinDatoRepro ? "—" : duracionLegible}
       </p>
       {sinDatoRepro && (
         <p className="text-xs text-amber-700 mt-1">No hay reprocesos; esta métrica aún no aplica.</p>
@@ -134,7 +139,7 @@ function TiempoProcesoCard({
   )
 }
 
-function BloqueInformeAgentes({ reporte }: { reporte: KPIData["reporte_tiempos"] }) {
+function BloqueInformeAgentes({ reporte }: { reporte: ReporteTiemposOCData }) {
   const [copiado, setCopiado] = useState(false)
 
   async function copiar() {
@@ -267,6 +272,8 @@ export function KPIPage() {
     ? (kpis?.valor_total_aprobado ?? 0)
     : (kpis?.valor_total_sin_iva ?? 0)
 
+  const reporteTiemposKpi = kpis ? resolverReporteTiemposKpis(kpis) : null
+
   return (
     <PageLayout title="OC Automatizaciones">
           {/* Header */}
@@ -369,24 +376,20 @@ export function KPIPage() {
               </div>
 
               {/* Tiempos de proceso — lectura clara + datos para informes */}
-              {kpis.reporte_tiempos && (
-                <>
-                  <div>
-                    <h2 className="text-sm font-semibold text-gray-800 mb-1">Tiempos del proceso</h2>
-                    <p className="text-xs text-gray-500 mb-3">
-                      Indicadores de <strong className="font-medium text-gray-700">cuánto se demora</strong> el circuito
-                      de compras; mismos datos que recibe el bloque «informe» debajo.
-                    </p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {kpis.reporte_tiempos.metricas.map((m) => (
-                        <TiempoProcesoCard key={m.clave} metric={m} reprocesosTotal={kpis.reprocesos_total} />
-                      ))}
-                    </div>
-                  </div>
+              <div>
+                <h2 className="text-sm font-semibold text-gray-800 mb-1">Tiempos del proceso</h2>
+                <p className="text-xs text-gray-500 mb-3">
+                  Indicadores de <strong className="font-medium text-gray-700">cuánto se demora</strong> el circuito
+                  de compras; mismos datos que recibe el bloque «informe» debajo.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {reporteTiemposKpi.metricas.map((m) => (
+                    <TiempoProcesoCard key={m.clave} metric={m} reprocesosTotal={kpis.reprocesos_total} />
+                  ))}
+                </div>
+              </div>
 
-                  <BloqueInformeAgentes reporte={kpis.reporte_tiempos} />
-                </>
-              )}
+              <BloqueInformeAgentes reporte={reporteTiemposKpi} />
 
               {/* Fila 1b — KPIs de calidad: reprocesos y rechazos */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">

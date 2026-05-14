@@ -182,7 +182,8 @@ export interface KPIData {
   correcciones_directivo: number
   rechazos_solicitud: number
   rechazos_cotizacion: number
-  reporte_tiempos: {
+  /** Presente en backends recientes; si falta, el frontend puede sintetizarlo con `resolverReporteTiemposKpis`. */
+  reporte_tiempos?: {
     texto_para_informe: string
     metricas: {
       clave: string

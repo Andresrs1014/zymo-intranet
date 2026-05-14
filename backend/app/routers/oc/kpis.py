@@ -14,6 +14,31 @@ from app.oc_database import get_oc_db
 router = APIRouter(prefix="", tags=["OC - KPIs"])
 
 
+def _format_duracion_desde_dias(dias: float) -> str:
+    """Presentación legible: min/s (menos de 1 h), h/min (menos de 24 h), d/h (24 h o más)."""
+    if dias is None or not isinstance(dias, (int, float)) or dias <= 0:
+        return "0 s"
+    total_sec = max(0, round(float(dias) * 86400))
+    if total_sec < 3600:
+        m, s = divmod(total_sec, 60)
+        if m == 0:
+            return f"{s} s"
+        return f"{m} min {s} s"
+    if total_sec < 86400:
+        h = total_sec // 3600
+        rem = total_sec % 3600
+        m = rem // 60
+        if m == 0:
+            return f"{h} h"
+        return f"{h} h {m} min"
+    d = total_sec // 86400
+    rem = total_sec % 86400
+    h = rem // 3600
+    if h == 0:
+        return f"{d} d"
+    return f"{d} d {h} h"
+
+
 # ── Schemas ───────────────────────────────────────────────────────────────────
 
 _MESES_ES = {
@@ -104,9 +129,9 @@ def _build_reporte_tiempos_oc(
             valor=round(tiempo_promedio_cotizacion_dias, 2),
             unidad="días",
             ayuda=(
-                "Promedio de días entre la fecha de solicitud y la fecha en que quedó registrada la cotización "
-                "(solo solicitudes con fecha_cotizacion; excluye archivadas). Indica qué tan rápido el área de compras "
-                "deja lista la cotización en el flujo."
+                "Promedio entre la fecha de solicitud y la fecha en que quedó registrada la cotización "
+                "(solo solicitudes con fecha_cotizacion; excluye archivadas). El valor numérico interno está en días; "
+                "en pantalla se muestra en minutos/segundos, horas o días según la magnitud."
             ),
         ),
         MetricaTiempoProceso(
@@ -117,15 +142,17 @@ def _build_reporte_tiempos_oc(
             unidad="días",
             ayuda=(
                 "Tras un evento marcado como reproceso en el historial, tiempo promedio hasta la siguiente transición "
-                "que no es reproceso. Solo aplica si hay reprocesos registrados."
+                "que no es reproceso. Solo aplica si hay reprocesos registrados. Presentación en unidades legibles "
+                "(min/s, h/min o d/h) a partir del valor en días."
             ),
         ),
     ]
 
     if tiempo_promedio_cotizacion_dias > 0:
+        human_cot = _format_duracion_desde_dias(tiempo_promedio_cotizacion_dias)
         fr_cot = (
             f"La demora media del proceso hasta dejar registrada la cotización es de "
-            f"{tiempo_promedio_cotizacion_dias:.1f} días (desde la solicitud hasta fecha_cotizacion)."
+            f"{human_cot} (desde la solicitud hasta fecha_cotizacion)."
         )
     else:
         fr_cot = (
@@ -134,9 +161,10 @@ def _build_reporte_tiempos_oc(
         )
 
     if reprocesos_total > 0:
+        human_rep = _format_duracion_desde_dias(tiempo_promedio_reproceso_dias)
         fr_rep = (
             f"En calidad del proceso: {reprocesos_total} evento(s) de reproceso; "
-            f"la demora media para resolver cada devolución es de {tiempo_promedio_reproceso_dias:.1f} días."
+            f"la demora media para resolver cada devolución es de {human_rep}."
         )
     else:
         fr_rep = "No hay reprocesos registrados en el historial en este momento."
@@ -148,8 +176,9 @@ def _build_reporte_tiempos_oc(
     texto = " ".join([fr_cot, fr_rep, fr_pend])
 
     metodologia = (
-        "Las métricas de días provienen de campos en oc_solicitudes (cotización) y de oc_historial_estados "
-        "(reprocesos). Las solicitudes archivadas no entran en los cálculos."
+        "Cálculo interno como fracción de día (SQLite/agregados); la vista y el informe muestran minutos y segundos "
+        "si es menor a 1 h; a partir de 1 h en horas y minutos; a partir de 24 h en días y horas. "
+        "Datos: oc_solicitudes (cotización) y oc_historial_estados (reprocesos). Excluye archivadas."
     )
     sugerencia = (
         "Para detalle por etapa del flujo (horas entre estados, umbrales y alertas), usar GET /api/oc/kpis/tiempos."
@@ -453,7 +482,8 @@ def get_kpis_tiempos(
     """
     Tiempos de proceso por transición de estado (últimas solicitudes, horas).
     Umbrales y alertas para seguimiento operativo. Complementa `GET /api/oc/kpis`
-    (campo `reporte_tiempos.texto_para_informe` y métricas en días).
+    Complementa `GET /api/oc/kpis` (campo `reporte_tiempos.texto_para_informe`; las métricas llevan
+    `valor` en días y texto legible min/s · h/min · d/h en UI e informe).
     """
     from app.agents.tools.oc_tools import ver_tiempos_proceso_oc
     return ver_tiempos_proceso_oc(limite_solicitudes=100)
