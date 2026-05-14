@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Plus, Pencil, Trash2, Check, X } from "lucide-react"
+import { Plus, Pencil, Trash2, Check, X, Flag, Ban } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,8 +8,20 @@ import {
   useCreateTaskListItem,
   useUpdateTaskListItem,
   useDeleteTaskListItem,
+  useMarkEstadoEspecial,
 } from "@/hooks/useWorkTasks"
 import type { TaskListConfigItem } from "@/hooks/useWorkTasks"
+
+interface ListSectionProps {
+  title: string
+  type: "estado" | "etiqueta" | "plataforma" | "prioridad_agenda"
+  items: TaskListConfigItem[]
+  onAdd: (value: string, label: string) => void
+  onUpdate: (value: string, label: string) => void
+  onDelete: (value: string) => void
+  onMarkEspecial?: (value: string, tipo: "final" | "cancelado" | null) => void
+  isLoading: boolean
+}
 
 function ListSection({
   title,
@@ -18,16 +30,9 @@ function ListSection({
   onAdd,
   onUpdate,
   onDelete,
+  onMarkEspecial,
   isLoading,
-}: {
-  title: string
-  type: "estado" | "etiqueta" | "plataforma"
-  items: TaskListConfigItem[]
-  onAdd: (value: string, label: string) => void
-  onUpdate: (value: string, label: string) => void
-  onDelete: (value: string) => void
-  isLoading: boolean
-}) {
+}: ListSectionProps) {
   const [adding, setAdding] = useState(false)
   const [newValue, setNewValue] = useState("")
   const [newLabel, setNewLabel] = useState("")
@@ -70,7 +75,14 @@ function ListSection({
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="text-sm">{title}</CardTitle>
+          <div>
+            <CardTitle className="text-sm">{title}</CardTitle>
+            {onMarkEspecial && (
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Marca un estado como <span className="text-green-700 font-medium">Final</span> (cierra el tiempo) o <span className="text-red-600 font-medium">Cancelado</span>
+              </p>
+            )}
+          </div>
           <Button
             variant="ghost"
             size="sm"
@@ -104,7 +116,12 @@ function ListSection({
             <Button size="sm" variant="ghost" onClick={handleAdd} className="h-8 w-8 p-0">
               <Check className="w-4 h-4" />
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => { setAdding(false); setNewValue(""); setNewLabel("") }} className="h-8 w-8 p-0">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => { setAdding(false); setNewValue(""); setNewLabel("") }}
+              className="h-8 w-8 p-0"
+            >
               <X className="w-4 h-4" />
             </Button>
           </div>
@@ -117,7 +134,13 @@ function ListSection({
             {items.map((item) => (
               <div
                 key={item.value}
-                className="flex items-center gap-1 px-3 py-1 rounded-full bg-gray-100 text-sm border border-gray-200"
+                className={`flex items-center gap-1 px-3 py-1 rounded-full text-sm border ${
+                  item.is_final
+                    ? "bg-green-50 border-green-300 text-green-800"
+                    : item.is_canceled
+                    ? "bg-red-50 border-red-300 text-red-800"
+                    : "bg-gray-100 text-gray-700 border-gray-200"
+                }`}
               >
                 {editingKey === item.value ? (
                   <>
@@ -137,7 +160,33 @@ function ListSection({
                   </>
                 ) : (
                   <>
-                    <span className="text-gray-700">{item.label}</span>
+                    {item.is_final && <Flag className="w-3 h-3 text-green-600" />}
+                    {item.is_canceled && <Ban className="w-3 h-3 text-red-600" />}
+                    <span>{item.label}</span>
+                    {onMarkEspecial && (
+                      <>
+                        <button
+                          type="button"
+                          title={item.is_final ? "Quitar como estado final" : "Marcar como estado final"}
+                          onClick={() => onMarkEspecial(item.value, item.is_final ? null : "final")}
+                          className={`ml-1 transition-colors ${
+                            item.is_final ? "text-green-600" : "text-gray-300 hover:text-green-500"
+                          }`}
+                        >
+                          <Flag className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          title={item.is_canceled ? "Quitar como cancelado" : "Marcar como cancelado"}
+                          onClick={() => onMarkEspecial(item.value, item.is_canceled ? null : "cancelado")}
+                          className={`ml-0.5 transition-colors ${
+                            item.is_canceled ? "text-red-600" : "text-gray-300 hover:text-red-500"
+                          }`}
+                        >
+                          <Ban className="w-3 h-3" />
+                        </button>
+                      </>
+                    )}
                     <button
                       type="button"
                       onClick={() => startEdit(item)}
@@ -168,21 +217,26 @@ export function ListConfigTab() {
   const createItem = useCreateTaskListItem()
   const updateItem = useUpdateTaskListItem()
   const deleteItem = useDeleteTaskListItem()
+  const markEspecial = useMarkEstadoEspecial()
 
-  const handleAdd = (type: "estado" | "etiqueta" | "plataforma") => (value: string, label: string) => {
+  const handleAdd = (type: "estado" | "etiqueta" | "plataforma" | "prioridad_agenda") => (value: string, label: string) => {
     createItem.mutate({ list_type: type, value, label })
   }
 
-  const handleUpdate = (type: "estado" | "etiqueta" | "plataforma") => (value: string, label: string) => {
+  const handleUpdate = (type: "estado" | "etiqueta" | "plataforma" | "prioridad_agenda") => (value: string, label: string) => {
     updateItem.mutate({ list_type: type, value, payload: { label } })
   }
 
-  const handleDelete = (type: "estado" | "etiqueta" | "plataforma") => (value: string) => {
+  const handleDelete = (type: "estado" | "etiqueta" | "plataforma" | "prioridad_agenda") => (value: string) => {
     deleteItem.mutate({ list_type: type, value })
   }
 
+  const handleMarkEspecial = (value: string, tipo: "final" | "cancelado" | null) => {
+    markEspecial.mutate({ value, tipo })
+  }
+
   const sectionProps = {
-    isLoading: isLoading || createItem.isPending || updateItem.isPending || deleteItem.isPending,
+    isLoading: isLoading || createItem.isPending || updateItem.isPending || deleteItem.isPending || markEspecial.isPending,
   }
 
   return (
@@ -199,6 +253,7 @@ export function ListConfigTab() {
         onAdd={handleAdd("estado")}
         onUpdate={handleUpdate("estado")}
         onDelete={handleDelete("estado")}
+        onMarkEspecial={handleMarkEspecial}
         {...sectionProps}
       />
 
@@ -219,6 +274,16 @@ export function ListConfigTab() {
         onAdd={handleAdd("plataforma")}
         onUpdate={handleUpdate("plataforma")}
         onDelete={handleDelete("plataforma")}
+        {...sectionProps}
+      />
+
+      <ListSection
+        title="Prioridades de agenda"
+        type="prioridad_agenda"
+        items={lists?.prioridad_agenda ?? []}
+        onAdd={handleAdd("prioridad_agenda")}
+        onUpdate={handleUpdate("prioridad_agenda")}
+        onDelete={handleDelete("prioridad_agenda")}
         {...sectionProps}
       />
     </div>
