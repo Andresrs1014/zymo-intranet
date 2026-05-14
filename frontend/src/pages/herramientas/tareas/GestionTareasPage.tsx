@@ -23,7 +23,9 @@ const LEFT_PANEL_KEY = "task-left-panel-open"
 export function GestionTareasPage() {
   const user = useAuthStore((s) => s.user)
   const userTools: string[] = user?.user_tools ?? []
-  const { data: teamMembers = [] } = useTeamMembers()
+  // Only fetch team members for users who could be co-gestors (have TOOL_SUBMIT).
+  // Submit-only users get a 403 from the backend; the query returns [] safely.
+  const { data: teamMembers = [] } = useTeamMembers(canSubmitDevTasks(userTools))
   const isUserCoGestor = isCoGestor(
     teamMembers.map((m) => ({ user_id: m.user_id, role: m.role })),
     user?.id ?? -1

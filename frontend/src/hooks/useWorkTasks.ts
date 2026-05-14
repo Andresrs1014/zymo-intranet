@@ -146,13 +146,14 @@ export function useUsersWithoutTodayEntry() {
 
 // ── Team config hooks ─────────────────────────────────────────────────────────
 
-export function useTeamMembers() {
+export function useTeamMembers(enabled = true) {
   return useQuery({
     queryKey: ["tareas", "equipo", "miembros"],
     queryFn: async () => {
       const { data } = await api.get<TaskTeamMember[]>(`${BASE}/equipo/config/miembros`)
       return data
     },
+    enabled,
   })
 }
 
