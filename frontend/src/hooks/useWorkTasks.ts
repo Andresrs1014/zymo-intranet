@@ -293,6 +293,71 @@ export function useCreateEvent() {
   })
 }
 
+export function useDeleteEvent() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (eventId: number) => {
+      await api.delete(`/api/herramientas/tareas/agenda/${eventId}`)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tareas", "agenda"] })
+    },
+  })
+}
+
+export function useUpdateEventParticipants() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      eventId,
+      addIds,
+      removeIds,
+    }: {
+      eventId: number
+      addIds: number[]
+      removeIds: number[]
+    }) => {
+      const { data } = await api.patch(
+        `/api/herramientas/tareas/agenda/${eventId}/participantes`,
+        { add_ids: addIds, remove_ids: removeIds }
+      )
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tareas", "agenda"] })
+    },
+  })
+}
+
+export function useMarkEstadoEspecial() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ value, tipo }: { value: string; tipo: "final" | "cancelado" | null }) => {
+      const { data } = await api.patch<TaskListConfigItem>(
+        `${BASE}/config/listas/estado/${value}/especial`,
+        { tipo }
+      )
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tareas", "config", "listas"] })
+    },
+  })
+}
+
+export function useUpdateManagerTask() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, payload }: { id: number; payload: WorkTaskUpdate }) => {
+      const { data } = await api.patch<WorkTask>(`${BASE}/equipo/tareas/${id}`, payload)
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tareas"] })
+    },
+  })
+}
+
 // --- Historial de tarea ---
 
 export function useTaskActivity(taskId: number | null) {
@@ -348,12 +413,15 @@ export type TaskListConfigItem = {
   value: string
   label: string
   is_active: boolean
+  is_final: boolean
+  is_canceled: boolean
 }
 
 export type TaskListsResponse = {
   estado: TaskListConfigItem[]
   etiqueta: TaskListConfigItem[]
   plataforma: TaskListConfigItem[]
+  prioridad_agenda: TaskListConfigItem[]
 }
 
 export function useTaskLists() {

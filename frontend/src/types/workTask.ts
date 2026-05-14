@@ -139,6 +139,7 @@ export interface TaskEvent {
   titulo: string
   descripcion?: string
   plataforma?: string
+  prioridad?: string
   fecha: string
   hora_inicio: string
   duracion_minutos: number
@@ -151,6 +152,7 @@ export interface TaskEventCreate {
   titulo: string
   descripcion?: string
   plataforma?: string
+  prioridad?: string
   fecha: string
   hora_inicio: string
   duracion_minutos: number
