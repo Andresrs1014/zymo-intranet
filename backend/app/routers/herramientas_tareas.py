@@ -219,7 +219,7 @@ def equipo_tareas_paginadas(
         estado=estado, etiqueta=etiqueta, plataforma=plataforma,
         fecha_exacta=fecha_exacta, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta,
     )
-    return get_paginated_tasks(db, owner_id, filters, team_member_ids=member_ids)
+    return get_paginated_tasks(db, owner_id, filters, team_member_ids=member_ids, team_id=team.id)
 
 
 def _owner_id(current_user: User) -> int:

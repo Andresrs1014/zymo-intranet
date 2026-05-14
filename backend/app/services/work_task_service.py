@@ -98,9 +98,17 @@ def create_task(db: Session, user: User, payload: WorkTaskCreate) -> WorkTask:
     now = datetime.now(timezone.utc)
     minutos = calcular_minutos(payload.hora_inicio, payload.hora_cierre)
 
+    active_teams = get_user_active_teams(db, user.id)  # type: ignore[arg-type]
+    valid_team_ids = {t["team_id"] for t in active_teams}
+
     team_id = payload.team_id
-    if team_id is None:
-        active_teams = get_user_active_teams(db, user.id)  # type: ignore[arg-type]
+    if team_id is not None:
+        if team_id not in valid_team_ids:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No perteneces al equipo seleccionado.",
+            )
+    else:
         if len(active_teams) == 1:
             team_id = active_teams[0]["team_id"]
         elif len(active_teams) > 1:
@@ -277,11 +285,13 @@ def get_paginated_tasks(
     user_id: int,
     filters: "PaginatedTaskFilters",
     team_member_ids: list[int] | None = None,
+    team_id: int | None = None,
 ) -> "PaginatedTasksResponse":
     """
     Devuelve tareas paginadas con filtros.
     Si team_member_ids es None, filtra solo por user_id (vista colaborador).
     Si team_member_ids es lista, filtra por todos esos IDs (vista gestor).
+    Si team_id se provee, restringe adicionalmente por team_id para aislamiento correcto.
     """
     from app.schemas.work_task import PaginatedTaskFilters, PaginatedTasksResponse, PaginatedMeta, WorkTaskRead
     from sqlmodel import func, or_
@@ -289,6 +299,9 @@ def get_paginated_tasks(
     import math
 
     query = sqlmodel_select(WorkTask)
+
+    if team_id is not None:
+        query = query.where(WorkTask.team_id == team_id)
 
     if team_member_ids is not None:
         query = query.where(WorkTask.subido_por_id.in_(team_member_ids))
