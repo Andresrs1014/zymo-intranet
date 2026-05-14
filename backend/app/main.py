@@ -266,6 +266,27 @@ def _migrate_db() -> None:
             print("[migrate] Columna work_tasks.prioridad agregada.")
         except Exception:
             pass  # ya existe
+        # task_list_configs: is_final, is_canceled
+        try:
+            conn.execute(text("ALTER TABLE task_list_configs ADD COLUMN is_final INTEGER NOT NULL DEFAULT 0"))
+            conn.commit()
+            print("[migrate] Columna task_list_configs.is_final agregada.")
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE task_list_configs ADD COLUMN is_canceled INTEGER NOT NULL DEFAULT 0"))
+            conn.commit()
+            print("[migrate] Columna task_list_configs.is_canceled agregada.")
+        except Exception:
+            pass
+
+        # task_events: prioridad
+        try:
+            conn.execute(text("ALTER TABLE task_events ADD COLUMN prioridad VARCHAR(50)"))
+            conn.commit()
+            print("[migrate] Columna task_events.prioridad agregada.")
+        except Exception:
+            pass
     with Session(get_engine()) as session:
         for sede_row in session.exec(select(Sede)).all():
             if sede_row.name.strip().lower() == "transversal":

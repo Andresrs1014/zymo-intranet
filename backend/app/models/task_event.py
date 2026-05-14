@@ -14,8 +14,9 @@ class TaskEvent(SQLModel, table=True):
     titulo: str = Field(max_length=250, nullable=False)
     descripcion: Optional[str] = Field(default=None)
     plataforma: Optional[str] = Field(default=None, max_length=50)
+    prioridad: Optional[str] = Field(default=None, max_length=50)
     fecha: date = Field(index=True, nullable=False)
-    hora_inicio: str = Field(max_length=5, nullable=False)           # "HH:MM"
+    hora_inicio: str = Field(max_length=5, nullable=False)
     duracion_minutos: int = Field(default=60, nullable=False)
     creado_por_id: int = Field(index=True, nullable=False)
     creado_por_nombre: str = Field(max_length=200, nullable=False)
