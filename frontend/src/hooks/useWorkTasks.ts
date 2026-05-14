@@ -11,6 +11,7 @@ import type {
   TaskFilters,
   TaskEvent,
   TaskEventCreate,
+  TaskEventParticipant,
   TaskActivityEntry,
   PaginatedTaskFilters,
   PaginatedTasksResponse,
@@ -297,7 +298,7 @@ export function useDeleteEvent() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (eventId: number) => {
-      await api.delete(`/api/herramientas/tareas/agenda/${eventId}`)
+      await api.delete(`${BASE}/agenda/${eventId}`)
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["tareas", "agenda"] })
@@ -317,8 +318,8 @@ export function useUpdateEventParticipants() {
       addIds: number[]
       removeIds: number[]
     }) => {
-      const { data } = await api.patch(
-        `/api/herramientas/tareas/agenda/${eventId}/participantes`,
+      const { data } = await api.patch<{ ok: boolean; participants: TaskEventParticipant[] }>(
+        `${BASE}/agenda/${eventId}/participantes`,
         { add_ids: addIds, remove_ids: removeIds }
       )
       return data
