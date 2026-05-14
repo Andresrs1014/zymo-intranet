@@ -14,6 +14,16 @@ from app.oc_database import get_oc_db
 router = APIRouter(prefix="", tags=["OC - KPIs"])
 
 
+def _scalar_from_exec_one(result: object):
+    """`Session.exec(...).one()` puede devolver un escalar o una fila de una columna (según versión SQLModel)."""
+    if result is None:
+        return None
+    try:
+        return result[0]  # type: ignore[index]
+    except (TypeError, KeyError, IndexError):
+        return result
+
+
 def _format_duracion_desde_dias(dias: float) -> str:
     """Presentación legible: min/s (menos de 1 h), h/min (menos de 24 h), d/h (24 h o más)."""
     if dias is None or not isinstance(dias, (int, float)) or dias <= 0:
@@ -464,7 +474,8 @@ def get_kpis(
         .where(SolicitudOC.fecha_asignacion.isnot(None))
         .where(*fx)
     ).one()
-    tiempo_promedio_asignacion_dias = float(_asig_row[0]) if _asig_row[0] is not None else 0.0
+    _asig_val = _scalar_from_exec_one(_asig_row)
+    tiempo_promedio_asignacion_dias = float(_asig_val) if _asig_val is not None else 0.0
 
     _m_asig = oc_db.exec(
         select(func.count(SolicitudOC.id))
@@ -472,7 +483,8 @@ def get_kpis(
         .where(SolicitudOC.fecha_asignacion.isnot(None))
         .where(*fx)
     ).one()
-    muestras_asignacion = int(_m_asig or 0)
+    _m_asig_val = _scalar_from_exec_one(_m_asig)
+    muestras_asignacion = int(_m_asig_val) if _m_asig_val is not None else 0
 
     _jd_cot = func.julianday(SolicitudOC.fecha_cotizacion) - func.julianday(SolicitudOC.fecha_solicitud)
     _cot_row = oc_db.exec(
@@ -481,7 +493,8 @@ def get_kpis(
         .where(SolicitudOC.fecha_cotizacion.isnot(None))
         .where(*fx)
     ).one()
-    tiempo_promedio_cotizacion_dias = float(_cot_row[0]) if _cot_row[0] is not None else 0.0
+    _cot_val = _scalar_from_exec_one(_cot_row)
+    tiempo_promedio_cotizacion_dias = float(_cot_val) if _cot_val is not None else 0.0
 
     tiempo_promedio_correccion_solicitante_dias, ciclos_correccion_resueltos = _promedio_dias_correccion_solicitante(
         oc_db, fx
