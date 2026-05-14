@@ -18,13 +18,13 @@ from app.models.user import User
 from app.models.user_tool import UserTool
 from app.schemas.work_task import WorkTaskCreate, WorkTaskRead, WorkTaskUpdate, PaginatedTasksResponse
 from app.schemas.task_dashboard import TaskFilters, TaskKpis, PersonTaskSummary
-from app.schemas.task_event import TaskEventCreate
+from app.schemas.task_event import TaskEventCreate, TaskEventParticipantsUpdate
 from app.schemas.task_team import (
     AvailableUserRead,
     TaskTeamMemberCreate,
     TaskTeamMemberRead,
 )
-from app.schemas.task_list_config import TaskListConfigCreate, TaskListConfigUpdate, TaskListConfigRead
+from app.schemas.task_list_config import TaskListConfigCreate, TaskListConfigUpdate, TaskListConfigRead, TaskEstadoEspecialPayload
 from app.services.user_tool_service import require_tool_or_403, user_has_tool
 
 router = APIRouter(prefix="/api/herramientas/tareas", tags=["Herramientas - Tareas"])
@@ -704,10 +704,10 @@ def get_listas(
         .where(TaskTeamMember.is_active == True)  # noqa: E712
     ).first()
     if not membership:
-        return {"estado": [], "etiqueta": [], "plataforma": []}
+        return {"estado": [], "etiqueta": [], "plataforma": [], "prioridad_agenda": []}
     team = db.get(TaskTeam, membership.team_id)
     if not team:
-        return {"estado": [], "etiqueta": [], "plataforma": []}
+        return {"estado": [], "etiqueta": [], "plataforma": [], "prioridad_agenda": []}
     return get_lists_by_owner(db, team.owner_user_id)
 
 
@@ -757,3 +757,19 @@ def delete_lista_item(
     from app.services.task_list_config_service import delete_list_item
 
     return delete_list_item(db, owner_id, list_type, value)
+
+
+@router.patch("/config/listas/estado/{value}/especial", response_model=TaskListConfigRead)
+def marcar_estado_especial(
+    value: str,
+    payload: TaskEstadoEspecialPayload,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> TaskListConfigRead:
+    """Marca un estado como 'final' o 'cancelado'. Solo uno de cada tipo por workspace."""
+    owner_id = _require_manage_access(db, current_user)
+
+    from app.services.task_list_config_service import mark_estado_especial
+
+    item = mark_estado_especial(db, owner_id, value, payload.tipo)
+    return TaskListConfigRead.model_validate(item)
