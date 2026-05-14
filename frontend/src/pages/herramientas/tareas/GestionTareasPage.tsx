@@ -70,24 +70,21 @@ export function GestionTareasPage() {
     >
       <div className="flex flex-1 min-h-0 overflow-hidden w-full">
 
-        {canManage && (
-          <TaskLeftRail
-            isPanelOpen={isLeftPanelOpen}
-            onToggle={() => setIsLeftPanelOpen((v) => !v)}
-            hasActiveFilters={hasActiveFilters}
-            hasSelectedPerson={!!filters.responsable_id}
-          />
-        )}
+        <TaskLeftRail
+          isPanelOpen={isLeftPanelOpen}
+          onToggle={() => setIsLeftPanelOpen((v) => !v)}
+          hasActiveFilters={hasActiveFilters}
+          hasSelectedPerson={!!filters.responsable_id}
+          showTeam={canManage}
+        />
 
-        {canManage && (
-          <TaskLeftPanel
-            isOpen={isLeftPanelOpen}
-            filters={filters}
-            onFiltersChange={setFilters}
-            persons={persons}
-            onClose={() => setIsLeftPanelOpen(false)}
-          />
-        )}
+        <TaskLeftPanel
+          isOpen={isLeftPanelOpen}
+          filters={filters}
+          onFiltersChange={setFilters}
+          persons={canManage ? persons : []}
+          onClose={() => setIsLeftPanelOpen(false)}
+        />
 
         <main className="flex-1 overflow-y-auto min-w-0">
           <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-background shrink-0">
@@ -143,7 +140,7 @@ export function GestionTareasPage() {
                     filters={filters}
                   />
                 ) : (
-                  <TaskSubmitView />
+                  <TaskSubmitView filters={filters} />
                 )}
               </TabsContent>
 

@@ -5,6 +5,7 @@ interface Props {
   onToggle: () => void
   hasActiveFilters: boolean
   hasSelectedPerson: boolean
+  showTeam?: boolean
 }
 
 export function TaskLeftRail({
@@ -12,6 +13,7 @@ export function TaskLeftRail({
   onToggle,
   hasActiveFilters,
   hasSelectedPerson,
+  showTeam = true,
 }: Props) {
   const hasAnyActive = hasActiveFilters || hasSelectedPerson
 
@@ -33,18 +35,20 @@ export function TaskLeftRail({
         )}
       </button>
 
-      <button
-        type="button"
-        onClick={onToggle}
-        title={isPanelOpen ? "Cerrar panel" : "Ver equipo"}
-        className={`flex items-center justify-center w-8 h-8 rounded-lg transition-colors ${
-          isPanelOpen
-            ? "bg-gray-900 text-white"
-            : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"
-        }`}
-      >
-        <Users className="w-4 h-4" />
-      </button>
+      {showTeam && (
+        <button
+          type="button"
+          onClick={onToggle}
+          title={isPanelOpen ? "Cerrar panel" : "Ver equipo"}
+          className={`flex items-center justify-center w-8 h-8 rounded-lg transition-colors ${
+            isPanelOpen
+              ? "bg-gray-900 text-white"
+              : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+          }`}
+        >
+          <Users className="w-4 h-4" />
+        </button>
+      )}
     </div>
   )
 }
