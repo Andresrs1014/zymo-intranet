@@ -10,7 +10,7 @@ class TaskListConfigCreate(BaseModel):
     @field_validator("list_type")
     @classmethod
     def validate_list_type(cls, v: str) -> str:
-        allowed = {"estado", "etiqueta", "plataforma"}
+        allowed = {"estado", "etiqueta", "plataforma", "prioridad_agenda"}
         if v not in allowed:
             raise ValueError(f"list_type must be one of: {', '.join(allowed)}")
         return v
@@ -30,6 +30,10 @@ class TaskListConfigUpdate(BaseModel):
     is_active: bool | None = None
 
 
+class TaskEstadoEspecialPayload(BaseModel):
+    tipo: str | None = None   # "final" | "cancelado" | None (clears)
+
+
 class TaskListConfigRead(BaseModel):
     model_config = {"from_attributes": True}
 
@@ -38,3 +42,5 @@ class TaskListConfigRead(BaseModel):
     value: str
     label: str
     is_active: bool
+    is_final: bool = False
+    is_canceled: bool = False

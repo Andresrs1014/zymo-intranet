@@ -60,7 +60,7 @@ export function TaskLeftPanel({
       <div className="flex flex-col h-full w-[260px]">
         <div className="flex items-center justify-between px-3 py-2.5 border-b border-border shrink-0">
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-            Filtros y equipo
+            {persons.length > 0 ? "Filtros y equipo" : "Filtros"}
           </span>
           <button
             type="button"

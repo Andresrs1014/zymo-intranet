@@ -48,6 +48,7 @@ def get_lists_by_owner(db: Session, owner_id: int) -> dict[str, list[TaskListCon
         "estado": [],
         "etiqueta": [],
         "plataforma": [],
+        "prioridad_agenda": [],
     }
     for row in rows:
         by_type.setdefault(row.list_type, []).append(row)
@@ -116,3 +117,60 @@ def delete_list_item(db: Session, owner_id: int, list_type: str, value: str) -> 
     db.add(item)
     db.commit()
     return {"ok": True}
+
+
+def mark_estado_especial(
+    db: Session, owner_id: int, value: str, tipo: str | None
+) -> "TaskListConfig":
+    """
+    Marks a specific estado value as is_final or is_canceled (tipo='final'|'cancelado'|None).
+    Only one estado can be is_final=True and one is_canceled=True at a time per workspace.
+    """
+    from fastapi import HTTPException
+
+    if tipo not in ("final", "cancelado", None):
+        raise HTTPException(status_code=422, detail="tipo debe ser 'final', 'cancelado' o null.")
+
+    # Clear previous flag
+    if tipo == "final":
+        prev = db.exec(
+            select(TaskListConfig)
+            .where(TaskListConfig.owner_user_id == owner_id)
+            .where(TaskListConfig.is_final == True)  # noqa: E712
+        ).all()
+        for p in prev:
+            p.is_final = False
+            db.add(p)
+    elif tipo == "cancelado":
+        prev = db.exec(
+            select(TaskListConfig)
+            .where(TaskListConfig.owner_user_id == owner_id)
+            .where(TaskListConfig.is_canceled == True)  # noqa: E712
+        ).all()
+        for p in prev:
+            p.is_canceled = False
+            db.add(p)
+
+    target = db.exec(
+        select(TaskListConfig)
+        .where(TaskListConfig.owner_user_id == owner_id)
+        .where(TaskListConfig.list_type == "estado")
+        .where(TaskListConfig.value == value)
+    ).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="Estado no encontrado.")
+
+    if tipo == "final":
+        target.is_final = True
+        target.is_canceled = False
+    elif tipo == "cancelado":
+        target.is_canceled = True
+        target.is_final = False
+    else:
+        target.is_final = False
+        target.is_canceled = False
+
+    db.add(target)
+    db.commit()
+    db.refresh(target)
+    return target

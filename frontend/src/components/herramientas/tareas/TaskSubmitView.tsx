@@ -4,26 +4,30 @@ import {
   useMyTaskMetrics,
   useMyTeams,
   useCreateWorkTask,
+  useUpdateWorkTask,
 } from "@/hooks/useWorkTasks"
 import type { WorkTask, WorkTaskCreate, TaskFilters } from "@/types/workTask"
 import { TaskForm } from "./TaskForm"
-import { TaskFiltersBar } from "./TaskFiltersBar"
 import { TaskDataTable } from "./TaskDataTable"
 import { TaskDetailSheet } from "./TaskDetailSheet"
 import { taskButtonPrimary, taskCard, formatMinutos } from "@/lib/taskTheme"
 
-export function TaskSubmitView() {
+interface Props {
+  filters: TaskFilters
+}
+
+export function TaskSubmitView({ filters }: Props) {
   const today = new Date().toISOString().slice(0, 10)
 
   const [showForm, setShowForm] = useState(false)
   const [selectedTask, setSelectedTask] = useState<WorkTask | null>(null)
-  const [filters, setFilters] = useState<TaskFilters>({})
 
   const { data: metrics } = useMyTaskMetrics()
   const { data: todayTasks } = useMyTasks({ fecha_desde: today, fecha_hasta: today })
   const { data: allTasks } = useMyTasks(filters)
   const { data: myTeams = [] } = useMyTeams()
   const createTask = useCreateWorkTask()
+  const updateTask = useUpdateWorkTask()
 
   const registeredToday = (todayTasks?.length ?? 0) > 0
   const showTodayReminder = !registeredToday && myTeams.length > 0
@@ -96,23 +100,22 @@ export function TaskSubmitView() {
 
       {/* Task list */}
       <div>
-        <div className="flex items-center justify-between gap-3 mb-3">
-          <h2 className="text-sm font-semibold text-gray-700">Mis tareas</h2>
-        </div>
-        <TaskFiltersBar
-          filters={filters}
-          onChange={setFilters}
-        />
-        <div className="mt-4">
+        <h2 className="text-sm font-semibold text-gray-700 mb-3">Mis tareas</h2>
         <TaskDataTable
           tasks={allTasks ?? []}
           onRowClick={(t) => setSelectedTask(t)}
         />
-        </div>
       </div>
 
       {/* Detail sheet */}
-      <TaskDetailSheet task={selectedTask} onClose={() => setSelectedTask(null)} />
+      <TaskDetailSheet
+        task={selectedTask}
+        onClose={() => setSelectedTask(null)}
+        onStatusChange={async (taskId, newEstado) => {
+          await updateTask.mutateAsync({ id: taskId, payload: { estado: newEstado } })
+          setSelectedTask((prev) => prev ? { ...prev, estado: newEstado } : null)
+        }}
+      />
     </div>
   )
 }

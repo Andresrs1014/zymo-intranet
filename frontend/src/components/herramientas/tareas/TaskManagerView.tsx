@@ -5,6 +5,7 @@ import {
   useTeamKpis,
   useUsersWithoutTodayEntry,
   useCreateWorkTask,
+  useUpdateManagerTask,
 } from "@/hooks/useWorkTasks"
 import { exportTasksExcel, exportTasksPdf } from "@/hooks/useTaskExports"
 import { TaskDataTable } from "./TaskDataTable"
@@ -29,6 +30,7 @@ export function TaskManagerView({ canSubmitOwn, filters }: Props) {
   const [exporting, setExporting] = useState<"excel" | "pdf" | null>(null)
   const [showNewTaskForm, setShowNewTaskForm] = useState(false)
   const createTask = useCreateWorkTask()
+  const updateManagerTask = useUpdateManagerTask()
 
   const { data: tasks } = useTeamTasks(filters)
   const { data: kpis } = useTeamKpis(filters)
@@ -103,7 +105,14 @@ export function TaskManagerView({ canSubmitOwn, filters }: Props) {
         <TaskDataTable tasks={tasks ?? []} onRowClick={(t) => setSelectedTask(t)} />
       </div>
 
-      <TaskDetailSheet task={selectedTask} onClose={() => setSelectedTask(null)} />
+      <TaskDetailSheet
+        task={selectedTask}
+        onClose={() => setSelectedTask(null)}
+        onStatusChange={async (taskId, newEstado) => {
+          await updateManagerTask.mutateAsync({ id: taskId, payload: { estado: newEstado } })
+          setSelectedTask((prev) => prev ? { ...prev, estado: newEstado } : null)
+        }}
+      />
       <TaskTeamConfigDialog open={teamConfigOpen} onClose={() => setTeamConfigOpen(false)} />
     </div>
   )

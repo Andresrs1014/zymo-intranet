@@ -139,6 +139,7 @@ export interface TaskEvent {
   titulo: string
   descripcion?: string
   plataforma?: string
+  prioridad?: string
   fecha: string
   hora_inicio: string
   duracion_minutos: number
@@ -151,6 +152,7 @@ export interface TaskEventCreate {
   titulo: string
   descripcion?: string
   plataforma?: string
+  prioridad?: string
   fecha: string
   hora_inicio: string
   duracion_minutos: number
@@ -188,4 +190,22 @@ export interface UserTeamInfo {
   team_id: number
   team_name: string
   owner_id: number
+}
+
+// --- List config ---
+export interface TaskListConfigItem {
+  id: number
+  list_type: string
+  value: string
+  label: string
+  is_active: boolean
+  is_final: boolean
+  is_canceled: boolean
+}
+
+export interface TaskListsResponse {
+  estado: TaskListConfigItem[]
+  etiqueta: TaskListConfigItem[]
+  plataforma: TaskListConfigItem[]
+  prioridad_agenda: TaskListConfigItem[]
 }

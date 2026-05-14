@@ -15,10 +15,11 @@ class TaskEventCreate(BaseModel):
     titulo: str
     descripcion: Optional[str] = None
     plataforma: Optional[str] = None
+    prioridad: Optional[str] = None
     fecha: str                         # "YYYY-MM-DD"
     hora_inicio: str                   # "HH:MM"
     duracion_minutos: int = Field(default=60, ge=5, le=1440)
-    participant_ids: list[int] = Field(min_length=1)         # IDs de usuarios participantes
+    participant_ids: list[int] = Field(min_length=1)
 
     @field_validator("fecha")
     @classmethod
@@ -35,6 +36,11 @@ class TaskEventCreate(BaseModel):
         return v
 
 
+class TaskEventParticipantsUpdate(BaseModel):
+    add_ids: list[int] = Field(default_factory=list)
+    remove_ids: list[int] = Field(default_factory=list)
+
+
 class TaskEventRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -42,6 +48,7 @@ class TaskEventRead(BaseModel):
     titulo: str
     descripcion: Optional[str] = None
     plataforma: Optional[str] = None
+    prioridad: Optional[str] = None
     fecha: str
     hora_inicio: str
     duracion_minutos: int

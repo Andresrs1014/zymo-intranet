@@ -15,8 +15,9 @@ import { TeamConfigTab } from "@/components/herramientas/tareas/TeamConfigTab"
 import { ListConfigTab } from "@/components/herramientas/tareas/ListConfigTab"
 import { TaskLeftRail } from "@/components/herramientas/tareas/TaskLeftRail"
 import { TaskLeftPanel } from "@/components/herramientas/tareas/TaskLeftPanel"
+import { EventDetailSheet } from "@/components/herramientas/tareas/EventDetailSheet"
 import { useTeamPersonSummaries, useTeamMembers } from "@/hooks/useWorkTasks"
-import type { TaskFilters } from "@/types/workTask"
+import type { TaskFilters, TaskEvent } from "@/types/workTask"
 
 const LEFT_PANEL_KEY = "task-left-panel-open"
 
@@ -40,6 +41,7 @@ export function GestionTareasPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [scheduleDate, setScheduleDate] = useState<Date | null>(null)
   const [isScheduleOpen, setIsScheduleOpen] = useState(false)
+  const [selectedEvent, setSelectedEvent] = useState<TaskEvent | null>(null)
 
   const { data: persons = [] } = useTeamPersonSummaries(filters)
 
@@ -70,24 +72,21 @@ export function GestionTareasPage() {
     >
       <div className="flex flex-1 min-h-0 overflow-hidden w-full">
 
-        {canManage && (
-          <TaskLeftRail
-            isPanelOpen={isLeftPanelOpen}
-            onToggle={() => setIsLeftPanelOpen((v) => !v)}
-            hasActiveFilters={hasActiveFilters}
-            hasSelectedPerson={!!filters.responsable_id}
-          />
-        )}
+        <TaskLeftRail
+          isPanelOpen={isLeftPanelOpen}
+          onToggle={() => setIsLeftPanelOpen((v) => !v)}
+          hasActiveFilters={hasActiveFilters}
+          hasSelectedPerson={!!filters.responsable_id}
+          showTeam={canManage}
+        />
 
-        {canManage && (
-          <TaskLeftPanel
-            isOpen={isLeftPanelOpen}
-            filters={filters}
-            onFiltersChange={setFilters}
-            persons={persons}
-            onClose={() => setIsLeftPanelOpen(false)}
-          />
-        )}
+        <TaskLeftPanel
+          isOpen={isLeftPanelOpen}
+          filters={filters}
+          onFiltersChange={setFilters}
+          persons={canManage ? persons : []}
+          onClose={() => setIsLeftPanelOpen(false)}
+        />
 
         <main className="flex-1 overflow-y-auto min-w-0">
           <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-background shrink-0">
@@ -143,7 +142,7 @@ export function GestionTareasPage() {
                     filters={filters}
                   />
                 ) : (
-                  <TaskSubmitView />
+                  <TaskSubmitView filters={filters} />
                 )}
               </TabsContent>
 
@@ -167,7 +166,7 @@ export function GestionTareasPage() {
             setScheduleDate(date)
             setIsScheduleOpen(true)
           }}
-          onEventClick={() => {}}
+          onEventClick={(event) => setSelectedEvent(event)}
           onNewEvent={(date) => {
             setScheduleDate(date)
             setIsScheduleOpen(true)
@@ -179,7 +178,12 @@ export function GestionTareasPage() {
         isOpen={isScheduleOpen}
         onClose={() => setIsScheduleOpen(false)}
         preselectedDate={scheduleDate}
-        canSelectOthers={canManage}
+      />
+
+      <EventDetailSheet
+        event={selectedEvent}
+        onClose={() => setSelectedEvent(null)}
+        isManager={canManage}
       />
     </PageLayout>
   )

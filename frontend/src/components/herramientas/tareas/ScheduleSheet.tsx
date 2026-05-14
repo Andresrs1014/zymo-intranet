@@ -13,14 +13,12 @@ interface Props {
   isOpen: boolean
   onClose: () => void
   preselectedDate?: Date | null
-  canSelectOthers?: boolean
 }
 
 export function ScheduleSheet({
   isOpen,
   onClose,
   preselectedDate,
-  canSelectOthers = false,
 }: Props) {
   const today = format(new Date(), "yyyy-MM-dd")
 
@@ -32,16 +30,17 @@ export function ScheduleSheet({
   const [duracion, setDuracion] = useState("60")
   const [descripcion, setDescripcion] = useState("")
   const [plataforma, setPlataforma] = useState("")
+  const [prioridad, setPrioridad] = useState("")
   const [selectedIds, setSelectedIds] = useState<number[]>(() =>
-    !canSelectOthers && currentUserId != null ? [currentUserId] : []
+    currentUserId != null ? [currentUserId] : []
   )
 
   // Si el userId aún no estaba disponible al montar, sincronizarlo
   useEffect(() => {
-    if (!canSelectOthers && currentUserId != null && selectedIds.length === 0) {
+    if (currentUserId != null && selectedIds.length === 0) {
       setSelectedIds([currentUserId])
     }
-  }, [canSelectOthers, currentUserId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentUserId]) // eslint-disable-line react-hooks/exhaustive-deps
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -50,6 +49,7 @@ export function ScheduleSheet({
   const { data: allUsers = [] } = useAvailableTeamUsers()
   const { data: lists } = useTaskLists()
   const plataformas = lists?.plataforma ?? []
+  const prioridadesAgenda = lists?.prioridad_agenda ?? []
 
   // Sync date when preselectedDate changes
   useEffect(() => {
@@ -68,10 +68,11 @@ export function ScheduleSheet({
       setDuracion("60")
       setDescripcion("")
       setPlataforma("")
-      setSelectedIds(!canSelectOthers && currentUserId ? [currentUserId] : [])
+      setPrioridad("")
+      setSelectedIds(currentUserId ? [currentUserId] : [])
       setError(null)
     }
-  }, [isOpen, preselectedDate, canSelectOthers, currentUserId])
+  }, [isOpen, preselectedDate, currentUserId])
 
   const toggleUser = (id: number) => {
     setSelectedIds((prev) =>
@@ -96,6 +97,7 @@ export function ScheduleSheet({
         titulo: titulo.trim(),
         descripcion: descripcion.trim() || undefined,
         plataforma: plataforma || undefined,
+        prioridad: prioridad || undefined,
         fecha,
         hora_inicio: horaInicio,
         duracion_minutos: parseInt(duracion, 10) || 60,
@@ -216,47 +218,59 @@ export function ScheduleSheet({
               </select>
             </div>
 
+            {/* Prioridad */}
+            {prioridadesAgenda.length > 0 && (
+              <div className="space-y-1.5">
+                <Label htmlFor="sch-prioridad">Prioridad (opcional)</Label>
+                <select
+                  id="sch-prioridad"
+                  value={prioridad}
+                  onChange={(e) => setPrioridad(e.target.value)}
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  <option value="">Sin prioridad</option>
+                  {prioridadesAgenda.map((p) => (
+                    <option key={p.value} value={p.value}>{p.label}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             {/* Participantes */}
             <div className="space-y-1.5">
               <Label>Participantes</Label>
-              {!canSelectOthers ? (
-                <p className="text-sm text-muted-foreground italic">
-                  El evento se agendará para ti.
-                </p>
-              ) : (
-                <Tabs defaultValue="equipo">
-                  <TabsList className="w-full">
-                    <TabsTrigger value="equipo" className="flex-1">
-                      Equipo ({teamMembers.length})
-                    </TabsTrigger>
-                    <TabsTrigger value="todos" className="flex-1">
-                      Todos ({allUsers.length})
-                    </TabsTrigger>
-                  </TabsList>
+              <Tabs defaultValue="equipo">
+                <TabsList className="w-full">
+                  <TabsTrigger value="equipo" className="flex-1">
+                    Equipo ({teamMembers.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="todos" className="flex-1">
+                    Todos ({allUsers.length})
+                  </TabsTrigger>
+                </TabsList>
 
-                  <TabsContent value="equipo">
-                    <UserPickerList
-                      users={teamMembers.map((m: TaskTeamMember) => ({
-                        id: m.user_id,
-                        label: m.user_full_name ?? m.user_email,
-                      }))}
-                      selected={selectedIds}
-                      onToggle={toggleUser}
-                    />
-                  </TabsContent>
+                <TabsContent value="equipo">
+                  <UserPickerList
+                    users={teamMembers.map((m: TaskTeamMember) => ({
+                      id: m.user_id,
+                      label: m.user_full_name ?? m.user_email,
+                    }))}
+                    selected={selectedIds}
+                    onToggle={toggleUser}
+                  />
+                </TabsContent>
 
-                  <TabsContent value="todos">
-                    <UserPickerList
-                      users={allUsers.map((u: AvailableUser) => ({
-                        id: u.id,
-                        label: u.full_name ?? u.email,
-                      }))}
-                      selected={selectedIds}
-                      onToggle={toggleUser}
-                    />
-                  </TabsContent>
-                </Tabs>
-              )}
+                <TabsContent value="todos">
+                  <UserPickerList
+                    users={allUsers.map((u: AvailableUser) => ({
+                      id: u.id,
+                      label: u.full_name ?? u.email,
+                    }))}
+                    selected={selectedIds}
+                    onToggle={toggleUser}
+                  />
+                </TabsContent>
+              </Tabs>
             </div>
 
             {error && (
