@@ -13,6 +13,7 @@ export interface WorkTask {
   titulo: string
   descripcion_tecnica: string
   estado: string
+  prioridad: string
   created_at: string
   updated_at: string
 }
@@ -23,6 +24,8 @@ export interface WorkTaskCreate {
   etiqueta?: string
   plataforma?: string
   estado?: string
+  prioridad?: string
+  team_id?: number
   fecha?: string
   hora_inicio?: string
   hora_cierre?: string
@@ -34,6 +37,7 @@ export interface WorkTaskUpdate {
   etiqueta?: string
   plataforma?: string
   estado?: string
+  prioridad?: string
   fecha?: string
   hora_inicio?: string
   hora_cierre?: string
@@ -69,6 +73,7 @@ export interface TaskTeamMember {
   user_email: string
   user_full_name: string | null
   is_active: boolean
+  role: string
   created_at: string
 }
 
@@ -176,4 +181,11 @@ export interface TaskActivityEntry {
   accion: string
   detalle?: string
   fecha: string
+}
+
+// --- Equipos del usuario ---
+export interface UserTeamInfo {
+  team_id: number
+  team_name: string
+  owner_id: number
 }

@@ -16,6 +16,7 @@ import type {
   PaginatedTasksResponse,
   TeamChartsData,
   MyTaskMetrics,
+  UserTeamInfo,
 } from "@/types/workTask"
 
 const BASE = "/api/herramientas/tareas"
@@ -50,6 +51,16 @@ export function useMyTaskMetrics() {
     queryKey: ["tareas", "mis-metricas"],
     queryFn: async () => {
       const { data } = await api.get<MyTaskMetrics>(`${BASE}/mis-metricas`)
+      return data
+    },
+  })
+}
+
+export function useMyTeams() {
+  return useQuery({
+    queryKey: ["tareas", "mis-equipos"],
+    queryFn: async () => {
+      const { data } = await api.get<UserTeamInfo[]>(`${BASE}/mis-equipos`)
       return data
     },
   })
