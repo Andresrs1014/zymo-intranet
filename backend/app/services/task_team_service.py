@@ -123,21 +123,42 @@ def get_active_member_ids(db: Session, owner_id: int) -> list[int]:
 
 
 def get_user_active_teams(db: Session, user_id: int) -> list[dict]:
-    """Retorna todos los equipos donde el usuario tiene membresía activa."""
+    """Retorna todos los equipos donde el usuario tiene membresía activa.
+    Un mismo equipo aparece una sola vez aunque existan filas duplicadas en task_team_members.
+    """
     memberships = db.exec(
         select(TaskTeamMember, TaskTeam)
         .join(TaskTeam, TaskTeamMember.team_id == TaskTeam.id)
         .where(TaskTeamMember.user_id == user_id)
         .where(TaskTeamMember.is_active == True)  # noqa: E712
     ).all()
-    return [
-        {
+    by_team_id: dict[int, dict] = {}
+    for _membership, team in memberships:
+        tid = team.id
+        if tid is None or tid in by_team_id:
+            continue
+        by_team_id[tid] = {
             "team_id": team.id,
             "team_name": team.name,
             "owner_id": team.owner_user_id,
         }
-        for membership, team in memberships
-    ]
+    return [by_team_id[k] for k in sorted(by_team_id.keys())]
+
+
+def update_team_display_name(db: Session, owner_id: int, name: str) -> TaskTeam:
+    """Actualiza el nombre visible del equipo del gestor (o co-gestor vía owner_id)."""
+    team = get_or_create_manager_team(db, owner_id)
+    trimmed = name.strip()
+    if not trimmed:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=422, detail="El nombre del equipo no puede estar vacío.")
+    team.name = trimmed[:150]
+    team.updated_at = datetime.now(timezone.utc)
+    db.add(team)
+    db.commit()
+    db.refresh(team)
+    return team
 
 
 def get_comanaged_owner_id(db: Session, user_id: int) -> int | None:

@@ -19,6 +19,7 @@ import type {
   TeamChartsData,
   MyTaskMetrics,
   UserTeamInfo,
+  ManagerTeamInfo,
   TaskListConfigItem,
   TaskListsResponse,
 } from "@/types/workTask"
@@ -192,6 +193,30 @@ export function useAvailableTeamUsers() {
     queryFn: async () => {
       const { data } = await api.get<AvailableUser[]>(`${BASE}/equipo/config/usuarios-disponibles`)
       return data
+    },
+  })
+}
+
+export function useManagerTeamInfo(enabled = true) {
+  return useQuery({
+    queryKey: ["tareas", "equipo", "info"],
+    queryFn: async () => {
+      const { data } = await api.get<ManagerTeamInfo>(`${BASE}/equipo/config/equipo`)
+      return data
+    },
+    enabled,
+  })
+}
+
+export function useUpdateTeamName() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (name: string) => {
+      const { data } = await api.patch<ManagerTeamInfo>(`${BASE}/equipo/config/equipo`, { name })
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tareas"] })
     },
   })
 }

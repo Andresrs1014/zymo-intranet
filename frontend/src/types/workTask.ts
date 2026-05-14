@@ -194,6 +194,13 @@ export interface UserTeamInfo {
   owner_id: number
 }
 
+/** Equipo que gestiona el usuario actual (gestor / co-gestor). */
+export interface ManagerTeamInfo {
+  team_id: number
+  name: string
+  owner_user_id: number
+}
+
 // --- List config ---
 export interface TaskListConfigItem {
   id: number

@@ -1,6 +1,8 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   useTeamMembers,
@@ -9,6 +11,8 @@ import {
   useRemoveTeamMember,
   usePromoteToCogestor,
   useDemoteToMember,
+  useManagerTeamInfo,
+  useUpdateTeamName,
 } from "@/hooks/useWorkTasks"
 
 function TeamMembersList({ canPromoteDemote }: { canPromoteDemote: boolean }) {
@@ -130,13 +134,65 @@ function TeamMembersList({ canPromoteDemote }: { canPromoteDemote: boolean }) {
   )
 }
 
+function TeamNameEditor() {
+  const { data: team, isLoading } = useManagerTeamInfo()
+  const updateName = useUpdateTeamName()
+  const [name, setName] = useState("")
+
+  useEffect(() => {
+    if (team?.name != null) setName(team.name)
+  }, [team?.name])
+
+  const handleSave = async () => {
+    const trimmed = name.trim()
+    if (!trimmed || trimmed === team?.name) return
+    await updateName.mutateAsync(trimmed)
+  }
+
+  return (
+    <div className="space-y-3 max-w-lg">
+      <p className="text-sm font-medium text-foreground">Nombre del equipo</p>
+      <p className="text-xs text-muted-foreground">
+        Lo ven los colaboradores en el selector al dar de alta tareas.
+      </p>
+      {isLoading ? (
+        <p className="text-sm text-muted-foreground">Cargando…</p>
+      ) : (
+        <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
+          <div className="flex-1 space-y-1.5">
+            <Label htmlFor="team-display-name" className="sr-only">
+              Nombre del equipo
+            </Label>
+            <Input
+              id="team-display-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ej. Desarrollo e Innovación"
+              maxLength={150}
+            />
+          </div>
+          <Button
+            type="button"
+            onClick={handleSave}
+            disabled={updateName.isPending || !name.trim() || name.trim() === team?.name}
+            size="sm"
+          >
+            {updateName.isPending ? "Guardando…" : "Guardar nombre"}
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function TeamConfigTab({ canPromoteDemote = false }: { canPromoteDemote?: boolean }) {
   return (
     <Card>
       <CardHeader>
         <CardTitle>Configuración del Equipo</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-10">
+        <TeamNameEditor />
         <TeamMembersList canPromoteDemote={canPromoteDemote} />
       </CardContent>
     </Card>

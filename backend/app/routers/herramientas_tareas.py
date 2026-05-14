@@ -21,8 +21,10 @@ from app.schemas.task_dashboard import TaskFilters, TaskKpis, PersonTaskSummary
 from app.schemas.task_event import TaskEventCreate, TaskEventParticipantsUpdate
 from app.schemas.task_team import (
     AvailableUserRead,
+    TaskTeamInfoRead,
     TaskTeamMemberCreate,
     TaskTeamMemberRead,
+    TaskTeamNameUpdate,
 )
 from app.schemas.task_list_config import TaskListConfigCreate, TaskListConfigUpdate, TaskListConfigRead, TaskEstadoEspecialPayload
 from app.services.user_tool_service import require_tool_or_403, user_has_tool
@@ -474,6 +476,40 @@ def actualizar_participantes_evento(
 
 
 # ── Team config endpoints (TOOL_MANAGE) ───────────────────────────────────────
+
+
+@router.get("/equipo/config/equipo", response_model=TaskTeamInfoRead)
+def get_manager_team_endpoint(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> TaskTeamInfoRead:
+    owner_id = _require_manage_access(db, current_user)
+    from app.services.task_team_service import get_or_create_manager_team
+
+    team = get_or_create_manager_team(db, owner_id)
+    return TaskTeamInfoRead(
+        team_id=int(team.id),
+        name=team.name,
+        owner_user_id=int(team.owner_user_id),
+    )
+
+
+@router.patch("/equipo/config/equipo", response_model=TaskTeamInfoRead)
+def patch_manager_team_name(
+    payload: TaskTeamNameUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> TaskTeamInfoRead:
+    owner_id = _require_manage_access(db, current_user)
+    from app.services.task_team_service import update_team_display_name
+
+    team = update_team_display_name(db, owner_id, payload.name)
+    return TaskTeamInfoRead(
+        team_id=int(team.id),
+        name=team.name,
+        owner_user_id=int(team.owner_user_id),
+    )
+
 
 @router.get("/equipo/config/miembros", response_model=list[TaskTeamMemberRead])
 def get_team_members(
