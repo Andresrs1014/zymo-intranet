@@ -99,6 +99,13 @@ class SolicitudRead(BaseModel):
         from_attributes = True
 
 
+class SolicitudesListResponse(BaseModel):
+    """Listado paginado de solicitudes OC (panel de compras)."""
+
+    items: list[SolicitudRead]
+    total: int
+
+
 class AsignarPayload(BaseModel):
     auxiliar_id: int
 
@@ -188,22 +195,33 @@ class HistorialEstadoRead(BaseModel):
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
-@router.get("", response_model=list[SolicitudRead])
+@router.get("", response_model=SolicitudesListResponse)
 def list_solicitudes(
     estado: Optional[str] = Query(default=None),
     plataforma: Optional[str] = Query(default=None),
     skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=50, le=200),
+    limit: int = Query(default=50, ge=1, le=200),
     current_user: User = Depends(require_compras),
     oc_db: Session = Depends(get_oc_db),
 ):
-    query = select(SolicitudOC).where(SolicitudOC.archivada == False)  # noqa: E712
+    """Listado paginado para panel de compras. Respuesta `{items, total}` (no un array raíz).
+    Documentación operativa: `ESTADO_PROYECTO.md` (módulo OC)."""
+    conds = [SolicitudOC.archivada == False]  # noqa: E712
     if estado:
-        query = query.where(SolicitudOC.estado == estado)
+        conds.append(SolicitudOC.estado == estado)
     if plataforma:
-        query = query.where(SolicitudOC.plataforma == plataforma)
-    query = query.order_by(SolicitudOC.fecha_solicitud.desc()).offset(skip).limit(limit)
-    return oc_db.exec(query).all()
+        conds.append(SolicitudOC.plataforma == plataforma)
+
+    total = oc_db.exec(select(func.count(SolicitudOC.id)).where(*conds)).one()
+    query = (
+        select(SolicitudOC)
+        .where(*conds)
+        .order_by(SolicitudOC.fecha_solicitud.desc(), SolicitudOC.id.desc())
+        .offset(skip)
+        .limit(limit)
+    )
+    items = oc_db.exec(query).all()
+    return SolicitudesListResponse(items=items, total=total)
 
 
 @router.post("/crear-interna", response_model=SolicitudRead, status_code=status.HTTP_201_CREATED)
@@ -282,7 +300,7 @@ async def crear_solicitud_interna(
 @router.get("/mis-solicitudes", response_model=list[SolicitudRead])
 def mis_solicitudes(
     skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=50, le=200),
+    limit: int = Query(default=200, le=500),
     estado: Optional[str] = Query(default=None),
     current_user: User = Depends(get_current_user),
     oc_db: Session = Depends(get_oc_db),

@@ -1,23 +1,38 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { api } from "@/lib/api"
-import type { SolicitudOC, Proveedor, CotizacionProveedor, OrdenCompra, KPIData, ItemCotizacion, UsuarioBasico, HistorialEntrada } from "@/types/oc"
+import type {
+  SolicitudOC,
+  SolicitudesListResponse,
+  Proveedor,
+  CotizacionProveedor,
+  OrdenCompra,
+  KPIData,
+  ItemCotizacion,
+  UsuarioBasico,
+  HistorialEntrada,
+} from "@/types/oc"
 export type { ItemCotizacion }
 
 // ── Solicitudes ───────────────────────────────────────────────────────────────
+
+/** Debe coincidir con el default `limit` del backend para list_solicitudes. */
+export const OC_SOLICITUDES_PAGE_SIZE = 50
 
 export interface SolicitudesFilters {
   estado?: string
   plataforma?: string
 }
 
-export function useSolicitudes(filters: SolicitudesFilters = {}) {
+export function useSolicitudes(filters: SolicitudesFilters = {}, page: number = 1) {
   return useQuery({
-    queryKey: ["oc", "solicitudes", filters],
+    queryKey: ["oc", "solicitudes", filters, page],
     queryFn: async () => {
       const params = new URLSearchParams()
+      params.set("limit", String(OC_SOLICITUDES_PAGE_SIZE))
+      params.set("skip", String(Math.max(0, (page - 1) * OC_SOLICITUDES_PAGE_SIZE)))
       if (filters.estado) params.set("estado", filters.estado)
       if (filters.plataforma) params.set("plataforma", filters.plataforma)
-      const { data } = await api.get<SolicitudOC[]>(`/api/oc/solicitudes?${params}`)
+      const { data } = await api.get<SolicitudesListResponse>(`/api/oc/solicitudes?${params}`)
       return data
     },
     refetchInterval: 30_000,
@@ -28,7 +43,7 @@ export function useMisSolicitudes() {
   return useQuery({
     queryKey: ["oc", "mis-solicitudes"],
     queryFn: async () => {
-      const { data } = await api.get<SolicitudOC[]>("/api/oc/solicitudes/mis-solicitudes")
+      const { data } = await api.get<SolicitudOC[]>("/api/oc/solicitudes/mis-solicitudes?limit=200")
       return data
     },
     refetchInterval: 30_000,
@@ -547,11 +562,24 @@ export function useCerrarSolicitud() {
 
 // ── KPIs ──────────────────────────────────────────────────────────────────────
 
-export function useKPIs() {
+export interface OcKpiFilters {
+  fecha_desde?: string
+  fecha_hasta?: string
+  plataforma?: string
+  nivel_prioridad?: string
+}
+
+export function useKPIs(filters: OcKpiFilters = {}) {
   return useQuery({
-    queryKey: ["oc", "kpis"],
+    queryKey: ["oc", "kpis", filters],
     queryFn: async () => {
-      const { data } = await api.get<KPIData>("/api/oc/kpis")
+      const params = new URLSearchParams()
+      if (filters.fecha_desde) params.set("fecha_desde", filters.fecha_desde)
+      if (filters.fecha_hasta) params.set("fecha_hasta", filters.fecha_hasta)
+      if (filters.plataforma) params.set("plataforma", filters.plataforma)
+      if (filters.nivel_prioridad) params.set("nivel_prioridad", filters.nivel_prioridad)
+      const qs = params.toString()
+      const { data } = await api.get<KPIData>(qs ? `/api/oc/kpis?${qs}` : "/api/oc/kpis")
       return data
     },
     refetchInterval: 60_000,

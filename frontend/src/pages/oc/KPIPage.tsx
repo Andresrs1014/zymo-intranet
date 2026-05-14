@@ -1,9 +1,11 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { PageLayout } from "@/components/layout/PageLayout"
-import { useKPIs } from "@/hooks/useOC"
+import { type OcKpiFilters, useKPIs } from "@/hooks/useOC"
 import type { ConteoItem, MesItem } from "@/types/oc"
 import { formatFechaRelativa } from "@/lib/dates"
 import { formatCOP } from "@/lib/formatters"
+import { formatDuracionDesdeDias } from "@/lib/durationFromDays"
+import { type ReporteTiemposOCData, resolverReporteTiemposKpis } from "@/lib/ocKpiReporteTiempos"
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -102,6 +104,106 @@ function StatCard({ label, icon, value, sub, accent }: StatCardProps) {
   )
 }
 
+function TiempoProcesoCard({
+  metric,
+  reprocesosTotal,
+  muestrasAsignacion,
+  ciclosCorreccionResueltos,
+}: {
+  metric: ReporteTiemposOCData["metricas"][number]
+  reprocesosTotal: number
+  muestrasAsignacion: number
+  ciclosCorreccionResueltos: number
+}) {
+  const sinDato =
+    (metric.clave === "resolucion_reproceso" && reprocesosTotal === 0) ||
+    (metric.clave === "hasta_asignacion" && muestrasAsignacion === 0) ||
+    (metric.clave === "resolucion_correccion" && ciclosCorreccionResueltos === 0)
+
+  const avisoSinDato =
+    metric.clave === "resolucion_reproceso"
+      ? "No hay reprocesos; esta métrica aún no aplica."
+      : metric.clave === "hasta_asignacion"
+        ? "No hay solicitudes con asignación en este filtro."
+        : metric.clave === "resolucion_correccion"
+          ? "No hay ciclos de corrección cerrados en este filtro (o siguen abiertos en en corrección)."
+          : null
+
+  const duracionLegible =
+    sinDato
+      ? null
+      : metric.unidad === "días"
+        ? formatDuracionDesdeDias(metric.valor)
+        : `${Number(metric.valor).toFixed(2)} ${metric.unidad}`
+
+  return (
+    <div className="bg-white rounded-xl border border-[#003087]/20 shadow-sm p-5 ring-1 ring-[#003087]/5">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-[#003087] mb-0.5">
+        {metric.etiqueta}
+      </p>
+      <p className="text-sm font-medium text-gray-800 mb-3">{metric.subtitulo}</p>
+      <p className={`text-2xl sm:text-3xl font-bold tabular-nums ${sinDato ? "text-gray-400" : "text-[#003087]"}`}>
+        {sinDato ? "—" : duracionLegible}
+      </p>
+      {sinDato && avisoSinDato && (
+        <p className="text-xs text-amber-700 mt-1">{avisoSinDato}</p>
+      )}
+      <p className="text-xs text-gray-500 mt-3 leading-relaxed border-t border-gray-100 pt-3">
+        {metric.ayuda}
+      </p>
+    </div>
+  )
+}
+
+function BloqueInformeAgentes({ reporte }: { reporte: ReporteTiemposOCData }) {
+  const [copiado, setCopiado] = useState(false)
+
+  async function copiar() {
+    const bloque = [
+      "=== Informe OC Automatizaciones — tiempos de proceso ===",
+      "",
+      reporte.texto_para_informe,
+      "",
+      reporte.nota_metodologia,
+      reporte.sugerencia_agentes,
+      "",
+      `Generado (UTC): ${reporte.generado_en_utc}`,
+    ].join("\n")
+    try {
+      await navigator.clipboard.writeText(bloque)
+      setCopiado(true)
+      window.setTimeout(() => setCopiado(false), 2000)
+    } catch {
+      setCopiado(false)
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-800">Texto para informes y agentes</h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Resumen en lenguaje natural de la demora del proceso; puedes pegarlo en correos, chats o reportes del agente.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void copiar()}
+          className="shrink-0 rounded-lg bg-[#003087] px-4 py-2 text-xs font-medium text-white hover:bg-[#002266] transition-colors"
+        >
+          {copiado ? "Copiado" : "Copiar informe"}
+        </button>
+      </div>
+      <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+        {reporte.texto_para_informe}
+      </p>
+      <p className="text-xs text-slate-500 mt-3">{reporte.sugerencia_agentes}</p>
+      <p className="text-[11px] text-slate-400 mt-2">{reporte.nota_metodologia}</p>
+    </div>
+  )
+}
+
 interface BarListProps {
   items: ConteoItem[]
   total: number
@@ -175,9 +277,23 @@ function EstadoBadgeMini({ estado }: { estado: string }) {
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
+const PRIORIDADES_FILTRO = ["", "Alta", "Media", "Baja"] as const
+
 export function KPIPage() {
-  const { data: kpis, isLoading, isError, isRefetching } = useKPIs()
+  const [filtrosKpi, setFiltrosKpi] = useState<OcKpiFilters>({})
+  const [draftFiltros, setDraftFiltros] = useState({
+    fecha_desde: "",
+    fecha_hasta: "",
+    plataforma: "",
+    nivel_prioridad: "",
+  })
+  const { data: kpis, isLoading, isError, isRefetching } = useKPIs(filtrosKpi)
   const [mostrarConIva, setMostrarConIva] = useState(false)
+
+  const opcionesPlataforma = useMemo(() => {
+    const labels = (kpis?.por_plataforma ?? []).map((p) => p.label).filter(Boolean)
+    return Array.from(new Set(labels)).sort((a, b) => a.localeCompare(b))
+  }, [kpis?.por_plataforma])
 
   const pendientesAprobacion =
     kpis?.por_estado.find((e) => e.label === "pendiente_aprobacion")?.count ?? 0
@@ -197,6 +313,80 @@ export function KPIPage() {
                 <span className="ml-2 text-brand-blue/60">actualizando...</span>
               )}
             </p>
+          </div>
+
+          <div className="mb-6 rounded-xl border border-gray-200 bg-gray-50/80 p-4">
+            <p className="text-xs font-semibold text-gray-700 mb-3">Filtros (sobre fecha de solicitud y datos de la solicitud)</p>
+            <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
+              <label className="flex flex-col gap-1 text-xs text-gray-600 min-w-[140px]">
+                Desde
+                <input
+                  type="date"
+                  className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm text-gray-900"
+                  value={draftFiltros.fecha_desde}
+                  onChange={(e) => setDraftFiltros((d) => ({ ...d, fecha_desde: e.target.value }))}
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-gray-600 min-w-[140px]">
+                Hasta
+                <input
+                  type="date"
+                  className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm text-gray-900"
+                  value={draftFiltros.fecha_hasta}
+                  onChange={(e) => setDraftFiltros((d) => ({ ...d, fecha_hasta: e.target.value }))}
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-gray-600 min-w-[160px]">
+                Plataforma
+                <select
+                  className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm text-gray-900"
+                  value={draftFiltros.plataforma}
+                  onChange={(e) => setDraftFiltros((d) => ({ ...d, plataforma: e.target.value }))}
+                >
+                  <option value="">Todas</option>
+                  {opcionesPlataforma.map((p) => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-gray-600 min-w-[140px]">
+                Prioridad
+                <select
+                  className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm text-gray-900"
+                  value={draftFiltros.nivel_prioridad}
+                  onChange={(e) => setDraftFiltros((d) => ({ ...d, nivel_prioridad: e.target.value }))}
+                >
+                  {PRIORIDADES_FILTRO.map((p) => (
+                    <option key={p || "todas"} value={p}>{p === "" ? "Todas" : p}</option>
+                  ))}
+                </select>
+              </label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="rounded-lg bg-[#003087] px-4 py-2 text-xs font-medium text-white hover:bg-[#002266]"
+                  onClick={() =>
+                    setFiltrosKpi({
+                      fecha_desde: draftFiltros.fecha_desde || undefined,
+                      fecha_hasta: draftFiltros.fecha_hasta || undefined,
+                      plataforma: draftFiltros.plataforma || undefined,
+                      nivel_prioridad: draftFiltros.nivel_prioridad || undefined,
+                    })}
+                >
+                  Aplicar
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  onClick={() => {
+                    setDraftFiltros({ fecha_desde: "", fecha_hasta: "", plataforma: "", nivel_prioridad: "" })
+                    setFiltrosKpi({})
+                  }}
+                >
+                  Limpiar
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Loading state */}
@@ -234,7 +424,9 @@ export function KPIPage() {
           )}
 
           {/* Dashboard content */}
-          {kpis && (
+          {kpis ? (() => {
+            const reporteTiempos = resolverReporteTiemposKpis(kpis)
+            return (
             <div className="space-y-6">
               {/* Fila 1 — Stat Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -281,11 +473,33 @@ export function KPIPage() {
                       + {formatCOP(kpis.valor_iva_acumulado)} IVA
                     </p>
                   )}
-                  <p className="text-xs text-gray-400 mt-1">
-                    Prom. cotización: {kpis.tiempo_promedio_cotizacion_dias.toFixed(1)} días
+                  <p className="text-xs text-gray-400 mt-2">
+                    Los tiempos de proceso del flujo se muestran en la sección siguiente.
                   </p>
                 </div>
               </div>
+
+              {/* Tiempos de proceso — lectura clara + datos para informes */}
+              <div>
+                <h2 className="text-sm font-semibold text-gray-800 mb-1">Tiempos del proceso</h2>
+                <p className="text-xs text-gray-500 mb-3">
+                  Indicadores de <strong className="font-medium text-gray-700">cuánto se demora</strong> el circuito
+                  de compras; mismos datos que recibe el bloque «informe» debajo.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                  {reporteTiempos.metricas.map((m) => (
+                    <TiempoProcesoCard
+                      key={m.clave}
+                      metric={m}
+                      reprocesosTotal={kpis.reprocesos_total}
+                      muestrasAsignacion={kpis.muestras_asignacion}
+                      ciclosCorreccionResueltos={kpis.ciclos_correccion_resueltos}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <BloqueInformeAgentes reporte={reporteTiempos} />
 
               {/* Fila 1b — KPIs de calidad: reprocesos y rechazos */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -294,15 +508,15 @@ export function KPIPage() {
                     <p className="text-sm text-gray-500">Reprocesos</p>
                     <span className="text-2xl">🔄</span>
                   </div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-800/90 mb-1">
+                    Tiempo de proceso (volumen)
+                  </p>
                   <p className="text-2xl font-bold text-amber-600">{kpis.reprocesos_total}</p>
                   <p className="text-xs text-gray-400 mt-1">
-                    Eventos con reproceso (devoluciones, correcciones; incluye corrección directiva)
+                    Eventos con reproceso (devoluciones, correcciones; incluye corrección directiva). La{" "}
+                    <strong className="font-medium text-gray-600">demora media para resolverlos</strong> está arriba en
+                    «Demora media para salir de un reproceso».
                   </p>
-                  {kpis.reprocesos_total > 0 && (
-                    <p className="text-xs text-amber-500 mt-1">
-                      Promedio resolución: {kpis.tiempo_promedio_reproceso_dias.toFixed(1)} días
-                    </p>
-                  )}
                 </div>
 
                 <div className="bg-white rounded-xl border border-sky-100 shadow-sm p-5">
@@ -483,7 +697,8 @@ export function KPIPage() {
                 )}
               </div>
             </div>
-          )}
+            )
+          })() : null}
     </PageLayout>
   )
 }

@@ -1,15 +1,27 @@
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { PageLayout } from "@/components/layout/PageLayout"
-import { useSolicitudes } from "@/hooks/useOC"
+import { OcSolicitudesPagination } from "@/components/oc/OcSolicitudesPagination"
+import { useSolicitudes, OC_SOLICITUDES_PAGE_SIZE } from "@/hooks/useOC"
 import { EstadoBadge } from "./SolicitudesPage"
 import type { SolicitudOC } from "@/types/oc"
 
 export function AprobacionPage() {
   const navigate = useNavigate()
+  const [page, setPage] = useState(1)
 
-  const { data: solicitudes = [], isLoading, isRefetching } = useSolicitudes({
-    estado: "pendiente_aprobacion",
-  })
+  const { data, isLoading, isRefetching } = useSolicitudes(
+    { estado: "pendiente_aprobacion" },
+    page,
+  )
+  const solicitudes = data?.items ?? []
+  const total = data?.total ?? 0
+
+  useEffect(() => {
+    if (total === 0) return
+    const totalPages = Math.max(1, Math.ceil(total / OC_SOLICITUDES_PAGE_SIZE))
+    if (page > totalPages) setPage(totalPages)
+  }, [total, page])
 
   return (
     <PageLayout title="OC Automatizaciones">
@@ -24,9 +36,9 @@ export function AprobacionPage() {
                 )}
               </p>
             </div>
-            {solicitudes.length > 0 && (
+            {total > 0 && (
               <span className="flex items-center justify-center h-8 min-w-8 px-2.5 rounded-full bg-orange-100 text-orange-700 text-sm font-bold">
-                {solicitudes.length}
+                {total}
               </span>
             )}
           </div>
@@ -53,6 +65,12 @@ export function AprobacionPage() {
                   onRevisar={() => navigate(`/oc/solicitudes/${s.id}`)}
                 />
               ))}
+              <OcSolicitudesPagination
+                currentPage={page}
+                totalItems={total}
+                pageSize={OC_SOLICITUDES_PAGE_SIZE}
+                onPageChange={setPage}
+              />
             </div>
           )}
     </PageLayout>

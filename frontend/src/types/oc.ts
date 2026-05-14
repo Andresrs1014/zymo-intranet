@@ -58,6 +58,12 @@ export interface SolicitudOC {
   updated_at: string
 }
 
+/** Respuesta de GET /api/oc/solicitudes (listado paginado). */
+export interface SolicitudesListResponse {
+  items: SolicitudOC[]
+  total: number
+}
+
 export interface ItemCotizacion {
   num?: number
   descripcion: string
@@ -160,6 +166,12 @@ export interface KPIData {
   valor_iva_acumulado: number
   total_ordenes_generadas: number
   top_proveedores: ConteoItem[]
+  /** Promedio días desde fecha_solicitud hasta fecha_asignacion (solo solicitudes ya asignadas en el filtro). */
+  tiempo_promedio_asignacion_dias: number
+  muestras_asignacion: number
+  /** Promedio días desde entrada a en_correccion hasta la siguiente transición (solo ciclos cerrados). */
+  tiempo_promedio_correccion_solicitante_dias: number
+  ciclos_correccion_resueltos: number
   tiempo_promedio_cotizacion_dias: number
   por_mes: MesItem[]
   solicitudes_recientes: {
@@ -176,4 +188,19 @@ export interface KPIData {
   correcciones_directivo: number
   rechazos_solicitud: number
   rechazos_cotizacion: number
+  /** Presente en backends recientes; si falta, el frontend puede sintetizarlo con `resolverReporteTiemposKpis`. */
+  reporte_tiempos?: {
+    texto_para_informe: string
+    metricas: {
+      clave: string
+      etiqueta: string
+      subtitulo: string
+      valor: number
+      unidad: string
+      ayuda: string
+    }[]
+    generado_en_utc: string
+    nota_metodologia: string
+    sugerencia_agentes: string
+  }
 }
