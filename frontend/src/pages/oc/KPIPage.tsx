@@ -1,6 +1,6 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { PageLayout } from "@/components/layout/PageLayout"
-import { useKPIs } from "@/hooks/useOC"
+import { type OcKpiFilters, useKPIs } from "@/hooks/useOC"
 import type { ConteoItem, MesItem } from "@/types/oc"
 import { formatFechaRelativa } from "@/lib/dates"
 import { formatCOP } from "@/lib/formatters"
@@ -107,14 +107,30 @@ function StatCard({ label, icon, value, sub, accent }: StatCardProps) {
 function TiempoProcesoCard({
   metric,
   reprocesosTotal,
+  muestrasAsignacion,
+  ciclosCorreccionResueltos,
 }: {
   metric: ReporteTiemposOCData["metricas"][number]
   reprocesosTotal: number
+  muestrasAsignacion: number
+  ciclosCorreccionResueltos: number
 }) {
-  const esRepro = metric.clave === "resolucion_reproceso"
-  const sinDatoRepro = esRepro && reprocesosTotal === 0
+  const sinDato =
+    (metric.clave === "resolucion_reproceso" && reprocesosTotal === 0) ||
+    (metric.clave === "hasta_asignacion" && muestrasAsignacion === 0) ||
+    (metric.clave === "resolucion_correccion" && ciclosCorreccionResueltos === 0)
+
+  const avisoSinDato =
+    metric.clave === "resolucion_reproceso"
+      ? "No hay reprocesos; esta métrica aún no aplica."
+      : metric.clave === "hasta_asignacion"
+        ? "No hay solicitudes con asignación en este filtro."
+        : metric.clave === "resolucion_correccion"
+          ? "No hay ciclos de corrección cerrados en este filtro (o siguen abiertos en en corrección)."
+          : null
+
   const duracionLegible =
-    sinDatoRepro
+    sinDato
       ? null
       : metric.unidad === "días"
         ? formatDuracionDesdeDias(metric.valor)
@@ -126,11 +142,11 @@ function TiempoProcesoCard({
         {metric.etiqueta}
       </p>
       <p className="text-sm font-medium text-gray-800 mb-3">{metric.subtitulo}</p>
-      <p className={`text-3xl font-bold tabular-nums ${sinDatoRepro ? "text-gray-400" : "text-[#003087]"}`}>
-        {sinDatoRepro ? "—" : duracionLegible}
+      <p className={`text-2xl sm:text-3xl font-bold tabular-nums ${sinDato ? "text-gray-400" : "text-[#003087]"}`}>
+        {sinDato ? "—" : duracionLegible}
       </p>
-      {sinDatoRepro && (
-        <p className="text-xs text-amber-700 mt-1">No hay reprocesos; esta métrica aún no aplica.</p>
+      {sinDato && avisoSinDato && (
+        <p className="text-xs text-amber-700 mt-1">{avisoSinDato}</p>
       )}
       <p className="text-xs text-gray-500 mt-3 leading-relaxed border-t border-gray-100 pt-3">
         {metric.ayuda}
@@ -261,9 +277,23 @@ function EstadoBadgeMini({ estado }: { estado: string }) {
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
+const PRIORIDADES_FILTRO = ["", "Alta", "Media", "Baja"] as const
+
 export function KPIPage() {
-  const { data: kpis, isLoading, isError, isRefetching } = useKPIs()
+  const [filtrosKpi, setFiltrosKpi] = useState<OcKpiFilters>({})
+  const [draftFiltros, setDraftFiltros] = useState({
+    fecha_desde: "",
+    fecha_hasta: "",
+    plataforma: "",
+    nivel_prioridad: "",
+  })
+  const { data: kpis, isLoading, isError, isRefetching } = useKPIs(filtrosKpi)
   const [mostrarConIva, setMostrarConIva] = useState(false)
+
+  const opcionesPlataforma = useMemo(() => {
+    const labels = (kpis?.por_plataforma ?? []).map((p) => p.label).filter(Boolean)
+    return Array.from(new Set(labels)).sort((a, b) => a.localeCompare(b))
+  }, [kpis?.por_plataforma])
 
   const pendientesAprobacion =
     kpis?.por_estado.find((e) => e.label === "pendiente_aprobacion")?.count ?? 0
@@ -283,6 +313,80 @@ export function KPIPage() {
                 <span className="ml-2 text-brand-blue/60">actualizando...</span>
               )}
             </p>
+          </div>
+
+          <div className="mb-6 rounded-xl border border-gray-200 bg-gray-50/80 p-4">
+            <p className="text-xs font-semibold text-gray-700 mb-3">Filtros (sobre fecha de solicitud y datos de la solicitud)</p>
+            <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
+              <label className="flex flex-col gap-1 text-xs text-gray-600 min-w-[140px]">
+                Desde
+                <input
+                  type="date"
+                  className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm text-gray-900"
+                  value={draftFiltros.fecha_desde}
+                  onChange={(e) => setDraftFiltros((d) => ({ ...d, fecha_desde: e.target.value }))}
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-gray-600 min-w-[140px]">
+                Hasta
+                <input
+                  type="date"
+                  className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm text-gray-900"
+                  value={draftFiltros.fecha_hasta}
+                  onChange={(e) => setDraftFiltros((d) => ({ ...d, fecha_hasta: e.target.value }))}
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-gray-600 min-w-[160px]">
+                Plataforma
+                <select
+                  className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm text-gray-900"
+                  value={draftFiltros.plataforma}
+                  onChange={(e) => setDraftFiltros((d) => ({ ...d, plataforma: e.target.value }))}
+                >
+                  <option value="">Todas</option>
+                  {opcionesPlataforma.map((p) => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-gray-600 min-w-[140px]">
+                Prioridad
+                <select
+                  className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm text-gray-900"
+                  value={draftFiltros.nivel_prioridad}
+                  onChange={(e) => setDraftFiltros((d) => ({ ...d, nivel_prioridad: e.target.value }))}
+                >
+                  {PRIORIDADES_FILTRO.map((p) => (
+                    <option key={p || "todas"} value={p}>{p === "" ? "Todas" : p}</option>
+                  ))}
+                </select>
+              </label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="rounded-lg bg-[#003087] px-4 py-2 text-xs font-medium text-white hover:bg-[#002266]"
+                  onClick={() =>
+                    setFiltrosKpi({
+                      fecha_desde: draftFiltros.fecha_desde || undefined,
+                      fecha_hasta: draftFiltros.fecha_hasta || undefined,
+                      plataforma: draftFiltros.plataforma || undefined,
+                      nivel_prioridad: draftFiltros.nivel_prioridad || undefined,
+                    })}
+                >
+                  Aplicar
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  onClick={() => {
+                    setDraftFiltros({ fecha_desde: "", fecha_hasta: "", plataforma: "", nivel_prioridad: "" })
+                    setFiltrosKpi({})
+                  }}
+                >
+                  Limpiar
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Loading state */}
@@ -382,9 +486,15 @@ export function KPIPage() {
                   Indicadores de <strong className="font-medium text-gray-700">cuánto se demora</strong> el circuito
                   de compras; mismos datos que recibe el bloque «informe» debajo.
                 </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                   {reporteTiempos.metricas.map((m) => (
-                    <TiempoProcesoCard key={m.clave} metric={m} reprocesosTotal={kpis.reprocesos_total} />
+                    <TiempoProcesoCard
+                      key={m.clave}
+                      metric={m}
+                      reprocesosTotal={kpis.reprocesos_total}
+                      muestrasAsignacion={kpis.muestras_asignacion}
+                      ciclosCorreccionResueltos={kpis.ciclos_correccion_resueltos}
+                    />
                   ))}
                 </div>
               </div>

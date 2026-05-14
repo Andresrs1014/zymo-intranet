@@ -562,11 +562,24 @@ export function useCerrarSolicitud() {
 
 // ── KPIs ──────────────────────────────────────────────────────────────────────
 
-export function useKPIs() {
+export interface OcKpiFilters {
+  fecha_desde?: string
+  fecha_hasta?: string
+  plataforma?: string
+  nivel_prioridad?: string
+}
+
+export function useKPIs(filters: OcKpiFilters = {}) {
   return useQuery({
-    queryKey: ["oc", "kpis"],
+    queryKey: ["oc", "kpis", filters],
     queryFn: async () => {
-      const { data } = await api.get<KPIData>("/api/oc/kpis")
+      const params = new URLSearchParams()
+      if (filters.fecha_desde) params.set("fecha_desde", filters.fecha_desde)
+      if (filters.fecha_hasta) params.set("fecha_hasta", filters.fecha_hasta)
+      if (filters.plataforma) params.set("plataforma", filters.plataforma)
+      if (filters.nivel_prioridad) params.set("nivel_prioridad", filters.nivel_prioridad)
+      const qs = params.toString()
+      const { data } = await api.get<KPIData>(qs ? `/api/oc/kpis?${qs}` : "/api/oc/kpis")
       return data
     },
     refetchInterval: 60_000,

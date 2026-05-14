@@ -7,16 +7,34 @@ export type ReporteTiemposOCData = NonNullable<KPIData["reporte_tiempos"]>
 const METODOLOGIA_TIEMPOS_LEGIBLE =
   "Cálculo interno como fracción de día (SQLite/agregados); en pantalla y en este informe: minutos y segundos si es " +
   "menor a 1 h; a partir de 1 h en horas y minutos; a partir de 24 h en días y horas. Datos: oc_solicitudes " +
-  "(cotización) y oc_historial_estados (reprocesos). Excluye archivadas."
+  "(asignación, cotización) y oc_historial_estados (corrección al solicitante, reprocesos). Excluye archivadas."
 
 /** Texto del informe con duraciones legibles (alineado al backend). */
 export function buildTextoParaInformeTiemposDesdeKpis(kpis: KPIData): string {
+  const tiempo_promedio_asignacion_dias = kpis.tiempo_promedio_asignacion_dias
+  const muestras_asignacion = kpis.muestras_asignacion
+  const tiempo_promedio_correccion_dias = kpis.tiempo_promedio_correccion_solicitante_dias
+  const ciclos_correccion_resueltos = kpis.ciclos_correccion_resueltos
   const tiempo_promedio_cotizacion_dias = kpis.tiempo_promedio_cotizacion_dias
   const reprocesos_total = kpis.reprocesos_total
   const tiempo_promedio_reproceso_dias = kpis.tiempo_promedio_reproceso_dias
   const pendientes_aprobacion =
     kpis.por_estado.find((e) => e.label === "pendiente_aprobacion")?.count ?? 0
   const total_solicitudes = kpis.total_solicitudes
+
+  const fr_asig =
+    muestras_asignacion > 0 && tiempo_promedio_asignacion_dias > 0
+      ? `La demora media hasta que compras asigna un auxiliar es de ${formatDuracionDesdeDias(tiempo_promedio_asignacion_dias)} (fecha_solicitud → fecha_asignacion), sobre ${muestras_asignacion} solicitud(es) con asignación.`
+      : muestras_asignacion > 0
+        ? `Hay ${muestras_asignacion} solicitud(es) con asignación en el filtro; el promedio de demora es menor a un segundo registrable.`
+        : "No hay solicitudes con fecha_asignacion en el conjunto filtrado."
+
+  const fr_corr =
+    ciclos_correccion_resueltos > 0 && tiempo_promedio_correccion_dias > 0
+      ? `En devoluciones a corrección del solicitante, la demora media hasta la siguiente movida en el flujo es de ${formatDuracionDesdeDias(tiempo_promedio_correccion_dias)} (${ciclos_correccion_resueltos} ciclo(s) cerrado(s)).`
+      : ciclos_correccion_resueltos > 0
+        ? `Hay ${ciclos_correccion_resueltos} ciclo(s) de corrección cerrado(s); el promedio es menor a un segundo registrable.`
+        : "No hay ciclos completos de corrección (salida de en_correccion con transición siguiente) en el conjunto filtrado."
 
   const fr_cot =
     tiempo_promedio_cotizacion_dias > 0
@@ -30,15 +48,31 @@ export function buildTextoParaInformeTiemposDesdeKpis(kpis: KPIData): string {
 
   const fr_pend = `Cola actual: ${pendientes_aprobacion} solicitud(es) en pendiente de aprobación sobre ${total_solicitudes} solicitudes activas en KPIs.`
 
-  return [fr_cot, fr_rep, fr_pend].join(" ")
+  return [fr_asig, fr_corr, fr_cot, fr_rep, fr_pend].join(" ")
 }
 
 function buildReporteTiemposDesdeCamposLegacy(kpis: KPIData): ReporteTiemposOCData {
-  const tiempo_promedio_cotizacion_dias = kpis.tiempo_promedio_cotizacion_dias
-  const reprocesos_total = kpis.reprocesos_total
-  const tiempo_promedio_reproceso_dias = kpis.tiempo_promedio_reproceso_dias
+  const {
+    tiempo_promedio_asignacion_dias,
+    muestras_asignacion,
+    tiempo_promedio_correccion_solicitante_dias,
+    ciclos_correccion_resueltos,
+    tiempo_promedio_cotizacion_dias,
+    reprocesos_total,
+    tiempo_promedio_reproceso_dias,
+  } = kpis
 
   const metricas: ReporteTiemposOCData["metricas"] = [
+    {
+      clave: "hasta_asignacion",
+      etiqueta: "Tiempo de proceso",
+      subtitulo: "Demora media hasta asignar la solicitud (compras)",
+      valor:
+        muestras_asignacion > 0 ? Math.round(tiempo_promedio_asignacion_dias * 100) / 100 : 0,
+      unidad: "días",
+      ayuda:
+        "Promedio entre fecha_solicitud y fecha_asignacion del auxiliar de compras (solo solicitudes con asignación registrada en el conjunto filtrado).",
+    },
     {
       clave: "hasta_cotizacion",
       etiqueta: "Tiempo de proceso",
@@ -49,6 +83,18 @@ function buildReporteTiemposDesdeCamposLegacy(kpis: KPIData): ReporteTiemposOCDa
         "Promedio entre la fecha de solicitud y la fecha en que quedó registrada la cotización " +
         "(solo solicitudes con fecha_cotizacion; excluye archivadas). El valor interno está en días; " +
         "en pantalla se muestra en minutos/segundos, horas o días según la magnitud.",
+    },
+    {
+      clave: "resolucion_correccion",
+      etiqueta: "Tiempo de proceso",
+      subtitulo: "Demora media en corrección del solicitante",
+      valor:
+        ciclos_correccion_resueltos > 0
+          ? Math.round(tiempo_promedio_correccion_solicitante_dias * 100) / 100
+          : 0,
+      unidad: "días",
+      ayuda:
+        "Desde la transición a en_correccion en el historial hasta la siguiente movida del flujo (p. ej. vuelta a cotización). Solo ciclos ya cerrados.",
     },
     {
       clave: "resolucion_reproceso",
@@ -87,6 +133,9 @@ export function resolverReporteTiemposKpis(kpis: KPIData): ReporteTiemposOCData 
   return {
     ...base,
     texto_para_informe: buildTextoParaInformeTiemposDesdeKpis(kpis),
-    nota_metodologia: METODOLOGIA_TIEMPOS_LEGIBLE + notaCliente,
+    nota_metodologia:
+      kpis.reporte_tiempos !== undefined
+        ? base.nota_metodologia
+        : METODOLOGIA_TIEMPOS_LEGIBLE + notaCliente,
   }
 }

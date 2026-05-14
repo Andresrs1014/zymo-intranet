@@ -30,13 +30,17 @@ Son **fechas/horas puntuales**; no son “duraciones” por sí solas, pero perm
 
 ## 2. KPIs globales (`GET /api/oc/kpis`)
 
-Expuestos en la pantalla **Dashboard KPIs** (`/oc/kpis`). Lo **explícitamente temporal** es:
+Expuestos en la pantalla **Dashboard KPIs** (`/oc/kpis`). **Filtros opcionales (query):** `fecha_desde`, `fecha_hasta` (sobre `fecha_solicitud`), `plataforma`, `nivel_prioridad` (coincidencia exacta). Sin parámetros, el conjunto es el histórico no archivado como antes.
+
+Lo **explícitamente temporal** incluye:
 
 | Métrica | Qué mide | Cálculo (código) |
 |---------|-----------|-------------------|
-| **`tiempo_promedio_cotizacion_dias`** | Tiempo medio desde la solicitud hasta tener **cotización registrada** | Media en SQLite: `AVG(julianday(fecha_cotizacion) - julianday(fecha_solicitud))` sobre filas con `fecha_cotizacion IS NOT NULL`, excluyendo archivadas. **Unidades: días.** |
-| **`reprocesos_total`** | Cantidad de eventos de historial marcados como reproceso | Cuenta de filas `oc_historial_estados` con `es_reproceso = true` (no archivadas). |
-| **`tiempo_promedio_reproceso_dias`** | Tiempo medio para “salir” de un reproceso | Por cada entrada de reproceso, se busca la **siguiente** entrada del mismo historial con `es_reproceso = false`; la diferencia en días se promedia. **Unidades: días.** |
+| **`tiempo_promedio_asignacion_dias`** | Tiempo medio hasta que compras **asigna auxiliar** | `AVG(julianday(fecha_asignacion) - julianday(fecha_solicitud))` con `fecha_asignacion IS NOT NULL`. **`muestras_asignacion`** = conteo de filas usadas en el filtro. |
+| **`tiempo_promedio_cotizacion_dias`** | Tiempo medio desde la solicitud hasta tener **cotización registrada** | Media SQLite análoga con `fecha_cotizacion`. |
+| **`tiempo_promedio_correccion_solicitante_dias`** | Tiempo medio **en corrección del solicitante** | Por cada transición a `en_correccion` en historial, tiempo hasta la **siguiente** línea del mismo `solicitud_id`. Solo ciclos cerrados. **`ciclos_correccion_resueltos`** = cantidad de intervalos promediados. |
+| **`reprocesos_total`** | Cantidad de eventos de historial marcados como reproceso | Cuenta `es_reproceso = true` (no archivadas, con filtro de solicitud si aplica). |
+| **`tiempo_promedio_reproceso_dias`** | Tiempo medio para “salir” de un reproceso | Siguiente entrada con `es_reproceso = false`. **Unidades: días.** |
 
 **Relacionados con calidad de proceso (conteos, no duración):**
 
