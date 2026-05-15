@@ -127,8 +127,8 @@ def create_task_endpoint(
         task = create_task(db, current_user, payload)
     except HTTPException as exc:
         logger.warning(
-            "create_task 422/4xx user=%s payload=%s → %s",
-            current_user.id, payload.model_dump(), exc.detail,
+            "create_task error user=%s team_id=%s → %s",
+            current_user.id, payload.team_id, exc.detail,
         )
         raise
     return WorkTaskRead.model_validate(task)

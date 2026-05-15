@@ -1232,6 +1232,53 @@ async def send_correccion_directivo(
         )
 
 
+async def send_alerta_correccion_post_cierre(
+    s: "SolicitudOC",
+    corrector_nombre: str,
+    corrector_email: str,
+    motivo: str,
+    observacion: str,
+    cfg: Optional[dict] = None,
+) -> None:
+    """Alerta al propio directivo cuando corrige datos de una solicitud ya cerrada/entregada."""
+    if cfg is None:
+        cfg = _get_runtime_config(plataforma=s.plataforma)
+    if not (cfg["smtp_user"] and cfg["smtp_password"]):
+        log.warning("[email] SMTP no configurado — omitiendo alerta post-cierre")
+        return
+    logo_uri = _logo_data_uri(cfg)
+    cuerpo = f"""
+    <p>Hola <strong>{corrector_nombre}</strong>,</p>
+    <p>Este es un aviso de seguridad automático. Se ha realizado una corrección sobre la solicitud
+    <strong>{s.consecutivo_os}</strong> que ya se encontraba en estado <strong>{s.estado}</strong>
+    (proceso cerrado).</p>
+    <table style="border-collapse:collapse;width:100%;margin:16px 0">
+      <tr><td style="padding:6px 12px;background:#f9fafb;font-weight:600;width:35%">Solicitud</td>
+          <td style="padding:6px 12px">{s.consecutivo_os}</td></tr>
+      <tr><td style="padding:6px 12px;background:#f9fafb;font-weight:600">Estado al corregir</td>
+          <td style="padding:6px 12px">{s.estado}</td></tr>
+      <tr><td style="padding:6px 12px;background:#f9fafb;font-weight:600">Realizado por</td>
+          <td style="padding:6px 12px">{corrector_nombre}</td></tr>
+      <tr><td style="padding:6px 12px;background:#f9fafb;font-weight:600">Justificación</td>
+          <td style="padding:6px 12px">{motivo}</td></tr>
+      <tr><td style="padding:6px 12px;background:#f9fafb;font-weight:600">Observación corrección</td>
+          <td style="padding:6px 12px">{observacion}</td></tr>
+    </table>
+    <p style="color:#b91c1c;font-size:13px">
+      Esta acción quedó registrada en el historial de la solicitud con tipo de acción
+      <strong>correccion_directivo_post_cierre</strong>.
+      Si no reconoce esta acción, contacte al administrador del sistema.
+    </p>
+    """
+    await _send_html(
+        cfg,
+        subject=f"⚠ Alerta: corrección post-cierre en OC {s.consecutivo_os}",
+        recipients=[corrector_email],
+        body=_base(f"Alerta corrección post-cierre — {s.consecutivo_os}", cuerpo, cfg, logo_uri=logo_uri),
+        flujo="Alerta corrección post-cierre (directivo)",
+    )
+
+
 async def send_nueva_solicitud_interna(s: "SolicitudOC") -> None:
     """Flujo Interno — notifica al equipo de compras cuando un coordinador crea una solicitud."""
     cfg = _get_runtime_config(plataforma=s.plataforma)

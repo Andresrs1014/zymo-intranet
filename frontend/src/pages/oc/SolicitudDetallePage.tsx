@@ -148,6 +148,7 @@ export function SolicitudDetallePage() {
   const [corrDirObsCotizacion, setCorrDirObsCotizacion] = useState("")
   /** Motivo obligatorio de la corrección (observacion_correccion). */
   const [corrDirNotaDirectivo, setCorrDirNotaDirectivo] = useState("")
+  const [corrDirMotivoCierre, setCorrDirMotivoCierre] = useState("")
   const [corrDirItems, setCorrDirItems] = useState<ItemCotizacion[]>([])
   const [corrDirError, setCorrDirError] = useState<string | null>(null)
 
@@ -201,9 +202,9 @@ export function SolicitudDetallePage() {
   const cotizacionPendiente = cotizaciones.find((c) => c.aprobada === null)
   const cotizacionAprobada = cotizaciones.find((c) => c.aprobada === true)
 
-  const estadoPermiteCorreccionDirectiva = ["aprobada", "oc_enviada", "oc_en_plataforma"].includes(
-    solicitud.estado,
-  )
+  const estadoPermiteCorreccionDirectiva = [
+    "aprobada", "oc_enviada", "oc_en_plataforma", "entregada", "cerrada",
+  ].includes(solicitud.estado)
   const muestraAccionesDirectorCotizada =
     esAprobador && !!cotizacionAprobada && estadoPermiteCorreccionDirectiva
 
@@ -379,6 +380,7 @@ export function SolicitudDetallePage() {
     setCorrDirPlazoEntrega(c.plazo_entrega ?? "")
     setCorrDirObsCotizacion(c.observaciones ?? "")
     setCorrDirNotaDirectivo("")
+    setCorrDirMotivoCierre("")
     const filasItems: ItemCotizacion[] =
       c.items && c.items.length > 0
         ? c.items.map((it, i) => ({ ...it, num: it.num ?? i + 1 }))
@@ -402,6 +404,11 @@ export function SolicitudDetallePage() {
     if (!c || !id) return
     if (corrDirNotaDirectivo.trim().length < 5) {
       setCorrDirError("La observación del director debe tener al menos 5 caracteres.")
+      return
+    }
+    const esProcesoCerrado = ["cerrada", "entregada"].includes(solicitud.estado)
+    if (esProcesoCerrado && corrDirMotivoCierre.trim().length < 10) {
+      setCorrDirError("Debes justificar por qué realizas una corrección después de cerrado el proceso (mínimo 10 caracteres).")
       return
     }
     if (!corrDirProveedorNombre.trim()) {
@@ -458,6 +465,7 @@ export function SolicitudDetallePage() {
       items: itemsPayload,
       valor_aprobado: valorAprobadoNum,
       observacion_correccion: corrDirNotaDirectivo.trim(),
+      motivo_post_cierre: corrDirMotivoCierre.trim() || undefined,
     }
     setCorrDirError(null)
     corregirDirectivo.mutate(
@@ -466,6 +474,7 @@ export function SolicitudDetallePage() {
         onSuccess: () => {
           setMostrarCorreccionDirectivo(false)
           setCorrDirNotaDirectivo("")
+          setCorrDirMotivoCierre("")
         },
         onError: (err: unknown) => setCorrDirError(getApiError(err) || "No se pudo guardar la corrección."),
       },
@@ -1072,6 +1081,27 @@ export function SolicitudDetallePage() {
                         </table>
                       </div>
                     </div>
+                    {["cerrada", "entregada"].includes(solicitud.estado) && (
+                      <div className="rounded-lg border border-red-200 bg-red-50 p-4 space-y-2">
+                        <p className="text-xs font-semibold text-red-700 uppercase tracking-wide">
+                          ⚠ Corrección sobre proceso cerrado
+                        </p>
+                        <p className="text-xs text-red-600">
+                          Esta solicitud ya está <strong>{solicitud.estado}</strong>. Esta acción es excepcional,
+                          quedará registrada y se te enviará una notificación de alerta.
+                        </p>
+                        <label className="block text-xs font-medium text-red-700 mt-1">
+                          Justificación obligatoria — mín. 10 caracteres *
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={corrDirMotivoCierre}
+                          onChange={(e) => setCorrDirMotivoCierre(e.target.value)}
+                          className="w-full rounded-lg border border-red-300 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-400/40 bg-white"
+                          placeholder="Ej. Error en el NIT detectado en auditoría del 15/05/2026, requiere corrección para cierre contable..."
+                        />
+                      </div>
+                    )}
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">
                         Motivo de la corrección (visible en historial y correos) — mín. 5 caracteres *

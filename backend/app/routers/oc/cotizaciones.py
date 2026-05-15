@@ -24,6 +24,7 @@ from app.models.user import User
 from app.routers.oc.documentos import regenerar_pdf_orden_por_solicitud
 from app.services.email_service import (
     send_aprobacion_directora,
+    send_alerta_correccion_post_cierre,
     send_correccion_directivo,
     send_cotizacion_lista,
     send_oc_a_proveedor,
@@ -183,6 +184,8 @@ class CorregirDirectivoPayload(BaseModel):
     valor_aprobado: Optional[float] = None
     # Nota obligatoria del director sobre la corrección (mínimo 5 caracteres)
     observacion_correccion: str = Field(..., min_length=5, max_length=1000)
+    # Justificación requerida cuando el proceso ya está cerrado/entregado
+    motivo_post_cierre: Optional[str] = Field(default=None, max_length=2000)
 
 
 class ItemCotizacion(BaseModel):
@@ -1178,7 +1181,12 @@ _ESTADOS_CORRECCION_DIRECTIVO = {
     EstadoOC.aprobada,
     EstadoOC.oc_enviada,
     EstadoOC.oc_en_plataforma,
+    EstadoOC.entregada,
+    EstadoOC.cerrada,
 }
+
+# Estados donde el proceso ya concluyó — requieren justificación extra al corregir
+_ESTADOS_POST_CIERRE = {EstadoOC.entregada, EstadoOC.cerrada}
 
 
 @router.patch(
@@ -1223,6 +1231,13 @@ def corregir_directivo(
             ),
         )
 
+    es_post_cierre = solicitud.estado in _ESTADOS_POST_CIERRE
+    if es_post_cierre and (not payload.motivo_post_cierre or len(payload.motivo_post_cierre.strip()) < 10):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Se requiere una justificación de al menos 10 caracteres para corregir un proceso ya cerrado.",
+        )
+
     # Actualizar solo los campos provistos
     if payload.proveedor_nombre is not None:
         cotizacion.proveedor_nombre = payload.proveedor_nombre
@@ -1261,6 +1276,12 @@ def corregir_directivo(
 
     # Registrar en historial sin cambiar estado
     estado_actual = solicitud.estado
+    notas_historial = payload.observacion_correccion
+    if es_post_cierre and payload.motivo_post_cierre:
+        notas_historial = (
+            f"[CORRECCIÓN POST-CIERRE] Justificación: {payload.motivo_post_cierre.strip()}\n"
+            f"Observación: {payload.observacion_correccion}"
+        )
     registrar_cambio_estado(
         oc_db,
         solicitud.id,
@@ -1268,9 +1289,9 @@ def corregir_directivo(
         estado_actual,
         usuario_id=current_user.id,
         usuario_nombre=current_user.full_name,
-        notas=payload.observacion_correccion,
+        notas=notas_historial,
         es_reproceso=True,
-        tipo_accion="correccion_directivo",
+        tipo_accion="correccion_directivo_post_cierre" if es_post_cierre else "correccion_directivo",
     )
 
     oc_db.commit()
@@ -1306,6 +1327,17 @@ def corregir_directivo(
         current_user.full_name,
         auxiliar_email,
     )
+
+    # Alerta al propio directivo cuando corrige un proceso ya cerrado
+    if es_post_cierre and current_user.email:
+        background_tasks.add_task(
+            send_alerta_correccion_post_cierre,
+            solicitud,
+            current_user.full_name,
+            current_user.email,
+            payload.motivo_post_cierre or "",
+            payload.observacion_correccion,
+        )
 
     return cotizacion
 
