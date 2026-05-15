@@ -13,6 +13,8 @@ interface TaskFormProps {
   onSubmit: (payload: WorkTaskCreate) => Promise<void>
   onCancel?: () => void
   loading?: boolean
+  /** Si true, bloquea envío cuando el usuario no tiene equipos (colaboradores sin alta en equipo). */
+  blockSubmitWithoutTeam?: boolean
 }
 
 function calcMinutos(inicio: string, cierre: string): number | null {
@@ -23,7 +25,12 @@ function calcMinutos(inicio: string, cierre: string): number | null {
   return total > 0 ? total : null
 }
 
-export function TaskForm({ onSubmit, onCancel, loading }: TaskFormProps) {
+export function TaskForm({
+  onSubmit,
+  onCancel,
+  loading,
+  blockSubmitWithoutTeam = false,
+}: TaskFormProps) {
   const today = new Date().toISOString().slice(0, 10)
   const { data: lists } = useTaskLists()
   const { data: myTeams = [] } = useMyTeams()
@@ -45,9 +52,11 @@ export function TaskForm({ onSubmit, onCancel, loading }: TaskFormProps) {
 
   const minutos = calcMinutos(horaInicio, horaCierre)
   const needsTeamSelector = myTeams.length > 1
+  const cannotSubmitNoTeam = blockSubmitWithoutTeam && myTeams.length === 0
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (cannotSubmitNoTeam) return
     const payload: WorkTaskCreate = {
       titulo,
       descripcion_tecnica: descripcion,
@@ -77,6 +86,14 @@ export function TaskForm({ onSubmit, onCancel, loading }: TaskFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {cannotSubmitNoTeam && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <strong>No puedes registrar tareas aún:</strong> no figurás en ningún equipo de este módulo. Pedí al gestor
+          que te agregue en <strong>Configuración del equipo</strong> y que tengas el permiso de registro
+          (herramienta de envío de tareas).
+        </div>
+      )}
+
       {needsTeamSelector && (
         <div>
           <label className={taskLabel}>Equipo *</label>
@@ -179,7 +196,11 @@ export function TaskForm({ onSubmit, onCancel, loading }: TaskFormProps) {
       )}
 
       <div className="flex gap-2 pt-1">
-        <button type="submit" className={taskButtonPrimary} disabled={loading}>
+        <button
+          type="submit"
+          className={taskButtonPrimary}
+          disabled={loading || cannotSubmitNoTeam}
+        >
           {loading ? "Guardando..." : "Registrar tarea"}
         </button>
         {onCancel && (

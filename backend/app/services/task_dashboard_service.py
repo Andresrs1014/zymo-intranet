@@ -1,29 +1,42 @@
 from collections import defaultdict
 from datetime import date
 
-from sqlmodel import Session, select
+from sqlmodel import Session, and_, or_, select
 
 from app.models.work_task import WorkTask
 from app.models.user import User
 from app.schemas.task_dashboard import TaskFilters, TaskKpis, PersonTaskSummary
-from app.services.task_team_service import get_active_member_ids
+from app.services.task_team_service import get_active_member_ids, get_or_create_manager_team
 
 
 def _get_team_member_ids(db: Session, owner_id: int) -> list[int]:
     return get_active_member_ids(db, owner_id)
 
 
+def _hoy(filters: TaskFilters) -> date:
+    if filters.fecha_referencia is not None:
+        return filters.fecha_referencia
+    return date.today()
+
+
+def _team_tasks_scope(team_id: int, member_ids: list[int]):
+    """Incluye tareas del equipo y legado huérfanas (team_id nulo) de colaboradores activos."""
+    if member_ids:
+        return or_(
+            WorkTask.team_id == team_id,
+            and_(WorkTask.team_id.is_(None), WorkTask.subido_por_id.in_(member_ids)),  # type: ignore[union-attr]
+        )
+    return WorkTask.team_id == team_id
+
+
 def get_team_tasks(db: Session, filters: TaskFilters, owner_id: int) -> list[WorkTask]:
     """Retorna tareas del equipo del gestor (owner_id), filtrando por team_id real.
     owner_id es siempre el user_id del gestor primario que posee el equipo.
     """
-    from app.services.task_team_service import get_manager_team
+    team = get_or_create_manager_team(db, owner_id)
+    member_ids = _get_team_member_ids(db, owner_id)
 
-    team = get_manager_team(db, owner_id)
-    if not team:
-        return []
-
-    query = select(WorkTask).where(WorkTask.team_id == team.id)
+    query = select(WorkTask).where(_team_tasks_scope(team.id, member_ids))
 
     if filters.responsable_id is not None:
         query = query.where(WorkTask.subido_por_id == filters.responsable_id)
@@ -45,14 +58,19 @@ def get_team_tasks(db: Session, filters: TaskFilters, owner_id: int) -> list[Wor
         )
 
     if filters.sin_registro_hoy:
-        hoy = date.today()
+        hoy = _hoy(filters)
         active_ids = _get_team_member_ids(db, owner_id)
-        ids_con_registro = set(db.exec(
-            select(WorkTask.subido_por_id).where(
-                WorkTask.team_id == team.id,
-                WorkTask.fecha == hoy,
-            )
-        ).all())
+        ids_con_registro = {
+            row.subido_por_id
+            for row in db.exec(
+                select(WorkTask).where(
+                    and_(
+                        _team_tasks_scope(team.id, active_ids),
+                        WorkTask.fecha == hoy,
+                    ),
+                )
+            ).all()
+        }
         ids_sin_registro = [uid for uid in active_ids if uid not in ids_con_registro]
         if not ids_sin_registro:
             return []
@@ -74,13 +92,15 @@ def get_team_kpis(db: Session, filters: TaskFilters, owner_id: int) -> TaskKpis:
 
     usuarios_activos = len({t.subido_por_id for t in tasks})
 
-    hoy = date.today()
-    from app.services.task_team_service import get_manager_team
-    team = get_manager_team(db, owner_id)
-    team_filter = WorkTask.team_id == team.id if team else (WorkTask.team_id == None)  # noqa: E711
+    hoy = _hoy(filters)
+    team = get_or_create_manager_team(db, owner_id)
     ids_con_registro_hoy = {
         t.subido_por_id
-        for t in db.exec(select(WorkTask).where(team_filter, WorkTask.fecha == hoy)).all()
+        for t in db.exec(
+            select(WorkTask).where(
+                and_(_team_tasks_scope(team.id, active_ids), WorkTask.fecha == hoy),
+            )
+        ).all()
         if t.subido_por_id in active_ids
     }
     usuarios_sin_registro_hoy = len([uid for uid in active_ids if uid not in ids_con_registro_hoy])
@@ -96,8 +116,7 @@ def get_team_kpis(db: Session, filters: TaskFilters, owner_id: int) -> TaskKpis:
     )
 
 
-def _build_person_summary(user: User, tasks: list[WorkTask]) -> PersonTaskSummary:
-    hoy = date.today()
+def _build_person_summary(user: User, tasks: list[WorkTask], hoy: date) -> PersonTaskSummary:
     minutos = sum(t.tiempo_total_minutos for t in tasks if t.tiempo_total_minutos is not None)
     ultima = max((t.created_at for t in tasks), default=None)
     registro_hoy = any(t.fecha == hoy for t in tasks)
@@ -124,12 +143,13 @@ def get_person_summaries(db: Session, filters: TaskFilters, owner_id: int) -> li
         tasks_by_user[task.subido_por_id].append(task)
 
     active_ids = _get_team_member_ids(db, owner_id)
+    hoy = _hoy(filters)
 
     summaries: list[PersonTaskSummary] = []
     for uid in active_ids:
         user = db.get(User, uid)
         if user:
-            summaries.append(_build_person_summary(user, tasks_by_user.get(uid, [])))
+            summaries.append(_build_person_summary(user, tasks_by_user.get(uid, []), hoy))
     return summaries
 
 
@@ -182,18 +202,22 @@ def get_chart_data(db: Session, filters: TaskFilters, owner_id: int) -> dict:
     }
 
 
-def get_users_without_today_entry(db: Session, owner_id: int) -> list[PersonTaskSummary]:
+def get_users_without_today_entry(
+    db: Session,
+    owner_id: int,
+    fecha_referencia: date | None = None,
+) -> list[PersonTaskSummary]:
     """Returns PersonTaskSummary for active members with no task registered today."""
-    hoy = date.today()
+    hoy = fecha_referencia or date.today()
     active_ids = _get_team_member_ids(db, owner_id)
 
-    from app.services.task_team_service import get_manager_team
-    team = get_manager_team(db, owner_id)
-    team_filter = WorkTask.team_id == team.id if team else (WorkTask.team_id == None)  # noqa: E711
+    team = get_or_create_manager_team(db, owner_id)
     ids_con_registro = {
         t.subido_por_id
         for t in db.exec(
-            select(WorkTask).where(team_filter, WorkTask.fecha == hoy)
+            select(WorkTask).where(
+                and_(_team_tasks_scope(team.id, active_ids), WorkTask.fecha == hoy),
+            )
         ).all()
     }
 
@@ -202,5 +226,5 @@ def get_users_without_today_entry(db: Session, owner_id: int) -> list[PersonTask
         if uid not in ids_con_registro:
             user = db.get(User, uid)
             if user:
-                summaries.append(_build_person_summary(user, []))
+                summaries.append(_build_person_summary(user, [], hoy))
     return summaries

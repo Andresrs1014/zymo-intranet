@@ -1,3 +1,4 @@
+import { format } from "date-fns"
 import { api } from "@/lib/api"
 import type { TaskFilters } from "@/types/workTask"
 
@@ -13,6 +14,7 @@ function filtersToParams(filters: TaskFilters): URLSearchParams {
   if (filters.plataforma) p.set("plataforma", filters.plataforma)
   if (filters.q) p.set("q", filters.q)
   if (filters.sin_registro_hoy) p.set("sin_registro_hoy", "true")
+  p.set("fecha_referencia", filters.fecha_referencia ?? format(new Date(), "yyyy-MM-dd"))
   return p
 }
 

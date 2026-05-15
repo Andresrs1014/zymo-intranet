@@ -2,6 +2,7 @@ import { useState } from "react"
 import {
   useMyTasks,
   useMyTaskMetrics,
+  useMyTeams,
   useCreateWorkTask,
   useUpdateWorkTask,
 } from "@/hooks/useWorkTasks"
@@ -24,10 +25,12 @@ export function TaskSubmitView({ filters }: Props) {
   const { data: metrics } = useMyTaskMetrics()
   const { data: todayTasks } = useMyTasks({ fecha_desde: today, fecha_hasta: today })
   const { data: allTasks } = useMyTasks(filters)
+  const { data: myTeams = [] } = useMyTeams()
   const createTask = useCreateWorkTask()
   const updateTask = useUpdateWorkTask()
 
   const registeredToday = (todayTasks?.length ?? 0) > 0
+  const showTodayReminder = !registeredToday && myTeams.length > 0
 
   const handleSubmit = async (payload: WorkTaskCreate) => {
     await createTask.mutateAsync(payload)
@@ -60,7 +63,7 @@ export function TaskSubmitView({ filters }: Props) {
       </div>
 
       {/* Alert: no registro hoy */}
-      {!registeredToday && (
+      {showTodayReminder && (
         <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
           <strong>Recuerda:</strong> Aún no has registrado ninguna tarea hoy ({today}).
         </div>
@@ -90,6 +93,7 @@ export function TaskSubmitView({ filters }: Props) {
             onSubmit={handleSubmit}
             onCancel={() => setShowForm(false)}
             loading={createTask.isPending}
+            blockSubmitWithoutTeam
           />
         </div>
       )}

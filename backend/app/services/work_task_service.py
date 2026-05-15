@@ -31,9 +31,18 @@ def calcular_minutos(
     return int(delta.total_seconds() // 60)
 
 
-def validate_task_values(db: Session, user: User, etiqueta: str, plataforma: str, estado: str) -> None:
+def validate_task_values(
+    db: Session,
+    user: User,
+    etiqueta: str,
+    plataforma: str,
+    estado: str,
+    *,
+    list_config_owner_id: int | None = None,
+) -> None:
     """Valida etiqueta/plataforma/estado contra TaskListConfig en BD.
     Si no hay listas configuradas para el workspace, omite la validación.
+    list_config_owner_id: workspace del gestor cuyas listas aplican (p. ej. el dueño del equipo).
     """
     from app.models.task_list_config import TaskListConfig
     from app.models.task_team_member import TaskTeamMember
@@ -45,6 +54,8 @@ def validate_task_values(db: Session, user: User, etiqueta: str, plataforma: str
 
     if is_admin or has_manage:
         owner_id = user.id
+    elif list_config_owner_id is not None:
+        owner_id = list_config_owner_id
     else:
         membership = db.exec(
             select(TaskTeamMember)
@@ -91,11 +102,15 @@ def validate_task_values(db: Session, user: User, etiqueta: str, plataforma: str
 def create_task(db: Session, user: User, payload: WorkTaskCreate) -> WorkTask:
     """Crea una tarea. Asigna team_id automáticamente si el usuario tiene un solo equipo.
     Si tiene múltiples equipos, el payload debe incluir team_id explícito.
-    Si no tiene equipo, la tarea queda huérfana (team_id=None).
+    Los colaboradores sin membresía activa no pueden crear tareas (evita registros invisibles para el gestor).
     """
+    from app.models.task_team import TaskTeam
     from app.services.task_team_service import get_user_active_teams, get_or_create_manager_team
 
-    validate_task_values(db, user, payload.etiqueta, payload.plataforma, payload.estado)
+    is_admin = getattr(user, "role", None) == "admin"
+    has_manage = user_has_tool(db, user, "tool_task_manage_dev")
+    is_submit_only = not is_admin and not has_manage
+
     now = datetime.now(timezone.utc)
     minutos = calcular_minutos(payload.hora_inicio, payload.hora_cierre)
 
@@ -104,8 +119,7 @@ def create_task(db: Session, user: User, payload: WorkTaskCreate) -> WorkTask:
     # Si el usuario es gestor (owner) pero no es miembro de ningún equipo,
     # asignar automáticamente a su propio equipo gestionado.
     if not active_teams:
-        is_admin = getattr(user, "role", None) == "admin"
-        if is_admin or user_has_tool(db, user, "tool_task_manage_dev"):
+        if is_admin or has_manage:
             manager_team = get_or_create_manager_team(db, user.id)
             active_teams = [{
                 "team_id": manager_team.id,
@@ -130,7 +144,29 @@ def create_task(db: Session, user: User, payload: WorkTaskCreate) -> WorkTask:
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="Perteneces a múltiples equipos. Selecciona el equipo para esta tarea.",
             )
-        # len == 0: sin equipo, team_id queda None (tarea huérfana)
+        elif is_submit_only:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    "No estás asignado a ningún equipo de tareas. "
+                    "Pide al gestor que te agregue en Configuración del equipo."
+                ),
+            )
+
+    if team_id is not None:
+        team_row = db.get(TaskTeam, team_id)
+        list_owner_id = int(team_row.owner_user_id) if team_row else user.id
+    else:
+        list_owner_id = user.id
+
+    validate_task_values(
+        db,
+        user,
+        payload.etiqueta,
+        payload.plataforma,
+        payload.estado,
+        list_config_owner_id=(None if (is_admin or has_manage) else list_owner_id),
+    )
 
     task = WorkTask(
         scope="desarrollo_innovacion",
@@ -219,11 +255,20 @@ def update_own_task(
         )
 
     if payload.etiqueta is not None or payload.plataforma is not None or payload.estado is not None:
+        from app.models.task_team import TaskTeam
+
+        list_owner: int | None = None
+        if task.team_id is not None:
+            tteam = db.get(TaskTeam, task.team_id)
+            if tteam:
+                list_owner = int(tteam.owner_user_id)
         validate_task_values(
-            db, user,
+            db,
+            user,
             payload.etiqueta if payload.etiqueta is not None else task.etiqueta,
             payload.plataforma if payload.plataforma is not None else task.plataforma,
             payload.estado if payload.estado is not None else task.estado,
+            list_config_owner_id=list_owner,
         )
 
     update_data = payload.model_dump(exclude_unset=True)
@@ -341,21 +386,30 @@ def get_paginated_tasks(
 ) -> "PaginatedTasksResponse":
     """
     Devuelve tareas paginadas con filtros.
-    Si team_member_ids es None, filtra solo por user_id (vista colaborador).
-    Si team_member_ids es lista, filtra por todos esos IDs (vista gestor).
-    Si team_id se provee, restringe adicionalmente por team_id para aislamiento correcto.
+    Vista colaborador: solo subido_por_id == user_id.
+    Vista gestor (team_id + team_member_ids): tareas con team_id del workspace o huérfanas legadas
+    de miembros activos del equipo (subido_por_id en team_member_ids y team_id nulo).
     """
     from app.schemas.work_task import PaginatedTaskFilters, PaginatedTasksResponse, PaginatedMeta, WorkTaskRead
-    from sqlmodel import func, or_
+    from sqlmodel import and_, func, or_
     from sqlmodel import select as sqlmodel_select
     import math
 
     query = sqlmodel_select(WorkTask)
 
-    if team_id is not None:
+    if team_member_ids is not None and team_id is not None:
+        # Vista gestor: todas las tareas con team_id del workspace; más huérfanas legadas de miembros.
+        if team_member_ids:
+            scope = or_(
+                WorkTask.team_id == team_id,
+                and_(WorkTask.team_id.is_(None), WorkTask.subido_por_id.in_(team_member_ids)),  # type: ignore[union-attr]
+            )
+        else:
+            scope = WorkTask.team_id == team_id
+        query = query.where(scope)
+    elif team_id is not None:
         query = query.where(WorkTask.team_id == team_id)
-
-    if team_member_ids is not None:
+    elif team_member_ids is not None:
         query = query.where(WorkTask.subido_por_id.in_(team_member_ids))
     else:
         query = query.where(WorkTask.subido_por_id == user_id)

@@ -1,5 +1,6 @@
 from datetime import datetime
-from pydantic import BaseModel
+
+from pydantic import BaseModel, Field
 
 
 class TaskTeamMemberRead(BaseModel):
@@ -26,3 +27,13 @@ class AvailableUserRead(BaseModel):
     full_name: str | None
     role: str
     area: str | None
+
+
+class TaskTeamInfoRead(BaseModel):
+    team_id: int
+    name: str
+    owner_user_id: int
+
+
+class TaskTeamNameUpdate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=150)

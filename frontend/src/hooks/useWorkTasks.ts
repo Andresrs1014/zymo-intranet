@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { format } from "date-fns"
 import { api } from "@/lib/api"
 import type {
   WorkTask,
@@ -18,11 +19,24 @@ import type {
   TeamChartsData,
   MyTaskMetrics,
   UserTeamInfo,
+  ManagerTeamInfo,
   TaskListConfigItem,
   TaskListsResponse,
 } from "@/types/workTask"
 
 const BASE = "/api/herramientas/tareas"
+
+/** Día local del navegador — alinea “registro hoy” con las fechas que envían los formularios. */
+function withLocalReferenceDay(filters: TaskFilters): TaskFilters {
+  return { ...filters, fecha_referencia: format(new Date(), "yyyy-MM-dd") }
+}
+
+/** Vista gestor: datos vivos (otros usuarios no invalidan el cache del cliente del gestor). */
+const equipoLiveQueryOpts = {
+  staleTime: 0,
+  refetchInterval: 45_000,
+  refetchIntervalInBackground: false,
+} as const
 
 function filtersToParams(filters: TaskFilters): URLSearchParams {
   const p = new URLSearchParams()
@@ -34,6 +48,7 @@ function filtersToParams(filters: TaskFilters): URLSearchParams {
   if (filters.plataforma) p.set("plataforma", filters.plataforma)
   if (filters.q) p.set("q", filters.q)
   if (filters.sin_registro_hoy) p.set("sin_registro_hoy", "true")
+  if (filters.fecha_referencia) p.set("fecha_referencia", filters.fecha_referencia)
   return p
 }
 
@@ -98,52 +113,64 @@ export function useUpdateWorkTask() {
 // ── Directiva hooks ────────────────────────────────────────────────────────────
 
 export function useTeamTasks(filters: TaskFilters = {}) {
+  const f = withLocalReferenceDay(filters)
   return useQuery({
-    queryKey: ["tareas", "equipo", filters],
+    queryKey: ["tareas", "equipo", f],
     queryFn: async () => {
-      const { data } = await api.get<WorkTask[]>(`${BASE}/equipo?${filtersToParams(filters)}`)
+      const { data } = await api.get<WorkTask[]>(`${BASE}/equipo?${filtersToParams(f)}`)
       return data
     },
+    ...equipoLiveQueryOpts,
   })
 }
 
 export function useTeamKpis(filters: TaskFilters = {}) {
+  const f = withLocalReferenceDay(filters)
   return useQuery({
-    queryKey: ["tareas", "kpis", filters],
+    queryKey: ["tareas", "kpis", f],
     queryFn: async () => {
-      const { data } = await api.get<TaskKpis>(`${BASE}/equipo/kpis?${filtersToParams(filters)}`)
+      const { data } = await api.get<TaskKpis>(`${BASE}/equipo/kpis?${filtersToParams(f)}`)
       return data
     },
+    ...equipoLiveQueryOpts,
   })
 }
 
 export function useTeamPersonSummaries(filters: TaskFilters = {}) {
+  const f = withLocalReferenceDay(filters)
   return useQuery({
-    queryKey: ["tareas", "personas", filters],
+    queryKey: ["tareas", "personas", f],
     queryFn: async () => {
-      const { data } = await api.get<PersonTaskSummary[]>(`${BASE}/equipo/personas?${filtersToParams(filters)}`)
+      const { data } = await api.get<PersonTaskSummary[]>(`${BASE}/equipo/personas?${filtersToParams(f)}`)
       return data
     },
+    ...equipoLiveQueryOpts,
   })
 }
 
 export function useTeamCharts(filters: TaskFilters = {}) {
+  const f = withLocalReferenceDay(filters)
   return useQuery({
-    queryKey: ["tareas", "graficas", filters],
+    queryKey: ["tareas", "graficas", f],
     queryFn: async () => {
-      const { data } = await api.get<TeamChartsData>(`${BASE}/equipo/graficas?${filtersToParams(filters)}`)
+      const { data } = await api.get<TeamChartsData>(`${BASE}/equipo/graficas?${filtersToParams(f)}`)
       return data
     },
+    ...equipoLiveQueryOpts,
   })
 }
 
 export function useUsersWithoutTodayEntry() {
+  const dia = format(new Date(), "yyyy-MM-dd")
   return useQuery({
-    queryKey: ["tareas", "sin-registro-hoy"],
+    queryKey: ["tareas", "sin-registro-hoy", dia],
     queryFn: async () => {
-      const { data } = await api.get<PersonTaskSummary[]>(`${BASE}/equipo/sin-registro-hoy`)
+      const p = new URLSearchParams()
+      p.set("fecha_referencia", dia)
+      const { data } = await api.get<PersonTaskSummary[]>(`${BASE}/equipo/sin-registro-hoy?${p}`)
       return data
     },
+    ...equipoLiveQueryOpts,
   })
 }
 
@@ -166,6 +193,30 @@ export function useAvailableTeamUsers() {
     queryFn: async () => {
       const { data } = await api.get<AvailableUser[]>(`${BASE}/equipo/config/usuarios-disponibles`)
       return data
+    },
+  })
+}
+
+export function useManagerTeamInfo(enabled = true) {
+  return useQuery({
+    queryKey: ["tareas", "equipo", "info"],
+    queryFn: async () => {
+      const { data } = await api.get<ManagerTeamInfo>(`${BASE}/equipo/config/equipo`)
+      return data
+    },
+    enabled,
+  })
+}
+
+export function useUpdateTeamName() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (name: string) => {
+      const { data } = await api.patch<ManagerTeamInfo>(`${BASE}/equipo/config/equipo`, { name })
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tareas"] })
     },
   })
 }
