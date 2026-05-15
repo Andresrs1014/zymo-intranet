@@ -7,9 +7,9 @@ from pydantic import BaseModel, Field
 class WorkTaskCreate(BaseModel):
     titulo: str
     descripcion_tecnica: str
-    etiqueta: str = "tareas_diarias"
-    plataforma: str = "transversal"
-    estado: str = "en_progreso"
+    etiqueta: Optional[str] = None
+    plataforma: Optional[str] = None
+    estado: Optional[str] = None
     prioridad: str = "media"
     team_id: int | None = None
     fecha: date | None = None

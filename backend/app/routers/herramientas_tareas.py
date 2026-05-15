@@ -5,10 +5,13 @@ Prefijo: /api/herramientas/tareas
 Acceso: controlado por UserTool (tool_task_submit_dev / tool_task_manage_dev)
 Multi-workspace: cada manager tiene su propio equipo y datos.
 """
+import logging
 from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+
+logger = logging.getLogger(__name__)
 from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlmodel import Session, select
@@ -120,7 +123,14 @@ def create_task_endpoint(
 
     from app.services.work_task_service import create_task
 
-    task = create_task(db, current_user, payload)
+    try:
+        task = create_task(db, current_user, payload)
+    except HTTPException as exc:
+        logger.warning(
+            "create_task 422/4xx user=%s payload=%s → %s",
+            current_user.id, payload.model_dump(), exc.detail,
+        )
+        raise
     return WorkTaskRead.model_validate(task)
 
 
