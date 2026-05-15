@@ -689,17 +689,22 @@ def revoke_user_tool(
     if current_user.role != "admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Se requiere rol 'admin'.")
     from datetime import datetime, timezone
-    existing = db.exec(
+    # Buscar sin filtrar por scope: desactiva cualquier registro activo
+    # de esa tool para ese usuario, independientemente del scope con que fue creado.
+    rows = db.exec(
         select(UserTool)
         .where(UserTool.user_id == payload.user_id)
         .where(UserTool.tool_key == payload.tool_key)
-        .where(UserTool.scope == payload.scope)
-    ).first()
-    if existing:
-        existing.is_active = False
-        existing.updated_at = datetime.now(timezone.utc)
-        db.add(existing)
-        db.commit()
+        .where(UserTool.is_active == True)  # noqa: E712
+    ).all()
+    if not rows:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Herramienta no encontrada para este usuario.")
+    now = datetime.now(timezone.utc)
+    for row in rows:
+        row.is_active = False
+        row.updated_at = now
+        db.add(row)
+    db.commit()
     return {"ok": True}
 
 
