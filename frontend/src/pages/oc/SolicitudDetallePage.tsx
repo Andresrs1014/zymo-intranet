@@ -200,7 +200,10 @@ export function SolicitudDetallePage() {
   const puedeAsignarOtro = esAdmin
   const puedeGenerarOC = user ? canSeeOC(user.role, user.area, user.app_permissions) : false
   const cotizacionPendiente = cotizaciones.find((c) => c.aprobada === null)
-  const cotizacionAprobada = cotizaciones.find((c) => c.aprobada === true)
+  // En estados post-cierre puede que aprobada===true no esté seteado; usamos la más reciente como fallback
+  const cotizacionAprobada =
+    cotizaciones.find((c) => c.aprobada === true) ??
+    (["entregada", "cerrada"].includes(solicitud.estado) ? cotizaciones[0] : undefined)
 
   const estadoPermiteCorreccionDirectiva = [
     "aprobada", "oc_enviada", "oc_en_plataforma", "entregada", "cerrada",
