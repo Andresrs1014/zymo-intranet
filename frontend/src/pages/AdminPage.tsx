@@ -21,7 +21,8 @@ import type { UserListItem } from "@/types/auth"
 type Tab = "activos" | "archivados"
 
 const TOOLS = [
-  { key: "tool_task_submit_dev", label: "Gestión de Tareas", desc: "Acceso a registro de tareas" },
+  { key: "tool_task_submit_dev", label: "Gestión de Tareas — Colaborador", desc: "Acceso a registro de tareas propias" },
+  { key: "tool_task_manage_dev", label: "Gestión de Tareas — Gestor", desc: "Gestión completa del equipo de tareas" },
 ]
 
 export function AdminPage() {

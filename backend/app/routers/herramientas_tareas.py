@@ -102,7 +102,13 @@ def create_task_endpoint(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> WorkTaskRead:
-    require_tool_or_403(db, current_user, TOOL_SUBMIT)
+    # Gestores (TOOL_MANAGE) también pueden registrar sus propias tareas
+    if current_user.role != "admin":
+        if not user_has_tool(db, current_user, TOOL_SUBMIT) and not user_has_tool(db, current_user, TOOL_MANAGE):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Acceso denegado. Se requiere herramienta '{TOOL_SUBMIT}'.",
+            )
 
     from app.services.work_task_service import create_task
 

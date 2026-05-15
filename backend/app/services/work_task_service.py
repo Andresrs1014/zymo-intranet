@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 from app.models.work_task import WorkTask
 from app.models.user import User
 from app.schemas.work_task import WorkTaskCreate, WorkTaskUpdate
+from app.services.user_tool_service import user_has_tool
 
 
 def calcular_minutos(
@@ -92,13 +93,26 @@ def create_task(db: Session, user: User, payload: WorkTaskCreate) -> WorkTask:
     Si tiene múltiples equipos, el payload debe incluir team_id explícito.
     Si no tiene equipo, la tarea queda huérfana (team_id=None).
     """
-    from app.services.task_team_service import get_user_active_teams
+    from app.services.task_team_service import get_user_active_teams, get_or_create_manager_team
 
     validate_task_values(db, user, payload.etiqueta, payload.plataforma, payload.estado)
     now = datetime.now(timezone.utc)
     minutos = calcular_minutos(payload.hora_inicio, payload.hora_cierre)
 
     active_teams = get_user_active_teams(db, user.id)  # type: ignore[arg-type]
+
+    # Si el usuario es gestor (owner) pero no es miembro de ningún equipo,
+    # asignar automáticamente a su propio equipo gestionado.
+    if not active_teams:
+        is_admin = getattr(user, "role", None) == "admin"
+        if is_admin or user_has_tool(db, user, "tool_task_manage_dev"):
+            manager_team = get_or_create_manager_team(db, user.id)
+            active_teams = [{
+                "team_id": manager_team.id,
+                "team_name": manager_team.name,
+                "owner_id": manager_team.owner_user_id,
+            }]
+
     valid_team_ids = {t["team_id"] for t in active_teams}
 
     team_id = payload.team_id
