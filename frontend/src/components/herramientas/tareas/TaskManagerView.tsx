@@ -1,7 +1,7 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import type { WorkTask, TaskFilters, WorkTaskCreate } from "@/types/workTask"
 import {
-  useTeamTasks,
+  useTeamTasksPaginated,
   useTeamKpis,
   useUsersWithoutTodayEntry,
   useCreateWorkTask,
@@ -19,6 +19,8 @@ import {
   formatMinutos,
 } from "@/lib/taskTheme"
 
+const PAGE_SIZE = 20
+
 interface Props {
   canSubmitOwn?: boolean
   filters: TaskFilters
@@ -29,12 +31,31 @@ export function TaskManagerView({ canSubmitOwn, filters }: Props) {
   const [teamConfigOpen, setTeamConfigOpen] = useState(false)
   const [exporting, setExporting] = useState<"excel" | "pdf" | null>(null)
   const [showNewTaskForm, setShowNewTaskForm] = useState(false)
+  const [page, setPage] = useState(1)
   const createTask = useCreateWorkTask()
   const updateManagerTask = useUpdateManagerTask()
 
-  const { data: tasks } = useTeamTasks(filters)
+  // Reset to page 1 whenever filters change
+  useEffect(() => { setPage(1) }, [filters])
+
+  const paginatedFilters = {
+    page,
+    limit: PAGE_SIZE,
+    search: filters.q,
+    responsable_id: filters.responsable_id,
+    estado: filters.estado,
+    etiqueta: filters.etiqueta,
+    plataforma: filters.plataforma,
+    fecha_desde: filters.fecha_desde,
+    fecha_hasta: filters.fecha_hasta,
+  }
+
+  const { data: taskPage, isLoading, isError } = useTeamTasksPaginated(paginatedFilters)
   const { data: kpis } = useTeamKpis(filters)
   const { data: sinRegistro } = useUsersWithoutTodayEntry()
+
+  const tasks = taskPage?.data ?? []
+  const meta = taskPage?.meta
 
   const handleExportExcel = async () => {
     setExporting("excel")
@@ -100,9 +121,48 @@ export function TaskManagerView({ canSubmitOwn, filters }: Props) {
 
       <div>
         <h2 className="text-sm font-semibold text-gray-700 mb-3">
-          Tareas ({tasks?.length ?? 0})
+          Tareas{meta ? ` (${meta.total_items})` : ""}
         </h2>
-        <TaskDataTable tasks={tasks ?? []} onRowClick={(t) => setSelectedTask(t)} />
+
+        {isError && (
+          <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-800">
+            Error al cargar las tareas. Intenta de nuevo.
+          </div>
+        )}
+
+        {isLoading ? (
+          <div className="text-sm text-gray-400 py-8 text-center">Cargando tareas...</div>
+        ) : (
+          <>
+            <TaskDataTable tasks={tasks} onRowClick={(t) => setSelectedTask(t)} />
+
+            {meta && meta.total_pages > 1 && (
+              <div className="flex items-center justify-between mt-4">
+                <span className="text-xs text-gray-500">
+                  Página {meta.current_page} de {meta.total_pages}
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className={taskButtonSecondary}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={meta.current_page <= 1}
+                  >
+                    ← Anterior
+                  </button>
+                  <button
+                    type="button"
+                    className={taskButtonSecondary}
+                    onClick={() => setPage((p) => Math.min(meta.total_pages, p + 1))}
+                    disabled={meta.current_page >= meta.total_pages}
+                  >
+                    Siguiente →
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       <TaskDetailSheet

@@ -458,6 +458,7 @@ export function useTeamTasksPaginated(filters: PaginatedTaskFilters) {
       )
       return data
     },
+    ...equipoLiveQueryOpts,
   })
 }
 
