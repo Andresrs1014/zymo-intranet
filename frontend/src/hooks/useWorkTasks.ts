@@ -466,11 +466,12 @@ export function useTeamTasksPaginated(filters: PaginatedTaskFilters) {
 // Re-exported here for backwards compatibility with existing consumers.
 export type { TaskListConfigItem, TaskListsResponse }
 
-export function useTaskLists() {
+export function useTaskLists(teamId?: number) {
   return useQuery<TaskListsResponse>({
-    queryKey: ["tareas", "config", "listas"],
+    queryKey: ["tareas", "config", "listas", teamId ?? null],
     queryFn: async () => {
-      const { data } = await api.get<TaskListsResponse>(`${BASE}/config/listas`)
+      const url = teamId ? `${BASE}/config/listas?team_id=${teamId}` : `${BASE}/config/listas`
+      const { data } = await api.get<TaskListsResponse>(url)
       return data
     },
   })

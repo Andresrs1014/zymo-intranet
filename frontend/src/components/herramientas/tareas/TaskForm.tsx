@@ -32,12 +32,7 @@ export function TaskForm({
   blockSubmitWithoutTeam = false,
 }: TaskFormProps) {
   const today = new Date().toISOString().slice(0, 10)
-  const { data: lists } = useTaskLists()
   const { data: myTeams = [] } = useMyTeams()
-
-  const etiquetas = lists?.etiqueta ?? []
-  const plataformas = lists?.plataforma ?? []
-  const estados = lists?.estado ?? []
 
   const [titulo, setTitulo] = useState("")
   const [descripcion, setDescripcion] = useState("")
@@ -49,6 +44,13 @@ export function TaskForm({
   const [teamId, setTeamId] = useState<number | undefined>(undefined)
   const [horaInicio, setHoraInicio] = useState("")
   const [horaCierre, setHoraCierre] = useState("")
+
+  // Fetch lists for the selected team so dropdowns always match validation
+  const { data: lists } = useTaskLists(teamId)
+
+  const etiquetas = lists?.etiqueta ?? []
+  const plataformas = lists?.plataforma ?? []
+  const estados = lists?.estado ?? []
 
   const minutos = calcMinutos(horaInicio, horaCierre)
   const needsTeamSelector = myTeams.length > 1
@@ -100,7 +102,13 @@ export function TaskForm({
           <select
             className={taskInput}
             value={teamId ?? ""}
-            onChange={(e) => setTeamId(e.target.value ? Number(e.target.value) : undefined)}
+            onChange={(e) => {
+              setTeamId(e.target.value ? Number(e.target.value) : undefined)
+              // Reset dependent fields so they don't carry values invalid for the new team's lists
+              setEtiqueta("")
+              setPlataforma("")
+              setEstado("")
+            }}
             required
           >
             <option value="">Seleccionar equipo...</option>

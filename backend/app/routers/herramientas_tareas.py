@@ -799,6 +799,7 @@ def delete_task_admin(
 
 @router.get("/config/listas")
 def get_listas(
+    team_id: Optional[int] = Query(default=None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict:
@@ -818,6 +819,12 @@ def get_listas(
     # Usuario con TOOL_SUBMIT: devolver listas del gestor de su equipo
     if not has_submit:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Sin acceso.")
+
+    # Si el cliente envía team_id explícito, usar ese equipo directamente
+    if team_id is not None:
+        team_by_id = db.get(TaskTeam, team_id)
+        if team_by_id:
+            return get_lists_by_owner(db, team_by_id.owner_user_id)
 
     membership = db.exec(
         select(TaskTeamMember)

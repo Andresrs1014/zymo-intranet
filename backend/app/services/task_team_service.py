@@ -131,6 +131,7 @@ def get_user_active_teams(db: Session, user_id: int) -> list[dict]:
         .join(TaskTeam, TaskTeamMember.team_id == TaskTeam.id)
         .where(TaskTeamMember.user_id == user_id)
         .where(TaskTeamMember.is_active == True)  # noqa: E712
+        .where(TaskTeam.is_active == True)  # noqa: E712
     ).all()
     by_team_id: dict[int, dict] = {}
     for _membership, team in memberships:
