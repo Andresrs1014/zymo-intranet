@@ -406,7 +406,7 @@ export function SolicitudDetallePage() {
       setCorrDirError("La observación del director debe tener al menos 5 caracteres.")
       return
     }
-    const esProcesoCerrado = ["cerrada", "entregada"].includes(solicitud.estado)
+    const esProcesoCerrado = ["cerrada", "entregada"].includes(solicitud?.estado ?? "")
     if (esProcesoCerrado && corrDirMotivoCierre.trim().length < 10) {
       setCorrDirError("Debes justificar por qué realizas una corrección después de cerrado el proceso (mínimo 10 caracteres).")
       return
