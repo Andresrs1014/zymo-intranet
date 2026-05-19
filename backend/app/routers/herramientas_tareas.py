@@ -221,6 +221,39 @@ def get_mis_equipos(
     return [UserTeamInfo(**t) for t in teams]
 
 
+@router.get("/equipo/companeros", response_model=list[TaskTeamMemberRead])
+def get_equipo_companeros(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[TaskTeamMemberRead]:
+    """Retorna los compañeros de equipo activos del usuario. Accesible con TOOL_SUBMIT."""
+    require_tool_or_403(db, current_user, TOOL_SUBMIT)
+
+    from app.models.task_team_member import TaskTeamMember
+
+    mis_memberships = db.exec(
+        select(TaskTeamMember).where(
+            TaskTeamMember.user_id == current_user.id,
+            TaskTeamMember.is_active == True,  # noqa: E712
+        )
+    ).all()
+
+    if not mis_memberships:
+        return []
+
+    team_ids = [m.team_id for m in mis_memberships]
+
+    companeros = db.exec(
+        select(TaskTeamMember).where(
+            TaskTeamMember.team_id.in_(team_ids),
+            TaskTeamMember.is_active == True,  # noqa: E712
+            TaskTeamMember.user_id != current_user.id,
+        )
+    ).all()
+
+    return [TaskTeamMemberRead.model_validate(c) for c in companeros]
+
+
 # ── Manager endpoints (TOOL_MANAGE) ─────────────────────────────────────────
 
 @router.get("/equipo/tareas-paginadas", response_model=PaginatedTasksResponse)
