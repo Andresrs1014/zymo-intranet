@@ -83,6 +83,8 @@ class SolicitudConFacturaRead(BaseModel):
     # Bitácora financiera (anticipo/proforma, notas antes de validar factura)
     observaciones_seguimiento: Optional[str] = None
     seguimiento_updated_at: Optional[datetime] = None
+    aval_compra_solicitud: Optional[str] = None
+    items_cotizacion: Optional[list] = None
 
     class Config:
         from_attributes = True
@@ -519,6 +521,8 @@ def _fila_solicitud_financiero(
         fecha_factura=factura.fecha_factura if factura else None,
         observaciones_seguimiento=seg.observaciones if seg else None,
         seguimiento_updated_at=seg.updated_at if seg else None,
+        aval_compra_solicitud=sol.aval_compra,
+        items_cotizacion=cotizacion.items if cotizacion else None,
     )
 
 
