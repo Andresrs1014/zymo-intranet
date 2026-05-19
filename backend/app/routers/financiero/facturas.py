@@ -4,7 +4,7 @@ import re
 import uuid
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 log = logging.getLogger(__name__)
 
@@ -84,7 +84,7 @@ class SolicitudConFacturaRead(BaseModel):
     observaciones_seguimiento: Optional[str] = None
     seguimiento_updated_at: Optional[datetime] = None
     aval_compra_solicitud: Optional[str] = None
-    items_cotizacion: Optional[list] = None
+    items_cotizacion: Optional[List[Dict[str, Any]]] = None  # [{num, descripcion, cantidad, valor_unitario, valor_total, ...}]
 
     class Config:
         from_attributes = True
