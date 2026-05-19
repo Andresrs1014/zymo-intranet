@@ -1,6 +1,10 @@
 import { useState } from "react"
-import type { WorkTask } from "@/types/workTask"
+import type { WorkTask, TaskAttachment } from "@/types/workTask"
 import { useTaskLists } from "@/hooks/useWorkTasks"
+import { useTaskAttachments } from "@/hooks/useTaskAttachments"
+import { FileUploadZone } from "./FileUploadZone"
+import { AttachmentList } from "./AttachmentList"
+import { FilePreviewModal } from "./FilePreviewModal"
 import {
   taskBadge,
   ETIQUETA_COLOR,
@@ -22,6 +26,9 @@ export function TaskDetailSheet({ task, onClose, onStatusChange }: TaskDetailShe
   const [statusError, setStatusError] = useState<string | null>(null)
   const { data: lists } = useTaskLists()
   const estadoOptions = lists?.estado ?? []
+  const [previewAttachment, setPreviewAttachment] = useState<TaskAttachment | null>(null)
+  const { data: liveAdjuntos } = useTaskAttachments(task ? task.id : null)
+  const adjuntos = liveAdjuntos ?? task?.adjuntos ?? []
 
   if (!task) return null
 
@@ -134,8 +141,24 @@ export function TaskDetailSheet({ task, onClose, onStatusChange }: TaskDetailShe
               </p>
             </div>
           )}
+
+          {/* Evidencias */}
+          <div className="border-t border-gray-200 pt-4">
+            <FileUploadZone taskId={task.id} />
+            <AttachmentList
+              taskId={task.id}
+              attachments={adjuntos}
+              onPreview={setPreviewAttachment}
+            />
+          </div>
         </div>
       </aside>
+
+      <FilePreviewModal
+        attachment={previewAttachment}
+        open={!!previewAttachment}
+        onClose={() => setPreviewAttachment(null)}
+      />
     </>
   )
 }
