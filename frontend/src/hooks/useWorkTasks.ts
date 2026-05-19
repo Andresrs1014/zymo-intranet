@@ -187,6 +187,16 @@ export function useTeamMembers(enabled = true) {
   })
 }
 
+export function useTeamCompaneros() {
+  return useQuery<TaskTeamMember[]>({
+    queryKey: ["tareas", "equipo", "companeros"],
+    queryFn: async () => {
+      const { data } = await api.get<TaskTeamMember[]>(`${BASE}/equipo/companeros`)
+      return data
+    },
+  })
+}
+
 export function useAvailableTeamUsers() {
   return useQuery({
     queryKey: ["tareas", "equipo", "disponibles"],
