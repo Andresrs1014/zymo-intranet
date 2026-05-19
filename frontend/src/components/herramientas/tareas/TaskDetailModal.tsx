@@ -7,6 +7,7 @@ import { useTaskActivity } from "@/hooks/useWorkTasks"
 import { FileUploadZone } from "./FileUploadZone"
 import { AttachmentList } from "./AttachmentList"
 import { FilePreviewModal } from "./FilePreviewModal"
+import { useTaskAttachments } from "@/hooks/useTaskAttachments"
 import type { WorkTask, TaskActivityEntry, TaskAttachment } from "@/types/workTask"
 
 const ESTADO_VARIANT: Record<string, "success" | "destructive" | "warning" | "secondary"> = {
@@ -28,6 +29,8 @@ export function TaskDetailModal({ task, open, onClose, onEdit }: Props) {
   )
 
   const [previewAttachment, setPreviewAttachment] = useState<TaskAttachment | null>(null)
+  const { data: liveAdjuntos } = useTaskAttachments(open && task ? task.id : null)
+  const adjuntos = liveAdjuntos ?? task?.adjuntos ?? []
 
   if (!task) return null
 
@@ -122,7 +125,7 @@ export function TaskDetailModal({ task, open, onClose, onEdit }: Props) {
           <FileUploadZone taskId={task.id} />
           <AttachmentList
             taskId={task.id}
-            attachments={task.adjuntos || []}
+            attachments={adjuntos}
             onPreview={setPreviewAttachment}
           />
         </div>

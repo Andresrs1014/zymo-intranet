@@ -287,6 +287,21 @@ def _migrate_db() -> None:
             print("[migrate] Columna task_events.prioridad agregada.")
         except Exception:
             pass
+        # work_tasks: asignado_a_id, asignado_a_nombre (feat adjuntos y asignación)
+        try:
+            conn.execute(text("ALTER TABLE work_tasks ADD COLUMN asignado_a_id INTEGER"))
+            conn.commit()
+            print("[migrate] Columna work_tasks.asignado_a_id agregada.")
+        except Exception:
+            pass  # ya existe
+        try:
+            conn.execute(text(
+                "ALTER TABLE work_tasks ADD COLUMN asignado_a_nombre VARCHAR(200) NOT NULL DEFAULT ''"
+            ))
+            conn.commit()
+            print("[migrate] Columna work_tasks.asignado_a_nombre agregada.")
+        except Exception:
+            pass  # ya existe
     with Session(get_engine()) as session:
         for sede_row in session.exec(select(Sede)).all():
             if sede_row.name.strip().lower() == "transversal":
