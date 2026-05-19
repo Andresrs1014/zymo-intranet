@@ -131,12 +131,7 @@ export function FacturaDetallePage() {
       setForm({
         numero_factura: factura.numero_factura ?? "",
         valor_factura: factura.valor_factura ?? undefined,
-        fecha_factura: factura.fecha_factura ?? "",
-        nit_proveedor: factura.nit_proveedor ?? "",
-        nombre_proveedor: factura.nombre_proveedor ?? "",
-        fecha_recibida_factura: factura.fecha_recibida_factura ?? "",
-        aval_compra: factura.aval_compra ?? "",
-        observaciones: factura.observaciones ?? "",
+        fecha_factura: factura.fecha_factura ?? new Date().toISOString().split("T")[0],
       })
       setFormDirty(false)
     }
@@ -592,219 +587,277 @@ export function FacturaDetallePage() {
               </section>
             )}
 
-            {/* ── Sección B: Factura ─────────────────────────────────────── */}
-            <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-              <div className="mb-4">
+            {/* ── Nueva sección comparativa: OC + Formulario | Visor PDF ─── */}
+            <section className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="px-6 pt-5 pb-3 border-b border-gray-100">
                 <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide">
                   Factura del proveedor
                 </h2>
-                <p className="text-xs text-gray-500 mt-1 max-w-3xl">
-                  Complete o revise los datos a mano. Si adjunta un archivo, los campos pueden prellenarse; la
-                  validación frente a la OC no corre sola — use «Correr validación» cuando corresponda.
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Complete los tres campos y adjunte el archivo. La fecha se pre-rellena con el día de hoy.
                 </p>
               </div>
 
-              {!solicitud.factura_id && crearFacturaBorrador.isPending && (
-                <div className="py-12 text-center text-sm text-gray-500">
-                  Preparando registro de factura…
-                </div>
-              )}
+              <div className="flex min-h-[600px]">
+                {/* ── Columna izquierda ───────────────────────────────────── */}
+                <div className="w-1/2 border-r border-gray-100 flex flex-col">
 
-              {!solicitud.factura_id && crearFacturaBorrador.isError && (
-                <div className="rounded-lg bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-700">
-                  No se pudo iniciar el registro de factura.{" "}
-                  <button
-                    type="button"
-                    className="underline font-medium"
-                    onClick={() => solicitudId && crearFacturaBorrador.mutate(solicitudId)}
-                  >
-                    Reintentar
-                  </button>
-                </div>
-              )}
-
-              {solicitud.factura_id && !factura && (
-                <div className="py-8 text-center text-sm text-gray-500">Cargando datos de factura…</div>
-              )}
-
-              {factura && (
-                <div>
-                  <div className="mb-6 rounded-lg border border-dashed border-gray-200 bg-gray-50/60 p-4">
-                    <p className="text-xs font-medium text-gray-600 mb-2">
-                      Archivo adjunto (opcional)
+                  {/* Cuadrante 1: Referencia de la OC */}
+                  <div className="p-5 border-b border-gray-100 flex-shrink-0">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                      Referencia OC
                     </p>
-                    <div
-                      onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
-                      onDragLeave={() => setDragOver(false)}
-                      onDrop={(e) => {
-                        e.preventDefault()
-                        setDragOver(false)
-                        const file = e.dataTransfer.files[0]
-                        if (file) handleFileUpload(file)
-                      }}
-                      onClick={() => fileInputRef.current?.click()}
-                      className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-6 py-8 cursor-pointer transition-colors ${
-                        dragOver
-                          ? "border-brand-blue bg-brand-blue/5"
-                          : "border-gray-200 hover:border-brand-blue/40 hover:bg-white"
-                      }`}
-                    >
-                      <p className="text-sm font-medium text-gray-700">
-                        {subirFactura.isPending
-                          ? "Subiendo…"
-                          : factura.pdf_path
-                            ? "Arrastre o haga clic para reemplazar archivo"
-                            : "Arrastre o haga clic para adjuntar factura"}
-                      </p>
-                      <p className="text-xs text-gray-400">PDF, Excel (.xlsx) o Word (.docx)</p>
-                      {subirFactura.isError && (
-                        <p className="text-xs text-red-500">Error al subir. Intente de nuevo.</p>
+                    <div className="space-y-2">
+                      <OcRefField label="Aval de compra" value={solicitud.aval_compra_solicitud} />
+                      <OcRefField label="Valor aprobado" value={formatCOP(solicitud.valor_aprobado ?? null)} />
+                      <OcRefField
+                        label="Fecha en plataforma"
+                        value={
+                          solicitud.fecha_en_plataforma
+                            ? new Date(solicitud.fecha_en_plataforma).toLocaleDateString("es-CO")
+                            : null
+                        }
+                      />
+                      <OcRefField label="Proveedor" value={solicitud.proveedor_nombre} />
+                      {solicitud.proveedor_nit && (
+                        <OcRefField label="NIT proveedor" value={solicitud.proveedor_nit} />
                       )}
                     </div>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept=".pdf,.xlsx,.xls,.docx"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0]
-                        if (file) handleFileUpload(file)
-                      }}
-                    />
-                  </div>
 
-                  {factura.extraccion_automatica && (
-                    <div className="mb-4 inline-flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-100 px-3 py-1 text-xs font-medium text-blue-600">
-                      <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-13a.75.75 0 0 0-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 0 0 0-1.5h-3.25V5Z" clipRule="evenodd" />
-                      </svg>
-                      Campos prellenados desde el último archivo
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <FormField
-                      label="Número de factura"
-                      value={form.numero_factura ?? ""}
-                      onChange={(v) => handleChange("numero_factura", v)}
-                    />
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="block text-xs font-medium text-gray-600">Valor factura</label>
-                        {solicitud?.valor_aprobado != null && (
-                          <button
-                            type="button"
-                            onClick={() => handleChange("valor_factura", solicitud.valor_aprobado!)}
-                            className="text-xs text-brand-blue hover:underline"
-                            title={`Usar valor de la OC: ${formatCOP(solicitud.valor_aprobado)}`}
-                          >
-                            Usar valor OC ({formatCOP(solicitud.valor_aprobado)})
-                          </button>
-                        )}
+                    {solicitud.items_cotizacion && solicitud.items_cotizacion.length > 0 && (
+                      <div className="mt-4">
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                          Ítems cotizados
+                        </p>
+                        <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                          {solicitud.items_cotizacion.map((item, idx) => (
+                            <div
+                              key={idx}
+                              className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-700"
+                            >
+                              <span className="font-medium">
+                                {item.descripcion ?? `Ítem ${idx + 1}`}
+                              </span>
+                              {item.cantidad != null && (
+                                <span className="ml-2 text-gray-500">× {item.cantidad}</span>
+                              )}
+                              {item.valor_total != null && (
+                                <span className="ml-2 font-mono text-gray-600">
+                                  {formatCOP(item.valor_total)}
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <FormFieldCOP
-                        label=""
-                        value={form.valor_factura}
-                        onChange={(v) => handleChange("valor_factura", v ?? 0)}
-                      />
-                    </div>
-                    <FormFieldDate
-                      label="Fecha factura"
-                      value={form.fecha_factura ?? ""}
-                      onChange={(v) => handleChange("fecha_factura", v)}
-                    />
-                    <FormField
-                      label="NIT proveedor"
-                      value={form.nit_proveedor ?? ""}
-                      onChange={(v) => handleChange("nit_proveedor", v)}
-                    />
-                    <FormField
-                      label="Nombre proveedor"
-                      value={form.nombre_proveedor ?? ""}
-                      onChange={(v) => handleChange("nombre_proveedor", v)}
-                    />
-                    <FormFieldDate
-                      label="Fecha recibida factura"
-                      value={form.fecha_recibida_factura ?? ""}
-                      onChange={(v) => handleChange("fecha_recibida_factura", v)}
-                    />
-                    <FormField
-                      label="Aval de compra"
-                      value={form.aval_compra ?? ""}
-                      onChange={(v) => handleChange("aval_compra", v)}
-                    />
+                    )}
                   </div>
 
-                  <div className="mt-4">
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                      Observaciones
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={form.observaciones ?? ""}
-                      onChange={(e) => handleChange("observaciones", e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30 resize-none"
-                    />
-                  </div>
+                  {/* Cuadrante 2: Formulario de facturación */}
+                  <div className="p-5 flex-1 flex flex-col">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                      Datos de la factura
+                    </p>
 
-                  <div className="mt-5 flex flex-wrap items-center justify-end gap-3">
-                    <div className="flex items-center gap-2 mr-auto">
-                      {(() => {
-                        const esPdf = factura.pdf_path?.toLowerCase().endsWith(".pdf")
-                        return (
+                    {!solicitud.factura_id && crearFacturaBorrador.isPending && (
+                      <div className="py-8 text-center text-sm text-gray-500">Preparando registro…</div>
+                    )}
+
+                    {!solicitud.factura_id && crearFacturaBorrador.isError && (
+                      <div className="rounded-lg bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-700">
+                        No se pudo iniciar el registro.{" "}
+                        <button
+                          type="button"
+                          className="underline font-medium"
+                          onClick={() => solicitudId && crearFacturaBorrador.mutate(solicitudId)}
+                        >
+                          Reintentar
+                        </button>
+                      </div>
+                    )}
+
+                    {factura && (
+                      <>
+                        <div className="space-y-3 mb-4">
+                          <FormField
+                            label="Número de factura"
+                            value={form.numero_factura ?? ""}
+                            onChange={(v) => handleChange("numero_factura", v)}
+                          />
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="block text-xs font-medium text-gray-600">
+                                Valor factura
+                              </label>
+                              {solicitud?.valor_aprobado != null && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleChange("valor_factura", solicitud.valor_aprobado!)}
+                                  className="text-xs text-brand-blue hover:underline"
+                                >
+                                  Usar valor OC ({formatCOP(solicitud.valor_aprobado)})
+                                </button>
+                              )}
+                            </div>
+                            <FormFieldCOP
+                              label=""
+                              value={form.valor_factura}
+                              onChange={(v) => handleChange("valor_factura", v ?? 0)}
+                            />
+                          </div>
+                          <FormFieldDate
+                            label="Fecha factura"
+                            value={form.fecha_factura ?? ""}
+                            onChange={(v) => handleChange("fecha_factura", v)}
+                          />
+                        </div>
+
+                        <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50/60 p-3 mb-4">
+                          <p className="text-xs font-medium text-gray-600 mb-2">Archivo de factura</p>
+                          <div
+                            onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+                            onDragLeave={() => setDragOver(false)}
+                            onDrop={(e) => {
+                              e.preventDefault()
+                              setDragOver(false)
+                              const file = e.dataTransfer.files[0]
+                              if (file) handleFileUpload(file)
+                            }}
+                            onClick={() => fileInputRef.current?.click()}
+                            className={`flex flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed px-4 py-5 cursor-pointer transition-colors ${
+                              dragOver
+                                ? "border-brand-blue bg-brand-blue/5"
+                                : "border-gray-200 hover:border-brand-blue/40 hover:bg-white"
+                            }`}
+                          >
+                            <p className="text-sm font-medium text-gray-700 text-center">
+                              {subirFactura.isPending
+                                ? "Subiendo…"
+                                : factura.pdf_path
+                                  ? "Clic o arrastre para reemplazar"
+                                  : "Clic o arrastre para adjuntar"}
+                            </p>
+                            <p className="text-xs text-gray-400">PDF, Excel (.xlsx) o Word (.docx)</p>
+                            {subirFactura.isError && (
+                              <p className="text-xs text-red-500">Error al subir. Intente de nuevo.</p>
+                            )}
+                            {factura.extraccion_automatica && (
+                              <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-600">
+                                Número y valor prellenados desde archivo
+                              </span>
+                            )}
+                          </div>
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept=".pdf,.xlsx,.xls,.docx"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0]
+                              if (file) handleFileUpload(file)
+                            }}
+                          />
+                        </div>
+
+                        <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-2">
+                          <button
+                            onClick={handleEliminar}
+                            disabled={eliminarFactura.isPending}
+                            className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors flex items-center gap-1"
+                          >
+                            <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z" clipRule="evenodd" />
+                            </svg>
+                            {eliminarFactura.isPending ? "Eliminando…" : "Eliminar"}
+                          </button>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={handleValidar}
+                              disabled={validarFactura.isPending}
+                              className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                            >
+                              {validarFactura.isPending ? "Validando…" : "Correr validación"}
+                            </button>
+                            <button
+                              onClick={handleGuardar}
+                              disabled={!formDirty || actualizarFactura.isPending}
+                              className="rounded-lg bg-brand-blue px-3 py-1.5 text-xs font-semibold text-white hover:brightness-105 disabled:opacity-50 transition-all"
+                            >
+                              {actualizarFactura.isPending ? "Guardando…" : "Guardar cambios"}
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* ── Columna derecha: Visor PDF ────────────────────────────── */}
+                <div className="w-1/2 flex flex-col bg-gray-50">
+                  <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      Vista previa de la factura
+                    </p>
+                    {factura?.pdf_path && (
                       <button
                         type="button"
                         onClick={() =>
                           openAuthenticatedApiBlob(`/api/financiero/facturas/${facturaId}/pdf`)
                         }
-                        disabled={!factura.pdf_path || !esPdf}
-                        className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-1.5 disabled:opacity-45 disabled:cursor-not-allowed"
-                        title={
-                          !factura.pdf_path
-                            ? "Adjunte un archivo para abrirlo"
-                            : esPdf
-                              ? "Ver PDF en nueva pestaña"
-                              : "Vista previa solo disponible para PDF; descargue desde su explorador si aplica"
-                        }
+                        className="text-xs text-brand-blue hover:underline flex items-center gap-1"
                       >
-                        <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-                          <path d="M10 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />
-                          <path fillRule="evenodd" d="M.664 10.59a1.651 1.651 0 0 1 0-1.186A10.004 10.004 0 0 1 10 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0 1 10 17c-4.257 0-7.893-2.66-9.336-6.41Z" clipRule="evenodd" />
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M4.25 5.5a.75.75 0 0 0-.75.75v8.5c0 .414.336.75.75.75h8.5a.75.75 0 0 0 .75-.75v-4a.75.75 0 0 1 1.5 0v4A2.25 2.25 0 0 1 12.75 17h-8.5A2.25 2.25 0 0 1 2 14.75v-8.5A2.25 2.25 0 0 1 4.25 4h5a.75.75 0 0 1 0 1.5h-5Z" clipRule="evenodd" />
+                          <path fillRule="evenodd" d="M6.194 12.753a.75.75 0 0 0 1.06.053L16.5 4.44v2.81a.75.75 0 0 0 1.5 0v-4.5a.75.75 0 0 0-.75-.75h-4.5a.75.75 0 0 0 0 1.5h2.553l-9.056 8.194a.75.75 0 0 0-.053 1.06Z" clipRule="evenodd" />
                         </svg>
-                        Ver PDF
+                        Abrir en pestaña
                       </button>
-                        )
-                      })()}
-                      <button
-                        onClick={handleEliminar}
-                        disabled={eliminarFactura.isPending}
-                        className="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors flex items-center gap-1.5"
-                        title="Elimina el registro de factura (puede iniciarse de nuevo)"
-                      >
-                        <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z" clipRule="evenodd" />
+                    )}
+                  </div>
+
+                  <div className="flex-1 relative">
+                    {!factura?.pdf_path && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 text-gray-400">
+                        <svg className="w-12 h-12 mb-3 text-gray-200" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M5 4a2 2 0 0 1 2-2h6l5 5v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4Z" />
                         </svg>
-                        {eliminarFactura.isPending ? "Eliminando..." : "Eliminar registro"}
-                      </button>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleValidar}
-                      disabled={validarFactura.isPending}
-                      className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-colors"
-                    >
-                      {validarFactura.isPending ? "Validando..." : "Correr validación"}
-                    </button>
-                    <button
-                      onClick={handleGuardar}
-                      disabled={!formDirty || actualizarFactura.isPending}
-                      className="rounded-lg bg-brand-blue px-4 py-2 text-sm font-semibold text-white hover:brightness-105 disabled:opacity-50 transition-all"
-                    >
-                      {actualizarFactura.isPending ? "Guardando..." : "Guardar cambios"}
-                    </button>
+                        <p className="text-sm">Adjunte un archivo PDF para verlo aquí</p>
+                        <p className="text-xs mt-1">También admite Excel y Word (sin vista previa inline)</p>
+                      </div>
+                    )}
+
+                    {factura?.pdf_path && !factura.pdf_path.toLowerCase().endsWith(".pdf") && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 text-gray-400">
+                        <p className="text-sm">Vista previa solo disponible para PDF.</p>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openAuthenticatedApiBlob(`/api/financiero/facturas/${facturaId}/pdf`)
+                          }
+                          className="mt-3 text-sm text-brand-blue hover:underline font-medium"
+                        >
+                          Descargar archivo adjunto
+                        </button>
+                      </div>
+                    )}
+
+                    {factura?.pdf_path?.toLowerCase().endsWith(".pdf") && pdfLoading && (
+                      <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">
+                        Cargando PDF…
+                      </div>
+                    )}
+
+                    {pdfBlobUrl && (
+                      <iframe
+                        src={pdfBlobUrl}
+                        title="Vista previa factura"
+                        className="absolute inset-0 w-full h-full border-0"
+                      />
+                    )}
                   </div>
                 </div>
-              )}
+              </div>
             </section>
 
             {/* ── Sección C: Resultado de Validación ────────────────────── */}
@@ -1048,5 +1101,20 @@ function ConciliarFila({
         )}
       </td>
     </tr>
+  )
+}
+
+function OcRefField({
+  label,
+  value,
+}: {
+  label: string
+  value: string | null | undefined
+}) {
+  return (
+    <div className="flex items-start gap-2 text-sm">
+      <span className="text-xs text-gray-400 w-32 shrink-0 pt-0.5">{label}</span>
+      <span className="text-gray-800 font-medium">{value ?? "—"}</span>
+    </div>
   )
 }
