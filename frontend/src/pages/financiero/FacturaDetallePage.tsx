@@ -574,12 +574,12 @@ export function FacturaDetallePage() {
                       <ConciliarFila
                         label="NIT proveedor"
                         oc={cotizacionAprobada?.proveedor_nit ?? "—"}
-                        factura={form.nit_proveedor || "—"}
+                        factura={factura?.nit_proveedor ?? "—"}
                       />
                       <ConciliarFila
                         label="Razón social"
                         oc={solicitud.proveedor_nombre ?? "—"}
-                        factura={form.nombre_proveedor || "—"}
+                        factura={factura?.nombre_proveedor ?? "—"}
                       />
                     </tbody>
                   </table>
@@ -761,6 +761,7 @@ export function FacturaDetallePage() {
 
                         <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-2">
                           <button
+                            type="button"
                             onClick={handleEliminar}
                             disabled={eliminarFactura.isPending}
                             className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors flex items-center gap-1"
