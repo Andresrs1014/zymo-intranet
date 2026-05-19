@@ -3,6 +3,8 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
+from app.schemas.task_attachment import TaskAttachmentRead
+
 
 class WorkTaskCreate(BaseModel):
     titulo: str
@@ -15,6 +17,7 @@ class WorkTaskCreate(BaseModel):
     fecha: date | None = None
     hora_inicio: datetime | None = None
     hora_cierre: datetime | None = None
+    asignado_a_id: int | None = None
 
 
 class WorkTaskUpdate(BaseModel):
@@ -27,6 +30,7 @@ class WorkTaskUpdate(BaseModel):
     fecha: date | None = None
     hora_inicio: datetime | None = None
     hora_cierre: datetime | None = None
+    asignado_a_id: int | None = None
 
 
 class WorkTaskRead(BaseModel):
@@ -45,6 +49,9 @@ class WorkTaskRead(BaseModel):
     descripcion_tecnica: str
     estado: str
     prioridad: str
+    asignado_a_id: int | None = None
+    asignado_a_nombre: str | None = ""
+    adjuntos: list[TaskAttachmentRead] = []
     created_at: datetime
     updated_at: datetime
 

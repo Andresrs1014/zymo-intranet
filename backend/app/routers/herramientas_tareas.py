@@ -9,10 +9,10 @@ import logging
 from datetime import date
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile
 
 logger = logging.getLogger(__name__)
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -903,3 +903,83 @@ def delete_lista_item(
     from app.services.task_list_config_service import delete_list_item
 
     return delete_list_item(db, owner_id, list_type, value)
+
+
+# ── Attachment endpoints ───────────────────────────────────────────────────────
+
+@router.post("/{task_id}/adjuntos", response_model=None, status_code=status.HTTP_201_CREATED)
+def upload_attachment(
+    task_id: int,
+    file: UploadFile,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_tool_or_403(db, current_user, TOOL_SUBMIT)
+
+    from app.models.work_task import WorkTask
+    from app.services.task_attachment_service import create_attachment
+    from app.schemas.task_attachment import TaskAttachmentUploadResponse
+
+    task = db.get(WorkTask, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Tarea no encontrada.")
+
+    attachment = create_attachment(db, task_id, file, current_user)
+    return {"ok": True, "attachment": attachment}
+
+
+@router.get("/{task_id}/adjuntos", response_model=None)
+def list_attachments(
+    task_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_tool_or_403(db, current_user, TOOL_SUBMIT)
+
+    from app.services.task_attachment_service import list_attachments
+    from app.schemas.task_attachment import TaskAttachmentRead
+
+    attachments = list_attachments(db, task_id)
+    return [TaskAttachmentRead.model_validate(a) for a in attachments]
+
+
+@router.get("/adjuntos/{attachment_id}")
+def serve_attachment(
+    attachment_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_tool_or_403(db, current_user, TOOL_SUBMIT)
+
+    from app.services.task_attachment_service import get_attachment, get_attachment_file
+
+    attachment = get_attachment(db, attachment_id)
+    if not attachment:
+        raise HTTPException(status_code=404, detail="Adjunto no encontrado.")
+
+    file, mime_type, size = get_attachment_file(attachment)
+
+    disposition = "inline" if mime_type.startswith("image/") or mime_type == "application/pdf" else "attachment"
+
+    return StreamingResponse(
+        file,
+        media_type=mime_type,
+        headers={
+            "Content-Disposition": f'{disposition}; filename="{attachment.filename}"',
+            "Content-Length": str(size),
+        },
+    )
+
+
+@router.delete("/adjuntos/{attachment_id}")
+def delete_attachment(
+    attachment_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_tool_or_403(db, current_user, TOOL_SUBMIT)
+
+    from app.services.task_attachment_service import delete_attachment
+
+    delete_attachment(db, attachment_id)
+    return {"ok": True}

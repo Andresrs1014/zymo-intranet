@@ -14,6 +14,9 @@ export interface WorkTask {
   descripcion_tecnica: string
   estado: string
   prioridad: string
+  asignado_a_id: number | null
+  asignado_a_nombre: string | null
+  adjuntos: TaskAttachment[]
   created_at: string
   updated_at: string
 }
@@ -29,6 +32,7 @@ export interface WorkTaskCreate {
   fecha?: string
   hora_inicio?: string
   hora_cierre?: string
+  asignado_a_id?: number
 }
 
 export interface WorkTaskUpdate {
@@ -41,6 +45,7 @@ export interface WorkTaskUpdate {
   fecha?: string
   hora_inicio?: string
   hora_cierre?: string
+  asignado_a_id?: number
 }
 
 export interface TaskKpis {
@@ -217,4 +222,14 @@ export interface TaskListsResponse {
   etiqueta: TaskListConfigItem[]
   plataforma: TaskListConfigItem[]
   prioridad_agenda: TaskListConfigItem[]
+}
+
+export interface TaskAttachment {
+  id: number
+  task_id: number
+  filename: string
+  mime_type: string
+  size_bytes: number
+  uploaded_by_id: number
+  uploaded_at: string
 }

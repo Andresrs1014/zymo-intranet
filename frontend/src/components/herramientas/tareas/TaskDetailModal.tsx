@@ -1,9 +1,13 @@
+import { useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useTaskActivity } from "@/hooks/useWorkTasks"
-import type { WorkTask, TaskActivityEntry } from "@/types/workTask"
+import { FileUploadZone } from "./FileUploadZone"
+import { AttachmentList } from "./AttachmentList"
+import { FilePreviewModal } from "./FilePreviewModal"
+import type { WorkTask, TaskActivityEntry, TaskAttachment } from "@/types/workTask"
 
 const ESTADO_VARIANT: Record<string, "success" | "destructive" | "warning" | "secondary"> = {
   completada:  "success",
@@ -23,11 +27,14 @@ export function TaskDetailModal({ task, open, onClose, onEdit }: Props) {
     open && task ? task.id : null
   )
 
+  const [previewAttachment, setPreviewAttachment] = useState<TaskAttachment | null>(null)
+
   if (!task) return null
 
   const fechaHora = [task.fecha, task.hora_inicio].filter(Boolean).join(" — ")
 
   return (
+    <>
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
@@ -49,6 +56,11 @@ export function TaskDetailModal({ task, open, onClose, onEdit }: Props) {
           {task.subido_por_nombre && (
             <p className="text-xs text-muted-foreground">
               Registrado por: {task.subido_por_nombre}
+            </p>
+          )}
+          {task.asignado_a_nombre && (
+            <p className="text-xs text-muted-foreground">
+              Asignado a: <strong>{task.asignado_a_nombre}</strong>
             </p>
           )}
         </DialogHeader>
@@ -106,6 +118,15 @@ export function TaskDetailModal({ task, open, onClose, onEdit }: Props) {
           </TabsContent>
         </Tabs>
 
+        <div className="border-t border-border pt-3 mt-2">
+          <FileUploadZone taskId={task.id} />
+          <AttachmentList
+            taskId={task.id}
+            attachments={task.adjuntos || []}
+            onPreview={setPreviewAttachment}
+          />
+        </div>
+
         {onEdit && (
           <div className="flex gap-2 pt-2 border-t border-border">
             <Button className="flex-1" onClick={() => onEdit(task)}>
@@ -114,6 +135,13 @@ export function TaskDetailModal({ task, open, onClose, onEdit }: Props) {
           </div>
         )}
       </DialogContent>
+
     </Dialog>
+    <FilePreviewModal
+      attachment={previewAttachment}
+      open={!!previewAttachment}
+      onClose={() => setPreviewAttachment(null)}
+    />
+    </>
   )
 }

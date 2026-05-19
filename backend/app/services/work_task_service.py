@@ -168,6 +168,13 @@ def create_task(db: Session, user: User, payload: WorkTaskCreate) -> WorkTask:
         list_config_owner_id=(None if (is_admin or has_manage) else list_owner_id),
     )
 
+    asignado_a_nombre = ""
+    if payload.asignado_a_id is not None:
+        from app.models.user import User as UserModel
+        asignado_user = db.get(UserModel, payload.asignado_a_id)
+        if asignado_user:
+            asignado_a_nombre = asignado_user.full_name or asignado_user.email
+
     task = WorkTask(
         scope="desarrollo_innovacion",
         team_id=team_id,
@@ -183,6 +190,8 @@ def create_task(db: Session, user: User, payload: WorkTaskCreate) -> WorkTask:
         descripcion_tecnica=payload.descripcion_tecnica,
         estado=payload.estado or "en_progreso",
         prioridad=payload.prioridad,
+        asignado_a_id=payload.asignado_a_id,
+        asignado_a_nombre=asignado_a_nombre,
         created_at=now,
         updated_at=now,
     )
@@ -273,6 +282,17 @@ def update_own_task(
 
     update_data = payload.model_dump(exclude_unset=True)
     estado_anterior = task.estado
+
+    if "asignado_a_id" in update_data and update_data["asignado_a_id"] is not None:
+        from app.models.user import User as UserModel
+        asignado_user = db.get(UserModel, update_data["asignado_a_id"])
+        if asignado_user:
+            update_data["asignado_a_nombre"] = asignado_user.full_name or asignado_user.email
+        else:
+            update_data["asignado_a_nombre"] = ""
+    elif "asignado_a_id" in update_data and update_data["asignado_a_id"] is None:
+        update_data["asignado_a_nombre"] = ""
+
     for field, value in update_data.items():
         setattr(task, field, value)
 
@@ -377,6 +397,23 @@ def get_task_activity(db: "Session", task_id: int) -> list:
     return list(entries)
 
 
+def _attachments_by_task(db: "Session", task_ids: list[int]) -> dict[int, list]:
+    """Carga adjuntos de múltiples tareas en una sola query para evitar N+1."""
+    from app.schemas.task_attachment import TaskAttachmentRead
+    from app.models.task_attachment import TaskAttachment
+    from collections import defaultdict
+
+    if not task_ids:
+        return {}
+    rows = db.exec(
+        select(TaskAttachment).where(TaskAttachment.task_id.in_(task_ids))
+    ).all()
+    result: dict[int, list] = defaultdict(list)
+    for a in rows:
+        result[a.task_id].append(TaskAttachmentRead.model_validate(a))
+    return result
+
+
 def get_paginated_tasks(
     db: "Session",
     user_id: int,
@@ -446,8 +483,16 @@ def get_paginated_tasks(
     query = query.offset(offset).limit(filters.limit)
     tasks = db.exec(query).all()
 
+    from app.schemas.work_task import WorkTaskRead
+    attachments_map = _attachments_by_task(db, [t.id for t in tasks])
+    enriched = []
+    for t in tasks:
+        task_read = WorkTaskRead.model_validate(t)
+        task_read.adjuntos = attachments_map.get(t.id, [])
+        enriched.append(task_read)
+
     return PaginatedTasksResponse(
-        data=[WorkTaskRead.model_validate(t) for t in tasks],
+        data=enriched,
         meta=PaginatedMeta(
             total_items=total_items,
             total_pages=total_pages,
@@ -501,6 +546,17 @@ def update_team_task(
 
     update_data = payload.model_dump(exclude_unset=True)
     estado_anterior = task.estado
+
+    if "asignado_a_id" in update_data and update_data["asignado_a_id"] is not None:
+        from app.models.user import User as UserModel
+        asignado_user = db.get(UserModel, update_data["asignado_a_id"])
+        if asignado_user:
+            update_data["asignado_a_nombre"] = asignado_user.full_name or asignado_user.email
+        else:
+            update_data["asignado_a_nombre"] = ""
+    elif "asignado_a_id" in update_data and update_data["asignado_a_id"] is None:
+        update_data["asignado_a_nombre"] = ""
+
     for field, value in update_data.items():
         setattr(task, field, value)
 

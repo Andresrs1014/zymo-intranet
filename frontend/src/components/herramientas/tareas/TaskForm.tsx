@@ -1,6 +1,6 @@
 import { useState } from "react"
 import type { WorkTaskCreate } from "@/types/workTask"
-import { useTaskLists, useMyTeams } from "@/hooks/useWorkTasks"
+import { useTaskLists, useMyTeams, useTeamMembers } from "@/hooks/useWorkTasks"
 import {
   taskInput,
   taskLabel,
@@ -44,9 +44,13 @@ export function TaskForm({
   const [teamId, setTeamId] = useState<number | undefined>(undefined)
   const [horaInicio, setHoraInicio] = useState("")
   const [horaCierre, setHoraCierre] = useState("")
+  const [asignadoAId, setAsignadoAId] = useState<number | undefined>(undefined)
 
   // Fetch lists for the selected team so dropdowns always match validation
   const { data: lists } = useTaskLists(teamId)
+
+  // Fetch team members for the assignment dropdown
+  const { data: teamMembers = [] } = useTeamMembers(!!teamId)
 
   const etiquetas = lists?.etiqueta ?? []
   const plataformas = lists?.plataforma ?? []
@@ -66,12 +70,11 @@ export function TaskForm({
       ...(plataforma && { plataforma }),
       ...(estado && { estado }),
       prioridad,
-      // Single-team users: backend auto-assigns team_id from their only membership.
-      // Multi-team users: team_id is required via the selector above.
       ...(needsTeamSelector && teamId ? { team_id: teamId } : {}),
       fecha,
       hora_inicio: horaInicio ? new Date(`${fecha}T${horaInicio}:00`).toISOString() : undefined,
       hora_cierre: horaCierre ? new Date(`${fecha}T${horaCierre}:00`).toISOString() : undefined,
+      ...(asignadoAId ? { asignado_a_id: asignadoAId } : {}),
     }
     await onSubmit(payload)
     setTitulo("")
@@ -84,6 +87,7 @@ export function TaskForm({
     setTeamId(undefined)
     setHoraInicio("")
     setHoraCierre("")
+    setAsignadoAId(undefined)
   }
 
   return (
@@ -183,6 +187,20 @@ export function TaskForm({
             <option value="alta">Alta</option>
             <option value="media">Media</option>
             <option value="baja">Baja</option>
+          </select>
+        </div>
+
+        <div>
+          <label className={taskLabel}>Asignar a</label>
+          <select
+            className={taskInput}
+            value={asignadoAId ?? ""}
+            onChange={(e) => setAsignadoAId(e.target.value ? Number(e.target.value) : undefined)}
+          >
+            <option value="">Sin asignar</option>
+            {teamMembers.map((m) => (
+              <option key={m.user_id} value={m.user_id}>{m.user_full_name || m.user_email}</option>
+            ))}
           </select>
         </div>
 

@@ -37,6 +37,7 @@ export function TaskDataTable({ tasks, onRowClick }: TaskDataTableProps) {
               <Th>Etiqueta</Th>
               <Th>Plataforma</Th>
               <Th>Tiempo</Th>
+              <Th>Asignado</Th>
               <Th>Estado</Th>
             </tr>
           </thead>
@@ -74,6 +75,9 @@ export function TaskDataTable({ tasks, onRowClick }: TaskDataTableProps) {
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
                   {formatMinutos(task.tiempo_total_minutos)}
+                </td>
+                <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
+                  {task.asignado_a_nombre || "-"}
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap">
                   <span
