@@ -12,6 +12,7 @@ import { TaskDataTable } from "./TaskDataTable"
 import { TaskDetailSheet } from "./TaskDetailSheet"
 import { TaskTeamConfigDialog } from "./TaskTeamConfigDialog"
 import { TaskForm } from "./TaskForm"
+import { AsignarTareaForm } from "./AsignarTareaForm"
 import {
   taskCard,
   taskButtonPrimary,
@@ -31,6 +32,7 @@ export function TaskManagerView({ canSubmitOwn, filters }: Props) {
   const [teamConfigOpen, setTeamConfigOpen] = useState(false)
   const [exporting, setExporting] = useState<"excel" | "pdf" | null>(null)
   const [showNewTaskForm, setShowNewTaskForm] = useState(false)
+  const [showAsignarForm, setShowAsignarForm] = useState(false)
   const [page, setPage] = useState(1)
   const createTask = useCreateWorkTask()
   const updateManagerTask = useUpdateManagerTask()
@@ -87,9 +89,28 @@ export function TaskManagerView({ canSubmitOwn, filters }: Props) {
             {exporting === "pdf" ? "Exportando..." : "Exportar PDF"}
           </button>
           {canSubmitOwn && (
-            <button type="button" className={taskButtonPrimary} onClick={() => setShowNewTaskForm((v) => !v)}>
-              {showNewTaskForm ? "Cancelar" : "+ Nueva tarea"}
-            </button>
+            <>
+              <button
+                type="button"
+                className={taskButtonSecondary}
+                onClick={() => {
+                  setShowAsignarForm((v) => !v)
+                  setShowNewTaskForm(false)
+                }}
+              >
+                {showAsignarForm ? "Cancelar" : "Asignar tarea"}
+              </button>
+              <button
+                type="button"
+                className={taskButtonPrimary}
+                onClick={() => {
+                  setShowNewTaskForm((v) => !v)
+                  setShowAsignarForm(false)
+                }}
+              >
+                {showNewTaskForm ? "Cancelar" : "+ Nueva tarea"}
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -98,6 +119,20 @@ export function TaskManagerView({ canSubmitOwn, filters }: Props) {
         <div className={`${taskCard} p-6`}>
           <h2 className="text-sm font-semibold text-gray-900 mb-4">Nueva tarea</h2>
           <TaskForm onSubmit={handleNewTaskSubmit} onCancel={() => setShowNewTaskForm(false)} loading={createTask.isPending} />
+        </div>
+      )}
+
+      {showAsignarForm && canSubmitOwn && (
+        <div className={`${taskCard} p-6`}>
+          <h2 className="text-sm font-semibold text-gray-900 mb-4">Asignar tarea a compañero</h2>
+          <AsignarTareaForm
+            onSubmit={async (payload) => {
+              await createTask.mutateAsync(payload)
+              setShowAsignarForm(false)
+            }}
+            onCancel={() => setShowAsignarForm(false)}
+            loading={createTask.isPending}
+          />
         </div>
       )}
 
