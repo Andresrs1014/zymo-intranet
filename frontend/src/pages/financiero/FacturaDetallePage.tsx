@@ -87,6 +87,10 @@ export function FacturaDetallePage() {
   const quitarCuenta = useQuitarCuenta()
   const [cuentaSeleccionada, setCuentaSeleccionada] = useState<number | null>(null)
 
+  // Estado del visor PDF inline
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null)
+  const [pdfLoading, setPdfLoading] = useState(false)
+
   const [bitacora, setBitacora] = useState("")
   const [bitacoraDirty, setBitacoraDirty] = useState(false)
   const syncedSolicitudId = useRef<string | null>(null)
@@ -140,6 +144,33 @@ export function FacturaDetallePage() {
 
   // Autosave: only when draft has been restored (or user started editing); pass null otherwise
   useAutosaveDraft("factura", solicitudId, draftRestored ? (form as Record<string, unknown>) : null)
+
+  // Cargar PDF como blob URL autenticado para el visor inline
+  useEffect(() => {
+    if (!facturaId || !factura?.pdf_path) {
+      setPdfBlobUrl(null)
+      return
+    }
+    const esPdf = factura.pdf_path.toLowerCase().endsWith(".pdf")
+    if (!esPdf) {
+      setPdfBlobUrl(null)
+      return
+    }
+    let objectUrl: string | null = null
+    setPdfLoading(true)
+    api
+      .get(`/api/financiero/facturas/${facturaId}/pdf`, { responseType: "blob" })
+      .then((resp) => {
+        objectUrl = URL.createObjectURL(resp.data as Blob)
+        setPdfBlobUrl(objectUrl)
+      })
+      .catch(() => setPdfBlobUrl(null))
+      .finally(() => setPdfLoading(false))
+    return () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+      setPdfBlobUrl(null)
+    }
+  }, [facturaId, factura?.pdf_path])
 
   // Show modal when a draft exists and hasn't been acted on yet
   useEffect(() => {
