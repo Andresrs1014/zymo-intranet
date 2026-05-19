@@ -449,7 +449,10 @@ def get_paginated_tasks(
     elif team_member_ids is not None:
         query = query.where(WorkTask.subido_por_id.in_(team_member_ids))
     else:
-        query = query.where(WorkTask.subido_por_id == user_id)
+        # Incluye las tareas propias Y las asignadas al usuario por otros
+        query = query.where(
+            or_(WorkTask.subido_por_id == user_id, WorkTask.asignado_a_id == user_id)
+        )
 
     if filters.search:
         term = f"%{filters.search}%"
