@@ -229,29 +229,9 @@ def get_equipo_companeros(
     """Retorna los compañeros de equipo activos del usuario. Accesible con TOOL_SUBMIT."""
     require_tool_or_403(db, current_user, TOOL_SUBMIT)
 
-    from app.models.task_team_member import TaskTeamMember
+    from app.services.task_team_service import get_companeros
 
-    mis_memberships = db.exec(
-        select(TaskTeamMember).where(
-            TaskTeamMember.user_id == current_user.id,
-            TaskTeamMember.is_active == True,  # noqa: E712
-        )
-    ).all()
-
-    if not mis_memberships:
-        return []
-
-    team_ids = [m.team_id for m in mis_memberships]
-
-    companeros = db.exec(
-        select(TaskTeamMember).where(
-            TaskTeamMember.team_id.in_(team_ids),
-            TaskTeamMember.is_active == True,  # noqa: E712
-            TaskTeamMember.user_id != current_user.id,
-        )
-    ).all()
-
-    return [TaskTeamMemberRead.model_validate(c) for c in companeros]
+    return get_companeros(db, current_user.id)
 
 
 # ── Manager endpoints (TOOL_MANAGE) ─────────────────────────────────────────
