@@ -7,6 +7,7 @@ import {
   useCreateWorkTask,
   useUpdateManagerTask,
 } from "@/hooks/useWorkTasks"
+import { useAuthStore } from "@/store/authStore"
 import { exportTasksExcel, exportTasksPdf } from "@/hooks/useTaskExports"
 import { TaskDataTable } from "./TaskDataTable"
 import { TaskDetailSheet } from "./TaskDetailSheet"
@@ -36,6 +37,7 @@ export function TaskManagerView({ canSubmitOwn, filters }: Props) {
   const [page, setPage] = useState(1)
   const createTask = useCreateWorkTask()
   const updateManagerTask = useUpdateManagerTask()
+  const currentUser = useAuthStore((s) => s.user)
 
   // Reset to page 1 whenever filters change
   useEffect(() => { setPage(1) }, [filters])
@@ -207,6 +209,7 @@ export function TaskManagerView({ canSubmitOwn, filters }: Props) {
           await updateManagerTask.mutateAsync({ id: taskId, payload: { estado: newEstado } })
           setSelectedTask((prev) => prev ? { ...prev, estado: newEstado } : null)
         }}
+        currentUserId={currentUser?.id}
       />
       <TaskTeamConfigDialog open={teamConfigOpen} onClose={() => setTeamConfigOpen(false)} />
     </div>
