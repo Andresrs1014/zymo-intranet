@@ -2,6 +2,15 @@ import type { EstadoOC } from "./oc"
 
 export type EstadoFactura = "pendiente" | "validada" | "con_diferencias"
 
+export interface ItemCotizacion {
+  num?: number | null
+  descripcion?: string | null
+  referencia?: string | null
+  cantidad?: number | null
+  valor_unitario?: number | null
+  valor_total?: number | null
+}
+
 export interface SolicitudConFactura {
   solicitud_id: string
   consecutivo_os: string | null
@@ -41,6 +50,10 @@ export interface SolicitudConFactura {
   /** Notas abiertas durante el ciclo de compra (anticipo/proforma, antes de validar factura). */
   observaciones_seguimiento: string | null
   seguimiento_updated_at: string | null
+  /** Aval de compra de la solicitud (campo texto libre). */
+  aval_compra_solicitud: string | null
+  /** Ítems de la cotización aprobada. */
+  items_cotizacion: ItemCotizacion[] | null
 }
 
 export interface Factura {
