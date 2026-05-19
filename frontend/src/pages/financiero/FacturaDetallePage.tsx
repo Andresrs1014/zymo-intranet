@@ -152,16 +152,25 @@ export function FacturaDetallePage() {
       return
     }
     let objectUrl: string | null = null
+    const controller = new AbortController()
     setPdfLoading(true)
     api
-      .get(`/api/financiero/facturas/${facturaId}/pdf`, { responseType: "blob" })
+      .get(`/api/financiero/facturas/${facturaId}/pdf`, {
+        responseType: "blob",
+        signal: controller.signal,
+      })
       .then((resp) => {
         objectUrl = URL.createObjectURL(resp.data as Blob)
         setPdfBlobUrl(objectUrl)
       })
-      .catch(() => setPdfBlobUrl(null))
+      .catch((err) => {
+        if (err?.name !== "CanceledError" && err?.code !== "ERR_CANCELED") {
+          setPdfBlobUrl(null)
+        }
+      })
       .finally(() => setPdfLoading(false))
     return () => {
+      controller.abort()
       if (objectUrl) URL.revokeObjectURL(objectUrl)
       setPdfBlobUrl(null)
     }
