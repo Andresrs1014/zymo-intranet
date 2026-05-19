@@ -1,7 +1,6 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import type { TaskAttachment } from "@/types/workTask"
-import { getAttachmentUrl } from "@/hooks/useTaskAttachments"
 import { useDeleteTaskAttachment } from "@/hooks/useTaskAttachments"
 
 interface AttachmentListProps {

@@ -50,8 +50,8 @@ export function useDeleteTaskAttachment() {
     mutationFn: async ({ taskId, attachmentId }: { taskId: number; attachmentId: number }) => {
       await api.delete(`${BASE}/adjuntos/${attachmentId}`)
     },
-    onSuccess: (_data, { taskId }) => {
-      qc.invalidateQueries({ queryKey: ["tareas", "adjuntos", taskId] })
+    onSuccess: (_data, { taskId: deletedTaskId }) => {
+      qc.invalidateQueries({ queryKey: ["tareas", "adjuntos", deletedTaskId] })
     },
   })
 }
