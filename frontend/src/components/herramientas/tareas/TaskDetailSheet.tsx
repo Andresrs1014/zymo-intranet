@@ -49,6 +49,8 @@ export function TaskDetailSheet({ task, onClose, onStatusChange, currentUserId }
   useEffect(() => {
     setIsEditing(false)
     setEditError(null)
+    setStatusError(null)
+    setIsChangingStatus(false)
   }, [task?.id])
 
   if (!task) return null
@@ -67,7 +69,6 @@ export function TaskDetailSheet({ task, onClose, onStatusChange, currentUserId }
   }
 
   const enterEditMode = () => {
-    if (!task) return
     setEditFields({
       titulo: task.titulo,
       descripcion_tecnica: task.descripcion_tecnica,
@@ -358,9 +359,7 @@ function Field({ label, value }: { label: string; value: string }) {
 }
 
 function formatHora(iso: string): string {
-  try {
-    return new Date(iso).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })
-  } catch {
-    return iso
-  }
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return "—"
+  return d.toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })
 }

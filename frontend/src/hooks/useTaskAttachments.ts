@@ -1,15 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { api } from "@/lib/api"
+import type { TaskAttachment } from "@/types/workTask"
 
-export interface TaskAttachment {
-  id: number
-  task_id: number
-  filename: string
-  mime_type: string
-  size_bytes: number
-  uploaded_by_id: number
-  uploaded_at: string
-}
+export type { TaskAttachment }
 
 const BASE = "/api/herramientas/tareas"
 
