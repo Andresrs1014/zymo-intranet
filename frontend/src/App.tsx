@@ -39,6 +39,7 @@ import { FinancieroPage } from "@/pages/financiero/FinancieroPage"
 import { FacturasPage } from "@/pages/financiero/FacturasPage"
 import { FacturaDetallePage } from "@/pages/financiero/FacturaDetallePage"
 import { FinancieroConfigPage } from "@/pages/financiero/FinancieroConfigPage"
+import { PrintFacturacionPage } from "@/pages/financiero/PrintFacturacionPage"
 import { AgentFloatingWindow } from "@/components/agent/AgentFloatingWindow"
 import { GerencialPage } from "@/pages/gerencial/GerencialPage"
 import { ExtraccionIAPage } from "@/pages/admin/ExtraccionIAPage"
@@ -372,6 +373,14 @@ export default function App() {
           element={
             <FinancieroRoute>
               <FacturaDetallePage />
+            </FinancieroRoute>
+          }
+        />
+        <Route
+          path="/financiero/facturas/:solicitudId/print"
+          element={
+            <FinancieroRoute>
+              <PrintFacturacionPage />
             </FinancieroRoute>
           }
         />

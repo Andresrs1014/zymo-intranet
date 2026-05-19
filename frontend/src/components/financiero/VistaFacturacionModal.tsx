@@ -168,16 +168,21 @@ export function VistaFacturacionModal({ open, onClose, solicitud, factura }: Vis
               <div>
                 <p className="text-sm font-semibold text-gray-800">Formato para facturación</p>
                 <p className="text-xs text-gray-500 mt-0.5 max-w-xl">
-                  Descarga de un documento con este mismo resumen (PDF u hoja de cálculo) estará disponible cuando se defina la plantilla.
+                  Abre una vista de impresión con este resumen. Desde el diálogo del navegador puedes guardar como PDF.
                 </p>
               </div>
               <button
                 type="button"
-                disabled
-                className="shrink-0 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-400 cursor-not-allowed opacity-90"
-                title="Próximamente"
+                onClick={() =>
+                  window.open(
+                    `/financiero/facturas/${solicitud.solicitud_id}/print`,
+                    "_blank",
+                    "noopener,noreferrer"
+                  )
+                }
+                className="shrink-0 rounded-lg border border-brand-blue bg-brand-blue px-4 py-2.5 text-sm font-semibold text-white hover:brightness-105 transition-all"
               >
-                Descargar formato
+                Descargar / Imprimir
               </button>
             </div>
           </section>
