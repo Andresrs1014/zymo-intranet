@@ -1111,7 +1111,18 @@ def _ejecutar_validacion(
     now = datetime.now(timezone.utc)
     checks: list[tuple[str, Optional[str], Optional[str], bool, Optional[str]]] = []
 
-    # Validar valor (tolerancia configurable)
+    # 1. Número de factura — verificar presencia
+    num = factura.numero_factura
+    cumple_numero = bool(num and num.strip())
+    checks.append((
+        "numero_factura",
+        "Campo requerido",
+        num if num else None,
+        cumple_numero,
+        None if cumple_numero else "Número de factura no diligenciado",
+    ))
+
+    # 2. Valor — comparar contra valor aprobado de la OC (tolerancia configurable)
     val_esperado = cotizacion.valor_aprobado
     val_encontrado = factura.valor_factura
     if val_esperado is not None and val_encontrado is not None:
@@ -1127,7 +1138,6 @@ def _ejecutar_validacion(
     else:
         cumple_valor = False
         obs_valor = "Indique el valor en el formulario de factura para comparar con la OC"
-
     checks.append((
         "valor",
         _fmt_cop(val_esperado),
@@ -1136,59 +1146,15 @@ def _ejecutar_validacion(
         obs_valor,
     ))
 
-    # Normaliza NITs eliminando espacios, puntos y guiones para comparación
-    def _normalizar_nit(s: str) -> str:
-        return re.sub(r"[\s.\-]", "", s).upper()
-
-    # Validar NIT proveedor
-    nit_esperado = cotizacion.proveedor_nit
-    nit_encontrado = factura.nit_proveedor
-    if nit_esperado and nit_encontrado:
-        cumple_nit = _normalizar_nit(nit_esperado) == _normalizar_nit(nit_encontrado)
-        obs_nit = (
-            None if cumple_nit
-            else f"NIT esperado: {nit_esperado}, encontrado: {nit_encontrado}"
-        )
-    elif not nit_esperado:
-        cumple_nit = False
-        obs_nit = "NIT de proveedor no figura en los datos de la OC"
-    else:
-        cumple_nit = False
-        obs_nit = "Indique el NIT en el formulario de factura para comparar con la OC"
-
+    # 3. Fecha de factura — verificar presencia
+    fecha = factura.fecha_factura
+    cumple_fecha = fecha is not None
     checks.append((
-        "nit_proveedor",
-        nit_esperado,
-        nit_encontrado,
-        cumple_nit,
-        obs_nit,
-    ))
-
-    # Validar nombre proveedor (coincidencia parcial, case-insensitive)
-    nombre_esperado = cotizacion.proveedor_nombre
-    nombre_encontrado = factura.nombre_proveedor
-    if nombre_esperado and nombre_encontrado:
-        cumple_nombre = (
-            nombre_esperado.lower() in nombre_encontrado.lower()
-            or nombre_encontrado.lower() in nombre_esperado.lower()
-        )
-        obs_nombre = (
-            None if cumple_nombre
-            else f"Nombre esperado: '{nombre_esperado}', encontrado: '{nombre_encontrado}'"
-        )
-    elif not nombre_esperado:
-        cumple_nombre = False
-        obs_nombre = "Nombre de proveedor no figura en los datos de la OC"
-    else:
-        cumple_nombre = False
-        obs_nombre = "Indique el nombre en el formulario de factura para comparar con la OC"
-
-    checks.append((
-        "nombre_proveedor",
-        nombre_esperado,
-        nombre_encontrado,
-        cumple_nombre,
-        obs_nombre,
+        "fecha_factura",
+        "Campo requerido",
+        str(fecha) if fecha else None,
+        cumple_fecha,
+        None if cumple_fecha else "Fecha de factura no diligenciada",
     ))
 
     # Upsert validaciones
