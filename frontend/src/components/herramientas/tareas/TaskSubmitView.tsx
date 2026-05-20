@@ -6,11 +6,13 @@ import {
   useCreateWorkTask,
   useUpdateWorkTask,
 } from "@/hooks/useWorkTasks"
+import { useAuthStore } from "@/store/authStore"
 import type { WorkTask, WorkTaskCreate, TaskFilters } from "@/types/workTask"
 import { TaskForm } from "./TaskForm"
+import { AsignarTareaForm } from "./AsignarTareaForm"
 import { TaskDataTable } from "./TaskDataTable"
 import { TaskDetailSheet } from "./TaskDetailSheet"
-import { taskButtonPrimary, taskCard, formatMinutos } from "@/lib/taskTheme"
+import { taskButtonPrimary, taskButtonSecondary, taskCard, formatMinutos } from "@/lib/taskTheme"
 
 interface Props {
   filters: TaskFilters
@@ -20,7 +22,9 @@ export function TaskSubmitView({ filters }: Props) {
   const today = new Date().toISOString().slice(0, 10)
 
   const [showForm, setShowForm] = useState(false)
+  const [showAsignarForm, setShowAsignarForm] = useState(false)
   const [selectedTask, setSelectedTask] = useState<WorkTask | null>(null)
+  const currentUser = useAuthStore((s) => s.user)
 
   const { data: metrics } = useMyTaskMetrics()
   const { data: todayTasks } = useMyTasks({ fecha_desde: today, fecha_hasta: today })
@@ -53,13 +57,28 @@ export function TaskSubmitView({ filters }: Props) {
           <h1 className="text-xl font-bold text-gray-900">Registro de tareas</h1>
           <p className="text-sm text-gray-500 mt-0.5">Desarrollo e Innovación</p>
         </div>
-        <button
-          type="button"
-          className={taskButtonPrimary}
-          onClick={() => setShowForm((v) => !v)}
-        >
-          {showForm ? "Cancelar" : "+ Nueva tarea"}
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            className={taskButtonSecondary}
+            onClick={() => {
+              setShowAsignarForm((v) => !v)
+              setShowForm(false)
+            }}
+          >
+            {showAsignarForm ? "Cancelar" : "Asignar tarea"}
+          </button>
+          <button
+            type="button"
+            className={taskButtonPrimary}
+            onClick={() => {
+              setShowForm((v) => !v)
+              setShowAsignarForm(false)
+            }}
+          >
+            {showForm ? "Cancelar" : "+ Nueva tarea"}
+          </button>
+        </div>
       </div>
 
       {/* Alert: no registro hoy */}
@@ -82,6 +101,21 @@ export function TaskSubmitView({ filters }: Props) {
           {(kpis.bloqueadas ?? 0) > 0 && (
             <KpiCard label="Bloqueadas" value={kpis.bloqueadas ?? 0} color="text-red-700" />
           )}
+        </div>
+      )}
+
+      {/* Asignar tarea form */}
+      {showAsignarForm && (
+        <div className={`${taskCard} p-6`}>
+          <h2 className="text-sm font-semibold text-gray-900 mb-4">Asignar tarea a compañero</h2>
+          <AsignarTareaForm
+            onSubmit={async (payload) => {
+              await createTask.mutateAsync(payload)
+              setShowAsignarForm(false)
+            }}
+            onCancel={() => setShowAsignarForm(false)}
+            loading={createTask.isPending}
+          />
         </div>
       )}
 
@@ -111,6 +145,7 @@ export function TaskSubmitView({ filters }: Props) {
       <TaskDetailSheet
         task={selectedTask}
         onClose={() => setSelectedTask(null)}
+        currentUserId={currentUser?.id}
         onStatusChange={async (taskId, newEstado) => {
           await updateTask.mutateAsync({ id: taskId, payload: { estado: newEstado } })
           setSelectedTask((prev) => prev ? { ...prev, estado: newEstado } : null)
