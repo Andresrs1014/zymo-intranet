@@ -847,6 +847,10 @@ async def subir_factura(
         select(FacturaProveedor).where(FacturaProveedor.solicitud_id == solicitud_id)
     ).first()
 
+    # Proveedor: fuente de verdad es la cotización de la OC, no el motor de extracción.
+    nit_proveedor_oc = cotizacion.proveedor_nit
+    nombre_proveedor_oc = cotizacion.proveedor_nombre
+
     if factura is None:
         factura = FacturaProveedor(
             solicitud_id=solicitud_id,
@@ -855,8 +859,8 @@ async def subir_factura(
             numero_factura=extraccion.numero_factura,
             valor_factura=extraccion.valor_factura,
             fecha_factura=extraccion.fecha_factura,
-            nit_proveedor=extraccion.nit_proveedor,
-            nombre_proveedor=extraccion.nombre_proveedor,
+            nit_proveedor=nit_proveedor_oc,
+            nombre_proveedor=nombre_proveedor_oc,
             valor_aprobado_oc=cotizacion.valor_aprobado,
             aval_compra=solicitud.aval_compra,
             pdf_path=str(factura_dest),
@@ -872,8 +876,8 @@ async def subir_factura(
         factura.numero_factura = extraccion.numero_factura or factura.numero_factura
         factura.valor_factura = extraccion.valor_factura or factura.valor_factura
         factura.fecha_factura = extraccion.fecha_factura or factura.fecha_factura
-        factura.nit_proveedor = extraccion.nit_proveedor or factura.nit_proveedor
-        factura.nombre_proveedor = extraccion.nombre_proveedor or factura.nombre_proveedor
+        factura.nit_proveedor = nit_proveedor_oc
+        factura.nombre_proveedor = nombre_proveedor_oc
         factura.valor_aprobado_oc = cotizacion.valor_aprobado
         factura.pdf_path = str(factura_dest)
         factura.extraccion_automatica = extraccion.campos_encontrados > 0
@@ -883,7 +887,12 @@ async def subir_factura(
     fin_db.commit()
     fin_db.refresh(factura)
 
-    # Validación automática deshabilitada: solo al pulsar «Correr validación».
+    # Validar automáticamente al subir: compara número, valor y fecha contra la OC.
+    # Si la OC existe, actualiza el estado a validada/con_diferencias en el mismo acto.
+    if orden:
+        _ejecutar_validacion(factura, orden, cotizacion, fin_db)
+        fin_db.refresh(factura)
+
     return factura  # type: ignore[return-value]
 
 

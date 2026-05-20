@@ -61,8 +61,6 @@ export function VistaFacturacionModal({ open, onClose, solicitud, factura }: Vis
 
   if (!open) return null
 
-  const nitFactura = factura?.nit_proveedor ?? null
-  const nombreFactura = factura?.nombre_proveedor ?? null
   const numeroFactura = factura?.numero_factura ?? solicitud.numero_factura
   const valorFactura = factura?.valor_factura ?? solicitud.valor_factura
   const fechaFactura = factura?.fecha_factura ?? solicitud.fecha_factura
@@ -138,10 +136,8 @@ export function VistaFacturacionModal({ open, onClose, solicitud, factura }: Vis
           <section>
             <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Proveedor</h3>
             <div className="rounded-xl border border-gray-100 bg-gray-50/50 px-4">
-              <Row label="Razón social (cotización)" value={solicitud.proveedor_nombre} />
-              <Row label="NIT (cotización / OC)" value={solicitud.proveedor_nit ?? null} />
-              <Row label="Razón social (factura)" value={nombreFactura} />
-              <Row label="NIT (factura)" value={nitFactura} />
+              <Row label="Razón social" value={solicitud.proveedor_nombre} />
+              <Row label="NIT" value={solicitud.proveedor_nit ?? null} />
             </div>
           </section>
 
