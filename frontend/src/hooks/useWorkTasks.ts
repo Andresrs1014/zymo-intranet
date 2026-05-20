@@ -49,6 +49,7 @@ function filtersToParams(filters: TaskFilters): URLSearchParams {
   if (filters.q) p.set("q", filters.q)
   if (filters.sin_registro_hoy) p.set("sin_registro_hoy", "true")
   if (filters.fecha_referencia) p.set("fecha_referencia", filters.fecha_referencia)
+  if (filters.team_id != null) p.set("team_id", String(filters.team_id))
   return p
 }
 
@@ -64,11 +65,12 @@ export function useMyTasks(filters: TaskFilters = {}) {
   })
 }
 
-export function useMyTaskMetrics() {
+export function useMyTaskMetrics(teamId?: number) {
   return useQuery({
-    queryKey: ["tareas", "mis-metricas"],
+    queryKey: ["tareas", "mis-metricas", teamId ?? null],
     queryFn: async () => {
-      const { data } = await api.get<MyTaskMetrics>(`${BASE}/mis-metricas`)
+      const url = teamId ? `${BASE}/mis-metricas?team_id=${teamId}` : `${BASE}/mis-metricas`
+      const { data } = await api.get<MyTaskMetrics>(url)
       return data
     },
   })
@@ -79,6 +81,17 @@ export function useMyTeams() {
     queryKey: ["tareas", "mis-equipos"],
     queryFn: async () => {
       const { data } = await api.get<UserTeamInfo[]>(`${BASE}/mis-equipos`)
+      return data
+    },
+  })
+}
+
+/** Equipos que el usuario gestiona (gestor primario + co-gestor). Para el workspace switcher. */
+export function useManagedTeams() {
+  return useQuery<UserTeamInfo[]>({
+    queryKey: ["tareas", "mis-equipos-gestionados"],
+    queryFn: async () => {
+      const { data } = await api.get<UserTeamInfo[]>(`${BASE}/mis-equipos-gestionados`)
       return data
     },
   })
@@ -187,11 +200,12 @@ export function useTeamMembers(enabled = true) {
   })
 }
 
-export function useTeamCompaneros() {
+export function useTeamCompaneros(teamId?: number) {
   return useQuery<TaskTeamMember[]>({
-    queryKey: ["tareas", "equipo", "companeros"],
+    queryKey: ["tareas", "equipo", "companeros", teamId ?? null],
     queryFn: async () => {
-      const { data } = await api.get<TaskTeamMember[]>(`${BASE}/equipo/companeros`)
+      const url = teamId ? `${BASE}/equipo/companeros?team_id=${teamId}` : `${BASE}/equipo/companeros`
+      const { data } = await api.get<TaskTeamMember[]>(url)
       return data
     },
   })

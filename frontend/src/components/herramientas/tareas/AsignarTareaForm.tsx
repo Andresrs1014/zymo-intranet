@@ -12,6 +12,7 @@ interface AsignarTareaFormProps {
   onSubmit: (payload: WorkTaskCreate) => Promise<void>
   onCancel?: () => void
   loading?: boolean
+  activeTeamId?: number
 }
 
 function getTomorrow(): string {
@@ -20,8 +21,8 @@ function getTomorrow(): string {
   return d.toISOString().slice(0, 10)
 }
 
-export function AsignarTareaForm({ onSubmit, onCancel, loading }: AsignarTareaFormProps) {
-  const { data: companeros = [] } = useTeamCompaneros()
+export function AsignarTareaForm({ onSubmit, onCancel, loading, activeTeamId }: AsignarTareaFormProps) {
+  const { data: companeros = [] } = useTeamCompaneros(activeTeamId)
   const { data: myTeams = [] } = useMyTeams()
 
   const [asignadoAId, setAsignadoAId] = useState<number | "">("")
@@ -30,10 +31,9 @@ export function AsignarTareaForm({ onSubmit, onCancel, loading }: AsignarTareaFo
   const [fecha, setFecha] = useState(getTomorrow())
   const [prioridad, setPrioridad] = useState("media")
   const [etiqueta, setEtiqueta] = useState("")
-  const [teamId, setTeamId] = useState<number | undefined>(undefined)
 
-  const needsTeamSelector = myTeams.length > 1
-  const { data: lists } = useTaskLists(teamId ?? myTeams[0]?.team_id)
+  const effectiveTeamId = activeTeamId ?? myTeams[0]?.team_id
+  const { data: lists } = useTaskLists(effectiveTeamId)
   const etiquetas = lists?.etiqueta ?? []
 
   const today = new Date().toISOString().slice(0, 10)
@@ -49,7 +49,7 @@ export function AsignarTareaForm({ onSubmit, onCancel, loading }: AsignarTareaFo
       fecha,
       prioridad,
       ...(etiqueta && { etiqueta }),
-      ...(needsTeamSelector && teamId ? { team_id: teamId } : {}),
+      ...(effectiveTeamId ? { team_id: effectiveTeamId } : {}),
     }
     await onSubmit(payload)
 
@@ -59,7 +59,6 @@ export function AsignarTareaForm({ onSubmit, onCancel, loading }: AsignarTareaFo
     setFecha(getTomorrow())
     setPrioridad("media")
     setEtiqueta("")
-    setTeamId(undefined)
   }
 
   return (
@@ -68,22 +67,7 @@ export function AsignarTareaForm({ onSubmit, onCancel, loading }: AsignarTareaFo
         Asigna una tarea futura a un compañero. No se registran horas — es para planificar trabajo próximo.
       </div>
 
-      {needsTeamSelector && (
-        <div>
-          <label className={taskLabel}>Equipo *</label>
-          <select
-            className={taskInput}
-            value={teamId ?? ""}
-            onChange={(e) => setTeamId(e.target.value ? Number(e.target.value) : undefined)}
-            required
-          >
-            <option value="">Seleccionar equipo...</option>
-            {myTeams.map((t) => (
-              <option key={t.team_id} value={t.team_id}>{t.team_name}</option>
-            ))}
-          </select>
-        </div>
-      )}
+
 
       <div>
         <label className={taskLabel}>Asignar a *</label>

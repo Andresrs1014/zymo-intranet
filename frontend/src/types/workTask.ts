@@ -101,6 +101,7 @@ export interface TaskFilters {
   sin_registro_hoy?: boolean
   /** Día local YYYY-MM-DD para avisos de “registro hoy” (debe enviar el cliente). */
   fecha_referencia?: string
+  team_id?: number
 }
 
 export const ETIQUETAS = ["desarrollos", "actualizaciones", "auditorias", "implementacion_okr", "tareas_diarias"] as const
@@ -131,6 +132,7 @@ export interface PaginatedTaskFilters {
   fecha_exacta?: string
   fecha_desde?: string
   fecha_hasta?: string
+  team_id?: number
 }
 
 // --- Agenda ---

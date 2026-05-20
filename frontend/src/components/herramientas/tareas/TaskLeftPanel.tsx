@@ -9,6 +9,7 @@ interface Props {
   onFiltersChange: (f: TaskFilters) => void
   persons: PersonTaskSummary[]
   onClose: () => void
+  activeTeamId?: number
 }
 
 export function TaskLeftPanel({
@@ -17,8 +18,9 @@ export function TaskLeftPanel({
   onFiltersChange,
   persons,
   onClose,
+  activeTeamId,
 }: Props) {
-  const { data: lists } = useTaskLists()
+  const { data: lists } = useTaskLists(activeTeamId)
   const estados = lists?.estado ?? []
   const etiquetas = lists?.etiqueta ?? []
   const plataformas = lists?.plataforma ?? []

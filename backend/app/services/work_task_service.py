@@ -366,11 +366,12 @@ def list_own_tasks(
     return list(db.exec(query).all())
 
 
-def own_metrics(db: Session, user: User) -> dict:
+def own_metrics(db: Session, user: User, team_id: Optional[int] = None) -> dict:
     """Returns personal metrics for tasks the user *registered* (created)."""
-    tasks = db.exec(
-        select(WorkTask).where(WorkTask.subido_por_id == user.id)
-    ).all()
+    query = select(WorkTask).where(WorkTask.subido_por_id == user.id)
+    if team_id is not None:
+        query = query.where(WorkTask.team_id == team_id)
+    tasks = db.exec(query).all()
     completadas = sum(1 for t in tasks if t.estado == "completada")
     en_progreso = sum(1 for t in tasks if t.estado == "en_progreso")
     bloqueadas = sum(1 for t in tasks if t.estado == "bloqueada")
@@ -486,6 +487,8 @@ def get_paginated_tasks(
         query = query.where(WorkTask.etiqueta == filters.etiqueta)
     if filters.plataforma:
         query = query.where(WorkTask.plataforma == filters.plataforma)
+    if filters.team_id is not None:
+        query = query.where(WorkTask.team_id == filters.team_id)
     fecha_exacta_parsed = date.fromisoformat(filters.fecha_exacta) if filters.fecha_exacta else None
     fecha_desde_parsed = date.fromisoformat(filters.fecha_desde) if filters.fecha_desde else None
     fecha_hasta_parsed = date.fromisoformat(filters.fecha_hasta) if filters.fecha_hasta else None

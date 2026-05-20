@@ -185,9 +185,10 @@ export function SolicitudDetallePage() {
     )
   }
 
-  const esAuxiliarAsignado = solicitud.auxiliar_id === user?.id
+  const esAuxiliarAsignado = solicitud.auxiliar_id && user?.id ? Number(solicitud.auxiliar_id) === Number(user.id) : false
   const esSolicitante = user?.email === solicitud.solicitante_email
   const perms = user?.app_permissions ?? []
+  const tieneAccesoCompras = !!user && (user.role === "admin" || user.role === "compras" || perms.includes("mod_oc_ver"))
   const puedeAsignarse =
     !solicitud.auxiliar_id &&
     !!user &&
@@ -1815,7 +1816,7 @@ export function SolicitudDetallePage() {
               )}
 
               {/* Acción auxiliar: cargar cotización */}
-              {(esAuxiliarAsignado || user?.role === "admin") &&
+              {(esAuxiliarAsignado || tieneAccesoCompras) &&
                 (solicitud.estado === "en_cotizacion" || (solicitud.estado === "rechazada" && cotizaciones.length > 0)) && (
                   <Section title="Gestión">
                     <p className="text-xs text-gray-500 mb-3">

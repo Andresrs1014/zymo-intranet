@@ -15,6 +15,7 @@ interface TaskFormProps {
   loading?: boolean
   /** Si true, bloquea envío cuando el usuario no tiene equipos (colaboradores sin alta en equipo). */
   blockSubmitWithoutTeam?: boolean
+  activeTeamId?: number
 }
 
 function calcMinutos(inicio: string, cierre: string): number | null {
@@ -30,6 +31,7 @@ export function TaskForm({
   onCancel,
   loading,
   blockSubmitWithoutTeam = false,
+  activeTeamId,
 }: TaskFormProps) {
   const today = new Date().toISOString().slice(0, 10)
   const { data: myTeams = [] } = useMyTeams()
@@ -41,21 +43,21 @@ export function TaskForm({
   const [fecha, setFecha] = useState(today)
   const [estado, setEstado] = useState<string>("")
   const [prioridad, setPrioridad] = useState<string>("media")
-  const [teamId, setTeamId] = useState<number | undefined>(undefined)
   const [horaInicio, setHoraInicio] = useState("")
   const [horaCierre, setHoraCierre] = useState("")
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [fileError, setFileError] = useState<string | null>(null)
 
+  const effectiveTeamId = activeTeamId ?? myTeams[0]?.team_id
+
   // Fetch lists for the selected team so dropdowns always match validation
-  const { data: lists } = useTaskLists(teamId)
+  const { data: lists } = useTaskLists(effectiveTeamId)
 
   const etiquetas = lists?.etiqueta ?? []
   const plataformas = lists?.plataforma ?? []
   const estados = lists?.estado ?? []
 
   const minutos = calcMinutos(horaInicio, horaCierre)
-  const needsTeamSelector = myTeams.length > 1
   const cannotSubmitNoTeam = blockSubmitWithoutTeam && myTeams.length === 0
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -74,7 +76,7 @@ export function TaskForm({
       ...(plataforma && { plataforma }),
       ...(estado && { estado }),
       prioridad,
-      ...(needsTeamSelector && teamId ? { team_id: teamId } : {}),
+      ...(effectiveTeamId ? { team_id: effectiveTeamId } : {}),
       fecha,
       hora_inicio: horaInicio ? new Date(`${fecha}T${horaInicio}:00`).toISOString() : undefined,
       hora_cierre: horaCierre ? new Date(`${fecha}T${horaCierre}:00`).toISOString() : undefined,
@@ -87,7 +89,6 @@ export function TaskForm({
     setFecha(today)
     setEstado("")
     setPrioridad("media")
-    setTeamId(undefined)
     setHoraInicio("")
     setHoraCierre("")
     setPendingFiles([])
@@ -104,28 +105,7 @@ export function TaskForm({
         </div>
       )}
 
-      {needsTeamSelector && (
-        <div>
-          <label className={taskLabel}>Equipo *</label>
-          <select
-            className={taskInput}
-            value={teamId ?? ""}
-            onChange={(e) => {
-              setTeamId(e.target.value ? Number(e.target.value) : undefined)
-              // Reset dependent fields so they don't carry values invalid for the new team's lists
-              setEtiqueta("")
-              setPlataforma("")
-              setEstado("")
-            }}
-            required
-          >
-            <option value="">Seleccionar equipo...</option>
-            {myTeams.map((t) => (
-              <option key={t.team_id} value={t.team_id}>{t.team_name}</option>
-            ))}
-          </select>
-        </div>
-      )}
+
 
       <div>
         <label className={taskLabel}>Título *</label>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { Navigate } from "react-router-dom"
-import { Plus, PanelRightClose, PanelRightOpen } from "lucide-react"
+import { Plus, PanelRightClose, PanelRightOpen, ChevronDown, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { useAuthStore } from "@/store/authStore"
@@ -16,7 +16,7 @@ import { ListConfigTab } from "@/components/herramientas/tareas/ListConfigTab"
 import { TaskLeftRail } from "@/components/herramientas/tareas/TaskLeftRail"
 import { TaskLeftPanel } from "@/components/herramientas/tareas/TaskLeftPanel"
 import { EventDetailSheet } from "@/components/herramientas/tareas/EventDetailSheet"
-import { useTeamPersonSummaries, useTeamMembers } from "@/hooks/useWorkTasks"
+import { useTeamPersonSummaries, useTeamMembers, useManagedTeams, useMyTeams } from "@/hooks/useWorkTasks"
 import type { TaskFilters, TaskEvent } from "@/types/workTask"
 
 const LEFT_PANEL_KEY = "task-left-panel-open"
@@ -34,7 +34,16 @@ export function GestionTareasPage() {
   const canManage = canManageDevTasks(userTools) || isUserCoGestor
   const canSubmit = canSubmitDevTasks(userTools)
 
+  const { data: managedTeams = [] } = useManagedTeams()
+  const { data: memberTeams = [] } = useMyTeams()
+
+  const allWorkspaces = canManage ? managedTeams : memberTeams
+  const [selectedTeamId, setSelectedTeamId] = useState<number | undefined>(undefined)
+  const activeTeamId = selectedTeamId ?? allWorkspaces[0]?.team_id
+
   const [filters, setFilters] = useState<TaskFilters>({})
+  const effectiveFilters = { ...filters, team_id: activeTeamId }
+
   const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(
     () => localStorage.getItem(LEFT_PANEL_KEY) === "true"
   )
@@ -43,7 +52,7 @@ export function GestionTareasPage() {
   const [isScheduleOpen, setIsScheduleOpen] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<TaskEvent | null>(null)
 
-  const { data: persons = [] } = useTeamPersonSummaries(filters)
+  const { data: persons = [] } = useTeamPersonSummaries(effectiveFilters)
 
   useEffect(() => {
     localStorage.setItem(LEFT_PANEL_KEY, String(isLeftPanelOpen))
@@ -53,7 +62,8 @@ export function GestionTareasPage() {
     return <Navigate to="/dashboard" replace />
   }
 
-  const pageTitle = canManage ? "Gestión de Tareas" : "Registro de Tareas"
+  const activeWorkspace = allWorkspaces.find((t) => t.team_id === activeTeamId)
+  const pageTitle = activeWorkspace?.team_name ?? (canManage ? "Gestión de Tareas" : "Registro de Tareas")
 
   const hasActiveFilters = !!(
     filters.fecha_desde ||
@@ -86,17 +96,49 @@ export function GestionTareasPage() {
           onFiltersChange={setFilters}
           persons={canManage ? persons : []}
           onClose={() => setIsLeftPanelOpen(false)}
+          activeTeamId={activeTeamId}
         />
 
         <main className="flex-1 overflow-y-auto min-w-0">
           <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-background shrink-0">
             <div className="flex items-center gap-3">
               <div className="h-6 w-1.5 bg-primary rounded-full" />
-              <span className="text-base font-semibold">
-                {canManage
-                  ? `Equipo de ${user?.full_name?.split(" ")[0] ?? "Desarrollo e Innovación"}`
-                  : "Mis tareas"}
-              </span>
+              {allWorkspaces.length > 1 ? (
+                <div className="relative group">
+                  <button
+                    type="button"
+                    className="flex items-center gap-1.5 text-base font-semibold hover:text-primary transition-colors focus:outline-none"
+                    title="Cambiar equipo / workspace"
+                  >
+                    <span>{pageTitle}</span>
+                    <ChevronDown className="h-4 w-4 text-gray-400 group-hover:text-primary transition-colors" />
+                  </button>
+                  <div className="absolute left-0 top-full mt-1.5 z-50 hidden group-focus-within:block group-hover:block bg-background border border-border rounded-xl shadow-xl py-1.5 min-w-[220px] backdrop-blur-md bg-opacity-95">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-3 py-1 border-b border-border mb-1">
+                      Mis Equipos / Workspaces
+                    </p>
+                    {allWorkspaces.map((ws) => (
+                      <button
+                        key={ws.team_id}
+                        type="button"
+                        onClick={() => setSelectedTeamId(ws.team_id)}
+                        className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-muted transition-colors ${
+                          ws.team_id === activeTeamId
+                            ? "font-semibold text-primary"
+                            : "text-foreground"
+                        }`}
+                      >
+                        <span>{ws.team_name}</span>
+                        {ws.team_id === activeTeamId && (
+                          <Check className="h-3.5 w-3.5 text-primary" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <span className="text-base font-semibold">{pageTitle}</span>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -139,10 +181,11 @@ export function GestionTareasPage() {
                 {canManage ? (
                   <TaskManagerView
                     canSubmitOwn={true}
-                    filters={filters}
+                    filters={effectiveFilters}
+                    activeTeamId={activeTeamId}
                   />
                 ) : (
-                  <TaskSubmitView filters={filters} />
+                  <TaskSubmitView filters={effectiveFilters} activeTeamId={activeTeamId} />
                 )}
               </TabsContent>
 

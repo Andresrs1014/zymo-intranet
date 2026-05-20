@@ -71,6 +71,7 @@ class PaginatedTaskFilters(BaseModel):
     fecha_exacta: Optional[str] = None
     fecha_desde: Optional[str] = None
     fecha_hasta: Optional[str] = None
+    team_id: Optional[int] = None
 
 
 class PaginatedMeta(BaseModel):

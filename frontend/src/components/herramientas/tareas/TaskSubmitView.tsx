@@ -18,9 +18,10 @@ import { taskButtonPrimary, taskButtonSecondary, taskCard, formatMinutos } from 
 
 interface Props {
   filters: TaskFilters
+  activeTeamId?: number
 }
 
-export function TaskSubmitView({ filters }: Props) {
+export function TaskSubmitView({ filters, activeTeamId }: Props) {
   const today = new Date().toISOString().slice(0, 10)
 
   const [showForm, setShowForm] = useState(false)
@@ -30,8 +31,8 @@ export function TaskSubmitView({ filters }: Props) {
   const currentUser = useAuthStore((s) => s.user)
   const uploadAttachment = useUploadTaskAttachment()
 
-  const { data: metrics } = useMyTaskMetrics()
-  const { data: todayTasks } = useMyTasks({ fecha_desde: today, fecha_hasta: today })
+  const { data: metrics } = useMyTaskMetrics(activeTeamId)
+  const { data: todayTasks } = useMyTasks({ fecha_desde: today, fecha_hasta: today, team_id: activeTeamId })
   const { data: allTasks } = useMyTasks(filters)
   const { data: myTeams = [] } = useMyTeams()
   const createTask = useCreateWorkTask()
@@ -122,6 +123,7 @@ export function TaskSubmitView({ filters }: Props) {
             }}
             onCancel={() => setShowAsignarForm(false)}
             loading={createTask.isPending}
+            activeTeamId={activeTeamId}
           />
         </div>
       )}
@@ -135,6 +137,7 @@ export function TaskSubmitView({ filters }: Props) {
             onCancel={() => setShowForm(false)}
             loading={createTask.isPending}
             blockSubmitWithoutTeam
+            activeTeamId={activeTeamId}
           />
         </div>
       )}

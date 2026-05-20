@@ -60,6 +60,7 @@ def _team_filters(
     q: Optional[str] = Query(default=None),
     sin_registro_hoy: bool = Query(default=False),
     fecha_referencia: Optional[date] = Query(default=None),
+    team_id: Optional[int] = Query(default=None),
 ) -> TaskFilters:
     return TaskFilters(
         fecha_desde=fecha_desde,
@@ -71,6 +72,7 @@ def _team_filters(
         q=q,
         sin_registro_hoy=sin_registro_hoy,
         fecha_referencia=fecha_referencia,
+        team_id=team_id,
     )
 
 
@@ -89,6 +91,7 @@ def mis_tareas_paginadas(
     fecha_exacta: Optional[str] = Query(default=None),
     fecha_desde: Optional[str] = Query(default=None),
     fecha_hasta: Optional[str] = Query(default=None),
+    team_id: Optional[int] = Query(default=None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -103,6 +106,7 @@ def mis_tareas_paginadas(
         page=page, limit=limit, search=effective_search, responsable_id=responsable_id,
         estado=estado, etiqueta=etiqueta, plataforma=plataforma,
         fecha_exacta=fecha_exacta, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta,
+        team_id=team_id,
     )
     return get_paginated_tasks(db, current_user.id, filters)
 
@@ -199,6 +203,7 @@ def update_team_task_endpoint(
 
 @router.get("/mis-metricas")
 def get_mis_metricas(
+    team_id: Optional[int] = Query(default=None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict:
@@ -206,7 +211,7 @@ def get_mis_metricas(
 
     from app.services.work_task_service import own_metrics
 
-    return own_metrics(db, current_user)
+    return own_metrics(db, current_user, team_id)
 
 
 @router.get("/mis-equipos", response_model=list[UserTeamInfo])
@@ -221,14 +226,59 @@ def get_mis_equipos(
     return [UserTeamInfo(**t) for t in teams]
 
 
+@router.get("/mis-equipos-gestionados", response_model=list[UserTeamInfo])
+def get_mis_equipos_gestionados(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[UserTeamInfo]:
+    """Equipos que el usuario gestiona (como gestor primario o co-gestor).
+    Usado para el workspace switcher en la UI.
+    """
+    from app.services.task_team_service import get_all_comanaged_owner_ids
+    from app.models.task_team import TaskTeam
+
+    is_admin = getattr(current_user, "role", None) == "admin"
+    has_manage = user_has_tool(db, current_user, TOOL_MANAGE)
+
+    teams = []
+
+    if is_admin or has_manage:
+        # Gestor primario — su propio equipo
+        from app.services.task_team_service import get_or_create_manager_team
+        own_team = get_or_create_manager_team(db, current_user.id)
+        teams.append(UserTeamInfo(
+            team_id=own_team.id,
+            team_name=own_team.name,
+            owner_id=own_team.owner_user_id,
+        ))
+
+    # Co-gestor — todos los equipos donde tiene ese rol
+    cogestor_owner_ids = get_all_comanaged_owner_ids(db, current_user.id)
+    for owner_id in cogestor_owner_ids:
+        coteam = db.exec(
+            select(TaskTeam).where(TaskTeam.owner_user_id == owner_id).where(TaskTeam.is_active == True)  # noqa: E712
+        ).first()
+        if coteam:
+            teams.append(UserTeamInfo(
+                team_id=coteam.id,
+                team_name=coteam.name,
+                owner_id=coteam.owner_user_id,
+            ))
+
+    return teams
+
+
 @router.get("/equipo/companeros", response_model=list[TaskTeamMemberRead])
 def get_equipo_companeros(
+    team_id: Optional[int] = Query(default=None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[TaskTeamMemberRead]:
     """Retorna los compañeros/miembros de equipo para asignar tareas.
     - Colaboradores (TOOL_SUBMIT): devuelve compañeros de sus equipos activos.
     - Gestores (TOOL_MANAGE): devuelve todos los usuarios activos (pueden asignar a cualquiera).
+    - Si se especifica team_id, se devuelven solo los miembros activos de ese equipo específico,
+      siempre que el usuario tenga acceso.
     """
     is_manager = user_has_tool(db, current_user, TOOL_MANAGE)
     is_submit = user_has_tool(db, current_user, TOOL_SUBMIT)
@@ -238,9 +288,59 @@ def get_equipo_companeros(
         raise HTTPException(status_code=403, detail="Acceso denegado.")
 
     from app.services.task_team_service import get_companeros, get_all_active_users_for_manager
+    from app.models.task_team_member import TaskTeamMember
+    from app.models.user import User as UserModel
+    from sqlmodel import select
+
+    if team_id is not None:
+        from app.models.task_team import TaskTeam
+        team = db.get(TaskTeam, team_id)
+        if not team or not team.is_active:
+            raise HTTPException(status_code=404, detail="Equipo no encontrado.")
+
+        from app.services.task_team_service import get_all_comanaged_owner_ids
+        cogestor_owner_ids = get_all_comanaged_owner_ids(db, current_user.id)
+        is_owner_or_cogestor = (
+            (is_manager or is_admin) and team.owner_user_id == current_user.id
+        ) or (team.owner_user_id in cogestor_owner_ids)
+
+        if not is_owner_or_cogestor:
+            membership = db.exec(
+                select(TaskTeamMember).where(
+                    TaskTeamMember.team_id == team_id,
+                    TaskTeamMember.user_id == current_user.id,
+                    TaskTeamMember.is_active == True,  # noqa: E712
+                )
+            ).first()
+            if not membership:
+                raise HTTPException(status_code=403, detail="No tienes acceso a este equipo.")
+
+        rows = db.exec(
+            select(TaskTeamMember, UserModel).join(
+                UserModel, TaskTeamMember.user_id == UserModel.id
+            ).where(
+                TaskTeamMember.team_id == team_id,
+                TaskTeamMember.is_active == True,  # noqa: E712
+                UserModel.id != current_user.id,
+            )
+        ).all()
+        return [
+            TaskTeamMemberRead(
+                id=m.id,
+                team_id=m.team_id,
+                user_id=m.user_id,
+                role=m.role,
+                is_active=m.is_active,
+                created_at=m.created_at,
+                user_full_name=u.full_name,
+                user_email=u.email,
+            )
+            for m, u in rows
+        ]
 
     if is_manager or is_admin:
         return get_all_active_users_for_manager(db, exclude_user_id=current_user.id)
+
     return get_companeros(db, current_user.id)
 
 
@@ -258,6 +358,7 @@ def equipo_tareas_paginadas(
     fecha_exacta: Optional[str] = Query(default=None),
     fecha_desde: Optional[str] = Query(default=None),
     fecha_hasta: Optional[str] = Query(default=None),
+    team_id: Optional[int] = Query(default=None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -266,7 +367,7 @@ def equipo_tareas_paginadas(
     from app.services.task_team_service import get_or_create_manager_team
     from app.models.task_team_member import TaskTeamMember
 
-    owner_id = _require_manage_access(db, current_user)
+    owner_id = _require_manage_access(db, current_user, team_id)
 
     team = get_or_create_manager_team(db, owner_id)
     members = db.exec(
@@ -281,6 +382,7 @@ def equipo_tareas_paginadas(
         page=page, limit=limit, search=search, responsable_id=responsable_id,
         estado=estado, etiqueta=etiqueta, plataforma=plataforma,
         fecha_exacta=fecha_exacta, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta,
+        team_id=team.id,
     )
     return get_paginated_tasks(db, owner_id, filters, team_member_ids=member_ids, team_id=team.id)
 
@@ -290,20 +392,39 @@ def _owner_id(current_user: User) -> int:
     return current_user.id
 
 
-def _require_manage_access(db: Session, current_user: User) -> int:
+def _require_manage_access(db: Session, current_user: User, team_id: Optional[int] = None) -> int:
     """Valida que el usuario puede gestionar un equipo.
     Permite: gestor primario (TOOL_MANAGE) o co-gestor (role=co_gestor en algún equipo).
     Retorna el owner_id del equipo a gestionar.
     Lanza 403 si no tiene acceso.
     """
-    from app.services.task_team_service import get_comanaged_owner_id
+    from app.services.task_team_service import get_all_comanaged_owner_ids
+    from app.models.task_team import TaskTeam
 
-    if user_has_tool(db, current_user, TOOL_MANAGE):
+    is_admin = getattr(current_user, "role", None) == "admin"
+    has_manage = user_has_tool(db, current_user, TOOL_MANAGE)
+
+    # 1. Si especifican team_id, validamos acceso a ese equipo específico
+    if team_id is not None:
+        team = db.get(TaskTeam, team_id)
+        if team and team.is_active:
+            # Es su propio equipo
+            if (has_manage or is_admin) and team.owner_user_id == current_user.id:
+                return team.owner_user_id
+            # Es un equipo donde es co-gestor
+            cogestor_owner_ids = get_all_comanaged_owner_ids(db, current_user.id)
+            if team.owner_user_id in cogestor_owner_ids:
+                return team.owner_user_id
+
+        raise HTTPException(status_code=403, detail="No tienes acceso a este equipo.")
+
+    # 2. Si no especifican team_id (comportamiento legacy), devolvemos el primero disponible
+    if has_manage or is_admin:
         return current_user.id
 
-    owner_id = get_comanaged_owner_id(db, current_user.id)
-    if owner_id:
-        return owner_id
+    cogestor_owner_ids = get_all_comanaged_owner_ids(db, current_user.id)
+    if cogestor_owner_ids:
+        return cogestor_owner_ids[0]
 
     raise HTTPException(status_code=403, detail="Acceso denegado. Se requiere rol de gestor o co-gestor.")
 
@@ -314,7 +435,7 @@ def get_equipo_tasks(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[WorkTaskRead]:
-    owner_id = _require_manage_access(db, current_user)
+    owner_id = _require_manage_access(db, current_user, filters.team_id)
 
     from app.services.task_dashboard_service import get_team_tasks
 
@@ -328,7 +449,7 @@ def get_equipo_kpis(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> TaskKpis:
-    owner_id = _require_manage_access(db, current_user)
+    owner_id = _require_manage_access(db, current_user, filters.team_id)
 
     from app.services.task_dashboard_service import get_team_kpis
 
@@ -341,7 +462,7 @@ def get_equipo_personas(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[PersonTaskSummary]:
-    owner_id = _require_manage_access(db, current_user)
+    owner_id = _require_manage_access(db, current_user, filters.team_id)
 
     from app.services.task_dashboard_service import get_person_summaries
 

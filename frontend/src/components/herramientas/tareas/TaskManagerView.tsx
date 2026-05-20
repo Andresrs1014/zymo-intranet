@@ -28,9 +28,10 @@ const PAGE_SIZE = 20
 interface Props {
   canSubmitOwn?: boolean
   filters: TaskFilters
+  activeTeamId?: number
 }
 
-export function TaskManagerView({ canSubmitOwn, filters }: Props) {
+export function TaskManagerView({ canSubmitOwn, filters, activeTeamId }: Props) {
   const [selectedTask, setSelectedTask] = useState<WorkTask | null>(null)
   const [explorerTask, setExplorerTask] = useState<WorkTask | null>(null)
   const [teamConfigOpen, setTeamConfigOpen] = useState(false)
@@ -56,6 +57,7 @@ export function TaskManagerView({ canSubmitOwn, filters }: Props) {
     plataforma: filters.plataforma,
     fecha_desde: filters.fecha_desde,
     fecha_hasta: filters.fecha_hasta,
+    team_id: activeTeamId,
   }
 
   const { data: taskPage, isLoading, isError } = useTeamTasksPaginated(paginatedFilters)
@@ -127,7 +129,7 @@ export function TaskManagerView({ canSubmitOwn, filters }: Props) {
       {showNewTaskForm && canSubmitOwn && (
         <div className={`${taskCard} p-6`}>
           <h2 className="text-sm font-semibold text-gray-900 mb-4">Nueva tarea</h2>
-          <TaskForm onSubmit={handleNewTaskSubmit} onCancel={() => setShowNewTaskForm(false)} loading={createTask.isPending} />
+          <TaskForm onSubmit={handleNewTaskSubmit} onCancel={() => setShowNewTaskForm(false)} loading={createTask.isPending} activeTeamId={activeTeamId} />
         </div>
       )}
 
@@ -141,6 +143,7 @@ export function TaskManagerView({ canSubmitOwn, filters }: Props) {
             }}
             onCancel={() => setShowAsignarForm(false)}
             loading={createTask.isPending}
+            activeTeamId={activeTeamId}
           />
         </div>
       )}

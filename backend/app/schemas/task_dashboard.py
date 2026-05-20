@@ -14,6 +14,7 @@ class TaskFilters(BaseModel):
     sin_registro_hoy: bool = False
     #: Día local del cliente (YYYY-MM-DD) para “registro hoy” y KPIs; si no llega, usa date.today() del servidor.
     fecha_referencia: date | None = None
+    team_id: int | None = None
 
 
 class TaskKpis(BaseModel):

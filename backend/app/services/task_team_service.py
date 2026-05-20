@@ -178,6 +178,22 @@ def get_comanaged_owner_id(db: Session, user_id: int) -> int | None:
     return team.owner_user_id if team else None
 
 
+def get_all_comanaged_owner_ids(db: Session, user_id: int) -> list[int]:
+    """Retorna los owner_user_id de todos los equipos donde el usuario es co_gestor activo."""
+    memberships = db.exec(
+        select(TaskTeamMember)
+        .where(TaskTeamMember.user_id == user_id)
+        .where(TaskTeamMember.role == "co_gestor")
+        .where(TaskTeamMember.is_active == True)  # noqa: E712
+    ).all()
+    owner_ids = []
+    for m in memberships:
+        team = db.get(TaskTeam, m.team_id)
+        if team and team.is_active and team.owner_user_id not in owner_ids:
+            owner_ids.append(team.owner_user_id)
+    return owner_ids
+
+
 def promote_to_cogestor(db: Session, user_id: int, owner_id: int) -> TaskTeamMember:
     """Promueve un miembro activo a co_gestor. Solo el gestor primario puede llamar esto."""
     team = get_or_create_manager_team(db, owner_id)
