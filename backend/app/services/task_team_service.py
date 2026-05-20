@@ -218,6 +218,45 @@ def demote_to_member(db: Session, user_id: int, owner_id: int) -> TaskTeamMember
     return member
 
 
+def get_manager_team_members(db: Session, manager_user_id: int) -> list:
+    """Retorna los miembros activos del equipo gestionado por manager_user_id."""
+    from app.models.task_team import TaskTeam
+    from app.models.task_team_member import TaskTeamMember
+    from app.models.user import User as UserModel
+    from sqlmodel import select
+    from app.schemas.task_team import TaskTeamMemberRead
+
+    team = db.exec(
+        select(TaskTeam).where(TaskTeam.owner_user_id == manager_user_id)
+    ).first()
+
+    if not team:
+        return []
+
+    rows = db.exec(
+        select(TaskTeamMember, UserModel).join(
+            UserModel, TaskTeamMember.user_id == UserModel.id
+        ).where(
+            TaskTeamMember.team_id == team.id,
+            TaskTeamMember.is_active == True,  # noqa: E712
+        )
+    ).all()
+
+    return [
+        TaskTeamMemberRead(
+            id=member.id,
+            team_id=member.team_id,
+            user_id=member.user_id,
+            user_email=user.email,
+            user_full_name=user.full_name,
+            role=member.role,
+            is_active=member.is_active,
+            created_at=member.created_at,
+        )
+        for member, user in rows
+    ]
+
+
 def get_companeros(db: Session, user_id: int) -> list:
     """Retorna los compañeros de equipo activos del usuario, con datos de User."""
     from app.models.task_team_member import TaskTeamMember
