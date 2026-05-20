@@ -217,6 +217,7 @@ export interface TaskListConfigItem {
   is_active: boolean
   is_final: boolean
   is_canceled: boolean
+  is_initial_assignment: boolean
 }
 
 export interface TaskListsResponse {

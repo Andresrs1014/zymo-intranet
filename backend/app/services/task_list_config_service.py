@@ -128,8 +128,8 @@ def mark_estado_especial(
     """
     from fastapi import HTTPException
 
-    if tipo not in ("final", "cancelado", None):
-        raise HTTPException(status_code=422, detail="tipo debe ser 'final', 'cancelado' o null.")
+    if tipo not in ("final", "cancelado", "inicial", None):
+        raise HTTPException(status_code=422, detail="tipo debe ser 'final', 'cancelado', 'inicial' o null.")
 
     # Clear previous flag
     if tipo == "final":
@@ -150,6 +150,15 @@ def mark_estado_especial(
         for p in prev:
             p.is_canceled = False
             db.add(p)
+    elif tipo == "inicial":
+        prev = db.exec(
+            select(TaskListConfig)
+            .where(TaskListConfig.owner_user_id == owner_id)
+            .where(TaskListConfig.is_initial_assignment == True)  # noqa: E712
+        ).all()
+        for p in prev:
+            p.is_initial_assignment = False
+            db.add(p)
 
     target = db.exec(
         select(TaskListConfig)
@@ -163,12 +172,19 @@ def mark_estado_especial(
     if tipo == "final":
         target.is_final = True
         target.is_canceled = False
+        target.is_initial_assignment = False
     elif tipo == "cancelado":
         target.is_canceled = True
         target.is_final = False
-    else:
+        target.is_initial_assignment = False
+    elif tipo == "inicial":
+        target.is_initial_assignment = True
         target.is_final = False
         target.is_canceled = False
+    else:  # None — clears all flags
+        target.is_final = False
+        target.is_canceled = False
+        target.is_initial_assignment = False
 
     db.add(target)
     db.commit()

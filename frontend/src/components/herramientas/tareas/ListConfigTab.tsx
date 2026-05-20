@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Plus, Pencil, Trash2, Check, X, Flag, Ban } from "lucide-react"
+import { Plus, Pencil, Trash2, Check, X, Flag, Ban, Inbox } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,7 +19,7 @@ interface ListSectionProps {
   onAdd: (value: string, label: string) => void
   onUpdate: (value: string, label: string) => void
   onDelete: (value: string) => void
-  onMarkEspecial?: (value: string, tipo: "final" | "cancelado" | null) => void
+  onMarkEspecial?: (value: string, tipo: "final" | "cancelado" | "inicial" | null) => void
   isLoading: boolean
 }
 
@@ -79,7 +79,9 @@ function ListSection({
             <CardTitle className="text-sm">{title}</CardTitle>
             {onMarkEspecial && (
               <p className="text-[11px] text-muted-foreground mt-0.5">
-                Marca un estado como <span className="text-green-700 font-medium">Final</span> (cierra el tiempo) o <span className="text-red-600 font-medium">Cancelado</span>
+                Marca un estado como <span className="text-green-700 font-medium">Final</span> (cierra el tiempo),{" "}
+                <span className="text-red-600 font-medium">Cancelado</span>, o{" "}
+                <span className="text-blue-600 font-medium">Asignación inicial</span> (estado por defecto al asignar una tarea)
               </p>
             )}
           </div>
@@ -139,6 +141,8 @@ function ListSection({
                     ? "bg-green-50 border-green-300 text-green-800"
                     : item.is_canceled
                     ? "bg-red-50 border-red-300 text-red-800"
+                    : item.is_initial_assignment
+                    ? "bg-blue-50 border-blue-300 text-blue-800"
                     : "bg-gray-100 text-gray-700 border-gray-200"
                 }`}
               >
@@ -162,6 +166,7 @@ function ListSection({
                   <>
                     {item.is_final && <Flag className="w-3 h-3 text-green-600" />}
                     {item.is_canceled && <Ban className="w-3 h-3 text-red-600" />}
+                    {item.is_initial_assignment && <Inbox className="w-3 h-3 text-blue-600" />}
                     <span>{item.label}</span>
                     {onMarkEspecial && (
                       <>
@@ -184,6 +189,16 @@ function ListSection({
                           }`}
                         >
                           <Ban className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          title={item.is_initial_assignment ? "Quitar como estado inicial de asignación" : "Marcar como estado inicial de asignación"}
+                          onClick={() => onMarkEspecial(item.value, item.is_initial_assignment ? null : "inicial")}
+                          className={`ml-0.5 transition-colors ${
+                            item.is_initial_assignment ? "text-blue-600" : "text-gray-300 hover:text-blue-500"
+                          }`}
+                        >
+                          <Inbox className="w-3 h-3" />
                         </button>
                       </>
                     )}
@@ -231,7 +246,7 @@ export function ListConfigTab() {
     deleteItem.mutate({ list_type: type, value })
   }
 
-  const handleMarkEspecial = (value: string, tipo: "final" | "cancelado" | null) => {
+  const handleMarkEspecial = (value: string, tipo: "final" | "cancelado" | "inicial" | null) => {
     markEspecial.mutate({ value, tipo })
   }
 

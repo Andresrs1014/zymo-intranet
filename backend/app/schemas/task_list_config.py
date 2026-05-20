@@ -44,3 +44,4 @@ class TaskListConfigRead(BaseModel):
     is_active: bool
     is_final: bool = False
     is_canceled: bool = False
+    is_initial_assignment: bool = False

@@ -410,7 +410,7 @@ export function useUpdateEventParticipants() {
 export function useMarkEstadoEspecial() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ value, tipo }: { value: string; tipo: "final" | "cancelado" | null }) => {
+    mutationFn: async ({ value, tipo }: { value: string; tipo: "final" | "cancelado" | "inicial" | null }) => {
       const { data } = await api.patch<TaskListConfigItem>(
         `${BASE}/config/listas/estado/${value}/especial`,
         { tipo }

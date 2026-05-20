@@ -175,6 +175,20 @@ def create_task(db: Session, user: User, payload: WorkTaskCreate) -> WorkTask:
         if asignado_user:
             asignado_a_nombre = asignado_user.full_name or asignado_user.email
 
+    # Determine the initial estado for assigned tasks
+    task_estado = payload.estado or "en_progreso"
+    if payload.asignado_a_id is not None and not payload.estado:
+        from app.models.task_list_config import TaskListConfig
+        initial_config = db.exec(
+            select(TaskListConfig)
+            .where(TaskListConfig.owner_user_id == list_owner_id)
+            .where(TaskListConfig.list_type == "estado")
+            .where(TaskListConfig.is_initial_assignment == True)  # noqa: E712
+            .where(TaskListConfig.is_active == True)  # noqa: E712
+        ).first()
+        if initial_config:
+            task_estado = initial_config.value
+
     task = WorkTask(
         scope="desarrollo_innovacion",
         team_id=team_id,
@@ -188,7 +202,7 @@ def create_task(db: Session, user: User, payload: WorkTaskCreate) -> WorkTask:
         plataforma=payload.plataforma or "transversal",
         titulo=payload.titulo,
         descripcion_tecnica=payload.descripcion_tecnica,
-        estado=payload.estado or "en_progreso",
+        estado=task_estado,
         prioridad=payload.prioridad,
         asignado_a_id=payload.asignado_a_id,
         asignado_a_nombre=asignado_a_nombre,
