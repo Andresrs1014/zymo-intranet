@@ -4,7 +4,7 @@ from datetime import date, datetime, timezone
 from typing import TYPE_CHECKING
 
 from fastapi import HTTPException, status
-from sqlmodel import Session, select
+from sqlmodel import Session, select, or_
 
 if TYPE_CHECKING:
     from app.schemas.work_task import PaginatedTaskFilters, PaginatedTasksResponse
@@ -250,7 +250,7 @@ def update_own_task(
     task_id: int,
     payload: WorkTaskUpdate,
 ) -> WorkTask:
-    """Updates a task. User cannot edit tasks that belong to others."""
+    """Updates a task. User must be the creator or the assignee; assignees have restricted field access."""
     task = db.get(WorkTask, task_id)
     if task is None:
         raise HTTPException(
@@ -264,6 +264,16 @@ def update_own_task(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No puedes editar tareas de otros usuarios.",
         )
+
+    # Assignees can only update a limited set of fields (not reassign)
+    if not is_owner and is_assignee:
+        allowed_assignee_fields = {"estado", "hora_inicio", "hora_cierre", "descripcion_tecnica"}
+        disallowed = set(payload.model_dump(exclude_unset=True).keys()) - allowed_assignee_fields
+        if disallowed:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Como destinatario, solo puedes modificar: estado, hora_inicio, hora_cierre, descripcion_tecnica.",
+            )
 
     if payload.etiqueta is not None or payload.plataforma is not None or payload.estado is not None:
         from app.models.task_team import TaskTeam
@@ -335,7 +345,6 @@ def list_own_tasks(
     plataforma: str | None = None,
 ) -> list[WorkTask]:
     """Lists own tasks with optional filters."""
-    from sqlmodel import or_
     query = select(WorkTask).where(
         or_(
             WorkTask.subido_por_id == user.id,
@@ -358,18 +367,20 @@ def list_own_tasks(
 
 
 def own_metrics(db: Session, user: User) -> dict:
-    """Returns personal metrics aligned with the frontend KPI contract."""
-    tasks = list_own_tasks(db, user)
+    """Returns personal metrics for tasks the user *registered* (created)."""
+    tasks = db.exec(
+        select(WorkTask).where(WorkTask.subido_por_id == user.id)
+    ).all()
     completadas = sum(1 for t in tasks if t.estado == "completada")
     en_progreso = sum(1 for t in tasks if t.estado == "en_progreso")
     bloqueadas = sum(1 for t in tasks if t.estado == "bloqueada")
     minutos = sum(t.tiempo_total_minutos for t in tasks if t.tiempo_total_minutos is not None)
     return {
         "tareas_registradas": len(tasks),
+        "horas_registradas": round(minutos / 60, 2),
         "completadas": completadas,
         "en_progreso": en_progreso,
         "bloqueadas": bloqueadas,
-        "horas_registradas": round(minutos / 60, 2),
     }
 
 
