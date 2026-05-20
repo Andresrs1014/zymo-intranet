@@ -975,10 +975,24 @@ def serve_attachment(
     require_tool_or_403(db, current_user, TOOL_SUBMIT)
 
     from app.services.task_attachment_service import get_attachment, get_attachment_file
+    from app.models.work_task import WorkTask
 
     attachment = get_attachment(db, attachment_id)
     if not attachment:
         raise HTTPException(status_code=404, detail="Adjunto no encontrado.")
+
+    # Access control: user must own the task, be assigned to it, or be a manager/admin
+    task = db.get(WorkTask, attachment.task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="Tarea no encontrada.")
+
+    is_admin = getattr(current_user, "role", None) == "admin"
+    is_manager = user_has_tool(db, current_user, TOOL_MANAGE)
+    is_owner = task.subido_por_id == current_user.id
+    is_assignee = task.asignado_a_id == current_user.id
+
+    if not (is_admin or is_manager or is_owner or is_assignee):
+        raise HTTPException(status_code=403, detail="Sin acceso a este adjunto.")
 
     file, mime_type, size = get_attachment_file(attachment)
 
@@ -1002,7 +1016,25 @@ def delete_attachment(
 ):
     require_tool_or_403(db, current_user, TOOL_SUBMIT)
 
-    from app.services.task_attachment_service import delete_attachment
+    from app.services.task_attachment_service import get_attachment, delete_attachment as delete_attachment_service
+    from app.models.work_task import WorkTask
 
-    delete_attachment(db, attachment_id)
+    attachment = get_attachment(db, attachment_id)
+    if not attachment:
+        raise HTTPException(status_code=404, detail="Adjunto no encontrado.")
+
+    # Access control: user must own the task, be assigned to it, or be a manager/admin
+    task = db.get(WorkTask, attachment.task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="Tarea no encontrada.")
+
+    is_admin = getattr(current_user, "role", None) == "admin"
+    is_manager = user_has_tool(db, current_user, TOOL_MANAGE)
+    is_owner = task.subido_por_id == current_user.id
+    is_assignee = task.asignado_a_id == current_user.id
+
+    if not (is_admin or is_manager or is_owner or is_assignee):
+        raise HTTPException(status_code=403, detail="Sin acceso a este adjunto.")
+
+    delete_attachment_service(db, attachment_id)
     return {"ok": True}
