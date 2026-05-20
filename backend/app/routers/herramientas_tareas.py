@@ -228,7 +228,7 @@ def get_equipo_companeros(
 ) -> list[TaskTeamMemberRead]:
     """Retorna los compañeros/miembros de equipo para asignar tareas.
     - Colaboradores (TOOL_SUBMIT): devuelve compañeros de sus equipos activos.
-    - Gestores (TOOL_MANAGE): devuelve los miembros de su equipo gestionado.
+    - Gestores (TOOL_MANAGE): devuelve todos los usuarios activos (pueden asignar a cualquiera).
     """
     is_manager = user_has_tool(db, current_user, TOOL_MANAGE)
     is_submit = user_has_tool(db, current_user, TOOL_SUBMIT)
@@ -237,10 +237,10 @@ def get_equipo_companeros(
     if not (is_manager or is_submit or is_admin):
         raise HTTPException(status_code=403, detail="Acceso denegado.")
 
-    from app.services.task_team_service import get_companeros, get_manager_team_members
+    from app.services.task_team_service import get_companeros, get_all_active_users_for_manager
 
     if is_manager or is_admin:
-        return get_manager_team_members(db, current_user.id)
+        return get_all_active_users_for_manager(db, exclude_user_id=current_user.id)
     return get_companeros(db, current_user.id)
 
 

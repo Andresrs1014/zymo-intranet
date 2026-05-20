@@ -257,6 +257,34 @@ def get_manager_team_members(db: Session, manager_user_id: int) -> list:
     ]
 
 
+def get_all_active_users_for_manager(db: Session, exclude_user_id: int) -> list:
+    """Retorna todos los usuarios activos excepto el gestor mismo.
+    Los gestores pueden asignar tareas a cualquier usuario activo.
+    """
+    from app.schemas.task_team import TaskTeamMemberRead
+
+    users = db.exec(
+        select(User)
+        .where(User.is_active == True)  # noqa: E712
+        .where(User.id != exclude_user_id)
+    ).all()
+
+    return [
+        TaskTeamMemberRead(
+            id=0,
+            team_id=0,
+            user_id=u.id,
+            user_email=u.email,
+            user_full_name=u.full_name,
+            role="member",
+            is_active=True,
+            created_at=None,
+        )
+        for u in users
+        if u.id is not None
+    ]
+
+
 def get_companeros(db: Session, user_id: int) -> list:
     """Retorna los compañeros de equipo activos del usuario, con datos de User."""
     from app.models.task_team_member import TaskTeamMember
