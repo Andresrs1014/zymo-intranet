@@ -257,7 +257,9 @@ def update_own_task(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Tarea no encontrada.",
         )
-    if task.subido_por_id != user.id:
+    is_owner = task.subido_por_id == user.id
+    is_assignee = task.asignado_a_id is not None and task.asignado_a_id == user.id
+    if not is_owner and not is_assignee:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No puedes editar tareas de otros usuarios.",
@@ -333,7 +335,13 @@ def list_own_tasks(
     plataforma: str | None = None,
 ) -> list[WorkTask]:
     """Lists own tasks with optional filters."""
-    query = select(WorkTask).where(WorkTask.subido_por_id == user.id)
+    from sqlmodel import or_
+    query = select(WorkTask).where(
+        or_(
+            WorkTask.subido_por_id == user.id,
+            WorkTask.asignado_a_id == user.id,
+        )
+    )
 
     if fecha_desde is not None:
         query = query.where(WorkTask.fecha >= fecha_desde)
