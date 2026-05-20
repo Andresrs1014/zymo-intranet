@@ -279,6 +279,12 @@ def _migrate_db() -> None:
             print("[migrate] Columna task_list_configs.is_canceled agregada.")
         except Exception:
             pass
+        try:
+            conn.execute(text("ALTER TABLE task_list_configs ADD COLUMN is_initial_assignment INTEGER NOT NULL DEFAULT 0"))
+            conn.commit()
+            print("[migrate] Columna task_list_configs.is_initial_assignment agregada.")
+        except Exception:
+            pass
 
         # task_events: prioridad
         try:
