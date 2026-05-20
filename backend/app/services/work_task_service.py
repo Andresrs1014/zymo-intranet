@@ -314,7 +314,7 @@ def update_own_task(
             db,
             task_id=task.id,
             user_id=user.id,
-            user_nombre=task.subido_por_nombre,
+            user_nombre=user.full_name or user.email,
             accion="cambio_estado",
             detalle=f"De {estado_anterior} a {update_data['estado']}",
         )
