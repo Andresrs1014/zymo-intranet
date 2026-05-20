@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { api } from "@/lib/api"
 import type { TaskAttachment } from "@/types/workTask"
@@ -51,4 +52,56 @@ export function useDeleteTaskAttachment() {
 
 export function getAttachmentUrl(attachmentId: number): string {
   return `${BASE}/adjuntos/${attachmentId}`
+}
+
+/**
+ * Fetches an attachment as a blob via the authenticated API client and returns
+ * a stable object URL. Cleans up on unmount or when attachmentId changes.
+ * Fixes "token inválido" when using <img src> or <iframe src> directly
+ * (browsers don't send Authorization headers on those requests).
+ */
+export function useAttachmentBlobUrl(attachmentId: number | null) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(false)
+
+  useEffect(() => {
+    if (attachmentId === null) {
+      setBlobUrl(null)
+      setLoading(false)
+      setError(false)
+      return
+    }
+
+    let objectUrl: string | null = null
+    const controller = new AbortController()
+
+    setLoading(true)
+    setError(false)
+    setBlobUrl(null)
+
+    api
+      .get(getAttachmentUrl(attachmentId), {
+        responseType: "blob",
+        signal: controller.signal,
+      })
+      .then(({ data }) => {
+        objectUrl = URL.createObjectURL(data as Blob)
+        setBlobUrl(objectUrl)
+        setLoading(false)
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setError(true)
+          setLoading(false)
+        }
+      })
+
+    return () => {
+      controller.abort()
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }, [attachmentId])
+
+  return { blobUrl, loading, error }
 }

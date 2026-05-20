@@ -10,14 +10,7 @@ from app.models.task_attachment import TaskAttachment
 from app.models.user import User
 
 
-ALLOWED_MIME_TYPES = {
-    "image/jpeg",
-    "image/png",
-    "image/gif",
-    "image/webp",
-    "application/pdf",
-}
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+MAX_FILE_SIZE = 20 * 1024 * 1024  # 20MB
 
 
 def get_upload_dir(task_id: int) -> Path:
@@ -32,21 +25,13 @@ def validate_file(file: UploadFile) -> str:
     if file.size is not None and file.size > MAX_FILE_SIZE:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"El archivo excede el tamaño máximo de {MAX_FILE_SIZE // (1024*1024)}MB.",
+            detail=f"El archivo excede el tamaño máximo de {MAX_FILE_SIZE // (1024 * 1024)} MB.",
         )
 
-    content = file.file.read(2048)
+    file.file.read(0)  # no-op peek para compatibilidad; el tipo se toma del header
     file.file.seek(0)
 
-    mime_type = file.content_type or "application/octet-stream"
-
-    if mime_type not in ALLOWED_MIME_TYPES:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Tipo de archivo no permitido. Solo: {', '.join(ALLOWED_MIME_TYPES)}",
-        )
-
-    return mime_type
+    return file.content_type or "application/octet-stream"
 
 
 def create_attachment(

@@ -1,6 +1,6 @@
 import { useState } from "react"
 import type { WorkTaskCreate } from "@/types/workTask"
-import { useTaskLists, useMyTeams, useTeamMembers } from "@/hooks/useWorkTasks"
+import { useTaskLists, useMyTeams } from "@/hooks/useWorkTasks"
 import {
   taskInput,
   taskLabel,
@@ -10,7 +10,7 @@ import {
 } from "@/lib/taskTheme"
 
 interface TaskFormProps {
-  onSubmit: (payload: WorkTaskCreate) => Promise<void>
+  onSubmit: (payload: WorkTaskCreate, files: File[]) => Promise<void>
   onCancel?: () => void
   loading?: boolean
   /** Si true, bloquea envío cuando el usuario no tiene equipos (colaboradores sin alta en equipo). */
@@ -44,13 +44,11 @@ export function TaskForm({
   const [teamId, setTeamId] = useState<number | undefined>(undefined)
   const [horaInicio, setHoraInicio] = useState("")
   const [horaCierre, setHoraCierre] = useState("")
-  const [asignadoAId, setAsignadoAId] = useState<number | undefined>(undefined)
+  const [pendingFiles, setPendingFiles] = useState<File[]>([])
+  const [fileError, setFileError] = useState<string | null>(null)
 
   // Fetch lists for the selected team so dropdowns always match validation
   const { data: lists } = useTaskLists(teamId)
-
-  // Fetch team members for the assignment dropdown
-  const { data: teamMembers = [] } = useTeamMembers(!!teamId)
 
   const etiquetas = lists?.etiqueta ?? []
   const plataformas = lists?.plataforma ?? []
@@ -63,6 +61,12 @@ export function TaskForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (cannotSubmitNoTeam) return
+    const oversized = pendingFiles.find((f) => f.size > 20 * 1024 * 1024)
+    if (oversized) {
+      setFileError(`"${oversized.name}" supera el límite de 20 MB.`)
+      return
+    }
+
     const payload: WorkTaskCreate = {
       titulo,
       descripcion_tecnica: descripcion,
@@ -74,9 +78,8 @@ export function TaskForm({
       fecha,
       hora_inicio: horaInicio ? new Date(`${fecha}T${horaInicio}:00`).toISOString() : undefined,
       hora_cierre: horaCierre ? new Date(`${fecha}T${horaCierre}:00`).toISOString() : undefined,
-      ...(asignadoAId ? { asignado_a_id: asignadoAId } : {}),
     }
-    await onSubmit(payload)
+    await onSubmit(payload, pendingFiles)
     setTitulo("")
     setDescripcion("")
     setEtiqueta("")
@@ -87,7 +90,8 @@ export function TaskForm({
     setTeamId(undefined)
     setHoraInicio("")
     setHoraCierre("")
-    setAsignadoAId(undefined)
+    setPendingFiles([])
+    setFileError(null)
   }
 
   return (
@@ -191,20 +195,6 @@ export function TaskForm({
         </div>
 
         <div>
-          <label className={taskLabel}>Asignar a</label>
-          <select
-            className={taskInput}
-            value={asignadoAId ?? ""}
-            onChange={(e) => setAsignadoAId(e.target.value ? Number(e.target.value) : undefined)}
-          >
-            <option value="">Sin asignar</option>
-            {teamMembers.map((m) => (
-              <option key={m.user_id} value={m.user_id}>{m.user_full_name || m.user_email}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
           <label className={taskLabel}>Hora inicio</label>
           <input type="time" className={taskInput} value={horaInicio} onChange={(e) => setHoraInicio(e.target.value)} />
         </div>
@@ -220,6 +210,47 @@ export function TaskForm({
           Tiempo calculado: <span className="font-semibold text-gray-900">{formatMinutos(minutos)}</span>
         </div>
       )}
+
+      {/* Archivos adjuntos */}
+      <div>
+        <label className={taskLabel}>Archivos adjuntos</label>
+        <label className={[
+          "flex flex-col items-center gap-1 rounded-lg border border-dashed py-3 px-4 cursor-pointer transition-colors text-sm",
+          "border-gray-300 text-gray-500 hover:bg-gray-50 hover:text-gray-700",
+        ].join(" ")}>
+          <span>Haz clic para seleccionar archivos</span>
+          <span className="text-xs text-gray-400">PDF, Excel, Word, imágenes, correos… máx. 20 MB c/u</span>
+          <input
+            type="file"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              setFileError(null)
+              setPendingFiles(Array.from(e.target.files ?? []))
+            }}
+          />
+        </label>
+        {fileError && (
+          <p className="mt-1 text-xs text-red-600">{fileError}</p>
+        )}
+        {pendingFiles.length > 0 && (
+          <ul className="mt-2 space-y-1">
+            {pendingFiles.map((f, i) => (
+              <li key={i} className="flex items-center justify-between text-xs text-gray-600 bg-gray-50 rounded px-2 py-1 border border-gray-100">
+                <span className="truncate">{f.name}</span>
+                <button
+                  type="button"
+                  onClick={() => setPendingFiles((prev) => prev.filter((_, j) => j !== i))}
+                  className="text-gray-400 hover:text-red-500 ml-2 shrink-0"
+                  aria-label="Quitar archivo"
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       <div className="flex gap-2 pt-1">
         <button

@@ -1,10 +1,7 @@
 import { useState, useEffect } from "react"
-import type { WorkTask, TaskAttachment, WorkTaskUpdate } from "@/types/workTask"
+import type { WorkTask, WorkTaskUpdate } from "@/types/workTask"
 import { useTaskLists, useUpdateWorkTask } from "@/hooks/useWorkTasks"
-import { useTaskAttachments } from "@/hooks/useTaskAttachments"
-import { FileUploadZone } from "./FileUploadZone"
-import { AttachmentList } from "./AttachmentList"
-import { FilePreviewModal } from "./FilePreviewModal"
+import { AttachmentExplorer } from "./AttachmentExplorer"
 import {
   taskBadge,
   taskInput,
@@ -31,9 +28,7 @@ export function TaskDetailSheet({ task, onClose, onStatusChange, currentUserId }
   const [statusError, setStatusError] = useState<string | null>(null)
   const { data: lists } = useTaskLists()
   const estadoOptions = lists?.estado ?? []
-  const [previewAttachment, setPreviewAttachment] = useState<TaskAttachment | null>(null)
-  const { data: liveAdjuntos } = useTaskAttachments(task ? task.id : null)
-  const adjuntos = liveAdjuntos ?? task?.adjuntos ?? []
+  const [explorerOpen, setExplorerOpen] = useState(false)
 
   const [isEditing, setIsEditing] = useState(false)
   const [editFields, setEditFields] = useState<WorkTaskUpdate>({})
@@ -326,24 +321,31 @@ export function TaskDetailSheet({ task, onClose, onStatusChange, currentUserId }
                 </div>
               )}
 
-              {/* Evidencias */}
+              {/* Archivos adjuntos */}
               <div className="border-t border-gray-200 pt-4">
-                <FileUploadZone taskId={task.id} />
-                <AttachmentList
-                  taskId={task.id}
-                  attachments={adjuntos}
-                  onPreview={setPreviewAttachment}
-                />
+                <button
+                  type="button"
+                  onClick={() => setExplorerOpen(true)}
+                  className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 transition-colors"
+                >
+                  <span>📎</span>
+                  <span>
+                    {task.adjuntos && task.adjuntos.length > 0
+                      ? `Ver ${task.adjuntos.length} archivo${task.adjuntos.length !== 1 ? "s" : ""} adjunto${task.adjuntos.length !== 1 ? "s" : ""}`
+                      : "Adjuntar archivos"}
+                  </span>
+                </button>
               </div>
             </>
           )}
         </div>
       </aside>
 
-      <FilePreviewModal
-        attachment={previewAttachment}
-        open={!!previewAttachment}
-        onClose={() => setPreviewAttachment(null)}
+      <AttachmentExplorer
+        taskId={task.id}
+        taskTitulo={task.titulo}
+        open={explorerOpen}
+        onClose={() => setExplorerOpen(false)}
       />
     </>
   )

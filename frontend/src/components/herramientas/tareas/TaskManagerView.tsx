@@ -9,11 +9,13 @@ import {
 } from "@/hooks/useWorkTasks"
 import { useAuthStore } from "@/store/authStore"
 import { exportTasksExcel, exportTasksPdf } from "@/hooks/useTaskExports"
+import { useUploadTaskAttachment } from "@/hooks/useTaskAttachments"
 import { TaskDataTable } from "./TaskDataTable"
 import { TaskDetailSheet } from "./TaskDetailSheet"
 import { TaskTeamConfigDialog } from "./TaskTeamConfigDialog"
 import { TaskForm } from "./TaskForm"
 import { AsignarTareaForm } from "./AsignarTareaForm"
+import { AttachmentExplorer } from "./AttachmentExplorer"
 import {
   taskCard,
   taskButtonPrimary,
@@ -30,6 +32,7 @@ interface Props {
 
 export function TaskManagerView({ canSubmitOwn, filters }: Props) {
   const [selectedTask, setSelectedTask] = useState<WorkTask | null>(null)
+  const [explorerTask, setExplorerTask] = useState<WorkTask | null>(null)
   const [teamConfigOpen, setTeamConfigOpen] = useState(false)
   const [exporting, setExporting] = useState<"excel" | "pdf" | null>(null)
   const [showNewTaskForm, setShowNewTaskForm] = useState(false)
@@ -37,6 +40,7 @@ export function TaskManagerView({ canSubmitOwn, filters }: Props) {
   const [page, setPage] = useState(1)
   const createTask = useCreateWorkTask()
   const updateManagerTask = useUpdateManagerTask()
+  const uploadAttachment = useUploadTaskAttachment()
   const currentUser = useAuthStore((s) => s.user)
 
   // Reset to page 1 whenever filters change
@@ -71,8 +75,11 @@ export function TaskManagerView({ canSubmitOwn, filters }: Props) {
     try { await exportTasksPdf(filters) } finally { setExporting(null) }
   }
 
-  const handleNewTaskSubmit = async (payload: WorkTaskCreate) => {
-    await createTask.mutateAsync(payload)
+  const handleNewTaskSubmit = async (payload: WorkTaskCreate, files: File[]) => {
+    const task = await createTask.mutateAsync(payload)
+    for (const file of files) {
+      await uploadAttachment.mutateAsync({ taskId: task.id, file })
+    }
     setShowNewTaskForm(false)
   }
 
@@ -171,7 +178,11 @@ export function TaskManagerView({ canSubmitOwn, filters }: Props) {
           <div className="text-sm text-gray-400 py-8 text-center">Cargando tareas...</div>
         ) : (
           <>
-            <TaskDataTable tasks={tasks} onRowClick={(t) => setSelectedTask(t)} />
+            <TaskDataTable
+              tasks={tasks}
+              onRowClick={(t) => setSelectedTask(t)}
+              onAttachmentsClick={(t) => setExplorerTask(t)}
+            />
 
             {meta && meta.total_pages > 1 && (
               <div className="flex items-center justify-between mt-4">
@@ -212,6 +223,15 @@ export function TaskManagerView({ canSubmitOwn, filters }: Props) {
         currentUserId={currentUser?.id}
       />
       <TaskTeamConfigDialog open={teamConfigOpen} onClose={() => setTeamConfigOpen(false)} />
+
+      {explorerTask && (
+        <AttachmentExplorer
+          taskId={explorerTask.id}
+          taskTitulo={explorerTask.titulo}
+          open={!!explorerTask}
+          onClose={() => setExplorerTask(null)}
+        />
+      )}
     </div>
   )
 }

@@ -12,9 +12,10 @@ import {
 interface TaskDataTableProps {
   tasks: WorkTask[]
   onRowClick: (task: WorkTask) => void
+  onAttachmentsClick?: (task: WorkTask) => void
 }
 
-export function TaskDataTable({ tasks, onRowClick }: TaskDataTableProps) {
+export function TaskDataTable({ tasks, onRowClick, onAttachmentsClick }: TaskDataTableProps) {
   if (tasks.length === 0) {
     return (
       <div className="rounded-xl bg-white border border-gray-200 shadow-sm">
@@ -38,6 +39,7 @@ export function TaskDataTable({ tasks, onRowClick }: TaskDataTableProps) {
               <Th>Plataforma</Th>
               <Th>Tiempo</Th>
               <Th>Asignado</Th>
+              <Th>Archivos</Th>
               <Th>Estado</Th>
             </tr>
           </thead>
@@ -78,6 +80,23 @@ export function TaskDataTable({ tasks, onRowClick }: TaskDataTableProps) {
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
                   {task.asignado_a_nombre || "-"}
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  {task.adjuntos && task.adjuntos.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onAttachmentsClick?.(task)
+                      }}
+                      className="inline-flex items-center gap-1 rounded-md bg-gray-100 hover:bg-blue-100 px-2 py-0.5 text-xs font-medium text-gray-600 hover:text-blue-700 transition-colors"
+                      title="Ver archivos adjuntos"
+                    >
+                      📎 {task.adjuntos.length}
+                    </button>
+                  ) : (
+                    <span className="text-xs text-gray-300">—</span>
+                  )}
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap">
                   <span

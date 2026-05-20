@@ -8,8 +8,10 @@ import {
 } from "@/hooks/useWorkTasks"
 import { useAuthStore } from "@/store/authStore"
 import type { WorkTask, WorkTaskCreate, TaskFilters } from "@/types/workTask"
+import { useUploadTaskAttachment } from "@/hooks/useTaskAttachments"
 import { TaskForm } from "./TaskForm"
 import { AsignarTareaForm } from "./AsignarTareaForm"
+import { AttachmentExplorer } from "./AttachmentExplorer"
 import { TaskDataTable } from "./TaskDataTable"
 import { TaskDetailSheet } from "./TaskDetailSheet"
 import { taskButtonPrimary, taskButtonSecondary, taskCard, formatMinutos } from "@/lib/taskTheme"
@@ -24,7 +26,9 @@ export function TaskSubmitView({ filters }: Props) {
   const [showForm, setShowForm] = useState(false)
   const [showAsignarForm, setShowAsignarForm] = useState(false)
   const [selectedTask, setSelectedTask] = useState<WorkTask | null>(null)
+  const [explorerTask, setExplorerTask] = useState<WorkTask | null>(null)
   const currentUser = useAuthStore((s) => s.user)
+  const uploadAttachment = useUploadTaskAttachment()
 
   const { data: metrics } = useMyTaskMetrics()
   const { data: todayTasks } = useMyTasks({ fecha_desde: today, fecha_hasta: today })
@@ -36,8 +40,11 @@ export function TaskSubmitView({ filters }: Props) {
   const registeredToday = (todayTasks?.length ?? 0) > 0
   const showTodayReminder = !registeredToday && myTeams.length > 0
 
-  const handleSubmit = async (payload: WorkTaskCreate) => {
-    await createTask.mutateAsync(payload)
+  const handleSubmit = async (payload: WorkTaskCreate, files: File[]) => {
+    const task = await createTask.mutateAsync(payload)
+    for (const file of files) {
+      await uploadAttachment.mutateAsync({ taskId: task.id, file })
+    }
     setShowForm(false)
   }
 
@@ -138,6 +145,7 @@ export function TaskSubmitView({ filters }: Props) {
         <TaskDataTable
           tasks={allTasks ?? []}
           onRowClick={(t) => setSelectedTask(t)}
+          onAttachmentsClick={(t) => setExplorerTask(t)}
         />
       </div>
 
@@ -151,6 +159,15 @@ export function TaskSubmitView({ filters }: Props) {
           setSelectedTask((prev) => prev ? { ...prev, estado: newEstado } : null)
         }}
       />
+
+      {explorerTask && (
+        <AttachmentExplorer
+          taskId={explorerTask.id}
+          taskTitulo={explorerTask.titulo}
+          open={!!explorerTask}
+          onClose={() => setExplorerTask(null)}
+        />
+      )}
     </div>
   )
 }
