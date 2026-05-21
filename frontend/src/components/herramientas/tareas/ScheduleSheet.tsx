@@ -13,12 +13,14 @@ interface Props {
   isOpen: boolean
   onClose: () => void
   preselectedDate?: Date | null
+  teamId?: number
 }
 
 export function ScheduleSheet({
   isOpen,
   onClose,
   preselectedDate,
+  teamId,
 }: Props) {
   const today = format(new Date(), "yyyy-MM-dd")
 
@@ -47,7 +49,7 @@ export function ScheduleSheet({
   const createEvent = useCreateEvent()
   const { data: teamMembers = [] } = useTeamMembers()
   const { data: allUsers = [] } = useAvailableTeamUsers()
-  const { data: lists } = useTaskLists()
+  const { data: lists } = useTaskLists(teamId)
   const plataformas = lists?.plataforma ?? []
   const prioridadesAgenda = lists?.prioridad_agenda ?? []
 

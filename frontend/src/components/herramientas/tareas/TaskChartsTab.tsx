@@ -6,9 +6,10 @@ import { TaskFiltersBar } from "./TaskFiltersBar"
 
 interface Props {
   isManager: boolean
+  teamId?: number
 }
 
-export function TaskChartsTab({ isManager }: Props) {
+export function TaskChartsTab({ isManager, teamId }: Props) {
   const [filters, setFilters] = useState<TaskFilters>({})
 
   const { data: teamCharts } = useTeamCharts(isManager ? filters : {})
@@ -17,7 +18,7 @@ export function TaskChartsTab({ isManager }: Props) {
   if (isManager) {
     return (
       <div className="space-y-4">
-        <TaskFiltersBar filters={filters} onChange={setFilters} />
+        <TaskFiltersBar filters={filters} onChange={setFilters} teamId={teamId} />
         <TaskCharts data={teamCharts} />
       </div>
     )

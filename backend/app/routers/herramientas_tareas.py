@@ -953,9 +953,9 @@ def get_listas(
 
     has_submit = user_has_tool(db, current_user, TOOL_SUBMIT)
 
-    # Gestor o co-gestor: devolver sus propias listas (owner_id resuelto)
+    # Gestor o co-gestor: usar team_id si viene (respeta workspace seleccionado)
     try:
-        owner_id = _require_manage_access(db, current_user)
+        owner_id = _require_manage_access(db, current_user, team_id)
         return get_lists_by_owner(db, owner_id)
     except HTTPException:
         pass

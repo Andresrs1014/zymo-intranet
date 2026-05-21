@@ -157,6 +157,7 @@ export function TaskSubmitView({ filters, activeTeamId }: Props) {
         task={selectedTask}
         onClose={() => setSelectedTask(null)}
         currentUserId={currentUser?.id}
+        teamId={activeTeamId}
         onStatusChange={async (taskId, newEstado) => {
           await updateTask.mutateAsync({ id: taskId, payload: { estado: newEstado } })
           setSelectedTask((prev) => prev ? { ...prev, estado: newEstado } : null)

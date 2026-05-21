@@ -224,6 +224,7 @@ export function TaskManagerView({ canSubmitOwn, filters, activeTeamId }: Props) 
           setSelectedTask((prev) => prev ? { ...prev, estado: newEstado } : null)
         }}
         currentUserId={currentUser?.id}
+        teamId={activeTeamId}
       />
       <TaskTeamConfigDialog open={teamConfigOpen} onClose={() => setTeamConfigOpen(false)} />
 

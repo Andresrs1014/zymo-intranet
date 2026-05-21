@@ -6,10 +6,11 @@ interface TaskFiltersBarProps {
   filters: TaskFilters
   onChange: (filters: TaskFilters) => void
   teamMembers?: PersonTaskSummary[]
+  teamId?: number
 }
 
-export function TaskFiltersBar({ filters, onChange, teamMembers }: TaskFiltersBarProps) {
-  const { data: lists } = useTaskLists()
+export function TaskFiltersBar({ filters, onChange, teamMembers, teamId }: TaskFiltersBarProps) {
+  const { data: lists } = useTaskLists(teamId)
   const estados = lists?.estado ?? []
   const etiquetas = lists?.etiqueta ?? []
   const plataformas = lists?.plataforma ?? []

@@ -21,12 +21,13 @@ interface TaskDetailSheetProps {
   onClose: () => void
   onStatusChange?: (taskId: number, newEstado: string) => Promise<void>
   currentUserId?: number
+  teamId?: number
 }
 
-export function TaskDetailSheet({ task, onClose, onStatusChange, currentUserId }: TaskDetailSheetProps) {
+export function TaskDetailSheet({ task, onClose, onStatusChange, currentUserId, teamId }: TaskDetailSheetProps) {
   const [isChangingStatus, setIsChangingStatus] = useState(false)
   const [statusError, setStatusError] = useState<string | null>(null)
-  const { data: lists } = useTaskLists()
+  const { data: lists } = useTaskLists(teamId)
   const estadoOptions = lists?.estado ?? []
   const [explorerOpen, setExplorerOpen] = useState(false)
 

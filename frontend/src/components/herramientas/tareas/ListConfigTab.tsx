@@ -227,8 +227,8 @@ function ListSection({
   )
 }
 
-export function ListConfigTab() {
-  const { data: lists, isLoading } = useTaskLists()
+export function ListConfigTab({ teamId }: { teamId?: number }) {
+  const { data: lists, isLoading } = useTaskLists(teamId)
   const createItem = useCreateTaskListItem()
   const updateItem = useUpdateTaskListItem()
   const deleteItem = useDeleteTaskListItem()

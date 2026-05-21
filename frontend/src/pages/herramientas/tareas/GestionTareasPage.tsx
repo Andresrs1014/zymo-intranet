@@ -190,13 +190,13 @@ export function GestionTareasPage() {
               </TabsContent>
 
               <TabsContent value="graficas">
-                <TaskChartsTab isManager={canManage} />
+                <TaskChartsTab isManager={canManage} teamId={activeTeamId} />
               </TabsContent>
 
               {canManage && (
                 <TabsContent value="configuracion" className="space-y-6">
                   <TeamConfigTab canPromoteDemote={canManageDevTasks(userTools)} />
-                  <ListConfigTab />
+                  <ListConfigTab teamId={activeTeamId} />
                 </TabsContent>
               )}
             </Tabs>
@@ -221,12 +221,14 @@ export function GestionTareasPage() {
         isOpen={isScheduleOpen}
         onClose={() => setIsScheduleOpen(false)}
         preselectedDate={scheduleDate}
+        teamId={activeTeamId}
       />
 
       <EventDetailSheet
         event={selectedEvent}
         onClose={() => setSelectedEvent(null)}
         isManager={canManage}
+        teamId={activeTeamId}
       />
     </PageLayout>
   )

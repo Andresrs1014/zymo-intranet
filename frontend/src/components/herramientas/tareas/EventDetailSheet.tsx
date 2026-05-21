@@ -18,9 +18,10 @@ interface Props {
   event: TaskEvent | null
   onClose: () => void
   isManager?: boolean
+  teamId?: number
 }
 
-export function EventDetailSheet({ event, onClose, isManager = false }: Props) {
+export function EventDetailSheet({ event, onClose, isManager = false, teamId }: Props) {
   const currentUserId = useAuthStore((s) => s.user?.id)
   const [showAddParticipants, setShowAddParticipants] = useState(false)
   const [selectedAddIds, setSelectedAddIds] = useState<number[]>([])
@@ -32,7 +33,7 @@ export function EventDetailSheet({ event, onClose, isManager = false }: Props) {
   const updateParticipants = useUpdateEventParticipants()
   const { data: teamMembers = [] } = useTeamMembers()
   const { data: allUsers = [] } = useAvailableTeamUsers()
-  const { data: lists } = useTaskLists()
+  const { data: lists } = useTaskLists(teamId)
 
   if (!event) return null
 
