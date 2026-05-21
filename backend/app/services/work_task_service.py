@@ -299,12 +299,14 @@ def update_own_task(
             tteam = db.get(TaskTeam, task.team_id)
             if tteam:
                 list_owner = int(tteam.owner_user_id)
+        # Solo validar los campos que realmente se están cambiando.
+        # Pasar None para los que no cambian evita rechazar valores legados en tareas existentes.
         validate_task_values(
             db,
             user,
-            payload.etiqueta if payload.etiqueta is not None else task.etiqueta,
-            payload.plataforma if payload.plataforma is not None else task.plataforma,
-            payload.estado if payload.estado is not None else task.estado,
+            payload.etiqueta,
+            payload.plataforma,
+            payload.estado,
             list_config_owner_id=list_owner,
         )
 
@@ -580,9 +582,9 @@ def update_team_task(
     if payload.etiqueta is not None or payload.plataforma is not None or payload.estado is not None:
         validate_task_values(
             db, manager_user,
-            payload.etiqueta if payload.etiqueta is not None else task.etiqueta,
-            payload.plataforma if payload.plataforma is not None else task.plataforma,
-            payload.estado if payload.estado is not None else task.estado,
+            payload.etiqueta,
+            payload.plataforma,
+            payload.estado,
         )
 
     update_data = payload.model_dump(exclude_unset=True)
