@@ -33,6 +33,8 @@ export function ScheduleSheet({
   const [descripcion, setDescripcion] = useState("")
   const [plataforma, setPlataforma] = useState("")
   const [prioridad, setPrioridad] = useState("")
+  const [modalidad, setModalidad] = useState("")
+  const [sede, setSede] = useState("")
   const [selectedIds, setSelectedIds] = useState<number[]>(() =>
     currentUserId != null ? [currentUserId] : []
   )
@@ -71,6 +73,8 @@ export function ScheduleSheet({
       setDescripcion("")
       setPlataforma("")
       setPrioridad("")
+      setModalidad("")
+      setSede("")
       setSelectedIds(currentUserId ? [currentUserId] : [])
       setError(null)
     }
@@ -100,6 +104,8 @@ export function ScheduleSheet({
         descripcion: descripcion.trim() || undefined,
         plataforma: plataforma || undefined,
         prioridad: prioridad || undefined,
+        modalidad: modalidad || undefined,
+        sede: modalidad === "presencial" ? (sede.trim() || undefined) : undefined,
         fecha,
         hora_inicio: horaInicio,
         duracion_minutos: parseInt(duracion, 10) || 60,
@@ -203,6 +209,34 @@ export function ScheduleSheet({
                 className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
               />
             </div>
+
+            {/* Modalidad */}
+            <div className="space-y-1.5">
+              <Label htmlFor="sch-modalidad">Modalidad</Label>
+              <select
+                id="sch-modalidad"
+                value={modalidad}
+                onChange={(e) => { setModalidad(e.target.value); if (e.target.value !== "presencial") setSede("") }}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <option value="">Sin especificar</option>
+                <option value="virtual">Virtual</option>
+                <option value="presencial">Presencial</option>
+              </select>
+            </div>
+
+            {/* Sede — solo si es presencial */}
+            {modalidad === "presencial" && (
+              <div className="space-y-1.5">
+                <Label htmlFor="sch-sede">Sede</Label>
+                <Input
+                  id="sch-sede"
+                  value={sede}
+                  onChange={(e) => setSede(e.target.value)}
+                  placeholder="Ej. Logimat 1, IMC Cargo..."
+                />
+              </div>
+            )}
 
             {/* Plataforma */}
             <div className="space-y-1.5">

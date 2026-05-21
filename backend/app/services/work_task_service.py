@@ -176,7 +176,7 @@ def create_task(db: Session, user: User, payload: WorkTaskCreate) -> WorkTask:
             asignado_a_nombre = asignado_user.full_name or asignado_user.email
 
     # Determine the initial estado for assigned tasks
-    task_estado = payload.estado or "en_progreso"
+    task_estado = payload.estado or "sin_iniciar"
     if payload.asignado_a_id is not None and not payload.estado:
         from app.models.task_list_config import TaskListConfig
         initial_config = db.exec(
@@ -206,6 +206,8 @@ def create_task(db: Session, user: User, payload: WorkTaskCreate) -> WorkTask:
         prioridad=payload.prioridad,
         asignado_a_id=payload.asignado_a_id,
         asignado_a_nombre=asignado_a_nombre,
+        duracion_estimada_minutos=getattr(payload, "duracion_estimada_minutos", None),
+        aceptacion="pendiente" if payload.asignado_a_id is not None else None,
         created_at=now,
         updated_at=now,
     )

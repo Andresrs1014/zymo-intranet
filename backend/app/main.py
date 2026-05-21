@@ -308,6 +308,42 @@ def _migrate_db() -> None:
             print("[migrate] Columna work_tasks.asignado_a_nombre agregada.")
         except Exception:
             pass  # ya existe
+        # F1: modalidad y sede en eventos
+        try:
+            conn.execute(text("ALTER TABLE task_events ADD COLUMN modalidad VARCHAR(20)"))
+            conn.commit()
+            print("[migrate] Columna task_events.modalidad agregada.")
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE task_events ADD COLUMN sede VARCHAR(200)"))
+            conn.commit()
+            print("[migrate] Columna task_events.sede agregada.")
+        except Exception:
+            pass
+        # F3: tiempo estimado en tareas
+        try:
+            conn.execute(text("ALTER TABLE work_tasks ADD COLUMN duracion_estimada_minutos INTEGER"))
+            conn.commit()
+            print("[migrate] Columna work_tasks.duracion_estimada_minutos agregada.")
+        except Exception:
+            pass
+        # F4: confirmacion de asistencia en participantes de eventos
+        try:
+            conn.execute(text(
+                "ALTER TABLE task_event_participants ADD COLUMN confirmacion VARCHAR(20) DEFAULT 'pendiente'"
+            ))
+            conn.commit()
+            print("[migrate] Columna task_event_participants.confirmacion agregada.")
+        except Exception:
+            pass
+        # F5: aceptacion de tarea por el asignado
+        try:
+            conn.execute(text("ALTER TABLE work_tasks ADD COLUMN aceptacion VARCHAR(20)"))
+            conn.commit()
+            print("[migrate] Columna work_tasks.aceptacion agregada.")
+        except Exception:
+            pass
     with Session(get_engine()) as session:
         for sede_row in session.exec(select(Sede)).all():
             if sede_row.name.strip().lower() == "transversal":

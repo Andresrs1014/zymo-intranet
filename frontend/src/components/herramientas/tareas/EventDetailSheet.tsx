@@ -1,11 +1,12 @@
 import { useState } from "react"
-import { X, Trash2, UserPlus, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react"
+import { X, Trash2, UserPlus, ChevronDown, ChevronUp, AlertTriangle, Check, MapPin, Video } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import type { TaskEvent, TaskTeamMember, AvailableUser } from "@/types/workTask"
 import {
   useDeleteEvent,
   useUpdateEventParticipants,
+  useConfirmEvent,
   useTeamMembers,
   useAvailableTeamUsers,
   useTaskLists,
@@ -31,6 +32,7 @@ export function EventDetailSheet({ event, onClose, isManager = false, teamId }: 
 
   const deleteEvent = useDeleteEvent()
   const updateParticipants = useUpdateEventParticipants()
+  const confirmEvent = useConfirmEvent()
   const { data: teamMembers = [] } = useTeamMembers()
   const { data: allUsers = [] } = useAvailableTeamUsers()
   const { data: lists } = useTaskLists(teamId)
@@ -139,8 +141,20 @@ export function EventDetailSheet({ event, onClose, isManager = false, teamId }: 
             </p>
           </div>
 
-          {/* Priority + Platform */}
+          {/* Priority + Platform + Modalidad */}
           <div className="flex flex-wrap gap-2">
+            {event.modalidad === "presencial" && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-50 border border-orange-200 text-xs text-orange-700 font-medium">
+                <MapPin className="w-3 h-3" />
+                {event.sede ? `Presencial — ${event.sede}` : "Presencial"}
+              </span>
+            )}
+            {event.modalidad === "virtual" && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 border border-indigo-200 text-xs text-indigo-700 font-medium">
+                <Video className="w-3 h-3" />
+                Virtual
+              </span>
+            )}
             {event.prioridad && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-xs text-blue-800 font-medium">
                 {prioridadLabel}
@@ -187,6 +201,39 @@ export function EventDetailSheet({ event, onClose, isManager = false, teamId }: 
               )}
             </div>
 
+            {/* Banner de confirmación para el usuario actual */}
+            {(() => {
+              const myParticipation = event.participants.find((p) => p.user_id === currentUserId)
+              if (myParticipation && myParticipation.confirmacion === "pendiente") {
+                return (
+                  <div className="mb-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 flex items-center justify-between gap-2">
+                    <p className="text-xs text-amber-800 font-medium">¿Confirmas tu asistencia?</p>
+                    <div className="flex gap-1.5 shrink-0">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-2 text-xs border-green-400 text-green-700 hover:bg-green-50"
+                        onClick={() => confirmEvent.mutate({ eventId: event.id, confirmacion: "aceptado" })}
+                        disabled={confirmEvent.isPending}
+                      >
+                        <Check className="w-3 h-3 mr-1" /> Sí
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-2 text-xs border-red-400 text-red-700 hover:bg-red-50"
+                        onClick={() => confirmEvent.mutate({ eventId: event.id, confirmacion: "rechazado" })}
+                        disabled={confirmEvent.isPending}
+                      >
+                        <X className="w-3 h-3 mr-1" /> No
+                      </Button>
+                    </div>
+                  </div>
+                )
+              }
+              return null
+            })()}
+
             <div className="space-y-1">
               {event.participants.map((p) => (
                 <div
@@ -198,6 +245,12 @@ export function EventDetailSheet({ event, onClose, isManager = false, teamId }: 
                   <div className="flex items-center gap-2 min-w-0">
                     {p.has_conflict && <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />}
                     <span className="truncate">{p.user_nombre}</span>
+                    {p.confirmacion === "aceptado" && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 shrink-0">✓</span>
+                    )}
+                    {p.confirmacion === "rechazado" && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 shrink-0">✗</span>
+                    )}
                   </div>
                   {canModify && (
                     <button

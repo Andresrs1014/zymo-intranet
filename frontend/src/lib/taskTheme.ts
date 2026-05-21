@@ -17,6 +17,7 @@ export const ETIQUETA_COLOR: Record<string, string> = {
 }
 
 export const ESTADO_COLOR: Record<string, string> = {
+  sin_iniciar: "bg-gray-100 text-gray-500",
   en_progreso: "bg-blue-100 text-blue-700",
   completada: "bg-green-100 text-green-700",
   bloqueada: "bg-red-100 text-red-700",
@@ -39,6 +40,7 @@ export const PLATAFORMA_LABELS: Record<string, string> = {
 }
 
 export const ESTADO_LABELS: Record<string, string> = {
+  sin_iniciar: "Sin iniciar",
   en_progreso: "En progreso",
   completada: "Completada",
   bloqueada: "Bloqueada",

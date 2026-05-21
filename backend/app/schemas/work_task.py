@@ -18,6 +18,7 @@ class WorkTaskCreate(BaseModel):
     hora_inicio: datetime | None = None
     hora_cierre: datetime | None = None
     asignado_a_id: int | None = None
+    duracion_estimada_minutos: int | None = None
 
 
 class WorkTaskUpdate(BaseModel):
@@ -51,6 +52,8 @@ class WorkTaskRead(BaseModel):
     prioridad: str
     asignado_a_id: int | None = None
     asignado_a_nombre: str | None = ""
+    duracion_estimada_minutos: int | None = None
+    aceptacion: str | None = None
     adjuntos: list[TaskAttachmentRead] = []
     created_at: datetime
     updated_at: datetime

@@ -407,6 +407,32 @@ export function useUpdateEventParticipants() {
   })
 }
 
+export function useAcceptTask() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ taskId, aceptacion }: { taskId: number; aceptacion: string }) => {
+      const { data } = await api.patch<WorkTask>(`${BASE}/${taskId}/aceptacion`, { aceptacion })
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tareas"] })
+    },
+  })
+}
+
+export function useConfirmEvent() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ eventId, confirmacion }: { eventId: number; confirmacion: string }) => {
+      const { data } = await api.patch(`${BASE}/agenda/${eventId}/confirmacion`, { confirmacion })
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tareas", "agenda"] })
+    },
+  })
+}
+
 export function useMarkEstadoEspecial() {
   const qc = useQueryClient()
   return useMutation({

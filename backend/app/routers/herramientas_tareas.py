@@ -185,6 +185,35 @@ def update_task_endpoint(
     return WorkTaskRead.model_validate(task)
 
 
+@router.patch("/{task_id}/aceptacion", response_model=WorkTaskRead)
+def responder_aceptacion_tarea(
+    task_id: int,
+    payload: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> WorkTaskRead:
+    """El asignado acepta o rechaza la tarea asignada."""
+    from app.models.work_task import WorkTask as WorkTaskModel
+    from fastapi import HTTPException
+
+    require_tool_or_403(db, current_user, TOOL_SUBMIT)
+    aceptacion = payload.get("aceptacion")
+    if aceptacion not in ("aceptado", "rechazado"):
+        raise HTTPException(status_code=422, detail="aceptacion debe ser 'aceptado' o 'rechazado'.")
+
+    task = db.get(WorkTaskModel, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Tarea no encontrada.")
+    if task.asignado_a_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Solo el asignado puede responder la aceptación.")
+
+    task.aceptacion = aceptacion
+    db.add(task)
+    db.commit()
+    db.refresh(task)
+    return WorkTaskRead.model_validate(task)
+
+
 @router.patch("/equipo/tareas/{task_id}", response_model=WorkTaskRead)
 def update_team_task_endpoint(
     task_id: int,
@@ -571,6 +600,8 @@ def eventos_por_fecha(
             "descripcion": r["event"].descripcion,
             "plataforma": getattr(r["event"], "plataforma", None),
             "prioridad": getattr(r["event"], "prioridad", None),
+            "modalidad": getattr(r["event"], "modalidad", None),
+            "sede": getattr(r["event"], "sede", None),
             "fecha": str(r["event"].fecha),
             "hora_inicio": r["event"].hora_inicio,
             "duracion_minutos": r["event"].duracion_minutos,
@@ -582,6 +613,7 @@ def eventos_por_fecha(
                     "user_nombre": p.user_nombre,
                     "has_conflict": p.has_conflict,
                     "conflict_detail": p.conflict_detail,
+                    "confirmacion": getattr(p, "confirmacion", "pendiente"),
                 }
                 for p in r["participants"]
             ],
@@ -633,6 +665,37 @@ def actualizar_participantes_evento(
             for p in result["participants"]
         ],
     }
+
+
+@router.patch("/agenda/{event_id}/confirmacion")
+def confirmar_asistencia_evento(
+    event_id: int,
+    payload: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    from app.models.task_event_participant import TaskEventParticipant
+    from fastapi import HTTPException
+    from sqlmodel import select as sqlmodel_select
+
+    require_tool_or_403(db, current_user, TOOL_SUBMIT)
+    confirmacion = payload.get("confirmacion")
+    if confirmacion not in ("aceptado", "rechazado", "pendiente"):
+        raise HTTPException(status_code=422, detail="confirmacion debe ser 'aceptado', 'rechazado' o 'pendiente'.")
+
+    participant = db.exec(
+        sqlmodel_select(TaskEventParticipant)
+        .where(TaskEventParticipant.event_id == event_id)
+        .where(TaskEventParticipant.user_id == current_user.id)
+    ).first()
+    if not participant:
+        raise HTTPException(status_code=404, detail="No eres participante de este evento.")
+
+    participant.confirmacion = confirmacion
+    db.add(participant)
+    db.commit()
+    db.refresh(participant)
+    return {"ok": True, "confirmacion": participant.confirmacion}
 
 
 # ── Team config endpoints (TOOL_MANAGE) ───────────────────────────────────────

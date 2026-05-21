@@ -13,3 +13,4 @@ class TaskEventParticipant(SQLModel, table=True):
     user_nombre: str = Field(max_length=200, nullable=False)
     has_conflict: bool = Field(default=False, nullable=False)
     conflict_detail: Optional[str] = Field(default=None, max_length=300)
+    confirmacion: Optional[str] = Field(default="pendiente", max_length=20)

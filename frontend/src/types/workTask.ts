@@ -8,6 +8,7 @@ export interface WorkTask {
   hora_inicio: string | null
   hora_cierre: string | null
   tiempo_total_minutos: number | null
+  duracion_estimada_minutos: number | null
   etiqueta: string
   plataforma: string
   titulo: string
@@ -16,6 +17,7 @@ export interface WorkTask {
   prioridad: string
   asignado_a_id: number | null
   asignado_a_nombre: string | null
+  aceptacion: string | null
   adjuntos: TaskAttachment[]
   created_at: string
   updated_at: string
@@ -33,6 +35,7 @@ export interface WorkTaskCreate {
   hora_inicio?: string
   hora_cierre?: string
   asignado_a_id?: number
+  duracion_estimada_minutos?: number
 }
 
 export interface WorkTaskUpdate {
@@ -141,6 +144,7 @@ export interface TaskEventParticipant {
   user_nombre: string
   has_conflict: boolean
   conflict_detail?: string
+  confirmacion?: string
 }
 
 export interface TaskEvent {
@@ -149,6 +153,8 @@ export interface TaskEvent {
   descripcion?: string
   plataforma?: string
   prioridad?: string
+  modalidad?: string
+  sede?: string
   fecha: string
   hora_inicio: string
   duracion_minutos: number
@@ -162,6 +168,8 @@ export interface TaskEventCreate {
   descripcion?: string
   plataforma?: string
   prioridad?: string
+  modalidad?: string
+  sede?: string
   fecha: string
   hora_inicio: string
   duracion_minutos: number

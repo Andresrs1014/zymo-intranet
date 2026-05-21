@@ -18,6 +18,8 @@ class TaskEvent(SQLModel, table=True):
     fecha: date = Field(index=True, nullable=False)
     hora_inicio: str = Field(max_length=5, nullable=False)
     duracion_minutos: int = Field(default=60, nullable=False)
+    modalidad: Optional[str] = Field(default=None, max_length=20)  # "presencial" | "virtual"
+    sede: Optional[str] = Field(default=None, max_length=200)
     creado_por_id: int = Field(index=True, nullable=False)
     creado_por_nombre: str = Field(max_length=200, nullable=False)
     created_at: datetime = Field(

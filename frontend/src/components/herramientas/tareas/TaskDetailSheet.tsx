@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import type { WorkTask, WorkTaskUpdate } from "@/types/workTask"
-import { useTaskLists, useUpdateWorkTask } from "@/hooks/useWorkTasks"
+import { useTaskLists, useUpdateWorkTask, useAcceptTask } from "@/hooks/useWorkTasks"
 import { AttachmentExplorer } from "./AttachmentExplorer"
 import {
   taskBadge,
@@ -36,7 +36,9 @@ export function TaskDetailSheet({ task, onClose, onStatusChange, currentUserId, 
   const [editError, setEditError] = useState<string | null>(null)
 
   const updateTask = useUpdateWorkTask()
+  const acceptTask = useAcceptTask()
   const isOwner = currentUserId != null && task?.subido_por_id === currentUserId
+  const isAssignee = currentUserId != null && task?.asignado_a_id === currentUserId
 
   const etiquetaOptions = lists?.etiqueta ?? []
   const plataformaOptions = lists?.plataforma ?? []
@@ -257,6 +259,31 @@ export function TaskDetailSheet({ task, onClose, onStatusChange, currentUserId, 
             </div>
           ) : (
             <>
+              {/* Aceptación banner — solo para el asignado cuando está pendiente */}
+              {isAssignee && task.aceptacion === "pendiente" && (
+                <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 flex items-center justify-between gap-2">
+                  <p className="text-xs text-amber-800 font-medium">¿Aceptas esta tarea?</p>
+                  <div className="flex gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => acceptTask.mutate({ taskId: task.id, aceptacion: "aceptado" })}
+                      disabled={acceptTask.isPending}
+                      className="rounded px-2 py-1 text-xs font-medium border border-green-400 text-green-700 hover:bg-green-50 transition-colors disabled:opacity-50"
+                    >
+                      ✓ Aceptar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => acceptTask.mutate({ taskId: task.id, aceptacion: "rechazado" })}
+                      disabled={acceptTask.isPending}
+                      className="rounded px-2 py-1 text-xs font-medium border border-red-400 text-red-700 hover:bg-red-50 transition-colors disabled:opacity-50"
+                    >
+                      ✗ Rechazar
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <p className="text-xs font-medium text-gray-500 mb-1">Título</p>
                 <p className="text-sm font-semibold text-gray-900">{task.titulo}</p>
@@ -266,6 +293,24 @@ export function TaskDetailSheet({ task, onClose, onStatusChange, currentUserId, 
                 <Field label="Responsable" value={task.subido_por_nombre} />
                 <Field label="Fecha" value={task.fecha} />
                 <Field label="Tiempo registrado" value={formatMinutos(task.tiempo_total_minutos)} />
+                {task.duracion_estimada_minutos != null && (
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 mb-1">Tiempo estimado</p>
+                    <p className="text-sm text-gray-900">
+                      {formatMinutos(task.duracion_estimada_minutos)}
+                      {task.tiempo_total_minutos != null && (
+                        <span className={`ml-1.5 text-xs font-medium ${
+                          task.tiempo_total_minutos > task.duracion_estimada_minutos
+                            ? "text-red-500"
+                            : "text-green-600"
+                        }`}>
+                          ({task.tiempo_total_minutos > task.duracion_estimada_minutos ? "+" : "-"}
+                          {formatMinutos(Math.abs(task.tiempo_total_minutos - task.duracion_estimada_minutos))})
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                )}
 
                 {/* Estado — inline changer if onStatusChange provided */}
                 <div>
@@ -302,6 +347,23 @@ export function TaskDetailSheet({ task, onClose, onStatusChange, currentUserId, 
                   </span>
                 </div>
                 <Field label="Plataforma" value={PLATAFORMA_LABELS[task.plataforma] ?? task.plataforma} />
+                {task.asignado_a_nombre && (
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 mb-1">Asignado a</p>
+                    <p className="text-sm text-gray-900">
+                      {task.asignado_a_nombre}
+                      {task.aceptacion === "aceptado" && (
+                        <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700">✓ Aceptado</span>
+                      )}
+                      {task.aceptacion === "rechazado" && (
+                        <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-red-100 text-red-700">✗ Rechazado</span>
+                      )}
+                      {task.aceptacion === "pendiente" && (
+                        <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-700">Pendiente</span>
+                      )}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {task.hora_inicio && (

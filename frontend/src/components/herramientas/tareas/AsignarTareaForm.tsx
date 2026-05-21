@@ -31,6 +31,7 @@ export function AsignarTareaForm({ onSubmit, onCancel, loading, activeTeamId }: 
   const [fecha, setFecha] = useState(getTomorrow())
   const [prioridad, setPrioridad] = useState("media")
   const [etiqueta, setEtiqueta] = useState("")
+  const [duracionEstimada, setDuracionEstimada] = useState("")
 
   const effectiveTeamId = activeTeamId ?? myTeams[0]?.team_id
   const { data: lists } = useTaskLists(effectiveTeamId)
@@ -50,6 +51,7 @@ export function AsignarTareaForm({ onSubmit, onCancel, loading, activeTeamId }: 
       prioridad,
       ...(etiqueta && { etiqueta }),
       ...(effectiveTeamId ? { team_id: effectiveTeamId } : {}),
+      ...(duracionEstimada ? { duracion_estimada_minutos: parseInt(duracionEstimada, 10) } : {}),
     }
     await onSubmit(payload)
 
@@ -59,6 +61,7 @@ export function AsignarTareaForm({ onSubmit, onCancel, loading, activeTeamId }: 
     setFecha(getTomorrow())
     setPrioridad("media")
     setEtiqueta("")
+    setDuracionEstimada("")
   }
 
   return (
@@ -114,7 +117,7 @@ export function AsignarTareaForm({ onSubmit, onCancel, loading, activeTeamId }: 
         />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className={taskLabel}>Fecha *</label>
           <input
@@ -124,6 +127,19 @@ export function AsignarTareaForm({ onSubmit, onCancel, loading, activeTeamId }: 
             min={today}
             onChange={(e) => setFecha(e.target.value)}
             required
+          />
+        </div>
+
+        <div>
+          <label className={taskLabel}>Tiempo estimado (min)</label>
+          <input
+            type="number"
+            min="5"
+            max="1440"
+            className={taskInput}
+            value={duracionEstimada}
+            onChange={(e) => setDuracionEstimada(e.target.value)}
+            placeholder="Ej. 120"
           />
         </div>
 
