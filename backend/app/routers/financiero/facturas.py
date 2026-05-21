@@ -36,7 +36,7 @@ router = APIRouter(tags=["Financiero - Facturas"])
 FACTURAS_DIR = Path(settings.facturas_dir)
 
 # Porcentaje máximo de diferencia permitido entre valor de OC y valor de factura
-TOLERANCIA_VALOR_PCT: float = 1.0
+TOLERANCIA_VALOR_PCT: float = 5.0
 
 # Formatos aceptados para subida de factura
 FORMATOS_FACTURA = frozenset({"pdf", "xlsx", "xls", "docx"})
@@ -962,6 +962,7 @@ def actualizar_factura(
     payload: FacturaUpdate,
     current_user: User = Depends(require_financiero),
     fin_db: Session = Depends(get_financiero_db),
+    oc_db: Session = Depends(get_oc_db),
 ) -> FacturaRead:
     factura = fin_db.get(FacturaProveedor, factura_id)
     if not factura:
@@ -975,6 +976,18 @@ def actualizar_factura(
     fin_db.add(factura)
     fin_db.commit()
     fin_db.refresh(factura)
+
+    # Re-ejecutar validación automáticamente al guardar cambios manuales,
+    # para que el estado refleje los datos actualizados sin requerir acción extra.
+    orden = oc_db.exec(
+        select(OrdenCompra).where(OrdenCompra.solicitud_id == factura.solicitud_id)
+    ).first()
+    if orden:
+        cotizacion = oc_db.get(CotizacionProveedor, orden.cotizacion_id)
+        if cotizacion:
+            _ejecutar_validacion(factura, orden, cotizacion, fin_db)
+            fin_db.refresh(factura)
+
     return factura  # type: ignore[return-value]
 
 
