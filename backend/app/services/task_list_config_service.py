@@ -4,26 +4,36 @@ from app.models.task_list_config import TaskListConfig
 from app.schemas.task_list_config import TaskListConfigCreate, TaskListConfigUpdate
 
 _DEFAULT_LIST_ITEMS = [
-    ("estado",     "completada",         "Completada"),
-    ("estado",     "en_progreso",        "En progreso"),
-    ("estado",     "bloqueada",          "Bloqueada"),
-    ("etiqueta",   "desarrollos",        "Desarrollos"),
-    ("etiqueta",   "actualizaciones",    "Actualizaciones"),
-    ("etiqueta",   "auditorias",         "Auditorías"),
-    ("etiqueta",   "implementacion_okr", "Implementación OKR"),
-    ("etiqueta",   "tareas_diarias",     "Tareas diarias"),
-    ("plataforma", "logimat1",           "Logimat 1"),
-    ("plataforma", "logimat2",           "Logimat 2"),
-    ("plataforma", "imccargo",           "IMC Cargo"),
-    ("plataforma", "imcdeposito",        "IMC Depósito"),
-    ("plataforma", "transversal",        "Transversal"),
+    # (list_type, value, label, is_final, is_canceled, is_initial_assignment)
+    ("estado",     "sin_iniciar",        "Sin iniciar",        False, False, True),
+    ("estado",     "en_progreso",        "En progreso",        False, False, False),
+    ("estado",     "completada",         "Completada",         True,  False, False),
+    ("estado",     "bloqueada",          "Bloqueada",          False, False, False),
+    ("etiqueta",   "desarrollos",        "Desarrollos",        False, False, False),
+    ("etiqueta",   "actualizaciones",    "Actualizaciones",    False, False, False),
+    ("etiqueta",   "auditorias",         "Auditorías",         False, False, False),
+    ("etiqueta",   "implementacion_okr", "Implementación OKR", False, False, False),
+    ("etiqueta",   "tareas_diarias",     "Tareas diarias",     False, False, False),
+    ("plataforma", "logimat1",           "Logimat 1",          False, False, False),
+    ("plataforma", "logimat2",           "Logimat 2",          False, False, False),
+    ("plataforma", "imccargo",           "IMC Cargo",          False, False, False),
+    ("plataforma", "imcdeposito",        "IMC Depósito",       False, False, False),
+    ("plataforma", "transversal",        "Transversal",        False, False, False),
 ]
 
 
 def _seed_defaults(db: Session, owner_id: int) -> None:
     """Crea los items de lista por defecto para un manager que aún no tiene ninguno."""
-    for list_type, value, label in _DEFAULT_LIST_ITEMS:
-        db.add(TaskListConfig(owner_user_id=owner_id, list_type=list_type, value=value, label=label))
+    for list_type, value, label, is_final, is_canceled, is_initial_assignment in _DEFAULT_LIST_ITEMS:
+        db.add(TaskListConfig(
+            owner_user_id=owner_id,
+            list_type=list_type,
+            value=value,
+            label=label,
+            is_final=is_final,
+            is_canceled=is_canceled,
+            is_initial_assignment=is_initial_assignment,
+        ))
     db.commit()
 
 

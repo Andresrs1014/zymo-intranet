@@ -286,6 +286,46 @@ def _migrate_db() -> None:
         except Exception:
             pass
 
+        # Ensure 'sin_iniciar' exists in task_list_configs for all owners who have seeded configs
+        try:
+            result = conn.execute(text("SELECT DISTINCT owner_user_id FROM task_list_configs"))
+            owners = [row[0] for row in result.fetchall()]
+            for owner in owners:
+                exists = conn.execute(text(
+                    "SELECT 1 FROM task_list_configs "
+                    "WHERE owner_user_id = :owner AND list_type = 'estado' AND value = 'sin_iniciar'"
+                ), {"owner": owner}).fetchone()
+                if not exists:
+                    has_initial = conn.execute(text(
+                        "SELECT 1 FROM task_list_configs "
+                        "WHERE owner_user_id = :owner AND list_type = 'estado' AND is_initial_assignment = 1"
+                    ), {"owner": owner}).fetchone()
+                    is_initial = 1 if not has_initial else 0
+                    conn.execute(text(
+                        "INSERT INTO task_list_configs "
+                        "(owner_user_id, list_type, value, label, is_active, is_final, is_canceled, is_initial_assignment, created_at, updated_at) "
+                        "VALUES (:owner, 'estado', 'sin_iniciar', 'Sin iniciar', 1, 0, 0, :is_initial, :now, :now)"
+                    ), {
+                        "owner": owner,
+                        "is_initial": is_initial,
+                        "now": datetime.now(timezone.utc)
+                    })
+                    conn.commit()
+                    print(f"[migrate] 'sin_iniciar' added for owner {owner} (is_initial={is_initial}).")
+        except Exception as e:
+            print(f"[migrate] Error updating task_list_configs states: {e}")
+
+        # Ensure 'completada' is marked is_final = 1
+        try:
+            conn.execute(text(
+                "UPDATE task_list_configs SET is_final = 1 "
+                "WHERE list_type = 'estado' AND value = 'completada' AND is_final = 0"
+            ))
+            conn.commit()
+            print("[migrate] is_final updated to 1 for value='completada'.")
+        except Exception as e:
+            print(f"[migrate] Error updating is_final for completed tasks: {e}")
+
         # task_events: prioridad
         try:
             conn.execute(text("ALTER TABLE task_events ADD COLUMN prioridad VARCHAR(50)"))
