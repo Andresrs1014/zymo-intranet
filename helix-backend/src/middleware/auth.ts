@@ -1,36 +1,41 @@
-// JWT verify middleware — stub implementation, full impl in T2
-import { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
-import { env } from "../config/env";
+import { Request, Response, NextFunction } from "express"
+import jwt from "jsonwebtoken"
+import { env } from "../config/env"
 
-export interface AuthenticatedRequest extends Request {
-  userId?: number;
-  userEmail?: string;
+export interface AuthPayload {
+  sub?: number | string   // FastAPI uses "sub" for user id
+  id?: number | string    // fallback
+  email?: string
+  full_name?: string
+  role?: string
 }
 
-export function authMiddleware(
-  req: AuthenticatedRequest,
-  res: Response,
-  next: NextFunction
-): void {
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    res.status(401).json({ error: "No token provided" });
-    return;
+declare global {
+  namespace Express {
+    interface Request {
+      user: AuthPayload
+    }
   }
+}
 
-  const token = authHeader.slice(7);
-
+export function authenticate(req: Request, res: Response, next: NextFunction): void {
+  const header = req.headers.authorization
+  if (!header?.startsWith("Bearer ")) {
+    res.status(401).json({ error: "No autenticado" })
+    return
+  }
+  const token = header.slice(7)
   try {
-    const decoded = jwt.verify(token, env.JWT_SECRET) as {
-      sub?: string | number;
-      email?: string;
-    };
-    req.userId = decoded.sub ? Number(decoded.sub) : undefined;
-    req.userEmail = decoded.email;
-    next();
+    const payload = jwt.verify(token, env.JWT_SECRET) as AuthPayload
+    req.user = payload
+    next()
   } catch {
-    res.status(401).json({ error: "Invalid or expired token" });
+    res.status(401).json({ error: "Token inválido o expirado" })
   }
+}
+
+/** Extracts the numeric user ID from either sub or id claim */
+export function getUserId(user: AuthPayload): number {
+  const raw = user.sub ?? user.id
+  return Number(raw)
 }

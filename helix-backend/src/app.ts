@@ -2,6 +2,7 @@ import "dotenv/config";
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import { env } from "./config/env";
+import { authenticate } from "./middleware/auth";
 import subproyectosRouter from "./routers/subproyectos";
 import actividadesRouter from "./routers/actividades";
 import comentariosRouter from "./routers/comentarios";
@@ -25,6 +26,7 @@ app.get("/health", (_req: Request, res: Response) => {
 });
 
 // --- API Routers ---
+app.use("/api", authenticate);
 app.use("/api/subproyectos", subproyectosRouter);
 app.use("/api/actividades", actividadesRouter);
 app.use("/api/comentarios", comentariosRouter);
