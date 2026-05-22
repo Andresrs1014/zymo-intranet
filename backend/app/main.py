@@ -315,6 +315,39 @@ def _migrate_db() -> None:
         except Exception as e:
             print(f"[migrate] Error updating task_list_configs states: {e}")
 
+        # Ensure default etiquetas and plataformas exist for all owners
+        _DEFAULT_MISSING = [
+            ("etiqueta",   "desarrollos",        "Desarrollos"),
+            ("etiqueta",   "actualizaciones",    "Actualizaciones"),
+            ("etiqueta",   "auditorias",         "Auditorías"),
+            ("etiqueta",   "implementacion_okr", "Implementación OKR"),
+            ("etiqueta",   "tareas_diarias",     "Tareas diarias"),
+            ("plataforma", "logimat1",           "Logimat 1"),
+            ("plataforma", "logimat2",           "Logimat 2"),
+            ("plataforma", "imccargo",           "IMC Cargo"),
+            ("plataforma", "imcdeposito",        "IMC Depósito"),
+            ("plataforma", "transversal",        "Transversal"),
+        ]
+        try:
+            result = conn.execute(text("SELECT DISTINCT owner_user_id FROM task_list_configs"))
+            owners = [row[0] for row in result.fetchall()]
+            for owner in owners:
+                for list_type, value, label in _DEFAULT_MISSING:
+                    exists = conn.execute(text(
+                        "SELECT 1 FROM task_list_configs "
+                        "WHERE owner_user_id = :owner AND list_type = :lt AND value = :val"
+                    ), {"owner": owner, "lt": list_type, "val": value}).fetchone()
+                    if not exists:
+                        conn.execute(text(
+                            "INSERT INTO task_list_configs "
+                            "(owner_user_id, list_type, value, label, is_active, is_final, is_canceled, is_initial_assignment, created_at, updated_at) "
+                            "VALUES (:owner, :lt, :val, :label, 1, 0, 0, 0, :now, :now)"
+                        ), {"owner": owner, "lt": list_type, "val": value, "label": label, "now": datetime.now(timezone.utc)})
+                        conn.commit()
+                        print(f"[migrate] '{value}' ({list_type}) added for owner {owner}.")
+        except Exception as e:
+            print(f"[migrate] Error inserting missing default list items: {e}")
+
         # Ensure 'completada' is marked is_final = 1
         try:
             conn.execute(text(
