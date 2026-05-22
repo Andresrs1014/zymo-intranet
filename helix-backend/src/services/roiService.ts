@@ -13,7 +13,13 @@ export interface ROISubproyecto {
   actividadesTerminadas: number
 }
 
-function clasificar(roi: number): ROISubproyecto["clasificacion"] {
+export function calcularROI(inversionEst: number, retornoEsp: number): number {
+  return inversionEst !== 0
+    ? Math.round(((retornoEsp - inversionEst) / inversionEst) * 100 * 10) / 10
+    : 0
+}
+
+export function clasificar(roi: number): ROISubproyecto["clasificacion"] {
   if (roi > 50) return "Alto potencial"
   if (roi >= 20) return "Potencial favorable"
   if (roi >= 0) return "Retorno controlado"
@@ -30,10 +36,7 @@ export async function getROIData(): Promise<ROISubproyecto[]> {
     const inversionEst = sp.inversionEst
     const retornoEsp = sp.retornoEsp
     const margen = retornoEsp - inversionEst
-    const roi =
-      inversionEst !== 0
-        ? Math.round(((retornoEsp - inversionEst) / inversionEst) * 100 * 10) / 10
-        : 0
+    const roi = calcularROI(inversionEst, retornoEsp)
 
     const totalActividades = sp.actividades.length
     const actividadesTerminadas = sp.actividades.filter(

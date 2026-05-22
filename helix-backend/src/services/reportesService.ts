@@ -1,4 +1,5 @@
 import { prisma } from "../config/prisma"
+import { calcularROI } from "./roiService"
 
 export interface SeguimientoItem {
   actividadId: number
@@ -57,12 +58,7 @@ export async function getStatusReport(): Promise<string> {
         ? Math.round(acts.reduce((s, a) => s + a.avance, 0) / totalActs)
         : 0
 
-    const inversionEst = sp.inversionEst
-    const retornoEsp = sp.retornoEsp
-    const roi =
-      inversionEst !== 0
-        ? Math.round(((retornoEsp - inversionEst) / inversionEst) * 100 * 10) / 10
-        : 0
+    const roi = calcularROI(sp.inversionEst, sp.retornoEsp)
 
     report += `## ${sp.nombre}\n`
     report += `Avance: ${avancePromedio}% | ROI estimado: ${roi}%\n\n`

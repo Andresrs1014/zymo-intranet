@@ -20,17 +20,19 @@ export function ReportsView() {
   // Status report
   const [statusReport, setStatusReport] = useState<string>("")
   const [reportLoading, setReportLoading] = useState(true)
+  const [reportError, setReportError] = useState<string | null>(null)
   const reportAbortRef = useRef<AbortController | null>(null)
   const reportFetchCountRef = useRef(0)
 
   // Seguimientos
   const [seguimientos, setSeguimientos] = useState<SeguimientoItem[]>([])
   const [seguimientosLoading, setSeguimientosLoading] = useState(true)
+  const [seguimientosError, setSeguimientosError] = useState<string | null>(null)
   const seguimientosAbortRef = useRef<AbortController | null>(null)
   const seguimientosFetchCountRef = useRef(0)
 
   // ROI
-  const { data: roiData, loading: roiLoading } = useHelixROI()
+  const { data: roiData, loading: roiLoading, error: roiError } = useHelixROI()
 
   const fetchReport = useCallback(() => {
     if (reportAbortRef.current) reportAbortRef.current.abort()
@@ -57,6 +59,7 @@ export function ReportsView() {
             (err as { code?: string }).code === "ERR_CANCELED"
           if (!isAbort && !axiosAbort) {
             setReportLoading(false)
+            setReportError("No se pudo cargar el reporte")
           }
         }
       })
@@ -89,6 +92,7 @@ export function ReportsView() {
             (err as { code?: string }).code === "ERR_CANCELED"
           if (!isAbort && !axiosAbort) {
             setSeguimientosLoading(false)
+            setSeguimientosError("No se pudieron cargar los seguimientos")
           }
         }
       })
@@ -193,13 +197,19 @@ export function ReportsView() {
       {/* Content panel */}
       <div>
         {activeTab === "report" && (
-          <StatusReport report={statusReport} loading={reportLoading} />
+          reportError
+            ? <p style={{ color: "var(--helix-danger)", fontSize: "0.875rem" }}>{reportError}</p>
+            : <StatusReport report={statusReport} loading={reportLoading} />
         )}
         {activeTab === "followups" && (
-          <FollowupList items={seguimientos} loading={seguimientosLoading} />
+          seguimientosError
+            ? <p style={{ color: "var(--helix-danger)", fontSize: "0.875rem" }}>{seguimientosError}</p>
+            : <FollowupList items={seguimientos} loading={seguimientosLoading} />
         )}
         {activeTab === "roi" && (
-          <RoiGrid data={roiData ?? []} loading={roiLoading} />
+          roiError
+            ? <p style={{ color: "var(--helix-danger)", fontSize: "0.875rem" }}>{roiError}</p>
+            : <RoiGrid data={roiData ?? []} loading={roiLoading} />
         )}
       </div>
     </div>
