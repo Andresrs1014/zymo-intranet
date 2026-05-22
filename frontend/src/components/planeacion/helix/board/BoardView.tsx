@@ -8,13 +8,15 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core"
+import { Plus } from "lucide-react"
 import { helixApi } from "@/lib/helixApi"
-import type { HelixEstado, HelixSubproyecto, HelixUsuario } from "@/types/helix"
+import type { HelixActividad, HelixEstado, HelixSubproyecto, HelixUsuario } from "@/types/helix"
 import { useHelixActividades } from "@/hooks/useHelixActividades"
 import { useHelixFilters } from "@/hooks/useHelixFilters"
 import { BoardToolbar } from "./BoardToolbar"
 import { KanbanColumn } from "./KanbanColumn"
 import { TaskCard } from "./TaskCard"
+import { TaskDialog } from "../dialogs/TaskDialog"
 
 const ESTADOS: HelixEstado[] = [
   "Backlog",
@@ -25,7 +27,7 @@ const ESTADOS: HelixEstado[] = [
 ]
 
 export function BoardView() {
-  const { actividades, loading, error, updateEstado } = useHelixActividades()
+  const { actividades, loading, error, updateEstado, refetch } = useHelixActividades()
   const {
     filters,
     setSearch,
@@ -39,6 +41,8 @@ export function BoardView() {
   const [usuarios, setUsuarios] = useState<HelixUsuario[]>([])
   const [subproyectos, setSubproyectos] = useState<HelixSubproyecto[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editingActividad, setEditingActividad] = useState<HelixActividad | undefined>(undefined)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -178,6 +182,30 @@ export function BoardView() {
             Backlog, planificacion, ejecucion, revision y cierre.
           </p>
         </div>
+        <button
+          type="button"
+          onClick={() => {
+            setEditingActividad(undefined)
+            setDialogOpen(true)
+          }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "5px",
+            padding: "7px 14px",
+            background: "var(--helix-accent, #ef3340)",
+            color: "#fff",
+            border: "none",
+            borderRadius: "var(--helix-r-soft, 6px)",
+            fontSize: "13px",
+            fontWeight: 700,
+            cursor: "pointer",
+            boxShadow: "var(--helix-shadow-btn, 0 10px 24px rgba(239,51,64,0.18))",
+          }}
+        >
+          <Plus size={14} />
+          Nueva actividad
+        </button>
       </div>
 
       <BoardToolbar
@@ -204,6 +232,10 @@ export function BoardView() {
               key={estado}
               estado={estado}
               actividades={byEstado[estado]}
+              onEdit={(a) => {
+                setEditingActividad(a)
+                setDialogOpen(true)
+              }}
             />
           ))}
         </div>
@@ -214,6 +246,16 @@ export function BoardView() {
           ) : null}
         </DragOverlay>
       </DndContext>
+
+      <TaskDialog
+        open={dialogOpen}
+        onClose={() => {
+          setDialogOpen(false)
+          setEditingActividad(undefined)
+        }}
+        actividad={editingActividad}
+        onSaved={refetch}
+      />
     </div>
   )
 }

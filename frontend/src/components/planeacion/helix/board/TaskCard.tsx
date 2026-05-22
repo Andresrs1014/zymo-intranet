@@ -1,9 +1,11 @@
 import type { CSSProperties } from "react"
 import { useDraggable } from "@dnd-kit/core"
+import { Pencil } from "lucide-react"
 import type { HelixActividad } from "@/types/helix"
 
 interface TaskCardProps {
   actividad: HelixActividad
+  onEdit?: () => void
 }
 
 const PRIORIDAD_STYLES: Record<string, CSSProperties> = {
@@ -35,7 +37,7 @@ function formatDate(dateStr: string): string {
   }
 }
 
-export function TaskCard({ actividad }: TaskCardProps) {
+export function TaskCard({ actividad, onEdit }: TaskCardProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({ id: actividad.id.toString() })
 
@@ -118,12 +120,51 @@ export function TaskCard({ actividad }: TaskCardProps) {
         >
           {actividad.nombre}
         </span>
-        <div
-          style={badgeStyle}
-          title={actividad.responsableNombre}
-          aria-label={actividad.responsableNombre}
-        >
-          {actividad.responsableInitials}
+        <div style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
+          {onEdit !== undefined && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                onEdit()
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+              title="Editar actividad"
+              aria-label="Editar actividad"
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                padding: "3px",
+                borderRadius: "4px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#9ca3af",
+                opacity: 0.7,
+                transition: "opacity 160ms, color 160ms",
+              }}
+              onMouseEnter={(e) => {
+                const el = e.currentTarget as HTMLButtonElement
+                el.style.opacity = "1"
+                el.style.color = "#6b7280"
+              }}
+              onMouseLeave={(e) => {
+                const el = e.currentTarget as HTMLButtonElement
+                el.style.opacity = "0.7"
+                el.style.color = "#9ca3af"
+              }}
+            >
+              <Pencil size={12} />
+            </button>
+          )}
+          <div
+            style={badgeStyle}
+            title={actividad.responsableNombre}
+            aria-label={actividad.responsableNombre}
+          >
+            {actividad.responsableInitials}
+          </div>
         </div>
       </div>
 
