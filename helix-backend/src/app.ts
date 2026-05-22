@@ -7,7 +7,8 @@ import subproyectosRouter from "./routers/subproyectos";
 import actividadesRouter from "./routers/actividades";
 import comentariosRouter from "./routers/comentarios";
 import usuariosRouter from "./routers/usuarios";
-import aiRouter from "./routers/ai";
+import aiRouter from "./routers/ai"
+import dashboardRouter from "./routers/dashboard";
 
 const app = express();
 
@@ -32,7 +33,8 @@ app.use("/api/subproyectos", subproyectosRouter);
 app.use("/api/actividades", actividadesRouter);
 app.use("/api", comentariosRouter);
 app.use("/api/usuarios", usuariosRouter);
-app.use("/api/ai", aiRouter);
+app.use("/api/ai", aiRouter)
+app.use("/api/dashboard", dashboardRouter);
 
 // --- 404 handler ---
 app.use((_req: Request, res: Response) => {

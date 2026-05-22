@@ -4,17 +4,14 @@ import { useHelix } from "@/context/HelixContext"
 import { BoardView } from "@/components/planeacion/helix/board/BoardView"
 import { GanttView } from "@/components/planeacion/helix/gantt/GanttView"
 import { SettingsView } from "@/components/planeacion/helix/settings/SettingsView"
+import { DashboardView } from "@/components/planeacion/helix/dashboard/DashboardView"
 
 function HelixContent() {
   const { activeView } = useHelix()
 
   return (
     <div>
-      {activeView === "dashboard" && (
-        <div className="text-helix-muted text-sm p-4">
-          Panel — próximamente
-        </div>
-      )}
+      {activeView === "dashboard" && <DashboardView />}
       {activeView === "board" && <BoardView />}
       {activeView === "gantt" && <GanttView />}
       {activeView === "reports" && (
