@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react"
 import { useHelix, type HelixView } from "@/context/HelixContext"
 import { helixApi } from "@/lib/helixApi"
 
@@ -11,7 +12,7 @@ const VIEW_TITLES: Record<HelixView, string> = {
   settings: "Configuración",
 }
 
-const BASE_BTN: React.CSSProperties = {
+const BASE_BTN: CSSProperties = {
   minHeight: "40px",
   border: "1px solid",
   borderRadius: "8px",
@@ -20,7 +21,7 @@ const BASE_BTN: React.CSSProperties = {
   fontWeight: 800,
 }
 
-const ICON_BTN: React.CSSProperties = {
+const ICON_BTN: CSSProperties = {
   ...BASE_BTN,
   width: "42px",
   padding: 0,
@@ -29,13 +30,13 @@ const ICON_BTN: React.CSSProperties = {
   color: "#fff",
 }
 
-const WA_BTN: React.CSSProperties = {
+const WA_BTN: CSSProperties = {
   ...ICON_BTN,
   borderColor: "rgba(31,157,106,0.55)",
   background: "rgba(31,157,106,0.2)",
 }
 
-const PRIMARY_BTN: React.CSSProperties = {
+const PRIMARY_BTN: CSSProperties = {
   ...BASE_BTN,
   padding: "0 16px",
   fontWeight: 900,
@@ -55,6 +56,10 @@ export function HelixTopbar() {
 
   function handleWhatsAppAlert() {
     helixApi.post("/api/alertas/whatsapp").catch(() => undefined)
+  }
+
+  function handleAutoAlert() {
+    helixApi.post("/api/alertas/auto").catch(() => undefined)
   }
 
   return (
@@ -117,6 +122,7 @@ export function HelixTopbar() {
         <button
           style={ICON_BTN}
           title="Ver alertas automáticas"
+          onClick={handleAutoAlert}
         >
           !
         </button>
