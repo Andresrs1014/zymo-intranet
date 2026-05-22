@@ -82,6 +82,28 @@ export interface HelixUsuario {
   color?: string
 }
 
+export interface HelixEncuesta {
+  id: number
+  nombre: string
+  rol: string
+  satisfaccion: number
+  facilidad: number
+  utilidad: number
+  nps: number
+  comentario?: string
+  createdAt: string
+}
+
+export interface HelixAlerta {
+  id: number
+  subproyectoId: number
+  cambio: string
+  actividadId?: number
+  actividadNombre?: string
+  destinatarios: string[]
+  createdAt: string
+}
+
 // Form types
 export type HelixActividadForm = Omit<HelixActividad, "id" | "createdAt" | "updatedAt" | "comentarios" | "evidencias">
 export type HelixSubproyectoForm = Omit<HelixSubproyecto, "id" | "activo" | "createdAt" | "updatedAt">
