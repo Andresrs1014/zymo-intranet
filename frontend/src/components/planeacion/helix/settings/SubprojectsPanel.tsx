@@ -400,7 +400,11 @@ export function SubprojectsPanel() {
       `¿Eliminar el subproyecto "${subproyecto.nombre}"? Esta acción no se puede deshacer.`
     )
     if (!confirmed) return
-    await deleteSubproyecto(subproyecto.id)
+    try {
+      await deleteSubproyecto(subproyecto.id)
+    } catch {
+      // error already set by hook
+    }
   }
 
   if (loading) {
@@ -453,7 +457,7 @@ export function SubprojectsPanel() {
       )}
 
       {/* List */}
-      {subproyectos.length === 0 && editingId !== "new" ? (
+      {subproyectos.length === 0 ? (
         <div
           style={{
             textAlign: "center",
