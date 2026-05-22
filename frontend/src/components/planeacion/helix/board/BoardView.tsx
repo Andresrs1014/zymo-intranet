@@ -27,7 +27,7 @@ const ESTADOS: HelixEstado[] = [
 ]
 
 export function BoardView() {
-  const { actividades, loading, error, updateEstado, refetch } = useHelixActividades()
+  const { actividades, loading, error, updateEstado, refetch, createActividad, updateActividad } = useHelixActividades()
   const {
     filters,
     setSearch,
@@ -255,6 +255,8 @@ export function BoardView() {
         }}
         actividad={editingActividad}
         onSaved={refetch}
+        createActividad={createActividad}
+        updateActividad={updateActividad}
       />
     </div>
   )

@@ -1,7 +1,6 @@
 import { useState, useEffect, type CSSProperties, type FormEvent, type ChangeEvent } from "react"
 import type { HelixActividad } from "@/types/helix"
 import type { HelixActividadCreate } from "@/hooks/useHelixActividades"
-import { useHelixActividades } from "@/hooks/useHelixActividades"
 import { useHelixSubproyectos } from "@/hooks/useHelixSubproyectos"
 import { useHelixUsuarios } from "@/hooks/useHelixUsuarios"
 
@@ -10,6 +9,8 @@ interface TaskDialogProps {
   onClose: () => void
   actividad?: HelixActividad
   onSaved: () => void
+  createActividad: (data: HelixActividadCreate) => Promise<void>
+  updateActividad: (id: number, data: Partial<HelixActividadCreate>) => Promise<void>
 }
 
 const ESTADOS = ["Backlog", "Planificado", "En curso", "Revision", "Terminado"] as const
@@ -220,8 +221,13 @@ const errorStyle: CSSProperties = {
   fontWeight: 500,
 }
 
-export function TaskDialog({ open, onClose, actividad, onSaved }: TaskDialogProps) {
-  const { createActividad, updateActividad } = useHelixActividades()
+const FOCUS_OUTLINE = "2px solid var(--helix-accent, #ef3340)"
+
+function focusStyle(focused: boolean): CSSProperties {
+  return focused ? { outline: FOCUS_OUTLINE, outlineOffset: "-1px", borderColor: "var(--helix-accent, #ef3340)" } : {}
+}
+
+export function TaskDialog({ open, onClose, actividad, onSaved, createActividad, updateActividad }: TaskDialogProps) {
   const { subproyectos } = useHelixSubproyectos()
   const { usuarios } = useHelixUsuarios()
 
@@ -230,6 +236,7 @@ export function TaskDialog({ open, onClose, actividad, onSaved }: TaskDialogProp
   const [apiError, setApiError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [costosOpen, setCostosOpen] = useState(false)
+  const [focusedField, setFocusedField] = useState<string | null>(null)
 
   // Reset form when dialog opens or actividad changes
   useEffect(() => {
@@ -239,6 +246,7 @@ export function TaskDialog({ open, onClose, actividad, onSaved }: TaskDialogProp
       setApiError(null)
       setSaving(false)
       setCostosOpen(false)
+      setFocusedField(null)
     }
   }, [open, actividad])
 
@@ -318,8 +326,6 @@ export function TaskDialog({ open, onClose, actividad, onSaved }: TaskDialogProp
     if (e.target === e.currentTarget) onClose()
   }
 
-  const inputFocusClass = "helix-input-focus"
-
   return (
     <div style={overlayStyle} onClick={handleOverlayClick}>
       <div style={cardStyle} role="dialog" aria-modal="true" aria-label={title}>
@@ -347,18 +353,21 @@ export function TaskDialog({ open, onClose, actividad, onSaved }: TaskDialogProp
 
             {/* Nombre */}
             <div style={fieldGroupStyle}>
-              <label style={labelStyle}>Nombre *</label>
+              <label htmlFor="td-nombre" style={labelStyle}>Nombre *</label>
               <input
-                className={inputFocusClass}
+                id="td-nombre"
                 style={{
                   ...inputStyle,
                   borderColor: errors.nombre ? "var(--helix-danger, #ef3340)" : undefined,
+                  ...focusStyle(focusedField === "nombre"),
                 }}
                 type="text"
                 value={form.nombre}
                 onChange={handleTextChange("nombre")}
                 placeholder="Nombre de la actividad"
                 autoFocus
+                onFocus={() => setFocusedField("nombre")}
+                onBlur={() => setFocusedField(null)}
               />
               {errors.nombre && (
                 <span style={{ fontSize: "11px", color: "var(--helix-danger, #ef3340)" }}>
@@ -370,15 +379,18 @@ export function TaskDialog({ open, onClose, actividad, onSaved }: TaskDialogProp
             {/* Subproyecto + Responsable */}
             <div style={rowStyle}>
               <div style={fieldGroupStyle}>
-                <label style={labelStyle}>Subproyecto *</label>
+                <label htmlFor="td-subproyecto" style={labelStyle}>Subproyecto *</label>
                 <select
-                  className={inputFocusClass}
+                  id="td-subproyecto"
                   style={{
                     ...inputStyle,
                     borderColor: errors.subproyectoId ? "var(--helix-danger, #ef3340)" : undefined,
+                    ...focusStyle(focusedField === "subproyecto"),
                   }}
                   value={form.subproyectoId}
                   onChange={handleTextChange("subproyectoId")}
+                  onFocus={() => setFocusedField("subproyecto")}
+                  onBlur={() => setFocusedField(null)}
                 >
                   <option value="">Seleccionar...</option>
                   {subproyectos.map((s) => (
@@ -395,15 +407,18 @@ export function TaskDialog({ open, onClose, actividad, onSaved }: TaskDialogProp
               </div>
 
               <div style={fieldGroupStyle}>
-                <label style={labelStyle}>Responsable *</label>
+                <label htmlFor="td-responsable" style={labelStyle}>Responsable *</label>
                 <select
-                  className={inputFocusClass}
+                  id="td-responsable"
                   style={{
                     ...inputStyle,
                     borderColor: errors.responsableId ? "var(--helix-danger, #ef3340)" : undefined,
+                    ...focusStyle(focusedField === "responsable"),
                   }}
                   value={form.responsableId}
                   onChange={handleTextChange("responsableId")}
+                  onFocus={() => setFocusedField("responsable")}
+                  onBlur={() => setFocusedField(null)}
                 >
                   <option value="">Seleccionar...</option>
                   {usuarios.map((u) => (
@@ -423,12 +438,17 @@ export function TaskDialog({ open, onClose, actividad, onSaved }: TaskDialogProp
             {/* Prioridad + Estado */}
             <div style={rowStyle}>
               <div style={fieldGroupStyle}>
-                <label style={labelStyle}>Prioridad</label>
+                <label htmlFor="td-prioridad" style={labelStyle}>Prioridad</label>
                 <select
-                  className={inputFocusClass}
-                  style={inputStyle}
+                  id="td-prioridad"
+                  style={{
+                    ...inputStyle,
+                    ...focusStyle(focusedField === "prioridad"),
+                  }}
                   value={form.prioridad}
                   onChange={handleTextChange("prioridad")}
+                  onFocus={() => setFocusedField("prioridad")}
+                  onBlur={() => setFocusedField(null)}
                 >
                   {PRIORIDADES.map((p) => (
                     <option key={p} value={p}>
@@ -439,12 +459,17 @@ export function TaskDialog({ open, onClose, actividad, onSaved }: TaskDialogProp
               </div>
 
               <div style={fieldGroupStyle}>
-                <label style={labelStyle}>Estado</label>
+                <label htmlFor="td-estado" style={labelStyle}>Estado</label>
                 <select
-                  className={inputFocusClass}
-                  style={inputStyle}
+                  id="td-estado"
+                  style={{
+                    ...inputStyle,
+                    ...focusStyle(focusedField === "estado"),
+                  }}
                   value={form.estado}
                   onChange={handleTextChange("estado")}
+                  onFocus={() => setFocusedField("estado")}
+                  onBlur={() => setFocusedField(null)}
                 >
                   {ESTADOS.map((e) => (
                     <option key={e} value={e}>
@@ -458,16 +483,19 @@ export function TaskDialog({ open, onClose, actividad, onSaved }: TaskDialogProp
             {/* Fechas */}
             <div style={rowStyle}>
               <div style={fieldGroupStyle}>
-                <label style={labelStyle}>Fecha Inicio *</label>
+                <label htmlFor="td-fecha-inicio" style={labelStyle}>Fecha Inicio *</label>
                 <input
-                  className={inputFocusClass}
+                  id="td-fecha-inicio"
                   style={{
                     ...inputStyle,
                     borderColor: errors.fechaInicio ? "var(--helix-danger, #ef3340)" : undefined,
+                    ...focusStyle(focusedField === "fechaInicio"),
                   }}
                   type="date"
                   value={form.fechaInicio}
                   onChange={handleTextChange("fechaInicio")}
+                  onFocus={() => setFocusedField("fechaInicio")}
+                  onBlur={() => setFocusedField(null)}
                 />
                 {errors.fechaInicio && (
                   <span style={{ fontSize: "11px", color: "var(--helix-danger, #ef3340)" }}>
@@ -477,17 +505,20 @@ export function TaskDialog({ open, onClose, actividad, onSaved }: TaskDialogProp
               </div>
 
               <div style={fieldGroupStyle}>
-                <label style={labelStyle}>Fecha Fin *</label>
+                <label htmlFor="td-fecha-fin" style={labelStyle}>Fecha Fin *</label>
                 <input
-                  className={inputFocusClass}
+                  id="td-fecha-fin"
                   style={{
                     ...inputStyle,
                     borderColor: errors.fechaFin ? "var(--helix-danger, #ef3340)" : undefined,
+                    ...focusStyle(focusedField === "fechaFin"),
                   }}
                   type="date"
                   value={form.fechaFin}
                   onChange={handleTextChange("fechaFin")}
                   min={form.fechaInicio}
+                  onFocus={() => setFocusedField("fechaFin")}
+                  onBlur={() => setFocusedField(null)}
                 />
                 {errors.fechaFin && (
                   <span style={{ fontSize: "11px", color: "var(--helix-danger, #ef3340)" }}>
@@ -500,27 +531,39 @@ export function TaskDialog({ open, onClose, actividad, onSaved }: TaskDialogProp
             {/* Avance + Puntos */}
             <div style={rowStyle}>
               <div style={fieldGroupStyle}>
-                <label style={labelStyle}>Avance (%)</label>
+                <label htmlFor="td-avance" style={labelStyle}>Avance (%)</label>
                 <input
-                  className={inputFocusClass}
-                  style={inputStyle}
+                  id="td-avance"
+                  style={{
+                    ...inputStyle,
+                    ...focusStyle(focusedField === "avance"),
+                  }}
                   type="number"
                   min={0}
                   max={100}
+                  step={1}
                   value={form.avance}
                   onChange={handleTextChange("avance")}
+                  onFocus={() => setFocusedField("avance")}
+                  onBlur={() => setFocusedField(null)}
                 />
               </div>
 
               <div style={fieldGroupStyle}>
-                <label style={labelStyle}>Puntos</label>
+                <label htmlFor="td-puntos" style={labelStyle}>Puntos</label>
                 <input
-                  className={inputFocusClass}
-                  style={inputStyle}
+                  id="td-puntos"
+                  style={{
+                    ...inputStyle,
+                    ...focusStyle(focusedField === "puntos"),
+                  }}
                   type="number"
                   min={0}
+                  step={1}
                   value={form.puntos}
                   onChange={handleTextChange("puntos")}
+                  onFocus={() => setFocusedField("puntos")}
+                  onBlur={() => setFocusedField(null)}
                 />
               </div>
             </div>
@@ -556,39 +599,57 @@ export function TaskDialog({ open, onClose, actividad, onSaved }: TaskDialogProp
               {costosOpen && (
                 <div style={{ ...rowStyle, marginTop: "10px", gridTemplateColumns: "1fr 1fr 1fr" }}>
                   <div style={fieldGroupStyle}>
-                    <label style={labelStyle}>Inversión</label>
+                    <label htmlFor="td-costo-inversion" style={labelStyle}>Inversión</label>
                     <input
-                      className={inputFocusClass}
-                      style={inputStyle}
+                      id="td-costo-inversion"
+                      style={{
+                        ...inputStyle,
+                        ...focusStyle(focusedField === "costoInversion"),
+                      }}
                       type="number"
                       min={0}
+                      step={1}
                       placeholder="0"
                       value={form.costoInversion}
                       onChange={handleTextChange("costoInversion")}
+                      onFocus={() => setFocusedField("costoInversion")}
+                      onBlur={() => setFocusedField(null)}
                     />
                   </div>
                   <div style={fieldGroupStyle}>
-                    <label style={labelStyle}>Optimización</label>
+                    <label htmlFor="td-costo-optimizacion" style={labelStyle}>Optimización</label>
                     <input
-                      className={inputFocusClass}
-                      style={inputStyle}
+                      id="td-costo-optimizacion"
+                      style={{
+                        ...inputStyle,
+                        ...focusStyle(focusedField === "costoOptimizacion"),
+                      }}
                       type="number"
                       min={0}
+                      step={1}
                       placeholder="0"
                       value={form.costoOptimizacion}
                       onChange={handleTextChange("costoOptimizacion")}
+                      onFocus={() => setFocusedField("costoOptimizacion")}
+                      onBlur={() => setFocusedField(null)}
                     />
                   </div>
                   <div style={fieldGroupStyle}>
-                    <label style={labelStyle}>Ejecución</label>
+                    <label htmlFor="td-costo-ejecucion" style={labelStyle}>Ejecución</label>
                     <input
-                      className={inputFocusClass}
-                      style={inputStyle}
+                      id="td-costo-ejecucion"
+                      style={{
+                        ...inputStyle,
+                        ...focusStyle(focusedField === "costoEjecucion"),
+                      }}
                       type="number"
                       min={0}
+                      step={1}
                       placeholder="0"
                       value={form.costoEjecucion}
                       onChange={handleTextChange("costoEjecucion")}
+                      onFocus={() => setFocusedField("costoEjecucion")}
+                      onBlur={() => setFocusedField(null)}
                     />
                   </div>
                 </div>
@@ -611,14 +672,6 @@ export function TaskDialog({ open, onClose, actividad, onSaved }: TaskDialogProp
           </div>
         </form>
       </div>
-
-      <style>{`
-        .helix-input-focus:focus {
-          outline: 2px solid var(--helix-accent, #ef3340);
-          outline-offset: -1px;
-          border-color: var(--helix-accent, #ef3340);
-        }
-      `}</style>
     </div>
   )
 }
