@@ -13,7 +13,7 @@ export interface AuthPayload {
 declare global {
   namespace Express {
     interface Request {
-      user: AuthPayload
+      user?: AuthPayload
     }
   }
 }
@@ -26,7 +26,9 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
   }
   const token = header.slice(7)
   try {
-    const payload = jwt.verify(token, env.JWT_SECRET) as AuthPayload
+    const payload = jwt.verify(token, env.JWT_SECRET, {
+      algorithms: ["HS256"],
+    }) as AuthPayload
     req.user = payload
     next()
   } catch {
@@ -37,5 +39,9 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
 /** Extracts the numeric user ID from either sub or id claim */
 export function getUserId(user: AuthPayload): number {
   const raw = user.sub ?? user.id
-  return Number(raw)
+  const id = Number(raw)
+  if (!Number.isFinite(id) || id <= 0) {
+    throw new Error("Token is missing a valid user identifier")
+  }
+  return id
 }
