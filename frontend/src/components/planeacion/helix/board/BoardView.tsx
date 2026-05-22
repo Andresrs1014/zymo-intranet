@@ -86,14 +86,15 @@ export function BoardView() {
     if (!over) return
 
     const draggedId = Number(active.id)
-    const targetEstado = over.id as HelixEstado
+    const targetEstado = over.id as string
 
-    if (!ESTADOS.includes(targetEstado)) return
+    if (!ESTADOS.includes(targetEstado as HelixEstado)) return
+    const safeEstado = targetEstado as HelixEstado
 
     const actividad = actividades.find((a) => a.id === draggedId)
-    if (!actividad || actividad.estado === targetEstado) return
+    if (!actividad || actividad.estado === safeEstado) return
 
-    updateEstado(draggedId, targetEstado).catch(() => undefined)
+    updateEstado(draggedId, safeEstado).catch(() => undefined)
   }
 
   const activeActividad =
@@ -203,7 +204,6 @@ export function BoardView() {
               key={estado}
               estado={estado}
               actividades={byEstado[estado]}
-              onEstadoChange={updateEstado}
             />
           ))}
         </div>

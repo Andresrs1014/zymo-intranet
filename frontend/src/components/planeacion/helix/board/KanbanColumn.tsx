@@ -6,7 +6,6 @@ import { TaskCard } from "./TaskCard"
 interface KanbanColumnProps {
   estado: HelixEstado
   actividades: HelixActividad[]
-  onEstadoChange: (id: number, estado: HelixEstado) => void
 }
 
 const COLUMN_COLORS: Record<HelixEstado, string> = {
@@ -28,7 +27,6 @@ const COLUMN_BG: Record<HelixEstado, string> = {
 export function KanbanColumn({
   estado,
   actividades,
-  onEstadoChange: _onEstadoChange,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: estado })
 

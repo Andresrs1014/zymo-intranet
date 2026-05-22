@@ -41,9 +41,7 @@ export function TaskCard({ actividad }: TaskCardProps) {
 
   const cardStyle: CSSProperties = {
     background: "#fff",
-    border: actividad.bloqueada
-      ? "1px solid #e5e7eb"
-      : "1px solid #e5e7eb",
+    border: "1px solid #e5e7eb",
     borderLeft: actividad.bloqueada ? "3px solid #ef3340" : "1px solid #e5e7eb",
     borderRadius: "8px",
     padding: "12px",
@@ -123,6 +121,7 @@ export function TaskCard({ actividad }: TaskCardProps) {
         <div
           style={badgeStyle}
           title={actividad.responsableNombre}
+          aria-label={actividad.responsableNombre}
         >
           {actividad.responsableInitials}
         </div>

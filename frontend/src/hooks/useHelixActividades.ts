@@ -71,7 +71,7 @@ export function useHelixActividades(
           }
         }
       })
-  }, [opts?.subproyectoId, opts?.responsableId, opts?.bloqueada]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [opts?.subproyectoId, opts?.responsableId, opts?.bloqueada])
 
   useEffect(() => {
     fetchData()
