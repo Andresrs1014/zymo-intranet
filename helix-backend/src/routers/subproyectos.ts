@@ -8,8 +8,8 @@ const SubproyectoBody = z.object({
   nombre: z.string().min(1).max(100),
   objetivo: z.string().optional(),
   cliente: z.string().optional(),
-  inversionEst: z.number().min(0).default(0),
-  retornoEsp: z.number().min(0).default(0),
+  inversionEst: z.number().min(0).max(9_999_999_999).default(0),
+  retornoEsp: z.number().min(0).max(9_999_999_999).default(0),
 })
 
 // GET / — list all active subproyectos
@@ -107,17 +107,22 @@ router.get("/:id/roi", async (req, res, next) => {
       select: { avance: true, estado: true },
     })
 
-    const { inversionEst, retornoEsp } = subproyecto
-    const roi =
-      inversionEst === 0
-        ? 0
-        : ((retornoEsp - inversionEst) / inversionEst) * 100
-    const margen = retornoEsp - inversionEst
+    const inv = subproyecto.inversionEst
+    const ret = subproyecto.retornoEsp
+    const roi = inv === 0 ? 0 : ((ret - inv) / inv) * 100
+    const margen = ret - inv
+
+    // Ensure no Infinity/NaN in response
+    const safeRoi = Number.isFinite(roi) ? roi : 0
+
+    // Keep local aliases for response fields
+    const inversionEst = inv
+    const retornoEsp = ret
 
     let clasificacion: string
-    if (roi >= 80) clasificacion = "Alto potencial"
-    else if (roi >= 40) clasificacion = "Potencial favorable"
-    else if (roi >= 0) clasificacion = "Retorno controlado"
+    if (safeRoi >= 80) clasificacion = "Alto potencial"
+    else if (safeRoi >= 40) clasificacion = "Potencial favorable"
+    else if (safeRoi >= 0) clasificacion = "Retorno controlado"
     else clasificacion = "Revisar alcance"
 
     const totalActividades = actividades.length
@@ -134,7 +139,7 @@ router.get("/:id/roi", async (req, res, next) => {
       nombre: subproyecto.nombre,
       inversionEst,
       retornoEsp,
-      roi,
+      roi: safeRoi,
       margen,
       clasificacion,
       totalActividades,

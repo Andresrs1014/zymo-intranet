@@ -1,5 +1,6 @@
 import { Router } from "express"
 import { z } from "zod"
+import { Prisma } from "@prisma/client"
 import { prisma } from "../config/prisma"
 
 const router = Router()
@@ -40,13 +41,17 @@ router.get("/", async (req, res, next) => {
     const { subproyectoId, estado, responsableId, bloqueada } = req.query
 
     // Build filter dynamically
-    const where: Record<string, unknown> = {}
+    const where: Prisma.HelixActividadWhereInput = {}
     if (subproyectoId !== undefined) {
       const parsed = parseInt(subproyectoId as string, 10)
       if (!isNaN(parsed)) where.subproyectoId = parsed
     }
     if (estado !== undefined) {
-      where.estado = estado as string
+      const estadoValid = ["Backlog", "Planificado", "En curso", "Revision", "Terminado"]
+      if (estadoValid.includes(estado as string)) {
+        where.estado = estado as string
+      }
+      // silently ignore invalid estado values
     }
     if (responsableId !== undefined) {
       const parsed = parseInt(responsableId as string, 10)
@@ -194,10 +199,8 @@ router.patch("/:id/estado", async (req, res, next) => {
       return
     }
 
-    const updateData: { estado: string; completadaEn?: Date } = {
-      estado: parsed.data.estado,
-    }
-    if (parsed.data.estado === "Terminado") {
+    const updateData: Prisma.HelixActividadUpdateInput = { estado: parsed.data.estado }
+    if (parsed.data.estado === "Terminado" && existing.estado !== "Terminado") {
       updateData.completadaEn = new Date()
     }
 
