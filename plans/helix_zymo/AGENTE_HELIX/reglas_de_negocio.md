@@ -1,86 +1,63 @@
 # Reglas de Negocio — Helix Zymo
 
-> Reglas extraídas directamente del código fuente. Son restricciones que el sistema ya aplica.
-> Ver también: [[actividades_y_estados]] | [[flujo_trabajo]] | [[roles_y_permisos]]
+> Las reglas que el sistema aplica automáticamente y que el agente debe conocer para dar respuestas correctas.
+> Ver también: [[actividades_y_estados]] | [[flujo_trabajo]]
 
 ---
 
-## Reglas de actividad
+## Reglas que el agente debe recordar siempre
 
-**Regla H-01:** El campo `nombre` de una actividad tiene máximo 100 caracteres y es obligatorio.
+### Sobre los estados
+- Solo existen 5 estados válidos: Backlog, Planificado, En curso, Revision, Terminado
+- **No hay restricciones de transición** — se puede mover de Backlog a Terminado directamente si el gestor lo decide
+- Cuando una actividad pasa a Terminado, el sistema registra automáticamente la fecha de cierre
 
-**Regla H-02:** `fechaFin` debe ser igual o posterior a `fechaInicio`. El formulario valida esto antes de enviar.
+### Sobre vencidas
+- Una actividad está **vencida** si su fecha límite ya pasó Y no está en estado Terminado
+- Estar en Terminado siempre saca la actividad del conteo de vencidas, sin importar cuándo se cerró
 
-**Regla H-03:** El `avance` es un entero entre 0 y 100 (inclusive). No se aceptan decimales.
+### Sobre prioridades
+- Solo existen 3 prioridades: Alta, Media, Baja
+- La prioridad **no cambia automáticamente** — solo el equipo la cambia
+- Una actividad Alta vencida es la situación más crítica que puede reportar el agente
 
-**Regla H-04:** Los `puntos` (story points) van de 1 a 21. Valores fuera de rango son rechazados con error 400.
-
-**Regla H-05:** El `responsableId` debe ser el ID de un usuario válido de la intranet. El backend resuelve nombre, iniciales y color desde la lista de usuarios.
-
-**Regla H-06:** Una actividad puede ser `bloqueada: true` independientemente de su estado. Estar bloqueada no impide cambios de estado — es una flag adicional.
-
-**Regla H-07:** El campo `dependenciaId` apunta a otra actividad del sistema. No hay validación circular en el backend — el gestor es responsable de evitar ciclos.
-
----
-
-## Reglas de estado
-
-**Regla H-08:** Los únicos estados válidos son exactamente: `"Backlog"`, `"Planificado"`, `"En curso"`, `"Revision"`, `"Terminado"`. Mayúsculas y tildes incluidas — no se acepta variante.
-
-**Regla H-09:** No hay restricciones de transición de estado — se puede mover una actividad de `Backlog` directamente a `Terminado` si el gestor lo decide. Las transiciones son libres.
-
-**Regla H-10:** Al cambiar estado a `Terminado` vía el endpoint `PATCH /estado`, el backend registra automáticamente `completadaEn = now()`.
+### Sobre bloqueos
+- Estar bloqueada es independiente del estado — una actividad puede estar "En curso" Y "bloqueada" al mismo tiempo
+- El bloqueo solo se resuelve manualmente (alguien tiene que desmarcar el checkbox)
 
 ---
 
-## Reglas de subproyecto
+## Lo que el sistema NO hace (que el agente debe saber para no confundir)
 
-**Regla H-11:** El `nombre` de un subproyecto es el único campo obligatorio.
-
-**Regla H-12:** `inversionEst` y `retornoEsp` son floats ≥ 0. Valores negativos son rechazados.
-
-**Regla H-13:** No se puede eliminar un subproyecto que tenga actividades asociadas — el backend retorna error 409.
-
----
-
-## Reglas de costos
-
-**Regla H-14:** Los tres campos de costo (`costoInversion`, `costoOptimizacion`, `costoEjecucion`) son floats ≥ 0, opcionales (default 0).
-
-**Regla H-15:** El ROI se calcula server-side con la fórmula:
-```
-ROI = (retornoEsp - inversionEst) / inversionEst * 100
-Margen = retornoEsp / inversionEst
-```
-
-**Regla H-16:** Clasificación de subproyectos por ROI:
-- ROI > 50% → "Alto potencial"
-- ROI > 20% → "Potencial favorable"
-- ROI > 0% → "Retorno controlado"
-- ROI ≤ 0% → "Revisar alcance"
+| El agente podría asumir que... | La realidad es... |
+|---|---|
+| "El sistema avanza el estado solo cuando el avance llega a 100%" | ❌ El estado nunca cambia automáticamente — siempre es manual |
+| "Al cerrar una actividad, el sistema avisa al gestor" | ❌ Solo hay notificaciones automáticas para vencidas y bloqueadas (en implementación) |
+| "Si una actividad depende de otra, no se puede iniciar antes" | ❌ El sistema registra la dependencia pero no la bloquea automáticamente |
+| "Los costos se calculan solos" | ❌ Los costos de cada actividad los ingresa manualmente el responsable |
 
 ---
 
-## Reglas de prioridad
+## Validaciones que el sistema sí aplica
 
-**Regla H-17:** Las únicas prioridades válidas son `"Alta"`, `"Media"`, `"Baja"`. La prioridad por defecto al crear es `"Media"`.
+Estas son restricciones reales — si alguien intenta saltárselas, el sistema las rechaza:
 
-**Regla H-18:** La prioridad NO afecta el orden de columnas en el tablero — es visual únicamente. El gestor ordena manualmente.
-
----
-
-## Reglas del dashboard
-
-**Regla H-19:** Una actividad se considera "vencida" si `fechaFin < hoy` Y `estado != "Terminado"`.
-
-**Regla H-20:** Los "próximos hitos" son actividades con `fechaFin` dentro de los próximos 7 días Y `estado != "Terminado"`, ordenadas por fecha ascendente, máximo 10.
-
-**Regla H-21:** Las insignias se otorgan con estos umbrales:
-- "Tasa de completitud" → se obtiene si ≥ 70% de actividades están Terminadas
-- "Actividades en tiempo" → se obtiene si ≥ 80% de las activas no están vencidas
-- "Avance promedio" → se obtiene si el avance global ≥ 60%
-- "Sin bloqueos" → se obtiene si no hay ninguna actividad bloqueada
+- La fecha de fin debe ser igual o posterior a la fecha de inicio
+- El avance debe ser un número entre 0 y 100
+- El nombre de la actividad no puede quedar vacío
+- No se puede eliminar un subproyecto que tiene actividades activas
+- Los costos no pueden ser valores negativos
 
 ---
 
-*Última actualización: 2026-05-22 | Fuente: `helix-backend/src/routers/actividades.ts` (validaciones zod) + `dashboardService.ts`*
+## Reglas para calcular métricas (el agente usa esto internamente)
+
+- **Vencida:** `fechaFin < hoy` Y `estado ≠ Terminado`
+- **Próxima a vencer:** `fechaFin` en los próximos 7 días Y `estado ≠ Terminado`
+- **En riesgo:** `fechaFin` en ≤ 5 días Y `avance < 50%`
+- **ROI:** `(retornoEsperado - inversión) / inversión × 100`
+- **Insignia "Sin bloqueos":** solo se obtiene si hay exactamente 0 actividades con `bloqueada = true`
+
+---
+
+*Última actualización: 2026-05-22 | Fuente: código fuente helix-backend + comportamiento observado en producción*

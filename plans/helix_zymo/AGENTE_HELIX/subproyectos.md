@@ -1,82 +1,80 @@
 # Subproyectos — Helix Zymo
 
-> Fuente directa: `helix-backend/src/routers/subproyectos.ts` + `prisma/schema.prisma`
+> Este nodo explica qué es un subproyecto, cómo se gestiona y cómo hablar de él.
 > Ver también: [[flujo_trabajo]] | [[roi_y_valor]] | [[actividades_y_estados]]
 
 ---
 
 ## ¿Qué es un subproyecto?
 
-Un subproyecto es el contenedor de actividades. Representa una iniciativa, proyecto o entregable del área de Desarrollo e Innovación. Agrupa actividades relacionadas y tiene asociados costos, retorno esperado y un cliente.
+Un subproyecto es una iniciativa completa del área de Desarrollo. Tiene nombre, un objetivo de negocio, un cliente (interno o externo) y un presupuesto. Agrupa todas las actividades necesarias para completarla.
 
-**Analogía:** Si Helix fuera un proyecto de software, los subproyectos serían los "epics" y las actividades serían las "historias de usuario".
-
----
-
-## Campos de un subproyecto
-
-| Campo | Tipo | Descripción |
-|---|---|---|
-| `id` | number | Identificador único |
-| `nombre` | string | Nombre del proyecto/iniciativa (obligatorio) |
-| `objetivo` | string? | Descripción del objetivo de negocio |
-| `cliente` | string? | Cliente interno o externo beneficiado |
-| `inversionEst` | float | Presupuesto estimado en COP (default: 0) |
-| `retornoEsp` | float | Retorno esperado en COP (default: 0) |
-| `activo` | boolean | Si está visible/activo (default: true) |
+**Ejemplos reales del área:**
+- "Helix Zymo" — módulo de gestión de proyectos para la intranet
+- "Modernización módulo OC" — mejora del proceso de compras
+- "Automatización reportes financieros" — eliminación de reportes manuales
+- "Formación equipo en nuevas herramientas" — capacitaciones internas
 
 ---
 
-## Endpoints
+## Cómo habla el agente de subproyectos
 
+### Al resumir el estado de un subproyecto
 ```
-GET    /api/subproyectos          → Lista todos los subproyectos activos
-POST   /api/subproyectos          → Crea nuevo subproyecto
-PUT    /api/subproyectos/:id      → Edita nombre, objetivo, cliente, inversión, retorno
-DELETE /api/subproyectos/:id      → Elimina (solo si no tiene actividades)
+Subproyecto: "Helix Zymo"
+
+Objetivo: Módulo de gestión de proyectos integrado a la intranet
+Cliente: Área de Desarrollo (uso interno)
+Estado general: 71% completado
+
+Actividades: 14 total | 10 terminadas | 3 en curso | 1 en backlog
+Próxima fecha límite: "T11 Vista Estados" — vence 25 mayo (en 3 días)
+ROI estimado: 179% — Potencial favorable ✅
 ```
 
 ---
 
-## Gestión en la intranet
+### Al listar todos los subproyectos activos
+```
+Subproyectos activos (3):
 
-**Dónde:** Vista Config → pestaña "Subproyectos"
-**Quién puede gestionar:** Usuarios con acceso a Helix (JWT válido)
-
-El panel muestra:
-- Lista de subproyectos con nombre, objetivo y badge "Activo"
-- Botón "Nuevo subproyecto" → formulario inline
-- Editar (lápiz) / Eliminar (papelera) por fila
-- Expandir fila para ver objetivo, cliente, inversión y retorno
+1. Helix Zymo — 71% completado — 3 actividades en curso
+2. Modernización módulo OC — 45% — 2 actividades vencidas ⚠️
+3. Automatización reportes — 90% — casi terminado ✅
+```
 
 ---
 
-## Relación con actividades
+## Cómo se organiza internamente
 
-- Un subproyecto puede tener **muchas actividades**
-- Una actividad pertenece a **exactamente un subproyecto**
-- Al eliminar un subproyecto, el sistema valida que no tenga actividades activas
-
----
-
-## Uso en el Dashboard
-
-El gestor puede **filtrar todo el dashboard** por subproyecto específico:
-- Métricas solo de ese subproyecto
-- Actividades bloqueadas de ese subproyecto
-- ROI de ese subproyecto
-- Carga del equipo en ese subproyecto
+- Un subproyecto puede tener **cualquier número de actividades**
+- Cada actividad pertenece a **un solo subproyecto**
+- Cuando todas las actividades de un subproyecto están Terminadas, el subproyecto está "completado" (no hay un estado explícito — es implícito)
+- Se puede filtrar todo el dashboard por subproyecto para ver solo ese contexto
 
 ---
 
-## Ejemplo de subproyectos reales de Grupo ZYMO
+## Señales de salud de un subproyecto
 
-Típicamente el área de Desarrollo maneja iniciativas como:
-- Implementación de módulos en la intranet
-- Optimizaciones de procesos operativos
-- Desarrollo de herramientas internas
-- Auditorías y actualizaciones de sistemas
+| Señal | Qué significa |
+|---|---|
+| > 70% actividades Terminadas | Subproyecto avanzado, cerca del cierre |
+| Actividades con alta prioridad vencidas | Riesgo de no entrega |
+| ROI < 0% | Revisar si el alcance sigue siendo correcto |
+| Sin actividades "En curso" | Trabajo parado, nadie está avanzando |
+| Solo actividades en Backlog | El subproyecto no ha empezado realmente |
 
 ---
 
-*Última actualización: 2026-05-22 | Fuente: `helix-backend/src/routers/subproyectos.ts` + `settings/SubprojectsPanel.tsx`*
+## Lo que el agente le dice a Andrea sobre subproyectos
+
+Cuando Andrea pregunta por la salud de un subproyecto, el agente combina:
+1. % de completitud (actividades Terminadas / total)
+2. Actividades con alerta (vencidas, bloqueadas)
+3. Próximas fechas críticas
+4. ROI estimado vs. avance real
+5. Quién está trabajando en él ahora mismo
+
+---
+
+*Última actualización: 2026-05-22 | Fuente: uso real del módulo Helix + `subproyectos.ts` router*

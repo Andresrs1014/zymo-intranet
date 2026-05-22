@@ -1,115 +1,87 @@
 # Flujo de Trabajo — Helix Zymo
 
-> Fuente directa: `frontend/src/components/planeacion/helix/board/BoardView.tsx` + `helix-backend/src/routers/actividades.ts`
-> Ver también: [[actividades_y_estados]] | [[subproyectos]] | [[reglas_de_negocio]]
+> Este nodo describe cómo fluye el trabajo en el área: quién hace qué en cada paso.
+> Ver también: [[actividades_y_estados]] | [[subproyectos]] | [[roles_y_permisos]]
 
 ---
 
-## Flujo completo de una actividad
+## El ciclo completo de una actividad
 
 ```
-[GESTOR crea subproyecto]
+Andrea (o el equipo) identifica algo que hay que hacer
         ↓
-[GESTOR/EQUIPO crea actividad en Backlog]
+Se crea como actividad en Backlog (con nombre, fecha y responsable)
         ↓
-[GESTOR planifica → mueve a Planificado + asigna responsable + fechas]
+Andrea o el gestor la mueve a Planificado cuando entra al sprint
         ↓
-[RESPONSABLE inicia trabajo → mueve a En curso]
+El responsable la arranca → En curso (y actualiza el avance periódicamente)
         ↓
-[RESPONSABLE actualiza avance % periódicamente]
+El responsable termina su parte → la mueve a Revisión
         ↓
-[RESPONSABLE termina → mueve a Revision]
-        ↓
-[GESTOR revisa → mueve a Terminado]
-        ↓
-[Sistema registra completadaEn, suma puntos al responsable]
+Andrea o el gestor la revisa → la cierra en Terminado
 ```
 
 ---
 
-## Paso 1 — Creación del subproyecto
+## Quién hace qué
 
-**Quién:** Gestor (usuario con acceso al módulo Helix)
-**Dónde:** Vista Config → pestaña Subproyectos
-**Endpoint:** `POST /api/subproyectos`
-**Campos obligatorios:** `nombre`
-**Campos opcionales:** `objetivo`, `cliente`, `inversionEst` (presupuesto), `retornoEsp` (retorno esperado)
-
----
-
-## Paso 2 — Creación de actividad
-
-**Quién:** Gestor o miembro del equipo
-**Dónde:** Botón "Nueva actividad" en el Tablero Scrum → abre TaskDialog
-**Endpoint:** `POST /api/actividades`
-**Estado inicial:** `Backlog` (siempre)
-**Campos obligatorios:** `nombre`, `subproyectoId`, `responsableId`, `fechaInicio`, `fechaFin`
+| Paso | Quién lo hace normalmente |
+|---|---|
+| Crear el subproyecto (iniciativa) | Andrea o el líder del proyecto |
+| Crear actividades y asignarlas | Andrea, Andrés o cualquier miembro del equipo |
+| Planificar (mover a Planificado) | Andrea o el gestor |
+| Iniciar ejecución (mover a En curso) | El responsable de la actividad |
+| Actualizar el avance (%) | El responsable, al menos 2 veces por semana |
+| Mover a Revisión | El responsable cuando termina su parte |
+| Cerrar en Terminado | Andrea o el gestor después de revisar |
+| Marcar como bloqueada | Quien detecta el impedimento |
 
 ---
 
-## Paso 3 — Planificación (Backlog → Planificado)
+## Señales de que el flujo está funcionando bien
 
-**Quién:** Gestor
-**Cómo:** Drag & drop de la tarjeta a la columna "Planificado" en el Tablero Scrum, o editar y cambiar estado
-**Endpoint:** `PATCH /api/actividades/:id/estado` con `{ estado: "Planificado" }`
-**Qué implica:** La actividad ya tiene fecha, responsable y está comprometida para el sprint
-
----
-
-## Paso 4 — Inicio de ejecución (Planificado → En curso)
-
-**Quién:** Responsable o gestor
-**Cómo:** Drag & drop a columna "En curso"
-**Qué implica:** El responsable está trabajando activamente en la actividad
+- Las actividades avanzan de izquierda a derecha en el tablero semanalmente
+- El avance % se actualiza con regularidad (no está en 0% después de días "En curso")
+- No hay acumulación de actividades en un solo estado
+- Las actividades en Revisión no duran más de 2 días sin cerrarse
 
 ---
 
-## Paso 5 — Actualización de avance
+## Señales de que el flujo tiene problemas
 
-**Quién:** Responsable
-**Cómo:** Editar actividad (botón lápiz en tarjeta) → campo Avance 0-100%
-**Endpoint:** `PATCH /api/actividades/:id/avance` o `PUT /api/actividades/:id`
-**Frecuencia recomendada:** Al menos 2 veces por semana
-
----
-
-## Paso 6 — Revisión (En curso → Revision)
-
-**Quién:** Responsable
-**Cómo:** Drag & drop a columna "Revision"
-**Qué implica:** El trabajo está listo para ser verificado por el gestor
+| Señal | Posible causa | Qué hacer |
+|---|---|---|
+| Actividad lleva días en Planificado sin iniciar | El responsable no arrancó o no sabe que le toca | Recordárselo |
+| Avance no cambió en 5+ días | Abandonada, bloqueada o sin tiempo | Preguntar al responsable |
+| Muchas actividades en Revisión sin cerrar | Andrea o el gestor no está revisando | Bloque de revisión en la agenda |
+| El responsable dice que terminó pero no movió el estado | Falta cultura de actualización | Recordar que deben mover el estado ellos mismos |
 
 ---
 
-## Paso 7 — Cierre (Revision → Terminado)
+## El tablero Scrum — cómo lo usa el equipo
 
-**Quién:** Gestor
-**Cómo:** Drag & drop a columna "Terminado"
-**Endpoint:** `PATCH /api/actividades/:id/estado` con `{ estado: "Terminado" }`
-**Qué implica:** La actividad cierra, se registra `completadaEn`, los puntos se suman al responsable
+El tablero es la vista principal del área. Tiene 5 columnas (una por estado) y las tarjetas se pueden arrastrar entre columnas con el mouse.
 
----
+Cada tarjeta muestra:
+- Nombre de la actividad
+- Avatar del responsable (iniciales en círculo de color)
+- Prioridad (chip rojo/amarillo/gris)
+- Barra de avance
+- Fecha de entrega
 
-## Flujo de bloqueo (paralelo)
-
-En cualquier momento un gestor puede marcar `bloqueada: true` via la edición de la actividad:
-```
-Actividad en cualquier estado → bloqueada: true
-↓
-Aparece con borde rojo en tablero
-↓
-Alerta automática si lleva +2 días bloqueada
-↓
-Gestor resuelve bloqueo → bloqueada: false
-```
+**Uso recomendado:** El equipo revisa el tablero al inicio de cada jornada. Andrea lo revisa al inicio de semana para ver el panorama completo.
 
 ---
 
-## Vista del Tablero Scrum
+## El Gantt — para ver el tiempo
 
-El tablero muestra las 5 columnas de estados con drag & drop real (`@dnd-kit/core`).
-Las tarjetas muestran: nombre, responsable (avatar), prioridad (chip), avance (barra), fecha de entrega.
+La vista Gantt muestra todas las actividades como barras en una línea de tiempo. Sirve para:
+- Ver si hay actividades que se solapan en el mismo responsable
+- Identificar semanas muy cargadas vs. semanas vacías
+- Detectar actividades cuya barra ya pasó la línea de hoy (vencidas visualmente)
+
+El botón "Hoy" lleva el gantt al día actual automáticamente.
 
 ---
 
-*Última actualización: 2026-05-22 | Fuente: `BoardView.tsx` + `actividades.ts` router*
+*Última actualización: 2026-05-22 | Fuente: observación del uso real del módulo Helix*

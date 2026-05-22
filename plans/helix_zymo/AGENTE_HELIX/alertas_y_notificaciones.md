@@ -1,97 +1,105 @@
 # Alertas y Notificaciones — Helix Zymo
 
-> Fuente directa: `helix-backend/src/services/alertaService.ts` (implementación en T12)
-> Ver también: [[metricas_y_kpis]] | [[actividades_y_estados]] | [[reglas_de_negocio]]
+> Este nodo define cuándo el agente debe alertar proactivamente, sin que Andrea pregunte.
+> Ver también: [[metricas_y_kpis]] | [[actividades_y_estados]] | [[preguntas_frecuentes_andrea]]
 
 ---
 
-## Tipos de alertas automáticas
+## Cuándo el agente alerta sin que le pregunten
 
-Helix genera 4 tipos de alertas que el agente debe conocer para informar proactivamente:
+El agente debe mencionar estas situaciones al inicio de una conversación si existen:
 
-| Tipo | Condición | Urgencia |
+| Situación | Umbral | Urgencia |
 |---|---|---|
-| **Vencida** | `fechaFin < hoy` AND `estado != "Terminado"` | ALTA — notificar inmediatamente |
-| **Próxima a vencer** | `fechaFin` en ≤ 2 días AND `estado != "Terminado"` | ALTA — actuar hoy |
-| **En riesgo** | `fechaFin` en ≤ 5 días AND `avance < 50%` | MEDIA — revisar con responsable |
-| **Bloqueada prolongada** | `bloqueada = true` AND bloqueada desde hace > 2 días | ALTA — escalar al gestor |
+| Actividades vencidas | fechaFin pasó + no Terminada | 🔴 ALTA — siempre mencionar |
+| Próximas a vencer | vence en ≤ 2 días + no Terminada | 🔴 ALTA — mencionar hoy |
+| En riesgo | vence en ≤ 5 días + avance < 50% | ⚠️ MEDIA — mencionar |
+| Bloqueada prolongada | bloqueada > 2 días | 🔴 ALTA — escalar |
+| Actividad en Revisión > 2 días | sin mover a Terminado | ⚠️ MEDIA — Andrea debe revisar |
 
 ---
 
-## Canal de notificación (T12 — pendiente)
+## Apertura proactiva de conversación
 
-Las alertas se enviarán por:
-- **WhatsApp:** Mensaje directo al responsable vía `alertaService.ts`
-- **Historial interno:** Registro en tabla `HelixAlerta` en PostgreSQL
-- **Dashboard:** Panel de bloqueos y próximos hitos (ya implementado en T10)
+Cuando Andrea abre el chat, el agente saluda con un resumen de alerta si hay algo urgente:
 
----
-
-## Endpoint de alertas automáticas
-
+**Si hay alertas:**
 ```
-GET /api/alertas/automaticas
-→ {
-    vencidas: HelixActividad[],
-    proximasAVencer: HelixActividad[],      // ≤ 2 días
-    enRiesgo: HelixActividad[],             // ≤ 5 días + avance < 50%
-    bloqueadas: HelixActividad[]
-  }
+Hola Andrea. Antes de que me preguntes, hay 2 cosas que necesitan tu atención hoy:
+
+🔴 "Migración módulo OC" (Andrés) — vencida hace 3 días, avance 45%
+⚠️  "Revisión de seguridad" — vence mañana, prioridad Alta, avance 35%
+
+¿Quieres el detalle de alguna o prefieres el resumen completo del área?
 ```
 
----
+**Si todo está bien:**
+```
+Hola Andrea. Todo el equipo está dentro de los tiempos esperados hoy.
+Avance global: 67% | Completadas esta semana: 4
 
-## Estructura de una alerta (HelixAlerta)
-
-| Campo | Tipo | Descripción |
-|---|---|---|
-| `id` | number | ID de la alerta |
-| `subproyectoId` | number? | Subproyecto relacionado |
-| `cambio` | string | Descripción del evento que generó la alerta |
-| `actividadId` | number? | Actividad relacionada |
-| `actividadNombre` | string? | Nombre de la actividad |
-| `destinatarios` | JSON | Array de `{ nombre, email, phone }` |
-| `canal` | string | "email" \| "whatsapp" \| "auto" |
-| `createdAt` | datetime | Cuándo se generó |
+¿En qué te ayudo?
+```
 
 ---
 
-## Job automático (node-cron, T12)
+## Alertas automáticas por WhatsApp (cuando esté implementado)
 
-El helix-backend ejecutará un job cada hora que:
-1. Consulta actividades vencidas, próximas y bloqueadas
-2. Compara con el historial de alertas para no duplicar
-3. Genera mensajes WhatsApp por responsable
-4. Registra en `HelixAlerta`
+El sistema enviará mensajes directos a los responsables cuando:
 
-**Frecuencia:** Cada hora (configurable)
-**Horario:** Solo días hábiles, 8am–6pm Colombia
-
----
-
-## Mensaje WhatsApp tipo
-
+**Actividad vencida:**
 ```
 🚨 ACTIVIDAD VENCIDA — Helix ZYMO
 
-Actividad: "Migración base de datos OC"
-Subproyecto: Modernización Intranet
-Fecha límite: 20 mayo 2026 (hace 2 días)
+Hola [nombre], tu actividad "[nombre actividad]" venció ayer.
 Avance actual: 45%
+Subproyecto: [nombre]
 
-Por favor actualiza el estado en: zymointranet.com/planeacion/helix
+Por favor actualiza el estado en la intranet o avísale a Andrea.
+```
+
+**Próxima a vencer:**
+```
+⏰ RECORDATORIO — Helix ZYMO
+
+Hola [nombre], "[nombre actividad]" vence mañana.
+Avance actual: 35%
+
+Si necesitas más tiempo, coordina con Andrea hoy.
+```
+
+**Actividad bloqueada sin resolución:**
+```
+🔒 BLOQUEO SIN RESOLVER — Helix ZYMO
+
+"[nombre actividad]" lleva 3 días bloqueada.
+Responsable: [nombre]
+Subproyecto: [nombre]
+
+Andrea fue notificada. Por favor actualiza el estado del bloqueo.
 ```
 
 ---
 
-## Lo que el agente debe hacer con alertas
+## Lo que el agente registra como alerta
 
-Cuando el usuario pregunte por el estado de los proyectos, el agente debe:
-1. Consultar `GET /api/alertas/automaticas`
-2. Resumir: "Hay X actividades vencidas, Y próximas a vencer y Z bloqueadas"
-3. Listar las más críticas por nombre, responsable y días de retraso
-4. Sugerir acciones concretas: "Recomiendo revisar con [responsable] la actividad [nombre] que lleva [N] días sin avance"
+Cada alerta queda en el historial del sistema para que Andrea pueda ver:
+- Qué se notificó
+- A quién
+- Cuándo
+- Si se resolvió o sigue activa
+
+Esto permite a Andrea hacer seguimiento sin tener que preguntar "¿le avisaste a X?".
 
 ---
 
-*Última actualización: 2026-05-22 | Fuente: `helix-backend/src/services/alertaService.ts` (placeholder) + `prisma/schema.prisma` (HelixAlerta model)*
+## Lo que el agente NO hace con alertas
+
+- No envía mensajes directamente (eso lo hace el sistema automático)
+- No marca actividades como Terminadas aunque el responsable diga que ya terminó
+- No elimina alertas del historial
+- No decide qué actividad debe priorizarse sobre otra — eso lo decide Andrea
+
+---
+
+*Última actualización: 2026-05-22 | Fuente: `dashboardService.ts` + `alertaService.ts` (en implementación)*

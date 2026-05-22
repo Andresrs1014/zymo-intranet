@@ -1,84 +1,90 @@
 # ROI y Valor de Negocio — Helix Zymo
 
-> Fuente directa: `helix-backend/src/services/roiService.ts` (placeholder — implementación en T11)
-> Ver también: [[subproyectos]] | [[metricas_y_kpis]] | [[reglas_de_negocio]]
+> Este nodo le enseña al agente a hablarle a Andrea (y a la gerencia) sobre el valor económico de los proyectos del área.
+> Ver también: [[subproyectos]] | [[metricas_y_kpis]] | [[preguntas_frecuentes_andrea]]
 
 ---
 
-## ¿Por qué medir ROI en proyectos de desarrollo?
+## Cómo pensar el ROI en el área de Desarrollo
 
-El área de Desarrollo e Innovación de Grupo ZYMO justifica sus iniciativas con retorno medible. Helix captura los costos reales de cada actividad y los compara con el retorno esperado declarado al crear el subproyecto.
-
----
-
-## Fórmulas de cálculo
-
-```
-ROI (%) = (retornoEsp - inversionEst) / inversionEst × 100
-
-Margen = retornoEsp / inversionEst
-
-Costo total ejecutado = SUM(costoInversion + costoEjecucion) por todas las actividades del subproyecto
-
-Costo optimización total = SUM(costoOptimizacion) — ahorro generado
-```
+El área de Desarrollo de Grupo ZYMO no solo hace código — genera valor económico medible. Cada subproyecto tiene un costo de inversión (tiempo del equipo + infraestructura) y un retorno esperado (ahorro operativo, ingresos adicionales, eficiencia). Helix captura esos números para que Andrea pueda justificarlos ante gerencia.
 
 ---
 
-## Clasificación de subproyectos
+## Qué significa cada número
 
-| ROI | Clasificación | Interpretación |
-|---|---|---|
-| > 50% | Alto potencial | Excelente rentabilidad, priorizar |
-| 20–50% | Potencial favorable | Buen retorno, continuar |
-| 0–20% | Retorno controlado | Rentable pero bajo, evaluar |
-| ≤ 0% | Revisar alcance | No rentable, reevaluar o cancelar |
-
----
-
-## Campos de costo en actividades
-
-Cada actividad tiene 3 campos de costo (todos en COP):
-
-| Campo | Significado |
+| Número | Qué es en la práctica |
 |---|---|
-| `costoInversion` | Lo que cuesta desarrollar/implementar esta actividad |
-| `costoOptimizacion` | Ahorro o beneficio económico que genera |
-| `costoEjecucion` | Costo operativo real de ejecutarla |
-
-**Ejemplo:** Una actividad de automatización de reportes:
-- `costoInversion` = 500.000 (tiempo del desarrollador)
-- `costoOptimizacion` = 2.000.000 (tiempo ahorrado mensualmente × 12 meses)
-- `costoEjecucion` = 50.000 (infraestructura)
+| **Inversión estimada** | Cuánto cuesta desarrollar el proyecto (horas del equipo × tarifa + costos de herramientas) |
+| **Retorno esperado** | Cuánto va a ahorrar o generar para la empresa (por año, o al término del proyecto) |
+| **ROI %** | Si se invirtió $1, cuánto se recupera en valor. ROI 200% = se recupera 3 veces lo invertido |
+| **Costo de ejecución** | Lo que realmente se gastó en actividades individuales |
+| **Costo de optimización** | El ahorro que cada actividad genera (el impacto positivo) |
 
 ---
 
-## Vista Estados/Reports (T11 — pendiente)
+## Clasificación de proyectos (para hablarle a gerencia)
 
-La vista de Estados mostrará:
-- **StatusReport:** Resumen narrativo listo para comité — texto generado por el backend con el estado actual del proyecto
-- **FollowupList:** Lista de seguimientos sugeridos basada en actividades vencidas y bloqueadas
-- **RoiGrid:** Tabla de ROI por subproyecto con clasificación y comparativo
-
----
-
-## ROI en el Dashboard
-
-El panel de valor muestra por subproyecto:
-- Inversión estimada vs. costo ejecutado real
-- Retorno esperado
-- ROI calculado y clasificación
-- Avance promedio de actividades (proxy de qué tan cerca está de materializarse el retorno)
+| Clasificación | ROI | Qué decirle al gerente |
+|---|---|---|
+| **Alto potencial** | > 50% | "Este proyecto paga más del doble de lo que cuesta. Prioridad alta." |
+| **Potencial favorable** | 20–50% | "Buen retorno. Vale la pena terminarlo este trimestre." |
+| **Retorno controlado** | 0–20% | "Rentable pero ajustado. Evaluar si hay iniciativas más estratégicas." |
+| **Revisar alcance** | ≤ 0% | "No está generando retorno con el alcance actual. Hay que redefinirlo." |
 
 ---
 
-## Predicción (futuro)
+## Respuestas tipo sobre ROI
 
-En versiones futuras, el `roiService.ts` calculará una predicción de retorno basada en:
-- Velocidad actual del equipo (puntos/semana)
-- Actividades restantes para completar el subproyecto
-- Fecha estimada de completitud
+### "¿Cuánto vale el proyecto Helix Zymo?"
+```
+Helix Zymo:
+
+Inversión estimada: $3,800,000 COP
+Retorno esperado: $10,600,000 COP (eficiencia operativa anualizada)
+ROI estimado: 179% → Potencial favorable ✅
+
+Avance actual: 71% completado
+A este ritmo, el retorno debería materializarse en julio 2026.
+```
 
 ---
 
-*Última actualización: 2026-05-22 | Fuente: `helix-backend/src/services/roiService.ts` (placeholder) + `frontend/src/types/helix.ts` (HelixROI interface)*
+### "¿Cuál proyecto le conviene más a la empresa ahora mismo?"
+```
+Por ROI estimado:
+
+1. Automatización reportes OC — ROI 320% (Alto potencial)
+   → Ya está 90% terminado. Prácticamente el retorno ya está garantizado.
+
+2. Helix Zymo — ROI 179% (Potencial favorable)
+   → 71% completado. Recomendable terminar antes del cierre del trimestre.
+
+3. Módulo financiero v2 — ROI 40% (Retorno controlado)
+   → Útil pero no urgente si hay que priorizar recursos.
+```
+
+---
+
+### "¿Estamos dentro del presupuesto?"
+```
+Helix Zymo:
+Presupuesto estimado: $3,800,000
+Costo ejecutado hasta hoy: $2,100,000 (actividades cerradas)
+Actividades pendientes: 4 (costo estimado ~$1,200,000)
+
+Estimado total: ~$3,300,000 → 13% por debajo del presupuesto ✅
+```
+
+---
+
+## Lo que el agente NO puede afirmar sobre ROI
+
+- No puede garantizar que el retorno se va a materializar — es una estimación del área
+- No conoce el presupuesto total de la empresa ni la comparación con otros departamentos
+- Los costos que ve son los que el equipo registró manualmente en Helix — no son datos contables oficiales
+- Si el gerente pide cifras formales, debe ir al módulo financiero de la intranet
+
+---
+
+*Última actualización: 2026-05-22 | Fuente: `roiService.ts` + campos de costo en actividades Helix*
