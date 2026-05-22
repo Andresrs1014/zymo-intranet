@@ -1,11 +1,22 @@
 import { HelixProvider } from "@/components/planeacion/helix/HelixProvider"
+import { HelixShell } from "@/components/planeacion/helix/HelixShell"
+import { useHelix } from "@/context/HelixContext"
+
+function HelixContent() {
+  const { activeView } = useHelix()
+  return (
+    <div className="text-helix-muted text-sm">
+      Vista activa: {activeView} — en construcción
+    </div>
+  )
+}
 
 export function HelixPage() {
   return (
     <HelixProvider>
-      <div className="flex items-center justify-center h-full text-helix-muted">
-        <p>Helix Zymo — cargando...</p>
-      </div>
+      <HelixShell>
+        <HelixContent />
+      </HelixShell>
     </HelixProvider>
   )
 }
