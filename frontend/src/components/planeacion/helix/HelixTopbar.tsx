@@ -69,7 +69,7 @@ export function HelixTopbar() {
   }
 
   function handleAutoAlert() {
-    helixApi.post("/api/alertas/auto").catch(() => undefined)
+    helixApi.post("/api/alertas").catch(() => undefined)
   }
 
   return (

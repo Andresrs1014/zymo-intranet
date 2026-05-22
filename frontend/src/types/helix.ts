@@ -96,7 +96,7 @@ export interface HelixEncuesta {
 
 export interface HelixAlerta {
   id: number
-  subproyectoId: number
+  subproyectoId?: number
   cambio: string
   actividadId?: number
   actividadNombre?: string
