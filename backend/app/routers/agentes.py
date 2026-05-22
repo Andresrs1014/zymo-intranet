@@ -345,3 +345,58 @@ def estado_documentos(
             for d in docs
         ],
     }
+
+
+# ── Helix IA ─────────────────────────────────────────────────────────────────
+
+_helix_agent = None
+
+
+def _get_agente_helix():
+    """Instancia (o reutiliza) el singleton del Agente Helix."""
+    from app.agents.helix import AgenteHelix
+    global _helix_agent
+    if _helix_agent is None:
+        api_key = settings.gemini_api_key
+        if not api_key:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="GEMINI_API_KEY no configurada.",
+            )
+        _helix_agent = AgenteHelix(api_key=api_key)
+    return _helix_agent
+
+
+@router.post("/helix/chat")
+async def chat_helix(
+    payload: ChatPayload,
+    current_user: User = Depends(get_current_user),
+):
+    """Chat con el Agente Helix (streaming SSE)."""
+    agente = _get_agente_helix()
+
+    if not payload.session_id:
+        agente.iniciar_sesion(user_id=current_user.id, user_email=current_user.email)
+
+    async def generar_stream():
+        try:
+            agente.guardar_turno_md(current_user.email, "user", payload.mensaje)
+            respuesta_completa = []
+            async for chunk in agente.chat_stream(
+                payload.mensaje,
+                historial=payload.historial,
+            ):
+                respuesta_completa.append(chunk)
+                yield f"data: {json.dumps({'chunk': chunk}, ensure_ascii=False)}\n\n"
+            respuesta_texto = "".join(respuesta_completa)
+            agente.guardar_turno_md(current_user.email, "agent", respuesta_texto)
+            yield f"data: {json.dumps({'done': True})}\n\n"
+        except Exception as exc:
+            logger.error("Error en stream helix: %s", exc)
+            yield f"data: {json.dumps({'error': str(exc)})}\n\n"
+
+    return StreamingResponse(
+        generar_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

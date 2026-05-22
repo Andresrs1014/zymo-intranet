@@ -8,6 +8,7 @@ import actividadesRouter from "./routers/actividades";
 import comentariosRouter from "./routers/comentarios";
 import usuariosRouter from "./routers/usuarios";
 import aiRouter from "./routers/ai"
+import encuestasRouter from "./routers/encuestas"
 import dashboardRouter from "./routers/dashboard";
 import reportesRouter from "./routers/reportes";
 import alertasRouter from "./routers/alertas";
@@ -37,6 +38,7 @@ app.use("/api/actividades", actividadesRouter);
 app.use("/api", comentariosRouter);
 app.use("/api/usuarios", usuariosRouter);
 app.use("/api/ai", aiRouter)
+app.use("/api/encuestas", encuestasRouter)
 app.use("/api/dashboard", dashboardRouter);
 app.use("/api/reportes", reportesRouter);
 app.use("/api/alertas", alertasRouter);

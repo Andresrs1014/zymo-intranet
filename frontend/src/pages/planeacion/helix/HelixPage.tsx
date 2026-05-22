@@ -6,6 +6,7 @@ import { GanttView } from "@/components/planeacion/helix/gantt/GanttView"
 import { SettingsView } from "@/components/planeacion/helix/settings/SettingsView"
 import { DashboardView } from "@/components/planeacion/helix/dashboard/DashboardView"
 import { ReportsView } from "@/components/planeacion/helix/reports/ReportsView"
+import { SupportView } from "@/components/planeacion/helix/support/SupportView"
 
 function HelixContent() {
   const { activeView } = useHelix()
@@ -21,11 +22,7 @@ function HelixContent() {
           Valor ROI — próximamente
         </div>
       )}
-      {activeView === "support" && (
-        <div className="text-helix-muted text-sm p-4">
-          Soporte — próximamente
-        </div>
-      )}
+      {activeView === "support" && <SupportView />}
       {activeView === "settings" && <SettingsView />}
     </div>
   )
