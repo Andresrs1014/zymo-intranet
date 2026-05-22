@@ -2,6 +2,7 @@ import { HelixProvider } from "@/components/planeacion/helix/HelixProvider"
 import { HelixShell } from "@/components/planeacion/helix/HelixShell"
 import { useHelix } from "@/context/HelixContext"
 import { BoardView } from "@/components/planeacion/helix/board/BoardView"
+import { SettingsView } from "@/components/planeacion/helix/settings/SettingsView"
 
 function HelixContent() {
   const { activeView } = useHelix()
@@ -34,11 +35,7 @@ function HelixContent() {
           Soporte — próximamente
         </div>
       )}
-      {activeView === "settings" && (
-        <div className="text-helix-muted text-sm p-4">
-          Config — próximamente
-        </div>
-      )}
+      {activeView === "settings" && <SettingsView />}
     </div>
   )
 }
