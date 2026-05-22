@@ -47,26 +47,33 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3001
-      - DATABASE_URL=postgresql://helix:helixpass@helix-db:5432/helixdb
+      - DATABASE_URL=postgresql://${HELIX_DB_USER:-helix}:${HELIX_DB_PASSWORD}@helix-db:5432/${HELIX_DB_NAME:-helixdb}
       - JWT_SECRET=${JWT_SECRET}
       - INTRANET_API_URL=http://backend:8001
-      - INTERNAL_KEY=${INTERNAL_KEY:-helix-internal-key}
+      - INTERNAL_KEY=${INTERNAL_KEY}
       - UPLOAD_DIR=/app/uploads
+      - CORS_ORIGIN=${CORS_ORIGIN}
     volumes:
       - helix_uploads:/app/uploads
     depends_on:
-      - helix-db
+      helix-db:
+        condition: service_healthy
     restart: unless-stopped
 
   helix-db:
     image: postgres:15-alpine
     environment:
-      - POSTGRES_USER=helix
-      - POSTGRES_PASSWORD=helixpass
-      - POSTGRES_DB=helixdb
+      - POSTGRES_USER=${HELIX_DB_USER:-helix}
+      - POSTGRES_PASSWORD=${HELIX_DB_PASSWORD}
+      - POSTGRES_DB=${HELIX_DB_NAME:-helixdb}
     volumes:
       - helix_db_data:/var/lib/postgresql/data
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${HELIX_DB_USER:-helix} -d ${HELIX_DB_NAME:-helixdb}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
 volumes:
   backend_data:

@@ -12,9 +12,9 @@ const app = express();
 // --- Middleware ---
 app.use(
   cors({
-    origin: env.NODE_ENV === "production" ? false : "*",
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Internal-Key"],
+    origin: env.CORS_ORIGIN ?? "*",
+    credentials: true,
+    allowedHeaders: ["Authorization", "Content-Type", "X-Internal-Key"],
   })
 );
 app.use(express.json());

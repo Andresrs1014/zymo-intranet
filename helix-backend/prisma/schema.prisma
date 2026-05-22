@@ -24,7 +24,7 @@ model HelixSubproyecto {
 model HelixActividad {
   id                  Int              @id @default(autoincrement())
   subproyectoId       Int
-  subproyecto         HelixSubproyecto @relation(fields: [subproyectoId], references: [id])
+  subproyecto         HelixSubproyecto @relation(fields: [subproyectoId], references: [id], onDelete: Cascade)
   responsableId       Int
   responsableNombre   String
   responsableInitials String
@@ -88,7 +88,7 @@ model HelixEncuesta {
 model HelixAlerta {
   id              Int               @id @default(autoincrement())
   subproyectoId   Int?
-  subproyecto     HelixSubproyecto? @relation(fields: [subproyectoId], references: [id])
+  subproyecto     HelixSubproyecto? @relation(fields: [subproyectoId], references: [id], onDelete: SetNull)
   cambio          String
   actividadId     Int?
   actividadNombre String?
