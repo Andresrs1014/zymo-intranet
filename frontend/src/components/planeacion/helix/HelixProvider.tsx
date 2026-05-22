@@ -1,7 +1,8 @@
+import type { ReactNode } from "react"
 import "@/styles/helix.css"
 
 interface HelixProviderProps {
-  children: React.ReactNode
+  children: ReactNode
 }
 
 export function HelixProvider({ children }: HelixProviderProps) {
