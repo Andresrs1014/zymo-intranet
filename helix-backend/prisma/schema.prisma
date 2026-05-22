@@ -1,0 +1,106 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model HelixSubproyecto {
+  id           Int               @id @default(autoincrement())
+  nombre       String
+  objetivo     String?
+  cliente      String?
+  inversionEst Float             @default(0)
+  retornoEsp   Float             @default(0)
+  activo       Boolean           @default(true)
+  actividades  HelixActividad[]
+  alertas      HelixAlerta[]
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+}
+
+model HelixActividad {
+  id                  Int              @id @default(autoincrement())
+  subproyectoId       Int
+  subproyecto         HelixSubproyecto @relation(fields: [subproyectoId], references: [id])
+  responsableId       Int
+  responsableNombre   String
+  responsableInitials String
+  responsableColor    String           @default("#5461c8")
+  nombre              String
+  estado              String           @default("Backlog")
+  prioridad           String           @default("Media")
+  fechaInicio         DateTime
+  fechaFin            DateTime
+  avance              Int              @default(0)
+  puntos              Int              @default(3)
+  costoInversion      Float            @default(0)
+  costoOptimizacion   Float            @default(0)
+  costoEjecucion      Float            @default(0)
+  bloqueada           Boolean          @default(false)
+  dependenciaId       Int?
+  dependencia         HelixActividad?  @relation("Dependencia", fields: [dependenciaId], references: [id])
+  dependientes        HelixActividad[] @relation("Dependencia")
+  completadaEn        DateTime?
+  comentarios         HelixComentario[]
+  evidencias          HelixEvidencia[]
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+}
+
+model HelixComentario {
+  id          Int            @id @default(autoincrement())
+  actividadId Int
+  actividad   HelixActividad @relation(fields: [actividadId], references: [id], onDelete: Cascade)
+  autorId     Int
+  autorNombre String
+  texto       String
+  canal       String         @default("web")
+  createdAt   DateTime       @default(now())
+}
+
+model HelixEvidencia {
+  id          Int            @id @default(autoincrement())
+  actividadId Int
+  actividad   HelixActividad @relation(fields: [actividadId], references: [id], onDelete: Cascade)
+  nombre      String
+  tipoArchivo String
+  tamanio     Int
+  ruta        String
+  createdAt   DateTime       @default(now())
+}
+
+model HelixEncuesta {
+  id            Int      @id @default(autoincrement())
+  usuarioId     Int
+  usuarioNombre String
+  rol           String
+  satisfaccion  Int
+  facilidad     Int
+  utilidad      Int
+  nps           Int
+  comentario    String?
+  createdAt     DateTime @default(now())
+}
+
+model HelixAlerta {
+  id              Int               @id @default(autoincrement())
+  subproyectoId   Int?
+  subproyecto     HelixSubproyecto? @relation(fields: [subproyectoId], references: [id])
+  cambio          String
+  actividadId     Int?
+  actividadNombre String?
+  destinatarios   Json
+  canal           String
+  createdAt       DateTime          @default(now())
+}
+
+model HelixAIConversacion {
+  id        Int      @id @default(autoincrement())
+  usuarioId Int
+  mensajes  Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
