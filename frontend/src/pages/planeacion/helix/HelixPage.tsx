@@ -2,6 +2,7 @@ import { HelixProvider } from "@/components/planeacion/helix/HelixProvider"
 import { HelixShell } from "@/components/planeacion/helix/HelixShell"
 import { useHelix } from "@/context/HelixContext"
 import { BoardView } from "@/components/planeacion/helix/board/BoardView"
+import { GanttView } from "@/components/planeacion/helix/gantt/GanttView"
 import { SettingsView } from "@/components/planeacion/helix/settings/SettingsView"
 
 function HelixContent() {
@@ -15,11 +16,7 @@ function HelixContent() {
         </div>
       )}
       {activeView === "board" && <BoardView />}
-      {activeView === "gantt" && (
-        <div className="text-helix-muted text-sm p-4">
-          Gantt — próximamente
-        </div>
-      )}
+      {activeView === "gantt" && <GanttView />}
       {activeView === "reports" && (
         <div className="text-helix-muted text-sm p-4">
           Estados — próximamente
