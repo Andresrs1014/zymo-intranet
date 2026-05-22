@@ -1,0 +1,124 @@
+/* ============================================================
+   HELIX ZYMO — Design Tokens
+   Scope: [data-module="helix"]
+   No afecta el tema global de la intranet.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&display=swap');
+
+[data-module="helix"] {
+  --helix-accent:          #ef3340;
+  --helix-accent-2:        #4e5968;
+  --helix-accent-dark:     #3f4652;
+  --helix-ai:              #00a8c8;
+  --helix-ai-2:            #7c5cff;
+
+  --helix-done:            #1f9d6a;
+  --helix-warning:         #f5a623;
+  --helix-danger:          #ef3340;
+
+  --helix-bg:              #f4f6fa;
+  --helix-surface:         #ffffff;
+  --helix-surface-2:       #eef1f6;
+  --helix-ink:             #121420;
+  --helix-muted:           #5c6374;
+  --helix-line:            #d8dde8;
+  --helix-glass:           rgba(255,255,255,0.78);
+
+  --helix-sidebar-bg:      linear-gradient(180deg, #2b2f36 0%, #3c414a 46%, #171a1f 100%);
+  --helix-sidebar-text:    #f7fbfa;
+  --helix-sidebar-muted:   #c2caef;
+  --helix-sidebar-nav:     #e5e9ff;
+  --helix-sidebar-hover:   linear-gradient(90deg, rgba(0,168,200,0.22), rgba(255,255,255,0.1));
+  --helix-sidebar-border:  rgba(255,255,255,0.12);
+
+  --helix-topbar-bg:       linear-gradient(135deg, rgba(58,66,78,0.99), rgba(90,101,116,0.96) 56%, rgba(239,51,64,0.82));
+  --helix-topbar-text:     #ffffff;
+  --helix-topbar-border:   linear-gradient(90deg, transparent, #00a8c8, #ef3340, transparent);
+
+  --helix-ok-text:         #116b49;
+  --helix-ok-bg:           rgba(31,157,106,0.12);
+  --helix-warning-text:    #8a5200;
+  --helix-warning-bg:      rgba(245,158,11,0.16);
+  --helix-danger-text:     #a21220;
+  --helix-danger-bg:       rgba(239,51,64,0.12);
+
+  --helix-card-bg:         #fbfcff;
+  --helix-card-glass:      linear-gradient(180deg, rgba(255,255,255,0.94), rgba(255,255,255,0.78));
+  --helix-stat-card:       linear-gradient(135deg, rgba(0,168,200,0.06), transparent 42%), #fbfcff;
+  --helix-bar-track:       #e1e5f4;
+  --helix-chat-input:      #f7f9fc;
+
+  --helix-shadow-card:     0 12px 30px rgba(35,38,45,0.08), inset 0 1px 0 rgba(255,255,255,0.75);
+  --helix-shadow-soft:     0 10px 22px rgba(25,29,41,0.06);
+  --helix-shadow-task:     0 8px 18px rgba(35,38,45,0.05);
+  --helix-shadow-default:  0 18px 42px rgba(35,38,45,0.12);
+  --helix-shadow-btn:      0 10px 24px rgba(239,51,64,0.18);
+  --helix-shadow-nav:      inset 4px 0 0 #00a8c8, 0 10px 22px rgba(0,0,0,0.14);
+
+  --helix-grad-brand:      linear-gradient(135deg, #ef3340, #00a8c8);
+  --helix-grad-bar:        linear-gradient(90deg, #00a8c8, #ef3340, #7c5cff);
+  --helix-grad-gantt:      linear-gradient(90deg, #ef3340, #4e5968);
+  --helix-grad-msg:        linear-gradient(135deg, #ef3340, #7c5cff);
+  --helix-grad-header:     linear-gradient(90deg, #00a8c8, #ef3340, transparent);
+  --helix-grad-sidebar:    linear-gradient(180deg, #2b2f36 0%, #3c414a 46%, #171a1f 100%);
+
+  --helix-border-card:     1px solid rgba(0,168,200,0.18);
+  --helix-border-default:  1px solid #d8dde8;
+  --helix-border-brand:    1px solid rgba(0,168,200,0.24);
+  --helix-border-ai:       4px solid #ef3340;
+
+  --helix-font:            "Montserrat", "Helvetica Now Display", Arial, ui-sans-serif, system-ui, sans-serif;
+  --helix-fw-bold:         700;
+  --helix-fw-extrabold:    800;
+  --helix-fw-black:        900;
+
+  --helix-text-micro:      0.68rem;
+  --helix-text-tiny:       0.72rem;
+  --helix-text-small:      0.76rem;
+  --helix-text-caption:    0.78rem;
+  --helix-text-body-sm:    0.82rem;
+  --helix-text-body:       0.84rem;
+  --helix-text-body-def:   0.9rem;
+  --helix-text-base:       0.94rem;
+  --helix-text-base-def:   1rem;
+  --helix-text-h-sm:       1.18rem;
+  --helix-text-h:          1.28rem;
+  --helix-text-h-lg:       1.4rem;
+  --helix-text-h-xl:       1.45rem;
+  --helix-text-display:    1.55rem;
+  --helix-text-display-lg: 1.95rem;
+  --helix-text-hero:       clamp(2rem, 3vw, 3.05rem);
+
+  --helix-lh-tight:        1;
+  --helix-lh-compact:      1.15;
+  --helix-lh-normal:       1.35;
+  --helix-lh-relaxed:      1.45;
+  --helix-lh-spacious:     1.5;
+  --helix-lh-wide:         1.55;
+  --helix-lh-extra:        1.58;
+
+  --helix-r-soft:          6px;
+  --helix-r-regular:       8px;
+  --helix-r-medium:        10px;
+  --helix-r-large:         12px;
+  --helix-r-full:          999px;
+
+  --helix-transition:      160ms ease;
+  --helix-transition-md:   200ms ease;
+
+  --helix-sp-1:  2px;
+  --helix-sp-2:  4px;
+  --helix-sp-3:  6px;
+  --helix-sp-4:  8px;
+  --helix-sp-5:  10px;
+  --helix-sp-6:  12px;
+  --helix-sp-7:  14px;
+  --helix-sp-8:  16px;
+  --helix-sp-9:  18px;
+  --helix-sp-10: 20px;
+  --helix-sp-11: 22px;
+  --helix-sp-12: 24px;
+  --helix-sp-14: 28px;
+  --helix-sp-15: 30px;
+}

@@ -8,6 +8,25 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Helix Zymo module colors
+        helix: {
+          accent:      "#ef3340",
+          "accent-2":  "#4e5968",
+          ai:          "#00a8c8",
+          "ai-2":      "#7c5cff",
+          done:        "#1f9d6a",
+          warning:     "#f5a623",
+          danger:      "#ef3340",
+          ink:         "#121420",
+          muted:       "#5c6374",
+          line:        "#d8dde8",
+          bg:          "#f4f6fa",
+          surface:     "#ffffff",
+          "surface-2": "#eef1f6",
+          card:        "#fbfcff",
+          sidebar:     "#2c333d",
+          "bar-track": "#e1e5f4",
+        },
         // Brand colors originales — no cambiar
         brand: {
           blue:   "#003087",
@@ -54,9 +73,25 @@ export default {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        "helix-soft":    "6px",
+        "helix-regular": "8px",
+        "helix-medium":  "10px",
+        "helix-large":   "12px",
+      },
+      boxShadow: {
+        "helix-card":    "0 12px 30px rgba(35,38,45,0.08), inset 0 1px 0 rgba(255,255,255,0.75)",
+        "helix-soft":    "0 10px 22px rgba(25,29,41,0.06)",
+        "helix-task":    "0 8px 18px rgba(35,38,45,0.05)",
+        "helix-default": "0 18px 42px rgba(35,38,45,0.12)",
+        "helix-btn":     "0 10px 24px rgba(239,51,64,0.18)",
+        "helix-nav":     "inset 4px 0 0 #00a8c8, 0 10px 22px rgba(0,0,0,0.14)",
       },
       fontFamily: {
         sans: ["Barlow", "system-ui", "sans-serif"],
+        helix: [
+          "Montserrat", "Helvetica Now Display", "Arial",
+          "ui-sans-serif", "system-ui", "sans-serif",
+        ],
       },
     },
   },
