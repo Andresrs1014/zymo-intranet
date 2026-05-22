@@ -108,6 +108,7 @@ export function HelixTopbar() {
         <button
           style={ICON_BTN}
           title="Generar alertas por correo"
+          aria-label="Generar alertas por correo"
           onClick={handleEmailAlert}
         >
           @
@@ -115,6 +116,7 @@ export function HelixTopbar() {
         <button
           style={WA_BTN}
           title="Alertas WhatsApp"
+          aria-label="Alertas WhatsApp"
           onClick={handleWhatsAppAlert}
         >
           WA
@@ -122,6 +124,7 @@ export function HelixTopbar() {
         <button
           style={ICON_BTN}
           title="Ver alertas automáticas"
+          aria-label="Ver alertas automáticas"
           onClick={handleAutoAlert}
         >
           !

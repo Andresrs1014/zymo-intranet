@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import type { ReactNode } from "react"
 import {
   LayoutDashboard,
   Kanban,
@@ -15,7 +16,7 @@ import type { HelixUsuario } from "@/types/helix"
 interface NavItem {
   view: HelixView
   label: string
-  icon: React.ReactNode
+  icon: ReactNode
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -32,15 +33,19 @@ export function HelixSidebar() {
   const { activeView, setActiveView } = useHelix()
   const [usuarios, setUsuarios] = useState<HelixUsuario[]>([])
 
+  const abortRef = useRef<AbortController | null>(null)
+
   useEffect(() => {
+    abortRef.current = new AbortController()
     helixApi
-      .get<HelixUsuario[]>("/api/usuarios")
+      .get<HelixUsuario[]>("/api/usuarios", { signal: abortRef.current.signal })
       .then((res) => setUsuarios(res.data))
       .catch(() => setUsuarios([]))
+    return () => abortRef.current?.abort()
   }, [])
 
   const visibleUsuarios = usuarios.slice(0, 5)
-  const totalActividades = usuarios.length
+  const teamCount = usuarios.length
 
   return (
     <aside
@@ -185,7 +190,7 @@ export function HelixSidebar() {
         )}
 
         <p style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.55)", margin: 0 }}>
-          {totalActividades} actividades activas
+          {teamCount} {teamCount === 1 ? "miembro" : "miembros"} activos
         </p>
       </div>
     </aside>
