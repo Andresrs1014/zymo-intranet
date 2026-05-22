@@ -39,6 +39,7 @@ services:
       - "host.docker.internal:host-gateway"
 
   helix-backend:
+    profiles: ["helix"]
     build:
       context: ./helix-backend
       dockerfile: Dockerfile
@@ -61,6 +62,7 @@ services:
     restart: unless-stopped
 
   helix-db:
+    profiles: ["helix"]
     image: postgres:15-alpine
     environment:
       - POSTGRES_USER=${HELIX_DB_USER:-helix}
