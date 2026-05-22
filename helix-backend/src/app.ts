@@ -10,6 +10,8 @@ import usuariosRouter from "./routers/usuarios";
 import aiRouter from "./routers/ai"
 import dashboardRouter from "./routers/dashboard";
 import reportesRouter from "./routers/reportes";
+import alertasRouter from "./routers/alertas";
+import { startScheduler } from "./jobs/scheduler";
 
 const app = express();
 
@@ -37,6 +39,7 @@ app.use("/api/usuarios", usuariosRouter);
 app.use("/api/ai", aiRouter)
 app.use("/api/dashboard", dashboardRouter);
 app.use("/api/reportes", reportesRouter);
+app.use("/api/alertas", alertasRouter);
 
 // --- 404 handler ---
 app.use((_req: Request, res: Response) => {
@@ -51,6 +54,7 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 
 // --- Start server ---
 if (require.main === module) {
+  startScheduler()
   app.listen(env.PORT, () => {
     console.log(`helix-backend listening on port ${env.PORT}`);
   });

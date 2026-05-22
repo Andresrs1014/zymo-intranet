@@ -100,6 +100,7 @@ export interface HelixAlerta {
   cambio: string
   actividadId?: number
   actividadNombre?: string
+  subproyectoNombre?: string
   destinatarios: string[]
   createdAt: string
 }
