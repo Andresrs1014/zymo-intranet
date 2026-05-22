@@ -1,0 +1,194 @@
+{
+  "palette": {
+    "primary": {
+      "accent": "#ef3340",
+      "accent-2": "#4e5968",
+      "accent-dark": "#3f4652"
+    },
+    "ai": {
+      "ai": "#00a8c8",
+      "ai-2": "#7c5cff"
+    },
+    "semantic": {
+      "done": "#1f9d6a",
+      "warning": "#f5a623",
+      "danger": "#ef3340"
+    },
+    "neutral": {
+      "bg": "#f4f6fa",
+      "surface": "#ffffff",
+      "surface-2": "#eef1f6",
+      "ink": "#121420",
+      "muted": "#5c6374",
+      "line": "#d8dde8",
+      "glass": "rgba(255,255,255,0.78)"
+    },
+    "sidebar": {
+      "bg-start": "#343b46",
+      "bg-mid": "#4a5360",
+      "bg-end": "#2c333d",
+      "text": "#f7fbfa",
+      "text-muted": "#c2caef",
+      "nav-text": "#e5e9ff",
+      "nav-bg": "rgba(255,255,255,0.045)",
+      "nav-hover": "linear-gradient(90deg, rgba(0,168,200,0.22), rgba(255,255,255,0.1))",
+      "section-border": "rgba(255,255,255,0.12)",
+      "section-bg": "rgba(255,255,255,0.07)"
+    },
+    "topbar": {
+      "bg-start": "rgba(58,66,78,0.99)",
+      "bg-mid": "rgba(90,101,116,0.96)",
+      "bg-end": "rgba(239,51,64,0.82)",
+      "text": "#ffffff",
+      "eyebrow-opacity": 0.82,
+      "border-glow": "linear-gradient(90deg, transparent, #00a8c8, #ef3340, transparent)",
+      "whatsapp-border": "rgba(31,157,106,0.55)",
+      "whatsapp-bg": "rgba(31,157,106,0.2)"
+    },
+    "avatar": {
+      "colors": ["#ef3340", "#5461c8", "#002f43", "#1f9d6a"]
+    },
+    "status": {
+      "ok-text": "#116b49",
+      "ok-bg": "rgba(31,157,106,0.12)",
+      "warning-text": "#8a5200",
+      "warning-bg": "rgba(245,158,11,0.16)",
+      "danger-text": "#a21220",
+      "danger-bg": "rgba(239,51,64,0.12)"
+    },
+    "badge-pill": {
+      "bg": "#ffe8eb",
+      "color": "#a20f1a"
+    },
+    "brand-mark": {
+      "gradient": "linear-gradient(135deg, #ef3340, #00a8c8)",
+      "text": "#ffffff",
+      "shadow": "rgba(0,168,200,0.2)"
+    },
+    "bar-fill": {
+      "gradient": "linear-gradient(90deg, #00a8c8, #ef3340, #7c5cff)"
+    },
+    "gantt-bar": {
+      "gradient": "linear-gradient(90deg, #ef3340, #4e5968)"
+    },
+    "whatsapp": {
+      "border": "#1f9d6a",
+      "bg": "#e8f7ef",
+      "text": "#137548"
+    },
+    "file-action": {
+      "bg": "#eef0ff",
+      "border": "#4e5968",
+      "text": "#4e5968"
+    },
+    "user-message": {
+      "gradient": "linear-gradient(135deg, #ef3340, #7c5cff)"
+    },
+    "helix-symbol": {
+      "gradient": "linear-gradient(135deg, #46505d, #647083 56%, #00a8c8)"
+    }
+  },
+  "typography": {
+    "font-family": "\"Montserrat\", \"Helvetica Now Display\", Arial, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+    "font-weights": {
+      "bold": 700,
+      "extrabold": 800,
+      "black": 900
+    },
+    "scale": {
+      "micro": "0.68rem",
+      "tiny": "0.72rem",
+      "small": "0.76rem",
+      "caption": "0.78rem",
+      "body-small": "0.82rem",
+      "body": "0.84rem",
+      "body-default": "0.9rem",
+      "base": "0.94rem",
+      "base-default": "1rem",
+      "heading-small": "1.18rem",
+      "heading": "1.28rem",
+      "heading-large": "1.4rem",
+      "heading-xl": "1.45rem",
+      "display": "1.55rem",
+      "display-large": "1.95rem",
+      "hero": "clamp(2rem, 3vw, 3.05rem)"
+    },
+    "line-height": {
+      "tight": 1,
+      "compact": 1.15,
+      "normal": 1.35,
+      "relaxed": 1.45,
+      "spacious": 1.5,
+      "wide": 1.55,
+      "extra-wide": 1.58
+    }
+  },
+  "spacing": {
+    "base-unit": "4px",
+    "scale": ["2px", "4px", "6px", "8px", "10px", "12px", "14px", "16px", "18px", "20px", "22px", "24px", "28px", "30px"]
+  },
+  "border-radius": {
+    "soft": "6px",
+    "regular": "8px",
+    "medium": "10px",
+    "large": "12px",
+    "full": "999px"
+  },
+  "shadows": {
+    "card": "0 12px 30px rgba(35,38,45,0.08), inset 0 1px 0 rgba(255,255,255,0.75)",
+    "card-soft": "0 10px 22px rgba(25,29,41,0.06)",
+    "card-task": "0 8px 18px rgba(35,38,45,0.05)",
+    "default": "0 18px 42px rgba(35,38,45,0.12)",
+    "brand": "0 14px 30px rgba(0,0,0,0.16), inset 0 0 22px rgba(0,168,200,0.08)",
+    "brand-mark": "0 0 0 1px rgba(255,255,255,0.18), 0 12px 24px rgba(0,168,200,0.2)",
+    "button-primary": "0 10px 24px rgba(239,51,64,0.18)",
+    "topbar": "0 22px 48px rgba(58,66,78,0.2), inset 0 0 42px rgba(0,168,200,0.1)",
+    "helix": "inset 0 0 18px rgba(0,168,200,0.28), 0 16px 28px rgba(17,24,39,0.18)",
+    "nav-hover": "inset 4px 0 0 #00a8c8, 0 10px 22px rgba(0,0,0,0.14)",
+    "bar-fill": "0 0 12px rgba(0,168,200,0.22)",
+    "gantt-bar": "inset 0 0 0 1px rgba(255,255,255,0.35)"
+  },
+  "gradients": {
+    "brand-mark": "linear-gradient(135deg, #ef3340, #00a8c8)",
+    "bar-fill": "linear-gradient(90deg, #00a8c8, #ef3340, #7c5cff)",
+    "gantt-bar": "linear-gradient(90deg, #ef3340, #4e5968)",
+    "user-message": "linear-gradient(135deg, #ef3340, #7c5cff)",
+    "helix-symbol": "linear-gradient(135deg, #46505d, #647083 56%, #00a8c8)",
+    "topbar": "linear-gradient(135deg, rgba(58,66,78,0.99), rgba(90,101,116,0.96) 56%, rgba(239,51,64,0.82))",
+    "sidebar": "linear-gradient(180deg, #343b46 0%, #4a5360 48%, #2c333d 100%)",
+    "body-bg": "radial-gradient(circle at top right, rgba(239,51,64,0.06), transparent 28%), linear-gradient(180deg, #f7f8fb 0%, #f4f6fa 46%, #eef1f6 100%)",
+    "grid-bg": "linear-gradient(rgba(18,20,32,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(18,20,32,0.035) 1px, transparent 1px)",
+    "header-strip": "linear-gradient(90deg, #00a8c8, #ef3340, transparent)",
+    "nav-hover": "linear-gradient(90deg, rgba(0,168,200,0.22), rgba(255,255,255,0.1))"
+  },
+  "backgrounds": {
+    "body": "#f4f6fa",
+    "surface": "#ffffff",
+    "surface-2": "#eef1f6",
+    "sidebar": "#2c333d",
+    "card": "#fbfcff",
+    "card-glass": "linear-gradient(180deg, rgba(255,255,255,0.94), rgba(255,255,255,0.78))",
+    "chat-input": "#f7f9fc",
+    "stat-card": "linear-gradient(135deg, rgba(0,168,200,0.06), transparent 42%), #fbfcff",
+    "helix": "linear-gradient(135deg, rgba(0,168,200,0.08), transparent 44%), linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.82))",
+    "formula-card": "linear-gradient(180deg, rgba(255,255,255,0.96), rgba(246,249,252,0.92))",
+    "agent-profile": "rgba(0,168,200,0.06)",
+    "bar-track": "#e1e5f4"
+  },
+  "borders": {
+    "card": "1px solid rgba(0,168,200,0.18)",
+    "default": "1px solid #d8dde8",
+    "brand": "1px solid rgba(0,168,200,0.24)",
+    "topbar": "1px solid rgba(0,168,200,0.26)",
+    "ai-card": "4px solid #ef3340",
+    "sidebar-section": "1px solid rgba(255,255,255,0.12)"
+  },
+  "transitions": {
+    "duration": {
+      "fast": "160ms",
+      "normal": "200ms"
+    },
+    "easing": "ease",
+    "properties": ["background", "color", "transform", "box-shadow", "border-color", "opacity"]
+  }
+}

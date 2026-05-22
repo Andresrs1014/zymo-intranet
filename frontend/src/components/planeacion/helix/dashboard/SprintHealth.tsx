@@ -1,17 +1,10 @@
 import type { CSSProperties } from "react"
 import type { HelixEstadoCount, HelixProximoHito } from "@/types/helix"
+import { ESTADO_COLORS } from "./dashboardConstants"
 
 interface SprintHealthProps {
   distribucion: HelixEstadoCount[]
   proximosHitos: HelixProximoHito[]
-}
-
-const ESTADO_COLORS: Record<string, string> = {
-  Backlog: "#6b7280",
-  Planificado: "#3b82f6",
-  "En curso": "#f59e0b",
-  Revision: "#8b5cf6",
-  Terminado: "#1f9d6a",
 }
 
 function diasBadgeStyle(dias: number): CSSProperties {

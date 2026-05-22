@@ -1,0 +1,606 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Helix Zymo</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Navegacion principal">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">Z</div>
+          <div>
+            <strong>Helix Zymo</strong>
+            <span>Estructura y evolucion</span>
+          </div>
+        </div>
+
+        <nav class="main-nav" aria-label="Secciones">
+          <button class="nav-item active" data-view="dashboard" type="button">
+            <span aria-hidden="true">#</span> Panel
+          </button>
+          <button class="nav-item" data-view="board" type="button">
+            <span aria-hidden="true">=</span> Scrum
+          </button>
+          <button class="nav-item" data-view="gantt" type="button">
+            <span aria-hidden="true">|</span> Gantt
+          </button>
+          <button class="nav-item" data-view="reports" type="button">
+            <span aria-hidden="true">%</span> Estados
+          </button>
+          <button class="nav-item" data-view="businessCase" type="button">
+            <span aria-hidden="true">?</span> Valor
+          </button>
+          <button class="nav-item" data-view="support" type="button">
+            <span aria-hidden="true">i</span> Soporte
+          </button>
+          <button class="nav-item" data-view="settings" type="button">
+            <span aria-hidden="true">!</span> Config
+          </button>
+        </nav>
+
+        <section class="team-panel" aria-label="Equipo">
+          <h2>Equipo</h2>
+          <div class="avatar-row" id="teamAvatars"></div>
+          <p id="sprintSummary"></p>
+        </section>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Gestion estructurada</p>
+            <h1 id="projectTitle">Helix Zymo</h1>
+          </div>
+          <div class="topbar-actions">
+            <button class="icon-button" id="emailAlertsBtn" type="button" title="Generar alertas por correo" aria-label="Generar alertas por correo">
+              @
+            </button>
+            <button class="icon-button whatsapp-button" id="whatsappAlertsBtn" type="button" title="Generar alertas por WhatsApp" aria-label="Generar alertas por WhatsApp">
+              WA
+            </button>
+            <button class="icon-button" id="autoAlertsBtn" type="button" title="Ver alertas automaticas" aria-label="Ver alertas automaticas">
+              !
+            </button>
+            <button class="primary-button" id="newTaskBtn" type="button">Nueva tarea</button>
+          </div>
+        </header>
+
+        <section class="view active" id="dashboardView" aria-labelledby="dashboardTitle">
+          <div class="section-heading">
+            <div>
+              <h2 id="dashboardTitle">Panel de control</h2>
+              <p>Seguimiento ejecutivo de avance, riesgo y carga del sprint.</p>
+            </div>
+            <select id="sprintSelector" aria-label="Seleccionar sprint">
+              <option>Sprint 12 - Mayo</option>
+              <option>Sprint 13 - Junio</option>
+            </select>
+            <select id="dashboardSubprojectFilter" aria-label="Seleccionar subproyecto para el panel">
+              <option value="all">Todos los subproyectos</option>
+            </select>
+          </div>
+
+          <div class="metrics-grid" id="metricsGrid"></div>
+
+          <section class="helix-meaning">
+            <div>
+              <p class="eyebrow">Significado</p>
+              <h3>Inspirado en la estructura del ADN</h3>
+              <p>Helix Zymo representa proyectos complejos y bien estructurados: cada subproyecto funciona como una cadena conectada de actividades, responsables, evidencias y aprendizajes que evolucionan con control.</p>
+            </div>
+            <div class="helix-symbol" aria-hidden="true">HX</div>
+          </section>
+
+          <div class="sprint-insights">
+            <section class="progress-panel">
+              <div class="panel-title">
+                <h3>Salud del sprint</h3>
+                <span id="sprintHealthLabel"></span>
+              </div>
+              <div id="statusDistribution"></div>
+              <div class="timeline-list" id="nextMilestones"></div>
+            </section>
+
+            <section class="blockers-panel">
+              <div class="panel-title">
+                <h3>Bloqueos y dependencias</h3>
+                <span id="blockerCaption"></span>
+              </div>
+              <div id="blockerList"></div>
+            </section>
+          </div>
+
+          <section class="statistics-panel">
+            <div class="panel-title">
+              <h3>Dashboard estadistico</h3>
+              <span id="statisticsCaption"></span>
+            </div>
+            <div class="statistics-grid" id="statisticsGrid"></div>
+            <div class="statistics-layout">
+              <div>
+                <h4>Distribucion por responsable</h4>
+                <div id="ownerStats"></div>
+              </div>
+              <div>
+                <h4>Analisis por subproyecto</h4>
+                <div id="subprojectStats"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="flow-panel">
+            <div class="panel-title">
+              <h3>Flujograma por subproyecto</h3>
+              <span id="flowCaption"></span>
+            </div>
+            <div class="subproject-flow" id="subprojectFlow"></div>
+          </section>
+
+          <div class="dashboard-layout">
+            <section class="analysis-panel">
+              <div class="panel-title">
+                <h3>Analisis IA</h3>
+                <button class="ghost-button" id="refreshAnalysisBtn" type="button">Actualizar</button>
+              </div>
+              <div id="aiAnalysis"></div>
+            </section>
+
+            <section class="workload-panel">
+              <div class="panel-title">
+                <h3>Carga por responsable</h3>
+                <span id="workloadCaption"></span>
+              </div>
+              <div id="workloadList"></div>
+            </section>
+          </div>
+
+          <section class="badges-panel">
+            <div class="panel-title">
+              <h3>Insignias por cumplimiento</h3>
+              <span id="badgesCaption"></span>
+            </div>
+            <div class="badges-grid" id="badgesGrid"></div>
+          </section>
+        </section>
+
+        <section class="view" id="boardView" aria-labelledby="boardTitle">
+          <div class="section-heading">
+            <div>
+              <h2 id="boardTitle">Tablero Scrum</h2>
+              <p>Backlog, planificacion, ejecucion, revision y cierre.</p>
+            </div>
+            <div class="filter-group" role="group" aria-label="Filtro de prioridad">
+              <button class="chip active" data-filter="all" type="button">Todo</button>
+              <button class="chip" data-filter="Alta" type="button">Alta</button>
+              <button class="chip" data-filter="Media" type="button">Media</button>
+              <button class="chip" data-filter="Baja" type="button">Baja</button>
+            </div>
+          </div>
+          <div class="board-toolbar" aria-label="Filtros del tablero">
+            <label>
+              Buscar
+              <input id="taskSearch" placeholder="Nombre, responsable o comentario">
+            </label>
+            <label>
+              Responsable
+              <select id="ownerFilter">
+                <option value="all">Todos</option>
+              </select>
+            </label>
+            <label>
+              Subproyecto
+              <select id="subprojectFilter">
+                <option value="all">Todos</option>
+              </select>
+            </label>
+            <label class="toggle-filter">
+              <input id="blockedFilter" type="checkbox">
+              Solo bloqueadas
+            </label>
+          </div>
+          <div class="kanban-board" id="kanbanBoard"></div>
+        </section>
+
+        <section class="view" id="ganttView" aria-labelledby="ganttTitle">
+          <div class="section-heading">
+            <div>
+              <h2 id="ganttTitle">Seguimiento Gantt</h2>
+              <p>Vista temporal con avance, bloqueos y dependencias.</p>
+            </div>
+            <button class="ghost-button" id="todayBtn" type="button">Hoy</button>
+          </div>
+          <div class="gantt-wrapper">
+            <div class="gantt-scale" id="ganttScale"></div>
+            <div class="gantt-chart" id="ganttChart"></div>
+          </div>
+        </section>
+
+        <section class="view" id="reportsView" aria-labelledby="reportsTitle">
+          <div class="section-heading">
+            <div>
+              <h2 id="reportsTitle">Estados y seguimientos</h2>
+              <p>Resumen listo para comite, cliente o correo semanal.</p>
+            </div>
+            <div class="report-actions">
+              <button class="ghost-button" id="flowEmailBtn" type="button">Enviar flujo correo</button>
+              <button class="ghost-button" id="flowWhatsappBtn" type="button">Enviar flujo WA</button>
+              <button class="primary-button" id="copyReportBtn" type="button">Copiar estado</button>
+            </div>
+          </div>
+          <div class="reports-layout">
+            <section class="status-report">
+              <h3>Estado del trabajo</h3>
+              <textarea id="statusReport" spellcheck="false"></textarea>
+            </section>
+            <section class="followup-list">
+              <h3>Seguimientos sugeridos</h3>
+              <div id="followupList"></div>
+            </section>
+          </div>
+          <section class="flow-panel">
+            <div class="panel-title">
+              <h3>ROI y prediccion por subproyecto</h3>
+              <span id="roiCaption"></span>
+            </div>
+            <div class="roi-grid" id="roiGrid"></div>
+          </section>
+        </section>
+
+        <section class="view" id="businessCaseView" aria-labelledby="businessCaseTitle">
+          <div class="section-heading">
+            <div>
+              <h2 id="businessCaseTitle">Por que usar esta herramienta</h2>
+              <p>Argumento ejecutivo para justificar adopcion frente a otras plataformas de gestion.</p>
+            </div>
+            <button class="primary-button" id="copyBusinessCaseBtn" type="button">Copiar argumento</button>
+          </div>
+
+          <div class="business-layout">
+            <section class="value-panel">
+              <p class="eyebrow">Propuesta de valor</p>
+              <h3>Gestion de proyectos alineada a Zymo, no una plantilla generica.</h3>
+              <p>
+                Esta herramienta concentra planeacion Scrum, seguimiento Gantt, evidencias, observaciones, alertas por correo y WhatsApp, analisis de riesgo e insignias de cumplimiento en una sola experiencia simple para computador y celular.
+              </p>
+            </section>
+
+            <section class="value-panel">
+              <p class="eyebrow">Diferencial clave</p>
+              <h3>Menos friccion, mas trazabilidad.</h3>
+              <p>
+                El equipo puede gestionar tareas, registrar evidencias, capturar observaciones recibidas por WhatsApp y generar estados ejecutivos sin saltar entre varias herramientas.
+              </p>
+            </section>
+          </div>
+
+          <div class="comparison-table" id="comparisonTable"></div>
+
+          <div class="business-layout">
+            <section class="value-panel">
+              <h3>Beneficios esperados</h3>
+              <div id="benefitList"></div>
+            </section>
+            <section class="value-panel">
+              <h3>Valor por area</h3>
+              <div id="areaValueList"></div>
+            </section>
+          </div>
+
+          <div class="business-layout">
+            <section class="value-panel">
+              <h3>Texto listo para presentar</h3>
+              <textarea id="businessCaseText" spellcheck="false"></textarea>
+            </section>
+            <section class="value-panel">
+              <h3>Validacion funcional</h3>
+              <div id="functionalValidation"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="supportView" aria-labelledby="supportTitle">
+          <div class="section-heading">
+            <div>
+              <h2 id="supportTitle">Soporte IA e instructivos</h2>
+              <p>Resuelve preguntas practicas, consulta guias y carga instructivos internos.</p>
+            </div>
+          </div>
+
+          <div class="support-layout">
+            <section class="ai-support-panel">
+              <div class="panel-title">
+                <h3>Chat IA de gestion</h3>
+                <span>Asistente practico</span>
+              </div>
+              <div class="ai-chat-messages" id="aiChatMessages" aria-live="polite"></div>
+              <div class="quick-prompts" aria-label="Preguntas sugeridas">
+                <button class="mini-button" data-ai-question="Como interpreto el estado gerencial?" type="button">Estado gerencial</button>
+                <button class="mini-button" data-ai-question="Que debo priorizar hoy?" type="button">Prioridad hoy</button>
+                <button class="mini-button" data-ai-question="Como cargo evidencias?" type="button">Evidencias</button>
+                <button class="mini-button" data-ai-question="Como envio alertas por WhatsApp y correo?" type="button">Alertas</button>
+              </div>
+              <form class="ai-chat-form" id="aiChatForm">
+                <input id="aiQuestion" autocomplete="off" placeholder="Pregunta sobre tareas, ROI, alertas, reportes o uso de la herramienta">
+                <button class="primary-button" type="submit">Preguntar</button>
+              </form>
+            </section>
+
+            <section class="instruction-panel">
+              <div class="panel-title">
+                <h3>Instructivos de uso</h3>
+                <span id="instructionCount"></span>
+              </div>
+              <div class="instruction-actions">
+                <a class="primary-button" href="instructivo_usuario_helix_zymo.md" download>Descargar usuario</a>
+                <a class="ghost-button" href="instructivo_gerencial_helix_zymo.md" download>Descargar gerencial</a>
+              </div>
+              <label class="upload-box">
+                Cargar instructivos propios
+                <input id="instructionUpload" type="file" accept=".pdf,.doc,.docx,.txt,.md" multiple>
+              </label>
+              <div class="instruction-list" id="instructionList"></div>
+              <button class="ghost-button" id="clearInstructionsBtn" type="button">Limpiar instructivos cargados</button>
+            </section>
+          </div>
+
+          <section class="satisfaction-panel">
+            <div class="panel-title">
+              <h3>Encuesta de satisfaccion</h3>
+              <span id="surveyCount"></span>
+            </div>
+            <form class="survey-form" id="satisfactionForm">
+              <div class="form-row">
+                <label>
+                  Nombre o area
+                  <input id="surveyName" placeholder="Ej. Operaciones, gerencia, proyectos">
+                </label>
+                <label>
+                  Rol de uso
+                  <select id="surveyRole">
+                    <option>Usuario operativo</option>
+                    <option>Lider de proyecto</option>
+                    <option>Gerencia</option>
+                    <option>Cliente interno</option>
+                  </select>
+                </label>
+              </div>
+              <div class="survey-grid">
+                <label>
+                  Satisfaccion general
+                  <input id="surveySatisfaction" type="range" min="1" max="5" step="1" value="4">
+                </label>
+                <label>
+                  Facilidad de uso
+                  <input id="surveyEase" type="range" min="1" max="5" step="1" value="4">
+                </label>
+                <label>
+                  Utilidad para seguimiento
+                  <input id="surveyUtility" type="range" min="1" max="5" step="1" value="4">
+                </label>
+                <label>
+                  Probabilidad de recomendar
+                  <input id="surveyNps" type="range" min="0" max="10" step="1" value="8">
+                </label>
+              </div>
+              <label>
+                Comentarios y oportunidades de mejora
+                <textarea id="surveyComment" rows="3" placeholder="Que mejorarias o que valor te aporta la herramienta"></textarea>
+              </label>
+              <button class="primary-button" type="submit">Guardar encuesta</button>
+            </form>
+            <div class="survey-results" id="surveyResults"></div>
+            <button class="ghost-button" id="clearSurveyBtn" type="button">Limpiar respuestas</button>
+          </section>
+        </section>
+
+        <section class="view" id="settingsView" aria-labelledby="settingsTitle">
+          <div class="section-heading">
+            <div>
+              <h2 id="settingsTitle">Configuracion operativa</h2>
+              <p>Administra responsables, registros de actividades y alertas automaticas.</p>
+            </div>
+          </div>
+
+          <div class="settings-layout">
+            <section class="settings-panel">
+              <div class="panel-title">
+                <h3>Responsables</h3>
+                <span id="responsibleCount"></span>
+              </div>
+              <form class="inline-form" id="responsibleForm">
+                <input id="responsibleId" type="hidden">
+                <input id="responsibleName" required placeholder="Nombre">
+                <input id="responsibleEmail" type="email" required placeholder="Correo">
+                <input id="responsiblePhone" required placeholder="WhatsApp 57...">
+                <input id="responsibleColor" type="color" value="#5461c8" aria-label="Color">
+                <button class="primary-button" type="submit">Guardar</button>
+              </form>
+              <div id="responsibleList"></div>
+            </section>
+
+            <section class="settings-panel">
+              <div class="panel-title">
+                <h3>Subproyectos</h3>
+                <span id="subprojectCount"></span>
+              </div>
+              <form class="subproject-form" id="subprojectForm">
+                <input id="subprojectId" type="hidden">
+                <input id="subprojectName" required placeholder="Nombre del subproyecto">
+                <input id="subprojectGoal" placeholder="Objetivo o cliente relacionado">
+                <input id="subprojectInvestment" type="number" min="0" step="1000" placeholder="Inversion estimada">
+                <input id="subprojectReturn" type="number" min="0" step="1000" placeholder="Retorno esperado">
+                <button class="primary-button" type="submit">Guardar</button>
+              </form>
+              <div id="subprojectList"></div>
+            </section>
+          </div>
+
+          <div class="settings-layout">
+            <section class="settings-panel">
+              <div class="panel-title">
+                <h3>Alertas automaticas</h3>
+                <span id="autoAlertCount"></span>
+              </div>
+              <div id="autoAlertList"></div>
+            </section>
+            <section class="settings-panel">
+              <div class="panel-title">
+                <h3>Alertas de actualizaciones</h3>
+                <span id="updateAlertCount"></span>
+              </div>
+              <div id="updateAlertList"></div>
+              <button class="ghost-button" id="clearUpdateAlertsBtn" type="button">Limpiar alertas enviadas</button>
+            </section>
+          </div>
+
+          <section class="settings-panel">
+            <div class="panel-title">
+              <h3>Registros de actividades</h3>
+              <button class="primary-button" id="newActivityRecordBtn" type="button">Nueva actividad</button>
+            </div>
+            <div class="activity-table" id="activityRegistry"></div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="taskDialog">
+      <form method="dialog" class="task-form" id="taskForm">
+        <div class="dialog-header">
+          <h2 id="taskDialogTitle">Nueva tarea</h2>
+          <button class="icon-button" value="cancel" type="submit" aria-label="Cerrar">x</button>
+        </div>
+        <input id="taskId" type="hidden">
+        <label>
+          Nombre
+          <input id="taskName" required maxlength="70" placeholder="Ej. Validar flujo de aprobacion">
+        </label>
+        <label>
+          Responsable
+          <select id="taskOwner"></select>
+        </label>
+        <label>
+          Subproyecto
+          <select id="taskSubproject"></select>
+        </label>
+        <div class="form-row">
+          <label>
+            Inicio
+            <input id="taskStart" type="date" required>
+          </label>
+          <label>
+            Fin
+            <input id="taskEnd" type="date" required>
+          </label>
+        </div>
+        <div class="form-row">
+          <label>
+            Puntos
+            <input id="taskPoints" type="number" min="1" max="21" value="3">
+          </label>
+          <label>
+            Dependencia
+            <select id="taskDependency"></select>
+          </label>
+        </div>
+        <div class="form-row cost-row">
+          <label>
+            Costo inversion
+            <input id="taskInvestmentCost" type="number" min="0" step="1000" placeholder="Ej. 2500000">
+          </label>
+          <label>
+            Costo optimizacion
+            <input id="taskOptimizationCost" type="number" min="0" step="1000" placeholder="Ej. 800000">
+          </label>
+        </div>
+        <label>
+          Costo ejecucion
+          <input id="taskExecutionCost" type="number" min="0" step="1000" placeholder="Ej. 1200000">
+        </label>
+        <label class="toggle-filter form-toggle">
+          <input id="taskBlocked" type="checkbox">
+          Marcar como bloqueada
+        </label>
+        <div class="form-row">
+          <label>
+            Prioridad
+            <select id="taskPriority">
+              <option>Alta</option>
+              <option>Media</option>
+              <option>Baja</option>
+            </select>
+          </label>
+          <label>
+            Estado
+            <select id="taskStatus">
+              <option>Backlog</option>
+              <option>Planificado</option>
+              <option>En curso</option>
+              <option>Revision</option>
+              <option>Terminado</option>
+            </select>
+          </label>
+        </div>
+        <label>
+          Avance
+          <input id="taskProgress" type="range" min="0" max="100" step="5" value="20">
+        </label>
+        <label>
+          Comentario inicial
+          <textarea id="taskComment" rows="3" placeholder="Observaciones, acuerdos o bloqueos"></textarea>
+        </label>
+        <label>
+          Evidencias
+          <input id="taskEvidence" type="file" multiple>
+        </label>
+        <menu class="dialog-actions">
+          <button class="ghost-button" value="cancel" type="submit">Cancelar</button>
+          <button class="primary-button" id="saveTaskBtn" value="default" type="submit">Guardar</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <dialog id="whatsappDialog">
+      <div class="whatsapp-panel">
+        <div class="dialog-header">
+          <div>
+            <h2>Alertas por WhatsApp</h2>
+            <p>Mensajes listos para enviar a cada responsable.</p>
+          </div>
+          <button class="icon-button" id="closeWhatsappBtn" type="button" aria-label="Cerrar">x</button>
+        </div>
+        <div id="whatsappList"></div>
+      </div>
+    </dialog>
+
+    <dialog id="whatsappObservationDialog">
+      <form method="dialog" class="task-form" id="whatsappObservationForm">
+        <div class="dialog-header">
+          <div>
+            <h2>Observacion WhatsApp</h2>
+            <p id="whatsappObservationTask"></p>
+          </div>
+          <button class="icon-button" value="cancel" type="submit" aria-label="Cerrar">x</button>
+        </div>
+        <label>
+          Remitente
+          <select id="whatsappObservationSender"></select>
+        </label>
+        <label>
+          Observacion recibida
+          <textarea id="whatsappObservationText" rows="5" required placeholder="Pega o resume el mensaje recibido por WhatsApp"></textarea>
+        </label>
+        <menu class="dialog-actions">
+          <button class="ghost-button" value="cancel" type="submit">Cancelar</button>
+          <button class="primary-button" id="saveWhatsappObservationBtn" value="default" type="submit">Registrar</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="app.js"></script>
+  </body>
+</html>

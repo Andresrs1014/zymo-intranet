@@ -123,7 +123,7 @@ export function DashboardView() {
       )}
 
       {/* Dashboard panels */}
-      {data && !loading && (
+      {data && (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {/* Metrics row */}
           <MetricsGrid metricas={data.metricas} />

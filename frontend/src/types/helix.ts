@@ -158,7 +158,7 @@ export interface HelixCargaResponsable {
 }
 
 export interface HelixInsignia {
-  tipo: string
+  tipo: "cumplimiento" | "velocidad" | "calidad" | "colaboracion"
   titulo: string
   descripcion: string
   valor: number
