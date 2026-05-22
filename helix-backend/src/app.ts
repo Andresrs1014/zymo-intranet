@@ -6,6 +6,7 @@ import { authenticate } from "./middleware/auth";
 import subproyectosRouter from "./routers/subproyectos";
 import actividadesRouter from "./routers/actividades";
 import comentariosRouter from "./routers/comentarios";
+import usuariosRouter from "./routers/usuarios";
 import aiRouter from "./routers/ai";
 
 const app = express();
@@ -29,7 +30,8 @@ app.get("/health", (_req: Request, res: Response) => {
 app.use("/api", authenticate);
 app.use("/api/subproyectos", subproyectosRouter);
 app.use("/api/actividades", actividadesRouter);
-app.use("/api/comentarios", comentariosRouter);
+app.use("/api", comentariosRouter);
+app.use("/api/usuarios", usuariosRouter);
 app.use("/api/ai", aiRouter);
 
 // --- 404 handler ---
