@@ -131,6 +131,7 @@ def get_user_active_teams(db: Session, user_id: int) -> list[dict]:
         .join(TaskTeam, TaskTeamMember.team_id == TaskTeam.id)
         .where(TaskTeamMember.user_id == user_id)
         .where(TaskTeamMember.is_active == True)  # noqa: E712
+        .where(TaskTeam.is_active == True)  # noqa: E712
     ).all()
     by_team_id: dict[int, dict] = {}
     for _membership, team in memberships:
@@ -177,6 +178,22 @@ def get_comanaged_owner_id(db: Session, user_id: int) -> int | None:
     return team.owner_user_id if team else None
 
 
+def get_all_comanaged_owner_ids(db: Session, user_id: int) -> list[int]:
+    """Retorna los owner_user_id de todos los equipos donde el usuario es co_gestor activo."""
+    memberships = db.exec(
+        select(TaskTeamMember)
+        .where(TaskTeamMember.user_id == user_id)
+        .where(TaskTeamMember.role == "co_gestor")
+        .where(TaskTeamMember.is_active == True)  # noqa: E712
+    ).all()
+    owner_ids = []
+    for m in memberships:
+        team = db.get(TaskTeam, m.team_id)
+        if team and team.is_active and team.owner_user_id not in owner_ids:
+            owner_ids.append(team.owner_user_id)
+    return owner_ids
+
+
 def promote_to_cogestor(db: Session, user_id: int, owner_id: int) -> TaskTeamMember:
     """Promueve un miembro activo a co_gestor. Solo el gestor primario puede llamar esto."""
     team = get_or_create_manager_team(db, owner_id)
@@ -215,3 +232,77 @@ def demote_to_member(db: Session, user_id: int, owner_id: int) -> TaskTeamMember
     db.commit()
     db.refresh(member)
     return member
+
+
+def get_all_active_users_for_manager(db: Session, exclude_user_id: int) -> list:
+    """Retorna todos los usuarios activos excepto el gestor mismo.
+    Los gestores pueden asignar tareas a cualquier usuario activo.
+    """
+    from app.schemas.task_team import TaskTeamMemberRead
+
+    users = db.exec(
+        select(User)
+        .where(User.is_active == True)  # noqa: E712
+        .where(User.id != exclude_user_id)
+    ).all()
+
+    # id=0 and team_id=0 are synthetic sentinels — these users are not
+    # actual team members. The frontend uses user_id for assignment only.
+    return [
+        TaskTeamMemberRead(
+            id=0,
+            team_id=0,
+            user_id=u.id,
+            user_email=u.email,
+            user_full_name=u.full_name,
+            role="member",
+            is_active=True,
+            created_at=None,
+        )
+        for u in users
+        if u.id is not None
+    ]
+
+
+def get_companeros(db: Session, user_id: int) -> list:
+    """Retorna los compañeros de equipo activos del usuario, con datos de User."""
+    from app.models.task_team_member import TaskTeamMember
+    from app.models.user import User as UserModel
+    from sqlmodel import select
+
+    mis_memberships = db.exec(
+        select(TaskTeamMember).where(
+            TaskTeamMember.user_id == user_id,
+            TaskTeamMember.is_active == True,  # noqa: E712
+        )
+    ).all()
+
+    if not mis_memberships:
+        return []
+
+    team_ids = [m.team_id for m in mis_memberships]
+
+    rows = db.exec(
+        select(TaskTeamMember, UserModel).join(
+            UserModel, TaskTeamMember.user_id == UserModel.id
+        ).where(
+            TaskTeamMember.team_id.in_(team_ids),
+            TaskTeamMember.is_active == True,  # noqa: E712
+            TaskTeamMember.user_id != user_id,
+        )
+    ).all()
+
+    from app.schemas.task_team import TaskTeamMemberRead
+    return [
+        TaskTeamMemberRead(
+            id=member.id,
+            team_id=member.team_id,
+            user_id=member.user_id,
+            user_email=user.email,
+            user_full_name=user.full_name,
+            role=member.role,
+            is_active=member.is_active,
+            created_at=member.created_at,
+        )
+        for member, user in rows
+    ]

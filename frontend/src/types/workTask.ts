@@ -8,12 +8,17 @@ export interface WorkTask {
   hora_inicio: string | null
   hora_cierre: string | null
   tiempo_total_minutos: number | null
+  duracion_estimada_minutos: number | null
   etiqueta: string
   plataforma: string
   titulo: string
   descripcion_tecnica: string
   estado: string
   prioridad: string
+  asignado_a_id: number | null
+  asignado_a_nombre: string | null
+  aceptacion: string | null
+  adjuntos: TaskAttachment[]
   created_at: string
   updated_at: string
 }
@@ -29,6 +34,8 @@ export interface WorkTaskCreate {
   fecha?: string
   hora_inicio?: string
   hora_cierre?: string
+  asignado_a_id?: number
+  duracion_estimada_minutos?: number
 }
 
 export interface WorkTaskUpdate {
@@ -41,6 +48,7 @@ export interface WorkTaskUpdate {
   fecha?: string
   hora_inicio?: string
   hora_cierre?: string
+  asignado_a_id?: number
 }
 
 export interface TaskKpis {
@@ -96,6 +104,7 @@ export interface TaskFilters {
   sin_registro_hoy?: boolean
   /** Día local YYYY-MM-DD para avisos de “registro hoy” (debe enviar el cliente). */
   fecha_referencia?: string
+  team_id?: number
 }
 
 export const ETIQUETAS = ["desarrollos", "actualizaciones", "auditorias", "implementacion_okr", "tareas_diarias"] as const
@@ -126,6 +135,7 @@ export interface PaginatedTaskFilters {
   fecha_exacta?: string
   fecha_desde?: string
   fecha_hasta?: string
+  team_id?: number
 }
 
 // --- Agenda ---
@@ -134,6 +144,7 @@ export interface TaskEventParticipant {
   user_nombre: string
   has_conflict: boolean
   conflict_detail?: string
+  confirmacion?: string
 }
 
 export interface TaskEvent {
@@ -142,6 +153,8 @@ export interface TaskEvent {
   descripcion?: string
   plataforma?: string
   prioridad?: string
+  modalidad?: string
+  sede?: string
   fecha: string
   hora_inicio: string
   duracion_minutos: number
@@ -155,6 +168,8 @@ export interface TaskEventCreate {
   descripcion?: string
   plataforma?: string
   prioridad?: string
+  modalidad?: string
+  sede?: string
   fecha: string
   hora_inicio: string
   duracion_minutos: number
@@ -210,6 +225,7 @@ export interface TaskListConfigItem {
   is_active: boolean
   is_final: boolean
   is_canceled: boolean
+  is_initial_assignment: boolean
 }
 
 export interface TaskListsResponse {
@@ -217,4 +233,14 @@ export interface TaskListsResponse {
   etiqueta: TaskListConfigItem[]
   plataforma: TaskListConfigItem[]
   prioridad_agenda: TaskListConfigItem[]
+}
+
+export interface TaskAttachment {
+  id: number
+  task_id: number
+  filename: string
+  mime_type: string
+  size_bytes: number
+  uploaded_by_id: number
+  uploaded_at: string
 }

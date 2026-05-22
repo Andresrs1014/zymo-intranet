@@ -5,11 +5,14 @@ Prefijo: /api/herramientas/tareas
 Acceso: controlado por UserTool (tool_task_submit_dev / tool_task_manage_dev)
 Multi-workspace: cada manager tiene su propio equipo y datos.
 """
+import logging
 from datetime import date
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi.responses import Response
+from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile
+
+logger = logging.getLogger(__name__)
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -57,6 +60,7 @@ def _team_filters(
     q: Optional[str] = Query(default=None),
     sin_registro_hoy: bool = Query(default=False),
     fecha_referencia: Optional[date] = Query(default=None),
+    team_id: Optional[int] = Query(default=None),
 ) -> TaskFilters:
     return TaskFilters(
         fecha_desde=fecha_desde,
@@ -68,6 +72,7 @@ def _team_filters(
         q=q,
         sin_registro_hoy=sin_registro_hoy,
         fecha_referencia=fecha_referencia,
+        team_id=team_id,
     )
 
 
@@ -86,6 +91,7 @@ def mis_tareas_paginadas(
     fecha_exacta: Optional[str] = Query(default=None),
     fecha_desde: Optional[str] = Query(default=None),
     fecha_hasta: Optional[str] = Query(default=None),
+    team_id: Optional[int] = Query(default=None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -100,6 +106,7 @@ def mis_tareas_paginadas(
         page=page, limit=limit, search=effective_search, responsable_id=responsable_id,
         estado=estado, etiqueta=etiqueta, plataforma=plataforma,
         fecha_exacta=fecha_exacta, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta,
+        team_id=team_id,
     )
     return get_paginated_tasks(db, current_user.id, filters)
 
@@ -110,11 +117,24 @@ def create_task_endpoint(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> WorkTaskRead:
-    require_tool_or_403(db, current_user, TOOL_SUBMIT)
+    # Gestores (TOOL_MANAGE) también pueden registrar sus propias tareas
+    if current_user.role != "admin":
+        if not user_has_tool(db, current_user, TOOL_SUBMIT) and not user_has_tool(db, current_user, TOOL_MANAGE):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Acceso denegado. Se requiere herramienta '{TOOL_SUBMIT}'.",
+            )
 
     from app.services.work_task_service import create_task
 
-    task = create_task(db, current_user, payload)
+    try:
+        task = create_task(db, current_user, payload)
+    except HTTPException as exc:
+        logger.warning(
+            "create_task error user=%s team_id=%s → %s",
+            current_user.id, payload.team_id, exc.detail,
+        )
+        raise
     return WorkTaskRead.model_validate(task)
 
 
@@ -165,6 +185,35 @@ def update_task_endpoint(
     return WorkTaskRead.model_validate(task)
 
 
+@router.patch("/{task_id}/aceptacion", response_model=WorkTaskRead)
+def responder_aceptacion_tarea(
+    task_id: int,
+    payload: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> WorkTaskRead:
+    """El asignado acepta o rechaza la tarea asignada."""
+    from app.models.work_task import WorkTask as WorkTaskModel
+    from fastapi import HTTPException
+
+    require_tool_or_403(db, current_user, TOOL_SUBMIT)
+    aceptacion = payload.get("aceptacion")
+    if aceptacion not in ("aceptado", "rechazado"):
+        raise HTTPException(status_code=422, detail="aceptacion debe ser 'aceptado' o 'rechazado'.")
+
+    task = db.get(WorkTaskModel, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Tarea no encontrada.")
+    if task.asignado_a_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Solo el asignado puede responder la aceptación.")
+
+    task.aceptacion = aceptacion
+    db.add(task)
+    db.commit()
+    db.refresh(task)
+    return WorkTaskRead.model_validate(task)
+
+
 @router.patch("/equipo/tareas/{task_id}", response_model=WorkTaskRead)
 def update_team_task_endpoint(
     task_id: int,
@@ -183,6 +232,7 @@ def update_team_task_endpoint(
 
 @router.get("/mis-metricas")
 def get_mis_metricas(
+    team_id: Optional[int] = Query(default=None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict:
@@ -190,7 +240,7 @@ def get_mis_metricas(
 
     from app.services.work_task_service import own_metrics
 
-    return own_metrics(db, current_user)
+    return own_metrics(db, current_user, team_id)
 
 
 @router.get("/mis-equipos", response_model=list[UserTeamInfo])
@@ -203,6 +253,124 @@ def get_mis_equipos(
     from app.services.task_team_service import get_user_active_teams
     teams = get_user_active_teams(db, current_user.id)  # type: ignore[arg-type]
     return [UserTeamInfo(**t) for t in teams]
+
+
+@router.get("/mis-equipos-gestionados", response_model=list[UserTeamInfo])
+def get_mis_equipos_gestionados(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[UserTeamInfo]:
+    """Equipos que el usuario gestiona (como gestor primario o co-gestor).
+    Usado para el workspace switcher en la UI.
+    """
+    from app.services.task_team_service import get_all_comanaged_owner_ids
+    from app.models.task_team import TaskTeam
+
+    is_admin = getattr(current_user, "role", None) == "admin"
+    has_manage = user_has_tool(db, current_user, TOOL_MANAGE)
+
+    teams = []
+
+    if is_admin or has_manage:
+        # Gestor primario — su propio equipo
+        from app.services.task_team_service import get_or_create_manager_team
+        own_team = get_or_create_manager_team(db, current_user.id)
+        teams.append(UserTeamInfo(
+            team_id=own_team.id,
+            team_name=own_team.name,
+            owner_id=own_team.owner_user_id,
+        ))
+
+    # Co-gestor — todos los equipos donde tiene ese rol
+    cogestor_owner_ids = get_all_comanaged_owner_ids(db, current_user.id)
+    for owner_id in cogestor_owner_ids:
+        coteam = db.exec(
+            select(TaskTeam).where(TaskTeam.owner_user_id == owner_id).where(TaskTeam.is_active == True)  # noqa: E712
+        ).first()
+        if coteam:
+            teams.append(UserTeamInfo(
+                team_id=coteam.id,
+                team_name=coteam.name,
+                owner_id=coteam.owner_user_id,
+            ))
+
+    return teams
+
+
+@router.get("/equipo/companeros", response_model=list[TaskTeamMemberRead])
+def get_equipo_companeros(
+    team_id: Optional[int] = Query(default=None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[TaskTeamMemberRead]:
+    """Retorna los compañeros/miembros de equipo para asignar tareas.
+    - Colaboradores (TOOL_SUBMIT): devuelve compañeros de sus equipos activos.
+    - Gestores (TOOL_MANAGE): devuelve todos los usuarios activos (pueden asignar a cualquiera).
+    - Si se especifica team_id, se devuelven solo los miembros activos de ese equipo específico,
+      siempre que el usuario tenga acceso.
+    """
+    is_manager = user_has_tool(db, current_user, TOOL_MANAGE)
+    is_submit = user_has_tool(db, current_user, TOOL_SUBMIT)
+    is_admin = getattr(current_user, "role", None) == "admin"
+
+    if not (is_manager or is_submit or is_admin):
+        raise HTTPException(status_code=403, detail="Acceso denegado.")
+
+    from app.services.task_team_service import get_companeros, get_all_active_users_for_manager
+    from app.models.task_team_member import TaskTeamMember
+    from app.models.user import User as UserModel
+    from sqlmodel import select
+
+    if team_id is not None:
+        from app.models.task_team import TaskTeam
+        team = db.get(TaskTeam, team_id)
+        if not team or not team.is_active:
+            raise HTTPException(status_code=404, detail="Equipo no encontrado.")
+
+        from app.services.task_team_service import get_all_comanaged_owner_ids
+        cogestor_owner_ids = get_all_comanaged_owner_ids(db, current_user.id)
+        is_owner_or_cogestor = (
+            (is_manager or is_admin) and team.owner_user_id == current_user.id
+        ) or (team.owner_user_id in cogestor_owner_ids)
+
+        if not is_owner_or_cogestor:
+            membership = db.exec(
+                select(TaskTeamMember).where(
+                    TaskTeamMember.team_id == team_id,
+                    TaskTeamMember.user_id == current_user.id,
+                    TaskTeamMember.is_active == True,  # noqa: E712
+                )
+            ).first()
+            if not membership:
+                raise HTTPException(status_code=403, detail="No tienes acceso a este equipo.")
+
+        rows = db.exec(
+            select(TaskTeamMember, UserModel).join(
+                UserModel, TaskTeamMember.user_id == UserModel.id
+            ).where(
+                TaskTeamMember.team_id == team_id,
+                TaskTeamMember.is_active == True,  # noqa: E712
+                UserModel.id != current_user.id,
+            )
+        ).all()
+        return [
+            TaskTeamMemberRead(
+                id=m.id,
+                team_id=m.team_id,
+                user_id=m.user_id,
+                role=m.role,
+                is_active=m.is_active,
+                created_at=m.created_at,
+                user_full_name=u.full_name,
+                user_email=u.email,
+            )
+            for m, u in rows
+        ]
+
+    if is_manager or is_admin:
+        return get_all_active_users_for_manager(db, exclude_user_id=current_user.id)
+
+    return get_companeros(db, current_user.id)
 
 
 # ── Manager endpoints (TOOL_MANAGE) ─────────────────────────────────────────
@@ -219,6 +387,7 @@ def equipo_tareas_paginadas(
     fecha_exacta: Optional[str] = Query(default=None),
     fecha_desde: Optional[str] = Query(default=None),
     fecha_hasta: Optional[str] = Query(default=None),
+    team_id: Optional[int] = Query(default=None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -227,7 +396,7 @@ def equipo_tareas_paginadas(
     from app.services.task_team_service import get_or_create_manager_team
     from app.models.task_team_member import TaskTeamMember
 
-    owner_id = _require_manage_access(db, current_user)
+    owner_id = _require_manage_access(db, current_user, team_id)
 
     team = get_or_create_manager_team(db, owner_id)
     members = db.exec(
@@ -242,6 +411,7 @@ def equipo_tareas_paginadas(
         page=page, limit=limit, search=search, responsable_id=responsable_id,
         estado=estado, etiqueta=etiqueta, plataforma=plataforma,
         fecha_exacta=fecha_exacta, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta,
+        team_id=team.id,
     )
     return get_paginated_tasks(db, owner_id, filters, team_member_ids=member_ids, team_id=team.id)
 
@@ -251,20 +421,39 @@ def _owner_id(current_user: User) -> int:
     return current_user.id
 
 
-def _require_manage_access(db: Session, current_user: User) -> int:
+def _require_manage_access(db: Session, current_user: User, team_id: Optional[int] = None) -> int:
     """Valida que el usuario puede gestionar un equipo.
     Permite: gestor primario (TOOL_MANAGE) o co-gestor (role=co_gestor en algún equipo).
     Retorna el owner_id del equipo a gestionar.
     Lanza 403 si no tiene acceso.
     """
-    from app.services.task_team_service import get_comanaged_owner_id
+    from app.services.task_team_service import get_all_comanaged_owner_ids
+    from app.models.task_team import TaskTeam
 
-    if user_has_tool(db, current_user, TOOL_MANAGE):
+    is_admin = getattr(current_user, "role", None) == "admin"
+    has_manage = user_has_tool(db, current_user, TOOL_MANAGE)
+
+    # 1. Si especifican team_id, validamos acceso a ese equipo específico
+    if team_id is not None:
+        team = db.get(TaskTeam, team_id)
+        if team and team.is_active:
+            # Es su propio equipo
+            if (has_manage or is_admin) and team.owner_user_id == current_user.id:
+                return team.owner_user_id
+            # Es un equipo donde es co-gestor
+            cogestor_owner_ids = get_all_comanaged_owner_ids(db, current_user.id)
+            if team.owner_user_id in cogestor_owner_ids:
+                return team.owner_user_id
+
+        raise HTTPException(status_code=403, detail="No tienes acceso a este equipo.")
+
+    # 2. Si no especifican team_id (comportamiento legacy), devolvemos el primero disponible
+    if has_manage or is_admin:
         return current_user.id
 
-    owner_id = get_comanaged_owner_id(db, current_user.id)
-    if owner_id:
-        return owner_id
+    cogestor_owner_ids = get_all_comanaged_owner_ids(db, current_user.id)
+    if cogestor_owner_ids:
+        return cogestor_owner_ids[0]
 
     raise HTTPException(status_code=403, detail="Acceso denegado. Se requiere rol de gestor o co-gestor.")
 
@@ -275,7 +464,7 @@ def get_equipo_tasks(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[WorkTaskRead]:
-    owner_id = _require_manage_access(db, current_user)
+    owner_id = _require_manage_access(db, current_user, filters.team_id)
 
     from app.services.task_dashboard_service import get_team_tasks
 
@@ -289,7 +478,7 @@ def get_equipo_kpis(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> TaskKpis:
-    owner_id = _require_manage_access(db, current_user)
+    owner_id = _require_manage_access(db, current_user, filters.team_id)
 
     from app.services.task_dashboard_service import get_team_kpis
 
@@ -302,7 +491,7 @@ def get_equipo_personas(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[PersonTaskSummary]:
-    owner_id = _require_manage_access(db, current_user)
+    owner_id = _require_manage_access(db, current_user, filters.team_id)
 
     from app.services.task_dashboard_service import get_person_summaries
 
@@ -411,6 +600,8 @@ def eventos_por_fecha(
             "descripcion": r["event"].descripcion,
             "plataforma": getattr(r["event"], "plataforma", None),
             "prioridad": getattr(r["event"], "prioridad", None),
+            "modalidad": getattr(r["event"], "modalidad", None),
+            "sede": getattr(r["event"], "sede", None),
             "fecha": str(r["event"].fecha),
             "hora_inicio": r["event"].hora_inicio,
             "duracion_minutos": r["event"].duracion_minutos,
@@ -422,6 +613,7 @@ def eventos_por_fecha(
                     "user_nombre": p.user_nombre,
                     "has_conflict": p.has_conflict,
                     "conflict_detail": p.conflict_detail,
+                    "confirmacion": getattr(p, "confirmacion", "pendiente"),
                 }
                 for p in r["participants"]
             ],
@@ -473,6 +665,37 @@ def actualizar_participantes_evento(
             for p in result["participants"]
         ],
     }
+
+
+@router.patch("/agenda/{event_id}/confirmacion")
+def confirmar_asistencia_evento(
+    event_id: int,
+    payload: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    from app.models.task_event_participant import TaskEventParticipant
+    from fastapi import HTTPException
+    from sqlmodel import select as sqlmodel_select
+
+    require_tool_or_403(db, current_user, TOOL_SUBMIT)
+    confirmacion = payload.get("confirmacion")
+    if confirmacion not in ("aceptado", "rechazado", "pendiente"):
+        raise HTTPException(status_code=422, detail="confirmacion debe ser 'aceptado', 'rechazado' o 'pendiente'.")
+
+    participant = db.exec(
+        sqlmodel_select(TaskEventParticipant)
+        .where(TaskEventParticipant.event_id == event_id)
+        .where(TaskEventParticipant.user_id == current_user.id)
+    ).first()
+    if not participant:
+        raise HTTPException(status_code=404, detail="No eres participante de este evento.")
+
+    participant.confirmacion = confirmacion
+    db.add(participant)
+    db.commit()
+    db.refresh(participant)
+    return {"ok": True, "confirmacion": participant.confirmacion}
 
 
 # ── Team config endpoints (TOOL_MANAGE) ───────────────────────────────────────
@@ -726,17 +949,22 @@ def revoke_user_tool(
     if current_user.role != "admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Se requiere rol 'admin'.")
     from datetime import datetime, timezone
-    existing = db.exec(
+    # Buscar sin filtrar por scope: desactiva cualquier registro activo
+    # de esa tool para ese usuario, independientemente del scope con que fue creado.
+    rows = db.exec(
         select(UserTool)
         .where(UserTool.user_id == payload.user_id)
         .where(UserTool.tool_key == payload.tool_key)
-        .where(UserTool.scope == payload.scope)
-    ).first()
-    if existing:
-        existing.is_active = False
-        existing.updated_at = datetime.now(timezone.utc)
-        db.add(existing)
-        db.commit()
+        .where(UserTool.is_active == True)  # noqa: E712
+    ).all()
+    if not rows:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Herramienta no encontrada para este usuario.")
+    now = datetime.now(timezone.utc)
+    for row in rows:
+        row.is_active = False
+        row.updated_at = now
+        db.add(row)
+    db.commit()
     return {"ok": True}
 
 
@@ -778,6 +1006,7 @@ def delete_task_admin(
 
 @router.get("/config/listas")
 def get_listas(
+    team_id: Optional[int] = Query(default=None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict:
@@ -787,9 +1016,9 @@ def get_listas(
 
     has_submit = user_has_tool(db, current_user, TOOL_SUBMIT)
 
-    # Gestor o co-gestor: devolver sus propias listas (owner_id resuelto)
+    # Gestor o co-gestor: usar team_id si viene (respeta workspace seleccionado)
     try:
-        owner_id = _require_manage_access(db, current_user)
+        owner_id = _require_manage_access(db, current_user, team_id)
         return get_lists_by_owner(db, owner_id)
     except HTTPException:
         pass
@@ -797,6 +1026,12 @@ def get_listas(
     # Usuario con TOOL_SUBMIT: devolver listas del gestor de su equipo
     if not has_submit:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Sin acceso.")
+
+    # Si el cliente envía team_id explícito, usar ese equipo directamente
+    if team_id is not None:
+        team_by_id = db.get(TaskTeam, team_id)
+        if team_by_id:
+            return get_lists_by_owner(db, team_by_id.owner_user_id)
 
     membership = db.exec(
         select(TaskTeamMember)
@@ -875,3 +1110,115 @@ def delete_lista_item(
     from app.services.task_list_config_service import delete_list_item
 
     return delete_list_item(db, owner_id, list_type, value)
+
+
+# ── Attachment endpoints ───────────────────────────────────────────────────────
+
+@router.post("/{task_id}/adjuntos", response_model=None, status_code=status.HTTP_201_CREATED)
+def upload_attachment(
+    task_id: int,
+    file: UploadFile,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_tool_or_403(db, current_user, TOOL_SUBMIT)
+
+    from app.models.work_task import WorkTask
+    from app.services.task_attachment_service import create_attachment
+    from app.schemas.task_attachment import TaskAttachmentUploadResponse
+
+    task = db.get(WorkTask, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Tarea no encontrada.")
+
+    attachment = create_attachment(db, task_id, file, current_user)
+    return {"ok": True, "attachment": attachment}
+
+
+@router.get("/{task_id}/adjuntos", response_model=None)
+def list_attachments(
+    task_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_tool_or_403(db, current_user, TOOL_SUBMIT)
+
+    from app.services.task_attachment_service import list_attachments
+    from app.schemas.task_attachment import TaskAttachmentRead
+
+    attachments = list_attachments(db, task_id)
+    return [TaskAttachmentRead.model_validate(a) for a in attachments]
+
+
+@router.get("/adjuntos/{attachment_id}")
+def serve_attachment(
+    attachment_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_tool_or_403(db, current_user, TOOL_SUBMIT)
+
+    from app.services.task_attachment_service import get_attachment, get_attachment_file
+    from app.models.work_task import WorkTask
+
+    attachment = get_attachment(db, attachment_id)
+    if not attachment:
+        raise HTTPException(status_code=404, detail="Adjunto no encontrado.")
+
+    # Access control: user must own the task, be assigned to it, or be a manager/admin
+    task = db.get(WorkTask, attachment.task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="Tarea no encontrada.")
+
+    is_admin = getattr(current_user, "role", None) == "admin"
+    is_manager = user_has_tool(db, current_user, TOOL_MANAGE)
+    is_owner = task.subido_por_id == current_user.id
+    is_assignee = task.asignado_a_id == current_user.id
+
+    if not (is_admin or is_manager or is_owner or is_assignee):
+        raise HTTPException(status_code=403, detail="Sin acceso a este adjunto.")
+
+    file, mime_type, size = get_attachment_file(attachment)
+
+    disposition = "inline" if mime_type.startswith("image/") or mime_type == "application/pdf" else "attachment"
+
+    return StreamingResponse(
+        file,
+        media_type=mime_type,
+        headers={
+            "Content-Disposition": f'{disposition}; filename="{attachment.filename}"',
+            "Content-Length": str(size),
+        },
+    )
+
+
+@router.delete("/adjuntos/{attachment_id}")
+def delete_attachment(
+    attachment_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_tool_or_403(db, current_user, TOOL_SUBMIT)
+
+    from app.services.task_attachment_service import get_attachment, delete_attachment as delete_attachment_service
+    from app.models.work_task import WorkTask
+
+    attachment = get_attachment(db, attachment_id)
+    if not attachment:
+        raise HTTPException(status_code=404, detail="Adjunto no encontrado.")
+
+    # Access control: user must own the task, be assigned to it, or be a manager/admin
+    task = db.get(WorkTask, attachment.task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="Tarea no encontrada.")
+
+    is_admin = getattr(current_user, "role", None) == "admin"
+    is_manager = user_has_tool(db, current_user, TOOL_MANAGE)
+    is_owner = task.subido_por_id == current_user.id
+    is_assignee = task.asignado_a_id == current_user.id
+
+    if not (is_admin or is_manager or is_owner or is_assignee):
+        raise HTTPException(status_code=403, detail="Sin acceso a este adjunto.")
+
+    delete_attachment_service(db, attachment_id)
+    return {"ok": True}

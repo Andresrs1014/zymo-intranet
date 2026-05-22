@@ -61,8 +61,6 @@ export function VistaFacturacionModal({ open, onClose, solicitud, factura }: Vis
 
   if (!open) return null
 
-  const nitFactura = factura?.nit_proveedor ?? null
-  const nombreFactura = factura?.nombre_proveedor ?? null
   const numeroFactura = factura?.numero_factura ?? solicitud.numero_factura
   const valorFactura = factura?.valor_factura ?? solicitud.valor_factura
   const fechaFactura = factura?.fecha_factura ?? solicitud.fecha_factura
@@ -138,10 +136,8 @@ export function VistaFacturacionModal({ open, onClose, solicitud, factura }: Vis
           <section>
             <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Proveedor</h3>
             <div className="rounded-xl border border-gray-100 bg-gray-50/50 px-4">
-              <Row label="Razón social (cotización)" value={solicitud.proveedor_nombre} />
-              <Row label="NIT (cotización / OC)" value={solicitud.proveedor_nit ?? null} />
-              <Row label="Razón social (factura)" value={nombreFactura} />
-              <Row label="NIT (factura)" value={nitFactura} />
+              <Row label="Razón social" value={solicitud.proveedor_nombre} />
+              <Row label="NIT" value={solicitud.proveedor_nit ?? null} />
             </div>
           </section>
 
@@ -168,16 +164,21 @@ export function VistaFacturacionModal({ open, onClose, solicitud, factura }: Vis
               <div>
                 <p className="text-sm font-semibold text-gray-800">Formato para facturación</p>
                 <p className="text-xs text-gray-500 mt-0.5 max-w-xl">
-                  Descarga de un documento con este mismo resumen (PDF u hoja de cálculo) estará disponible cuando se defina la plantilla.
+                  Abre una vista de impresión con este resumen. Desde el diálogo del navegador puedes guardar como PDF.
                 </p>
               </div>
               <button
                 type="button"
-                disabled
-                className="shrink-0 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-400 cursor-not-allowed opacity-90"
-                title="Próximamente"
+                onClick={() =>
+                  window.open(
+                    `/financiero/facturas/${solicitud.solicitud_id}/print`,
+                    "_blank",
+                    "noopener,noreferrer"
+                  )
+                }
+                className="shrink-0 rounded-lg border border-brand-blue bg-brand-blue px-4 py-2.5 text-sm font-semibold text-white hover:brightness-105 transition-all"
               >
-                Descargar formato
+                Descargar / Imprimir
               </button>
             </div>
           </section>

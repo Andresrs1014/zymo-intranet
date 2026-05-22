@@ -42,6 +42,8 @@ def create_event(
         descripcion=payload.descripcion,
         plataforma=payload.plataforma,
         prioridad=getattr(payload, "prioridad", None),
+        modalidad=getattr(payload, "modalidad", None),
+        sede=getattr(payload, "sede", None),
         fecha=date.fromisoformat(payload.fecha),
         hora_inicio=payload.hora_inicio,
         duracion_minutos=payload.duracion_minutos,

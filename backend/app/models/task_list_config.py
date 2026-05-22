@@ -15,6 +15,7 @@ class TaskListConfig(SQLModel, table=True):
     is_active: bool = Field(default=True, nullable=False)
     is_final: bool = Field(default=False, nullable=False)
     is_canceled: bool = Field(default=False, nullable=False)
+    is_initial_assignment: bool = Field(default=False, nullable=False)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc), nullable=False
     )

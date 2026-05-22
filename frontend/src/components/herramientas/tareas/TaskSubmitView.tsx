@@ -6,24 +6,33 @@ import {
   useCreateWorkTask,
   useUpdateWorkTask,
 } from "@/hooks/useWorkTasks"
+import { useAuthStore } from "@/store/authStore"
 import type { WorkTask, WorkTaskCreate, TaskFilters } from "@/types/workTask"
+import { useUploadTaskAttachment } from "@/hooks/useTaskAttachments"
 import { TaskForm } from "./TaskForm"
+import { AsignarTareaForm } from "./AsignarTareaForm"
+import { AttachmentExplorer } from "./AttachmentExplorer"
 import { TaskDataTable } from "./TaskDataTable"
 import { TaskDetailSheet } from "./TaskDetailSheet"
-import { taskButtonPrimary, taskCard, formatMinutos } from "@/lib/taskTheme"
+import { taskButtonPrimary, taskButtonSecondary, taskCard, formatMinutos } from "@/lib/taskTheme"
 
 interface Props {
   filters: TaskFilters
+  activeTeamId?: number
 }
 
-export function TaskSubmitView({ filters }: Props) {
+export function TaskSubmitView({ filters, activeTeamId }: Props) {
   const today = new Date().toISOString().slice(0, 10)
 
   const [showForm, setShowForm] = useState(false)
+  const [showAsignarForm, setShowAsignarForm] = useState(false)
   const [selectedTask, setSelectedTask] = useState<WorkTask | null>(null)
+  const [explorerTask, setExplorerTask] = useState<WorkTask | null>(null)
+  const currentUser = useAuthStore((s) => s.user)
+  const uploadAttachment = useUploadTaskAttachment()
 
-  const { data: metrics } = useMyTaskMetrics()
-  const { data: todayTasks } = useMyTasks({ fecha_desde: today, fecha_hasta: today })
+  const { data: metrics } = useMyTaskMetrics(activeTeamId)
+  const { data: todayTasks } = useMyTasks({ fecha_desde: today, fecha_hasta: today, team_id: activeTeamId })
   const { data: allTasks } = useMyTasks(filters)
   const { data: myTeams = [] } = useMyTeams()
   const createTask = useCreateWorkTask()
@@ -32,8 +41,11 @@ export function TaskSubmitView({ filters }: Props) {
   const registeredToday = (todayTasks?.length ?? 0) > 0
   const showTodayReminder = !registeredToday && myTeams.length > 0
 
-  const handleSubmit = async (payload: WorkTaskCreate) => {
-    await createTask.mutateAsync(payload)
+  const handleSubmit = async (payload: WorkTaskCreate, files: File[]) => {
+    const task = await createTask.mutateAsync(payload)
+    for (const file of files) {
+      await uploadAttachment.mutateAsync({ taskId: task.id, file })
+    }
     setShowForm(false)
   }
 
@@ -53,13 +65,28 @@ export function TaskSubmitView({ filters }: Props) {
           <h1 className="text-xl font-bold text-gray-900">Registro de tareas</h1>
           <p className="text-sm text-gray-500 mt-0.5">Desarrollo e Innovación</p>
         </div>
-        <button
-          type="button"
-          className={taskButtonPrimary}
-          onClick={() => setShowForm((v) => !v)}
-        >
-          {showForm ? "Cancelar" : "+ Nueva tarea"}
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            className={taskButtonSecondary}
+            onClick={() => {
+              setShowAsignarForm((v) => !v)
+              setShowForm(false)
+            }}
+          >
+            {showAsignarForm ? "Cancelar" : "Asignar tarea"}
+          </button>
+          <button
+            type="button"
+            className={taskButtonPrimary}
+            onClick={() => {
+              setShowForm((v) => !v)
+              setShowAsignarForm(false)
+            }}
+          >
+            {showForm ? "Cancelar" : "+ Nueva tarea"}
+          </button>
+        </div>
       </div>
 
       {/* Alert: no registro hoy */}
@@ -85,6 +112,22 @@ export function TaskSubmitView({ filters }: Props) {
         </div>
       )}
 
+      {/* Asignar tarea form */}
+      {showAsignarForm && (
+        <div className={`${taskCard} p-6`}>
+          <h2 className="text-sm font-semibold text-gray-900 mb-4">Asignar tarea a compañero</h2>
+          <AsignarTareaForm
+            onSubmit={async (payload) => {
+              await createTask.mutateAsync(payload)
+              setShowAsignarForm(false)
+            }}
+            onCancel={() => setShowAsignarForm(false)}
+            loading={createTask.isPending}
+            activeTeamId={activeTeamId}
+          />
+        </div>
+      )}
+
       {/* New task form */}
       {showForm && (
         <div className={`${taskCard} p-6`}>
@@ -94,6 +137,7 @@ export function TaskSubmitView({ filters }: Props) {
             onCancel={() => setShowForm(false)}
             loading={createTask.isPending}
             blockSubmitWithoutTeam
+            activeTeamId={activeTeamId}
           />
         </div>
       )}
@@ -104,6 +148,7 @@ export function TaskSubmitView({ filters }: Props) {
         <TaskDataTable
           tasks={allTasks ?? []}
           onRowClick={(t) => setSelectedTask(t)}
+          onAttachmentsClick={(t) => setExplorerTask(t)}
         />
       </div>
 
@@ -111,11 +156,22 @@ export function TaskSubmitView({ filters }: Props) {
       <TaskDetailSheet
         task={selectedTask}
         onClose={() => setSelectedTask(null)}
+        currentUserId={currentUser?.id}
+        teamId={activeTeamId}
         onStatusChange={async (taskId, newEstado) => {
           await updateTask.mutateAsync({ id: taskId, payload: { estado: newEstado } })
           setSelectedTask((prev) => prev ? { ...prev, estado: newEstado } : null)
         }}
       />
+
+      {explorerTask && (
+        <AttachmentExplorer
+          taskId={explorerTask.id}
+          taskTitulo={explorerTask.titulo}
+          open={!!explorerTask}
+          onClose={() => setExplorerTask(null)}
+        />
+      )}
     </div>
   )
 }

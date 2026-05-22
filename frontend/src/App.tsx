@@ -39,10 +39,12 @@ import { FinancieroPage } from "@/pages/financiero/FinancieroPage"
 import { FacturasPage } from "@/pages/financiero/FacturasPage"
 import { FacturaDetallePage } from "@/pages/financiero/FacturaDetallePage"
 import { FinancieroConfigPage } from "@/pages/financiero/FinancieroConfigPage"
+import { PrintFacturacionPage } from "@/pages/financiero/PrintFacturacionPage"
 import { AgentFloatingWindow } from "@/components/agent/AgentFloatingWindow"
 import { GerencialPage } from "@/pages/gerencial/GerencialPage"
 import { ExtraccionIAPage } from "@/pages/admin/ExtraccionIAPage"
 import { GestionTareasPage } from "@/pages/herramientas/tareas/GestionTareasPage"
+import { HelixPage } from "@/pages/planeacion/helix/HelixPage"
 
 // Decodifica el claim `exp` del JWT sin verificar firma (solo para chequeo local de expiración)
 function isTokenExpired(token: string): boolean {
@@ -376,6 +378,14 @@ export default function App() {
           }
         />
         <Route
+          path="/financiero/facturas/:solicitudId/print"
+          element={
+            <FinancieroRoute>
+              <PrintFacturacionPage />
+            </FinancieroRoute>
+          }
+        />
+        <Route
           path="/financiero/configuracion"
           element={
             <AdminRoute>
@@ -401,6 +411,16 @@ export default function App() {
             <HerramientasTareasRoute>
               <GestionTareasPage />
             </HerramientasTareasRoute>
+          }
+        />
+
+        {/* Planeación — Helix Zymo */}
+        <Route
+          path="/planeacion/helix"
+          element={
+            <PrivateRoute>
+              <HelixPage />
+            </PrivateRoute>
           }
         />
 

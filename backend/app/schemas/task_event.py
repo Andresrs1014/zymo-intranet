@@ -16,6 +16,8 @@ class TaskEventCreate(BaseModel):
     descripcion: Optional[str] = None
     plataforma: Optional[str] = None
     prioridad: Optional[str] = None
+    modalidad: Optional[str] = None    # "presencial" | "virtual"
+    sede: Optional[str] = None
     fecha: str                         # "YYYY-MM-DD"
     hora_inicio: str                   # "HH:MM"
     duracion_minutos: int = Field(default=60, ge=5, le=1440)
@@ -49,6 +51,8 @@ class TaskEventRead(BaseModel):
     descripcion: Optional[str] = None
     plataforma: Optional[str] = None
     prioridad: Optional[str] = None
+    modalidad: Optional[str] = None
+    sede: Optional[str] = None
     fecha: str
     hora_inicio: str
     duracion_minutos: int

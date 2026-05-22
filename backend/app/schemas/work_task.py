@@ -3,18 +3,22 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
+from app.schemas.task_attachment import TaskAttachmentRead
+
 
 class WorkTaskCreate(BaseModel):
     titulo: str
     descripcion_tecnica: str
-    etiqueta: str = "tareas_diarias"
-    plataforma: str = "transversal"
-    estado: str = "en_progreso"
+    etiqueta: Optional[str] = None
+    plataforma: Optional[str] = None
+    estado: Optional[str] = None
     prioridad: str = "media"
     team_id: int | None = None
     fecha: date | None = None
     hora_inicio: datetime | None = None
     hora_cierre: datetime | None = None
+    asignado_a_id: int | None = None
+    duracion_estimada_minutos: int | None = None
 
 
 class WorkTaskUpdate(BaseModel):
@@ -27,6 +31,7 @@ class WorkTaskUpdate(BaseModel):
     fecha: date | None = None
     hora_inicio: datetime | None = None
     hora_cierre: datetime | None = None
+    asignado_a_id: int | None = None
 
 
 class WorkTaskRead(BaseModel):
@@ -45,6 +50,11 @@ class WorkTaskRead(BaseModel):
     descripcion_tecnica: str
     estado: str
     prioridad: str
+    asignado_a_id: int | None = None
+    asignado_a_nombre: str | None = ""
+    duracion_estimada_minutos: int | None = None
+    aceptacion: str | None = None
+    adjuntos: list[TaskAttachmentRead] = []
     created_at: datetime
     updated_at: datetime
 
@@ -64,6 +74,7 @@ class PaginatedTaskFilters(BaseModel):
     fecha_exacta: Optional[str] = None
     fecha_desde: Optional[str] = None
     fecha_hasta: Optional[str] = None
+    team_id: Optional[int] = None
 
 
 class PaginatedMeta(BaseModel):

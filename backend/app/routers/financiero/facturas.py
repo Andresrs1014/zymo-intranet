@@ -4,7 +4,7 @@ import re
 import uuid
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 log = logging.getLogger(__name__)
 
@@ -36,7 +36,7 @@ router = APIRouter(tags=["Financiero - Facturas"])
 FACTURAS_DIR = Path(settings.facturas_dir)
 
 # Porcentaje máximo de diferencia permitido entre valor de OC y valor de factura
-TOLERANCIA_VALOR_PCT: float = 1.0
+TOLERANCIA_VALOR_PCT: float = 5.0
 
 # Formatos aceptados para subida de factura
 FORMATOS_FACTURA = frozenset({"pdf", "xlsx", "xls", "docx"})
@@ -83,6 +83,8 @@ class SolicitudConFacturaRead(BaseModel):
     # Bitácora financiera (anticipo/proforma, notas antes de validar factura)
     observaciones_seguimiento: Optional[str] = None
     seguimiento_updated_at: Optional[datetime] = None
+    aval_compra_solicitud: Optional[str] = None
+    items_cotizacion: Optional[List[Dict[str, Any]]] = None  # [{num, descripcion, cantidad, valor_unitario, valor_total, ...}]
 
     class Config:
         from_attributes = True
@@ -519,6 +521,8 @@ def _fila_solicitud_financiero(
         fecha_factura=factura.fecha_factura if factura else None,
         observaciones_seguimiento=seg.observaciones if seg else None,
         seguimiento_updated_at=seg.updated_at if seg else None,
+        aval_compra_solicitud=sol.aval_compra,
+        items_cotizacion=cotizacion.items if cotizacion else None,
     )
 
 
@@ -843,6 +847,10 @@ async def subir_factura(
         select(FacturaProveedor).where(FacturaProveedor.solicitud_id == solicitud_id)
     ).first()
 
+    # Proveedor: fuente de verdad es la cotización de la OC, no el motor de extracción.
+    nit_proveedor_oc = cotizacion.proveedor_nit
+    nombre_proveedor_oc = cotizacion.proveedor_nombre
+
     if factura is None:
         factura = FacturaProveedor(
             solicitud_id=solicitud_id,
@@ -851,8 +859,8 @@ async def subir_factura(
             numero_factura=extraccion.numero_factura,
             valor_factura=extraccion.valor_factura,
             fecha_factura=extraccion.fecha_factura,
-            nit_proveedor=extraccion.nit_proveedor,
-            nombre_proveedor=extraccion.nombre_proveedor,
+            nit_proveedor=nit_proveedor_oc,
+            nombre_proveedor=nombre_proveedor_oc,
             valor_aprobado_oc=cotizacion.valor_aprobado,
             aval_compra=solicitud.aval_compra,
             pdf_path=str(factura_dest),
@@ -868,8 +876,8 @@ async def subir_factura(
         factura.numero_factura = extraccion.numero_factura or factura.numero_factura
         factura.valor_factura = extraccion.valor_factura or factura.valor_factura
         factura.fecha_factura = extraccion.fecha_factura or factura.fecha_factura
-        factura.nit_proveedor = extraccion.nit_proveedor or factura.nit_proveedor
-        factura.nombre_proveedor = extraccion.nombre_proveedor or factura.nombre_proveedor
+        factura.nit_proveedor = nit_proveedor_oc
+        factura.nombre_proveedor = nombre_proveedor_oc
         factura.valor_aprobado_oc = cotizacion.valor_aprobado
         factura.pdf_path = str(factura_dest)
         factura.extraccion_automatica = extraccion.campos_encontrados > 0
@@ -879,7 +887,12 @@ async def subir_factura(
     fin_db.commit()
     fin_db.refresh(factura)
 
-    # Validación automática deshabilitada: solo al pulsar «Correr validación».
+    # Validar automáticamente al subir: compara número, valor y fecha contra la OC.
+    # Si la OC existe, actualiza el estado a validada/con_diferencias en el mismo acto.
+    if orden:
+        _ejecutar_validacion(factura, orden, cotizacion, fin_db)
+        fin_db.refresh(factura)
+
     return factura  # type: ignore[return-value]
 
 
@@ -949,6 +962,7 @@ def actualizar_factura(
     payload: FacturaUpdate,
     current_user: User = Depends(require_financiero),
     fin_db: Session = Depends(get_financiero_db),
+    oc_db: Session = Depends(get_oc_db),
 ) -> FacturaRead:
     factura = fin_db.get(FacturaProveedor, factura_id)
     if not factura:
@@ -962,6 +976,18 @@ def actualizar_factura(
     fin_db.add(factura)
     fin_db.commit()
     fin_db.refresh(factura)
+
+    # Re-ejecutar validación automáticamente al guardar cambios manuales,
+    # para que el estado refleje los datos actualizados sin requerir acción extra.
+    orden = oc_db.exec(
+        select(OrdenCompra).where(OrdenCompra.solicitud_id == factura.solicitud_id)
+    ).first()
+    if orden:
+        cotizacion = oc_db.get(CotizacionProveedor, orden.cotizacion_id)
+        if cotizacion:
+            _ejecutar_validacion(factura, orden, cotizacion, fin_db)
+            fin_db.refresh(factura)
+
     return factura  # type: ignore[return-value]
 
 
@@ -1107,7 +1133,18 @@ def _ejecutar_validacion(
     now = datetime.now(timezone.utc)
     checks: list[tuple[str, Optional[str], Optional[str], bool, Optional[str]]] = []
 
-    # Validar valor (tolerancia configurable)
+    # 1. Número de factura — verificar presencia
+    num = factura.numero_factura
+    cumple_numero = bool(num and num.strip())
+    checks.append((
+        "numero_factura",
+        "Campo requerido",
+        num if num else None,
+        cumple_numero,
+        None if cumple_numero else "Número de factura no diligenciado",
+    ))
+
+    # 2. Valor — comparar contra valor aprobado de la OC (tolerancia configurable)
     val_esperado = cotizacion.valor_aprobado
     val_encontrado = factura.valor_factura
     if val_esperado is not None and val_encontrado is not None:
@@ -1123,7 +1160,6 @@ def _ejecutar_validacion(
     else:
         cumple_valor = False
         obs_valor = "Indique el valor en el formulario de factura para comparar con la OC"
-
     checks.append((
         "valor",
         _fmt_cop(val_esperado),
@@ -1132,59 +1168,15 @@ def _ejecutar_validacion(
         obs_valor,
     ))
 
-    # Normaliza NITs eliminando espacios, puntos y guiones para comparación
-    def _normalizar_nit(s: str) -> str:
-        return re.sub(r"[\s.\-]", "", s).upper()
-
-    # Validar NIT proveedor
-    nit_esperado = cotizacion.proveedor_nit
-    nit_encontrado = factura.nit_proveedor
-    if nit_esperado and nit_encontrado:
-        cumple_nit = _normalizar_nit(nit_esperado) == _normalizar_nit(nit_encontrado)
-        obs_nit = (
-            None if cumple_nit
-            else f"NIT esperado: {nit_esperado}, encontrado: {nit_encontrado}"
-        )
-    elif not nit_esperado:
-        cumple_nit = False
-        obs_nit = "NIT de proveedor no figura en los datos de la OC"
-    else:
-        cumple_nit = False
-        obs_nit = "Indique el NIT en el formulario de factura para comparar con la OC"
-
+    # 3. Fecha de factura — verificar presencia
+    fecha = factura.fecha_factura
+    cumple_fecha = fecha is not None
     checks.append((
-        "nit_proveedor",
-        nit_esperado,
-        nit_encontrado,
-        cumple_nit,
-        obs_nit,
-    ))
-
-    # Validar nombre proveedor (coincidencia parcial, case-insensitive)
-    nombre_esperado = cotizacion.proveedor_nombre
-    nombre_encontrado = factura.nombre_proveedor
-    if nombre_esperado and nombre_encontrado:
-        cumple_nombre = (
-            nombre_esperado.lower() in nombre_encontrado.lower()
-            or nombre_encontrado.lower() in nombre_esperado.lower()
-        )
-        obs_nombre = (
-            None if cumple_nombre
-            else f"Nombre esperado: '{nombre_esperado}', encontrado: '{nombre_encontrado}'"
-        )
-    elif not nombre_esperado:
-        cumple_nombre = False
-        obs_nombre = "Nombre de proveedor no figura en los datos de la OC"
-    else:
-        cumple_nombre = False
-        obs_nombre = "Indique el nombre en el formulario de factura para comparar con la OC"
-
-    checks.append((
-        "nombre_proveedor",
-        nombre_esperado,
-        nombre_encontrado,
-        cumple_nombre,
-        obs_nombre,
+        "fecha_factura",
+        "Campo requerido",
+        str(fecha) if fecha else None,
+        cumple_fecha,
+        None if cumple_fecha else "Fecha de factura no diligenciada",
     ))
 
     # Upsert validaciones

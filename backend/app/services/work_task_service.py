@@ -4,7 +4,7 @@ from datetime import date, datetime, timezone
 from typing import TYPE_CHECKING
 
 from fastapi import HTTPException, status
-from sqlmodel import Session, select
+from sqlmodel import Session, select, or_
 
 if TYPE_CHECKING:
     from app.schemas.work_task import PaginatedTaskFilters, PaginatedTasksResponse
@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 from app.models.work_task import WorkTask
 from app.models.user import User
 from app.schemas.work_task import WorkTaskCreate, WorkTaskUpdate
+from app.services.user_tool_service import user_has_tool
 
 
 def calcular_minutos(
@@ -33,9 +34,9 @@ def calcular_minutos(
 def validate_task_values(
     db: Session,
     user: User,
-    etiqueta: str,
-    plataforma: str,
-    estado: str,
+    etiqueta: str | None,
+    plataforma: str | None,
+    estado: str | None,
     *,
     list_config_owner_id: int | None = None,
 ) -> None:
@@ -104,8 +105,7 @@ def create_task(db: Session, user: User, payload: WorkTaskCreate) -> WorkTask:
     Los colaboradores sin membresía activa no pueden crear tareas (evita registros invisibles para el gestor).
     """
     from app.models.task_team import TaskTeam
-    from app.services.task_team_service import get_user_active_teams
-    from app.services.user_tool_service import user_has_tool
+    from app.services.task_team_service import get_user_active_teams, get_or_create_manager_team
 
     is_admin = getattr(user, "role", None) == "admin"
     has_manage = user_has_tool(db, user, "tool_task_manage_dev")
@@ -115,6 +115,18 @@ def create_task(db: Session, user: User, payload: WorkTaskCreate) -> WorkTask:
     minutos = calcular_minutos(payload.hora_inicio, payload.hora_cierre)
 
     active_teams = get_user_active_teams(db, user.id)  # type: ignore[arg-type]
+
+    # Si el usuario es gestor (owner) pero no es miembro de ningún equipo,
+    # asignar automáticamente a su propio equipo gestionado.
+    if not active_teams:
+        if is_admin or has_manage:
+            manager_team = get_or_create_manager_team(db, user.id)
+            active_teams = [{
+                "team_id": manager_team.id,
+                "team_name": manager_team.name,
+                "owner_id": manager_team.owner_user_id,
+            }]
+
     valid_team_ids = {t["team_id"] for t in active_teams}
 
     team_id = payload.team_id
@@ -156,6 +168,29 @@ def create_task(db: Session, user: User, payload: WorkTaskCreate) -> WorkTask:
         list_config_owner_id=(None if (is_admin or has_manage) else list_owner_id),
     )
 
+    asignado_a_nombre = ""
+    if payload.asignado_a_id is not None:
+        from app.models.user import User as UserModel
+        asignado_user = db.get(UserModel, payload.asignado_a_id)
+        if asignado_user:
+            asignado_a_nombre = asignado_user.full_name or asignado_user.email
+
+    # Determine the initial estado
+    task_estado = payload.estado
+    if not task_estado:
+        from app.models.task_list_config import TaskListConfig
+        initial_config = db.exec(
+            select(TaskListConfig)
+            .where(TaskListConfig.owner_user_id == list_owner_id)
+            .where(TaskListConfig.list_type == "estado")
+            .where(TaskListConfig.is_initial_assignment == True)  # noqa: E712
+            .where(TaskListConfig.is_active == True)  # noqa: E712
+        ).first()
+        if initial_config:
+            task_estado = initial_config.value
+        else:
+            task_estado = "sin_iniciar"
+
     task = WorkTask(
         scope="desarrollo_innovacion",
         team_id=team_id,
@@ -165,12 +200,16 @@ def create_task(db: Session, user: User, payload: WorkTaskCreate) -> WorkTask:
         hora_inicio=payload.hora_inicio,
         hora_cierre=payload.hora_cierre,
         tiempo_total_minutos=minutos,
-        etiqueta=payload.etiqueta,
-        plataforma=payload.plataforma,
+        etiqueta=payload.etiqueta or "tareas_diarias",
+        plataforma=payload.plataforma or "transversal",
         titulo=payload.titulo,
         descripcion_tecnica=payload.descripcion_tecnica,
-        estado=payload.estado,
+        estado=task_estado,
         prioridad=payload.prioridad,
+        asignado_a_id=payload.asignado_a_id,
+        asignado_a_nombre=asignado_a_nombre,
+        duracion_estimada_minutos=getattr(payload, "duracion_estimada_minutos", None),
+        aceptacion="pendiente" if payload.asignado_a_id is not None else None,
         created_at=now,
         updated_at=now,
     )
@@ -229,18 +268,30 @@ def update_own_task(
     task_id: int,
     payload: WorkTaskUpdate,
 ) -> WorkTask:
-    """Updates a task. User cannot edit tasks that belong to others."""
+    """Updates a task. User must be the creator or the assignee; assignees have restricted field access."""
     task = db.get(WorkTask, task_id)
     if task is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Tarea no encontrada.",
         )
-    if task.subido_por_id != user.id:
+    is_owner = task.subido_por_id == user.id
+    is_assignee = task.asignado_a_id is not None and task.asignado_a_id == user.id
+    if not is_owner and not is_assignee:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No puedes editar tareas de otros usuarios.",
         )
+
+    # Assignees can only update a limited set of fields (not reassign)
+    if not is_owner and is_assignee:
+        allowed_assignee_fields = {"estado", "hora_inicio", "hora_cierre", "descripcion_tecnica"}
+        disallowed = set(payload.model_dump(exclude_unset=True).keys()) - allowed_assignee_fields
+        if disallowed:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Como destinatario, solo puedes modificar: estado, hora_inicio, hora_cierre, descripcion_tecnica.",
+            )
 
     if payload.etiqueta is not None or payload.plataforma is not None or payload.estado is not None:
         from app.models.task_team import TaskTeam
@@ -250,17 +301,30 @@ def update_own_task(
             tteam = db.get(TaskTeam, task.team_id)
             if tteam:
                 list_owner = int(tteam.owner_user_id)
+        # Solo validar los campos que realmente se están cambiando.
+        # Pasar None para los que no cambian evita rechazar valores legados en tareas existentes.
         validate_task_values(
             db,
             user,
-            payload.etiqueta if payload.etiqueta is not None else task.etiqueta,
-            payload.plataforma if payload.plataforma is not None else task.plataforma,
-            payload.estado if payload.estado is not None else task.estado,
+            payload.etiqueta,
+            payload.plataforma,
+            payload.estado,
             list_config_owner_id=list_owner,
         )
 
     update_data = payload.model_dump(exclude_unset=True)
     estado_anterior = task.estado
+
+    if "asignado_a_id" in update_data and update_data["asignado_a_id"] is not None:
+        from app.models.user import User as UserModel
+        asignado_user = db.get(UserModel, update_data["asignado_a_id"])
+        if asignado_user:
+            update_data["asignado_a_nombre"] = asignado_user.full_name or asignado_user.email
+        else:
+            update_data["asignado_a_nombre"] = ""
+    elif "asignado_a_id" in update_data and update_data["asignado_a_id"] is None:
+        update_data["asignado_a_nombre"] = ""
+
     for field, value in update_data.items():
         setattr(task, field, value)
 
@@ -282,7 +346,7 @@ def update_own_task(
             db,
             task_id=task.id,
             user_id=user.id,
-            user_nombre=task.subido_por_nombre,
+            user_nombre=user.full_name or user.email,
             accion="cambio_estado",
             detalle=f"De {estado_anterior} a {update_data['estado']}",
         )
@@ -301,7 +365,12 @@ def list_own_tasks(
     plataforma: str | None = None,
 ) -> list[WorkTask]:
     """Lists own tasks with optional filters."""
-    query = select(WorkTask).where(WorkTask.subido_por_id == user.id)
+    query = select(WorkTask).where(
+        or_(
+            WorkTask.subido_por_id == user.id,
+            WorkTask.asignado_a_id == user.id,
+        )
+    )
 
     if fecha_desde is not None:
         query = query.where(WorkTask.fecha >= fecha_desde)
@@ -317,19 +386,22 @@ def list_own_tasks(
     return list(db.exec(query).all())
 
 
-def own_metrics(db: Session, user: User) -> dict:
-    """Returns personal metrics aligned with the frontend KPI contract."""
-    tasks = list_own_tasks(db, user)
+def own_metrics(db: Session, user: User, team_id: Optional[int] = None) -> dict:
+    """Returns personal metrics for tasks the user *registered* (created)."""
+    query = select(WorkTask).where(WorkTask.subido_por_id == user.id)
+    if team_id is not None:
+        query = query.where(WorkTask.team_id == team_id)
+    tasks = db.exec(query).all()
     completadas = sum(1 for t in tasks if t.estado == "completada")
     en_progreso = sum(1 for t in tasks if t.estado == "en_progreso")
     bloqueadas = sum(1 for t in tasks if t.estado == "bloqueada")
     minutos = sum(t.tiempo_total_minutos for t in tasks if t.tiempo_total_minutos is not None)
     return {
         "tareas_registradas": len(tasks),
+        "horas_registradas": round(minutos / 60, 2),
         "completadas": completadas,
         "en_progreso": en_progreso,
         "bloqueadas": bloqueadas,
-        "horas_registradas": round(minutos / 60, 2),
     }
 
 
@@ -363,6 +435,23 @@ def get_task_activity(db: "Session", task_id: int) -> list:
         .order_by(TaskActivityLog.fecha.asc())
     ).all()
     return list(entries)
+
+
+def _attachments_by_task(db: "Session", task_ids: list[int]) -> dict[int, list]:
+    """Carga adjuntos de múltiples tareas en una sola query para evitar N+1."""
+    from app.schemas.task_attachment import TaskAttachmentRead
+    from app.models.task_attachment import TaskAttachment
+    from collections import defaultdict
+
+    if not task_ids:
+        return {}
+    rows = db.exec(
+        select(TaskAttachment).where(TaskAttachment.task_id.in_(task_ids))
+    ).all()
+    result: dict[int, list] = defaultdict(list)
+    for a in rows:
+        result[a.task_id].append(TaskAttachmentRead.model_validate(a))
+    return result
 
 
 def get_paginated_tasks(
@@ -400,7 +489,10 @@ def get_paginated_tasks(
     elif team_member_ids is not None:
         query = query.where(WorkTask.subido_por_id.in_(team_member_ids))
     else:
-        query = query.where(WorkTask.subido_por_id == user_id)
+        # Incluye las tareas propias Y las asignadas al usuario por otros
+        query = query.where(
+            or_(WorkTask.subido_por_id == user_id, WorkTask.asignado_a_id == user_id)
+        )
 
     if filters.search:
         term = f"%{filters.search}%"
@@ -415,6 +507,8 @@ def get_paginated_tasks(
         query = query.where(WorkTask.etiqueta == filters.etiqueta)
     if filters.plataforma:
         query = query.where(WorkTask.plataforma == filters.plataforma)
+    if filters.team_id is not None:
+        query = query.where(WorkTask.team_id == filters.team_id)
     fecha_exacta_parsed = date.fromisoformat(filters.fecha_exacta) if filters.fecha_exacta else None
     fecha_desde_parsed = date.fromisoformat(filters.fecha_desde) if filters.fecha_desde else None
     fecha_hasta_parsed = date.fromisoformat(filters.fecha_hasta) if filters.fecha_hasta else None
@@ -434,8 +528,16 @@ def get_paginated_tasks(
     query = query.offset(offset).limit(filters.limit)
     tasks = db.exec(query).all()
 
+    from app.schemas.work_task import WorkTaskRead
+    attachments_map = _attachments_by_task(db, [t.id for t in tasks])
+    enriched = []
+    for t in tasks:
+        task_read = WorkTaskRead.model_validate(t)
+        task_read.adjuntos = attachments_map.get(t.id, [])
+        enriched.append(task_read)
+
     return PaginatedTasksResponse(
-        data=[WorkTaskRead.model_validate(t) for t in tasks],
+        data=enriched,
         meta=PaginatedMeta(
             total_items=total_items,
             total_pages=total_pages,
@@ -482,13 +584,24 @@ def update_team_task(
     if payload.etiqueta is not None or payload.plataforma is not None or payload.estado is not None:
         validate_task_values(
             db, manager_user,
-            payload.etiqueta if payload.etiqueta is not None else task.etiqueta,
-            payload.plataforma if payload.plataforma is not None else task.plataforma,
-            payload.estado if payload.estado is not None else task.estado,
+            payload.etiqueta,
+            payload.plataforma,
+            payload.estado,
         )
 
     update_data = payload.model_dump(exclude_unset=True)
     estado_anterior = task.estado
+
+    if "asignado_a_id" in update_data and update_data["asignado_a_id"] is not None:
+        from app.models.user import User as UserModel
+        asignado_user = db.get(UserModel, update_data["asignado_a_id"])
+        if asignado_user:
+            update_data["asignado_a_nombre"] = asignado_user.full_name or asignado_user.email
+        else:
+            update_data["asignado_a_nombre"] = ""
+    elif "asignado_a_id" in update_data and update_data["asignado_a_id"] is None:
+        update_data["asignado_a_nombre"] = ""
+
     for field, value in update_data.items():
         setattr(task, field, value)
 

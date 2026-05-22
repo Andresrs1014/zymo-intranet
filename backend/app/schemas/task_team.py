@@ -12,7 +12,7 @@ class TaskTeamMemberRead(BaseModel):
     user_full_name: str | None
     role: str
     is_active: bool
-    created_at: datetime
+    created_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 

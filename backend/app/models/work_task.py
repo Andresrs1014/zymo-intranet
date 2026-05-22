@@ -30,6 +30,11 @@ class WorkTask(SQLModel, table=True):
     estado: str = Field(default="en_progreso", index=True, max_length=50, nullable=False)
     prioridad: str = Field(default="media", index=True, max_length=10, nullable=False)
 
+    asignado_a_id: Optional[int] = Field(default=None, index=True)
+    asignado_a_nombre: Optional[str] = Field(default="", max_length=200, nullable=False)
+    duracion_estimada_minutos: Optional[int] = Field(default=None)
+    aceptacion: Optional[str] = Field(default=None, max_length=20)
+
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc), nullable=False
     )

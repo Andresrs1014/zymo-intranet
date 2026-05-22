@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom"
 import { useAuthStore } from "@/store/authStore"
-import { canSeeOC, canSeeSGC, canSeeOperativo, canSeeFinanciero, canSeeGerencial, canSeeIT, canSeeSIG, canSeeExtraccionIA, canSubmitDevTasks, canManageDevTasks } from "@/lib/permissions"
+import { canSeeOC, canSeeSGC, canSeeOperativo, canSeeFinanciero, canSeeGerencial, canSeeIT, canSeeSIG, canSeeExtraccionIA, canSubmitDevTasks, canManageDevTasks, canSeeHelix } from "@/lib/permissions"
 
 export function Sidebar() {
   const user = useAuthStore((s) => s.user)
@@ -14,6 +14,7 @@ export function Sidebar() {
   const showSIG            = user ? canSeeSIG(user.role, perms) : false
   const showExtraccionIA   = user ? canSeeExtraccionIA(user.role, perms) : false
   const showGestionTareas  = user ? (canSubmitDevTasks(user.user_tools ?? []) || canManageDevTasks(user.user_tools ?? [])) : false
+  const showHelix          = user ? canSeeHelix(user.role, perms) : false
 
   return (
     <aside className="flex h-full w-64 flex-col bg-brand-blue">
@@ -121,6 +122,20 @@ export function Sidebar() {
               label="Gestión de Tareas"
               icon={<IconGestionTareas />}
               matchPaths={["/herramientas/tareas"]}
+            />
+          </div>
+        )}
+
+        {showHelix && (
+          <div className="pt-3 mt-1 border-t border-white/10">
+            <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-white/30">
+              Planeación
+            </p>
+            <SidebarLink
+              to="/planeacion/helix"
+              label="Helix Zymo"
+              icon={<IconHelix />}
+              matchPaths={["/planeacion/helix"]}
             />
           </div>
         )}
@@ -243,6 +258,14 @@ function IconGestionTareas() {
   return (
     <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
       <path fillRule="evenodd" d="M6 2a1 1 0 0 0-1 1v1H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1V3a1 1 0 1 0-2 0v1H7V3a1 1 0 0 0-1-1Zm0 5a1 1 0 0 0 0 2h8a1 1 0 1 0 0-2H6Zm0 4a1 1 0 1 0 0 2h8a1 1 0 1 0 0-2H6Z" clipRule="evenodd" />
+    </svg>
+  )
+}
+
+function IconHelix() {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <path fillRule="evenodd" d="M10 2a8 8 0 1 0 0 16A8 8 0 0 0 10 2ZM6.5 7.5a.5.5 0 0 1 .5-.5h1.5V5.5a.5.5 0 0 1 1 0V7h1.5a.5.5 0 0 1 0 1H9.5v1.5h1.5a.5.5 0 0 1 0 1H9.5V12a.5.5 0 0 1-1 0v-1.5H7a.5.5 0 0 1 0-1h1.5V8H7a.5.5 0 0 1-.5-.5Z" clipRule="evenodd" />
     </svg>
   )
 }

@@ -10,11 +10,12 @@ import {
 } from "@/lib/taskTheme"
 
 interface TaskFormProps {
-  onSubmit: (payload: WorkTaskCreate) => Promise<void>
+  onSubmit: (payload: WorkTaskCreate, files: File[]) => Promise<void>
   onCancel?: () => void
   loading?: boolean
   /** Si true, bloquea envío cuando el usuario no tiene equipos (colaboradores sin alta en equipo). */
   blockSubmitWithoutTeam?: boolean
+  activeTeamId?: number
 }
 
 function calcMinutos(inicio: string, cierre: string): number | null {
@@ -30,14 +31,10 @@ export function TaskForm({
   onCancel,
   loading,
   blockSubmitWithoutTeam = false,
+  activeTeamId,
 }: TaskFormProps) {
   const today = new Date().toISOString().slice(0, 10)
-  const { data: lists } = useTaskLists()
   const { data: myTeams = [] } = useMyTeams()
-
-  const etiquetas = lists?.etiqueta ?? []
-  const plataformas = lists?.plataforma ?? []
-  const estados = lists?.estado ?? []
 
   const [titulo, setTitulo] = useState("")
   const [descripcion, setDescripcion] = useState("")
@@ -46,17 +43,32 @@ export function TaskForm({
   const [fecha, setFecha] = useState(today)
   const [estado, setEstado] = useState<string>("")
   const [prioridad, setPrioridad] = useState<string>("media")
-  const [teamId, setTeamId] = useState<number | undefined>(undefined)
   const [horaInicio, setHoraInicio] = useState("")
   const [horaCierre, setHoraCierre] = useState("")
+  const [pendingFiles, setPendingFiles] = useState<File[]>([])
+  const [fileError, setFileError] = useState<string | null>(null)
+
+  const effectiveTeamId = activeTeamId ?? myTeams[0]?.team_id
+
+  // Fetch lists for the selected team so dropdowns always match validation
+  const { data: lists } = useTaskLists(effectiveTeamId)
+
+  const etiquetas = lists?.etiqueta ?? []
+  const plataformas = lists?.plataforma ?? []
+  const estados = lists?.estado ?? []
 
   const minutos = calcMinutos(horaInicio, horaCierre)
-  const needsTeamSelector = myTeams.length > 1
   const cannotSubmitNoTeam = blockSubmitWithoutTeam && myTeams.length === 0
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (cannotSubmitNoTeam) return
+    const oversized = pendingFiles.find((f) => f.size > 20 * 1024 * 1024)
+    if (oversized) {
+      setFileError(`"${oversized.name}" supera el límite de 20 MB.`)
+      return
+    }
+
     const payload: WorkTaskCreate = {
       titulo,
       descripcion_tecnica: descripcion,
@@ -64,14 +76,12 @@ export function TaskForm({
       ...(plataforma && { plataforma }),
       ...(estado && { estado }),
       prioridad,
-      // Single-team users: backend auto-assigns team_id from their only membership.
-      // Multi-team users: team_id is required via the selector above.
-      ...(needsTeamSelector && teamId ? { team_id: teamId } : {}),
+      ...(effectiveTeamId ? { team_id: effectiveTeamId } : {}),
       fecha,
       hora_inicio: horaInicio ? new Date(`${fecha}T${horaInicio}:00`).toISOString() : undefined,
       hora_cierre: horaCierre ? new Date(`${fecha}T${horaCierre}:00`).toISOString() : undefined,
     }
-    await onSubmit(payload)
+    await onSubmit(payload, pendingFiles)
     setTitulo("")
     setDescripcion("")
     setEtiqueta("")
@@ -79,9 +89,10 @@ export function TaskForm({
     setFecha(today)
     setEstado("")
     setPrioridad("media")
-    setTeamId(undefined)
     setHoraInicio("")
     setHoraCierre("")
+    setPendingFiles([])
+    setFileError(null)
   }
 
   return (
@@ -94,22 +105,7 @@ export function TaskForm({
         </div>
       )}
 
-      {needsTeamSelector && (
-        <div>
-          <label className={taskLabel}>Equipo *</label>
-          <select
-            className={taskInput}
-            value={teamId ?? ""}
-            onChange={(e) => setTeamId(e.target.value ? Number(e.target.value) : undefined)}
-            required
-          >
-            <option value="">Seleccionar equipo...</option>
-            {myTeams.map((t) => (
-              <option key={t.team_id} value={t.team_id}>{t.team_name}</option>
-            ))}
-          </select>
-        </div>
-      )}
+
 
       <div>
         <label className={taskLabel}>Título *</label>
@@ -194,6 +190,47 @@ export function TaskForm({
           Tiempo calculado: <span className="font-semibold text-gray-900">{formatMinutos(minutos)}</span>
         </div>
       )}
+
+      {/* Archivos adjuntos */}
+      <div>
+        <label className={taskLabel}>Archivos adjuntos</label>
+        <label className={[
+          "flex flex-col items-center gap-1 rounded-lg border border-dashed py-3 px-4 cursor-pointer transition-colors text-sm",
+          "border-gray-300 text-gray-500 hover:bg-gray-50 hover:text-gray-700",
+        ].join(" ")}>
+          <span>Haz clic para seleccionar archivos</span>
+          <span className="text-xs text-gray-400">PDF, Excel, Word, imágenes, correos… máx. 20 MB c/u</span>
+          <input
+            type="file"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              setFileError(null)
+              setPendingFiles(Array.from(e.target.files ?? []))
+            }}
+          />
+        </label>
+        {fileError && (
+          <p className="mt-1 text-xs text-red-600">{fileError}</p>
+        )}
+        {pendingFiles.length > 0 && (
+          <ul className="mt-2 space-y-1">
+            {pendingFiles.map((f, i) => (
+              <li key={i} className="flex items-center justify-between text-xs text-gray-600 bg-gray-50 rounded px-2 py-1 border border-gray-100">
+                <span className="truncate">{f.name}</span>
+                <button
+                  type="button"
+                  onClick={() => setPendingFiles((prev) => prev.filter((_, j) => j !== i))}
+                  className="text-gray-400 hover:text-red-500 ml-2 shrink-0"
+                  aria-label="Quitar archivo"
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       <div className="flex gap-2 pt-1">
         <button

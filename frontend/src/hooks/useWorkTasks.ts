@@ -49,6 +49,7 @@ function filtersToParams(filters: TaskFilters): URLSearchParams {
   if (filters.q) p.set("q", filters.q)
   if (filters.sin_registro_hoy) p.set("sin_registro_hoy", "true")
   if (filters.fecha_referencia) p.set("fecha_referencia", filters.fecha_referencia)
+  if (filters.team_id != null) p.set("team_id", String(filters.team_id))
   return p
 }
 
@@ -64,11 +65,12 @@ export function useMyTasks(filters: TaskFilters = {}) {
   })
 }
 
-export function useMyTaskMetrics() {
+export function useMyTaskMetrics(teamId?: number) {
   return useQuery({
-    queryKey: ["tareas", "mis-metricas"],
+    queryKey: ["tareas", "mis-metricas", teamId ?? null],
     queryFn: async () => {
-      const { data } = await api.get<MyTaskMetrics>(`${BASE}/mis-metricas`)
+      const url = teamId ? `${BASE}/mis-metricas?team_id=${teamId}` : `${BASE}/mis-metricas`
+      const { data } = await api.get<MyTaskMetrics>(url)
       return data
     },
   })
@@ -79,6 +81,17 @@ export function useMyTeams() {
     queryKey: ["tareas", "mis-equipos"],
     queryFn: async () => {
       const { data } = await api.get<UserTeamInfo[]>(`${BASE}/mis-equipos`)
+      return data
+    },
+  })
+}
+
+/** Equipos que el usuario gestiona (gestor primario + co-gestor). Para el workspace switcher. */
+export function useManagedTeams() {
+  return useQuery<UserTeamInfo[]>({
+    queryKey: ["tareas", "mis-equipos-gestionados"],
+    queryFn: async () => {
+      const { data } = await api.get<UserTeamInfo[]>(`${BASE}/mis-equipos-gestionados`)
       return data
     },
   })
@@ -184,6 +197,17 @@ export function useTeamMembers(enabled = true) {
       return data
     },
     enabled,
+  })
+}
+
+export function useTeamCompaneros(teamId?: number) {
+  return useQuery<TaskTeamMember[]>({
+    queryKey: ["tareas", "equipo", "companeros", teamId ?? null],
+    queryFn: async () => {
+      const url = teamId ? `${BASE}/equipo/companeros?team_id=${teamId}` : `${BASE}/equipo/companeros`
+      const { data } = await api.get<TaskTeamMember[]>(url)
+      return data
+    },
   })
 }
 
@@ -383,10 +407,36 @@ export function useUpdateEventParticipants() {
   })
 }
 
+export function useAcceptTask() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ taskId, aceptacion }: { taskId: number; aceptacion: string }) => {
+      const { data } = await api.patch<WorkTask>(`${BASE}/${taskId}/aceptacion`, { aceptacion })
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tareas"] })
+    },
+  })
+}
+
+export function useConfirmEvent() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ eventId, confirmacion }: { eventId: number; confirmacion: string }) => {
+      const { data } = await api.patch(`${BASE}/agenda/${eventId}/confirmacion`, { confirmacion })
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tareas", "agenda"] })
+    },
+  })
+}
+
 export function useMarkEstadoEspecial() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ value, tipo }: { value: string; tipo: "final" | "cancelado" | null }) => {
+    mutationFn: async ({ value, tipo }: { value: string; tipo: "final" | "cancelado" | "inicial" | null }) => {
       const { data } = await api.patch<TaskListConfigItem>(
         `${BASE}/config/listas/estado/${value}/especial`,
         { tipo }
@@ -458,6 +508,7 @@ export function useTeamTasksPaginated(filters: PaginatedTaskFilters) {
       )
       return data
     },
+    ...equipoLiveQueryOpts,
   })
 }
 
@@ -465,11 +516,12 @@ export function useTeamTasksPaginated(filters: PaginatedTaskFilters) {
 // Re-exported here for backwards compatibility with existing consumers.
 export type { TaskListConfigItem, TaskListsResponse }
 
-export function useTaskLists() {
+export function useTaskLists(teamId?: number) {
   return useQuery<TaskListsResponse>({
-    queryKey: ["tareas", "config", "listas"],
+    queryKey: ["tareas", "config", "listas", teamId ?? null],
     queryFn: async () => {
-      const { data } = await api.get<TaskListsResponse>(`${BASE}/config/listas`)
+      const url = teamId ? `${BASE}/config/listas?team_id=${teamId}` : `${BASE}/config/listas`
+      const { data } = await api.get<TaskListsResponse>(url)
       return data
     },
   })

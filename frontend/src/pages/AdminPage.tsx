@@ -21,7 +21,8 @@ import type { UserListItem } from "@/types/auth"
 type Tab = "activos" | "archivados"
 
 const TOOLS = [
-  { key: "tool_task_submit_dev", label: "Gestión de Tareas", desc: "Acceso a registro de tareas" },
+  { key: "tool_task_submit_dev", label: "Gestión de Tareas — Colaborador", desc: "Acceso a registro de tareas propias" },
+  { key: "tool_task_manage_dev", label: "Gestión de Tareas — Gestor", desc: "Gestión completa del equipo de tareas" },
 ]
 
 export function AdminPage() {
@@ -392,12 +393,21 @@ function UserToolsModal({ user, onClose }: { user: UserListItem; onClose: () => 
   const { data: activeTools = [], isLoading } = useUserTools(user.id)
   const assign = useAssignUserTool()
   const revoke = useRevokeUserTool()
+  const [toolError, setToolError] = useState<string | null>(null)
 
   function toggle(tool_key: string, currentlyActive: boolean) {
+    setToolError(null)
     if (currentlyActive) {
-      revoke.mutate({ user_id: user.id, tool_key })
+      revoke.mutate({ user_id: user.id, tool_key }, {
+        onError: (err: unknown) => {
+          const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+          setToolError(msg ?? "No se pudo revocar la herramienta.")
+        },
+      })
     } else {
-      assign.mutate({ user_id: user.id, tool_key })
+      assign.mutate({ user_id: user.id, tool_key }, {
+        onError: () => setToolError("No se pudo asignar la herramienta."),
+      })
     }
   }
 
@@ -417,6 +427,9 @@ function UserToolsModal({ user, onClose }: { user: UserListItem; onClose: () => 
         </div>
 
         <div className="px-5 py-4 space-y-3">
+          {toolError && (
+            <p className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">{toolError}</p>
+          )}
           {isLoading ? (
             <p className="text-sm text-gray-400 py-4 text-center">Cargando...</p>
           ) : (

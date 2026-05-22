@@ -446,6 +446,7 @@ export interface CorregirDirectivoPayload {
   items?: object[]
   valor_aprobado?: number
   observacion_correccion: string  // OBLIGATORIO
+  motivo_post_cierre?: string     // Obligatorio solo cuando estado es cerrada/entregada
 }
 
 export function useCorregirDirectivo() {
