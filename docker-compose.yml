@@ -7,6 +7,9 @@ services:
       - "8001:8001"
     env_file:
       - ./backend/.env
+    environment:
+      # Poner en "true" después de migrar todos los datos a Tareas V2
+      - TASKS_V1_DISABLED=false
     volumes:
       - backend_data:/app/data
     restart: unless-stopped
@@ -75,7 +78,48 @@ services:
       timeout: 5s
       retries: 10
 
+  task-backend:
+    build:
+      context: ./task-backend
+      dockerfile: Dockerfile
+    ports:
+      - "3002:3002"
+    env_file:
+      - ./backend/.env          # provides SECRET_KEY (same JWT secret that FastAPI uses)
+    environment:
+      - NODE_ENV=production
+      - PORT=3002
+      - DATABASE_URL=postgresql://${TASK_DB_USER:-task}:${TASK_DB_PASSWORD}@task-db:5432/${TASK_DB_NAME:-taskdb}
+      - INTRANET_API_URL=http://backend:8001
+      - UPLOAD_DIR=/app/uploads
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:81}
+    volumes:
+      - task_uploads:/app/uploads
+    depends_on:
+      task-db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  task-db:
+    image: postgres:15-alpine
+    ports:
+      - "5434:5432"
+    environment:
+      - POSTGRES_USER=${TASK_DB_USER:-task}
+      - POSTGRES_PASSWORD=${TASK_DB_PASSWORD}
+      - POSTGRES_DB=${TASK_DB_NAME:-taskdb}
+    volumes:
+      - task_db_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${TASK_DB_USER:-task} -d ${TASK_DB_NAME:-taskdb}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   backend_data:
   helix_db_data:
   helix_uploads:
+  task_db_data:
+  task_uploads:

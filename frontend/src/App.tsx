@@ -45,6 +45,7 @@ import { GerencialPage } from "@/pages/gerencial/GerencialPage"
 import { ExtraccionIAPage } from "@/pages/admin/ExtraccionIAPage"
 import { GestionTareasPage } from "@/pages/herramientas/tareas/GestionTareasPage"
 import { HelixPage } from "@/pages/planeacion/helix/HelixPage"
+import { TaskPage } from "@/pages/tareas/TaskPage"
 
 // Decodifica el claim `exp` del JWT sin verificar firma (solo para chequeo local de expiración)
 function isTokenExpired(token: string): boolean {
@@ -411,6 +412,16 @@ export default function App() {
             <HerramientasTareasRoute>
               <GestionTareasPage />
             </HerramientasTareasRoute>
+          }
+        />
+
+        {/* Gestión de Tareas V2 */}
+        <Route
+          path="/tareas-v2"
+          element={
+            <PrivateRoute>
+              <TaskPage />
+            </PrivateRoute>
           }
         />
 

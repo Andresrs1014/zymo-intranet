@@ -1,0 +1,217 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── ENUMS ─────────────────────────────────────────────────────
+
+enum Priority {
+  baja
+  media
+  alta
+  critica
+}
+
+enum TeamMemberRole {
+  member
+  co_gestor
+}
+
+enum ListType {
+  estado
+  etiqueta
+  plataforma
+  prioridad_agenda
+}
+
+enum ActivityAction {
+  creacion
+  cambio_estado
+  edicion
+  eliminacion
+  asignacion
+  adjunto_subido
+  adjunto_eliminado
+}
+
+enum TaskAcceptanceStatus {
+  pendiente
+  aceptada
+  rechazada
+}
+
+// ─── TEAMS ─────────────────────────────────────────────────────
+
+model Team {
+  id          Int          @id @default(autoincrement())
+  name        String       @db.VarChar(120)
+  ownerUserId Int          @map("owner_user_id")
+  isActive    Boolean      @default(true) @map("is_active")
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  members     TeamMember[]
+  tasks       Task[]
+  events      Event[]
+  listConfigs ListConfig[]
+
+  @@map("teams")
+}
+
+model TeamMember {
+  id        Int            @id @default(autoincrement())
+  teamId    Int            @map("team_id")
+  team      Team           @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId    Int            @map("user_id")
+  role      TeamMemberRole @default(member)
+  isActive  Boolean        @default(true) @map("is_active")
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([teamId, userId])
+  @@index([userId])
+  @@map("team_members")
+}
+
+// ─── TASKS ─────────────────────────────────────────────────────
+
+model Task {
+  id                    Int                  @id @default(autoincrement())
+  teamId                Int                  @map("team_id")
+  team                  Team                 @relation(fields: [teamId], references: [id], onDelete: Restrict)
+  subidoPorId           Int                  @map("subido_por_id")
+  subidoPorNombre       String               @map("subido_por_nombre") @db.VarChar(120)
+  asignadoAId           Int?                 @map("asignado_a_id")
+  asignadoANombre       String?              @map("asignado_a_nombre") @db.VarChar(120)
+  titulo                String               @db.VarChar(250)
+  descripcionTecnica    String?              @map("descripcion_tecnica") @db.Text
+  descripcionGerencial  String?              @map("descripcion_gerencial") @db.Text
+  impacto               String?              @db.Text
+  etiqueta              String               @db.VarChar(60)
+  plataforma            String               @db.VarChar(60)
+  estado                String               @db.VarChar(60)
+  prioridad             Priority             @default(media)
+  fecha                 DateTime             @db.Date
+  horaInicio            DateTime?            @map("hora_inicio") @db.Timestamptz
+  horaCierre            DateTime?            @map("hora_cierre") @db.Timestamptz
+  tiempoTotalMinutos    Int?                 @map("tiempo_total_minutos")
+  tiempoEstimadoMinutos Int?                 @map("tiempo_estimado_minutos")
+  modalidad             String?              @db.VarChar(30)
+  sede                  String?              @db.VarChar(60)
+  aceptacion            TaskAcceptanceStatus @default(pendiente)
+  version               Int                  @default(1)
+  createdAt             DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime             @updatedAt @map("updated_at") @db.Timestamptz
+
+  attachments  Attachment[]
+  activityLogs ActivityLog[]
+
+  @@index([teamId, estado])
+  @@index([teamId, fecha])
+  @@index([asignadoAId])
+  @@index([subidoPorId])
+  @@map("tasks")
+}
+
+// ─── ATTACHMENTS ───────────────────────────────────────────────
+
+model Attachment {
+  id           Int      @id @default(autoincrement())
+  taskId       Int      @map("task_id")
+  task         Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  filename     String   @db.VarChar(255)
+  filePath     String   @map("file_path") @db.VarChar(500)
+  mimeType     String   @map("mime_type") @db.VarChar(100)
+  sizeBytes    Int      @map("size_bytes")
+  uploadedById Int      @map("uploaded_by_id")
+  uploadedAt   DateTime @default(now()) @map("uploaded_at") @db.Timestamptz
+
+  @@index([taskId])
+  @@map("attachments")
+}
+
+// ─── ACTIVITY LOG ──────────────────────────────────────────────
+
+model ActivityLog {
+  id         Int            @id @default(autoincrement())
+  taskId     Int            @map("task_id")
+  task       Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId     Int            @map("user_id")
+  userNombre String         @map("user_nombre") @db.VarChar(120)
+  accion     ActivityAction
+  detalle    String?        @db.VarChar(1000)
+  campos     Json? // { field: { old, new } }
+  fecha      DateTime       @default(now()) @db.Timestamptz
+
+  @@index([taskId, fecha])
+  @@map("activity_logs")
+}
+
+// ─── EVENTS (AGENDA) ──────────────────────────────────────────
+
+model Event {
+  id              Int                @id @default(autoincrement())
+  teamId          Int                @map("team_id")
+  team            Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  ownerUserId     Int                @map("owner_user_id")
+  titulo          String             @db.VarChar(200)
+  descripcion     String?            @db.Text
+  plataforma      String?            @db.VarChar(60)
+  prioridad       String?            @db.VarChar(30)
+  modalidad       String?            @db.VarChar(30)
+  sede            String?            @db.VarChar(60)
+  fecha           DateTime           @db.Date
+  horaInicio      String             @map("hora_inicio") @db.VarChar(5)
+  duracionMinutos Int                @default(60) @map("duracion_minutos")
+  creadoPorId     Int                @map("creado_por_id")
+  creadoPorNombre String             @map("creado_por_nombre") @db.VarChar(120)
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+
+  participants EventParticipant[]
+
+  @@index([teamId, fecha])
+  @@map("events")
+}
+
+model EventParticipant {
+  id             Int     @id @default(autoincrement())
+  eventId        Int     @map("event_id")
+  event          Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId         Int     @map("user_id")
+  userNombre     String  @map("user_nombre") @db.VarChar(120)
+  hasConflict    Boolean @default(false) @map("has_conflict")
+  conflictDetail String? @map("conflict_detail") @db.VarChar(300)
+  confirmado     Boolean @default(false)
+
+  @@unique([eventId, userId])
+  @@index([userId, eventId])
+  @@map("event_participants")
+}
+
+// ─── LIST CONFIGS ──────────────────────────────────────────────
+
+model ListConfig {
+  id                  Int      @id @default(autoincrement())
+  teamId              Int      @map("team_id")
+  team                Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  listType            ListType @map("list_type")
+  value               String   @db.VarChar(60)
+  label               String   @db.VarChar(120)
+  color               String?  @db.VarChar(30)
+  sortOrder           Int      @default(0) @map("sort_order")
+  isActive            Boolean  @default(true) @map("is_active")
+  isFinal             Boolean  @default(false) @map("is_final")
+  isCanceled          Boolean  @default(false) @map("is_canceled")
+  isInitialAssignment Boolean  @default(false) @map("is_initial_assignment")
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([teamId, listType, value])
+  @@index([teamId, listType])
+  @@map("list_configs")
+}

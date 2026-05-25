@@ -1,0 +1,363 @@
+import { useState, useEffect } from "react"
+import { useTaskLists } from "@/hooks/useTaskLists"
+import { useTeamMembers } from "@/hooks/useTaskTeams"
+import { useCreateTask, useUpdateTask } from "@/hooks/useTasks"
+import { useTaskAISuggestions } from "@/hooks/useTaskAI"
+import { useTaskToast } from "./TaskToast"
+import type { Task, CreateTaskInput, UpdateTaskInput } from "@/types/task"
+
+interface TaskDialogProps {
+  open: boolean
+  teamId: number | null
+  task?: Task | null
+  onClose: () => void
+}
+
+export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
+  const { data: lists } = useTaskLists(teamId)
+  const { data: members = [] } = useTeamMembers(teamId)
+  const createTask = useCreateTask()
+  const updateTask = useUpdateTask()
+  const { showToast } = useTaskToast()
+
+  const isEdit = !!task
+
+  const [form, setForm] = useState({
+    titulo: "",
+    descripcionTecnica: "",
+    etiqueta: "",
+    plataforma: "",
+    estado: "",
+    prioridad: "media" as Task["prioridad"],
+    fecha: new Date().toISOString().slice(0, 10),
+    asignadoAId: "" as string | number,
+    tiempoEstimadoMinutos: "" as string | number,
+    modalidad: "",
+    sede: "",
+  })
+
+  const { suggestions } = useTaskAISuggestions(form.titulo)
+
+  // Pre-fill on edit, or reset on open for create
+  useEffect(() => {
+    if (!open) return
+    if (task) {
+      setForm({
+        titulo: task.titulo,
+        descripcionTecnica: task.descripcionTecnica ?? "",
+        etiqueta: task.etiqueta,
+        plataforma: task.plataforma,
+        estado: task.estado,
+        prioridad: task.prioridad,
+        fecha: task.fecha.slice(0, 10),
+        asignadoAId: task.asignadoAId ?? "",
+        tiempoEstimadoMinutos: task.tiempoEstimadoMinutos ?? "",
+        modalidad: task.modalidad ?? "",
+        sede: task.sede ?? "",
+      })
+    } else {
+      setForm({
+        titulo: "",
+        descripcionTecnica: "",
+        etiqueta: "",
+        plataforma: "",
+        estado: "",
+        prioridad: "media",
+        fecha: new Date().toISOString().slice(0, 10),
+        asignadoAId: "",
+        tiempoEstimadoMinutos: "",
+        modalidad: "",
+        sede: "",
+      })
+    }
+  }, [open, task])
+
+  if (!open) return null
+
+  const estados = lists?.estado ?? []
+  const etiquetas = lists?.etiqueta ?? []
+  const plataformas = lists?.plataforma ?? []
+
+  const LABEL_STYLE = { fontSize: 11, fontWeight: 700, color: "#5c6374", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 4 }
+  const INPUT_STYLE = { width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #d8dde8", fontSize: 13, boxSizing: "border-box" as const }
+
+  async function handleSubmit() {
+    if (!teamId || !form.titulo.trim()) {
+      showToast("Completa el título y selecciona un equipo", "error")
+      return
+    }
+
+    try {
+      if (isEdit && task) {
+        const input: UpdateTaskInput = {
+          titulo: form.titulo,
+          descripcionTecnica: form.descripcionTecnica || null,
+          etiqueta: form.etiqueta,
+          plataforma: form.plataforma,
+          estado: form.estado,
+          prioridad: form.prioridad,
+          fecha: form.fecha,
+          asignadoAId: form.asignadoAId ? Number(form.asignadoAId) : null,
+          tiempoEstimadoMinutos: form.tiempoEstimadoMinutos ? Number(form.tiempoEstimadoMinutos) : null,
+          modalidad: form.modalidad || null,
+          sede: form.sede || null,
+          version: task.version,
+        }
+        await updateTask.mutateAsync({ taskId: task.id, input })
+        showToast("Tarea actualizada", "success")
+      } else {
+        const input: CreateTaskInput = {
+          teamId,
+          titulo: form.titulo,
+          descripcionTecnica: form.descripcionTecnica || undefined,
+          etiqueta: form.etiqueta || etiquetas[0]?.value,
+          plataforma: form.plataforma || plataformas[0]?.value,
+          estado: form.estado || estados[0]?.value,
+          prioridad: form.prioridad,
+          fecha: form.fecha,
+          asignadoAId: form.asignadoAId ? Number(form.asignadoAId) : undefined,
+          tiempoEstimadoMinutos: form.tiempoEstimadoMinutos ? Number(form.tiempoEstimadoMinutos) : undefined,
+          modalidad: form.modalidad || undefined,
+          sede: form.sede || undefined,
+        }
+        await createTask.mutateAsync(input)
+        showToast("Tarea creada", "success")
+      }
+      onClose()
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number; data?: { error?: string } } })?.response?.status
+      if (status === 409) {
+        showToast("La tarea fue modificada por otra sesión. Recarga la página.", "error")
+      } else {
+        const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+        showToast(msg ?? "Error al guardar la tarea", "error")
+      }
+    }
+  }
+
+  const isPending = createTask.isPending || updateTask.isPending
+
+  return (
+    <div style={{
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.45)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 200,
+    }}>
+      <div style={{
+        background: "#fff",
+        borderRadius: 12,
+        width: "min(600px, 95vw)",
+        maxHeight: "90vh",
+        overflow: "auto",
+        padding: 28,
+        boxShadow: "0 24px 60px rgba(18,20,32,0.2)",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#121420" }}>
+            {isEdit ? "Editar tarea" : "Nueva tarea"}
+          </h2>
+          <button
+            onClick={onClose}
+            style={{ background: "none", border: "none", fontSize: 22, color: "#9aa5b8", cursor: "pointer" }}
+          >
+            ×
+          </button>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {/* Título */}
+          <div>
+            <div style={LABEL_STYLE}>Título *</div>
+            <input
+              style={INPUT_STYLE}
+              placeholder="Título de la tarea (mín. 3 caracteres)"
+              value={form.titulo}
+              onChange={(e) => setForm((f) => ({ ...f, titulo: e.target.value }))}
+            />
+            {/* AI suggestions */}
+            {suggestions && "available" in suggestions && suggestions.available && (
+              <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {suggestions.etiqueta_sugerida && (
+                  <button
+                    onClick={() => setForm((f) => ({ ...f, etiqueta: suggestions.etiqueta_sugerida! }))}
+                    style={{ padding: "2px 10px", borderRadius: 99, fontSize: 11, fontWeight: 600, background: "#ede9fe", color: "#5b21b6", border: "none", cursor: "pointer" }}
+                  >
+                    IA: {suggestions.etiqueta_sugerida}
+                  </button>
+                )}
+                {suggestions.plataforma_sugerida && (
+                  <button
+                    onClick={() => setForm((f) => ({ ...f, plataforma: suggestions.plataforma_sugerida! }))}
+                    style={{ padding: "2px 10px", borderRadius: 99, fontSize: 11, fontWeight: 600, background: "#dbeafe", color: "#1e40af", border: "none", cursor: "pointer" }}
+                  >
+                    IA: {suggestions.plataforma_sugerida}
+                  </button>
+                )}
+                {suggestions.tiempo_estimado_minutos && (
+                  <button
+                    onClick={() => setForm((f) => ({ ...f, tiempoEstimadoMinutos: suggestions.tiempo_estimado_minutos! }))}
+                    style={{ padding: "2px 10px", borderRadius: 99, fontSize: 11, fontWeight: 600, background: "#dcfce7", color: "#166534", border: "none", cursor: "pointer" }}
+                  >
+                    IA: ~{suggestions.tiempo_estimado_minutos}min
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Descripción */}
+          <div>
+            <div style={LABEL_STYLE}>Descripción técnica</div>
+            <textarea
+              style={{ ...INPUT_STYLE, minHeight: 80, resize: "vertical" }}
+              placeholder="Descripción técnica de la tarea…"
+              value={form.descripcionTecnica}
+              onChange={(e) => setForm((f) => ({ ...f, descripcionTecnica: e.target.value }))}
+            />
+          </div>
+
+          {/* Row: etiqueta + plataforma */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div>
+              <div style={LABEL_STYLE}>Etiqueta</div>
+              <select
+                style={INPUT_STYLE}
+                value={form.etiqueta}
+                onChange={(e) => setForm((f) => ({ ...f, etiqueta: e.target.value }))}
+              >
+                <option value="">Seleccionar…</option>
+                {etiquetas.map((e) => <option key={e.value} value={e.value}>{e.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <div style={LABEL_STYLE}>Plataforma</div>
+              <select
+                style={INPUT_STYLE}
+                value={form.plataforma}
+                onChange={(e) => setForm((f) => ({ ...f, plataforma: e.target.value }))}
+              >
+                <option value="">Seleccionar…</option>
+                {plataformas.map((e) => <option key={e.value} value={e.value}>{e.label}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Row: estado + prioridad */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div>
+              <div style={LABEL_STYLE}>Estado</div>
+              <select
+                style={INPUT_STYLE}
+                value={form.estado}
+                onChange={(e) => setForm((f) => ({ ...f, estado: e.target.value }))}
+              >
+                <option value="">Seleccionar…</option>
+                {estados.map((e) => <option key={e.value} value={e.value}>{e.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <div style={LABEL_STYLE}>Prioridad</div>
+              <select
+                style={INPUT_STYLE}
+                value={form.prioridad}
+                onChange={(e) => setForm((f) => ({ ...f, prioridad: e.target.value as Task["prioridad"] }))}
+              >
+                <option value="baja">Baja</option>
+                <option value="media">Media</option>
+                <option value="alta">Alta</option>
+                <option value="critica">Crítica</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Row: fecha + asignado */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div>
+              <div style={LABEL_STYLE}>Fecha *</div>
+              <input
+                type="date"
+                style={INPUT_STYLE}
+                value={form.fecha}
+                onChange={(e) => setForm((f) => ({ ...f, fecha: e.target.value }))}
+              />
+            </div>
+            <div>
+              <div style={LABEL_STYLE}>Asignado a</div>
+              <select
+                style={INPUT_STYLE}
+                value={form.asignadoAId}
+                onChange={(e) => setForm((f) => ({ ...f, asignadoAId: e.target.value }))}
+              >
+                <option value="">Sin asignar</option>
+                {members.map((m) => (
+                  <option key={m.userId} value={m.userId}>Usuario {m.userId}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Row: tiempo + modalidad + sede */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+            <div>
+              <div style={LABEL_STYLE}>Tiempo est. (min)</div>
+              <input
+                type="number"
+                style={INPUT_STYLE}
+                placeholder="minutos"
+                value={form.tiempoEstimadoMinutos}
+                onChange={(e) => setForm((f) => ({ ...f, tiempoEstimadoMinutos: e.target.value }))}
+              />
+            </div>
+            <div>
+              <div style={LABEL_STYLE}>Modalidad</div>
+              <input
+                style={INPUT_STYLE}
+                placeholder="Presencial / Virtual"
+                value={form.modalidad}
+                onChange={(e) => setForm((f) => ({ ...f, modalidad: e.target.value }))}
+              />
+            </div>
+            <div>
+              <div style={LABEL_STYLE}>Sede</div>
+              <input
+                style={INPUT_STYLE}
+                placeholder="Sede"
+                value={form.sede}
+                onChange={(e) => setForm((f) => ({ ...f, sede: e.target.value }))}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 24 }}>
+          <button
+            onClick={onClose}
+            style={{ padding: "9px 22px", borderRadius: 8, border: "1px solid #d8dde8", background: "#fff", fontSize: 13, cursor: "pointer" }}
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={isPending || form.titulo.trim().length < 3}
+            style={{
+              padding: "9px 22px",
+              borderRadius: 8,
+              border: "none",
+              background: form.titulo.trim().length < 3 ? "#f0f2f7" : "#ef3340",
+              color: form.titulo.trim().length < 3 ? "#9aa5b8" : "#fff",
+              fontWeight: 700,
+              fontSize: 13,
+              cursor: form.titulo.trim().length < 3 ? "default" : "pointer",
+            }}
+          >
+            {isPending ? "Guardando…" : isEdit ? "Guardar cambios" : "Crear tarea"}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}

@@ -1,15 +1,32 @@
 """
-Router Módulo Herramientas — Gestión de Tareas.
+Router Módulo Herramientas — Gestión de Tareas (V1 — DEPRECATED).
 
 Prefijo: /api/herramientas/tareas
 Acceso: controlado por UserTool (tool_task_submit_dev / tool_task_manage_dev)
 Multi-workspace: cada manager tiene su propio equipo y datos.
+
+DEPRECATION: Cuando TASKS_V1_DISABLED=true todos los endpoints retornan 410 Gone.
+Migrar a Tareas V2 en /tareas-v2 (task-backend puerto 3002).
 """
 import logging
+import os
 from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile
+
+_V1_DISABLED = os.getenv("TASKS_V1_DISABLED", "false").lower() == "true"
+
+def _check_v1_enabled() -> None:
+    """Raise 410 Gone if V1 has been disabled via environment variable."""
+    if _V1_DISABLED:
+        raise HTTPException(
+            status_code=410,
+            detail=(
+                "Gestión de Tareas V1 ha sido migrado a V2. "
+                "Accede a /tareas-v2 en la intranet."
+            ),
+        )
 
 logger = logging.getLogger(__name__)
 from fastapi.responses import Response, StreamingResponse
@@ -32,7 +49,11 @@ from app.schemas.task_team import (
 from app.schemas.task_list_config import TaskListConfigCreate, TaskListConfigUpdate, TaskListConfigRead, TaskEstadoEspecialPayload
 from app.services.user_tool_service import require_tool_or_403, user_has_tool
 
-router = APIRouter(prefix="/api/herramientas/tareas", tags=["Herramientas - Tareas"])
+router = APIRouter(
+    prefix="/api/herramientas/tareas",
+    tags=["Herramientas - Tareas"],
+    dependencies=[Depends(_check_v1_enabled)],
+)
 
 TOOL_SUBMIT = "tool_task_submit_dev"
 TOOL_MANAGE = "tool_task_manage_dev"

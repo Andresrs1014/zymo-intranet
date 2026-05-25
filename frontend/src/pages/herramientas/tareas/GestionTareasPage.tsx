@@ -80,6 +80,27 @@ export function GestionTareasPage() {
       title={pageTitle}
       mainClassName="flex flex-1 min-h-0 overflow-hidden p-0"
     >
+      {import.meta.env.VITE_TASKS_V1_DEPRECATED === "true" && (
+        <div style={{
+          background: "#fffbeb",
+          borderBottom: "1px solid #fbbf24",
+          padding: "10px 20px",
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          fontSize: 13,
+          flexShrink: 0,
+        }}>
+          <span style={{ fontSize: 16 }}>⚠</span>
+          <span>
+            Esta versión está siendo deprecada. Usa{" "}
+            <a href="/tareas-v2" target="_blank" rel="noopener noreferrer" style={{ color: "#ef3340", fontWeight: 700, textDecoration: "underline" }}>
+              Gestión de Tareas V2
+            </a>
+            {" "}para acceder al módulo actualizado.
+          </span>
+        </div>
+      )}
       <div className="flex flex-1 min-h-0 overflow-hidden w-full">
 
         <TaskLeftRail

@@ -123,6 +123,11 @@ export function Sidebar() {
               icon={<IconGestionTareas />}
               matchPaths={["/herramientas/tareas"]}
             />
+            <SidebarExternalLink
+              href="/tareas-v2"
+              label="Tareas V2"
+              icon={<IconGestionTareas />}
+            />
           </div>
         )}
 
@@ -176,6 +181,36 @@ function SidebarLink({ to, label, icon, matchPaths }: SidebarLinkProps) {
       </span>
       {label}
     </NavLink>
+  )
+}
+
+// ── External link (opens in new tab) ──────────────────────────────────────────
+
+interface SidebarExternalLinkProps {
+  href: string
+  label: string
+  icon: React.ReactNode
+}
+
+function SidebarExternalLink({ href, label, icon }: SidebarExternalLinkProps) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/60 hover:bg-white/10 hover:text-white transition-colors duration-150"
+      aria-label={`${label} (nueva pestaña)`}
+    >
+      <span className="shrink-0 w-5 h-5" aria-hidden="true">
+        {icon}
+      </span>
+      {label}
+      <span className="ml-auto opacity-0 group-hover:opacity-60 transition-opacity" aria-hidden="true">
+        <svg viewBox="0 0 12 12" fill="currentColor" className="w-3 h-3">
+          <path d="M3.5 1H1.5A.5.5 0 0 0 1 1.5v9a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5V8.5a.5.5 0 0 0-1 0V10H2V2h1.5a.5.5 0 0 0 0-1ZM11 1H7a.5.5 0 0 0 0 1h2.793L5.146 6.646a.5.5 0 0 0 .708.708L10.5 2.707V5.5a.5.5 0 0 0 1 0V1.5A.5.5 0 0 0 11 1Z" />
+        </svg>
+      </span>
+    </a>
   )
 }
 
