@@ -1,4 +1,3 @@
-import React from "react"
 import type { HelixROI } from "@/types/helix"
 
 interface RoiGridProps {

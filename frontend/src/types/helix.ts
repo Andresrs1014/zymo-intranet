@@ -102,6 +102,7 @@ export interface HelixAlerta {
   actividadNombre?: string
   subproyectoNombre?: string
   destinatarios: string[]
+  canal?: string
   createdAt: string
 }
 

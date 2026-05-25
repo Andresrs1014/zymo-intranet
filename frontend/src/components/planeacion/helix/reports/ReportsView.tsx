@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { helixApi } from "@/lib/helixApi"
 import { useHelixROI } from "@/hooks/useHelixROI"
 import { StatusReport } from "./StatusReport"
