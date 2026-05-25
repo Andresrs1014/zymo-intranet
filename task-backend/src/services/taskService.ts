@@ -108,7 +108,7 @@ async function logActivity(
       userNombre,
       accion,
       detalle: detalle ?? null,
-      campos: campos ?? Prisma.JsonNull,
+      campos: campos ? (campos as Prisma.InputJsonValue) : Prisma.JsonNull,
     },
   })
 }
