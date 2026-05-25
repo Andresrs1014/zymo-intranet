@@ -17,6 +17,7 @@ import { BoardToolbar } from "./BoardToolbar"
 import { KanbanColumn } from "./KanbanColumn"
 import { TaskCard } from "./TaskCard"
 import { TaskDialog } from "../dialogs/TaskDialog"
+import { useHelixToast } from "../HelixToast"
 
 const ESTADOS: HelixEstado[] = [
   "Backlog",
@@ -28,6 +29,7 @@ const ESTADOS: HelixEstado[] = [
 
 export function BoardView() {
   const { actividades, loading, error, updateEstado, refetch, createActividad, updateActividad } = useHelixActividades()
+  const { showToast } = useHelixToast()
   const {
     filters,
     setSearch,
@@ -254,7 +256,10 @@ export function BoardView() {
           setEditingActividad(undefined)
         }}
         actividad={editingActividad}
-        onSaved={refetch}
+        onSaved={() => {
+          refetch()
+          showToast("Actividad guardada", "success")
+        }}
         createActividad={createActividad}
         updateActividad={updateActividad}
       />

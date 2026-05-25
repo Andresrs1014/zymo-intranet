@@ -1,8 +1,11 @@
-import { useState, useEffect, type CSSProperties, type FormEvent, type ChangeEvent } from "react"
-import type { HelixActividad } from "@/types/helix"
+import { useState, useEffect, useRef, type CSSProperties, type FormEvent, type ChangeEvent } from "react"
+import { z } from "zod"
+import type { HelixActividad, HelixEvidencia } from "@/types/helix"
 import type { HelixActividadCreate } from "@/hooks/useHelixActividades"
 import { useHelixSubproyectos } from "@/hooks/useHelixSubproyectos"
 import { useHelixUsuarios } from "@/hooks/useHelixUsuarios"
+import { helixApi } from "@/lib/helixApi"
+import { useHelixToast } from "../HelixToast"
 
 interface TaskDialogProps {
   open: boolean
@@ -15,6 +18,24 @@ interface TaskDialogProps {
 
 const ESTADOS = ["Backlog", "Planificado", "En curso", "Revision", "Terminado"] as const
 const PRIORIDADES = ["Alta", "Media", "Baja"] as const
+
+const TaskSchema = z.object({
+  nombre: z.string().min(1, "El nombre es requerido").max(100, "Máximo 100 caracteres"),
+  subproyectoId: z.string().min(1, "Selecciona un subproyecto"),
+  responsableId: z.string().min(1, "Selecciona un responsable"),
+  prioridad: z.enum(["Alta", "Media", "Baja"]),
+  estado: z.enum(["Backlog", "Planificado", "En curso", "Revision", "Terminado"]),
+  fechaInicio: z.string().min(1, "Fecha de inicio requerida"),
+  fechaFin: z.string().min(1, "Fecha de fin requerida"),
+  avance: z.string().refine((v) => {
+    const n = parseInt(v, 10)
+    return !isNaN(n) && n >= 0 && n <= 100
+  }, "Entre 0 y 100"),
+  puntos: z.string().refine((v) => parseInt(v, 10) > 0, "Debe ser positivo"),
+})
+
+type TaskSchemaFields = z.infer<typeof TaskSchema>
+type FieldErrors = Partial<Record<keyof TaskSchemaFields, string>>
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10)
@@ -71,6 +92,21 @@ function buildInitialForm(actividad?: HelixActividad): FormState {
   }
 }
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+const BACKEND_URL = (import.meta as { env?: Record<string, string> }).env?.VITE_HELIX_API_URL ?? "http://localhost:3001"
+const IMAGE_EXTS = [".jpg", ".jpeg", ".png", ".gif", ".webp"]
+
+function isImageFile(nombre: string): boolean {
+  const ext = nombre.toLowerCase().slice(nombre.lastIndexOf("."))
+  return IMAGE_EXTS.includes(ext)
+}
+
+// ---- Styles ----
 const overlayStyle: CSSProperties = {
   position: "fixed",
   inset: 0,
@@ -221,6 +257,11 @@ const errorStyle: CSSProperties = {
   fontWeight: 500,
 }
 
+const fieldErrorStyle: CSSProperties = {
+  fontSize: "11px",
+  color: "var(--helix-danger, #ef3340)",
+}
+
 const FOCUS_OUTLINE = "2px solid var(--helix-accent, #ef3340)"
 
 function focusStyle(focused: boolean): CSSProperties {
@@ -230,34 +271,47 @@ function focusStyle(focused: boolean): CSSProperties {
 export function TaskDialog({ open, onClose, actividad, onSaved, createActividad, updateActividad }: TaskDialogProps) {
   const { subproyectos } = useHelixSubproyectos()
   const { usuarios } = useHelixUsuarios()
+  const { showToast } = useHelixToast()
 
   const [form, setForm] = useState<FormState>(() => buildInitialForm(actividad))
-  const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({})
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [apiError, setApiError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [costosOpen, setCostosOpen] = useState(false)
   const [focusedField, setFocusedField] = useState<string | null>(null)
 
+  // Evidencias state
+  const [evidencias, setEvidencias] = useState<HelixEvidencia[]>([])
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+
+  const isEdit = actividad !== undefined
+
   // Reset form when dialog opens or actividad changes
   useEffect(() => {
     if (open) {
       setForm(buildInitialForm(actividad))
-      setErrors({})
+      setFieldErrors({})
       setApiError(null)
       setSaving(false)
       setCostosOpen(false)
       setFocusedField(null)
+      setEvidencias(actividad?.evidencias ?? [])
+      setUploadProgress(null)
+      setSelectedFile(null)
     }
   }, [open, actividad])
 
   if (!open) return null
 
-  const isEdit = actividad !== undefined
   const title = isEdit ? "Editar actividad" : "Nueva actividad"
 
   function setField(field: keyof FormState, value: string | boolean) {
     setForm((prev) => ({ ...prev, [field]: value }))
-    setErrors((prev) => ({ ...prev, [field]: undefined }))
+    if (field in ({} as FieldErrors)) {
+      setFieldErrors((prev) => ({ ...prev, [field]: undefined }))
+    }
   }
 
   function handleTextChange(field: keyof FormState) {
@@ -267,19 +321,42 @@ export function TaskDialog({ open, onClose, actividad, onSaved, createActividad,
   }
 
   function validate(): boolean {
-    const newErrors: Partial<Record<keyof FormState, string>> = {}
+    const parsed = TaskSchema.safeParse({
+      nombre: form.nombre,
+      subproyectoId: form.subproyectoId,
+      responsableId: form.responsableId,
+      prioridad: form.prioridad,
+      estado: form.estado,
+      fechaInicio: form.fechaInicio,
+      fechaFin: form.fechaFin,
+      avance: form.avance,
+      puntos: form.puntos,
+    })
 
-    if (!form.nombre.trim()) newErrors.nombre = "Requerido"
-    if (!form.subproyectoId) newErrors.subproyectoId = "Requerido"
-    if (!form.responsableId) newErrors.responsableId = "Requerido"
-    if (!form.fechaInicio) newErrors.fechaInicio = "Requerido"
-    if (!form.fechaFin) newErrors.fechaFin = "Requerido"
-    if (form.fechaInicio && form.fechaFin && form.fechaFin < form.fechaInicio) {
-      newErrors.fechaFin = "Debe ser igual o posterior a Fecha Inicio"
+    if (!parsed.success) {
+      const flat = parsed.error.flatten().fieldErrors
+      const errs: FieldErrors = {}
+      for (const [k, v] of Object.entries(flat)) {
+        if (v && v.length > 0) {
+          errs[k as keyof TaskSchemaFields] = v[0]
+        }
+      }
+      // Extra cross-field validation for date ordering
+      if (!errs.fechaFin && form.fechaInicio && form.fechaFin && form.fechaFin < form.fechaInicio) {
+        errs.fechaFin = "Debe ser igual o posterior a Fecha Inicio"
+      }
+      setFieldErrors(errs)
+      return false
     }
 
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    // Cross-field check when base schema passes
+    if (form.fechaInicio && form.fechaFin && form.fechaFin < form.fechaInicio) {
+      setFieldErrors({ fechaFin: "Debe ser igual o posterior a Fecha Inicio" })
+      return false
+    }
+
+    setFieldErrors({})
+    return true
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -326,6 +403,45 @@ export function TaskDialog({ open, onClose, actividad, onSaved, createActividad,
     if (e.target === e.currentTarget) onClose()
   }
 
+  // ---- Evidencias handlers ----
+  async function handleUpload() {
+    if (!selectedFile || !actividad) return
+    setUploadProgress(0)
+
+    // Animate progress 0 → 90% over 1.4s, then jump to 100% when done
+    const interval = setInterval(() => {
+      setUploadProgress((p) => (p !== null && p < 90 ? p + 6 : p))
+    }, 100)
+
+    try {
+      const fd = new FormData()
+      fd.append("archivo", selectedFile)
+      const res = await helixApi.post<HelixEvidencia>(`/api/actividades/${actividad.id}/evidencias`, fd)
+      clearInterval(interval)
+      setUploadProgress(100)
+      setTimeout(() => setUploadProgress(null), 600)
+      setEvidencias((prev) => [...prev, res.data])
+      setSelectedFile(null)
+      if (fileInputRef.current) fileInputRef.current.value = ""
+      showToast("Evidencia subida correctamente", "success")
+    } catch {
+      clearInterval(interval)
+      setUploadProgress(null)
+      showToast("Error al subir la evidencia", "error")
+    }
+  }
+
+  async function handleDeleteEvidencia(evidenciaId: number) {
+    if (!actividad) return
+    try {
+      await helixApi.delete(`/api/actividades/${actividad.id}/evidencias/${evidenciaId}`)
+      setEvidencias((prev) => prev.filter((e) => e.id !== evidenciaId))
+      showToast("Evidencia eliminada", "info")
+    } catch {
+      showToast("Error al eliminar la evidencia", "error")
+    }
+  }
+
   return (
     <div style={overlayStyle} onClick={handleOverlayClick}>
       <div style={cardStyle} role="dialog" aria-modal="true" aria-label={title}>
@@ -358,7 +474,7 @@ export function TaskDialog({ open, onClose, actividad, onSaved, createActividad,
                 id="td-nombre"
                 style={{
                   ...inputStyle,
-                  borderColor: errors.nombre ? "var(--helix-danger, #ef3340)" : undefined,
+                  borderColor: fieldErrors.nombre ? "var(--helix-danger, #ef3340)" : undefined,
                   ...focusStyle(focusedField === "nombre"),
                 }}
                 type="text"
@@ -369,10 +485,8 @@ export function TaskDialog({ open, onClose, actividad, onSaved, createActividad,
                 onFocus={() => setFocusedField("nombre")}
                 onBlur={() => setFocusedField(null)}
               />
-              {errors.nombre && (
-                <span style={{ fontSize: "11px", color: "var(--helix-danger, #ef3340)" }}>
-                  {errors.nombre}
-                </span>
+              {fieldErrors.nombre && (
+                <span style={fieldErrorStyle}>{fieldErrors.nombre}</span>
               )}
             </div>
 
@@ -384,7 +498,7 @@ export function TaskDialog({ open, onClose, actividad, onSaved, createActividad,
                   id="td-subproyecto"
                   style={{
                     ...inputStyle,
-                    borderColor: errors.subproyectoId ? "var(--helix-danger, #ef3340)" : undefined,
+                    borderColor: fieldErrors.subproyectoId ? "var(--helix-danger, #ef3340)" : undefined,
                     ...focusStyle(focusedField === "subproyecto"),
                   }}
                   value={form.subproyectoId}
@@ -399,10 +513,8 @@ export function TaskDialog({ open, onClose, actividad, onSaved, createActividad,
                     </option>
                   ))}
                 </select>
-                {errors.subproyectoId && (
-                  <span style={{ fontSize: "11px", color: "var(--helix-danger, #ef3340)" }}>
-                    {errors.subproyectoId}
-                  </span>
+                {fieldErrors.subproyectoId && (
+                  <span style={fieldErrorStyle}>{fieldErrors.subproyectoId}</span>
                 )}
               </div>
 
@@ -412,7 +524,7 @@ export function TaskDialog({ open, onClose, actividad, onSaved, createActividad,
                   id="td-responsable"
                   style={{
                     ...inputStyle,
-                    borderColor: errors.responsableId ? "var(--helix-danger, #ef3340)" : undefined,
+                    borderColor: fieldErrors.responsableId ? "var(--helix-danger, #ef3340)" : undefined,
                     ...focusStyle(focusedField === "responsable"),
                   }}
                   value={form.responsableId}
@@ -427,10 +539,8 @@ export function TaskDialog({ open, onClose, actividad, onSaved, createActividad,
                     </option>
                   ))}
                 </select>
-                {errors.responsableId && (
-                  <span style={{ fontSize: "11px", color: "var(--helix-danger, #ef3340)" }}>
-                    {errors.responsableId}
-                  </span>
+                {fieldErrors.responsableId && (
+                  <span style={fieldErrorStyle}>{fieldErrors.responsableId}</span>
                 )}
               </div>
             </div>
@@ -488,7 +598,7 @@ export function TaskDialog({ open, onClose, actividad, onSaved, createActividad,
                   id="td-fecha-inicio"
                   style={{
                     ...inputStyle,
-                    borderColor: errors.fechaInicio ? "var(--helix-danger, #ef3340)" : undefined,
+                    borderColor: fieldErrors.fechaInicio ? "var(--helix-danger, #ef3340)" : undefined,
                     ...focusStyle(focusedField === "fechaInicio"),
                   }}
                   type="date"
@@ -497,10 +607,8 @@ export function TaskDialog({ open, onClose, actividad, onSaved, createActividad,
                   onFocus={() => setFocusedField("fechaInicio")}
                   onBlur={() => setFocusedField(null)}
                 />
-                {errors.fechaInicio && (
-                  <span style={{ fontSize: "11px", color: "var(--helix-danger, #ef3340)" }}>
-                    {errors.fechaInicio}
-                  </span>
+                {fieldErrors.fechaInicio && (
+                  <span style={fieldErrorStyle}>{fieldErrors.fechaInicio}</span>
                 )}
               </div>
 
@@ -510,7 +618,7 @@ export function TaskDialog({ open, onClose, actividad, onSaved, createActividad,
                   id="td-fecha-fin"
                   style={{
                     ...inputStyle,
-                    borderColor: errors.fechaFin ? "var(--helix-danger, #ef3340)" : undefined,
+                    borderColor: fieldErrors.fechaFin ? "var(--helix-danger, #ef3340)" : undefined,
                     ...focusStyle(focusedField === "fechaFin"),
                   }}
                   type="date"
@@ -520,10 +628,8 @@ export function TaskDialog({ open, onClose, actividad, onSaved, createActividad,
                   onFocus={() => setFocusedField("fechaFin")}
                   onBlur={() => setFocusedField(null)}
                 />
-                {errors.fechaFin && (
-                  <span style={{ fontSize: "11px", color: "var(--helix-danger, #ef3340)" }}>
-                    {errors.fechaFin}
-                  </span>
+                {fieldErrors.fechaFin && (
+                  <span style={fieldErrorStyle}>{fieldErrors.fechaFin}</span>
                 )}
               </div>
             </div>
@@ -536,6 +642,7 @@ export function TaskDialog({ open, onClose, actividad, onSaved, createActividad,
                   id="td-avance"
                   style={{
                     ...inputStyle,
+                    borderColor: fieldErrors.avance ? "var(--helix-danger, #ef3340)" : undefined,
                     ...focusStyle(focusedField === "avance"),
                   }}
                   type="number"
@@ -547,6 +654,9 @@ export function TaskDialog({ open, onClose, actividad, onSaved, createActividad,
                   onFocus={() => setFocusedField("avance")}
                   onBlur={() => setFocusedField(null)}
                 />
+                {fieldErrors.avance && (
+                  <span style={fieldErrorStyle}>{fieldErrors.avance}</span>
+                )}
               </div>
 
               <div style={fieldGroupStyle}>
@@ -555,6 +665,7 @@ export function TaskDialog({ open, onClose, actividad, onSaved, createActividad,
                   id="td-puntos"
                   style={{
                     ...inputStyle,
+                    borderColor: fieldErrors.puntos ? "var(--helix-danger, #ef3340)" : undefined,
                     ...focusStyle(focusedField === "puntos"),
                   }}
                   type="number"
@@ -565,6 +676,9 @@ export function TaskDialog({ open, onClose, actividad, onSaved, createActividad,
                   onFocus={() => setFocusedField("puntos")}
                   onBlur={() => setFocusedField(null)}
                 />
+                {fieldErrors.puntos && (
+                  <span style={fieldErrorStyle}>{fieldErrors.puntos}</span>
+                )}
               </div>
             </div>
 
@@ -655,6 +769,135 @@ export function TaskDialog({ open, onClose, actividad, onSaved, createActividad,
                 </div>
               )}
             </div>
+
+            {/* Evidencias — only when editing */}
+            {isEdit && (
+              <div style={{ borderTop: "1px solid var(--helix-line, #d8dde8)", paddingTop: 14 }}>
+                <div style={{ ...labelStyle, marginBottom: 10, display: "block" }}>Evidencias</div>
+
+                {/* Existing evidencias list */}
+                {evidencias.length > 0 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
+                    {evidencias.map((ev) => (
+                      <div
+                        key={ev.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          padding: "6px 10px",
+                          background: "var(--helix-surface-2, #eef1f6)",
+                          borderRadius: 6,
+                          border: "1px solid var(--helix-line, #d8dde8)",
+                        }}
+                      >
+                        {isImageFile(ev.nombre) && (
+                          <img
+                            src={`${BACKEND_URL}/uploads/${ev.ruta}`}
+                            alt={ev.nombre}
+                            style={{
+                              width: 32,
+                              height: 32,
+                              objectFit: "cover",
+                              borderRadius: 4,
+                              flexShrink: 0,
+                            }}
+                          />
+                        )}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 600,
+                              color: "var(--helix-ink, #121420)",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {ev.nombre}
+                          </div>
+                          <div style={{ fontSize: 11, color: "var(--helix-muted, #5c6374)" }}>
+                            {formatFileSize(ev.tamanio)}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteEvidencia(ev.id)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            cursor: "pointer",
+                            color: "var(--helix-muted, #5c6374)",
+                            fontSize: 16,
+                            padding: "2px 4px",
+                            lineHeight: 1,
+                            flexShrink: 0,
+                          }}
+                          aria-label="Eliminar evidencia"
+                          title="Eliminar"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Upload area */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.pdf,.docx,.xlsx"
+                    style={{ flex: 1, fontSize: 12 }}
+                    onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleUpload}
+                    disabled={!selectedFile || uploadProgress !== null}
+                    style={{
+                      padding: "6px 14px",
+                      borderRadius: 6,
+                      border: "1px solid var(--helix-line, #d8dde8)",
+                      background: "var(--helix-surface, #ffffff)",
+                      color: "var(--helix-ink, #121420)",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: !selectedFile || uploadProgress !== null ? "not-allowed" : "pointer",
+                      opacity: !selectedFile || uploadProgress !== null ? 0.55 : 1,
+                      flexShrink: 0,
+                    }}
+                  >
+                    Subir archivo
+                  </button>
+                </div>
+
+                {/* Progress bar */}
+                {uploadProgress !== null && (
+                  <div
+                    style={{
+                      marginTop: 8,
+                      height: 4,
+                      background: "var(--helix-line, #d8dde8)",
+                      borderRadius: 2,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div
+                      style={{
+                        height: "100%",
+                        width: `${uploadProgress}%`,
+                        background: "var(--helix-accent, #ef3340)",
+                        transition: "width 100ms linear",
+                        borderRadius: 2,
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Footer */}

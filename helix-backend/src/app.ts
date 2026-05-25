@@ -1,6 +1,7 @@
 import "dotenv/config";
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
+import path from "path";
 import { env } from "./config/env";
 import { authenticate } from "./middleware/auth";
 import subproyectosRouter from "./routers/subproyectos";
@@ -25,6 +26,9 @@ app.use(
   })
 );
 app.use(express.json());
+
+// --- Static uploads (before auth so thumbnails load in browser) ---
+app.use("/uploads", express.static(path.resolve(env.UPLOAD_DIR)));
 
 // --- Health check ---
 app.get("/health", (_req: Request, res: Response) => {

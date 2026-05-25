@@ -2,8 +2,35 @@ import { Router } from "express"
 import { z } from "zod"
 import { Prisma } from "@prisma/client"
 import { prisma } from "../config/prisma"
+import multer from "multer"
+import path from "path"
+import fs from "fs"
+import { env } from "../config/env"
 
 const router = Router()
+
+// --- Multer setup for evidencias ---
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    const dir = path.resolve(env.UPLOAD_DIR)
+    fs.mkdirSync(dir, { recursive: true })
+    cb(null, dir)
+  },
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname)
+    cb(null, `evidencia_${Date.now()}${ext}`)
+  },
+})
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = [".jpg", ".jpeg", ".png", ".pdf", ".docx", ".xlsx"]
+    const ext = path.extname(file.originalname).toLowerCase()
+    cb(null, allowed.includes(ext))
+  },
+})
 
 const ActividadBody = z.object({
   subproyectoId: z.number().int().positive(),
@@ -238,6 +265,51 @@ router.patch("/:id/avance", async (req, res, next) => {
       data: { avance: parsed.data.avance },
     })
     res.json(item)
+  } catch (err) {
+    next(err)
+  }
+})
+
+// POST /:id/evidencias — upload file
+router.post("/:id/evidencias", upload.single("archivo"), async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id, 10)
+    if (isNaN(id)) { res.status(400).json({ error: "ID inválido" }); return }
+
+    if (!req.file) { res.status(400).json({ error: "Archivo requerido" }); return }
+
+    const actividad = await prisma.helixActividad.findUnique({ where: { id } })
+    if (!actividad) { res.status(404).json({ error: "No encontrado" }); return }
+
+    const evidencia = await prisma.helixEvidencia.create({
+      data: {
+        actividadId: id,
+        nombre: req.file.originalname,
+        tipoArchivo: req.file.mimetype,
+        tamanio: req.file.size,
+        ruta: req.file.filename,
+      },
+    })
+    res.status(201).json(evidencia)
+  } catch (err) {
+    next(err)
+  }
+})
+
+// DELETE /:id/evidencias/:evidenciaId
+router.delete("/:id/evidencias/:evidenciaId", async (req, res, next) => {
+  try {
+    const evidenciaId = parseInt(req.params.evidenciaId, 10)
+    if (isNaN(evidenciaId)) { res.status(400).json({ error: "ID inválido" }); return }
+
+    const ev = await prisma.helixEvidencia.findUnique({ where: { id: evidenciaId } })
+    if (!ev) { res.status(404).json({ error: "No encontrado" }); return }
+
+    const filePath = path.join(path.resolve(env.UPLOAD_DIR), ev.ruta)
+    fs.unlink(filePath, () => undefined)
+
+    await prisma.helixEvidencia.delete({ where: { id: evidenciaId } })
+    res.status(204).end()
   } catch (err) {
     next(err)
   }

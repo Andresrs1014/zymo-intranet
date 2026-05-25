@@ -115,6 +115,30 @@ export function ReportsView() {
     }
   }
 
+  function handleDownloadPDF() {
+    const win = window.open("", "_blank")
+    if (!win) return
+    win.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Reporte de Estado — Helix Zymo</title>
+        <style>
+          body { font-family: 'Segoe UI', sans-serif; padding: 32px; color: #121420; }
+          pre { white-space: pre-wrap; font-family: monospace; font-size: 13px; line-height: 1.6; }
+          h1 { color: #ef3340; }
+          @media print { body { padding: 16px; } }
+        </style>
+      </head>
+      <body><pre>${statusReport.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre></body>
+      </html>
+    `)
+    win.document.close()
+    win.focus()
+    win.print()
+  }
+
   return (
     <div style={{ padding: 24, color: "var(--helix-ink)" }}>
       {/* Header */}
@@ -138,23 +162,42 @@ export function ReportsView() {
         >
           Estado del Proyecto
         </h2>
-        <button
-          onClick={handleCopyReport}
-          disabled={reportLoading || !statusReport}
-          style={{
-            padding: "8px 16px",
-            borderRadius: 6,
-            border: "1px solid var(--helix-border)",
-            background: "var(--helix-surface)",
-            color: "var(--helix-ink)",
-            fontSize: "0.85rem",
-            cursor: reportLoading || !statusReport ? "not-allowed" : "pointer",
-            opacity: reportLoading || !statusReport ? 0.5 : 1,
-            transition: "opacity 0.2s",
-          }}
-        >
-          Copiar reporte
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={handleCopyReport}
+            disabled={reportLoading || !statusReport}
+            style={{
+              padding: "8px 16px",
+              borderRadius: 6,
+              border: "1px solid var(--helix-border)",
+              background: "var(--helix-surface)",
+              color: "var(--helix-ink)",
+              fontSize: "0.85rem",
+              cursor: reportLoading || !statusReport ? "not-allowed" : "pointer",
+              opacity: reportLoading || !statusReport ? 0.5 : 1,
+              transition: "opacity 0.2s",
+            }}
+          >
+            Copiar reporte
+          </button>
+          <button
+            onClick={handleDownloadPDF}
+            disabled={reportLoading || !statusReport}
+            style={{
+              padding: "8px 16px",
+              borderRadius: 6,
+              border: "1px solid var(--helix-border)",
+              background: "var(--helix-surface)",
+              color: "var(--helix-ink)",
+              fontSize: "0.85rem",
+              cursor: reportLoading || !statusReport ? "not-allowed" : "pointer",
+              opacity: reportLoading || !statusReport ? 0.5 : 1,
+              transition: "opacity 0.2s",
+            }}
+          >
+            Descargar PDF
+          </button>
+        </div>
       </div>
 
       {/* Tab navigation */}
