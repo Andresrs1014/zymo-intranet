@@ -35,7 +35,7 @@ export function useUploadTaskV2Attachment() {
 export function useDeleteTaskV2Attachment() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ taskId, attachmentId }: { taskId: number; attachmentId: number }) => {
+    mutationFn: async ({ attachmentId }: { taskId: number; attachmentId: number }) => {
       await taskApi.delete(`/api/attachments/${attachmentId}`)
     },
     onSuccess: (_data, { taskId }) => {

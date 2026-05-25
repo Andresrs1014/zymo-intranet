@@ -101,7 +101,7 @@ export function CalendarView() {
   const [showCreate, setShowCreate] = useState(false)
   const [createForm, setCreateForm] = useState({ titulo: "", horaInicio: "09:00", duracionMinutos: 60 })
   const createEvent = useCreateEvent()
-  const { data: members = [] } = useTeamMembers(activeTeamId)
+  useTeamMembers(activeTeamId) // preload members for future participant picker
 
   const eventsForSelected = events.filter(
     (e) => e.fecha.slice(0, 10) === selectedDay,

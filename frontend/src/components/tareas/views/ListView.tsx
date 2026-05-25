@@ -13,19 +13,21 @@ const PRIORITY_COLOR: Record<string, string> = {
   critica: "#ef3340",
 }
 
+type TaskFilters = {
+  search?: string
+  estado?: string
+  etiqueta?: string
+  plataforma?: string
+  responsableId?: number
+  prioridad?: string
+  fechaDesde?: string
+  fechaHasta?: string
+}
+
 interface TaskFiltersBarProps {
   teamId: number
-  filters: {
-    search?: string
-    estado?: string
-    etiqueta?: string
-    plataforma?: string
-    responsableId?: number
-    prioridad?: string
-    fechaDesde?: string
-    fechaHasta?: string
-  }
-  onChange: (f: typeof filters) => void
+  filters: TaskFilters
+  onChange: (f: TaskFilters) => void
 }
 
 function TaskFiltersBar({ teamId, filters, onChange }: TaskFiltersBarProps) {
@@ -224,7 +226,7 @@ const TH_STYLE = {
 
 export function ListView() {
   const { activeTeamId } = useTask()
-  const [localFilters, setLocalFilters] = useState<Record<string, unknown>>({})
+  const [localFilters, setLocalFilters] = useState<TaskFilters>({})
   const [page, setPage] = useState(1)
   const limit = 25
   const [editingTask, setEditingTask] = useState<Task | null>(null)
@@ -252,7 +254,7 @@ export function ListView() {
     <div>
       <TaskFiltersBar
         teamId={activeTeamId}
-        filters={localFilters as Parameters<typeof TaskFiltersBar>[0]["filters"]}
+        filters={localFilters}
         onChange={(f) => { setLocalFilters(f); setPage(1) }}
       />
 
