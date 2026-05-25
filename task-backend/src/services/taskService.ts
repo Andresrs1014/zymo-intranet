@@ -5,7 +5,7 @@ import { validateTitle } from "../utils/validators"
 import { PaginationParams } from "../utils/pagination"
 import { validateTransition, getFinalState, StateConfig } from "./stateMachine"
 import { getMemberTeamIds, getManagedTeamIds } from "../utils/permissions"
-import type { Priority, TaskAcceptanceStatus, ActivityAction } from "@prisma/client"
+import { Prisma, type Priority, type TaskAcceptanceStatus, type ActivityAction } from "@prisma/client"
 
 export interface CreateTaskInput {
   teamId: number
@@ -26,9 +26,9 @@ export interface CreateTaskInput {
 
 export interface UpdateTaskInput {
   titulo?: string
-  descripcionTecnica?: string
-  descripcionGerencial?: string
-  impacto?: string
+  descripcionTecnica?: string | null
+  descripcionGerencial?: string | null
+  impacto?: string | null
   etiqueta?: string
   plataforma?: string
   estado?: string
@@ -108,7 +108,7 @@ async function logActivity(
       userNombre,
       accion,
       detalle: detalle ?? null,
-      campos: campos ?? null,
+      campos: campos ?? Prisma.JsonNull,
     },
   })
 }
