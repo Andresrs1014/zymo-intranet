@@ -349,23 +349,6 @@ def estado_documentos(
 
 # ── Helix IA ─────────────────────────────────────────────────────────────────
 
-_helix_agent = None
-
-
-def _get_agente_helix():
-    """Instancia (o reutiliza) el singleton del Agente Helix."""
-    from app.agents.helix import AgenteHelix
-    global _helix_agent
-    if _helix_agent is None:
-        api_key = settings.gemini_api_key
-        if not api_key:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="GEMINI_API_KEY no configurada.",
-            )
-        _helix_agent = AgenteHelix(api_key=api_key)
-    return _helix_agent
-
 
 @router.post("/helix/chat")
 async def chat_helix(
@@ -373,7 +356,15 @@ async def chat_helix(
     current_user: User = Depends(get_current_user),
 ):
     """Chat con el Agente Helix (streaming SSE)."""
-    agente = _get_agente_helix()
+    from app.agents.helix import AgenteHelix
+    api_key = settings.gemini_api_key
+    if not api_key:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="GEMINI_API_KEY no configurada.",
+        )
+    # Fresh instance per request — evita race condition en _session_id/_user_email
+    agente = AgenteHelix(api_key=api_key)
 
     if not payload.session_id:
         agente.iniciar_sesion(user_id=current_user.id, user_email=current_user.email)

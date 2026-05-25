@@ -41,6 +41,8 @@ export function useHelixAI(): UseHelixAIReturn {
   const [isStreaming, setIsStreaming] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
+  // Ref mirrors messages to avoid stale closure in sendMessage
+  const messagesRef = useRef<ChatMessage[]>([])
 
   const sendMessage = useCallback(
     (text: string) => {
@@ -53,25 +55,27 @@ export function useHelixAI(): UseHelixAIReturn {
         timestamp: new Date().toISOString(),
       }
 
-      setMessages((prev) => [...prev, userMessage])
-      setIsStreaming(true)
-      setError(null)
-
-      // Snapshot of history to send (exclude the message we just added)
-      const historialParaEnviar = messages.map((m) => ({
+      // Snapshot from ref (always current, no stale closure)
+      const historialParaEnviar = messagesRef.current.map((m) => ({
         role: m.role === "agent" ? "assistant" : m.role,
         content: m.content,
       }))
 
+      // Update state + ref with user message
+      const withUser = [...messagesRef.current, userMessage]
+      messagesRef.current = withUser
+      setMessages(withUser)
+      setIsStreaming(true)
+      setError(null)
+
       const controller = new AbortController()
       abortRef.current = controller
 
-      // Create placeholder agent message
+      // Add agent placeholder
       const agentTimestamp = new Date().toISOString()
-      setMessages((prev) => [
-        ...prev,
-        { role: "agent", content: "", timestamp: agentTimestamp },
-      ])
+      const withPlaceholder = [...withUser, { role: "agent" as const, content: "", timestamp: agentTimestamp }]
+      messagesRef.current = withPlaceholder
+      setMessages(withPlaceholder)
 
       fetch(`${HELIX_API_BASE}/api/ai/chat`, {
         method: "POST",
@@ -117,6 +121,7 @@ export function useHelixAI(): UseHelixAIReturn {
                       content: updated[lastIdx].content + combined,
                     }
                   }
+                  messagesRef.current = updated
                   return updated
                 })
               }
@@ -162,7 +167,7 @@ export function useHelixAI(): UseHelixAIReturn {
           abortRef.current = null
         })
     },
-    [isStreaming, messages],
+    [isStreaming],
   )
 
   const clearHistory = useCallback(() => {
@@ -170,6 +175,7 @@ export function useHelixAI(): UseHelixAIReturn {
       abortRef.current.abort()
       abortRef.current = null
     }
+    messagesRef.current = []
     setMessages([])
     setError(null)
     setIsStreaming(false)
