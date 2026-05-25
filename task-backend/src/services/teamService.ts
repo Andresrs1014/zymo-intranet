@@ -85,8 +85,25 @@ export async function getManagedTeams(user: AuthPayload): Promise<TeamWithRole[]
 }
 
 /** Create a new team owned by the requesting user */
-export async function createTeam(user: AuthPayload, name: string): Promise<TeamWithRole> {
+export async function createTeam(user: AuthPayload, name: string, token: string): Promise<TeamWithRole> {
   const userId = getUserId(user)
+
+  if (!isAdmin(user)) {
+    try {
+      const response = await axios.get<{ user_tools?: string[] }>(
+        `${env.INTRANET_API_URL}/auth/me`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      const tools = response.data?.user_tools ?? []
+      if (!tools.includes("tool_task_manage_dev")) {
+        throw new AppError(403, "No tienes permiso para crear equipos (se requiere el rol de gestor)")
+      }
+    } catch (err: any) {
+      if (err instanceof AppError) throw err
+      throw new AppError(403, "Error al verificar permisos del usuario en la intranet: " + (err.message ?? err))
+    }
+  }
+
   const trimmed = name.trim()
   if (trimmed.length < 3) throw new AppError(422, "El nombre debe tener al menos 3 caracteres")
   if (trimmed.length > 120) throw new AppError(422, "El nombre no puede superar 120 caracteres")

@@ -1,6 +1,6 @@
 import prisma from "../config/prisma"
 import { AppError } from "../middleware/errorHandler"
-import { isAdmin, AuthPayload } from "../middleware/auth"
+import { isAdmin, AuthPayload, getUserId } from "../middleware/auth"
 
 /**
  * Returns true if userId is owner or co_gestor of teamId, or is admin.
@@ -12,7 +12,7 @@ export async function requireManageAccess(
 ): Promise<void> {
   if (isAdmin(user)) return
 
-  const userId = Number(user.sub ?? user.id)
+  const userId = getUserId(user)
 
   const team = await prisma.team.findFirst({
     where: { id: teamId, isActive: true },
@@ -40,7 +40,7 @@ export async function requireMembership(
 ): Promise<void> {
   if (isAdmin(user)) return
 
-  const userId = Number(user.sub ?? user.id)
+  const userId = getUserId(user)
 
   const team = await prisma.team.findFirst({
     where: { id: teamId, isActive: true },
@@ -67,7 +67,7 @@ export async function requireOwner(
 ): Promise<void> {
   if (isAdmin(user)) return
 
-  const userId = Number(user.sub ?? user.id)
+  const userId = getUserId(user)
 
   const team = await prisma.team.findFirst({
     where: { id: teamId, ownerUserId: userId, isActive: true },
@@ -80,7 +80,7 @@ export async function requireOwner(
  * Returns the team IDs the user can manage (owner + co_gestor).
  */
 export async function getManagedTeamIds(user: AuthPayload): Promise<number[]> {
-  const userId = Number(user.sub ?? user.id)
+  const userId = getUserId(user)
 
   if (isAdmin(user)) {
     const teams = await prisma.team.findMany({ where: { isActive: true }, select: { id: true } })
@@ -109,7 +109,7 @@ export async function getManagedTeamIds(user: AuthPayload): Promise<number[]> {
  * Returns the team IDs where user is any active member.
  */
 export async function getMemberTeamIds(user: AuthPayload): Promise<number[]> {
-  const userId = Number(user.sub ?? user.id)
+  const userId = getUserId(user)
 
   if (isAdmin(user)) {
     const teams = await prisma.team.findMany({ where: { isActive: true }, select: { id: true } })

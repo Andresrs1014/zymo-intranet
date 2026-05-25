@@ -21,7 +21,8 @@ router.get("/managed", async (req: Request, res: Response) => {
 // ─── POST /api/teams ──────────────────────────────────────────────────────────
 router.post("/", async (req: Request, res: Response) => {
   const { name } = z.object({ name: z.string() }).parse(req.body)
-  const team = await teamService.createTeam(req.user!, name)
+  const token = req.headers.authorization!.slice(7)
+  const team = await teamService.createTeam(req.user!, name, token)
   res.status(201).json(team)
 })
 

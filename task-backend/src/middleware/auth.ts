@@ -38,7 +38,7 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
 
 /** Extracts numeric user ID from sub or id claim */
 export function getUserId(user: AuthPayload): number {
-  const raw = user.sub ?? user.id
+  const raw = user.id ?? (typeof user.sub === "number" || (typeof user.sub === "string" && !isNaN(Number(user.sub))) ? user.sub : undefined)
   const id = Number(raw)
   if (!Number.isFinite(id) || id <= 0) {
     throw new Error("Token is missing a valid user identifier")

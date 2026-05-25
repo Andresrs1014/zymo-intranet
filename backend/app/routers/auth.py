@@ -126,7 +126,7 @@ def login(
 
     token = create_access_token(
         subject=user.email,
-        extra={"role": user.role, "sede": user.sede, "area": user.area},
+        extra={"role": user.role, "sede": user.sede, "area": user.area, "id": user.id},
     )
     return TokenResponse(access_token=token)
 
