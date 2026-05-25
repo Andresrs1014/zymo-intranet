@@ -9,37 +9,24 @@ interface KanbanColumnProps {
   onEdit: (actividad: HelixActividad) => void
 }
 
+// Accent colors per column — intentionally bold/semantic, not overridable by theme
 const COLUMN_COLORS: Record<HelixEstado, string> = {
-  Backlog: "#6b7280",
-  Planificado: "#3b82f6",
+  Backlog:    "#9ca3af",
+  Planificado: "#60a5fa",
   "En curso": "#f59e0b",
-  Revision: "#8b5cf6",
-  Terminado: "#10b981",
+  Revision:   "#a78bfa",
+  Terminado:  "#22c55e",
 }
 
-const COLUMN_BG: Record<HelixEstado, string> = {
-  Backlog: "#f9fafb",
-  Planificado: "#eff6ff",
-  "En curso": "#fffbeb",
-  Revision: "#f5f3ff",
-  Terminado: "#ecfdf5",
-}
-
-export function KanbanColumn({
-  estado,
-  actividades,
-  onEdit,
-}: KanbanColumnProps) {
+export function KanbanColumn({ estado, actividades, onEdit }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: estado })
-
   const color = COLUMN_COLORS[estado]
-  const bg = COLUMN_BG[estado]
 
   const columnStyle: CSSProperties = {
-    background: isOver ? bg : "#f3f4f6",
-    borderRadius: "8px",
-    padding: "10px",
-    minHeight: "200px",
+    background: isOver ? `${color}12` : "var(--helix-bg)",
+    borderRadius: 8,
+    padding: 10,
+    minHeight: 200,
     border: isOver ? `2px solid ${color}` : "2px solid transparent",
     transition: "border-color 150ms, background 150ms",
   }
@@ -48,34 +35,31 @@ export function KanbanColumn({
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: "8px",
+    marginBottom: 8,
     padding: "6px 8px",
-    borderRadius: "6px",
-    background: "#fff",
+    borderRadius: 6,
+    background: "var(--helix-surface)",
     borderLeft: `3px solid ${color}`,
+    border: "1px solid var(--helix-line)",
+    borderLeftWidth: 3,
+    borderLeftColor: color,
   }
 
   const countBadgeStyle: CSSProperties = {
     backgroundColor: color,
     color: "#fff",
-    borderRadius: "999px",
-    fontSize: "11px",
+    borderRadius: 999,
+    fontSize: 11,
     fontWeight: 700,
     padding: "1px 7px",
-    minWidth: "20px",
+    minWidth: 20,
     textAlign: "center",
   }
 
   return (
     <div ref={setNodeRef} style={columnStyle}>
       <div style={headerStyle}>
-        <span
-          style={{
-            fontWeight: 700,
-            fontSize: "13px",
-            color: "#111827",
-          }}
-        >
+        <span style={{ fontWeight: 700, fontSize: 13, color: "var(--helix-ink)" }}>
           {estado}
         </span>
         <span style={countBadgeStyle}>{actividades.length}</span>
@@ -83,25 +67,11 @@ export function KanbanColumn({
 
       <div>
         {actividades.map((actividad) => (
-          <TaskCard
-            key={actividad.id}
-            actividad={actividad}
-            onEdit={() => onEdit(actividad)}
-          />
+          <TaskCard key={actividad.id} actividad={actividad} onEdit={() => onEdit(actividad)} />
         ))}
 
         {actividades.length === 0 && (
-          <div
-            style={{
-              padding: "24px 12px",
-              textAlign: "center",
-              color: "#9ca3af",
-              fontSize: "12px",
-              border: "2px dashed #e5e7eb",
-              borderRadius: "6px",
-              marginTop: "4px",
-            }}
-          >
+          <div style={{ padding: "24px 12px", textAlign: "center", color: "var(--helix-muted)", fontSize: 12, border: "2px dashed var(--helix-line)", borderRadius: 6, marginTop: 4 }}>
             Sin tareas
           </div>
         )}

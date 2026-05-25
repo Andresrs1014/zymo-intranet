@@ -134,6 +134,46 @@ export function DashboardView() {
         </div>
       )}
 
+      {/* Helix meaning banner */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 20,
+          padding: "20px 24px",
+          borderRadius: 10,
+          background: "linear-gradient(135deg, #1e2128 0%, #2b2f3a 100%)",
+          marginBottom: 4,
+          flexWrap: "wrap",
+        }}
+      >
+        <div style={{ maxWidth: 520 }}>
+          <p style={{ margin: "0 0 4px", fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "rgba(255,255,255,0.45)" }}>
+            Significado
+          </p>
+          <h3 style={{ margin: "0 0 8px", fontSize: "1rem", fontWeight: 800, color: "#fff" }}>
+            Inspirado en la estructura del ADN
+          </h3>
+          <p style={{ margin: 0, fontSize: "0.83rem", color: "rgba(255,255,255,0.6)", lineHeight: 1.6 }}>
+            Helix Zymo representa proyectos complejos y bien estructurados: cada subproyecto funciona como una cadena conectada de actividades, responsables, evidencias y aprendizajes que evolucionan con control.
+          </p>
+        </div>
+        <div
+          aria-hidden="true"
+          style={{
+            fontSize: "2.8rem",
+            fontWeight: 900,
+            color: "rgba(239,51,64,0.35)",
+            letterSpacing: "-0.04em",
+            userSelect: "none",
+            flexShrink: 0,
+          }}
+        >
+          HX
+        </div>
+      </div>
+
       {/* Dashboard panels */}
       {data && (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>

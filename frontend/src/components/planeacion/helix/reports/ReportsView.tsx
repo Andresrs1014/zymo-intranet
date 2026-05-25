@@ -109,9 +109,19 @@ export function ReportsView() {
 
   function handleCopyReport() {
     if (statusReport) {
-      navigator.clipboard.writeText(statusReport).catch(() => {
-        // silently fail if clipboard not available
-      })
+      navigator.clipboard.writeText(statusReport).catch(() => undefined)
+    }
+  }
+
+  async function handleSendFlow(canal: "email" | "whatsapp") {
+    try {
+      await helixApi.post(`/api/alertas/${canal}`)
+      const label = canal === "email" ? "correo" : "WhatsApp"
+      // eslint-disable-next-line no-alert
+      alert(`Flujo de ${label} generado. Revisa el historial de alertas.`)
+    } catch {
+      // eslint-disable-next-line no-alert
+      alert("Error al enviar el flujo de alertas.")
     }
   }
 
@@ -162,8 +172,40 @@ export function ReportsView() {
         >
           Estado del Proyecto
         </h2>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button
+            type="button"
+            onClick={() => handleSendFlow("email")}
+            style={{
+              padding: "8px 14px",
+              borderRadius: 6,
+              border: "1px solid var(--helix-border)",
+              background: "var(--helix-surface)",
+              color: "var(--helix-ink)",
+              fontSize: "0.82rem",
+              cursor: "pointer",
+            }}
+          >
+            Enviar flujo correo
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSendFlow("whatsapp")}
+            style={{
+              padding: "8px 14px",
+              borderRadius: 6,
+              border: "1px solid rgba(34,197,94,0.4)",
+              background: "rgba(34,197,94,0.08)",
+              color: "#22c55e",
+              fontSize: "0.82rem",
+              cursor: "pointer",
+              fontWeight: 600,
+            }}
+          >
+            Enviar flujo WA
+          </button>
+          <button
+            type="button"
             onClick={handleCopyReport}
             disabled={reportLoading || !statusReport}
             style={{
@@ -181,6 +223,7 @@ export function ReportsView() {
             Copiar reporte
           </button>
           <button
+            type="button"
             onClick={handleDownloadPDF}
             disabled={reportLoading || !statusReport}
             style={{

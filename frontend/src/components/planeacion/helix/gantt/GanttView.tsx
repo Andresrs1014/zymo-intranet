@@ -175,7 +175,7 @@ export function GanttView() {
   const scrollContainerStyle: CSSProperties = {
     overflowX: "auto",
     overflowY: "auto",
-    maxHeight: "calc(100vh - 260px)",
+    maxHeight: "calc(100vh - 180px)",
   }
 
   return (

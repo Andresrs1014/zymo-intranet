@@ -1,12 +1,17 @@
 import { useState, type CSSProperties } from "react"
 import { SubprojectsPanel } from "./SubprojectsPanel"
 import { ResponsiblesPanel } from "./ResponsiblesPanel"
+import { AlertasSettingsPanel } from "./AlertasSettingsPanel"
+import { ActividadesRegistryPanel } from "./ActividadesRegistryPanel"
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+type SettingsTab = "subproyectos" | "responsables" | "alertas" | "actividades"
 
-type SettingsTab = "subproyectos" | "responsables"
-
-// ─── Styles ──────────────────────────────────────────────────────────────────
+const TABS: Array<{ id: SettingsTab; label: string }> = [
+  { id: "subproyectos",  label: "Subproyectos" },
+  { id: "responsables",  label: "Responsables" },
+  { id: "alertas",       label: "Alertas" },
+  { id: "actividades",   label: "Actividades" },
+]
 
 const containerStyle: CSSProperties = {
   background: "var(--helix-bg)",
@@ -19,6 +24,7 @@ const tabBarStyle: CSSProperties = {
   padding: "16px 24px 0",
   borderBottom: "1px solid var(--helix-line)",
   background: "var(--helix-surface)",
+  flexWrap: "wrap",
 }
 
 function tabStyle(active: boolean): CSSProperties {
@@ -36,22 +42,15 @@ function tabStyle(active: boolean): CSSProperties {
     transition: "color var(--helix-transition), background var(--helix-transition)",
     outline: "none",
     fontFamily: "var(--helix-font)",
+    whiteSpace: "nowrap",
   }
 }
-
-const TABS: Array<{ id: SettingsTab; label: string }> = [
-  { id: "subproyectos", label: "Subproyectos" },
-  { id: "responsables", label: "Responsables" },
-]
-
-// ─── SettingsView ─────────────────────────────────────────────────────────────
 
 export function SettingsView() {
   const [activeTab, setActiveTab] = useState<SettingsTab>("subproyectos")
 
   return (
     <div style={containerStyle}>
-      {/* Tab bar */}
       <div style={tabBarStyle}>
         {TABS.map((tab) => (
           <button
@@ -65,10 +64,11 @@ export function SettingsView() {
         ))}
       </div>
 
-      {/* Tab content */}
       <div>
-        {activeTab === "subproyectos" && <SubprojectsPanel />}
-        {activeTab === "responsables" && <ResponsiblesPanel />}
+        {activeTab === "subproyectos"  && <SubprojectsPanel />}
+        {activeTab === "responsables"  && <ResponsiblesPanel />}
+        {activeTab === "alertas"       && <AlertasSettingsPanel />}
+        {activeTab === "actividades"   && <ActividadesRegistryPanel />}
       </div>
     </div>
   )

@@ -118,16 +118,7 @@ export function BoardView() {
 
   if (loading) {
     return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "60px",
-          color: "#6b7280",
-          fontSize: "14px",
-        }}
-      >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "60px", color: "var(--helix-muted)", fontSize: "14px" }}>
         Cargando...
       </div>
     )
@@ -135,23 +126,14 @@ export function BoardView() {
 
   if (error) {
     return (
-      <div
-        style={{
-          padding: "24px",
-          borderRadius: "8px",
-          background: "#fef2f2",
-          color: "#ef4444",
-          fontSize: "13px",
-          border: "1px solid #fecaca",
-        }}
-      >
+      <div style={{ padding: "24px", borderRadius: "8px", background: "var(--helix-danger-bg)", color: "var(--helix-danger-text)", fontSize: "13px", border: "1px solid rgba(239,51,64,0.2)" }}>
         Error: {error}
       </div>
     )
   }
 
   return (
-    <div>
+    <div style={{ minWidth: 0, overflow: "hidden" }}>
       {/* Section heading */}
       <div
         style={{
@@ -168,7 +150,7 @@ export function BoardView() {
             style={{
               fontSize: "18px",
               fontWeight: 700,
-              color: "#111827",
+              color: "var(--helix-ink)",
               margin: 0,
             }}
           >
@@ -177,7 +159,7 @@ export function BoardView() {
           <p
             style={{
               fontSize: "12px",
-              color: "#6b7280",
+              color: "var(--helix-muted)",
               margin: "2px 0 0",
             }}
           >

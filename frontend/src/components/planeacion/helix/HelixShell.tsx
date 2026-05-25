@@ -94,12 +94,12 @@ export function HelixShell({ children }: HelixShellProps) {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "280px minmax(0, 1fr)",
+            gridTemplateColumns: "clamp(220px, 22vw, 280px) minmax(0, 1fr)",
             minHeight: "100vh",
           }}
         >
           <HelixSidebar />
-          <main style={{ padding: "26px", overflow: "auto" }}>
+          <main style={{ padding: "clamp(14px, 2vw, 26px)", overflow: "auto", minWidth: 0 }}>
             <HelixTopbar />
             {children}
           </main>

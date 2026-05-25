@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { AIChat } from "./AIChat"
 import { SatisfactionSurvey } from "./SatisfactionSurvey"
+import { InstructivosPanel } from "./InstructivosPanel"
 
 export function SupportView() {
   const [surveyOpen, setSurveyOpen] = useState(false)
@@ -53,6 +54,9 @@ export function SupportView() {
         </h3>
         <AIChat />
       </section>
+
+      {/* Instructivos de uso */}
+      <InstructivosPanel />
 
       {/* Satisfaction survey — collapsible */}
       <section
