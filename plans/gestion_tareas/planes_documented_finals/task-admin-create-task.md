@@ -1,4 +1,4 @@
-﻿# Plan: Permitir al admin cargar tareas en Gestión de Tareas
+# Plan: Permitir al admin cargar tareas en Gestión de Tareas
 
 ## Problema identificado
 
