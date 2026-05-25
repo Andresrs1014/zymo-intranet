@@ -15,14 +15,9 @@ helixApi.interceptors.request.use((config) => {
   return config
 })
 
-// On 401, clear auth and redirect to login (same as main api.ts)
+// On 401 from helix-backend, do NOT log out from the intranet.
+// Just reject so the component can show an error message.
 helixApi.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      useAuthStore.getState().clearAuth()
-      window.location.href = "/login"
-    }
-    return Promise.reject(error)
-  }
+  (error) => Promise.reject(error)
 )

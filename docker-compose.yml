@@ -44,15 +44,15 @@ services:
       dockerfile: Dockerfile
     ports:
       - "3001:3001"
+    env_file:
+      - ./backend/.env          # provides SECRET_KEY (same JWT secret that FastAPI uses)
     environment:
+      # These override env_file values for helix-specific config:
       - NODE_ENV=production
       - PORT=3001
       - DATABASE_URL=postgresql://${HELIX_DB_USER:-helix}:${HELIX_DB_PASSWORD}@helix-db:5432/${HELIX_DB_NAME:-helixdb}
-      - JWT_SECRET=${JWT_SECRET}
       - INTRANET_API_URL=http://backend:8001
-      - INTERNAL_KEY=${INTERNAL_KEY}
       - UPLOAD_DIR=/app/uploads
-      - CORS_ORIGIN=${CORS_ORIGIN}
     volumes:
       - helix_uploads:/app/uploads
     depends_on:
