@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useHelixActividades } from "@/hooks/useHelixActividades"
 import { TaskDialog } from "../dialogs/TaskDialog"
-import { showHelixToast } from "../HelixToast"
+import { useHelixToast } from "../HelixToast"
 import type { HelixActividad } from "@/types/helix"
 
 function formatDate(iso: string): string {
@@ -44,6 +44,7 @@ const TD: React.CSSProperties = {
 
 export function ActividadesRegistryPanel() {
   const { actividades, loading, error, refetch, createActividad, updateActividad } = useHelixActividades()
+  const { showToast } = useHelixToast()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<HelixActividad | undefined>()
 
@@ -159,7 +160,7 @@ export function ActividadesRegistryPanel() {
         actividad={editing}
         onSaved={() => {
           refetch()
-          showHelixToast("Actividad guardada", "success")
+          showToast("Actividad guardada", "success")
         }}
         createActividad={createActividad}
         updateActividad={updateActividad}

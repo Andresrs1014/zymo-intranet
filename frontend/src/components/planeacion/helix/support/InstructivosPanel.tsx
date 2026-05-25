@@ -1,5 +1,5 @@
 import { useState, useRef } from "react"
-import { showHelixToast } from "../HelixToast"
+import { useHelixToast } from "../HelixToast"
 
 interface UploadedFile {
   name: string
@@ -37,6 +37,7 @@ const BASE_INSTRUCTIVOS = [
 export function InstructivosPanel() {
   const [uploaded, setUploaded] = useState<UploadedFile[]>(loadUploaded)
   const inputRef = useRef<HTMLInputElement>(null)
+  const { showToast } = useHelixToast()
 
   function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
@@ -50,14 +51,14 @@ export function InstructivosPanel() {
     const updated = [...uploaded, ...newItems]
     saveUploaded(updated)
     setUploaded(updated)
-    showHelixToast(`${files.length} instructivo(s) registrado(s)`, "success")
+    showToast(`${files.length} instructivo(s) registrado(s)`, "success")
     if (inputRef.current) inputRef.current.value = ""
   }
 
   function handleClear() {
     localStorage.removeItem(STORAGE_KEY)
     setUploaded([])
-    showHelixToast("Instructivos limpiados", "info")
+    showToast("Instructivos limpiados", "info")
   }
 
   function formatDate(iso: string): string {

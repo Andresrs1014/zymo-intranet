@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { showHelixToast } from "../HelixToast"
+import { useHelixToast } from "../HelixToast"
 
 // ─── Static content (mirrors app.js renderBusinessCase) ─────────────────────
 
@@ -114,11 +114,12 @@ const benefitCard = {
 
 export function BusinessCaseView() {
   const [text, setText] = useState(BUSINESS_CASE_TEXT)
+  const { showToast } = useHelixToast()
 
   function handleCopy() {
     navigator.clipboard.writeText(text).then(
-      () => showHelixToast("Argumento copiado al portapapeles", "success"),
-      () => showHelixToast("No se pudo copiar", "error"),
+      () => showToast("Argumento copiado al portapapeles", "success"),
+      () => showToast("No se pudo copiar", "error"),
     )
   }
 

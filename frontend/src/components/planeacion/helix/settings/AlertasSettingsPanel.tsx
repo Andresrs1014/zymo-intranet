@@ -1,6 +1,7 @@
 import { useHelixAlertas } from "@/hooks/useHelixAlertas"
 import { helixApi } from "@/lib/helixApi"
-import { showHelixToast } from "../HelixToast"
+import { useHelixToast } from "../HelixToast"
+import type { HelixAlerta } from "@/types/helix"
 
 function formatDate(iso: string): string {
   const d = new Date(iso)
@@ -15,6 +16,7 @@ const CANAL_COLOR: Record<string, { bg: string; text: string }> = {
 
 export function AlertasSettingsPanel() {
   const { data, loading, error, refetch } = useHelixAlertas()
+  const { showToast } = useHelixToast()
 
   const autoAlertas = data?.filter((a) => a.canal === "auto") ?? []
   const updateAlertas = data?.filter((a) => a.canal !== "auto") ?? []
@@ -22,16 +24,16 @@ export function AlertasSettingsPanel() {
   async function handleGenerarAuto() {
     try {
       await helixApi.post("/api/alertas")
-      showHelixToast("Alertas automáticas generadas", "success")
+      showToast("Alertas automáticas generadas", "success")
       refetch()
     } catch {
-      showHelixToast("Error al generar alertas", "error")
+      showToast("Error al generar alertas", "error")
     }
   }
 
   function handleLimpiar() {
     // The API doesn't have a delete endpoint; show informational toast
-    showHelixToast("Las alertas se limpian automáticamente tras 30 registros", "info")
+    showToast("Las alertas se limpian automáticamente tras 30 registros", "info")
   }
 
   if (loading) return <p style={{ padding: 20, color: "var(--helix-muted)", fontSize: "0.875rem" }}>Cargando alertas…</p>
@@ -127,7 +129,7 @@ export function AlertasSettingsPanel() {
   )
 }
 
-function AlertCard({ alerta }: { alerta: ReturnType<typeof useHelixAlertas>["data"] extends Array<infer T> ? T : never }) {
+function AlertCard({ alerta }: { alerta: HelixAlerta }) {
   const canal = alerta.canal ?? "auto"
   const colors = CANAL_COLOR[canal] ?? { bg: "rgba(255,255,255,0.05)", text: "var(--helix-muted)" }
 
