@@ -7,7 +7,12 @@ interface HelixProviderProps {
 
 const SPIN_STYLE = `
 @keyframes helix-spin {
+  from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+@keyframes helix-spin-progress {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
 }
 `
 

@@ -11,6 +11,7 @@ interface HelixShellProps {
 interface ErrorBoundaryState {
   hasError: boolean
   message: string
+  resetKey: number
 }
 
 class HelixErrorBoundary extends React.Component<
@@ -19,10 +20,10 @@ class HelixErrorBoundary extends React.Component<
 > {
   constructor(props: { children: ReactNode }) {
     super(props)
-    this.state = { hasError: false, message: "" }
+    this.state = { hasError: false, message: "", resetKey: 0 }
   }
 
-  static getDerivedStateFromError(err: unknown): ErrorBoundaryState {
+  static getDerivedStateFromError(err: unknown): Partial<ErrorBoundaryState> {
     const message = err instanceof Error ? err.message : "Error inesperado"
     return { hasError: true, message }
   }
@@ -64,7 +65,7 @@ class HelixErrorBoundary extends React.Component<
           <p style={{ margin: 0, fontSize: 13 }}>{this.state.message}</p>
           <button
             type="button"
-            onClick={() => this.setState({ hasError: false, message: "" })}
+            onClick={() => this.setState((s) => ({ hasError: false, message: "", resetKey: s.resetKey + 1 }))}
             style={{
               marginTop: 8,
               padding: "8px 20px",
@@ -82,7 +83,7 @@ class HelixErrorBoundary extends React.Component<
         </div>
       )
     }
-    return this.props.children
+    return <React.Fragment key={this.state.resetKey}>{this.props.children}</React.Fragment>
   }
 }
 

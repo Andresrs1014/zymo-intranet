@@ -309,9 +309,7 @@ export function TaskDialog({ open, onClose, actividad, onSaved, createActividad,
 
   function setField(field: keyof FormState, value: string | boolean) {
     setForm((prev) => ({ ...prev, [field]: value }))
-    if (field in ({} as FieldErrors)) {
-      setFieldErrors((prev) => ({ ...prev, [field]: undefined }))
-    }
+    setFieldErrors((prev) => ({ ...prev, [field]: undefined }))
   }
 
   function handleTextChange(field: keyof FormState) {
@@ -406,18 +404,19 @@ export function TaskDialog({ open, onClose, actividad, onSaved, createActividad,
   // ---- Evidencias handlers ----
   async function handleUpload() {
     if (!selectedFile || !actividad) return
-    setUploadProgress(0)
-
-    // Animate progress 0 → 90% over 1.4s, then jump to 100% when done
-    const interval = setInterval(() => {
-      setUploadProgress((p) => (p !== null && p < 90 ? p + 6 : p))
-    }, 100)
+    // -1 signals indeterminate (no fake %)
+    setUploadProgress(-1)
 
     try {
       const fd = new FormData()
       fd.append("archivo", selectedFile)
-      const res = await helixApi.post<HelixEvidencia>(`/api/actividades/${actividad.id}/evidencias`, fd)
-      clearInterval(interval)
+      const res = await helixApi.post<HelixEvidencia>(`/api/actividades/${actividad.id}/evidencias`, fd, {
+        onUploadProgress: (evt) => {
+          if (evt.total) {
+            setUploadProgress(Math.round((evt.loaded / evt.total) * 100))
+          }
+        },
+      })
       setUploadProgress(100)
       setTimeout(() => setUploadProgress(null), 600)
       setEvidencias((prev) => [...prev, res.data])
@@ -425,7 +424,6 @@ export function TaskDialog({ open, onClose, actividad, onSaved, createActividad,
       if (fileInputRef.current) fileInputRef.current.value = ""
       showToast("Evidencia subida correctamente", "success")
     } catch {
-      clearInterval(interval)
       setUploadProgress(null)
       showToast("Error al subir la evidencia", "error")
     }
@@ -885,15 +883,28 @@ export function TaskDialog({ open, onClose, actividad, onSaved, createActividad,
                       overflow: "hidden",
                     }}
                   >
-                    <div
-                      style={{
-                        height: "100%",
-                        width: `${uploadProgress}%`,
-                        background: "var(--helix-accent, #ef3340)",
-                        transition: "width 100ms linear",
-                        borderRadius: 2,
-                      }}
-                    />
+                    {uploadProgress === -1 ? (
+                      // Indeterminate — no total size reported
+                      <div
+                        style={{
+                          height: "100%",
+                          width: "40%",
+                          background: "var(--helix-accent, #ef3340)",
+                          borderRadius: 2,
+                          animation: "helix-spin-progress 1.2s ease-in-out infinite",
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          height: "100%",
+                          width: `${uploadProgress}%`,
+                          background: "var(--helix-accent, #ef3340)",
+                          transition: "width 120ms linear",
+                          borderRadius: 2,
+                        }}
+                      />
+                    )}
                   </div>
                 )}
               </div>

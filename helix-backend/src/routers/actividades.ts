@@ -305,7 +305,8 @@ router.delete("/:id/evidencias/:evidenciaId", async (req, res, next) => {
     const ev = await prisma.helixEvidencia.findUnique({ where: { id: evidenciaId } })
     if (!ev) { res.status(404).json({ error: "No encontrado" }); return }
 
-    const filePath = path.join(path.resolve(env.UPLOAD_DIR), ev.ruta)
+    const safeName = path.basename(ev.ruta) // prevent path traversal
+    const filePath = path.join(path.resolve(env.UPLOAD_DIR), safeName)
     fs.unlink(filePath, () => undefined)
 
     await prisma.helixEvidencia.delete({ where: { id: evidenciaId } })
