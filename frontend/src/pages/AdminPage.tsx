@@ -750,8 +750,12 @@ function UserToolsModal({ user, onClose }: { user: UserListItem; onClose: () => 
             <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Tareas</h4>
             <UserTasksPanel userId={user.id} allTeams={allTeams} />
 
-            {hasManageDev && ownedTeam && (
-              <DeleteWorkspaceInline teamId={ownedTeam.id} teamName={ownedTeam.name} onDeleted={refetchUserTeams} />
+            {(userTeams?.ownedTeams ?? []).length > 0 && (
+              <div className="space-y-2">
+                {(userTeams?.ownedTeams ?? []).map((t) => (
+                  <DeleteWorkspaceInline key={t.id} teamId={t.id} teamName={t.name} onDeleted={refetchUserTeams} />
+                ))}
+              </div>
             )}
           </div>
         </div>
