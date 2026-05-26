@@ -93,8 +93,13 @@ services:
       - INTRANET_API_URL=http://backend:8001
       - UPLOAD_DIR=/app/uploads
       - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:81}
+      # Migration: path to V1 SQLite inside the container (read-only mount from backend_data)
+      - V1_SQLITE_PATH=/app/data/intranet.db
+      # Migration: same DATABASE_URL alias used by the Python script
+      - V2_DATABASE_URL=postgresql://${TASK_DB_USER:-task}:${TASK_DB_PASSWORD}@task-db:5432/${TASK_DB_NAME:-taskdb}
     volumes:
       - task_uploads:/app/uploads
+      - backend_data:/app/data:ro   # V1 SQLite (read-only — Python script reads, never writes)
     depends_on:
       task-db:
         condition: service_healthy
