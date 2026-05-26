@@ -9,6 +9,7 @@ import {
   useDemoteMember,
   useAvailableUsers,
   useMyTeams,
+  useDeleteTeam,
   type AvailableUser,
 } from "@/hooks/useTaskTeams"
 import {
@@ -34,6 +35,7 @@ function TeamSettings() {
   const removeMember = useRemoveMember()
   const promote = usePromoteMember()
   const demote = useDemoteMember()
+  const deleteTeam = useDeleteTeam()
   const { showToast } = useTaskToast()
 
   const team = teams.find((t) => t.id === activeTeamId)
@@ -41,6 +43,7 @@ function TeamSettings() {
 
   const [newName, setNewName] = useState(team?.name ?? "")
   const [showAddDialog, setShowAddDialog] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   async function handleRename() {
     if (!activeTeamId || !newName.trim()) return
@@ -80,6 +83,59 @@ function TeamSettings() {
             >
               Guardar
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Danger zone: delete team */}
+      {isOwner && (
+        <div style={{ marginBottom: 28, padding: "14px 16px", borderRadius: 8, border: "1px solid #fca5a5", background: "#fff5f5" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#b91c1c" }}>Eliminar espacio de trabajo</div>
+              <div style={{ fontSize: 12, color: "#ef4444", marginTop: 2 }}>Esta acción es permanente y no se puede deshacer.</div>
+            </div>
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              style={{ padding: "7px 16px", borderRadius: 6, border: "none", background: "#ef4444", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}
+            >
+              Eliminar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirmation modal */}
+      {showDeleteConfirm && activeTeamId && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 }}>
+          <div style={{ background: "#fff", borderRadius: 10, padding: 28, width: 380 }}>
+            <h3 style={{ margin: "0 0 10px", fontSize: 15, fontWeight: 700, color: "#121420" }}>¿Eliminar espacio de trabajo?</h3>
+            <p style={{ fontSize: 13, color: "#5c6374", margin: "0 0 20px" }}>
+              Se desactivará el equipo <strong>"{team?.name}"</strong>. Las tareas y datos existentes quedarán guardados pero el equipo no será visible.
+            </p>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                style={{ flex: 1, padding: "9px", borderRadius: 7, border: "1px solid #d8dde8", background: "#f4f6fa", fontSize: 13, cursor: "pointer" }}
+              >
+                Cancelar
+              </button>
+              <button
+                disabled={deleteTeam.isPending}
+                onClick={async () => {
+                  try {
+                    await deleteTeam.mutateAsync(activeTeamId)
+                    showToast("Espacio de trabajo eliminado", "success")
+                    setShowDeleteConfirm(false)
+                  } catch {
+                    showToast("Error al eliminar", "error")
+                  }
+                }}
+                style={{ flex: 1, padding: "9px", borderRadius: 7, border: "none", background: "#ef4444", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+              >
+                {deleteTeam.isPending ? "Eliminando..." : "Sí, eliminar"}
+              </button>
+            </div>
           </div>
         </div>
       )}

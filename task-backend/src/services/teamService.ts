@@ -24,6 +24,17 @@ export interface TeamMemberView {
   createdAt: Date
 }
 
+/** Soft-deletes a team. Only the owner can do this. */
+export async function deleteTeam(user: AuthPayload, teamId: number): Promise<void> {
+  const userId = getUserId(user)
+  const team = await prisma.team.findFirst({ where: { id: teamId, isActive: true } })
+  if (!team) throw new AppError(404, "Equipo no encontrado")
+  if (!isAdmin(user) && team.ownerUserId !== userId) {
+    throw new AppError(403, "Solo el dueño puede eliminar el espacio de trabajo")
+  }
+  await prisma.team.update({ where: { id: teamId }, data: { isActive: false } })
+}
+
 /** Returns all teams where the user is an active member or owner */
 export async function getMyTeams(user: AuthPayload, token?: string): Promise<TeamWithRole[]> {
   const userId = getUserId(user)

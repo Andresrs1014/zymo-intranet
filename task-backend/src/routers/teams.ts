@@ -44,6 +44,13 @@ router.post("/", async (req: Request, res: Response) => {
   res.status(201).json(team)
 })
 
+// ─── DELETE /api/teams/:id ────────────────────────────────────────────────────
+router.delete("/:id", async (req: Request, res: Response) => {
+  const { id } = idParamSchema.parse(req.params)
+  await teamService.deleteTeam(req.user!, id)
+  res.status(204).send()
+})
+
 // ─── PATCH /api/teams/:id ─────────────────────────────────────────────────────
 router.patch("/:id", async (req: Request, res: Response) => {
   const { id } = idParamSchema.parse(req.params)

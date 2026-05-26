@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { ChevronDown, Trash2 } from "lucide-react"
 import {
   useMyTasks,
   useMyTaskMetrics,
@@ -6,13 +7,15 @@ import {
   useCreateWorkTask,
   useUpdateWorkTask,
 } from "@/hooks/useWorkTasks"
+import { useTasks, useDeleteTask } from "@/hooks/useTasks"
+import { useMyTeams as useMyTeamsV2 } from "@/hooks/useTaskTeams"
 import { useAuthStore } from "@/store/authStore"
 import type { WorkTask, WorkTaskCreate, TaskFilters } from "@/types/workTask"
+import type { Task } from "@/types/task"
 import { useUploadTaskAttachment } from "@/hooks/useTaskAttachments"
 import { TaskForm } from "./TaskForm"
 import { AsignarTareaForm } from "./AsignarTareaForm"
 import { AttachmentExplorer } from "./AttachmentExplorer"
-import { TaskDataTable } from "./TaskDataTable"
 import { TaskDetailSheet } from "./TaskDetailSheet"
 import { taskButtonPrimary, taskButtonSecondary, taskCard, formatMinutos } from "@/lib/taskTheme"
 
@@ -21,22 +24,33 @@ interface Props {
   activeTeamId?: number
 }
 
-export function TaskSubmitView({ filters, activeTeamId }: Props) {
+export function TaskSubmitView({ activeTeamId }: Props) {
   const today = new Date().toISOString().slice(0, 10)
 
   const [showForm, setShowForm] = useState(false)
   const [showAsignarForm, setShowAsignarForm] = useState(false)
   const [selectedTask, setSelectedTask] = useState<WorkTask | null>(null)
   const [explorerTask, setExplorerTask] = useState<WorkTask | null>(null)
+  const [selectedV2TeamId, setSelectedV2TeamId] = useState<number | undefined>(undefined)
+  const [showTeamDropdown, setShowTeamDropdown] = useState(false)
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null)
+
   const currentUser = useAuthStore((s) => s.user)
   const uploadAttachment = useUploadTaskAttachment()
 
+  // V1 data (KPIs + reminder)
   const { data: metrics } = useMyTaskMetrics(activeTeamId)
   const { data: todayTasks } = useMyTasks({ fecha_desde: today, fecha_hasta: today, team_id: activeTeamId })
-  const { data: allTasks } = useMyTasks(filters)
   const { data: myTeams = [] } = useMyTeams()
   const createTask = useCreateWorkTask()
   const updateTask = useUpdateWorkTask()
+
+  // V2 data (task list)
+  const { data: v2Teams = [] } = useMyTeamsV2()
+  const activeV2TeamId = selectedV2TeamId ?? v2Teams[0]?.id
+  const activeV2Team = v2Teams.find((t) => t.id === activeV2TeamId)
+  const { data: v2TasksResult } = useTasks({ teamId: activeV2TeamId })
+  const deleteTask = useDeleteTask()
 
   const registeredToday = (todayTasks?.length ?? 0) > 0
   const showTodayReminder = !registeredToday && myTeams.length > 0
@@ -142,17 +156,68 @@ export function TaskSubmitView({ filters, activeTeamId }: Props) {
         </div>
       )}
 
-      {/* Task list */}
+      {/* V2 Task list with team selector */}
       <div>
-        <h2 className="text-sm font-semibold text-gray-700 mb-3">Mis tareas</h2>
-        <TaskDataTable
-          tasks={allTasks ?? []}
-          onRowClick={(t) => setSelectedTask(t)}
-          onAttachmentsClick={(t) => setExplorerTask(t)}
-        />
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-gray-700">Mis tareas</h2>
+
+          {/* Team dropdown */}
+          {v2Teams.length > 1 && (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowTeamDropdown((v) => !v)}
+                className="flex items-center gap-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50 transition-colors"
+              >
+                <span>{activeV2Team?.name ?? "Seleccionar equipo"}</span>
+                <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
+              </button>
+              {showTeamDropdown && (
+                <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-lg py-1 min-w-[200px]">
+                  {v2Teams.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedV2TeamId(t.id)
+                        setShowTeamDropdown(false)
+                      }}
+                      className={`w-full text-left px-3 py-2 text-xs hover:bg-gray-50 transition-colors ${
+                        t.id === activeV2TeamId ? "font-semibold text-red-600" : "text-gray-700"
+                      }`}
+                    >
+                      {t.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {v2Teams.length === 1 && activeV2Team && (
+            <span className="text-xs text-gray-400">{activeV2Team.name}</span>
+          )}
+        </div>
+
+        {/* V2 task rows */}
+        {(v2TasksResult?.tasks ?? []).length === 0 ? (
+          <div className="text-sm text-gray-400 text-center py-8 border border-dashed border-gray-200 rounded-xl">
+            No hay tareas registradas en este equipo.
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {(v2TasksResult?.tasks ?? []).map((task) => (
+              <V2TaskRow
+                key={task.id}
+                task={task}
+                onDelete={() => setTaskToDelete(task)}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Detail sheet */}
+      {/* V1 legacy detail sheet */}
       <TaskDetailSheet
         task={selectedTask}
         onClose={() => setSelectedTask(null)}
@@ -172,9 +237,93 @@ export function TaskSubmitView({ filters, activeTeamId }: Props) {
           onClose={() => setExplorerTask(null)}
         />
       )}
+
+      {/* Delete confirmation */}
+      {taskToDelete && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 }}>
+          <div style={{ background: "#fff", borderRadius: 10, padding: 28, width: 380 }}>
+            <h3 style={{ margin: "0 0 10px", fontSize: 15, fontWeight: 700 }}>¿Eliminar tarea?</h3>
+            <p style={{ fontSize: 13, color: "#5c6374", margin: "0 0 20px" }}>
+              Se eliminará <strong>"{taskToDelete.titulo}"</strong> de forma permanente.
+            </p>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                onClick={() => setTaskToDelete(null)}
+                style={{ flex: 1, padding: "9px", borderRadius: 7, border: "1px solid #d8dde8", background: "#f4f6fa", fontSize: 13, cursor: "pointer" }}
+              >
+                Cancelar
+              </button>
+              <button
+                disabled={deleteTask.isPending}
+                onClick={async () => {
+                  await deleteTask.mutateAsync(taskToDelete.id)
+                  setTaskToDelete(null)
+                }}
+                style={{ flex: 1, padding: "9px", borderRadius: 7, border: "none", background: "#ef4444", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+              >
+                {deleteTask.isPending ? "Eliminando..." : "Sí, eliminar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
+
+// ─── V2 Task row ──────────────────────────────────────────────────────────────
+
+function V2TaskRow({ task, onDelete }: { task: Task; onDelete: () => void }) {
+  const estadoColors: Record<string, string> = {
+    pendiente: "#6b7280",
+    en_progreso: "#3b82f6",
+    revision: "#f59e0b",
+    completada: "#10b981",
+    cancelada: "#ef4444",
+  }
+
+  return (
+    <div style={{
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      padding: "10px 14px",
+      background: "#fff",
+      borderRadius: 8,
+      border: "1px solid #e8ebf4",
+      gap: 12,
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+        <div style={{
+          width: 8,
+          height: 8,
+          borderRadius: "50%",
+          background: estadoColors[task.estado] ?? "#6b7280",
+          flexShrink: 0,
+        }} />
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 500, color: "#121420", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {task.titulo}
+          </div>
+          <div style={{ fontSize: 11, color: "#9aa5b8", marginTop: 1 }}>
+            {task.fecha ? task.fecha.slice(0, 10) : "—"} · {task.estado}
+            {task.asignadoANombre && ` · ${task.asignadoANombre}`}
+          </div>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onDelete}
+        title="Eliminar tarea"
+        style={{ padding: "5px", borderRadius: 5, border: "1px solid #fca5a5", background: "#fff5f5", cursor: "pointer", color: "#ef4444", display: "flex", alignItems: "center", flexShrink: 0 }}
+      >
+        <Trash2 size={14} />
+      </button>
+    </div>
+  )
+}
+
+// ─── KPI card ─────────────────────────────────────────────────────────────────
 
 function KpiCard({
   label,

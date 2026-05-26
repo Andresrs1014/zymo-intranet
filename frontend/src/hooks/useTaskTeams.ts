@@ -54,6 +54,18 @@ export function useAvailableUsers(teamId: number | null) {
 
 // ─── Mutations ────────────────────────────────────────────────────────────────
 
+export function useDeleteTeam() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (teamId: number) => {
+      await taskApi.delete(`/api/teams/${teamId}`)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["taskTeams"] })
+    },
+  })
+}
+
 export function useCreateTeam() {
   const qc = useQueryClient()
   return useMutation({
