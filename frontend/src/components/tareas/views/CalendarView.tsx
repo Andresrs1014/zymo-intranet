@@ -117,10 +117,23 @@ function EventCard({ event, onConfirm }: { event: TaskEvent; onConfirm: (id: num
 
 // ─── Create Event Form ────────────────────────────────────────────────────────
 
+function addMinutes(time: string, mins: number): string {
+  const [h, m] = time.split(":").map(Number)
+  const total = h * 60 + m + mins
+  return `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`
+}
+
+function diffMinutes(start: string, end: string): number {
+  const [sh, sm] = start.split(":").map(Number)
+  const [eh, em] = end.split(":").map(Number)
+  const diff = (eh * 60 + em) - (sh * 60 + sm)
+  return diff > 0 ? diff : 30
+}
+
 type CreateForm = {
   titulo: string
   horaInicio: string
-  duracionMinutos: number
+  horaFin: string
   descripcion: string
   modalidad: string
   sede: string
@@ -151,7 +164,7 @@ function CreateEventForm({
   const [form, setForm] = useState<CreateForm>({
     titulo: "",
     horaInicio: "09:00",
-    duracionMinutos: 60,
+    horaFin: "10:00",
     descripcion: "",
     modalidad: "",
     sede: "",
@@ -177,7 +190,7 @@ function CreateEventForm({
       titulo: form.titulo.trim(),
       fecha: selectedDay,
       horaInicio: form.horaInicio,
-      duracionMinutos: form.duracionMinutos,
+      duracionMinutos: diffMinutes(form.horaInicio, form.horaFin),
       descripcion: form.descripcion || undefined,
       modalidad: form.modalidad || undefined,
       sede: form.modalidad === "presencial" ? form.sede || undefined : undefined,
@@ -216,7 +229,7 @@ function CreateEventForm({
           style={INPUT_STYLE}
         />
 
-        {/* Hora + Duración */}
+        {/* Hora inicio + Hora fin */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <div>
             <label style={{ fontSize: 11, fontWeight: 600, color: "#5c6374", display: "block", marginBottom: 4 }}>
@@ -225,19 +238,23 @@ function CreateEventForm({
             <input
               type="time"
               value={form.horaInicio}
-              onChange={(e) => setForm((f) => ({ ...f, horaInicio: e.target.value }))}
+              onChange={(e) => {
+                const horaInicio = e.target.value
+                // Mantener la misma duración al cambiar hora inicio
+                const duracion = diffMinutes(form.horaInicio, form.horaFin)
+                setForm((f) => ({ ...f, horaInicio, horaFin: addMinutes(horaInicio, duracion) }))
+              }}
               style={INPUT_STYLE}
             />
           </div>
           <div>
             <label style={{ fontSize: 11, fontWeight: 600, color: "#5c6374", display: "block", marginBottom: 4 }}>
-              Duración (min)
+              Hora fin
             </label>
             <input
-              type="number"
-              min={5}
-              value={form.duracionMinutos}
-              onChange={(e) => setForm((f) => ({ ...f, duracionMinutos: Number(e.target.value) }))}
+              type="time"
+              value={form.horaFin}
+              onChange={(e) => setForm((f) => ({ ...f, horaFin: e.target.value }))}
               style={INPUT_STYLE}
             />
           </div>
