@@ -39,7 +39,7 @@ app.use("/api", authenticate)
 
 // --- Routers ---
 app.use("/api/teams", teamsRouter)
-app.use("/api/teams", listConfigsRouter)        // /api/teams/:teamId/lists
+app.use("/api/teams/:teamId/lists", listConfigsRouter)
 app.use("/api/tasks", tasksRouter)
 app.use("/api/tasks", taskAttachmentsRouter)    // POST/GET /api/tasks/:id/attachments
 app.use("/api/attachments", attachmentActionsRouter)

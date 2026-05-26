@@ -40,53 +40,42 @@ const DEFAULT_PRIORIDADES = [
   { value: "critica", label: "Crítica", color: "#ef4444", sortOrder: 3 },
 ]
 
+const DEFAULT_SEEDS: { listType: ListType; items: object[] }[] = [
+  { listType: "estado", items: DEFAULT_ESTADOS },
+  { listType: "etiqueta", items: DEFAULT_ETIQUETAS },
+  { listType: "plataforma", items: DEFAULT_PLATAFORMAS },
+  { listType: "modalidad", items: DEFAULT_MODALIDADES },
+  { listType: "prioridad", items: DEFAULT_PRIORIDADES },
+]
+
 async function seedDefaults(teamId: number): Promise<void> {
-  const ops = [
-    ...DEFAULT_ESTADOS.map((e) =>
+  // Check counts per type in parallel, then seed only missing types
+  const counts = await Promise.all(
+    DEFAULT_SEEDS.map(({ listType }) =>
+      prisma.listConfig.count({ where: { teamId, listType } }).then((c) => ({ listType, c })),
+    ),
+  )
+  const missing = counts.filter(({ c }) => c === 0).map(({ listType }) => listType)
+  if (missing.length === 0) return
+
+  type SeedItem = { value: string; label: string; color?: string; sortOrder?: number; isFinal?: boolean; isCanceled?: boolean; isInitialAssignment?: boolean }
+  const ops = DEFAULT_SEEDS.filter(({ listType }) => missing.includes(listType)).flatMap(({ listType, items }) =>
+    (items as SeedItem[]).map((e) =>
       prisma.listConfig.upsert({
-        where: { teamId_listType_value: { teamId, listType: "estado", value: e.value } },
+        where: { teamId_listType_value: { teamId, listType, value: e.value } },
         update: {},
-        create: { teamId, listType: "estado", ...e },
+        create: { teamId, listType, ...e },
       }),
     ),
-    ...DEFAULT_ETIQUETAS.map((e) =>
-      prisma.listConfig.upsert({
-        where: { teamId_listType_value: { teamId, listType: "etiqueta", value: e.value } },
-        update: {},
-        create: { teamId, listType: "etiqueta", ...e },
-      }),
-    ),
-    ...DEFAULT_PLATAFORMAS.map((e) =>
-      prisma.listConfig.upsert({
-        where: { teamId_listType_value: { teamId, listType: "plataforma", value: e.value } },
-        update: {},
-        create: { teamId, listType: "plataforma", ...e },
-      }),
-    ),
-    ...DEFAULT_MODALIDADES.map((e) =>
-      prisma.listConfig.upsert({
-        where: { teamId_listType_value: { teamId, listType: "modalidad", value: e.value } },
-        update: {},
-        create: { teamId, listType: "modalidad", ...e },
-      }),
-    ),
-    ...DEFAULT_PRIORIDADES.map((e) =>
-      prisma.listConfig.upsert({
-        where: { teamId_listType_value: { teamId, listType: "prioridad", value: e.value } },
-        update: {},
-        create: { teamId, listType: "prioridad", ...e },
-      }),
-    ),
-  ]
+  )
   await Promise.all(ops)
 }
 
 export async function getLists(user: AuthPayload, teamId: number) {
   await requireMembership(user, teamId)
 
-  // Auto-seed if team has no configs
-  const count = await prisma.listConfig.count({ where: { teamId } })
-  if (count === 0) await seedDefaults(teamId)
+  // Auto-seed any list type that has 0 entries for this team
+  await seedDefaults(teamId)
 
   const configs = await prisma.listConfig.findMany({
     where: { teamId, isActive: true },
