@@ -15,14 +15,17 @@ import {
   type CreateUserPayload,
   type UpdateUserPayload,
 } from "@/hooks/useUsers"
-import { useUserTools, useAssignUserTool, useRevokeUserTool, useAdminUserTasks, useAdminDeleteTask } from "@/hooks/useWorkTasks"
+import { useUserTools, useAssignUserTool, useRevokeUserTool } from "@/hooks/useWorkTasks"
 import {
   useAllTeams,
   useUserTeams,
   useAdminAssignOwner,
   useAdminAssignMember,
   useAdminRemoveMember,
+  useDeleteTeam,
 } from "@/hooks/useTaskTeams"
+import { useTasks, useDeleteTask } from "@/hooks/useTasks"
+import type { Team } from "@/types/task"
 import type { UserListItem } from "@/types/auth"
 
 type Tab = "activos" | "archivados"
@@ -353,45 +356,122 @@ function formatDate(iso: string): string {
   return formatFechaRelativa(iso)
 }
 
-function UserTasksPanel({ userId }: { userId: number }) {
-  const { data: tasks = [], isLoading } = useAdminUserTasks(userId)
-  const deleteTask = useAdminDeleteTask()
+function UserTasksPanel({ userId, allTeams }: { userId: number; allTeams: Team[] }) {
+  const { data: result, isLoading } = useTasks({ subidoPorId: userId, limit: 200 })
+  const deleteTask = useDeleteTask()
   const [confirmId, setConfirmId] = useState<number | null>(null)
+  const [openTeams, setOpenTeams] = useState<Record<number, boolean>>({})
+
+  const tasks = result?.tasks ?? []
 
   if (isLoading) return <p className="text-xs text-gray-400 py-2">Cargando tareas...</p>
   if (tasks.length === 0) return <p className="text-xs text-gray-400 py-2">Sin tareas registradas.</p>
 
+  const grouped = tasks.reduce<Record<number, typeof tasks>>((acc, t) => {
+    if (!acc[t.teamId]) acc[t.teamId] = []
+    acc[t.teamId].push(t)
+    return acc
+  }, {})
+
   return (
-    <div className="space-y-1 max-h-60 overflow-y-auto">
-      {tasks.map((task) => (
-        <div key={task.id} className="flex items-center justify-between gap-2 py-1.5 border-b border-gray-100 text-xs">
-          <div className="flex-1 min-w-0">
-            <span className="font-medium text-gray-800 truncate block">{task.titulo}</span>
-            <span className="text-gray-400">{task.fecha} · {task.prioridad} · {task.estado}</span>
-          </div>
-          {confirmId === task.id ? (
-            <div className="flex gap-1 shrink-0">
-              <button
-                onClick={() => { deleteTask.mutate(task.id); setConfirmId(null) }}
-                className="text-red-600 hover:text-red-800 font-semibold"
-              >
-                Confirmar
-              </button>
-              <button onClick={() => setConfirmId(null)} className="text-gray-400">
-                Cancelar
-              </button>
-            </div>
-          ) : (
+    <div className="space-y-2 max-h-72 overflow-y-auto">
+      {Object.entries(grouped).map(([teamIdStr, teamTasks]) => {
+        const teamId = Number(teamIdStr)
+        const teamName = allTeams.find((t) => t.id === teamId)?.name ?? `Equipo #${teamId}`
+        const isOpen = openTeams[teamId] ?? false
+
+        return (
+          <div key={teamId} className="rounded-lg border border-gray-100 overflow-hidden">
             <button
-              onClick={() => setConfirmId(task.id)}
-              className="shrink-0 text-gray-300 hover:text-red-500 transition-colors"
-              title="Borrar tarea"
+              type="button"
+              onClick={() => setOpenTeams((prev) => ({ ...prev, [teamId]: !isOpen }))}
+              className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
             >
-              🗑
+              <span className="text-xs font-semibold text-gray-700">{teamName}</span>
+              <span className="text-xs text-gray-400">{teamTasks.length} tarea{teamTasks.length !== 1 ? "s" : ""} {isOpen ? "▲" : "▼"}</span>
             </button>
-          )}
+
+            {isOpen && (
+              <div className="divide-y divide-gray-50">
+                {teamTasks.map((task) => (
+                  <div key={task.id} className="flex items-center justify-between gap-2 px-3 py-1.5 text-xs">
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium text-gray-800 truncate block">{task.titulo}</span>
+                      <span className="text-gray-400">{task.fecha?.slice(0, 10)} · {task.estado}</span>
+                    </div>
+                    {confirmId === task.id ? (
+                      <div className="flex gap-1 shrink-0">
+                        <button
+                          onClick={() => { deleteTask.mutate(task.id); setConfirmId(null) }}
+                          className="text-red-600 hover:text-red-800 font-semibold"
+                        >
+                          Confirmar
+                        </button>
+                        <button onClick={() => setConfirmId(null)} className="text-gray-400">
+                          Cancelar
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmId(task.id)}
+                        className="shrink-0 text-gray-300 hover:text-red-500 transition-colors"
+                        title="Borrar tarea"
+                      >
+                        🗑
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function DeleteWorkspaceInline({ teamId, teamName, onDeleted }: { teamId: number; teamName: string; onDeleted: () => void }) {
+  const deleteTeam = useDeleteTeam()
+  const [confirm, setConfirm] = useState(false)
+
+  return (
+    <div className="rounded-lg border border-red-100 bg-red-50 p-3 space-y-2">
+      <p className="text-[10px] font-semibold text-red-600 uppercase tracking-wide">Zona de peligro</p>
+      {confirm ? (
+        <div className="space-y-2">
+          <p className="text-xs text-red-700">¿Eliminar <strong>"{teamName}"</strong>? Esta acción desactiva el equipo permanentemente.</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setConfirm(false)}
+              className="flex-1 rounded border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-600"
+            >
+              Cancelar
+            </button>
+            <button
+              disabled={deleteTeam.isPending}
+              onClick={async () => {
+                await deleteTeam.mutateAsync(teamId)
+                setConfirm(false)
+                onDeleted()
+              }}
+              className="flex-1 rounded bg-red-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+            >
+              {deleteTeam.isPending ? "Eliminando..." : "Sí, eliminar"}
+            </button>
+          </div>
         </div>
-      ))}
+      ) : (
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-gray-700">{teamName}</span>
+          <button
+            onClick={() => setConfirm(true)}
+            className="rounded bg-red-100 px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-200 transition-colors"
+          >
+            Eliminar espacio
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -666,9 +746,13 @@ function UserToolsModal({ user, onClose }: { user: UserListItem; onClose: () => 
             </div>
           )}
 
-          <div className="border-t border-gray-100 pt-4">
-            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Tareas</h4>
-            <UserTasksPanel userId={user.id} />
+          <div className="border-t border-gray-100 pt-4 space-y-4">
+            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Tareas</h4>
+            <UserTasksPanel userId={user.id} allTeams={allTeams} />
+
+            {hasManageDev && ownedTeam && (
+              <DeleteWorkspaceInline teamId={ownedTeam.id} teamName={ownedTeam.name} onDeleted={refetchUserTeams} />
+            )}
           </div>
         </div>
 

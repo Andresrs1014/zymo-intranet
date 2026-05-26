@@ -51,6 +51,7 @@ export interface TaskFilters {
   fechaDesde?: string
   fechaHasta?: string
   responsableId?: number
+  subidoPorId?: number
   prioridad?: string
 }
 
@@ -384,6 +385,7 @@ export async function listTasks(
   if (filters.plataforma) where["plataforma"] = filters.plataforma
   if (filters.prioridad) where["prioridad"] = filters.prioridad
   if (filters.responsableId) where["asignadoAId"] = filters.responsableId
+  if (filters.subidoPorId) where["subidoPorId"] = filters.subidoPorId
 
   if (filters.fechaDesde || filters.fechaHasta) {
     const dateFilter: Record<string, Date> = {}

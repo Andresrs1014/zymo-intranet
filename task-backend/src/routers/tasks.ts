@@ -44,6 +44,7 @@ router.get("/", async (req: Request, res: Response) => {
     fechaDesde: q.fechaDesde ? String(q.fechaDesde) : undefined,
     fechaHasta: q.fechaHasta ? String(q.fechaHasta) : undefined,
     responsableId: q.responsableId ? Number(q.responsableId) : undefined,
+    subidoPorId: q.subidoPorId ? Number(q.subidoPorId) : undefined,
     prioridad: q.prioridad ? String(q.prioridad) : undefined,
   }
 

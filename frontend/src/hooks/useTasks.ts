@@ -11,6 +11,7 @@ export interface TaskListFilters {
   fechaDesde?: string
   fechaHasta?: string
   responsableId?: number
+  subidoPorId?: number
   prioridad?: string
   page?: number
   limit?: number
@@ -38,6 +39,7 @@ export function useTasks(filters: TaskListFilters) {
       if (filters.fechaDesde) params.set("fechaDesde", filters.fechaDesde)
       if (filters.fechaHasta) params.set("fechaHasta", filters.fechaHasta)
       if (filters.responsableId) params.set("responsableId", String(filters.responsableId))
+      if (filters.subidoPorId) params.set("subidoPorId", String(filters.subidoPorId))
       if (filters.prioridad) params.set("prioridad", filters.prioridad)
       if (filters.page) params.set("page", String(filters.page))
       if (filters.limit) params.set("limit", String(filters.limit))
@@ -48,7 +50,7 @@ export function useTasks(filters: TaskListFilters) {
       const limit = Number(headers["x-limit"] ?? filters.limit ?? 50)
       return { tasks: data, total, page, limit }
     },
-    enabled: filters.teamId !== undefined,
+    enabled: filters.teamId !== undefined || filters.subidoPorId !== undefined,
   })
 }
 
