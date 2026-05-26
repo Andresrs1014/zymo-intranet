@@ -21,6 +21,8 @@ router.post("/", async (req: Request, res: Response) => {
       asignadoANombre: z.string().optional(),
       impacto: z.string().optional(),
       modalidad: z.string().optional(),
+      horaInicio: z.string().nullable().optional(),
+      horaCierre: z.string().nullable().optional(),
     })
     .parse(req.body)
 

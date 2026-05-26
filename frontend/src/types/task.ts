@@ -77,6 +77,8 @@ export interface CreateTaskInput {
   asignadoANombre?: string
   impacto?: string
   modalidad?: string
+  horaInicio?: string | null
+  horaCierre?: string | null
 }
 
 export interface UpdateTaskInput {

@@ -20,6 +20,8 @@ export interface CreateTaskInput {
   asignadoANombre?: string
   impacto?: string
   modalidad?: string
+  horaInicio?: string | null
+  horaCierre?: string | null
 }
 
 export interface UpdateTaskInput {
@@ -160,6 +162,8 @@ export async function createTask(
       fecha: new Date(input.fecha),
       impacto: input.impacto ?? null,
       modalidad: input.modalidad ?? null,
+      horaInicio: input.horaInicio ? new Date(input.horaInicio) : null,
+      horaCierre: input.horaCierre ? new Date(input.horaCierre) : null,
       aceptacion,
       version: 1,
     },

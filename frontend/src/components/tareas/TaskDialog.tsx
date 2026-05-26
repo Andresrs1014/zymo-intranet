@@ -36,6 +36,8 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
     estado: "",
     prioridad: "media",
     fecha: new Date().toISOString().slice(0, 10),
+    horaInicio: "",
+    horaFin: "",
     asignadoAId: "" as string | number,
     modalidad: "",
   })
@@ -54,6 +56,8 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
         estado: task.estado,
         prioridad: task.prioridad,
         fecha: task.fecha.slice(0, 10),
+        horaInicio: task.horaInicio ? task.horaInicio.slice(11, 16) : "",
+        horaFin: task.horaCierre ? task.horaCierre.slice(11, 16) : "",
         asignadoAId: task.asignadoAId ?? "",
         modalidad: task.modalidad ?? "",
       })
@@ -66,6 +70,8 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
         estado: "",
         prioridad: "media",
         fecha: new Date().toISOString().slice(0, 10),
+        horaInicio: "",
+        horaFin: "",
         asignadoAId: "",
         modalidad: "",
       })
@@ -99,6 +105,8 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
           estado: form.estado,
           prioridad: form.prioridad,
           fecha: form.fecha,
+          horaInicio: form.horaInicio ? `${form.fecha}T${form.horaInicio}:00` : null,
+          horaCierre: form.horaFin ? `${form.fecha}T${form.horaFin}:00` : null,
           asignadoAId: form.asignadoAId ? Number(form.asignadoAId) : null,
           modalidad: form.modalidad || null,
           version: task.version,
@@ -115,6 +123,8 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
           estado: form.estado || estados[0]?.value,
           prioridad: form.prioridad || prioridades[0]?.value,
           fecha: form.fecha,
+          horaInicio: form.horaInicio ? `${form.fecha}T${form.horaInicio}:00` : undefined,
+          horaCierre: form.horaFin ? `${form.fecha}T${form.horaFin}:00` : undefined,
           asignadoAId: form.asignadoAId ? Number(form.asignadoAId) : undefined,
           modalidad: form.modalidad || undefined,
         }
@@ -285,6 +295,28 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
                   <option key={m.userId} value={m.userId}>{m.userNombre ?? `Usuario ${m.userId}`}</option>
                 ))}
               </select>
+            </div>
+          </div>
+
+          {/* Row: hora inicio + hora fin */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div>
+              <div style={LABEL_STYLE}>Hora inicio</div>
+              <input
+                type="time"
+                style={INPUT_STYLE}
+                value={form.horaInicio}
+                onChange={(e) => setForm((f) => ({ ...f, horaInicio: e.target.value }))}
+              />
+            </div>
+            <div>
+              <div style={LABEL_STYLE}>Hora fin</div>
+              <input
+                type="time"
+                style={INPUT_STYLE}
+                value={form.horaFin}
+                onChange={(e) => setForm((f) => ({ ...f, horaFin: e.target.value }))}
+              />
             </div>
           </div>
 
