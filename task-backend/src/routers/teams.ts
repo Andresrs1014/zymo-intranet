@@ -18,6 +18,16 @@ router.get("/", async (req: Request, res: Response) => {
   res.json(teams)
 })
 
+// ─── GET /api/teams/archived ──────────────────────────────────────────────────
+router.get("/archived", async (req: Request, res: Response) => {
+  if (!isAdmin(req.user!)) {
+    res.status(403).json({ error: "No autorizado" })
+    return
+  }
+  const teams = await teamService.getArchivedTeams()
+  res.json(teams)
+})
+
 // ─── GET /api/teams/my-teams ──────────────────────────────────────────────────
 router.get("/my-teams", async (req: Request, res: Response) => {
   const token = req.headers.authorization?.startsWith("Bearer ")
@@ -48,6 +58,28 @@ router.post("/", async (req: Request, res: Response) => {
 router.delete("/:id", async (req: Request, res: Response) => {
   const { id } = idParamSchema.parse(req.params)
   await teamService.deleteTeam(req.user!, id)
+  res.status(204).send()
+})
+
+// ─── POST /api/teams/:id/restore ─────────────────────────────────────────────
+router.post("/:id/restore", async (req: Request, res: Response) => {
+  if (!isAdmin(req.user!)) {
+    res.status(403).json({ error: "No autorizado" })
+    return
+  }
+  const { id } = idParamSchema.parse(req.params)
+  await teamService.restoreTeam(id)
+  res.status(204).send()
+})
+
+// ─── DELETE /api/teams/:id/hard ───────────────────────────────────────────────
+router.delete("/:id/hard", async (req: Request, res: Response) => {
+  if (!isAdmin(req.user!)) {
+    res.status(403).json({ error: "No autorizado" })
+    return
+  }
+  const { id } = idParamSchema.parse(req.params)
+  await teamService.hardDeleteTeam(id)
   res.status(204).send()
 })
 

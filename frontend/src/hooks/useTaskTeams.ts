@@ -152,6 +152,47 @@ export function useAllTeams() {
   })
 }
 
+export interface ArchivedTeam {
+  id: number
+  name: string
+  ownerUserId: number
+  updatedAt: string
+}
+
+export function useArchivedTeams() {
+  return useQuery<ArchivedTeam[]>({
+    queryKey: ["taskTeams", "archived"],
+    queryFn: async () => {
+      const { data } = await taskApi.get<ArchivedTeam[]>("/api/teams/archived")
+      return data
+    },
+  })
+}
+
+export function useRestoreTeam() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (teamId: number) => {
+      await taskApi.post(`/api/teams/${teamId}/restore`)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["taskTeams"] })
+    },
+  })
+}
+
+export function useHardDeleteTeam() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (teamId: number) => {
+      await taskApi.delete(`/api/teams/${teamId}/hard`)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["taskTeams"] })
+    },
+  })
+}
+
 export function useUserTeams(userId: number | null) {
   return useQuery<{ ownedTeams: Team[]; memberTeams: Team[] }>({
     queryKey: ["taskTeams", "user", userId],

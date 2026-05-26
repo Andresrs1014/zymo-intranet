@@ -23,12 +23,15 @@ import {
   useAdminAssignMember,
   useAdminRemoveMember,
   useDeleteTeam,
+  useArchivedTeams,
+  useRestoreTeam,
+  useHardDeleteTeam,
 } from "@/hooks/useTaskTeams"
 import { useTasks, useDeleteTask } from "@/hooks/useTasks"
 import type { Team } from "@/types/task"
 import type { UserListItem } from "@/types/auth"
 
-type Tab = "activos" | "archivados"
+type Tab = "activos" | "archivados" | "equipos"
 
 const TOOLS = [
   { key: "tool_task_submit_dev", label: "Gestión de Tareas — Colaborador", desc: "Acceso a registro de tareas propias" },
@@ -138,22 +141,30 @@ export function AdminPage() {
 
           {/* Tabs */}
           <div className="flex gap-1 mb-4 bg-gray-100 rounded-lg p-1 w-fit">
-            {(["activos", "archivados"] as Tab[]).map((t) => (
+            {([
+              { key: "activos", label: "Activos" },
+              { key: "archivados", label: "Archivados" },
+              { key: "equipos", label: "Equipos archivados" },
+            ] as { key: Tab; label: string }[]).map((t) => (
               <button
-                key={t}
-                onClick={() => handleTabChange(t)}
-                className={`rounded-md px-4 py-1.5 text-sm font-medium capitalize transition-colors ${
-                  tab === t
+                key={t.key}
+                onClick={() => handleTabChange(t.key)}
+                className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
+                  tab === t.key
                     ? "bg-white text-gray-900 shadow-sm"
                     : "text-gray-500 hover:text-gray-700"
                 }`}
               >
-                {t}
+                {t.label}
               </button>
             ))}
           </div>
 
-          {/* Tabla */}
+          {/* Equipos archivados */}
+          {tab === "equipos" ? (
+            <ArchivedTeamsPanel />
+          ) : (
+          /* Tabla usuarios */
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
             {isLoading ? (
               <div className="flex items-center justify-center py-16 text-gray-400 text-sm">
@@ -201,6 +212,7 @@ export function AdminPage() {
               </table>
             )}
           </div>
+          )}
       </PageLayout>
 
       {modal && (
@@ -427,6 +439,85 @@ function UserTasksPanel({ userId, allTeams }: { userId: number; allTeams: Team[]
           </div>
         )
       })}
+    </div>
+  )
+}
+
+function ArchivedTeamsPanel() {
+  const { data: teams = [], isLoading } = useArchivedTeams()
+  const restore = useRestoreTeam()
+  const hardDelete = useHardDeleteTeam()
+  const [confirmId, setConfirmId] = useState<number | null>(null)
+
+  if (isLoading) {
+    return <p className="text-sm text-gray-400 py-8 text-center">Cargando...</p>
+  }
+
+  if (teams.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <p className="text-gray-400 text-sm">No hay equipos archivados.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-gray-100 text-left">
+            <th className="px-4 py-3 font-medium text-gray-500">Equipo</th>
+            <th className="px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Archivado</th>
+            <th className="px-4 py-3 font-medium text-gray-500 text-right">Acciones</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-50">
+          {teams.map((team) => (
+            <tr key={team.id} className="hover:bg-gray-50/50">
+              <td className="px-4 py-3">
+                <span className="font-medium text-gray-800">{team.name}</span>
+                <span className="text-xs text-gray-400 ml-2">ID {team.id}</span>
+              </td>
+              <td className="px-4 py-3 text-xs text-gray-400 hidden md:table-cell">
+                {new Date(team.updatedAt).toLocaleDateString("es-MX")}
+              </td>
+              <td className="px-4 py-3 text-right">
+                {confirmId === team.id ? (
+                  <div className="flex items-center justify-end gap-2">
+                    <span className="text-xs text-red-600 font-medium">¿Borrar permanentemente?</span>
+                    <button
+                      onClick={async () => { await hardDelete.mutateAsync(team.id); setConfirmId(null) }}
+                      disabled={hardDelete.isPending}
+                      className="text-xs font-semibold text-red-600 hover:text-red-800 disabled:opacity-50"
+                    >
+                      Confirmar
+                    </button>
+                    <button onClick={() => setConfirmId(null)} className="text-xs text-gray-400 hover:text-gray-600">
+                      Cancelar
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      onClick={() => restore.mutate(team.id)}
+                      disabled={restore.isPending}
+                      className="rounded border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      Restaurar
+                    </button>
+                    <button
+                      onClick={() => setConfirmId(team.id)}
+                      className="rounded border border-red-200 bg-red-50 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-100"
+                    >
+                      Borrar definitivo
+                    </button>
+                  </div>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }

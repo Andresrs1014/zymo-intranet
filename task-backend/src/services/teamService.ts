@@ -400,6 +400,45 @@ export async function getAllActiveTeams(): Promise<{ id: number; name: string; o
 }
 
 /**
+ * Returns all archived (soft-deleted) teams (admin only)
+ */
+export async function getArchivedTeams(): Promise<{ id: number; name: string; ownerUserId: number; updatedAt: Date }[]> {
+  return prisma.team.findMany({
+    where: { isActive: false },
+    select: { id: true, name: true, ownerUserId: true, updatedAt: true },
+    orderBy: { updatedAt: "desc" },
+  })
+}
+
+/**
+ * Restores a soft-deleted team (admin only)
+ */
+export async function restoreTeam(teamId: number): Promise<void> {
+  const team = await prisma.team.findFirst({ where: { id: teamId, isActive: false } })
+  if (!team) throw new AppError(404, "Equipo archivado no encontrado")
+  await prisma.team.update({ where: { id: teamId }, data: { isActive: true } })
+}
+
+/**
+ * Permanently deletes a team and all related data (admin only)
+ */
+export async function hardDeleteTeam(teamId: number): Promise<void> {
+  const team = await prisma.team.findFirst({ where: { id: teamId } })
+  if (!team) throw new AppError(404, "Equipo no encontrado")
+
+  await prisma.$transaction([
+    prisma.activityLog.deleteMany({ where: { task: { teamId } } }),
+    prisma.attachment.deleteMany({ where: { task: { teamId } } }),
+    prisma.eventParticipant.deleteMany({ where: { event: { teamId } } }),
+    prisma.event.deleteMany({ where: { teamId } }),
+    prisma.task.deleteMany({ where: { teamId } }),
+    prisma.listConfig.deleteMany({ where: { teamId } }),
+    prisma.teamMember.deleteMany({ where: { teamId } }),
+    prisma.team.delete({ where: { id: teamId } }),
+  ])
+}
+
+/**
  * Returns teams owned by or containing the user as a member
  */
 export async function getUserTeams(targetUserId: number): Promise<{ ownedTeams: { id: number; name: string }[]; memberTeams: { id: number; name: string }[] }> {
