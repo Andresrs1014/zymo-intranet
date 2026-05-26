@@ -15,13 +15,6 @@ from app.schemas.work_task import WorkTaskCreate, WorkTaskUpdate
 from app.services.user_tool_service import user_has_tool
 
 
-def _to_utc(dt: datetime) -> datetime:
-    """Ensures datetime is timezone-aware (UTC). Treats naive datetimes as UTC."""
-    if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc)
-
-
 def calcular_minutos(
     hora_inicio: datetime | None,
     hora_cierre: datetime | None,
@@ -29,14 +22,12 @@ def calcular_minutos(
     """Calculates total minutes between start and end time."""
     if hora_inicio is None or hora_cierre is None:
         return None
-    inicio = _to_utc(hora_inicio)
-    cierre = _to_utc(hora_cierre)
-    if cierre <= inicio:
+    if hora_cierre <= hora_inicio:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="hora_cierre debe ser posterior a hora_inicio.",
         )
-    delta = cierre - inicio
+    delta = hora_cierre - hora_inicio
     return int(delta.total_seconds() // 60)
 
 
