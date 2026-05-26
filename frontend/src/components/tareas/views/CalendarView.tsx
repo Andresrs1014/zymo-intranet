@@ -638,13 +638,12 @@ export function CalendarView() {
             style={{
               padding: "8px 18px",
               borderRadius: 7,
-              border: "none",
+              border: showCreate ? "1px solid #d8dde8" : "none",
               background: showCreate ? "#f4f6fa" : "#ef3340",
               color: showCreate ? "#3f4652" : "#fff",
               fontWeight: 700,
               fontSize: 13,
               cursor: "pointer",
-              border: showCreate ? "1px solid #d8dde8" : "none",
             } as React.CSSProperties}
           >
             {showCreate ? "Cancelar" : "+ Nuevo evento"}
