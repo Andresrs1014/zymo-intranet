@@ -9,13 +9,6 @@ datasource db {
 
 // ─── ENUMS ─────────────────────────────────────────────────────
 
-enum Priority {
-  baja
-  media
-  alta
-  critica
-}
-
 enum TeamMemberRole {
   member
   co_gestor
@@ -25,6 +18,8 @@ enum ListType {
   estado
   etiqueta
   plataforma
+  modalidad
+  prioridad
   prioridad_agenda
 }
 
@@ -95,14 +90,12 @@ model Task {
   etiqueta              String               @db.VarChar(60)
   plataforma            String               @db.VarChar(60)
   estado                String               @db.VarChar(60)
-  prioridad             Priority             @default(media)
+  prioridad             String               @default("media") @db.VarChar(60)
   fecha                 DateTime             @db.Date
   horaInicio            DateTime?            @map("hora_inicio") @db.Timestamptz
   horaCierre            DateTime?            @map("hora_cierre") @db.Timestamptz
   tiempoTotalMinutos    Int?                 @map("tiempo_total_minutos")
-  tiempoEstimadoMinutos Int?                 @map("tiempo_estimado_minutos")
-  modalidad             String?              @db.VarChar(30)
-  sede                  String?              @db.VarChar(60)
+  modalidad             String?              @db.VarChar(60)
   aceptacion            TaskAcceptanceStatus @default(pendiente)
   version               Int                  @default(1)
   createdAt             DateTime             @default(now()) @map("created_at") @db.Timestamptz

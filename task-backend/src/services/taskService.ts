@@ -5,7 +5,7 @@ import { validateTitle } from "../utils/validators"
 import { PaginationParams } from "../utils/pagination"
 import { validateTransition, getFinalState, StateConfig } from "./stateMachine"
 import { getMemberTeamIds, getManagedTeamIds } from "../utils/permissions"
-import { Prisma, type Priority, type TaskAcceptanceStatus, type ActivityAction } from "@prisma/client"
+import { Prisma, type TaskAcceptanceStatus, type ActivityAction } from "@prisma/client"
 
 export interface CreateTaskInput {
   teamId: number
@@ -14,14 +14,12 @@ export interface CreateTaskInput {
   etiqueta: string
   plataforma: string
   estado?: string
-  prioridad?: Priority
+  prioridad?: string
   fecha: string
   asignadoAId?: number
   asignadoANombre?: string
   impacto?: string
-  tiempoEstimadoMinutos?: number
   modalidad?: string
-  sede?: string
 }
 
 export interface UpdateTaskInput {
@@ -32,13 +30,11 @@ export interface UpdateTaskInput {
   etiqueta?: string
   plataforma?: string
   estado?: string
-  prioridad?: Priority
+  prioridad?: string
   fecha?: string
   asignadoAId?: number | null
   asignadoANombre?: string | null
-  tiempoEstimadoMinutos?: number | null
   modalidad?: string | null
-  sede?: string | null
   horaInicio?: string | null
   horaCierre?: string | null
   version: number
@@ -53,7 +49,7 @@ export interface TaskFilters {
   fechaDesde?: string
   fechaHasta?: string
   responsableId?: number
-  prioridad?: Priority
+  prioridad?: string
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -88,7 +84,7 @@ async function getUserRoleInTeam(
 
 async function validateListValue(teamId: number, listType: string, value: string): Promise<void> {
   const exists = await prisma.listConfig.findFirst({
-    where: { teamId, listType: listType as "estado" | "etiqueta" | "plataforma" | "prioridad_agenda", value, isActive: true },
+    where: { teamId, listType: listType as "estado" | "etiqueta" | "plataforma" | "modalidad" | "prioridad" | "prioridad_agenda", value, isActive: true },
   })
   if (!exists) throw new AppError(422, `Valor inválido para ${listType}: ${value}`)
 }
@@ -163,9 +159,7 @@ export async function createTask(
       prioridad: input.prioridad ?? "media",
       fecha: new Date(input.fecha),
       impacto: input.impacto ?? null,
-      tiempoEstimadoMinutos: input.tiempoEstimadoMinutos ?? null,
       modalidad: input.modalidad ?? null,
-      sede: input.sede ?? null,
       aceptacion,
       version: 1,
     },
@@ -284,19 +278,9 @@ export async function updateTask(
     }
   }
 
-  if (input.tiempoEstimadoMinutos !== undefined && input.tiempoEstimadoMinutos !== current.tiempoEstimadoMinutos) {
-    campos["tiempoEstimadoMinutos"] = { old: current.tiempoEstimadoMinutos, new: input.tiempoEstimadoMinutos }
-    data["tiempoEstimadoMinutos"] = input.tiempoEstimadoMinutos
-  }
-
   if (input.modalidad !== undefined && input.modalidad !== current.modalidad) {
     campos["modalidad"] = { old: current.modalidad, new: input.modalidad }
     data["modalidad"] = input.modalidad
-  }
-
-  if (input.sede !== undefined && input.sede !== current.sede) {
-    campos["sede"] = { old: current.sede, new: input.sede }
-    data["sede"] = input.sede
   }
 
   if (input.horaInicio !== undefined) {

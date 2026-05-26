@@ -3,11 +3,7 @@ import { z } from "zod"
 import { idParamSchema } from "../utils/validators"
 import { parsePagination, setPaginationHeaders } from "../utils/pagination"
 import * as taskService from "../services/taskService"
-import type { Priority } from "@prisma/client"
-
 const router = Router()
-
-const priorityValues: Priority[] = ["baja", "media", "alta", "critica"]
 
 // ─── POST /api/tasks ──────────────────────────────────────────────────────────
 router.post("/", async (req: Request, res: Response) => {
@@ -19,14 +15,12 @@ router.post("/", async (req: Request, res: Response) => {
       etiqueta: z.string(),
       plataforma: z.string(),
       estado: z.string().optional(),
-      prioridad: z.enum(["baja", "media", "alta", "critica"]).optional(),
+      prioridad: z.string().optional(),
       fecha: z.string(),
       asignadoAId: z.number().int().positive().optional(),
       asignadoANombre: z.string().optional(),
       impacto: z.string().optional(),
-      tiempoEstimadoMinutos: z.number().int().positive().optional(),
       modalidad: z.string().optional(),
-      sede: z.string().optional(),
     })
     .parse(req.body)
 
@@ -48,9 +42,7 @@ router.get("/", async (req: Request, res: Response) => {
     fechaDesde: q.fechaDesde ? String(q.fechaDesde) : undefined,
     fechaHasta: q.fechaHasta ? String(q.fechaHasta) : undefined,
     responsableId: q.responsableId ? Number(q.responsableId) : undefined,
-    prioridad: priorityValues.includes(q.prioridad as Priority)
-      ? (q.prioridad as Priority)
-      : undefined,
+    prioridad: q.prioridad ? String(q.prioridad) : undefined,
   }
 
   const { total, tasks } = await taskService.listTasks(req.user!, filters, pagination)
@@ -77,13 +69,11 @@ router.patch("/:id", async (req: Request, res: Response) => {
       etiqueta: z.string().optional(),
       plataforma: z.string().optional(),
       estado: z.string().optional(),
-      prioridad: z.enum(["baja", "media", "alta", "critica"]).optional(),
+      prioridad: z.string().optional(),
       fecha: z.string().optional(),
       asignadoAId: z.number().int().positive().nullable().optional(),
       asignadoANombre: z.string().nullable().optional(),
-      tiempoEstimadoMinutos: z.number().int().positive().nullable().optional(),
       modalidad: z.string().nullable().optional(),
-      sede: z.string().nullable().optional(),
       horaInicio: z.string().nullable().optional(),
       horaCierre: z.string().nullable().optional(),
       version: z.number().int().positive(),

@@ -34,12 +34,10 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
     etiqueta: "",
     plataforma: "",
     estado: "",
-    prioridad: "media" as Task["prioridad"],
+    prioridad: "media",
     fecha: new Date().toISOString().slice(0, 10),
     asignadoAId: "" as string | number,
-    tiempoEstimadoMinutos: "" as string | number,
     modalidad: "",
-    sede: "",
   })
 
   const { suggestions } = useTaskAISuggestions(form.titulo)
@@ -57,9 +55,7 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
         prioridad: task.prioridad,
         fecha: task.fecha.slice(0, 10),
         asignadoAId: task.asignadoAId ?? "",
-        tiempoEstimadoMinutos: task.tiempoEstimadoMinutos ?? "",
         modalidad: task.modalidad ?? "",
-        sede: task.sede ?? "",
       })
     } else {
       setForm({
@@ -71,9 +67,7 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
         prioridad: "media",
         fecha: new Date().toISOString().slice(0, 10),
         asignadoAId: "",
-        tiempoEstimadoMinutos: "",
         modalidad: "",
-        sede: "",
       })
     }
   }, [open, task])
@@ -83,6 +77,8 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
   const estados = lists?.estado ?? []
   const etiquetas = lists?.etiqueta ?? []
   const plataformas = lists?.plataforma ?? []
+  const modalidades = lists?.modalidad ?? []
+  const prioridades = lists?.prioridad ?? []
 
   const LABEL_STYLE = { fontSize: 11, fontWeight: 700, color: "#5c6374", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 4 }
   const INPUT_STYLE = { width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #d8dde8", fontSize: 13, boxSizing: "border-box" as const }
@@ -104,9 +100,7 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
           prioridad: form.prioridad,
           fecha: form.fecha,
           asignadoAId: form.asignadoAId ? Number(form.asignadoAId) : null,
-          tiempoEstimadoMinutos: form.tiempoEstimadoMinutos ? Number(form.tiempoEstimadoMinutos) : null,
           modalidad: form.modalidad || null,
-          sede: form.sede || null,
           version: task.version,
         }
         await updateTask.mutateAsync({ taskId: task.id, input })
@@ -119,12 +113,10 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
           etiqueta: form.etiqueta || etiquetas[0]?.value,
           plataforma: form.plataforma || plataformas[0]?.value,
           estado: form.estado || estados[0]?.value,
-          prioridad: form.prioridad,
+          prioridad: form.prioridad || prioridades[0]?.value,
           fecha: form.fecha,
           asignadoAId: form.asignadoAId ? Number(form.asignadoAId) : undefined,
-          tiempoEstimadoMinutos: form.tiempoEstimadoMinutos ? Number(form.tiempoEstimadoMinutos) : undefined,
           modalidad: form.modalidad || undefined,
-          sede: form.sede || undefined,
         }
         await createTask.mutateAsync(input)
         showToast("Tarea creada", "success")
@@ -203,14 +195,6 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
                     IA: {suggestions.plataforma_sugerida}
                   </button>
                 )}
-                {suggestions.tiempo_estimado_minutos && (
-                  <button
-                    onClick={() => setForm((f) => ({ ...f, tiempoEstimadoMinutos: suggestions.tiempo_estimado_minutos! }))}
-                    style={{ padding: "2px 10px", borderRadius: 99, fontSize: 11, fontWeight: 600, background: "#dcfce7", color: "#166534", border: "none", cursor: "pointer" }}
-                  >
-                    IA: ~{suggestions.tiempo_estimado_minutos}min
-                  </button>
-                )}
               </div>
             )}
           </div>
@@ -270,12 +254,10 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
               <select
                 style={INPUT_STYLE}
                 value={form.prioridad}
-                onChange={(e) => setForm((f) => ({ ...f, prioridad: e.target.value as Task["prioridad"] }))}
+                onChange={(e) => setForm((f) => ({ ...f, prioridad: e.target.value }))}
               >
-                <option value="baja">Baja</option>
-                <option value="media">Media</option>
-                <option value="alta">Alta</option>
-                <option value="critica">Crítica</option>
+                <option value="">Seleccionar…</option>
+                {prioridades.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
               </select>
             </div>
           </div>
@@ -306,41 +288,24 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
             </div>
           </div>
 
-          {/* Row: tiempo + modalidad + sede */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-            <div>
-              <div style={LABEL_STYLE}>Tiempo est. (min)</div>
-              <input
-                type="number"
-                style={INPUT_STYLE}
-                placeholder="minutos"
-                value={form.tiempoEstimadoMinutos}
-                onChange={(e) => setForm((f) => ({ ...f, tiempoEstimadoMinutos: e.target.value }))}
-              />
-            </div>
+          {/* Modalidad */}
+          {modalidades.length > 0 && (
             <div>
               <div style={LABEL_STYLE}>Modalidad</div>
-              <input
+              <select
                 style={INPUT_STYLE}
-                placeholder="Presencial / Virtual"
                 value={form.modalidad}
                 onChange={(e) => setForm((f) => ({ ...f, modalidad: e.target.value }))}
-              />
+              >
+                <option value="">Sin modalidad</option>
+                {modalidades.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+              </select>
             </div>
-            <div>
-              <div style={LABEL_STYLE}>Sede</div>
-              <input
-                style={INPUT_STYLE}
-                placeholder="Sede"
-                value={form.sede}
-                onChange={(e) => setForm((f) => ({ ...f, sede: e.target.value }))}
-              />
-            </div>
-          </div>
+          )}
         </div>
 
-        {/* Comparativa tiempo estimado vs real */}
-        {isEdit && task && (task.tiempoEstimadoMinutos || task.tiempoTotalMinutos) && (
+        {/* Tiempo real */}
+        {isEdit && task && task.tiempoTotalMinutos != null && (
           <div style={{
             marginTop: 18,
             padding: "12px 16px",
@@ -348,36 +313,13 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
             background: "#f8f9fd",
             border: "1px solid #e8ebf4",
             display: "flex",
-            gap: 24,
+            gap: 8,
+            alignItems: "center",
             fontSize: 13,
             color: "#3f4652",
           }}>
-            {task.tiempoEstimadoMinutos != null && (
-              <div>
-                <span style={{ fontSize: 11, fontWeight: 700, color: "#9aa5b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>Estimado</span>
-                <div style={{ fontWeight: 700, fontSize: 15, color: "#121420", marginTop: 2 }}>{task.tiempoEstimadoMinutos} min</div>
-              </div>
-            )}
-            {task.tiempoTotalMinutos != null && (
-              <div>
-                <span style={{ fontSize: 11, fontWeight: 700, color: "#9aa5b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>Real</span>
-                <div style={{ fontWeight: 700, fontSize: 15, color: "#121420", marginTop: 2 }}>{task.tiempoTotalMinutos} min</div>
-              </div>
-            )}
-            {task.tiempoEstimadoMinutos != null && task.tiempoTotalMinutos != null && (
-              <div>
-                <span style={{ fontSize: 11, fontWeight: 700, color: "#9aa5b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>Diferencia</span>
-                <div style={{
-                  fontWeight: 700,
-                  fontSize: 15,
-                  marginTop: 2,
-                  color: task.tiempoTotalMinutos > task.tiempoEstimadoMinutos ? "#f97316" : "#10b981",
-                }}>
-                  {task.tiempoTotalMinutos > task.tiempoEstimadoMinutos ? "+" : ""}
-                  {task.tiempoTotalMinutos - task.tiempoEstimadoMinutos} min
-                </div>
-              </div>
-            )}
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#9aa5b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>Tiempo real:</span>
+            <span style={{ fontWeight: 700, fontSize: 15, color: "#121420" }}>{task.tiempoTotalMinutos} min</span>
           </div>
         )}
 

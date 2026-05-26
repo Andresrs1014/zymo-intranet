@@ -5,7 +5,7 @@ import * as listConfigService from "../services/listConfigService"
 
 const router = Router({ mergeParams: true })
 
-const listTypeValues = ["estado", "etiqueta", "plataforma", "prioridad_agenda"] as const
+const listTypeValues = ["estado", "etiqueta", "plataforma", "modalidad", "prioridad", "prioridad_agenda"] as const
 
 // ─── GET /api/teams/:teamId/lists ─────────────────────────────────────────────
 router.get("/", async (req: Request, res: Response) => {

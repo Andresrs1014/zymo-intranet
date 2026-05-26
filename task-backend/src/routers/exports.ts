@@ -1,8 +1,6 @@
 import { Router, Request, Response } from "express"
 import { z } from "zod"
 import * as exportService from "../services/exportService"
-import type { Priority } from "@prisma/client"
-
 const router = Router()
 
 const filtersQuery = z.object({
@@ -14,7 +12,7 @@ const filtersQuery = z.object({
   fechaDesde: z.string().optional(),
   fechaHasta: z.string().optional(),
   responsableId: z.string().regex(/^\d+$/).transform(Number).optional(),
-  prioridad: z.enum(["baja", "media", "alta", "critica"]).optional(),
+  prioridad: z.string().optional(),
 })
 
 // ─── GET /api/exports/excel ───────────────────────────────────────────────────

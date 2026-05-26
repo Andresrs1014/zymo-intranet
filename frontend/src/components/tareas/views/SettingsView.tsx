@@ -195,6 +195,8 @@ const LIST_TYPE_TABS: { key: ListType; label: string }[] = [
   { key: "estado", label: "Estados" },
   { key: "etiqueta", label: "Etiquetas" },
   { key: "plataforma", label: "Plataformas" },
+  { key: "modalidad", label: "Modalidades" },
+  { key: "prioridad", label: "Prioridades" },
 ]
 
 function ListItem({ item, teamId, isEstado }: { item: ListConfig; teamId: number; isEstado: boolean }) {

@@ -1,7 +1,7 @@
 import prisma from "../config/prisma"
 import { AppError } from "../middleware/errorHandler"
 import { AuthPayload } from "../middleware/auth"
-import { requireManageAccess } from "../utils/permissions"
+import { requireManageAccess, requireMembership } from "../utils/permissions"
 import type { ListType } from "@prisma/client"
 
 const DEFAULT_ESTADOS = [
@@ -21,9 +21,23 @@ const DEFAULT_ETIQUETAS = [
 ]
 
 const DEFAULT_PLATAFORMAS = [
-  { value: "intranet", label: "Intranet", color: "#3b82f6", sortOrder: 0 },
-  { value: "crm", label: "CRM", color: "#10b981", sortOrder: 1 },
-  { value: "erp", label: "ERP", color: "#f59e0b", sortOrder: 2 },
+  { value: "logimat_1", label: "Logimat 1", color: "#3b82f6", sortOrder: 0 },
+  { value: "logimat_2", label: "Logimat 2", color: "#6366f1", sortOrder: 1 },
+  { value: "imccargo", label: "IMCCARGO", color: "#10b981", sortOrder: 2 },
+  { value: "imc_deposito", label: "IMC Depósito", color: "#f59e0b", sortOrder: 3 },
+]
+
+const DEFAULT_MODALIDADES = [
+  { value: "presencial", label: "Presencial", color: "#10b981", sortOrder: 0 },
+  { value: "virtual", label: "Virtual", color: "#6366f1", sortOrder: 1 },
+  { value: "hibrido", label: "Híbrido", color: "#f59e0b", sortOrder: 2 },
+]
+
+const DEFAULT_PRIORIDADES = [
+  { value: "baja", label: "Baja", color: "#6b7280", sortOrder: 0 },
+  { value: "media", label: "Media", color: "#3b82f6", sortOrder: 1 },
+  { value: "alta", label: "Alta", color: "#f59e0b", sortOrder: 2 },
+  { value: "critica", label: "Crítica", color: "#ef4444", sortOrder: 3 },
 ]
 
 async function seedDefaults(teamId: number): Promise<void> {
@@ -49,12 +63,26 @@ async function seedDefaults(teamId: number): Promise<void> {
         create: { teamId, listType: "plataforma", ...e },
       }),
     ),
+    ...DEFAULT_MODALIDADES.map((e) =>
+      prisma.listConfig.upsert({
+        where: { teamId_listType_value: { teamId, listType: "modalidad", value: e.value } },
+        update: {},
+        create: { teamId, listType: "modalidad", ...e },
+      }),
+    ),
+    ...DEFAULT_PRIORIDADES.map((e) =>
+      prisma.listConfig.upsert({
+        where: { teamId_listType_value: { teamId, listType: "prioridad", value: e.value } },
+        update: {},
+        create: { teamId, listType: "prioridad", ...e },
+      }),
+    ),
   ]
   await Promise.all(ops)
 }
 
 export async function getLists(user: AuthPayload, teamId: number) {
-  await requireManageAccess(user, teamId)
+  await requireMembership(user, teamId)
 
   // Auto-seed if team has no configs
   const count = await prisma.listConfig.count({ where: { teamId } })

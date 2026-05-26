@@ -5,8 +5,6 @@ import prisma from "../config/prisma"
 import { AppError } from "../middleware/errorHandler"
 import { AuthPayload } from "../middleware/auth"
 import { getManagedTeamIds } from "../utils/permissions"
-import type { Priority } from "@prisma/client"
-
 interface ExportFilters {
   teamId: number
   search?: string
@@ -16,7 +14,7 @@ interface ExportFilters {
   fechaDesde?: string
   fechaHasta?: string
   responsableId?: number
-  prioridad?: Priority
+  prioridad?: string
 }
 
 async function assertManagerAndQuery(user: AuthPayload, filters: ExportFilters) {

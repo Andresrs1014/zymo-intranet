@@ -77,7 +77,8 @@ router.post("/:id/members", async (req: Request, res: Response) => {
     userId: z.number().int().positive(),
     userNombre: z.string().max(120).optional(),
   }).parse(req.body)
-  const member = await teamService.addMember(req.user!, id, userId, userNombre)
+  const token = req.headers.authorization!.slice(7)
+  const member = await teamService.addMember(req.user!, id, userId, userNombre, token)
   res.status(201).json(member)
 })
 

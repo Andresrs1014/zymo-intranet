@@ -219,6 +219,7 @@ export async function addMember(
   teamId: number,
   userId: number,
   userNombre?: string,
+  token?: string,
 ): Promise<TeamMemberView> {
   const team = await prisma.team.findFirst({ where: { id: teamId, isActive: true } })
   if (!team) throw new AppError(404, "Equipo no encontrado")
@@ -247,6 +248,20 @@ export async function addMember(
   const member = await prisma.teamMember.create({
     data: { teamId, userId, role: "member", userNombre: userNombre ?? null },
   })
+
+  // Auto-activate tool_task_submit so the new member can use the task system
+  if (token) {
+    try {
+      await axios.post(
+        `${env.INTRANET_API_URL}/api/tasks-v2/users/${userId}/activate-submit`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } },
+      )
+    } catch (err) {
+      console.warn(`Could not auto-activate tool_task_submit for user ${userId}:`, err)
+    }
+  }
+
   return {
     id: member.id,
     userId: member.userId,

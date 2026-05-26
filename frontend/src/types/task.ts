@@ -1,8 +1,7 @@
 // ─── Enums ───────────────────────────────────────────────────────────────────
 
-export type Priority = "baja" | "media" | "alta" | "critica"
 export type TeamMemberRole = "member" | "co_gestor"
-export type ListType = "estado" | "etiqueta" | "plataforma" | "prioridad_agenda"
+export type ListType = "estado" | "etiqueta" | "plataforma" | "modalidad" | "prioridad" | "prioridad_agenda"
 export type ActivityAction =
   | "creacion"
   | "cambio_estado"
@@ -51,14 +50,12 @@ export interface Task {
   etiqueta: string
   plataforma: string
   estado: string
-  prioridad: Priority
+  prioridad: string
   fecha: string
   horaInicio: string | null
   horaCierre: string | null
   tiempoTotalMinutos: number | null
-  tiempoEstimadoMinutos: number | null
   modalidad: string | null
-  sede: string | null
   aceptacion: TaskAcceptanceStatus
   version: number
   createdAt: string
@@ -74,14 +71,12 @@ export interface CreateTaskInput {
   etiqueta: string
   plataforma: string
   estado?: string
-  prioridad?: Priority
+  prioridad?: string
   fecha: string
   asignadoAId?: number
   asignadoANombre?: string
   impacto?: string
-  tiempoEstimadoMinutos?: number
   modalidad?: string
-  sede?: string
 }
 
 export interface UpdateTaskInput {
@@ -92,13 +87,11 @@ export interface UpdateTaskInput {
   etiqueta?: string
   plataforma?: string
   estado?: string
-  prioridad?: Priority
+  prioridad?: string
   fecha?: string
   asignadoAId?: number | null
   asignadoANombre?: string | null
-  tiempoEstimadoMinutos?: number | null
   modalidad?: string | null
-  sede?: string | null
   horaInicio?: string | null
   horaCierre?: string | null
   version: number
