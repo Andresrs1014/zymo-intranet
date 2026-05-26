@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react"
 import { useTaskLists } from "@/hooks/useTaskLists"
 import { useTeamMembers } from "@/hooks/useTaskTeams"
-import { useCreateTask, useUpdateTask } from "@/hooks/useTasks"
+import { useCreateTask, useUpdateTask, useAcceptTask } from "@/hooks/useTasks"
 import { useTaskAISuggestions } from "@/hooks/useTaskAI"
 import { useTaskToast } from "./TaskToast"
+import { useAuthStore } from "@/store/authStore"
 import type { Task, CreateTaskInput, UpdateTaskInput } from "@/types/task"
 
 interface TaskDialogProps {
@@ -18,9 +19,14 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
   const { data: members = [] } = useTeamMembers(teamId)
   const createTask = useCreateTask()
   const updateTask = useUpdateTask()
+  const acceptTask = useAcceptTask()
   const { showToast } = useTaskToast()
+  const { user } = useAuthStore()
 
   const isEdit = !!task
+  // Task is assigned to the current user and pending acceptance
+  const isAssignedToMe = isEdit && task && user && task.asignadoAId === user.id
+  const isPendingAcceptance = isAssignedToMe && task?.aceptacion === "pendiente"
 
   const [form, setForm] = useState({
     titulo: "",
@@ -294,7 +300,7 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
               >
                 <option value="">Sin asignar</option>
                 {members.map((m) => (
-                  <option key={m.userId} value={m.userId}>Usuario {m.userId}</option>
+                  <option key={m.userId} value={m.userId}>{m.userNombre ?? `Usuario ${m.userId}`}</option>
                 ))}
               </select>
             </div>
@@ -332,6 +338,106 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
             </div>
           </div>
         </div>
+
+        {/* Comparativa tiempo estimado vs real */}
+        {isEdit && task && (task.tiempoEstimadoMinutos || task.tiempoTotalMinutos) && (
+          <div style={{
+            marginTop: 18,
+            padding: "12px 16px",
+            borderRadius: 8,
+            background: "#f8f9fd",
+            border: "1px solid #e8ebf4",
+            display: "flex",
+            gap: 24,
+            fontSize: 13,
+            color: "#3f4652",
+          }}>
+            {task.tiempoEstimadoMinutos != null && (
+              <div>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#9aa5b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>Estimado</span>
+                <div style={{ fontWeight: 700, fontSize: 15, color: "#121420", marginTop: 2 }}>{task.tiempoEstimadoMinutos} min</div>
+              </div>
+            )}
+            {task.tiempoTotalMinutos != null && (
+              <div>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#9aa5b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>Real</span>
+                <div style={{ fontWeight: 700, fontSize: 15, color: "#121420", marginTop: 2 }}>{task.tiempoTotalMinutos} min</div>
+              </div>
+            )}
+            {task.tiempoEstimadoMinutos != null && task.tiempoTotalMinutos != null && (
+              <div>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#9aa5b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>Diferencia</span>
+                <div style={{
+                  fontWeight: 700,
+                  fontSize: 15,
+                  marginTop: 2,
+                  color: task.tiempoTotalMinutos > task.tiempoEstimadoMinutos ? "#f97316" : "#10b981",
+                }}>
+                  {task.tiempoTotalMinutos > task.tiempoEstimadoMinutos ? "+" : ""}
+                  {task.tiempoTotalMinutos - task.tiempoEstimadoMinutos} min
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Aceptar / rechazar tarea asignada */}
+        {isPendingAcceptance && task && (
+          <div style={{
+            marginTop: 18,
+            padding: "12px 16px",
+            borderRadius: 8,
+            background: "#fffbeb",
+            border: "1px solid #fbbf24",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+          }}>
+            <div style={{ fontSize: 13, color: "#92400e", fontWeight: 500 }}>
+              Esta tarea te fue asignada. ¿La aceptas?
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={async () => {
+                  await acceptTask.mutateAsync({ taskId: task.id, aceptacion: "rechazada" })
+                  showToast("Tarea rechazada", "error")
+                  onClose()
+                }}
+                style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid #fca5a5", background: "#fff", color: "#ef4444", fontWeight: 600, fontSize: 12, cursor: "pointer" }}
+              >
+                Rechazar
+              </button>
+              <button
+                onClick={async () => {
+                  await acceptTask.mutateAsync({ taskId: task.id, aceptacion: "aceptada" })
+                  showToast("Tarea aceptada", "success")
+                }}
+                style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "#10b981", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}
+              >
+                Aceptar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Estado de aceptación si ya fue procesada */}
+        {isEdit && task && task.aceptacion !== "pendiente" && task.asignadoAId && (
+          <div style={{
+            marginTop: 12,
+            padding: "6px 12px",
+            borderRadius: 6,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            fontSize: 11,
+            fontWeight: 700,
+            background: task.aceptacion === "aceptada" ? "#d1fae5" : "#fee2e2",
+            color: task.aceptacion === "aceptada" ? "#065f46" : "#991b1b",
+          }}>
+            {task.aceptacion === "aceptada" ? "✓ Aceptada por el responsable" : "✗ Rechazada por el responsable"}
+          </div>
+        )}
 
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 24 }}>
           <button
