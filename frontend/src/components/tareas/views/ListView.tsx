@@ -4,14 +4,7 @@ import { useTasks } from "@/hooks/useTasks"
 import { useTaskLists } from "@/hooks/useTaskLists"
 import { useTeamMembers } from "@/hooks/useTaskTeams"
 import { TaskDialog } from "@/components/tareas/TaskDialog"
-import type { Task } from "@/types/task"
-
-const PRIORITY_COLOR: Record<string, string> = {
-  baja: "#10b981",
-  media: "#f59e0b",
-  alta: "#f97316",
-  critica: "#ef3340",
-}
+import type { Task, ListConfig } from "@/types/task"
 
 type TaskFilters = {
   search?: string
@@ -37,6 +30,7 @@ function TaskFiltersBar({ teamId, filters, onChange }: TaskFiltersBarProps) {
   const estados = lists?.estado ?? []
   const etiquetas = lists?.etiqueta ?? []
   const plataformas = lists?.plataforma ?? []
+  const prioridades = lists?.prioridad ?? []
 
   const INPUT_STYLE = {
     padding: "7px 10px",
@@ -97,21 +91,22 @@ function TaskFiltersBar({ teamId, filters, onChange }: TaskFiltersBarProps) {
       >
         <option value="">Todos los responsables</option>
         {members.map((m) => (
-          <option key={m.userId} value={m.userId}>{`Usuario ${m.userId}`}</option>
+          <option key={m.userId} value={m.userId}>{m.userNombre ?? `Usuario ${m.userId}`}</option>
         ))}
       </select>
 
-      <select
-        value={filters.prioridad ?? ""}
-        onChange={(e) => onChange({ ...filters, prioridad: e.target.value || undefined })}
-        style={INPUT_STYLE}
-      >
-        <option value="">Todas las prioridades</option>
-        <option value="baja">Baja</option>
-        <option value="media">Media</option>
-        <option value="alta">Alta</option>
-        <option value="critica">Crítica</option>
-      </select>
+      {prioridades.length > 0 && (
+        <select
+          value={filters.prioridad ?? ""}
+          onChange={(e) => onChange({ ...filters, prioridad: e.target.value || undefined })}
+          style={INPUT_STYLE}
+        >
+          <option value="">Todas las prioridades</option>
+          {prioridades.map((p) => (
+            <option key={p.value} value={p.value}>{p.label}</option>
+          ))}
+        </select>
+      )}
 
       <input
         type="date"
@@ -133,10 +128,14 @@ function TaskFiltersBar({ teamId, filters, onChange }: TaskFiltersBarProps) {
 
 interface TaskRowProps {
   task: Task
+  prioridades: ListConfig[]
   onSelect: (t: Task) => void
 }
 
-function TaskRow({ task, onSelect }: TaskRowProps) {
+function TaskRow({ task, prioridades, onSelect }: TaskRowProps) {
+  const prioConfig = prioridades.find((p) => p.value === task.prioridad)
+  const prioColor = prioConfig?.color ?? "#6b7280"
+  const prioLabel = prioConfig?.label ?? task.prioridad
   return (
     <tr
       onClick={() => onSelect(task)}
@@ -202,10 +201,10 @@ function TaskRow({ task, onSelect }: TaskRowProps) {
           borderRadius: 4,
           fontSize: 11,
           fontWeight: 700,
-          background: `${PRIORITY_COLOR[task.prioridad] ?? "#6b7280"}20`,
-          color: PRIORITY_COLOR[task.prioridad] ?? "#6b7280",
+          background: `${prioColor}20`,
+          color: prioColor,
         }}>
-          {task.prioridad}
+          {prioLabel}
         </span>
       </td>
     </tr>
@@ -230,6 +229,9 @@ export function ListView() {
   const [page, setPage] = useState(1)
   const limit = 25
   const [editingTask, setEditingTask] = useState<Task | null>(null)
+
+  const { data: listsGrouped } = useTaskLists(activeTeamId)
+  const prioridades = listsGrouped?.prioridad ?? []
 
   const { data, isLoading } = useTasks({
     teamId: activeTeamId ?? undefined,
@@ -279,7 +281,7 @@ export function ListView() {
               </thead>
               <tbody>
                 {tasks.map((task) => (
-                  <TaskRow key={task.id} task={task} onSelect={setEditingTask} />
+                  <TaskRow key={task.id} task={task} prioridades={prioridades} onSelect={setEditingTask} />
                 ))}
               </tbody>
             </table>

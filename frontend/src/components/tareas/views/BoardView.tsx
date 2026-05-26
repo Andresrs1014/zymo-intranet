@@ -19,16 +19,17 @@ import { useTaskLists } from "@/hooks/useTaskLists"
 import { useTaskToast } from "@/components/tareas/TaskToast"
 import type { Task, ListConfig } from "@/types/task"
 
-const PRIORITY_COLOR: Record<string, string> = {
-  baja: "#10b981",
-  media: "#f59e0b",
-  alta: "#f97316",
-  critica: "#ef3340",
-}
-
 // ─── Task Card ────────────────────────────────────────────────────────────────
 
-function TaskCard({ task, isDragging = false }: { task: Task; isDragging?: boolean }) {
+function TaskCard({
+  task,
+  prioridades,
+  isDragging = false,
+}: {
+  task: Task
+  prioridades: ListConfig[]
+  isDragging?: boolean
+}) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
     id: `task-${task.id}`,
   })
@@ -78,16 +79,23 @@ function TaskCard({ task, isDragging = false }: { task: Task; isDragging?: boole
             {task.tiempoTotalMinutos && (
               <span style={{ fontSize: 10, color: "#9aa5b8" }}>{task.tiempoTotalMinutos}m</span>
             )}
-            <span style={{
-              padding: "1px 6px",
-              borderRadius: 3,
-              fontSize: 10,
-              fontWeight: 700,
-              background: `${PRIORITY_COLOR[task.prioridad] ?? "#6b7280"}18`,
-              color: PRIORITY_COLOR[task.prioridad] ?? "#6b7280",
-            }}>
-              {task.prioridad}
-            </span>
+            {task.prioridad && (() => {
+              const p = prioridades.find((p) => p.value === task.prioridad)
+              const color = p?.color ?? "#6b7280"
+              const label = p?.label ?? task.prioridad
+              return (
+                <span style={{
+                  padding: "1px 6px",
+                  borderRadius: 3,
+                  fontSize: 10,
+                  fontWeight: 700,
+                  background: `${color}18`,
+                  color,
+                }}>
+                  {label}
+                </span>
+              )
+            })()}
           </div>
         </div>
         {task.asignadoANombre && (
@@ -116,7 +124,7 @@ function TaskCard({ task, isDragging = false }: { task: Task; isDragging?: boole
 
 // ─── Board Column ─────────────────────────────────────────────────────────────
 
-function BoardColumn({ config, tasks }: { config: ListConfig; tasks: Task[] }) {
+function BoardColumn({ config, tasks, prioridades }: { config: ListConfig; tasks: Task[]; prioridades: ListConfig[] }) {
   const { setNodeRef, isOver } = useDroppable({ id: `col-${config.value}` })
 
   return (
@@ -161,7 +169,7 @@ function BoardColumn({ config, tasks }: { config: ListConfig; tasks: Task[] }) {
           strategy={verticalListSortingStrategy}
         >
           {tasks.map((task) => (
-            <TaskCard key={task.id} task={task} />
+            <TaskCard key={task.id} task={task} prioridades={prioridades} />
           ))}
         </SortableContext>
       </div>
@@ -185,6 +193,7 @@ export function BoardView() {
   )
 
   const estados = listsGrouped?.estado ?? []
+  const prioridades = listsGrouped?.prioridad ?? []
   const tasks = taskResult?.tasks ?? []
 
   function getTasksByState(estado: string) {
@@ -254,12 +263,13 @@ export function BoardView() {
             key={config.value}
             config={config}
             tasks={getTasksByState(config.value)}
+            prioridades={prioridades}
           />
         ))}
       </div>
 
       <DragOverlay>
-        {activeDragTask && <TaskCard task={activeDragTask} isDragging />}
+        {activeDragTask && <TaskCard task={activeDragTask} prioridades={prioridades} isDragging />}
       </DragOverlay>
     </DndContext>
   )
