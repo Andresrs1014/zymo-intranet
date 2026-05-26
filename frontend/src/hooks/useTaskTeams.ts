@@ -163,7 +163,7 @@ export function useAdminAssignOwner() {
       )
       return data
     },
-    onSuccess: (_data, { userId }) => {
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["taskTeams"] })
     },
   })
@@ -179,7 +179,7 @@ export function useAdminAssignMember() {
       )
       return data
     },
-    onSuccess: (_data, { userId }) => {
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["taskTeams"] })
     },
   })
@@ -195,7 +195,7 @@ export function useAdminRemoveMember() {
       )
       return data
     },
-    onSuccess: (_data, { userId }) => {
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["taskTeams"] })
     },
   })
