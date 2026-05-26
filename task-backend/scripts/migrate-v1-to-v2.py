@@ -11,19 +11,17 @@ Tablas migradas (en orden de FK):
   task_event_participants → event_participants
 
 Comportamiento:
-  - IDEMPOTENTE: si los teams ya existen en V2, no duplica ni modifica nada.
-    El script detecta el estado actual y solo inserta lo que falta.
+  - CONTROL DE ESTADO: tabla _migration_control registra running/completed/failed.
+    Si completó → no hace nada. Si falló → sale con error (sin duplicar datos).
   - SEGURO: solo escribe en V2_DATABASE_URL (task-db). No toca ninguna otra BD.
   - Maneja N gestores con equipos separados (cada uno tiene su TaskTeam en V1).
   - Resetea sequences de PostgreSQL al finalizar para que nuevos inserts no colisionen.
-
-Uso:
-  python migrate-v1-to-v2.py
 
 Variables de entorno:
   V1_SQLITE_PATH   — ruta al intranet.db de V1 (default: /app/data/intranet.db)
   V2_DATABASE_URL  — DSN PostgreSQL de task-db (default: postgresql://task:task@task-db:5432/taskdb)
   DRY_RUN          — "true" para simular sin escribir nada
+  FORCE_REMIGRATE  — "true" para limpiar datos parciales y re-ejecutar desde cero
 """
 
 import logging
@@ -48,6 +46,9 @@ log = logging.getLogger("migrate-v1-to-v2")
 V1_SQLITE_PATH: str = os.getenv("V1_SQLITE_PATH", "/app/data/intranet.db")
 V2_DATABASE_URL: str = os.getenv("V2_DATABASE_URL", "postgresql://task:task@task-db:5432/taskdb")
 DRY_RUN: bool = os.getenv("DRY_RUN", "false").lower() == "true"
+FORCE_REMIGRATE: bool = os.getenv("FORCE_REMIGRATE", "false").lower() == "true"
+
+MIGRATION_NAME = "v1_to_v2"
 
 ROLE_MAP: dict[str, str] = {
     "owner": "co_gestor",
@@ -127,12 +128,110 @@ def col_names(lite: sqlite3.Connection, table: str) -> set[str]:
     return {c[1] for c in lite.execute(f"PRAGMA table_info({table})").fetchall()}
 
 
-def already_migrated(pg: psycopg2.extensions.connection) -> bool:
-    """Devuelve True si ya hay equipos en V2 (migración ya corrió)."""
+# ── Migration control table ────────────────────────────────────────────────────
+
+
+def ensure_migration_table(pg: psycopg2.extensions.connection) -> None:
+    """Crea la tabla de control si no existe. Un commit propio para que persista."""
     cur = pg.cursor()
-    cur.execute("SELECT COUNT(*) FROM teams")
-    count = cur.fetchone()[0]
-    return count > 0
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS _migration_control (
+            migration_name TEXT        PRIMARY KEY,
+            status         TEXT        NOT NULL DEFAULT 'running',
+            started_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            completed_at   TIMESTAMPTZ,
+            error_msg      TEXT,
+            teams_count    INT,
+            tasks_count    INT,
+            events_count   INT
+        )
+    """)
+    pg.commit()
+
+
+def get_migration_record(pg: psycopg2.extensions.connection) -> dict | None:
+    """Devuelve el registro de control o None si nunca corrió."""
+    cur = pg.cursor()
+    cur.execute(
+        "SELECT status, started_at, completed_at, error_msg "
+        "FROM _migration_control WHERE migration_name = %s",
+        (MIGRATION_NAME,),
+    )
+    row = cur.fetchone()
+    if row is None:
+        return None
+    return {"status": row[0], "started_at": row[1], "completed_at": row[2], "error_msg": row[3]}
+
+
+def set_migration_running(pg: psycopg2.extensions.connection) -> None:
+    cur = pg.cursor()
+    cur.execute(
+        """
+        INSERT INTO _migration_control (migration_name, status, started_at)
+        VALUES (%s, 'running', NOW())
+        ON CONFLICT (migration_name) DO UPDATE
+            SET status = 'running', started_at = NOW(),
+                error_msg = NULL, completed_at = NULL
+        """,
+        (MIGRATION_NAME,),
+    )
+    pg.commit()
+
+
+def set_migration_completed(
+    pg: psycopg2.extensions.connection,
+    teams: int,
+    tasks: int,
+    events: int,
+) -> None:
+    cur = pg.cursor()
+    cur.execute(
+        """
+        UPDATE _migration_control
+        SET status = 'completed', completed_at = NOW(),
+            teams_count = %s, tasks_count = %s, events_count = %s
+        WHERE migration_name = %s
+        """,
+        (teams, tasks, events, MIGRATION_NAME),
+    )
+    pg.commit()
+
+
+def set_migration_failed(pg: psycopg2.extensions.connection, error: str) -> None:
+    """Registra el fallo. Usa su propio commit para no depender del estado de la TX."""
+    try:
+        pg.rollback()  # asegura que podemos escribir
+        cur = pg.cursor()
+        cur.execute(
+            "UPDATE _migration_control SET status = 'failed', error_msg = %s "
+            "WHERE migration_name = %s",
+            (error[:1000], MIGRATION_NAME),
+        )
+        pg.commit()
+    except Exception as exc:
+        log.warning("No se pudo registrar fallo en _migration_control: %s", exc)
+
+
+def purge_migrated_data(pg: psycopg2.extensions.connection) -> None:
+    """
+    Elimina todos los datos de las tablas migradas en orden FK inverso.
+    Solo se llama con FORCE_REMIGRATE=true después de un fallo previo.
+    """
+    tables = [
+        "event_participants",
+        "activity_logs",
+        "events",
+        "tasks",
+        "list_configs",
+        "team_members",
+        "teams",
+    ]
+    cur = pg.cursor()
+    for tbl in tables:
+        cur.execute(f"DELETE FROM {tbl}")
+        log.info("  purge %-25s → %d filas eliminadas", tbl, cur.rowcount)
+    pg.commit()
+    log.info("Purge completado — tablas limpias para re-migración")
 
 
 # ── Migration steps ────────────────────────────────────────────────────────────
@@ -151,7 +250,7 @@ def load_user_names(lite: sqlite3.Connection) -> dict[int, str]:
     return names
 
 
-def migrate_teams(lite, pg) -> dict[int, int]:
+def migrate_teams(lite: sqlite3.Connection, pg: psycopg2.extensions.connection) -> dict[int, int]:
     """task_teams → teams. Retorna {v1_id: v2_id}."""
     if not table_exists(lite, "task_teams"):
         log.warning("Tabla task_teams no encontrada — omitiendo teams")
@@ -186,7 +285,6 @@ def migrate_teams(lite, pg) -> dict[int, int]:
         if row:
             new_id = row[0]
         else:
-            # Ya existía — recuperar id por nombre+owner
             cur.execute(
                 "SELECT id FROM teams WHERE name = %s AND owner_user_id = %s",
                 (r["name"], r["owner_user_id"]),
@@ -204,7 +302,12 @@ def migrate_teams(lite, pg) -> dict[int, int]:
     return id_map
 
 
-def migrate_members(lite, pg, team_id_map: dict[int, int], user_names: dict[int, str]) -> None:
+def migrate_members(
+    lite: sqlite3.Connection,
+    pg: psycopg2.extensions.connection,
+    team_id_map: dict[int, int],
+    user_names: dict[int, str],
+) -> None:
     """task_team_members → team_members."""
     if not table_exists(lite, "task_team_members"):
         log.warning("Tabla task_team_members no encontrada — omitiendo members")
@@ -252,7 +355,11 @@ def migrate_members(lite, pg, team_id_map: dict[int, int], user_names: dict[int,
     log.info("Members: %d ok, %d omitidos", ok, skipped)
 
 
-def seed_list_configs(lite, pg, team_id_map: dict[int, int]) -> None:
+def seed_list_configs(
+    lite: sqlite3.Connection,
+    pg: psycopg2.extensions.connection,
+    team_id_map: dict[int, int],
+) -> None:
     """
     Genera list_configs en V2 a partir de los valores únicos de work_tasks en V1.
     Garantiza que etiqueta/plataforma/estado/prioridad tengan entrada válida por equipo.
@@ -306,7 +413,11 @@ def seed_list_configs(lite, pg, team_id_map: dict[int, int]) -> None:
     log.info("List configs insertados: %d", inserted)
 
 
-def migrate_tasks(lite, pg, team_id_map: dict[int, int]) -> dict[int, int]:
+def migrate_tasks(
+    lite: sqlite3.Connection,
+    pg: psycopg2.extensions.connection,
+    team_id_map: dict[int, int],
+) -> dict[int, int]:
     """work_tasks → tasks. Retorna {v1_id: v2_id}."""
     if not table_exists(lite, "work_tasks"):
         log.warning("Tabla work_tasks no encontrada — omitiendo tasks")
@@ -398,7 +509,11 @@ def migrate_tasks(lite, pg, team_id_map: dict[int, int]) -> dict[int, int]:
     return id_map
 
 
-def migrate_activity_log(lite, pg, task_id_map: dict[int, int]) -> None:
+def migrate_activity_log(
+    lite: sqlite3.Connection,
+    pg: psycopg2.extensions.connection,
+    task_id_map: dict[int, int],
+) -> None:
     """task_activity_log → activity_logs."""
     if not table_exists(lite, "task_activity_log"):
         log.info("Tabla task_activity_log no encontrada — omitiendo")
@@ -443,7 +558,11 @@ def migrate_activity_log(lite, pg, task_id_map: dict[int, int]) -> None:
     log.info("ActivityLog: %d ok, %d omitidos", ok, skipped)
 
 
-def migrate_events(lite, pg, team_id_map: dict[int, int]) -> dict[int, int]:
+def migrate_events(
+    lite: sqlite3.Connection,
+    pg: psycopg2.extensions.connection,
+    team_id_map: dict[int, int],
+) -> dict[int, int]:
     """task_events → events. Retorna {v1_event_id: v2_event_id}."""
     for tbl in ("task_events", "task_event"):
         if table_exists(lite, tbl):
@@ -484,9 +603,7 @@ def migrate_events(lite, pg, team_id_map: dict[int, int]) -> dict[int, int]:
             skipped += 1
             continue
 
-        # hora_inicio en V2 es VarChar(5) "HH:MM"
-        hora_raw = r["hora_inicio"] or "09:00"
-        hora_str = str(hora_raw)[:5]  # tomar solo HH:MM
+        hora_str = str(r["hora_inicio"] or "09:00")[:5]
 
         if DRY_RUN:
             log.info("  [DRY] event %d: %s", r["id"], r["titulo"][:50])
@@ -541,7 +658,11 @@ def migrate_events(lite, pg, team_id_map: dict[int, int]) -> dict[int, int]:
     return id_map
 
 
-def migrate_event_participants(lite, pg, event_id_map: dict[int, int]) -> None:
+def migrate_event_participants(
+    lite: sqlite3.Connection,
+    pg: psycopg2.extensions.connection,
+    event_id_map: dict[int, int],
+) -> None:
     """task_event_participants → event_participants."""
     for tbl in ("task_event_participants", "task_event_participant"):
         if table_exists(lite, tbl):
@@ -633,11 +754,13 @@ def reset_sequences(pg: psycopg2.extensions.connection) -> None:
 def main() -> None:
     log.info("=" * 60)
     log.info("Migración Gestión de Tareas V1 → V2")
-    log.info("SQLite : %s", V1_SQLITE_PATH)
+    log.info("SQLite  : %s", V1_SQLITE_PATH)
     host_info = V2_DATABASE_URL.split("@")[-1] if "@" in V2_DATABASE_URL else V2_DATABASE_URL
     log.info("Postgres: %s", host_info)
     if DRY_RUN:
         log.info("*** DRY RUN — no se escribirá nada ***")
+    if FORCE_REMIGRATE:
+        log.warning("*** FORCE_REMIGRATE=true — se limpiarán los datos migrados previamente ***")
     log.info("=" * 60)
 
     lite = sqlite_connect()
@@ -658,15 +781,49 @@ def main() -> None:
             )
             sys.exit(1)
 
-        if already_migrated(pg):
-            log.info("✅  La migración ya fue ejecutada previamente (teams > 0). Sin cambios.")
-            pg.close()
-            lite.close()
-            return
+        # ── Control de estado ──────────────────────────────────────────────────
+        ensure_migration_table(pg)
+        record = get_migration_record(pg)
+
+        if record:
+            if record["status"] == "completed":
+                log.info(
+                    "✅  Migración ya completada el %s — sin cambios.",
+                    record["completed_at"],
+                )
+                pg.close()
+                lite.close()
+                return
+
+            if record["status"] in ("running", "failed") and not FORCE_REMIGRATE:
+                log.error(
+                    "⚠️  La migración previa quedó en estado '%s' (iniciada: %s).\n"
+                    "   Detalle: %s\n"
+                    "   Los datos pueden estar parcialmente migrados.\n"
+                    "   Para reintentar desde cero: establece FORCE_REMIGRATE=true\n"
+                    "   (esto limpiará las tablas teams/tasks/events y re-migrará todo)",
+                    record["status"],
+                    record["started_at"],
+                    record["error_msg"] or "sin detalle",
+                )
+                pg.close()
+                lite.close()
+                sys.exit(1)
+
+            if FORCE_REMIGRATE:
+                log.warning("Limpiando datos parciales antes de re-migrar...")
+                purge_migrated_data(pg)
+
+        set_migration_running(pg)
+        log.info("Estado de migración registrado como 'running'")
 
     # Cargar nombres de usuarios desde SQLite para desnormalización
     user_names = load_user_names(lite)
     log.info("Nombres de usuarios cargados: %d", len(user_names))
+
+    team_id_map: dict[int, int] = {}
+    task_id_map: dict[int, int] = {}
+    event_id_map: dict[int, int] = {}
 
     try:
         log.info("\n[1/7] Migrando teams...")
@@ -694,6 +851,7 @@ def main() -> None:
             log.info("\nReseteando sequences de PostgreSQL...")
             reset_sequences(pg)
             pg.commit()
+            set_migration_completed(pg, len(team_id_map), len(task_id_map), len(event_id_map))
             log.info("\n✅  Migración completada — COMMIT OK")
         else:
             log.info("\n✅  Dry run OK — sin cambios en PostgreSQL")
@@ -706,8 +864,8 @@ def main() -> None:
     except Exception as exc:
         log.error("ERROR FATAL: %s", exc, exc_info=True)
         if not DRY_RUN and pg:
-            pg.rollback()
-            log.info("ROLLBACK ejecutado — PostgreSQL sin cambios")
+            set_migration_failed(pg, str(exc))
+            log.info("Estado registrado como 'failed' — PostgreSQL sin datos corruptos")
         sys.exit(1)
 
     finally:
