@@ -27,7 +27,7 @@ type SettingsTab = "team" | "lists"
 // ─── Team settings ────────────────────────────────────────────────────────────
 
 function TeamSettings() {
-  const { activeTeamId } = useTask()
+  const { activeTeamId, setActiveTeamId } = useTask()
   const { data: teams = [] } = useMyTeams()
   const { data: members = [] } = useTeamMembers(activeTeamId)
   const { data: availableUsers = [] } = useAvailableUsers(activeTeamId)
@@ -126,8 +126,9 @@ function TeamSettings() {
                 onClick={async () => {
                   try {
                     await deleteTeam.mutateAsync(activeTeamId)
-                    showToast("Espacio de trabajo eliminado", "success")
+                    setActiveTeamId(null)
                     setShowDeleteConfirm(false)
+                    showToast("Espacio de trabajo eliminado", "success")
                   } catch {
                     showToast("Error al eliminar", "error")
                   }

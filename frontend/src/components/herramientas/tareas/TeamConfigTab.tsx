@@ -14,6 +14,7 @@ import {
   useManagerTeamInfo,
   useUpdateTeamName,
 } from "@/hooks/useWorkTasks"
+import { useManagedTeams, useDeleteTeam } from "@/hooks/useTaskTeams"
 
 function TeamMembersList({ canPromoteDemote }: { canPromoteDemote: boolean }) {
   const [selectedUserId, setSelectedUserId] = useState<string>("")
@@ -185,6 +186,65 @@ function TeamNameEditor() {
   )
 }
 
+function DeleteWorkspaceSection() {
+  const { data: v2Teams = [] } = useManagedTeams()
+  const deleteTeam = useDeleteTeam()
+  const [confirmId, setConfirmId] = useState<number | null>(null)
+  const teamToDelete = v2Teams.find((t) => t.id === confirmId)
+
+  if (v2Teams.length === 0) return null
+
+  return (
+    <div className="space-y-3">
+      <p className="text-sm font-medium text-destructive">Zona de peligro</p>
+      <div className="rounded-lg border border-red-200 bg-red-50 p-4 space-y-3">
+        <p className="text-sm text-red-700">
+          Elimina un espacio de trabajo de Gestión de Tareas V2. Esta acción desactiva el equipo permanentemente.
+        </p>
+        {v2Teams.map((t) => (
+          <div key={t.id} className="flex items-center justify-between bg-white rounded-md border border-red-100 px-3 py-2">
+            <span className="text-sm font-medium text-gray-800">{t.name}</span>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setConfirmId(t.id)}
+            >
+              Eliminar
+            </Button>
+          </div>
+        ))}
+      </div>
+
+      {confirmId && teamToDelete && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 }}>
+          <div style={{ background: "#fff", borderRadius: 10, padding: 28, width: 380 }}>
+            <h3 style={{ margin: "0 0 10px", fontSize: 15, fontWeight: 700 }}>¿Eliminar espacio de trabajo?</h3>
+            <p style={{ fontSize: 13, color: "#5c6374", margin: "0 0 20px" }}>
+              Se desactivará <strong>"{teamToDelete.name}"</strong>. Los datos quedan guardados pero el equipo no será visible.
+            </p>
+            <div style={{ display: "flex", gap: 10 }}>
+              <Button variant="outline" className="flex-1" onClick={() => setConfirmId(null)}>
+                Cancelar
+              </Button>
+              <Button
+                variant="destructive"
+                className="flex-1"
+                disabled={deleteTeam.isPending}
+                onClick={async () => {
+                  await deleteTeam.mutateAsync(confirmId)
+                  setConfirmId(null)
+                }}
+              >
+                {deleteTeam.isPending ? "Eliminando..." : "Sí, eliminar"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function TeamConfigTab({ canPromoteDemote = false }: { canPromoteDemote?: boolean }) {
   return (
     <Card>
@@ -194,6 +254,7 @@ export function TeamConfigTab({ canPromoteDemote = false }: { canPromoteDemote?:
       <CardContent className="space-y-10">
         <TeamNameEditor />
         <TeamMembersList canPromoteDemote={canPromoteDemote} />
+        <DeleteWorkspaceSection />
       </CardContent>
     </Card>
   )
