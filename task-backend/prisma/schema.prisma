@@ -63,14 +63,15 @@ model Team {
 }
 
 model TeamMember {
-  id        Int            @id @default(autoincrement())
-  teamId    Int            @map("team_id")
-  team      Team           @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  userId    Int            @map("user_id")
-  role      TeamMemberRole @default(member)
-  isActive  Boolean        @default(true) @map("is_active")
-  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+  id          Int            @id @default(autoincrement())
+  teamId      Int            @map("team_id")
+  team        Team           @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId      Int            @map("user_id")
+  userNombre  String?        @map("user_nombre") @db.VarChar(120)
+  role        TeamMemberRole @default(member)
+  isActive    Boolean        @default(true) @map("is_active")
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz
 
   @@unique([teamId, userId])
   @@index([userId])

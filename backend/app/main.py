@@ -36,6 +36,7 @@ from app.routers.gerencial import router as gerencial_router
 from app.routers.borradores import router as borradores_router
 from app.routers.admin.extraccion import router as admin_extraccion_router
 from app.routers.herramientas_tareas import router as herramientas_tareas_router
+from app.routers.tasks_v2 import router as tasks_v2_router
 
 
 _DEFAULT_ROLES = [
@@ -638,6 +639,7 @@ app.include_router(gerencial_router)
 app.include_router(borradores_router)
 app.include_router(admin_extraccion_router)
 app.include_router(herramientas_tareas_router)
+app.include_router(tasks_v2_router)
 
 
 @app.get("/health")

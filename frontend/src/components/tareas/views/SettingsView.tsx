@@ -9,6 +9,7 @@ import {
   useDemoteMember,
   useAvailableUsers,
   useMyTeams,
+  type AvailableUser,
 } from "@/hooks/useTaskTeams"
 import {
   useTaskLists,
@@ -115,7 +116,7 @@ function TeamSettings() {
                 {m.userId.toString().slice(0, 2)}
               </div>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 500, color: "#121420" }}>Usuario {m.userId}</div>
+                <div style={{ fontSize: 13, fontWeight: 500, color: "#121420" }}>{m.userNombre ?? `Usuario ${m.userId}`}</div>
                 <span style={ROLE_BADGE(m.role)}>{m.role === "co_gestor" ? "Co-gestor" : "Miembro"}</span>
               </div>
             </div>
@@ -158,12 +159,12 @@ function TeamSettings() {
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}>
           <div style={{ background: "#fff", borderRadius: 10, padding: 24, width: 400, maxHeight: "70vh", overflow: "auto" }}>
             <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 700 }}>Agregar miembro</h3>
-            {(availableUsers as Array<{ id: number; full_name?: string }>).map((u) => (
+            {(availableUsers as AvailableUser[]).map((u) => (
               <div key={u.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #f0f2f7" }}>
                 <span style={{ fontSize: 13, color: "#3f4652" }}>{u.full_name ?? `Usuario ${u.id}`}</span>
                 <button
                   onClick={async () => {
-                    await addMember.mutateAsync({ teamId: activeTeamId, userId: u.id })
+                    await addMember.mutateAsync({ teamId: activeTeamId, userId: u.id, userNombre: u.full_name ?? undefined })
                     showToast("Miembro agregado", "success")
                   }}
                   style={{ padding: "4px 12px", borderRadius: 5, border: "none", background: "#ef3340", color: "#fff", fontSize: 12, cursor: "pointer" }}

@@ -35,11 +35,17 @@ export function useTeamMembers(teamId: number | null) {
   })
 }
 
+export interface AvailableUser {
+  id: number
+  full_name: string | null
+  email: string
+}
+
 export function useAvailableUsers(teamId: number | null) {
-  return useQuery<unknown[]>({
+  return useQuery<AvailableUser[]>({
     queryKey: ["taskTeams", teamId, "available-users"],
     queryFn: async () => {
-      const { data } = await taskApi.get<unknown[]>(`/api/teams/${teamId}/available-users`)
+      const { data } = await taskApi.get<AvailableUser[]>(`/api/teams/${teamId}/available-users`)
       return data
     },
     enabled: teamId !== null,
@@ -77,8 +83,8 @@ export function useRenameTeam() {
 export function useAddMember() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ teamId, userId }: { teamId: number; userId: number }) => {
-      const { data } = await taskApi.post<TeamMember>(`/api/teams/${teamId}/members`, { userId })
+    mutationFn: async ({ teamId, userId, userNombre }: { teamId: number; userId: number; userNombre?: string }) => {
+      const { data } = await taskApi.post<TeamMember>(`/api/teams/${teamId}/members`, { userId, userNombre })
       return data
     },
     onSuccess: (_data, { teamId }) => {
@@ -120,6 +126,77 @@ export function useDemoteMember() {
     },
     onSuccess: (_data, { teamId }) => {
       qc.invalidateQueries({ queryKey: ["taskTeams", teamId, "members"] })
+    },
+  })
+}
+
+export function useAllTeams() {
+  return useQuery<Team[]>({
+    queryKey: ["taskTeams", "all"],
+    queryFn: async () => {
+      const { data } = await taskApi.get<Team[]>("/api/teams")
+      return data
+    },
+  })
+}
+
+export function useUserTeams(userId: number | null) {
+  return useQuery<{ ownedTeams: Team[]; memberTeams: Team[] }>({
+    queryKey: ["taskTeams", "user", userId],
+    queryFn: async () => {
+      const { data } = await taskApi.get<{ ownedTeams: Team[]; memberTeams: Team[] }>(
+        `/api/teams/user/${userId}`
+      )
+      return data
+    },
+    enabled: userId !== null,
+  })
+}
+
+export function useAdminAssignOwner() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ userId, teamId, newTeamName }: { userId: number; teamId?: number; newTeamName?: string }) => {
+      const { data } = await taskApi.post<{ success: boolean; teamId: number }>(
+        "/api/teams/admin/assign-owner",
+        { userId, teamId, newTeamName }
+      )
+      return data
+    },
+    onSuccess: (_data, { userId }) => {
+      qc.invalidateQueries({ queryKey: ["taskTeams"] })
+    },
+  })
+}
+
+export function useAdminAssignMember() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ userId, teamId }: { userId: number; teamId: number }) => {
+      const { data } = await taskApi.post<{ success: boolean }>(
+        "/api/teams/admin/assign-member",
+        { userId, teamId }
+      )
+      return data
+    },
+    onSuccess: (_data, { userId }) => {
+      qc.invalidateQueries({ queryKey: ["taskTeams"] })
+    },
+  })
+}
+
+export function useAdminRemoveMember() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ userId, teamId }: { userId: number; teamId: number }) => {
+      const { data } = await taskApi.post<{ success: boolean }>(
+        "/api/teams/admin/remove-member",
+        { userId, teamId }
+      )
+      return data
+    },
+    onSuccess: (_data, { userId }) => {
+      qc.invalidateQueries({ queryKey: ["taskTeams"] })
     },
   })
 }

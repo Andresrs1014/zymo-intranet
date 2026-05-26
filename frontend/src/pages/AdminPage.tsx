@@ -16,6 +16,13 @@ import {
   type UpdateUserPayload,
 } from "@/hooks/useUsers"
 import { useUserTools, useAssignUserTool, useRevokeUserTool, useAdminUserTasks, useAdminDeleteTask } from "@/hooks/useWorkTasks"
+import {
+  useAllTeams,
+  useUserTeams,
+  useAdminAssignOwner,
+  useAdminAssignMember,
+  useAdminRemoveMember,
+} from "@/hooks/useTaskTeams"
 import type { UserListItem } from "@/types/auth"
 
 type Tab = "activos" | "archivados"
@@ -390,10 +397,24 @@ function UserTasksPanel({ userId }: { userId: number }) {
 }
 
 function UserToolsModal({ user, onClose }: { user: UserListItem; onClose: () => void }) {
-  const { data: activeTools = [], isLoading } = useUserTools(user.id)
+  const { data: activeTools = [], isLoading, refetch: refetchActiveTools } = useUserTools(user.id)
   const assign = useAssignUserTool()
   const revoke = useRevokeUserTool()
   const [toolError, setToolError] = useState<string | null>(null)
+
+  // Teams data and mutations
+  const { data: allTeams = [], refetch: refetchAllTeams } = useAllTeams()
+  const { data: userTeams, refetch: refetchUserTeams } = useUserTeams(user.id)
+  const assignOwner = useAdminAssignOwner()
+  const assignMember = useAdminAssignMember()
+  const removeMember = useAdminRemoveMember()
+
+  const [newTeamName, setNewTeamName] = useState("")
+  const [selectedTeamId, setSelectedTeamId] = useState<number | "">("")
+  const [selectedColabTeamId, setSelectedColabTeamId] = useState<number | "">("")
+
+  const ownedTeam = userTeams?.ownedTeams?.[0]
+  const memberTeams = userTeams?.memberTeams ?? []
 
   function toggle(tool_key: string, currentlyActive: boolean) {
     setToolError(null)
@@ -403,20 +424,86 @@ function UserToolsModal({ user, onClose }: { user: UserListItem; onClose: () => 
           const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
           setToolError(msg ?? "No se pudo revocar la herramienta.")
         },
+        onSuccess: () => {
+          refetchActiveTools()
+          refetchUserTeams()
+        }
       })
     } else {
       assign.mutate({ user_id: user.id, tool_key }, {
         onError: () => setToolError("No se pudo asignar la herramienta."),
+        onSuccess: () => {
+          refetchActiveTools()
+          refetchUserTeams()
+        }
       })
     }
   }
 
-  const isBusy = assign.isPending || revoke.isPending
+  async function handleAssignOwner() {
+    setToolError(null)
+    try {
+      if (newTeamName.trim()) {
+        await assignOwner.mutateAsync({
+          userId: user.id,
+          newTeamName: newTeamName.trim()
+        })
+        setNewTeamName("")
+        alert("Equipo creado y asignado como gestor.")
+      } else if (selectedTeamId) {
+        await assignOwner.mutateAsync({
+          userId: user.id,
+          teamId: Number(selectedTeamId)
+        })
+        alert("Propietario del equipo actualizado.")
+      }
+      refetchUserTeams()
+      refetchAllTeams()
+    } catch (err: any) {
+      setToolError(err.response?.data?.error ?? "Error al asignar gestor de equipo")
+    }
+  }
+
+  async function handleAddMember() {
+    if (!selectedColabTeamId) return
+    setToolError(null)
+    try {
+      await assignMember.mutateAsync({
+        userId: user.id,
+        teamId: Number(selectedColabTeamId)
+      })
+      setSelectedColabTeamId("")
+      refetchUserTeams()
+      alert("Usuario agregado al equipo como colaborador.")
+    } catch (err: any) {
+      setToolError(err.response?.data?.error ?? "Error al agregar al equipo")
+    }
+  }
+
+  async function handleRemoveMember(teamId: number) {
+    if (!confirm("¿Desvincular a este usuario de este equipo?")) return
+    setToolError(null)
+    try {
+      await removeMember.mutateAsync({
+        userId: user.id,
+        teamId
+      })
+      refetchUserTeams()
+      alert("Usuario removido del equipo.")
+    } catch (err: any) {
+      setToolError(err.response?.data?.error ?? "Error al remover del equipo")
+    }
+  }
+
+  const isBusy = assign.isPending || revoke.isPending || assignOwner.isPending || assignMember.isPending || removeMember.isPending
+
+  const hasManageDev = activeTools.includes("tool_task_manage_dev")
+  const hasSubmitDev = activeTools.includes("tool_task_submit_dev")
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+      <div className="w-full max-w-md rounded-xl bg-white shadow-xl flex flex-col max-h-[90vh]">
+        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 shrink-0">
           <div>
             <p className="font-semibold text-gray-900">Herramientas</p>
             <p className="text-xs text-gray-400">{user.full_name ?? user.email}</p>
@@ -426,46 +513,166 @@ function UserToolsModal({ user, onClose }: { user: UserListItem; onClose: () => 
           </button>
         </div>
 
-        <div className="px-5 py-4 space-y-3">
+        <div className="px-5 py-4 space-y-4 overflow-y-auto flex-1">
           {toolError && (
             <p className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">{toolError}</p>
           )}
-          {isLoading ? (
-            <p className="text-sm text-gray-400 py-4 text-center">Cargando...</p>
-          ) : (
-            TOOLS.map((tool) => {
-              const active = activeTools.includes(tool.key)
-              return (
-                <div key={tool.key} className="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-3">
-                  <div>
-                    <p className="text-sm font-medium text-gray-800">{tool.label}</p>
-                    <p className="text-xs text-gray-400">{tool.desc}</p>
-                  </div>
-                  <button
-                    onClick={() => toggle(tool.key, active)}
-                    disabled={isBusy}
-                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50 ${
-                      active ? "bg-gray-950" : "bg-gray-200"
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ${
-                        active ? "translate-x-5" : "translate-x-0"
+
+          <div className="space-y-3">
+            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Permisos / Herramientas</h4>
+            {isLoading ? (
+              <p className="text-sm text-gray-400 py-4 text-center">Cargando...</p>
+            ) : (
+              TOOLS.map((tool) => {
+                const active = activeTools.includes(tool.key)
+                return (
+                  <div key={tool.key} className="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-3">
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">{tool.label}</p>
+                      <p className="text-xs text-gray-400">{tool.desc}</p>
+                    </div>
+                    <button
+                      onClick={() => toggle(tool.key, active)}
+                      disabled={isBusy}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50 ${
+                        active ? "bg-gray-950" : "bg-gray-200"
                       }`}
-                    />
+                    >
+                      <span
+                        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ${
+                          active ? "translate-x-5" : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                )
+              })
+            )}
+          </div>
+
+          {/* Gestor Team Assignment */}
+          {hasManageDev && !isLoading && (
+            <div className="border-t border-gray-100 pt-4 space-y-3">
+              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Equipo que Gestiona (Gestor)</h4>
+              
+              {ownedTeam ? (
+                <div className="rounded-lg bg-gray-50 border border-gray-200 px-4 py-3">
+                  <p className="text-[10px] text-gray-400 uppercase font-medium">Equipo asignado:</p>
+                  <p className="text-sm font-semibold text-gray-800">{ownedTeam.name}</p>
+                </div>
+              ) : (
+                <p className="text-xs text-amber-600 font-medium">⚠️ Este gestor no tiene ningún equipo asignado aún.</p>
+              )}
+
+              <div className="space-y-2">
+                <label className="block text-[10px] font-medium text-gray-500 uppercase">Vincular a equipo existente</label>
+                <select
+                  value={selectedTeamId}
+                  onChange={(e) => {
+                    setSelectedTeamId(e.target.value ? Number(e.target.value) : "")
+                    setNewTeamName("")
+                  }}
+                  disabled={isBusy}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-gray-950"
+                >
+                  <option value="">Seleccionar equipo...</option>
+                  {allTeams.map((team) => (
+                    <option key={team.id} value={team.id}>
+                      {team.name} (Gestor ID: {team.ownerUserId})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-[10px] font-medium text-gray-500 uppercase">O Crear Nuevo Equipo para este Gestor</label>
+                <input
+                  type="text"
+                  placeholder="Nombre del nuevo equipo..."
+                  value={newTeamName}
+                  onChange={(e) => {
+                    setNewTeamName(e.target.value)
+                    setSelectedTeamId("")
+                  }}
+                  disabled={isBusy}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-gray-950"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleAssignOwner}
+                disabled={isBusy || (!selectedTeamId && !newTeamName.trim())}
+                className="w-full text-center rounded-lg bg-gray-950 text-white hover:bg-gray-850 px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                {newTeamName.trim() ? "Crear y Asignar Equipo" : "Vincular a Equipo"}
+              </button>
+            </div>
+          )}
+
+          {/* Colaborador Team Assignment */}
+          {hasSubmitDev && !isLoading && (
+            <div className="border-t border-gray-100 pt-4 space-y-3">
+              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Equipos en los que Colabora</h4>
+              
+              {memberTeams.length > 0 ? (
+                <div className="space-y-1.5">
+                  {memberTeams.map((team) => (
+                    <div key={team.id} className="flex items-center justify-between rounded-lg bg-gray-50 border border-gray-100 px-3 py-1.5">
+                      <span className="text-sm font-medium text-gray-800">{team.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveMember(team.id)}
+                        disabled={isBusy}
+                        className="text-xs text-red-600 hover:text-red-700 font-semibold"
+                      >
+                        Remover
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-amber-600 font-medium">⚠️ Este colaborador no está asignado a ningún equipo aún.</p>
+              )}
+
+              <div className="space-y-2 pt-1">
+                <label className="block text-[10px] font-medium text-gray-500 uppercase">Agregar a un equipo</label>
+                <div className="flex gap-2">
+                  <select
+                    value={selectedColabTeamId}
+                    onChange={(e) => setSelectedColabTeamId(e.target.value ? Number(e.target.value) : "")}
+                    disabled={isBusy}
+                    className="flex-1 rounded-lg border border-gray-200 px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-gray-950"
+                  >
+                    <option value="">Seleccionar equipo...</option>
+                    {allTeams
+                      .filter((t) => !memberTeams.some((mt) => mt.id === t.id))
+                      .map((team) => (
+                        <option key={team.id} value={team.id}>
+                          {team.name}
+                        </option>
+                      ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={handleAddMember}
+                    disabled={isBusy || !selectedColabTeamId}
+                    className="rounded-lg bg-gray-950 text-white hover:bg-gray-850 px-4 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
+                  >
+                    Agregar
                   </button>
                 </div>
-              )
-            })
+              </div>
+            </div>
           )}
+
+          <div className="border-t border-gray-100 pt-4">
+            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Tareas</h4>
+            <UserTasksPanel userId={user.id} />
+          </div>
         </div>
 
-        <div className="px-5 pb-4">
-          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Tareas</h4>
-          <UserTasksPanel userId={user.id} />
-        </div>
-
-        <div className="border-t border-gray-100 px-5 py-3 flex justify-end">
+        <div className="border-t border-gray-100 px-5 py-3 flex justify-end shrink-0">
           <button
             onClick={onClose}
             className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"

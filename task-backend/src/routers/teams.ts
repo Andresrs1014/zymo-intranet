@@ -4,17 +4,35 @@ import { requireManageAccess, requireMembership } from "../utils/permissions"
 import { idParamSchema, userIdParamSchema } from "../utils/validators"
 import * as teamService from "../services/teamService"
 
+import { isAdmin } from "../middleware/auth"
+
 const router = Router()
+
+// ─── GET /api/teams ────────────────────────────────────────────────────────────
+router.get("/", async (req: Request, res: Response) => {
+  if (!isAdmin(req.user!)) {
+    res.status(403).json({ error: "No autorizado" })
+    return
+  }
+  const teams = await teamService.getAllActiveTeams()
+  res.json(teams)
+})
 
 // ─── GET /api/teams/my-teams ──────────────────────────────────────────────────
 router.get("/my-teams", async (req: Request, res: Response) => {
-  const teams = await teamService.getMyTeams(req.user!)
+  const token = req.headers.authorization?.startsWith("Bearer ")
+    ? req.headers.authorization.slice(7)
+    : undefined
+  const teams = await teamService.getMyTeams(req.user!, token)
   res.json(teams)
 })
 
 // ─── GET /api/teams/managed ───────────────────────────────────────────────────
 router.get("/managed", async (req: Request, res: Response) => {
-  const teams = await teamService.getManagedTeams(req.user!)
+  const token = req.headers.authorization?.startsWith("Bearer ")
+    ? req.headers.authorization.slice(7)
+    : undefined
+  const teams = await teamService.getManagedTeams(req.user!, token)
   res.json(teams)
 })
 
@@ -55,8 +73,11 @@ router.get("/:id/available-users", async (req: Request, res: Response) => {
 router.post("/:id/members", async (req: Request, res: Response) => {
   const { id } = idParamSchema.parse(req.params)
   await requireManageAccess(req.user!, id)
-  const { userId } = z.object({ userId: z.number().int().positive() }).parse(req.body)
-  const member = await teamService.addMember(req.user!, id, userId)
+  const { userId, userNombre } = z.object({
+    userId: z.number().int().positive(),
+    userNombre: z.string().max(120).optional(),
+  }).parse(req.body)
+  const member = await teamService.addMember(req.user!, id, userId, userNombre)
   res.status(201).json(member)
 })
 
@@ -85,6 +106,63 @@ router.post("/:id/members/:userId/demote", async (req: Request, res: Response) =
   // demoteMember enforces owner-only internally
   await teamService.demoteMember(req.user!, id, userId)
   res.status(204).send()
+})
+
+// ─── GET /api/teams/user/:userId ──────────────────────────────────────────────
+router.get("/user/:userId", async (req: Request, res: Response) => {
+  const { userId } = userIdParamSchema.parse(req.params)
+  if (!isAdmin(req.user!)) {
+    res.status(403).json({ error: "Solo administradores pueden consultar equipos de otros usuarios" })
+    return
+  }
+  const result = await teamService.getUserTeams(userId)
+  res.json(result)
+})
+
+// ─── POST /api/teams/admin/assign-owner ────────────────────────────────────────
+router.post("/admin/assign-owner", async (req: Request, res: Response) => {
+  if (!isAdmin(req.user!)) {
+    res.status(403).json({ error: "No autorizado" })
+    return
+  }
+  const body = z.object({
+    userId: z.number().int().positive(),
+    teamId: z.number().int().positive().optional(),
+    newTeamName: z.string().min(1).optional(),
+  }).parse(req.body)
+
+  const result = await teamService.adminAssignOwner(body.userId, body.teamId, body.newTeamName)
+  res.json(result)
+})
+
+// ─── POST /api/teams/admin/assign-member ───────────────────────────────────────
+router.post("/admin/assign-member", async (req: Request, res: Response) => {
+  if (!isAdmin(req.user!)) {
+    res.status(403).json({ error: "No autorizado" })
+    return
+  }
+  const body = z.object({
+    userId: z.number().int().positive(),
+    teamId: z.number().int().positive(),
+  }).parse(req.body)
+
+  const result = await teamService.adminAssignMember(body.userId, body.teamId)
+  res.json(result)
+})
+
+// ─── POST /api/teams/admin/remove-member ───────────────────────────────────────
+router.post("/admin/remove-member", async (req: Request, res: Response) => {
+  if (!isAdmin(req.user!)) {
+    res.status(403).json({ error: "No autorizado" })
+    return
+  }
+  const body = z.object({
+    userId: z.number().int().positive(),
+    teamId: z.number().int().positive(),
+  }).parse(req.body)
+
+  const result = await teamService.adminRemoveMember(body.userId, body.teamId)
+  res.json(result)
 })
 
 export default router

@@ -29,6 +29,7 @@ export interface Team {
 export interface TeamMember {
   id: number
   userId: number
+  userNombre: string | null
   role: TeamMemberRole
   isActive: boolean
   createdAt: string

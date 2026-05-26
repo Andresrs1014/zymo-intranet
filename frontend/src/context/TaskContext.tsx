@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback } from "react"
 import type { ReactNode } from "react"
+import type { Team } from "@/types/task"
 
 export type TaskView =
   | "list"
@@ -8,6 +9,8 @@ export type TaskView =
   | "dashboard"
   | "people"
   | "settings"
+
+export type TeamRole = "owner" | "co_gestor" | "member" | null
 
 export interface TaskFiltersState {
   search?: string
@@ -25,6 +28,8 @@ interface TaskContextValue {
   setActiveView: (v: TaskView) => void
   activeTeamId: number | null
   setActiveTeamId: (id: number | null) => void
+  myRole: TeamRole
+  setTeams: (teams: Team[]) => void
   filters: TaskFiltersState
   setFilters: (f: TaskFiltersState) => void
   onNewTask: () => void
@@ -36,12 +41,17 @@ const TaskContext = createContext<TaskContextValue | null>(null)
 export function TaskContextProvider({ children }: { children: ReactNode }) {
   const [activeView, setActiveView] = useState<TaskView>("list")
   const [activeTeamId, setActiveTeamId] = useState<number | null>(null)
+  const [teams, setTeams] = useState<Team[]>([])
   const [filters, setFilters] = useState<TaskFiltersState>({})
   const [onNewTask, setOnNewTaskState] = useState<() => void>(() => () => undefined)
 
   const setOnNewTask = useCallback((fn: () => void) => {
     setOnNewTaskState(() => fn)
   }, [])
+
+  const myRole: TeamRole = activeTeamId
+    ? (teams.find((t) => t.id === activeTeamId)?.myRole ?? null)
+    : null
 
   return (
     <TaskContext.Provider
@@ -50,6 +60,8 @@ export function TaskContextProvider({ children }: { children: ReactNode }) {
         setActiveView,
         activeTeamId,
         setActiveTeamId,
+        myRole,
+        setTeams,
         filters,
         setFilters,
         onNewTask,

@@ -18,19 +18,39 @@ export interface TeamWithRole {
 export interface TeamMemberView {
   id: number
   userId: number
+  userNombre: string | null
   role: string
   isActive: boolean
   createdAt: Date
 }
 
 /** Returns all teams where the user is an active member or owner */
-export async function getMyTeams(user: AuthPayload): Promise<TeamWithRole[]> {
+export async function getMyTeams(user: AuthPayload, token?: string): Promise<TeamWithRole[]> {
   const userId = getUserId(user)
 
-  const ownedTeams = await prisma.team.findMany({
+  let ownedTeams = await prisma.team.findMany({
     where: { ownerUserId: userId, isActive: true },
     include: { _count: { select: { members: { where: { isActive: true } } } } },
   })
+
+  if (ownedTeams.length === 0 && token) {
+    try {
+      const response = await axios.get<{ user_tools?: string[] }>(
+        `${env.INTRANET_API_URL}/auth/me`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      const tools = response.data?.user_tools ?? []
+      if (tools.includes("tool_task_manage_dev")) {
+        const newTeamId = await getOrCreateTeam(user)
+        ownedTeams = await prisma.team.findMany({
+          where: { id: newTeamId, isActive: true },
+          include: { _count: { select: { members: { where: { isActive: true } } } } },
+        })
+      }
+    } catch (err) {
+      console.error("Error auto-creating team for user:", err)
+    }
+  }
 
   const memberRows = await prisma.teamMember.findMany({
     where: { userId, isActive: true },
@@ -78,8 +98,8 @@ export async function getMyTeams(user: AuthPayload): Promise<TeamWithRole[]> {
 }
 
 /** Returns teams where user can manage (owner or co_gestor) */
-export async function getManagedTeams(user: AuthPayload): Promise<TeamWithRole[]> {
-  const all = await getMyTeams(user)
+export async function getManagedTeams(user: AuthPayload, token?: string): Promise<TeamWithRole[]> {
+  const all = await getMyTeams(user, token)
   if (isAdmin(user)) return all
   return all.filter((t) => t.myRole === "owner" || t.myRole === "co_gestor")
 }
@@ -156,6 +176,7 @@ export async function getTeamMembers(teamId: number): Promise<TeamMemberView[]> 
   return rows.map((r) => ({
     id: r.id,
     userId: r.userId,
+    userNombre: r.userNombre ?? null,
     role: r.role,
     isActive: r.isActive,
     createdAt: r.createdAt,
@@ -166,7 +187,7 @@ export async function getTeamMembers(teamId: number): Promise<TeamMemberView[]> 
 export async function getAvailableUsers(
   teamId: number,
   token: string,
-): Promise<unknown[]> {
+): Promise<{ id: number; full_name: string | null; email: string }[]> {
   const team = await prisma.team.findFirst({
     where: { id: teamId, isActive: true },
     select: { ownerUserId: true },
@@ -182,17 +203,14 @@ export async function getAvailableUsers(
     ...existingMembers.map((m) => m.userId),
   ])
 
-  const response = await axios.get<{ usuarios?: unknown[]; data?: unknown[] }>(
-    `${env.INTRANET_API_URL}/api/usuarios`,
+  const response = await axios.get<{ id: number; full_name: string | null; email: string }[]>(
+    `${env.INTRANET_API_URL}/api/tasks-v2/users`,
     { headers: { Authorization: `Bearer ${token}` } },
   )
 
-  const users: unknown[] = (response.data?.usuarios ?? response.data?.data ?? []) as unknown[]
+  const users = Array.isArray(response.data) ? response.data : []
 
-  return users.filter((u) => {
-    const id = (u as Record<string, unknown>)["id"]
-    return id !== undefined && !memberIds.has(Number(id))
-  })
+  return users.filter((u) => !memberIds.has(u.id))
 }
 
 /** Add a member to the team */
@@ -200,6 +218,7 @@ export async function addMember(
   user: AuthPayload,
   teamId: number,
   userId: number,
+  userNombre?: string,
 ): Promise<TeamMemberView> {
   const team = await prisma.team.findFirst({ where: { id: teamId, isActive: true } })
   if (!team) throw new AppError(404, "Equipo no encontrado")
@@ -213,11 +232,12 @@ export async function addMember(
     if (existing.isActive) throw new AppError(422, "El usuario ya es miembro del equipo")
     const reactivated = await prisma.teamMember.update({
       where: { id: existing.id },
-      data: { isActive: true, role: "member" },
+      data: { isActive: true, role: "member", ...(userNombre ? { userNombre } : {}) },
     })
     return {
       id: reactivated.id,
       userId: reactivated.userId,
+      userNombre: reactivated.userNombre ?? null,
       role: reactivated.role,
       isActive: reactivated.isActive,
       createdAt: reactivated.createdAt,
@@ -225,11 +245,12 @@ export async function addMember(
   }
 
   const member = await prisma.teamMember.create({
-    data: { teamId, userId, role: "member" },
+    data: { teamId, userId, role: "member", userNombre: userNombre ?? null },
   })
   return {
     id: member.id,
     userId: member.userId,
+    userNombre: member.userNombre ?? null,
     role: member.role,
     isActive: member.isActive,
     createdAt: member.createdAt,
@@ -339,4 +360,98 @@ export async function getOrCreateTeam(user: AuthPayload): Promise<number> {
     select: { id: true },
   })
   return team.id
+}
+
+/**
+ * Returns all active teams in the system (for admin views)
+ */
+export async function getAllActiveTeams(): Promise<{ id: number; name: string; ownerUserId: number }[]> {
+  return prisma.team.findMany({
+    where: { isActive: true },
+    select: { id: true, name: true, ownerUserId: true },
+    orderBy: { name: "asc" },
+  })
+}
+
+/**
+ * Returns teams owned by or containing the user as a member
+ */
+export async function getUserTeams(targetUserId: number): Promise<{ ownedTeams: { id: number; name: string }[]; memberTeams: { id: number; name: string }[] }> {
+  const owned = await prisma.team.findMany({
+    where: { ownerUserId: targetUserId, isActive: true },
+    select: { id: true, name: true },
+  })
+  const memberRows = await prisma.teamMember.findMany({
+    where: { userId: targetUserId, isActive: true },
+    include: { team: true },
+  })
+  const memberTeams = memberRows
+    .filter((m) => m.team.isActive)
+    .map((m) => ({ id: m.team.id, name: m.team.name }))
+
+  return { ownedTeams: owned, memberTeams }
+}
+
+/**
+ * Admin: Assigns an owner to a team (or creates a new team)
+ */
+export async function adminAssignOwner(targetUserId: number, teamId?: number, newTeamName?: string): Promise<{ success: boolean; teamId: number }> {
+  if (teamId) {
+    const team = await prisma.team.findFirst({ where: { id: teamId, isActive: true } })
+    if (!team) throw new AppError(404, "Equipo no encontrado")
+    await prisma.team.update({
+      where: { id: teamId },
+      data: { ownerUserId: targetUserId },
+    })
+    return { success: true, teamId }
+  } else if (newTeamName) {
+    const trimmed = newTeamName.trim()
+    if (trimmed.length < 3) throw new AppError(422, "El nombre debe tener al menos 3 caracteres")
+    const team = await prisma.team.create({
+      data: { name: trimmed, ownerUserId: targetUserId },
+    })
+    return { success: true, teamId: team.id }
+  } else {
+    throw new AppError(400, "Debe especificar un teamId existente o un newTeamName")
+  }
+}
+
+/**
+ * Admin: Adds a user as a member of a team
+ */
+export async function adminAssignMember(targetUserId: number, teamId: number): Promise<{ success: boolean }> {
+  const team = await prisma.team.findFirst({ where: { id: teamId, isActive: true } })
+  if (!team) throw new AppError(404, "Equipo no encontrado")
+
+  const existing = await prisma.teamMember.findFirst({
+    where: { teamId, userId: targetUserId },
+  })
+
+  if (existing) {
+    await prisma.teamMember.update({
+      where: { id: existing.id },
+      data: { isActive: true, role: "member" },
+    })
+  } else {
+    await prisma.teamMember.create({
+      data: { teamId, userId: targetUserId, role: "member" },
+    })
+  }
+  return { success: true }
+}
+
+/**
+ * Admin: Removes a user from a team
+ */
+export async function adminRemoveMember(targetUserId: number, teamId: number): Promise<{ success: boolean }> {
+  const member = await prisma.teamMember.findFirst({
+    where: { teamId, userId: targetUserId, isActive: true },
+  })
+  if (member) {
+    await prisma.teamMember.update({
+      where: { id: member.id },
+      data: { isActive: false },
+    })
+  }
+  return { success: true }
 }
