@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { Flag, Ban, Mail, Pencil, Trash2, Check, X } from "lucide-react"
 import { useTask } from "@/context/TaskContext"
 import {
   useTeamMembers,
@@ -258,41 +259,133 @@ const LIST_TYPE_TABS: { key: ListType; label: string }[] = [
 function ListItem({ item, teamId, isEstado }: { item: ListConfig; teamId: number; isEstado: boolean }) {
   const updateItem = useUpdateListItem()
   const setSpecial = useSetSpecialFlag()
+  const [editing, setEditing] = useState(false)
+  const [editLabel, setEditLabel] = useState(item.label)
+  const [editColor, setEditColor] = useState(item.color ?? "#6b7280")
+
+  // Border color reflects active special flag
+  const borderColor = item.isFinal
+    ? "#22c55e"
+    : item.isCanceled
+    ? "#ef4444"
+    : item.isInitialAssignment
+    ? "#3b82f6"
+    : "#e8ebf4"
+
+  const iconBtn = (active: boolean, activeColor: string) => ({
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 26,
+    height: 26,
+    borderRadius: 5,
+    border: `1px solid ${active ? activeColor : "#e2e5ee"}`,
+    background: active ? `${activeColor}18` : "transparent",
+    color: active ? activeColor : "#b0b8cc",
+    cursor: "pointer",
+    transition: "all .15s",
+  } as React.CSSProperties)
+
+  async function saveEdit() {
+    await updateItem.mutateAsync({ teamId, listType: item.listType, value: item.value, label: editLabel, color: editColor })
+    setEditing(false)
+  }
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#fff", borderRadius: 8, border: "1px solid #e8ebf4", marginBottom: 6 }}>
-      <div style={{ width: 14, height: 14, borderRadius: "50%", background: item.color ?? "#6b7280", flexShrink: 0 }} />
-      <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 13, fontWeight: 500, color: "#121420" }}>{item.label}</div>
-        <div style={{ fontSize: 10, color: "#9aa5b8" }}>{item.value}</div>
-      </div>
-      {isEstado && (
-        <div style={{ display: "flex", gap: 4 }}>
-          {item.isInitialAssignment && <span style={{ padding: "1px 6px", borderRadius: 3, fontSize: 9, fontWeight: 700, background: "#dbeafe", color: "#1d4ed8" }}>INICIAL</span>}
-          {item.isFinal && <span style={{ padding: "1px 6px", borderRadius: 3, fontSize: 9, fontWeight: 700, background: "#d1fae5", color: "#065f46" }}>FINAL</span>}
-          {item.isCanceled && <span style={{ padding: "1px 6px", borderRadius: 3, fontSize: 9, fontWeight: 700, background: "#fee2e2", color: "#991b1b" }}>CANCELADO</span>}
-          <button
-            onClick={() => setSpecial.mutate({ teamId, value: item.value, isFinal: !item.isFinal })}
-            style={{ padding: "2px 7px", borderRadius: 4, border: "1px solid #d8dde8", background: "#f4f6fa", fontSize: 10, cursor: "pointer" }}
-          >
-            {item.isFinal ? "Quitar final" : "Marcar final"}
-          </button>
+    <div style={{
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+      padding: "9px 14px",
+      background: "#fff",
+      borderRadius: 8,
+      border: `1.5px solid ${borderColor}`,
+      marginBottom: 6,
+      transition: "border-color .2s",
+    }}>
+      {/* Color dot */}
+      {editing ? (
+        <input
+          type="color"
+          value={editColor}
+          onChange={(e) => setEditColor(e.target.value)}
+          style={{ width: 22, height: 22, padding: 1, border: "1px solid #d8dde8", borderRadius: 4, cursor: "pointer" }}
+        />
+      ) : (
+        <div style={{ width: 12, height: 12, borderRadius: "50%", background: item.color ?? "#6b7280", flexShrink: 0 }} />
+      )}
+
+      {/* Label / edit input */}
+      {editing ? (
+        <input
+          value={editLabel}
+          onChange={(e) => setEditLabel(e.target.value)}
+          autoFocus
+          style={{ flex: 1, padding: "4px 8px", borderRadius: 5, border: "1px solid #d8dde8", fontSize: 13 }}
+        />
+      ) : (
+        <div style={{ flex: 1 }}>
+          <span style={{ fontSize: 13, fontWeight: 500, color: item.isActive ? "#121420" : "#9aa5b8" }}>{item.label}</span>
+          <span style={{ fontSize: 10, color: "#c4cad8", marginLeft: 6 }}>{item.value}</span>
         </div>
       )}
-      <button
-        onClick={() => updateItem.mutate({ teamId, listType: item.listType, value: item.value, isActive: !item.isActive })}
-        style={{
-          padding: "3px 8px",
-          borderRadius: 4,
-          border: "1px solid #d8dde8",
-          background: item.isActive ? "#f4f6fa" : "#fee2e2",
-          color: item.isActive ? "#3f4652" : "#ef4444",
-          fontSize: 10,
-          cursor: "pointer",
-        }}
-      >
-        {item.isActive ? "Desactivar" : "Activar"}
-      </button>
+
+      {/* Action icons */}
+      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        {isEstado && (
+          <>
+            {/* Flag = isFinal */}
+            <button
+              title="Estado final (completado)"
+              style={iconBtn(!!item.isFinal, "#22c55e")}
+              onClick={() => setSpecial.mutate({ teamId, value: item.value, isFinal: !item.isFinal })}
+            >
+              <Flag size={13} />
+            </button>
+            {/* Ban = isCanceled */}
+            <button
+              title="Estado cancelado"
+              style={iconBtn(!!item.isCanceled, "#ef4444")}
+              onClick={() => setSpecial.mutate({ teamId, value: item.value, isCanceled: !item.isCanceled })}
+            >
+              <Ban size={13} />
+            </button>
+            {/* Mail = isInitialAssignment */}
+            <button
+              title="Estado inicial (asignación)"
+              style={iconBtn(!!item.isInitialAssignment, "#3b82f6")}
+              onClick={() => setSpecial.mutate({ teamId, value: item.value, isInitialAssignment: !item.isInitialAssignment })}
+            >
+              <Mail size={13} />
+            </button>
+          </>
+        )}
+
+        {/* Edit / confirm */}
+        {editing ? (
+          <>
+            <button title="Guardar" style={iconBtn(true, "#22c55e")} onClick={saveEdit} disabled={updateItem.isPending}>
+              <Check size={13} />
+            </button>
+            <button title="Cancelar" style={iconBtn(false, "#6b7280")} onClick={() => { setEditing(false); setEditLabel(item.label); setEditColor(item.color ?? "#6b7280") }}>
+              <X size={13} />
+            </button>
+          </>
+        ) : (
+          <button title="Editar" style={iconBtn(false, "#6b7280")} onClick={() => setEditing(true)}>
+            <Pencil size={13} />
+          </button>
+        )}
+
+        {/* Trash = toggle isActive */}
+        <button
+          title={item.isActive ? "Desactivar" : "Activar"}
+          style={iconBtn(!item.isActive, "#ef4444")}
+          onClick={() => updateItem.mutate({ teamId, listType: item.listType, value: item.value, isActive: !item.isActive })}
+        >
+          <Trash2 size={13} />
+        </button>
+      </div>
     </div>
   )
 }
