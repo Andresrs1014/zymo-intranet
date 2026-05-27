@@ -178,20 +178,54 @@ export async function renameTeam(
   return { id: updated.id, name: updated.name }
 }
 
-/** List active members of a team */
-export async function getTeamMembers(teamId: number): Promise<TeamMemberView[]> {
+/** List active members of a team, enriched with real names from intranet if token provided */
+export async function getTeamMembers(teamId: number, token?: string): Promise<TeamMemberView[]> {
   const rows = await prisma.teamMember.findMany({
     where: { teamId, isActive: true },
     orderBy: { createdAt: "asc" },
   })
-  return rows.map((r) => ({
+
+  // Also include the owner
+  const team = await prisma.team.findFirst({ where: { id: teamId }, select: { ownerUserId: true } })
+
+  let nameMap = new Map<number, string>()
+  if (token) {
+    try {
+      const response = await axios.get<{ id: number; full_name: string | null; email: string }[]>(
+        `${env.INTRANET_API_URL}/api/tasks-v2/users`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      )
+      const users = Array.isArray(response.data) ? response.data : []
+      for (const u of users) {
+        nameMap.set(u.id, u.full_name ?? u.email)
+      }
+    } catch {
+      // enrichment is best-effort; fall back to stored names
+    }
+  }
+
+  const members = rows.map((r) => ({
     id: r.id,
     userId: r.userId,
-    userNombre: r.userNombre ?? null,
+    userNombre: nameMap.get(r.userId) ?? r.userNombre ?? null,
     role: r.role,
     isActive: r.isActive,
     createdAt: r.createdAt,
   }))
+
+  // Inject owner if not already a member row
+  if (team && !members.some((m) => m.userId === team.ownerUserId)) {
+    members.unshift({
+      id: 0,
+      userId: team.ownerUserId,
+      userNombre: nameMap.get(team.ownerUserId) ?? `Usuario ${team.ownerUserId}`,
+      role: "member" as const,
+      isActive: true,
+      createdAt: new Date(),
+    })
+  }
+
+  return members
 }
 
 /** Get users from the intranet FastAPI that are NOT already in the team */

@@ -95,7 +95,8 @@ router.patch("/:id", async (req: Request, res: Response) => {
 router.get("/:id/members", async (req: Request, res: Response) => {
   const { id } = idParamSchema.parse(req.params)
   await requireMembership(req.user!, id)
-  const members = await teamService.getTeamMembers(id)
+  const token = req.headers.authorization?.startsWith("Bearer ") ? req.headers.authorization.slice(7) : undefined
+  const members = await teamService.getTeamMembers(id, token)
   res.json(members)
 })
 
