@@ -2,7 +2,7 @@
 -- but missing the calculated value.
 -- Safe to run multiple times (only updates where tiempo_total_minutos IS NULL).
 
-UPDATE "Task"
+UPDATE "tasks"
 SET tiempo_total_minutos = ROUND(
   EXTRACT(EPOCH FROM (hora_cierre - hora_inicio)) / 60
 )::INT
