@@ -1,10 +1,12 @@
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { useSolicitudesFinanciero } from "@/hooks/useFinanciero"
 import type { EstadoFactura, SolicitudConFactura } from "@/types/financiero"
 import { api } from "@/lib/api"
 import { VistaFacturacionModal } from "@/components/financiero/VistaFacturacionModal"
+import { Combobox } from "@/components/ui/Combobox"
+import type { ComboboxOption } from "@/components/ui/Combobox"
 
 // ── Tipos de tab ──────────────────────────────────────────────────────────────
 
@@ -18,10 +20,11 @@ const TABS: { key: TabKey; label: string; descripcion: string }[] = [
   { key: "con_diferencias", label: "Con diferencias", descripcion: "Facturas con campos que no coinciden con la referencia de la OC." },
 ]
 
-function contarPorTab(solicitudes: SolicitudConFactura[], key: TabKey): number {
-  if (key === "todas") return solicitudes.length
-  if (key === "sin_factura") return solicitudes.filter((s) => !s.factura_id).length
-  return solicitudes.filter((s) => s.factura_estado === key).length
+/** Cuenta los ítems de un tab sobre el conjunto ya pre-filtrado por proveedor/plataforma. */
+function contarPorTab(base: SolicitudConFactura[], key: TabKey): number {
+  if (key === "todas") return base.length
+  if (key === "sin_factura") return base.filter((s) => !s.factura_id).length
+  return base.filter((s) => s.factura_estado === key).length
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -65,12 +68,56 @@ export function FacturasPage() {
   const { data: solicitudes = [], isLoading } = useSolicitudesFinanciero()
   const [tab, setTab] = useState<TabKey>("todas")
   const [vistaSolicitud, setVistaSolicitud] = useState<SolicitudConFactura | null>(null)
+  const [filtroProveedor, setFiltroProveedor] = useState<string | null>(null)
+  const [filtroPlataforma, setFiltroPlataforma] = useState<string | null>(null)
 
-  const filtradas = solicitudes.filter((s) => {
-    if (tab === "todas") return true
-    if (tab === "sin_factura") return !s.factura_id
-    return s.factura_estado === tab
-  })
+  // Opciones únicas para los combobox, derivadas de los datos cargados
+  const opcionesProveedor: ComboboxOption[] = useMemo(() => {
+    const nombres = new Set<string>()
+    for (const s of solicitudes) {
+      if (s.proveedor_nombre) nombres.add(s.proveedor_nombre)
+    }
+    return Array.from(nombres)
+      .sort((a, b) => a.localeCompare(b, "es"))
+      .map((n) => ({ value: n, label: n }))
+  }, [solicitudes])
+
+  const opcionesPlataforma: ComboboxOption[] = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const s of solicitudes) {
+      if (s.plataforma) {
+        map.set(s.plataforma, s.empresa_compra_nombre ?? s.plataforma)
+      }
+    }
+    return Array.from(map.entries())
+      .sort((a, b) => a[1].localeCompare(b[1], "es"))
+      .map(([val, label]) => ({ value: val, label }))
+  }, [solicitudes])
+
+  // Pre-filtrado por proveedor y plataforma — alimenta los conteos de tabs
+  const filtradoBase = useMemo(
+    () =>
+      solicitudes.filter((s) => {
+        if (filtroProveedor && s.proveedor_nombre !== filtroProveedor) return false
+        if (filtroPlataforma && s.plataforma !== filtroPlataforma) return false
+        return true
+      }),
+    [solicitudes, filtroProveedor, filtroPlataforma],
+  )
+
+  // Filtrado final: proveedor + plataforma + tab activo
+  const filtradas = useMemo(() => {
+    if (tab === "todas") return filtradoBase
+    if (tab === "sin_factura") return filtradoBase.filter((s) => !s.factura_id)
+    return filtradoBase.filter((s) => s.factura_estado === tab)
+  }, [filtradoBase, tab])
+
+  const hayFiltrosActivos = filtroProveedor !== null || filtroPlataforma !== null
+
+  function limpiarFiltros() {
+    setFiltroProveedor(null)
+    setFiltroPlataforma(null)
+  }
 
   return (
     <>
@@ -99,10 +146,43 @@ export function FacturasPage() {
             </p>
           </div>
 
+          {/* Filtros por proveedor y plataforma */}
+          <div className="flex flex-wrap items-center gap-3 mb-4">
+            <div className="flex items-center gap-2 min-w-0">
+              <label className="text-xs font-medium text-gray-500 whitespace-nowrap">Proveedor</label>
+              <Combobox
+                options={opcionesProveedor}
+                value={filtroProveedor}
+                onChange={(v) => setFiltroProveedor(v as string | null)}
+                placeholder="Todos los proveedores"
+                className="w-64"
+              />
+            </div>
+            <div className="flex items-center gap-2 min-w-0">
+              <label className="text-xs font-medium text-gray-500 whitespace-nowrap">Plataforma</label>
+              <Combobox
+                options={opcionesPlataforma}
+                value={filtroPlataforma}
+                onChange={(v) => setFiltroPlataforma(v as string | null)}
+                placeholder="Todas las plataformas"
+                className="w-52"
+              />
+            </div>
+            {hayFiltrosActivos && (
+              <button
+                type="button"
+                onClick={limpiarFiltros}
+                className="text-xs font-medium text-brand-blue hover:text-brand-blue/70 transition-colors"
+              >
+                Limpiar filtros
+              </button>
+            )}
+          </div>
+
           {/* Tabs */}
           <div className="flex gap-1 border-b border-gray-200">
             {TABS.map((t) => {
-              const conteo = contarPorTab(solicitudes, t.key)
+              const conteo = contarPorTab(filtradoBase, t.key)
               return (
                 <button
                   key={t.key}
