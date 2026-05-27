@@ -165,6 +165,11 @@ export async function createTask(
       modalidad: input.modalidad ?? null,
       horaInicio: input.horaInicio ? new Date(input.horaInicio) : null,
       horaCierre: input.horaCierre ? new Date(input.horaCierre) : null,
+      tiempoTotalMinutos: (() => {
+        if (!input.horaInicio || !input.horaCierre) return null
+        const diff = new Date(input.horaCierre).getTime() - new Date(input.horaInicio).getTime()
+        return diff > 0 ? Math.round(diff / 60000) : null
+      })(),
       aceptacion,
       version: 1,
     },
@@ -298,6 +303,25 @@ export async function updateTask(
     const val = input.horaCierre ? new Date(input.horaCierre) : null
     campos["horaCierre"] = { old: current.horaCierre, new: val }
     data["horaCierre"] = val
+
+    // Recalculate tiempoTotalMinutos whenever horaCierre changes
+    const inicio = (data["horaInicio"] as Date | null | undefined) ?? current.horaInicio
+    if (val && inicio) {
+      const diffMs = val.getTime() - new Date(inicio).getTime()
+      if (diffMs > 0) data["tiempoTotalMinutos"] = Math.round(diffMs / 60000)
+    } else {
+      data["tiempoTotalMinutos"] = null
+    }
+  }
+
+  // Also recalculate if horaInicio changed and horaCierre already exists
+  if (input.horaInicio !== undefined && data["horaCierre"] === undefined) {
+    const cierre = current.horaCierre
+    const nuevoInicio = data["horaInicio"] as Date | null | undefined
+    if (cierre && nuevoInicio) {
+      const diffMs = new Date(cierre).getTime() - nuevoInicio.getTime()
+      if (diffMs > 0) data["tiempoTotalMinutos"] = Math.round(diffMs / 60000)
+    }
   }
 
   if (Object.keys(data).length === 0) return getTask(taskId, user)

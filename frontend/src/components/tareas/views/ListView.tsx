@@ -6,6 +6,13 @@ import { useTeamMembers } from "@/hooks/useTaskTeams"
 import { TaskDialog } from "@/components/tareas/TaskDialog"
 import type { Task, ListConfig, TeamMember } from "@/types/task"
 
+function formatTiempo(minutos: number): string {
+  if (minutos < 60) return `${minutos}m`
+  const h = Math.floor(minutos / 60)
+  const m = minutos % 60
+  return m > 0 ? `${h}h ${m}m` : `${h}h`
+}
+
 type TaskFilters = {
   search?: string
   estado?: string
@@ -245,7 +252,7 @@ function TaskRow({ task, prioridades, nameMap, onSelect }: TaskRowProps) {
         </span>
       </td>
       <td style={{ padding: "12px 14px", fontSize: 12, color: "#5c6374" }}>
-        {task.tiempoTotalMinutos ? `${task.tiempoTotalMinutos}m` : "—"}
+        {task.tiempoTotalMinutos ? formatTiempo(task.tiempoTotalMinutos) : "—"}
       </td>
       <td style={{ padding: "12px 14px" }}>
         <span style={{ padding: "2px 10px", borderRadius: 99, fontSize: 11, fontWeight: 700, background: "#f0f2f7", color: "#3f4652" }}>
