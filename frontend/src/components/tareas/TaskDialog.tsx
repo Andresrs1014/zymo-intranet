@@ -7,6 +7,13 @@ import { useTaskToast } from "./TaskToast"
 import { useAuthStore } from "@/store/authStore"
 import type { Task, CreateTaskInput, UpdateTaskInput } from "@/types/task"
 
+function formatMin(min: number): string {
+  if (min < 60) return `${min}m`
+  const h = Math.floor(min / 60)
+  const m = min % 60
+  return m > 0 ? `${h}h ${m}m` : `${h}h`
+}
+
 interface TaskDialogProps {
   open: boolean
   teamId: number | null
@@ -40,6 +47,7 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
     horaFin: "",
     asignadoAId: "" as string | number,
     modalidad: "",
+    duracionEstimadaMinutos: "" as string | number,
   })
 
   const { suggestions } = useTaskAISuggestions(form.titulo)
@@ -60,6 +68,7 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
         horaFin: task.horaCierre ? task.horaCierre.slice(11, 16) : "",
         asignadoAId: task.asignadoAId ?? "",
         modalidad: task.modalidad ?? "",
+        duracionEstimadaMinutos: task.duracionEstimadaMinutos ?? "",
       })
     } else {
       setForm({
@@ -74,6 +83,7 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
         horaFin: "",
         asignadoAId: "",
         modalidad: "",
+        duracionEstimadaMinutos: "",
       })
     }
   }, [open, task])
@@ -109,6 +119,7 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
           horaCierre: form.horaFin ? `${form.fecha}T${form.horaFin}:00` : null,
           asignadoAId: form.asignadoAId ? Number(form.asignadoAId) : null,
           modalidad: form.modalidad || null,
+          duracionEstimadaMinutos: form.duracionEstimadaMinutos ? Number(form.duracionEstimadaMinutos) : null,
           version: task.version,
         }
         await updateTask.mutateAsync({ taskId: task.id, input })
@@ -127,6 +138,7 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
           horaCierre: form.horaFin ? `${form.fecha}T${form.horaFin}:00` : undefined,
           asignadoAId: form.asignadoAId ? Number(form.asignadoAId) : undefined,
           modalidad: form.modalidad || undefined,
+          duracionEstimadaMinutos: form.duracionEstimadaMinutos ? Number(form.duracionEstimadaMinutos) : null,
         }
         await createTask.mutateAsync(input)
         showToast("Tarea creada", "success")
@@ -298,8 +310,8 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
             </div>
           </div>
 
-          {/* Row: hora inicio + hora fin */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          {/* Row: hora inicio + hora fin + tiempo estimado */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
             <div>
               <div style={LABEL_STYLE}>Hora inicio</div>
               <input
@@ -316,6 +328,18 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
                 style={INPUT_STYLE}
                 value={form.horaFin}
                 onChange={(e) => setForm((f) => ({ ...f, horaFin: e.target.value }))}
+              />
+            </div>
+            <div>
+              <div style={LABEL_STYLE}>T. estimado (min)</div>
+              <input
+                type="number"
+                min="5"
+                max="1440"
+                style={INPUT_STYLE}
+                placeholder="Ej. 120"
+                value={form.duracionEstimadaMinutos}
+                onChange={(e) => setForm((f) => ({ ...f, duracionEstimadaMinutos: e.target.value }))}
               />
             </div>
           </div>
@@ -336,8 +360,8 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
           )}
         </div>
 
-        {/* Tiempo real */}
-        {isEdit && task && task.tiempoTotalMinutos != null && (
+        {/* Comparativa tiempo estimado vs real */}
+        {isEdit && task && (task.tiempoTotalMinutos != null || task.duracionEstimadaMinutos != null) && (
           <div style={{
             marginTop: 18,
             padding: "12px 16px",
@@ -345,13 +369,36 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
             background: "#f8f9fd",
             border: "1px solid #e8ebf4",
             display: "flex",
-            gap: 8,
+            gap: 24,
             alignItems: "center",
             fontSize: 13,
             color: "#3f4652",
+            flexWrap: "wrap",
           }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "#9aa5b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>Tiempo real:</span>
-            <span style={{ fontWeight: 700, fontSize: 15, color: "#121420" }}>{task.tiempoTotalMinutos} min</span>
+            {task.duracionEstimadaMinutos != null && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: "#9aa5b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>Estimado</span>
+                <span style={{ fontWeight: 700, fontSize: 15, color: "#3f4652" }}>{formatMin(task.duracionEstimadaMinutos)}</span>
+              </div>
+            )}
+            {task.tiempoTotalMinutos != null && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: "#9aa5b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>Real</span>
+                <span style={{ fontWeight: 700, fontSize: 15, color: "#121420" }}>{formatMin(task.tiempoTotalMinutos)}</span>
+              </div>
+            )}
+            {task.duracionEstimadaMinutos != null && task.tiempoTotalMinutos != null && (() => {
+              const diff = task.tiempoTotalMinutos - task.duracionEstimadaMinutos
+              const over = diff > 0
+              return (
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: "#9aa5b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>Diferencia</span>
+                  <span style={{ fontWeight: 700, fontSize: 13, color: over ? "#ef4444" : "#10b981" }}>
+                    {over ? "+" : ""}{formatMin(Math.abs(diff))} {over ? "sobre" : "ahorrado"}
+                  </span>
+                </div>
+              )
+            })()}
           </div>
         )}
 

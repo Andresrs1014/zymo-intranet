@@ -23,6 +23,7 @@ router.post("/", async (req: Request, res: Response) => {
       modalidad: z.string().optional(),
       horaInicio: z.string().nullable().optional(),
       horaCierre: z.string().nullable().optional(),
+      duracionEstimadaMinutos: z.number().int().positive().nullable().optional(),
     })
     .parse(req.body)
 
@@ -79,6 +80,7 @@ router.patch("/:id", async (req: Request, res: Response) => {
       modalidad: z.string().nullable().optional(),
       horaInicio: z.string().nullable().optional(),
       horaCierre: z.string().nullable().optional(),
+      duracionEstimadaMinutos: z.number().int().positive().nullable().optional(),
       version: z.number().int().positive(),
     })
     .parse(req.body)

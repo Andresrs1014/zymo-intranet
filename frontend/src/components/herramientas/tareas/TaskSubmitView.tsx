@@ -131,13 +131,9 @@ export function TaskSubmitView({ activeTeamId }: Props) {
         <div className={`${taskCard} p-6`}>
           <h2 className="text-sm font-semibold text-gray-900 mb-4">Asignar tarea a compañero</h2>
           <AsignarTareaForm
-            onSubmit={async (payload) => {
-              await createTask.mutateAsync(payload)
-              setShowAsignarForm(false)
-            }}
+            onDone={() => setShowAsignarForm(false)}
             onCancel={() => setShowAsignarForm(false)}
-            loading={createTask.isPending}
-            activeTeamId={activeTeamId}
+            activeTeamId={activeTeamId ?? 0}
           />
         </div>
       )}

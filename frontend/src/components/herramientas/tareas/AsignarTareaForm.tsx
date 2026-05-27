@@ -1,6 +1,8 @@
 import { useState } from "react"
-import type { WorkTaskCreate } from "@/types/workTask"
-import { useTeamCompaneros, useMyTeams, useTaskLists } from "@/hooks/useWorkTasks"
+import { useCreateTask } from "@/hooks/useTasks"
+import { useTeamMembers } from "@/hooks/useTaskTeams"
+import { useTaskLists } from "@/hooks/useTaskLists"
+import { useTaskToast } from "@/components/tareas/TaskToast"
 import {
   taskInput,
   taskLabel,
@@ -9,10 +11,9 @@ import {
 } from "@/lib/taskTheme"
 
 interface AsignarTareaFormProps {
-  onSubmit: (payload: WorkTaskCreate) => Promise<void>
+  onDone?: () => void
   onCancel?: () => void
-  loading?: boolean
-  activeTeamId?: number
+  activeTeamId: number
 }
 
 function getTomorrow(): string {
@@ -21,9 +22,15 @@ function getTomorrow(): string {
   return d.toISOString().slice(0, 10)
 }
 
-export function AsignarTareaForm({ onSubmit, onCancel, loading, activeTeamId }: AsignarTareaFormProps) {
-  const { data: companeros = [] } = useTeamCompaneros(activeTeamId)
-  const { data: myTeams = [] } = useMyTeams()
+export function AsignarTareaForm({ onDone, onCancel, activeTeamId }: AsignarTareaFormProps) {
+  const { data: members = [] } = useTeamMembers(activeTeamId)
+  const { data: lists } = useTaskLists(activeTeamId)
+  const createTask = useCreateTask()
+  const { showToast } = useTaskToast()
+
+  const etiquetas = lists?.etiqueta ?? []
+  const plataformas = lists?.plataforma ?? []
+  const today = new Date().toISOString().slice(0, 10)
 
   const [asignadoAId, setAsignadoAId] = useState<number | "">("")
   const [titulo, setTitulo] = useState("")
@@ -31,52 +38,47 @@ export function AsignarTareaForm({ onSubmit, onCancel, loading, activeTeamId }: 
   const [fecha, setFecha] = useState(getTomorrow())
   const [prioridad, setPrioridad] = useState("media")
   const [etiqueta, setEtiqueta] = useState("")
+  const [plataforma, setPlataforma] = useState("")
   const [duracionEstimada, setDuracionEstimada] = useState("")
-
-  const effectiveTeamId = activeTeamId ?? myTeams[0]?.team_id
-  const { data: lists } = useTaskLists(effectiveTeamId)
-  const etiquetas = lists?.etiqueta ?? []
-
-  const today = new Date().toISOString().slice(0, 10)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!asignadoAId) return
+    if (!asignadoAId || !titulo.trim()) return
 
-    const payload: WorkTaskCreate = {
-      titulo,
-      descripcion_tecnica: descripcion,
-      asignado_a_id: asignadoAId,
-      fecha,
-      prioridad,
-      ...(etiqueta && { etiqueta }),
-      ...(effectiveTeamId ? { team_id: effectiveTeamId } : {}),
-      ...(duracionEstimada ? { duracion_estimada_minutos: parseInt(duracionEstimada, 10) } : {}),
+    const member = members.find((m) => m.userId === asignadoAId)
+
+    try {
+      await createTask.mutateAsync({
+        teamId: activeTeamId,
+        titulo: titulo.trim(),
+        descripcionTecnica: descripcion || undefined,
+        etiqueta: etiqueta || etiquetas[0]?.value || "",
+        plataforma: plataforma || plataformas[0]?.value || "",
+        prioridad,
+        fecha,
+        asignadoAId: Number(asignadoAId),
+        asignadoANombre: member?.userNombre ?? undefined,
+        duracionEstimadaMinutos: duracionEstimada ? parseInt(duracionEstimada, 10) : null,
+      })
+      showToast("Tarea asignada", "success")
+      onDone?.()
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+      showToast(msg ?? "Error al asignar tarea", "error")
     }
-    await onSubmit(payload)
-
-    setAsignadoAId("")
-    setTitulo("")
-    setDescripcion("")
-    setFecha(getTomorrow())
-    setPrioridad("media")
-    setEtiqueta("")
-    setDuracionEstimada("")
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-sm text-blue-800">
-        Asigna una tarea futura a un compañero. No se registran horas — es para planificar trabajo próximo.
+        Asigna una tarea futura a un compañero. El compañero deberá aceptarla desde su vista.
       </div>
-
-
 
       <div>
         <label className={taskLabel}>Asignar a *</label>
-        {companeros.length === 0 ? (
+        {members.length === 0 ? (
           <p className="text-xs text-gray-400 mt-1">
-            No hay compañeros de equipo disponibles. Pide al gestor que te agregue a un equipo.
+            No hay compañeros de equipo disponibles. Pide al gestor que agregue miembros al equipo.
           </p>
         ) : (
           <select
@@ -86,9 +88,9 @@ export function AsignarTareaForm({ onSubmit, onCancel, loading, activeTeamId }: 
             required
           >
             <option value="">Seleccionar persona...</option>
-            {companeros.map((c) => (
-              <option key={c.user_id} value={c.user_id}>
-                {c.user_full_name || c.user_email}
+            {members.map((m) => (
+              <option key={m.userId} value={m.userId}>
+                {m.userNombre ?? `Usuario ${m.userId}`}
               </option>
             ))}
           </select>
@@ -144,15 +146,6 @@ export function AsignarTareaForm({ onSubmit, onCancel, loading, activeTeamId }: 
         </div>
 
         <div>
-          <label className={taskLabel}>Prioridad</label>
-          <select className={taskInput} value={prioridad} onChange={(e) => setPrioridad(e.target.value)}>
-            <option value="alta">Alta</option>
-            <option value="media">Media</option>
-            <option value="baja">Baja</option>
-          </select>
-        </div>
-
-        <div>
           <label className={taskLabel}>Etiqueta</label>
           <select className={taskInput} value={etiqueta} onChange={(e) => setEtiqueta(e.target.value)}>
             <option value="">Sin etiqueta</option>
@@ -161,15 +154,34 @@ export function AsignarTareaForm({ onSubmit, onCancel, loading, activeTeamId }: 
             ))}
           </select>
         </div>
+
+        <div>
+          <label className={taskLabel}>Plataforma</label>
+          <select className={taskInput} value={plataforma} onChange={(e) => setPlataforma(e.target.value)}>
+            <option value="">Sin plataforma</option>
+            {plataformas.map((p) => (
+              <option key={p.value} value={p.value}>{p.label}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className={taskLabel}>Prioridad</label>
+          <select className={taskInput} value={prioridad} onChange={(e) => setPrioridad(e.target.value)}>
+            <option value="alta">Alta</option>
+            <option value="media">Media</option>
+            <option value="baja">Baja</option>
+          </select>
+        </div>
       </div>
 
       <div className="flex gap-2 pt-1">
         <button
           type="submit"
           className={taskButtonPrimary}
-          disabled={loading || !asignadoAId || !titulo}
+          disabled={createTask.isPending || !asignadoAId || !titulo.trim()}
         >
-          {loading ? "Asignando..." : "Asignar tarea"}
+          {createTask.isPending ? "Asignando..." : "Asignar tarea"}
         </button>
         {onCancel && (
           <button type="button" className={taskButtonSecondary} onClick={onCancel}>

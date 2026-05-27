@@ -22,6 +22,7 @@ export interface CreateTaskInput {
   modalidad?: string
   horaInicio?: string | null
   horaCierre?: string | null
+  duracionEstimadaMinutos?: number | null
 }
 
 export interface UpdateTaskInput {
@@ -39,6 +40,7 @@ export interface UpdateTaskInput {
   modalidad?: string | null
   horaInicio?: string | null
   horaCierre?: string | null
+  duracionEstimadaMinutos?: number | null
   version: number
 }
 
@@ -170,6 +172,7 @@ export async function createTask(
         const diff = new Date(input.horaCierre).getTime() - new Date(input.horaInicio).getTime()
         return diff > 0 ? Math.round(diff / 60000) : null
       })(),
+      duracionEstimadaMinutos: input.duracionEstimadaMinutos ?? null,
       aceptacion,
       version: 1,
     },
@@ -291,6 +294,10 @@ export async function updateTask(
   if (input.modalidad !== undefined && input.modalidad !== current.modalidad) {
     campos["modalidad"] = { old: current.modalidad, new: input.modalidad }
     data["modalidad"] = input.modalidad
+  }
+
+  if (input.duracionEstimadaMinutos !== undefined) {
+    data["duracionEstimadaMinutos"] = input.duracionEstimadaMinutos
   }
 
   if (input.horaInicio !== undefined) {

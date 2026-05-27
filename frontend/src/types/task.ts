@@ -55,6 +55,7 @@ export interface Task {
   horaInicio: string | null
   horaCierre: string | null
   tiempoTotalMinutos: number | null
+  duracionEstimadaMinutos: number | null
   modalidad: string | null
   aceptacion: TaskAcceptanceStatus
   version: number
@@ -79,6 +80,7 @@ export interface CreateTaskInput {
   modalidad?: string
   horaInicio?: string | null
   horaCierre?: string | null
+  duracionEstimadaMinutos?: number | null
 }
 
 export interface UpdateTaskInput {
@@ -96,6 +98,7 @@ export interface UpdateTaskInput {
   modalidad?: string | null
   horaInicio?: string | null
   horaCierre?: string | null
+  duracionEstimadaMinutos?: number | null
   version: number
 }
 
