@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { formatFechaRelativa } from "@/lib/dates"
 import { UserFormModal } from "@/components/admin/UserFormModal"
@@ -31,6 +31,8 @@ import { useTasks, useDeleteTask } from "@/hooks/useTasks"
 import type { Team } from "@/types/task"
 import type { UserListItem } from "@/types/auth"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Dialog,
   DialogContent,
@@ -38,8 +40,9 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
+import { useSystemConfig, useUpdateSystemConfig, useTestEmail, useTestWebhook } from "@/hooks/useSystemConfig"
 
-type Tab = "activos" | "archivados" | "equipos"
+type Tab = "activos" | "archivados" | "equipos" | "config"
 
 const TOOLS = [
   { key: "tool_task_submit_dev", label: "Gestión de Tareas — Colaborador", desc: "Acceso a registro de tareas propias" },
@@ -154,6 +157,7 @@ export function AdminPage() {
               { key: "activos", label: "Activos" },
               { key: "archivados", label: "Archivados" },
               { key: "equipos", label: "Equipos archivados" },
+              { key: "config", label: "Configuración" },
             ] as { key: Tab; label: string }[]).map((t) => (
               <button
                 key={t.key}
@@ -169,8 +173,10 @@ export function AdminPage() {
             ))}
           </div>
 
-          {/* Equipos archivados */}
-          {tab === "equipos" ? (
+          {/* Configuración / Equipos archivados / Tabla usuarios */}
+          {tab === "config" ? (
+            <ConfigPanel />
+          ) : tab === "equipos" ? (
             <ArchivedTeamsPanel />
           ) : (
           /* Tabla usuarios */
@@ -895,5 +901,209 @@ function UserToolsModal({ user, onClose }: { user: UserListItem; onClose: () => 
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function ConfigPanel() {
+  const { data: config, isLoading } = useSystemConfig()
+  const updateConfig = useUpdateSystemConfig()
+  const testEmail = useTestEmail()
+  const testWebhook = useTestWebhook()
+
+  const [smtp, setSmtp] = useState({
+    smtp_host: "",
+    smtp_port: "587",
+    smtp_user: "",
+    smtp_password: "",
+    smtp_from: "",
+    smtp_enabled: "false",
+  })
+
+  const [webhook, setWebhook] = useState({
+    webhook_powerautomate_url: "",
+    webhook_enabled: "false",
+  })
+
+  const [smtpMsg, setSmtpMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [webhookMsg, setWebhookMsg] = useState<{ ok: boolean; text: string } | null>(null)
+
+  useEffect(() => {
+    if (!config) return
+    setSmtp({
+      smtp_host: config.smtp_host ?? "",
+      smtp_port: config.smtp_port ?? "587",
+      smtp_user: config.smtp_user ?? "",
+      smtp_password: "",
+      smtp_from: config.smtp_from ?? "",
+      smtp_enabled: config.smtp_enabled ?? "false",
+    })
+    setWebhook({
+      webhook_powerautomate_url: config.webhook_powerautomate_url ?? "",
+      webhook_enabled: config.webhook_enabled ?? "false",
+    })
+  }, [config])
+
+  function handleSaveSmtp() {
+    setSmtpMsg(null)
+    const payload: Record<string, string> = {
+      smtp_host: smtp.smtp_host,
+      smtp_port: smtp.smtp_port,
+      smtp_user: smtp.smtp_user,
+      smtp_from: smtp.smtp_from,
+      smtp_enabled: smtp.smtp_enabled,
+    }
+    if (smtp.smtp_password) payload.smtp_password = smtp.smtp_password
+    updateConfig.mutate(payload, {
+      onSuccess: () => setSmtpMsg({ ok: true, text: "Configuración SMTP guardada" }),
+      onError: () => setSmtpMsg({ ok: false, text: "Error al guardar" }),
+    })
+  }
+
+  function handleSaveWebhook() {
+    setWebhookMsg(null)
+    updateConfig.mutate(
+      { webhook_powerautomate_url: webhook.webhook_powerautomate_url, webhook_enabled: webhook.webhook_enabled },
+      {
+        onSuccess: () => setWebhookMsg({ ok: true, text: "Webhook guardado" }),
+        onError: () => setWebhookMsg({ ok: false, text: "Error al guardar" }),
+      },
+    )
+  }
+
+  function handleTestEmail() {
+    setSmtpMsg(null)
+    testEmail.mutate(undefined, {
+      onSuccess: (d: { message?: string }) => setSmtpMsg({ ok: true, text: d.message ?? "Email de prueba enviado" }),
+      onError: (e: unknown) => {
+        const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "Error al enviar"
+        setSmtpMsg({ ok: false, text: msg })
+      },
+    })
+  }
+
+  function handleTestWebhook() {
+    setWebhookMsg(null)
+    testWebhook.mutate(undefined, {
+      onSuccess: (d: { message?: string }) => setWebhookMsg({ ok: true, text: d.message ?? "Webhook de prueba enviado" }),
+      onError: (e: unknown) => {
+        const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "Error al enviar"
+        setWebhookMsg({ ok: false, text: msg })
+      },
+    })
+  }
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">Cargando...</div>
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      {/* SMTP */}
+      <div className="bg-card rounded-xl border border-border shadow-sm p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">Correo electrónico (SMTP)</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">Notificaciones por email al asignar o responder tareas</p>
+          </div>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <span className="text-xs text-muted-foreground">Activo</span>
+            <button
+              type="button"
+              onClick={() => setSmtp((s) => ({ ...s, smtp_enabled: s.smtp_enabled === "true" ? "false" : "true" }))}
+              className={`relative w-9 h-5 rounded-full transition-colors ${smtp.smtp_enabled === "true" ? "bg-primary" : "bg-muted-foreground/30"}`}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${smtp.smtp_enabled === "true" ? "translate-x-4" : "translate-x-0"}`} />
+            </button>
+          </label>
+        </div>
+
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="smtp_host" className="text-xs mb-1">Servidor SMTP</Label>
+              <Input id="smtp_host" value={smtp.smtp_host} onChange={(e) => setSmtp((s) => ({ ...s, smtp_host: e.target.value }))} placeholder="smtp.office365.com" className="h-8 text-sm" />
+            </div>
+            <div>
+              <Label htmlFor="smtp_port" className="text-xs mb-1">Puerto</Label>
+              <Input id="smtp_port" value={smtp.smtp_port} onChange={(e) => setSmtp((s) => ({ ...s, smtp_port: e.target.value }))} placeholder="587" className="h-8 text-sm" />
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="smtp_user" className="text-xs mb-1">Usuario</Label>
+            <Input id="smtp_user" type="email" value={smtp.smtp_user} onChange={(e) => setSmtp((s) => ({ ...s, smtp_user: e.target.value }))} placeholder="notificaciones@zymo.com" className="h-8 text-sm" />
+          </div>
+          <div>
+            <Label htmlFor="smtp_password" className="text-xs mb-1">Contraseña</Label>
+            <Input id="smtp_password" type="password" value={smtp.smtp_password} onChange={(e) => setSmtp((s) => ({ ...s, smtp_password: e.target.value }))} placeholder="Dejar vacío para no cambiar" className="h-8 text-sm" />
+          </div>
+          <div>
+            <Label htmlFor="smtp_from" className="text-xs mb-1">Remitente</Label>
+            <Input id="smtp_from" value={smtp.smtp_from} onChange={(e) => setSmtp((s) => ({ ...s, smtp_from: e.target.value }))} placeholder='ZYMO Intranet <noreply@zymo.com>' className="h-8 text-sm" />
+          </div>
+        </div>
+
+        {smtpMsg && (
+          <p className={`mt-3 text-xs ${smtpMsg.ok ? "text-green-600" : "text-destructive"}`}>{smtpMsg.text}</p>
+        )}
+
+        <div className="flex gap-2 mt-4">
+          <Button size="sm" onClick={handleSaveSmtp} disabled={updateConfig.isPending} className="flex-1">
+            Guardar
+          </Button>
+          <Button size="sm" variant="outline" onClick={handleTestEmail} disabled={testEmail.isPending}>
+            {testEmail.isPending ? "Enviando…" : "Probar"}
+          </Button>
+        </div>
+      </div>
+
+      {/* Webhook Power Automate */}
+      <div className="bg-card rounded-xl border border-border shadow-sm p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">Webhook Power Automate</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">Sincroniza tareas y eventos con el calendario de Outlook/Teams</p>
+          </div>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <span className="text-xs text-muted-foreground">Activo</span>
+            <button
+              type="button"
+              onClick={() => setWebhook((s) => ({ ...s, webhook_enabled: s.webhook_enabled === "true" ? "false" : "true" }))}
+              className={`relative w-9 h-5 rounded-full transition-colors ${webhook.webhook_enabled === "true" ? "bg-primary" : "bg-muted-foreground/30"}`}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${webhook.webhook_enabled === "true" ? "translate-x-4" : "translate-x-0"}`} />
+            </button>
+          </label>
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <Label htmlFor="webhook_url" className="text-xs mb-1">URL del trigger HTTP</Label>
+            <Input
+              id="webhook_url"
+              value={webhook.webhook_powerautomate_url}
+              onChange={(e) => setWebhook((s) => ({ ...s, webhook_powerautomate_url: e.target.value }))}
+              placeholder="https://prod-xx.westus.logic.azure.com/workflows/..."
+              className="h-8 text-sm font-mono"
+            />
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            En Power Automate: crea un flujo con trigger "Cuando se reciba una solicitud HTTP", copia la URL generada y pégala aquí.
+          </p>
+        </div>
+
+        {webhookMsg && (
+          <p className={`mt-3 text-xs ${webhookMsg.ok ? "text-green-600" : "text-destructive"}`}>{webhookMsg.text}</p>
+        )}
+
+        <div className="flex gap-2 mt-4">
+          <Button size="sm" onClick={handleSaveWebhook} disabled={updateConfig.isPending} className="flex-1">
+            Guardar
+          </Button>
+          <Button size="sm" variant="outline" onClick={handleTestWebhook} disabled={testWebhook.isPending}>
+            {testWebhook.isPending ? "Enviando…" : "Probar"}
+          </Button>
+        </div>
+      </div>
+    </div>
   )
 }
