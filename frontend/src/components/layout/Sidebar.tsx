@@ -81,17 +81,16 @@ export function Sidebar() {
     <ShadcnSidebar collapsible="icon" className="border-r border-sidebar-border">
       {/* ── Header: workspace logo ───────────────────────────────────── */}
       <SidebarHeader className="px-3 py-4">
-        <div className="flex items-center gap-2.5 px-1">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center">
+        {isCollapsed ? (
+          <div className="flex items-center justify-center px-1">
             <img src="/brand/zymo_logo.png" alt="ZYMO" className="h-7 w-7 object-contain" />
           </div>
-          {!isCollapsed && (
-            <div className="leading-none">
-              <p className="font-bold text-sm text-sidebar-foreground">ZYMO</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Intranet</p>
-            </div>
-          )}
-        </div>
+        ) : (
+          <div className="flex flex-col items-center gap-1 px-1 py-1">
+            <img src="/brand/zymo_logo.png" alt="ZYMO" className="h-10 w-auto object-contain" />
+            <p className="text-[11px] font-medium tracking-widest uppercase text-muted-foreground">Intranet</p>
+          </div>
+        )}
       </SidebarHeader>
 
       <SidebarSeparator />
