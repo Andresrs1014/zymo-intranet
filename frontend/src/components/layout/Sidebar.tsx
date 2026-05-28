@@ -83,7 +83,7 @@ export function Sidebar() {
       <SidebarHeader className="px-3 py-4">
         <div className="flex items-center gap-2.5 px-1">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center">
-            <img src="/zymo-logo.png" alt="ZYMO" className="h-7 w-7 object-contain" />
+            <img src="/brand/zymo_logo.png" alt="ZYMO" className="h-7 w-7 object-contain" />
           </div>
           {!isCollapsed && (
             <div className="leading-none">
