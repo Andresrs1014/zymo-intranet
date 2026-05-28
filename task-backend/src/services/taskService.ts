@@ -454,19 +454,32 @@ export async function listTasks(
     where["teamId"] = filters.teamId
   }
 
+  const andClauses: Record<string, unknown>[] = []
+
   if (filters.search) {
-    where["OR"] = [
-      { titulo: { contains: filters.search, mode: "insensitive" } },
-      { descripcionTecnica: { contains: filters.search, mode: "insensitive" } },
-    ]
+    andClauses.push({
+      OR: [
+        { titulo: { contains: filters.search, mode: "insensitive" } },
+        { descripcionTecnica: { contains: filters.search, mode: "insensitive" } },
+      ],
+    })
   }
 
   if (filters.estado) where["estado"] = filters.estado
   if (filters.etiqueta) where["etiqueta"] = filters.etiqueta
   if (filters.plataforma) where["plataforma"] = filters.plataforma
   if (filters.prioridad) where["prioridad"] = filters.prioridad
-  if (filters.responsableId) where["asignadoAId"] = filters.responsableId
+  if (filters.responsableId) {
+    andClauses.push({
+      OR: [
+        { asignadoAId: filters.responsableId },
+        { asignadoAId: null, subidoPorId: filters.responsableId },
+      ],
+    })
+  }
   if (filters.subidoPorId) where["subidoPorId"] = filters.subidoPorId
+
+  if (andClauses.length > 0) where["AND"] = andClauses
 
   if (filters.fechaDesde || filters.fechaHasta) {
     const dateFilter: Record<string, Date> = {}
