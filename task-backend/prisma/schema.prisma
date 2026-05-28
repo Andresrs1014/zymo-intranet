@@ -210,3 +210,15 @@ model ListConfig {
   @@index([teamId, listType])
   @@map("list_configs")
 }
+
+// ─── SYSTEM CONFIG ─────────────────────────────────────────────
+
+model SystemConfig {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     String?
+  encrypted Boolean  @default(false)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("system_config")
+}

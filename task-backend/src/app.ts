@@ -13,6 +13,7 @@ import dashboardRouter from "./routers/dashboard"
 import listConfigsRouter from "./routers/listConfigs"
 import exportsRouter from "./routers/exports"
 import aiRouter from "./routers/ai"
+import systemConfigRouter from "./routers/systemConfig"
 
 const app = express()
 
@@ -47,6 +48,7 @@ app.use("/api/events", eventsRouter)
 app.use("/api/dashboard", dashboardRouter)
 app.use("/api/exports", exportsRouter)
 app.use("/api/ai", aiRouter)
+app.use("/api/config", systemConfigRouter)
 
 // --- 404 handler ---
 app.use((_req: Request, res: Response) => {
