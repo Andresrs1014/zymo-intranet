@@ -76,7 +76,7 @@ export function AgentChatUi({
 
       <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-3">
         {messages.length === 0 && !isStreaming && (
-          <div className="flex flex-col items-center justify-center h-full min-h-[120px] text-center text-gray-400">
+          <div className="flex flex-col items-center justify-center h-full min-h-[120px] text-center text-muted-foreground">
             <p className="text-sm font-medium">¿En qué te ayudo hoy?</p>
             <p className="text-xs mt-1 px-2">
               {agente === "zymo"
@@ -90,7 +90,7 @@ export function AgentChatUi({
                   type="button"
                   disabled={isStreaming}
                   onClick={() => onSuggestedPrompt(p)}
-                  className="rounded-full border border-gray-200 px-3 py-1 text-xs text-gray-600 hover:bg-gray-50 hover:border-brand-blue/40 transition-colors disabled:opacity-50"
+                  className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground hover:bg-muted hover:border-brand-blue/40 transition-colors disabled:opacity-50"
                 >
                   {p}
                 </button>
@@ -120,7 +120,7 @@ export function AgentChatUi({
         </div>
       )}
 
-      <div className="px-3 pb-3 pt-2 border-t border-gray-100 shrink-0">
+      <div className="px-3 pb-3 pt-2 border-t border-border shrink-0">
         {onNewChat && (
           <div className="flex justify-end mb-2">
             <button
@@ -141,7 +141,7 @@ export function AgentChatUi({
             onKeyDown={onInputKeyDown}
             disabled={isStreaming}
             placeholder={`Escribe tu pregunta… (${usuarioNombre.split(" ")[0]}, Enter envía)`}
-            className="flex-1 resize-none rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30 disabled:bg-gray-50 disabled:text-gray-400 min-h-[44px]"
+            className="flex-1 resize-none rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30 disabled:bg-muted disabled:text-muted-foreground min-h-[44px]"
           />
           <button
             type="button"
@@ -156,7 +156,7 @@ export function AgentChatUi({
           </button>
         </div>
         {showKeyboardHint && (
-          <p className="text-[10px] text-gray-400 mt-1.5 text-center">Ctrl+K o ⌘K para expandir o minimizar</p>
+          <p className="text-[10px] text-muted-foreground mt-1.5 text-center">Ctrl+K o ⌘K para expandir o minimizar</p>
         )}
       </div>
     </div>

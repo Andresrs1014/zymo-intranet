@@ -178,7 +178,7 @@ export function AgentFloatingWindow({ agente, usuarioNombre }: Props) {
           onTouchStart={handleTouchStart}
           onClick={() => setExpanded(true)}
           type="button"
-          className="flex items-center gap-2.5 rounded-2xl bg-white border border-gray-200 shadow-lg px-4 py-3 hover:shadow-xl transition-shadow group cursor-pointer"
+          className="flex items-center gap-2.5 rounded-2xl bg-card border border-border shadow-lg px-4 py-3 hover:shadow-xl transition-shadow group cursor-pointer"
         >
           <div className="relative">
             <div className="w-8 h-8 rounded-full bg-brand-blue flex items-center justify-center text-white text-sm font-bold">
@@ -195,10 +195,10 @@ export function AgentFloatingWindow({ agente, usuarioNombre }: Props) {
           </div>
 
           <div className="text-left">
-            <p className="text-xs font-semibold text-gray-800 leading-none">
+            <p className="text-xs font-semibold text-foreground leading-none">
               {agente === "zymo" ? "ZYMO" : "Agente Administrativo"}
             </p>
-            <p className="text-[10px] text-gray-400 mt-0.5">
+            <p className="text-[10px] text-muted-foreground mt-0.5">
               {isStreaming
                 ? "trabajando..."
                 : badgeCount > 0
@@ -208,7 +208,7 @@ export function AgentFloatingWindow({ agente, usuarioNombre }: Props) {
           </div>
 
           <svg
-            className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-500 transition-colors ml-1"
+            className="w-3.5 h-3.5 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors ml-1"
             viewBox="0 0 20 20"
             fill="currentColor"
           >
@@ -226,7 +226,7 @@ export function AgentFloatingWindow({ agente, usuarioNombre }: Props) {
   return (
     <div
       ref={windowRef}
-      className="fixed z-50 flex flex-col bg-white border border-gray-200 rounded-2xl shadow-2xl select-none overflow-hidden min-w-[280px] min-h-[320px]"
+      className="fixed z-50 flex flex-col bg-card border border-border rounded-2xl shadow-2xl select-none overflow-hidden min-w-[280px] min-h-[320px]"
       style={{
         ...posStyle,
         width: panelSize.w,
@@ -257,7 +257,7 @@ export function AgentFloatingWindow({ agente, usuarioNombre }: Props) {
           <div
             onMouseDown={handleMouseDown}
             onTouchStart={handleTouchStart}
-            className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 rounded-t-2xl bg-brand-blue cursor-grab active:cursor-grabbing shrink-0"
+            className="flex items-center gap-3 px-4 py-3 border-b border-border rounded-t-2xl bg-brand-blue cursor-grab active:cursor-grabbing shrink-0"
           >
             <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-white text-sm font-bold shrink-0">
               {agente === "zymo" ? "Z" : "A"}

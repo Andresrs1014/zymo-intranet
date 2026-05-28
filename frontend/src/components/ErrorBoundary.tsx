@@ -31,16 +31,16 @@ export class ErrorBoundary extends Component<Props, State> {
         return this.props.fallback
       }
       return (
-        <div className="flex h-screen bg-gray-50 items-center justify-center">
-          <div className="bg-white rounded-xl border border-red-100 shadow-sm p-8 max-w-md w-full text-center">
+        <div className="flex h-screen bg-muted items-center justify-center">
+          <div className="bg-card rounded-xl border border-red-100 shadow-sm p-8 max-w-md w-full text-center">
             <div className="text-4xl mb-4">⚠️</div>
-            <h2 className="text-lg font-semibold text-gray-800 mb-2">
+            <h2 className="text-lg font-semibold text-foreground mb-2">
               Ocurrió un error inesperado
             </h2>
-            <p className="text-sm text-gray-500 mb-1">
+            <p className="text-sm text-muted-foreground mb-1">
               {this.state.error?.message ?? "Error desconocido"}
             </p>
-            <p className="text-xs text-gray-400 mb-6">
+            <p className="text-xs text-muted-foreground mb-6">
               Si el problema persiste, contacta al administrador.
             </p>
             <div className="flex gap-3 justify-center">
@@ -49,7 +49,7 @@ export class ErrorBoundary extends Component<Props, State> {
                   this.handleReset()
                   window.history.back()
                 }}
-                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
               >
                 Volver atrás
               </button>

@@ -23,7 +23,7 @@ export function AgentMessageStream({ message, isLast, isStreaming, agentLabel }:
   return (
     <div className={`flex flex-col gap-1 ${isAgent ? "items-start" : "items-end"}`}>
       {isAgent && agentLabel && (
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 pl-1">
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground pl-1">
           {agentLabel}
         </span>
       )}
@@ -31,7 +31,7 @@ export function AgentMessageStream({ message, isLast, isStreaming, agentLabel }:
       <div
         className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-relaxed break-words ${
           isAgent
-            ? "bg-gray-100 text-gray-800 rounded-tl-sm"
+            ? "bg-muted text-foreground rounded-tl-sm"
             : "bg-brand-blue text-white rounded-tr-sm whitespace-pre-wrap"
         }`}
       >
@@ -41,14 +41,14 @@ export function AgentMessageStream({ message, isLast, isStreaming, agentLabel }:
             prose-ul:my-1 prose-ul:pl-4 prose-ul:list-disc
             prose-ol:my-1 prose-ol:pl-4 prose-ol:list-decimal
             prose-li:my-0.5
-            prose-strong:font-semibold prose-strong:text-gray-900
-            prose-code:bg-gray-200 prose-code:px-1 prose-code:rounded prose-code:text-xs prose-code:font-mono
-            prose-pre:bg-gray-200 prose-pre:p-2 prose-pre:rounded-lg prose-pre:text-xs prose-pre:overflow-x-auto
+            prose-strong:font-semibold prose-strong:text-foreground
+            prose-code:bg-muted prose-code:px-1 prose-code:rounded prose-code:text-xs prose-code:font-mono
+            prose-pre:bg-muted prose-pre:p-2 prose-pre:rounded-lg prose-pre:text-xs prose-pre:overflow-x-auto
             prose-table:text-xs prose-table:border-collapse
-            prose-th:border prose-th:border-gray-300 prose-th:bg-gray-200 prose-th:px-2 prose-th:py-1
-            prose-td:border prose-td:border-gray-300 prose-td:px-2 prose-td:py-1
-            prose-headings:font-semibold prose-headings:text-gray-900 prose-headings:my-1
-            prose-blockquote:border-l-2 prose-blockquote:border-gray-400 prose-blockquote:pl-2 prose-blockquote:italic
+            prose-th:border prose-th:border-border prose-th:bg-muted prose-th:px-2 prose-th:py-1
+            prose-td:border prose-td:border-border prose-td:px-2 prose-td:py-1
+            prose-headings:font-semibold prose-headings:text-foreground prose-headings:my-1
+            prose-blockquote:border-l-2 prose-blockquote:border-border prose-blockquote:pl-2 prose-blockquote:italic
           ">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {message.content || (showCursor ? "\u200b" : "…")}
@@ -58,7 +58,7 @@ export function AgentMessageStream({ message, isLast, isStreaming, agentLabel }:
           message.content || "…"
         )}
         {showCursor && (
-          <span className="inline-block w-0.5 h-3.5 bg-gray-500 ml-0.5 align-middle animate-pulse" />
+          <span className="inline-block w-0.5 h-3.5 bg-muted-foreground ml-0.5 align-middle animate-pulse" />
         )}
       </div>
       </div>

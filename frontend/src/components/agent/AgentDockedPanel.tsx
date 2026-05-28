@@ -72,7 +72,7 @@ export function AgentDockedPanel({ agente, usuarioNombre }: Props) {
       onNewChat={handleNewChat}
       showKeyboardHint={false}
       renderHeader={() => (
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 shrink-0 bg-brand-blue">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-border shrink-0 bg-brand-blue">
           <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-white text-sm font-bold shrink-0">
             {agente === "zymo" ? "Z" : "A"}
           </div>
