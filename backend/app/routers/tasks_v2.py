@@ -1,8 +1,12 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from jose.exceptions import JWTError
 from pydantic import BaseModel
 from sqlmodel import Session, select
+from typing import Optional
 
+from app.config import settings
 from app.core.deps import get_current_user
+from app.core.security import decode_token
 from app.database import get_db
 from app.models.user import User
 from app.models.user_tool import UserTool
@@ -16,15 +20,38 @@ class TaskUserRead(BaseModel):
     email: str
 
 
+def _is_valid_internal_key(key: Optional[str]) -> bool:
+    return bool(key and settings.internal_key and key == settings.internal_key)
+
+
 @router.get("/users", response_model=list[TaskUserRead])
 def list_task_users(
-    current_user: User = Depends(get_current_user),
+    request: Request,
+    x_internal_key: Optional[str] = Header(default=None),
     db: Session = Depends(get_db),
 ) -> list[TaskUserRead]:
     """
     Retorna todos los usuarios activos de la intranet.
-    Usado por task-backend para listar candidatos para agregar a un equipo.
+    Acepta X-Internal-Key (service-to-service) o JWT de usuario autenticado.
     """
+    # Permitir acceso con clave interna (task-backend, helix-backend, etc.)
+    if _is_valid_internal_key(x_internal_key):
+        pass  # authorized
+    else:
+        # Fallback: validar JWT de usuario
+        auth_header = request.headers.get("Authorization", "")
+        token = auth_header.removeprefix("Bearer ").strip()
+        if not token:
+            raise HTTPException(status_code=401, detail="No autorizado")
+        try:
+            payload = decode_token(token)
+            email = payload.get("sub")
+            user = db.exec(select(User).where(User.email == email, User.is_active == True)).first()  # noqa: E712
+            if not user:
+                raise HTTPException(status_code=401, detail="No autorizado")
+        except JWTError:
+            raise HTTPException(status_code=401, detail="Token inválido")
+
     users = db.exec(select(User).where(User.is_active == True)).all()  # noqa: E712
     return [
         TaskUserRead(id=int(u.id), full_name=u.full_name, email=u.email)

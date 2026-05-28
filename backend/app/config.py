@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     # SSO — secret compartido con apps externas (CRM, etc.)
     jwt_sso_secret: str = ""
 
+    # Clave interna para llamadas service-to-service (task-backend, helix-backend, etc.)
+    internal_key: str = ""
+
     # OC Automatizaciones
     # Secret para validar que el webhook viene de Power Automate (opcional)
     oc_webhook_secret: str = ""
