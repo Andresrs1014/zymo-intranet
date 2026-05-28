@@ -13,6 +13,74 @@ Estas reglas se derivan de:
 - `docs/superpowers/plans/2026-04-22-oc-correccion-valores-emails.md`
 - `Master_plan/ZYMO_MASTER_PLAN_v2.md`
 
+---
+
+## Skills instaladas (usar activamente)
+
+El proyecto cuenta con 5 skills instaladas globalmente. Deben aplicarse de forma proactiva en cada tarea, sin esperar instruccion explicita.
+
+### 1. find-skills (vercel-labs)
+Usar al inicio de cada sesion y cuando se detecte una necesidad nueva antes de implementar desde cero:
+```
+npx skills find [query]
+```
+Prioridad maxima en seguridad — buscar skill ANTES de implementar cualquier control manual:
+- Seguridad de app web:    `owasp top 10`, `xss csrf protection`, `sql injection prevention`
+- Autenticacion/sesiones:  `jwt security`, `session hardening`, `brute force protection`
+- Infraestructura:         `docker hardening`, `nginx security headers`, `fail2ban`
+- Proteccion de datos:     `data encryption`, `pii protection`, `secrets management`
+- Auditoria:               `security audit`, `penetration testing`, `vulnerability scan`
+
+### 2. frontend-design (anthropics/claude-code)
+Obligatorio en TODA tarea de UI/UX sin excepcion. Antes de escribir cualquier componente:
+1. Definir direccion estetica concreta y documentarla brevemente en comentario.
+2. Ejecutar el codigo con intencion — cada pantalla debe ser memorable y diferenciable.
+
+Identidad visual de ZYMO Intranet: **industrial / utilitario refinado**.
+- Fuentes instaladas: DM Sans (cuerpo) + DM Mono (datos/codigo). No sustituir.
+- Paleta: base oscura dominante (#0f1117 o similar), acentos de accion saturados, texto de alta legibilidad.
+- Composicion: densidad controlada, jerarquia clara, micro-animaciones de alto impacto en momentos clave (carga, transicion de estado, feedback de accion).
+- Profundidad: sombras dramaticas, separadores sutiles, capas de transparencia — no superficies planas sin atmoosfera.
+- Prohibido: Inter, Roboto, Arial, gradientes purpura sobre blanco, layouts genericos de dashboard SaaS, patrones cookie-cutter.
+- Cada modulo debe tener caracter propio. No convergir en el mismo patron visual entre Helix, OC, Bodega, Gerencial.
+
+### 3. web-design-guidelines (vercel-labs/agent-skills)
+Checklist obligatorio antes de hacer commit de cualquier componente o pantalla:
+- Descarga las reglas actualizadas del repositorio oficial automaticamente.
+- Verifica accesibilidad: aria-labels, contraste WCAG, estados de foco visibles.
+- Verifica estructura semantica HTML correcta.
+- Reporta hallazgos en formato `archivo:linea` para trazabilidad directa.
+Uso:
+```
+Revisa src/components/[modulo]/ contra las web-design-guidelines
+```
+
+### 4. agent-browser (vercel-labs)
+Usar para pruebas E2E y validacion visual de flujos criticos antes de despliegues:
+```bash
+agent-browser open https://zymointranet.com
+agent-browser snapshot -i                    # elementos interactivos con refs
+agent-browser click @e[N]                    # interactuar por ref
+agent-browser screenshot --annotate          # evidencia de QA anotada
+```
+- Flujos obligatorios: login/logout, creacion de tareas en Helix, flujo completo OC, navegacion entre modulos.
+- Usar `--session [nombre]` para aislar sesiones por rol: admin, gerente, operador.
+- Screenshots anotados como evidencia antes de despliegues a produccion.
+
+### 5. mcp-builder (anthropics)
+Usar cuando se proponga integrar un servicio externo o exponer capacidades del intranet a agentes IA:
+- Verificar primero con `find-skills` si ya existe un MCP reutilizable.
+- MCPs prioritarios identificados para ZYMO:
+  - `mcp-zymo-bodega`   — operaciones de bodega: scanning, validacion SAP, packing/picking
+  - `mcp-zymo-oc`       — flujo Orden de Compra: creacion, aprobacion, notificacion email
+  - `mcp-zymo-helix`    — gestion de tareas y sprints para agente ZYMO_CEREBRO_CORE
+  - `mcp-zymo-reportes` — generacion de PDFs/Excel para agentes administrativos
+- Lenguaje preferido: Python/FastMCP (consistente con backend principal).
+- Transporte: streamable HTTP en produccion, stdio solo en desarrollo local.
+- Seguir las 4 fases del skill: Research → Implementacion → Review → Evaluaciones.
+
+---
+
 ## Principios no negociables
 1. Codigo limpio siempre: legible, modular y reusable. Evitar archivos y funciones gigantes.
 2. Seguridad por defecto: todo cambio debe reducir riesgo, nunca aumentarlo.
@@ -46,9 +114,10 @@ Estas reglas se derivan de:
 - Mantener respuestas de autenticacion genericas para evitar enumeracion de cuentas.
 - Proteger endpoints sensibles con dependencias de permisos/roles.
 - Seguir Defense in Depth:
-  - red (firewall/fail2ban/nginx),
-  - app (rate limit, validacion, lockout),
-  - contenedor (sin privilegios innecesarios).
+  - red (firewall/fail2ban/nginx)
+  - app (rate limit, validacion, lockout)
+  - contenedor (sin privilegios innecesarios)
+- Buscar con `find-skills` antes de implementar cualquier control de seguridad manualmente.
 
 ## Reglas Docker y despliegue
 - Todo cambio debe funcionar en contenedores, no depender de binarios locales del desarrollador.
@@ -71,7 +140,8 @@ Estas reglas se derivan de:
 - Evitar elementos hardcodeados cuando existe fuente dinamica desde backend.
 - Mantener accesibilidad basica (labels, estados, feedback visible).
 - Mantener componentes enfocadas y reutilizables.
-- Los estilos nuevos deben ser ajustables y centralizados: preferir tokens, variables CSS, clases/utilidades compartidas y componentes reutilizables antes que valores visuales rigidos dispersos. Cualquier propuesta visual tipo shadcn/Vercel/Claude debe poder cambiarse sin reescribir pantallas completas.
+- Los estilos nuevos deben ser ajustables y centralizados: preferir tokens, variables CSS, clases/utilidades compartidas y componentes reutilizables antes que valores visuales rigidos dispersos.
+- Todo componente nuevo pasa por `frontend-design` para direccion estetica y por `web-design-guidelines` para auditoria antes de commit.
 
 ## Observabilidad y auditoria
 - Loggear eventos de seguridad y accesos denegados en modulos sensibles.
@@ -80,15 +150,20 @@ Estas reglas se derivan de:
 - Si un error es esperado, registrar warning; si compromete operacion, registrar error.
 
 ## Flujo de trabajo para cambios
+
 Antes de codificar:
 - Revisar impacto en backend, frontend, seguridad y despliegue.
 - Confirmar si afecta contratos API, modelos o variables de entorno.
+- Ejecutar `npx skills find [dominio]` para verificar si existe un skill aplicable.
 
 Durante implementacion:
 - Hacer cambios pequenos y verificables.
-- Priorizar claridad sobre "magia" o sobreingenieria.
+- Priorizar claridad sobre magia o sobreingenieria.
+- Aplicar `frontend-design` para cualquier componente UI nuevo.
 
 Antes de cerrar:
+- Auditar con `web-design-guidelines` los archivos de UI modificados.
+- Correr prueba E2E con `agent-browser` si el cambio afecta flujos criticos de usuario.
 - Verificar build/test minimo del modulo afectado.
 - Verificar que sigue desplegable en Docker.
 - Verificar que no se introdujeron secretos ni configuraciones inseguras.
@@ -100,6 +175,8 @@ Un cambio se considera listo solo si:
 - No rompe endpoints/rutas existentes sin justificacion documentada.
 - Cumple criterios de seguridad.
 - Es desplegable en servidor Docker sin pasos ocultos.
+- Auditado con `web-design-guidelines` si incluye cambios de UI.
+- Probado con `agent-browser` si afecta flujos de usuario criticos.
 - Queda documentado cuando aplique.
 
 ## Antipatrones prohibidos
@@ -108,6 +185,9 @@ Un cambio se considera listo solo si:
 - Soluciones "temporales" sin trazabilidad ni plan de retiro.
 - Cambios que solo funcionan en entorno local.
 - Bypass de validaciones, permisos o controles de seguridad.
+- Implementar seguridad sin antes buscar skill disponible con `find-skills`.
+- Diseno UI sin direccion estetica definida — `frontend-design` es obligatorio.
+- UI generica sin caracter: Inter, gradientes purpura, layouts SaaS predecibles.
 
 ## Regla de continuidad
 Si existe conflicto entre velocidad y calidad:
@@ -118,11 +198,11 @@ Si existe conflicto entre velocidad y calidad:
 
 ## Helix Zymo — Plan de Tareas Frontend
 
-Plan de implementación del módulo Helix Zymo dentro de la intranet React.
-Backend Node.js+Express+Prisma (helix-backend, puerto 3001) ya completo en T1–T3.
+Plan de implementacion del modulo Helix Zymo dentro de la intranet React.
+Backend Node.js+Express+Prisma (helix-backend, puerto 3001) ya completo en T1-T3.
 
 ### Estado actual
-| Tarea | Descripción | Estado |
+| Tarea | Descripcion | Estado |
 |---|---|---|
 | T1 | helix-backend — setup Node.js + Express + TypeScript + Prisma + Docker | ✅ Completo |
 | T2 | helix-backend — auth middleware + seed data + migraciones | ✅ Completo |
@@ -131,7 +211,7 @@ Backend Node.js+Express+Prisma (helix-backend, puerto 3001) ya completo en T1–
 | T5 | Frontend — HelixShell + HelixSidebar + HelixTopbar | ✅ Completo |
 | T6 | Frontend — Scrum Board (BoardView + BoardToolbar + KanbanColumn + TaskCard + drag & drop) | ✅ Completo |
 | T7 | Frontend — Settings view (SettingsView + SubprojectsPanel + ResponsiblesPanel + hooks) | ✅ Completo |
-| T8 | Frontend — TaskDialog (crear/editar actividad) + integración en BoardView | ✅ Completo |
+| T8 | Frontend — TaskDialog (crear/editar actividad) + integracion en BoardView | ✅ Completo |
 | T9 | Frontend — Vista Gantt (GanttView + GanttScale + GanttChart) | ✅ Completo |
 | T10 | Frontend — Vista Dashboard/Panel (MetricsGrid, SprintHealth, BlockersPanel, WorkloadPanel, BadgesPanel) | ✅ Completo |
 | T11 | Frontend — Vista Estados/Reports (StatusReport, FollowupList, RoiGrid) + roiService en helix-backend | ✅ Completo |
@@ -145,8 +225,8 @@ Backend Node.js+Express+Prisma (helix-backend, puerto 3001) ya completo en T1–
 - `frontend/src/styles/helix.css` — design tokens Helix
 - `frontend/src/context/HelixContext.tsx` — activeView, activeTeamId
 - `frontend/src/pages/planeacion/helix/HelixPage.tsx` — enrutador de vistas
-- `frontend/src/components/planeacion/helix/` — todos los componentes del módulo
-- `frontend/src/hooks/useHelix*.ts` — hooks del módulo
+- `frontend/src/components/planeacion/helix/` — todos los componentes del modulo
+- `frontend/src/hooks/useHelix*.ts` — hooks del modulo
 
-### Plan de implementación
+### Plan de implementacion
 Ver: `plans/helix_zymo/PLAN_IMPLEMENTACION_INTRANET.md`

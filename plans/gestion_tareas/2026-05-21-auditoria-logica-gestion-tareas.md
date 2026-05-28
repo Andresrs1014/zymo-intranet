@@ -48,7 +48,7 @@
 | 36 | `prioridad` acepta cualquier string (no validado contra Enum) | Medio | Pendiente |
 | 37 | Race condition: dos usuarios pueden editar la misma tarea | Alto | Pendiente |
 | 38 | Gestor puede sobreescribir cambios del colaborador sin aviso | Alto | Pendiente |
-| 39 | Sin notificaciones al asignar una tarea | Alto | Pendiente |
+| 39 | Sin notificaciones al asignar una tarea | Alto | **En progreso** — ver `PLAN_NOTIFICACIONES_TAREAS.md` |
 | 40 | Activity log solo registra cambios de estado, no de otros campos | Medio | Pendiente |
 | 41 | `created_at` guardado pero raramente usado en queries/filtros | Bajo | Pendiente |
 | 42 | `TaskActivityLog` usa UTC pero `WorkTask.fecha` usa local | Medio | Pendiente |
@@ -383,6 +383,11 @@
 - **Archivo:** No implementado
 - **¿Qué pasa hoy?** El asignado solo ve la tarea si revisa su dashboard activamente.
 - **¿Qué debería pasar?** Notificación in-app, email o Slack al momento de asignación.
+- **Estado:** En progreso — Plan completo en `plans/gestion_tareas/PLAN_NOTIFICACIONES_TAREAS.md`
+  - Email (nodemailer) al asignado cuando se crea tarea con `asignadoAId !== subidoPorId`
+  - Email al creador cuando el asignado acepta o rechaza
+  - Webhook a Power Automate para bloqueo de agenda en Outlook/Teams
+  - Config SMTP vía UI (tabla `SystemConfig` en DB, sin .env)
 
 ---
 

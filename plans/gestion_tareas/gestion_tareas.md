@@ -1,6 +1,7 @@
 # Gestión de Tareas — Documentación del Sistema
 
 > Módulo: `desarrollo_innovacion` | Stack: FastAPI + SQLModel + React 19 + TanStack Query
+> Leer también: [[gestion_tareas]] | [[Funcionalidad y flujo (Gestión tareas)]] | [[Configuración de gestion tareas]] | [[ROLES]]
 
 ---
 

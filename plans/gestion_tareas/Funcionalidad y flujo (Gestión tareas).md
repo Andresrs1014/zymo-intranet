@@ -1,7 +1,7 @@
 
 ---
 > Fuente directa:
-> Ver también: [[Configuración de gestion tareas]], [[ROLES]]
+> Ver también: [[Configuración de gestion tareas]], [[ROLES]], [[Tiempos KPI'S]]
 
 ---
 # Flujo Añadir Tarea (Personal, ya realizada)

@@ -14,4 +14,5 @@ Para `COLABORADORES` usamos `tool_task_sumbit` todos parten de esta herramienta 
 
 ---
 
-Cada una de estas funcionalidades completan la funcionalidad y el flujo de la herramienta
+Cada una de estas funcionalidades completan la funcionalidad y el flujo de la herramienta.
+

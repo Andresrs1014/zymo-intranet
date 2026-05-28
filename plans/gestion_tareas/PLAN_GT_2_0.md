@@ -1188,3 +1188,32 @@ Agregar a `volumes:`:
 - [ ] V1 desactivada sin data loss
 - [ ] Performance: < 200ms respuesta promedio en endpoints CRUD
 - [ ] 0 bugs críticos de los 51 documentados en auditoría V1
+
+---
+
+## 9. Extensiones Planificadas
+
+> Esta sección referencia planes de mejora aprobados que extienden la V2.0 sin modificar su arquitectura base.
+
+### 9.1 Sistema de Notificaciones y Calendar Sync
+
+**Archivo:** `plans/gestion_tareas/PLAN_NOTIFICACIONES_TAREAS.md`
+**Resuelve:** Error #39 de la auditoría (Sin notificaciones al asignar tarea)
+**Estado:** Planificado — pendiente implementación
+
+**Decisiones clave:**
+- Email via **nodemailer** en `task-backend` (Node.js) — no Python
+- SMTP configurado desde UI en tabla `SystemConfig` (PostgreSQL) — no `.env`
+- Webhook a **Power Automate** para crear eventos en Outlook/Teams calendario
+
+**Fases:**
+1. `SystemConfig` — tabla Prisma + panel admin UI + cache 60s
+2. `emailService.ts` — templates HTML branded, fire-and-forget
+3. `webhookService.ts` — payload `tarea_asignada` y `evento_creado` a Power Automate
+
+**Criterios de éxito adicionales (pendientes):**
+- [ ] Asignado recibe email al serle asignada una tarea desde otro usuario
+- [ ] Creador recibe email cuando asignado acepta o rechaza
+- [ ] Evento de agenda dispara webhook → bloqueo en Outlook del equipo
+- [ ] Admin puede configurar SMTP desde panel sin tocar el servidor
+- [ ] Admin puede probar envío de email desde el panel
