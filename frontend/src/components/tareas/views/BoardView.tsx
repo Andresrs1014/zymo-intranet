@@ -1,4 +1,5 @@
 import { useState } from "react"
+import "../tareas.css"
 import {
   DndContext,
   type DragEndEvent,
@@ -19,6 +20,13 @@ import { useTaskLists } from "@/hooks/useTaskLists"
 import { useTeamMembers } from "@/hooks/useTaskTeams"
 import { useTaskToast } from "@/components/tareas/TaskToast"
 import type { Task, ListConfig } from "@/types/task"
+
+function formatTiempo(minutos: number): string {
+  if (minutos < 60) return `${minutos}m`
+  const h = Math.floor(minutos / 60)
+  const m = minutos % 60
+  return m > 0 ? `${h}h ${m}m` : `${h}h`
+}
 
 // ─── Task Card ────────────────────────────────────────────────────────────────
 
@@ -49,6 +57,7 @@ function TaskCard({
       {...listeners}
     >
       <div
+        className="task-card-glow"
         style={{
           background: "#fff",
           borderRadius: 8,
@@ -78,7 +87,7 @@ function TaskCard({
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             {task.tiempoTotalMinutos && (
-              <span style={{ fontSize: 10, color: "#9aa5b8" }}>{task.tiempoTotalMinutos}m</span>
+              <span style={{ fontSize: 10, color: "#9aa5b8" }}>{formatTiempo(task.tiempoTotalMinutos)}</span>
             )}
             {task.prioridad && (() => {
               const p = prioridades.find((p) => p.value === task.prioridad)

@@ -1,4 +1,5 @@
 import { useState } from "react"
+import "../tareas.css"
 import { useTask } from "@/context/TaskContext"
 import { useTasks, useDeleteTask } from "@/hooks/useTasks"
 import { useTaskLists } from "@/hooks/useTaskLists"
@@ -356,7 +357,7 @@ export function ListView() {
         onChange={(f) => { setLocalFilters(f); setPage(1) }}
       />
 
-      <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #e8ebf4", overflow: "hidden" }}>
+      <div className="task-card-glow" style={{ background: "#fff", borderRadius: 10, border: "1px solid #e8ebf4", overflow: "hidden" }}>
         {isLoading ? (
           <div style={{ padding: 40, textAlign: "center", color: "#5c6374", fontSize: 14 }}>Cargando tareas…</div>
         ) : tasks.length === 0 ? (

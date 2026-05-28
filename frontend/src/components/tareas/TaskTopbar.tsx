@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react"
 import { useTask, type TaskView } from "@/context/TaskContext"
+import "./tareas.css"
 
 const VIEW_TITLES: Record<TaskView, string> = {
   list: "Lista de Tareas",
@@ -68,7 +69,7 @@ export function TaskTopbar() {
 
       {(activeView === "list" || activeView === "board") && (
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <button style={PRIMARY_BTN} onClick={onNewTask}>
+          <button style={PRIMARY_BTN} className="task-primary-btn" onClick={onNewTask}>
             + Nueva tarea
           </button>
         </div>
