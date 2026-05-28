@@ -20,8 +20,7 @@ router.get("/team-kpis", async (req: Request, res: Response) => {
 // ─── GET /api/dashboard/person-summaries ─────────────────────────────────────
 router.get("/person-summaries", async (req: Request, res: Response) => {
   const { teamId, desde, hasta } = teamQuery.parse(req.query)
-  const token = req.headers.authorization?.slice(7)
-  const data = await dashboardService.getPersonSummaries(req.user!, teamId, { desde, hasta }, token)
+  const data = await dashboardService.getPersonSummaries(req.user!, teamId, { desde, hasta })
   res.json(data)
 })
 
@@ -37,8 +36,7 @@ router.get("/without-entry-today", async (req: Request, res: Response) => {
   const { teamId } = z
     .object({ teamId: z.string().regex(/^\d+$/).transform(Number) })
     .parse(req.query)
-  const token = req.headers.authorization?.slice(7)
-  const data = await dashboardService.getMembersWithoutEntryToday(req.user!, teamId, token)
+  const data = await dashboardService.getMembersWithoutEntryToday(req.user!, teamId)
   res.json(data)
 })
 

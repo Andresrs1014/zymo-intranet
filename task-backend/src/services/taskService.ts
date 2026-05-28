@@ -8,6 +8,7 @@ import { getMemberTeamIds, getManagedTeamIds } from "../utils/permissions"
 import { Prisma, type TaskAcceptanceStatus, type ActivityAction } from "@prisma/client"
 import * as emailService from "./emailService"
 import * as webhookService from "./webhookService"
+import { resolveUserName } from "../utils/userNames"
 
 export interface CreateTaskInput {
   teamId: number
@@ -150,9 +151,14 @@ export async function createTask(
 
   // Auto-asignar al creador si no hay asignado explícito
   const resolvedAsignadoId = input.asignadoAId ?? userId
-  const resolvedAsignadoNombre = input.asignadoAId
-    ? (input.asignadoANombre ?? null)
-    : (user.full_name ?? `Usuario ${userId}`)
+  let resolvedAsignadoNombre: string | null
+  if (!input.asignadoAId) {
+    resolvedAsignadoNombre = user.full_name ?? `Usuario ${userId}`
+  } else if (input.asignadoANombre) {
+    resolvedAsignadoNombre = input.asignadoANombre
+  } else {
+    resolvedAsignadoNombre = await resolveUserName(input.asignadoAId) ?? `Usuario ${input.asignadoAId}`
+  }
 
   const aceptacion: TaskAcceptanceStatus =
     resolvedAsignadoId !== userId ? "pendiente" : "aceptada"
@@ -323,7 +329,13 @@ export async function updateTask(
     }
     campos["asignadoAId"] = { old: current.asignadoAId, new: input.asignadoAId }
     data["asignadoAId"] = input.asignadoAId
-    data["asignadoANombre"] = input.asignadoANombre ?? null
+    if (input.asignadoAId === null) {
+      data["asignadoANombre"] = null
+    } else if (input.asignadoANombre) {
+      data["asignadoANombre"] = input.asignadoANombre
+    } else {
+      data["asignadoANombre"] = await resolveUserName(input.asignadoAId) ?? `Usuario ${input.asignadoAId}`
+    }
     if (input.asignadoAId && input.asignadoAId !== userId) {
       data["aceptacion"] = "pendiente"
     }

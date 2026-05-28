@@ -19,23 +19,7 @@ function overlaps(a: TimeSlot, b: TimeSlot): boolean {
   return a.startMinutes < b.endMinutes && b.startMinutes < a.endMinutes
 }
 
-async function enrichUserNames(userIds: number[]): Promise<Map<number, string>> {
-  const nameMap = new Map<number, string>()
-  try {
-    const res = await fetch(`${env.INTRANET_API_URL}/api/tasks-v2/users`, {
-      headers: { "X-Internal-Key": env.INTERNAL_KEY },
-    })
-    if (res.ok) {
-      const users = await res.json() as { id: number; full_name: string | null; email: string }[]
-      for (const u of users) {
-        if (userIds.includes(u.id)) {
-          nameMap.set(u.id, u.full_name ?? u.email)
-        }
-      }
-    }
-  } catch { /* best-effort */ }
-  return nameMap
-}
+import { enrichUserNames } from "../utils/userNames"
 
 /** Detect schedule conflicts for a set of participants on a given date */
 async function detectConflicts(
