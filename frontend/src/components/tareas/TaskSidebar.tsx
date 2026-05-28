@@ -45,7 +45,7 @@ export function TaskSidebar() {
   const { user } = useAuthStore()
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [newTeamName, setNewTeamName] = useState("")
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(true)
 
   const isGestor = user?.user_tools?.includes("tool_task_manage_dev") ?? false
   const isManager = myRole === "owner" || myRole === "co_gestor"
