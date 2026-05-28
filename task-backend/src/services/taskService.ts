@@ -7,6 +7,7 @@ import { validateTransition, getFinalState, StateConfig } from "./stateMachine"
 import { getMemberTeamIds, getManagedTeamIds } from "../utils/permissions"
 import { Prisma, type TaskAcceptanceStatus, type ActivityAction } from "@prisma/client"
 import * as emailService from "./emailService"
+import * as webhookService from "./webhookService"
 
 export interface CreateTaskInput {
   teamId: number
@@ -184,6 +185,7 @@ export async function createTask(
   // Fire-and-forget: notificar al asignado si es diferente al creador
   if (task.asignadoAId && task.asignadoAId !== userId) {
     const team = await prisma.team.findFirst({ where: { id: task.teamId }, select: { name: true } })
+    const teamNombre = team?.name ?? "Equipo"
     void emailService.notifyTaskAssigned(
       task.asignadoAId,
       userId,
@@ -191,8 +193,23 @@ export async function createTask(
       task.titulo,
       task.fecha,
       task.prioridad,
-      team?.name ?? "Equipo",
+      teamNombre,
     ).catch((e) => console.error("[email] notifyTaskAssigned failed:", e))
+
+    void webhookService.sendWebhook({
+      type: "tarea_asignada",
+      titulo: task.titulo,
+      descripcion: task.descripcionTecnica ?? undefined,
+      fecha: task.fecha.toISOString().split("T")[0],
+      horaInicio: task.horaInicio?.toISOString() ?? undefined,
+      horaCierre: task.horaCierre?.toISOString() ?? undefined,
+      duracionEstimadaMinutos: task.duracionEstimadaMinutos,
+      asignadoNombre: task.asignadoANombre ?? `Usuario ${task.asignadoAId}`,
+      asignadoPorNombre: user.full_name ?? `Usuario ${userId}`,
+      equipo: teamNombre,
+      prioridad: task.prioridad,
+      urlTarea: "https://zymointranet.com/herramientas/tareas",
+    } satisfies webhookService.TareaAsignadaPayload).catch((e) => console.error("[webhook] tarea_asignada failed:", e))
   }
 
   return getTask(task.id, user)

@@ -2,6 +2,8 @@ import prisma from "../config/prisma"
 import { AppError } from "../middleware/errorHandler"
 import { AuthPayload, getUserId, isAdmin } from "../middleware/auth"
 import { getManagedTeamIds, getMemberTeamIds } from "../utils/permissions"
+import * as webhookService from "./webhookService"
+import { env } from "../config/env"
 
 interface TimeSlot {
   startMinutes: number
@@ -101,7 +103,7 @@ export async function createEvent(user: AuthPayload, input: CreateEventInput) {
     participantIds,
   )
 
-  return prisma.event.create({
+  const created = await prisma.event.create({
     data: {
       teamId: input.teamId,
       ownerUserId: userId,
@@ -128,6 +130,42 @@ export async function createEvent(user: AuthPayload, input: CreateEventInput) {
     },
     include: { participants: true },
   })
+
+  // Fire-and-forget: notificar a Power Automate para crear reunión Teams/Outlook
+  void (async () => {
+    const participantesInfo = await Promise.all(
+      participantIds.map(async (uid) => {
+        try {
+          const res = await fetch(`${env.INTRANET_API_URL}/api/users/${uid}`, {
+            headers: { "X-Internal-Key": env.INTERNAL_KEY },
+          })
+          if (!res.ok) return { email: `usuario${uid}@zymo.com`, nombre: `Usuario ${uid}` }
+          const data = await res.json() as { email?: string; full_name?: string }
+          return { email: data.email ?? `usuario${uid}@zymo.com`, nombre: data.full_name ?? `Usuario ${uid}` }
+        } catch {
+          return { email: `usuario${uid}@zymo.com`, nombre: `Usuario ${uid}` }
+        }
+      })
+    )
+
+    const team = await prisma.team.findFirst({ where: { id: input.teamId }, select: { name: true } })
+
+    await webhookService.sendWebhook({
+      type: "evento_creado",
+      titulo: trimmed,
+      descripcion: input.descripcion,
+      fecha: input.fecha,
+      horaInicio: input.horaInicio,
+      duracionMinutos: duracion,
+      modalidad: input.modalidad ?? null,
+      sede: input.sede ?? null,
+      organizadorNombre: user.full_name ?? `Usuario ${userId}`,
+      equipo: team?.name ?? "Equipo",
+      participantes: participantesInfo,
+    } satisfies webhookService.EventoCreadoPayload)
+  })().catch((e) => console.error("[webhook] evento_creado failed:", e))
+
+  return created
 }
 
 // ─── List events ──────────────────────────────────────────────────────────────
