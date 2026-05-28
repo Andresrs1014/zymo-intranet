@@ -6,6 +6,7 @@ import { PaginationParams } from "../utils/pagination"
 import { validateTransition, getFinalState, StateConfig } from "./stateMachine"
 import { getMemberTeamIds, getManagedTeamIds } from "../utils/permissions"
 import { Prisma, type TaskAcceptanceStatus, type ActivityAction } from "@prisma/client"
+import * as emailService from "./emailService"
 
 export interface CreateTaskInput {
   teamId: number
@@ -179,6 +180,20 @@ export async function createTask(
   })
 
   await logActivity(task.id, userId, user.full_name ?? `Usuario ${userId}`, "creacion", titulo)
+
+  // Fire-and-forget: notificar al asignado si es diferente al creador
+  if (task.asignadoAId && task.asignadoAId !== userId) {
+    const team = await prisma.team.findFirst({ where: { id: task.teamId }, select: { name: true } })
+    void emailService.notifyTaskAssigned(
+      task.asignadoAId,
+      userId,
+      user.full_name ?? `Usuario ${userId}`,
+      task.titulo,
+      task.fecha,
+      task.prioridad,
+      team?.name ?? "Equipo",
+    ).catch((e) => console.error("[email] notifyTaskAssigned failed:", e))
+  }
 
   return getTask(task.id, user)
 }
@@ -491,4 +506,13 @@ export async function acceptOrRejectTask(
     `Tarea ${aceptacion}`,
     { aceptacion: { old: "pendiente", new: aceptacion } },
   )
+
+  // Fire-and-forget: notificar al creador de la tarea
+  void emailService.notifyTaskResponse(
+    task.subidoPorId,
+    user.full_name ?? `Usuario ${userId}`,
+    task.titulo,
+    task.fecha,
+    aceptacion,
+  ).catch((e) => console.error("[email] notifyTaskResponse failed:", e))
 }
