@@ -6,6 +6,7 @@ import {
 } from "@/hooks/useFinanciero"
 import { formatCOP } from "@/lib/formatters"
 import type { EstadoFactura } from "@/types/financiero"
+import { Button } from "@/components/ui/button"
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -32,9 +33,9 @@ function labelEstado(e: EstadoFactura | null | undefined): string {
 
 function PrintRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex gap-4 py-2 border-b border-gray-100 last:border-0 text-sm">
-      <span className="w-52 shrink-0 text-gray-500 font-medium">{label}</span>
-      <span className="text-gray-900 flex-1 break-words">{value ?? "—"}</span>
+    <div className="flex gap-4 py-2 border-b border-border last:border-0 text-sm">
+      <span className="w-52 shrink-0 text-muted-foreground font-medium">{label}</span>
+      <span className="text-foreground flex-1 break-words">{value ?? "—"}</span>
     </div>
   )
 }
@@ -42,7 +43,7 @@ function PrintRow({ label, value }: { label: string; value: React.ReactNode }) {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="mb-6">
-      <h2 className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2 pb-1 border-b border-gray-200">
+      <h2 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2 pb-1 border-b border-border">
         {title}
       </h2>
       {children}
@@ -69,7 +70,7 @@ export function PrintFacturacionPage() {
 
   if (isLoading || (facturaId && loadingFactura)) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-sm text-gray-500">
+      <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">
         Preparando documento…
       </div>
     )
@@ -107,32 +108,31 @@ export function PrintFacturacionPage() {
       `}</style>
 
       {/* Barra de acción (solo en pantalla, oculta al imprimir) */}
-      <div className="no-print fixed top-0 inset-x-0 z-10 bg-white border-b border-gray-200 flex items-center justify-between px-6 py-3 shadow-sm">
-        <span className="text-sm text-gray-600 font-medium">
+      <div className="no-print fixed top-0 inset-x-0 z-10 bg-card border-b border-border flex items-center justify-between px-6 py-3 shadow-sm">
+        <span className="text-sm text-muted-foreground font-medium">
           Vista previa — {solicitud.consecutivo_os ?? solicitudId}
         </span>
-        <button
+        <Button
           type="button"
           onClick={() => window.print()}
-          className="rounded-lg bg-brand-blue px-4 py-2 text-sm font-semibold text-white hover:brightness-105 transition-all"
         >
           Imprimir / Guardar como PDF
-        </button>
+        </Button>
       </div>
 
       {/* Contenido imprimible */}
-      <div className="mx-auto max-w-3xl bg-white px-10 py-10 mt-16 print:mt-0 print:px-0 print:py-0 shadow-sm print:shadow-none min-h-screen">
+      <div className="mx-auto max-w-3xl bg-card px-10 py-10 mt-16 print:mt-0 print:px-0 print:py-0 shadow-sm print:shadow-none min-h-screen">
 
         {/* Encabezado */}
-        <div className="mb-8 pb-4 border-b-2 border-gray-900">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-1">
+        <div className="mb-8 pb-4 border-b-2 border-foreground">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1">
             Resumen para facturación
           </p>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-foreground">
             {solicitud.consecutivo_os ?? "Solicitud"}
           </h1>
           {solicitud.descripcion && (
-            <p className="text-sm text-gray-600 mt-1">{solicitud.descripcion}</p>
+            <p className="text-sm text-muted-foreground mt-1">{solicitud.descripcion}</p>
           )}
         </div>
 
@@ -192,7 +192,7 @@ export function PrintFacturacionPage() {
         </Section>
 
         {/* Pie */}
-        <div className="mt-10 pt-4 border-t border-gray-200 flex items-center justify-between text-xs text-gray-400">
+        <div className="mt-10 pt-4 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
           <span>Generado desde ZYMO Intranet — Módulo Financiero</span>
           <span>{new Date().toLocaleDateString("es-CO", { dateStyle: "long" })}</span>
         </div>

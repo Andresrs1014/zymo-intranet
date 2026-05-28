@@ -34,7 +34,7 @@ export default {
           red:    "#E31E24",
           white:  "#FFFFFF",
         },
-        // Variables CSS de shadcn — primary = brand-blue
+        // Variables CSS de shadcn — primary = Zymo red
         border:      "hsl(var(--border))",
         input:       "hsl(var(--input))",
         ring:        "hsl(var(--ring))",
@@ -68,6 +68,16 @@ export default {
           DEFAULT:    "hsl(var(--popover))",
           foreground: "hsl(var(--popover-foreground))",
         },
+        sidebar: {
+          DEFAULT:              "hsl(var(--sidebar))",
+          foreground:           "hsl(var(--sidebar-foreground))",
+          primary:              "hsl(var(--sidebar-primary))",
+          "primary-foreground": "hsl(var(--sidebar-primary-foreground))",
+          accent:               "hsl(var(--sidebar-accent))",
+          "accent-foreground":  "hsl(var(--sidebar-accent-foreground))",
+          border:               "hsl(var(--sidebar-border))",
+          ring:                 "hsl(var(--sidebar-ring))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -87,10 +97,12 @@ export default {
         "helix-nav":     "inset 4px 0 0 #00a8c8, 0 10px 22px rgba(0,0,0,0.14)",
       },
       fontFamily: {
-        sans: ["Barlow", "system-ui", "sans-serif"],
+        sans:   ['"DM Sans"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        mono:   ['"DM Mono"', 'monospace'],
+        barlow: ['Barlow', 'system-ui', 'sans-serif'],
         helix: [
-          "Montserrat", "Helvetica Now Display", "Arial",
-          "ui-sans-serif", "system-ui", "sans-serif",
+          'Montserrat', 'Helvetica Now Display', 'Arial',
+          'ui-sans-serif', 'system-ui', 'sans-serif',
         ],
       },
     },

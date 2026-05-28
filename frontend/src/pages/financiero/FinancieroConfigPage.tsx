@@ -11,6 +11,8 @@ import {
 } from "@/hooks/useFinanciero"
 import { Combobox } from "@/components/ui/Combobox"
 import type { CuentaContable } from "@/types/financiero"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 
 export function FinancieroConfigPage() {
   return (
@@ -36,47 +38,48 @@ function TiposGastoSection() {
   }
 
   return (
-    <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-      <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-4">
+    <section className="bg-card rounded-xl border border-border shadow-sm p-6">
+      <h2 className="text-sm font-bold text-foreground uppercase tracking-wide mb-4">
         Tipos de Gasto
       </h2>
 
       <div className="flex gap-2 mb-4">
-        <input
+        <Input
           type="text"
           value={nuevo}
           onChange={(e) => setNuevo(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleCrear()}
           placeholder="Nombre del tipo de gasto"
-          className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+          className="flex-1"
         />
-        <button
+        <Button
           onClick={handleCrear}
           disabled={crear.isPending || !nuevo.trim()}
-          className="rounded-lg bg-brand-blue px-4 py-2 text-sm font-medium text-white hover:brightness-105 disabled:opacity-50 transition-all"
         >
           Agregar
-        </button>
+        </Button>
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-gray-400">Cargando...</p>
+        <p className="text-sm text-muted-foreground">Cargando...</p>
       ) : tipos.length === 0 ? (
-        <p className="text-sm text-gray-400">No hay tipos de gasto configurados.</p>
+        <p className="text-sm text-muted-foreground">No hay tipos de gasto configurados.</p>
       ) : (
-        <ul className="divide-y divide-gray-50">
+        <ul className="divide-y divide-border">
           {tipos.map((t) => (
             <li key={t.id} className="flex items-center justify-between py-2.5 text-sm">
-              <span className="text-gray-800">{t.nombre}</span>
-              <button
+              <span className="text-foreground">{t.nombre}</span>
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => {
                   if (!confirm(`¿Eliminar tipo de gasto "${t.nombre}"?`)) return
                   eliminar.mutate(t.id)
                 }}
-                className="text-xs text-red-500 hover:text-red-700 transition-colors"
+                className="text-xs text-red-500 hover:text-red-700"
               >
                 Eliminar
-              </button>
+              </Button>
             </li>
           ))}
         </ul>
@@ -117,26 +120,24 @@ function CuentasContablesSection() {
   }
 
   return (
-    <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-      <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-4">
+    <section className="bg-card rounded-xl border border-border shadow-sm p-6">
+      <h2 className="text-sm font-bold text-foreground uppercase tracking-wide mb-4">
         Cuentas Contables
       </h2>
 
       {/* Formulario nueva cuenta */}
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 mb-4">
-        <input
+        <Input
           type="text"
           value={form.numero_cuenta}
           onChange={(e) => setForm((p) => ({ ...p, numero_cuenta: e.target.value }))}
           placeholder="No. cuenta (ej: 5105)"
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
         />
-        <input
+        <Input
           type="text"
           value={form.nombre_cuenta}
           onChange={(e) => setForm((p) => ({ ...p, nombre_cuenta: e.target.value }))}
           placeholder="Nombre de la cuenta"
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
         />
         <div className="flex gap-2">
           <Combobox
@@ -146,25 +147,25 @@ function CuentasContablesSection() {
             onChange={(v) => setForm((p) => ({ ...p, tipo_gasto_id: v as number | null }))}
             placeholder="Tipo de gasto"
           />
-          <button
+          <Button
             onClick={handleCrear}
             disabled={crear.isPending || !form.numero_cuenta.trim() || !form.nombre_cuenta.trim()}
-            className="rounded-lg bg-brand-blue px-4 py-2 text-sm font-medium text-white hover:brightness-105 disabled:opacity-50 transition-all shrink-0"
+            className="shrink-0"
           >
             Agregar
-          </button>
+          </Button>
         </div>
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-gray-400">Cargando...</p>
+        <p className="text-sm text-muted-foreground">Cargando...</p>
       ) : cuentas.length === 0 ? (
-        <p className="text-sm text-gray-400">No hay cuentas contables configuradas.</p>
+        <p className="text-sm text-muted-foreground">No hay cuentas contables configuradas.</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-xs font-medium text-gray-500 uppercase border-b border-gray-100">
+              <tr className="text-xs font-medium text-muted-foreground uppercase border-b border-border">
                 <th className="pb-2 text-left pr-4">No. Cuenta</th>
                 <th className="pb-2 text-left pr-4">Nombre</th>
                 <th className="pb-2 text-left pr-4">Tipo de Gasto</th>
@@ -172,11 +173,11 @@ function CuentasContablesSection() {
                 <th className="pb-2 text-right">Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-border">
               {cuentas.map((c) => (
                 <tr key={c.id} className={c.activo ? "" : "opacity-50"}>
-                  <td className="py-2.5 pr-4 font-mono text-xs text-gray-600">{c.numero_cuenta}</td>
-                  <td className="py-2.5 pr-4 text-gray-800">{c.nombre_cuenta}</td>
+                  <td className="py-2.5 pr-4 font-mono text-xs text-muted-foreground">{c.numero_cuenta}</td>
+                  <td className="py-2.5 pr-4 text-foreground">{c.nombre_cuenta}</td>
                   <td className="py-2.5 pr-4">
                     {editando?.id === c.id ? (
                       <Combobox
@@ -189,17 +190,17 @@ function CuentasContablesSection() {
                     ) : (
                       <button
                         onClick={() => setEditando(c)}
-                        className="text-gray-500 hover:text-brand-blue transition-colors"
+                        className="text-muted-foreground hover:text-brand-blue transition-colors"
                         title="Cambiar tipo de gasto"
                       >
-                        {c.tipo_gasto_nombre ?? <span className="text-gray-300">—</span>}
+                        {c.tipo_gasto_nombre ?? <span className="text-border">—</span>}
                       </button>
                     )}
                   </td>
                   <td className="py-2.5 text-center">
                     <button
                       onClick={() => handleToggleActivo(c)}
-                      className={`w-8 h-4 rounded-full transition-colors ${c.activo ? "bg-brand-blue" : "bg-gray-300"}`}
+                      className={`w-8 h-4 rounded-full transition-colors ${c.activo ? "bg-brand-blue" : "bg-border"}`}
                       title={c.activo ? "Desactivar" : "Activar"}
                     >
                       <span
@@ -208,15 +209,17 @@ function CuentasContablesSection() {
                     </button>
                   </td>
                   <td className="py-2.5 text-right">
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => {
                         if (!confirm(`¿Eliminar la cuenta "${c.numero_cuenta} — ${c.nombre_cuenta}"?`)) return
                         eliminar.mutate(c.id)
                       }}
-                      className="text-xs text-red-500 hover:text-red-700 transition-colors"
+                      className="text-xs text-red-500 hover:text-red-700"
                     >
                       Eliminar
-                    </button>
+                    </Button>
                   </td>
                 </tr>
               ))}

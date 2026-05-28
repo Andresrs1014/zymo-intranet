@@ -4,6 +4,9 @@ import { api } from "@/lib/api"
 import { useRef } from "react"
 import { useListasFormulario, useGuardarListas, useUploadClientesExcel } from "@/hooks/useOC"
 import type { ListasFormulario } from "@/hooks/useOC"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 async function descargarExcelPrueba(): Promise<string> {
   const res = await api.get("/api/oc/config/test/generar-excel", { responseType: "blob" })
@@ -276,17 +279,17 @@ export function OcConfigPage() {
           <div className="max-w-2xl mx-auto">
             {/* Header */}
             <div className="mb-6">
-              <h1 className="text-2xl font-bold text-gray-900">
+              <h1 className="text-2xl font-bold text-foreground">
                 Configuración OC
               </h1>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm text-muted-foreground mt-1">
                 Ajustes de correo electrónico para el módulo de compras.
                 Los valores aquí sobrescriben los del servidor sin necesidad de reiniciarlo.
               </p>
             </div>
 
             {loading && (
-              <div className="text-center py-12 text-gray-400">
+              <div className="text-center py-12 text-muted-foreground">
                 Cargando configuración…
               </div>
             )}
@@ -294,8 +297,8 @@ export function OcConfigPage() {
             {!loading && (
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* SMTP */}
-                <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-                  <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                <section className="bg-card rounded-xl border border-border p-6 space-y-4">
+                  <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                     Servidor SMTP
                   </h2>
 
@@ -324,18 +327,17 @@ export function OcConfigPage() {
                   />
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <Label className="mb-1">
                       Contraseña
-                    </label>
-                    <input
+                    </Label>
+                    <Input
                       type="password"
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="Dejar en blanco para no cambiar"
                       value={form.smtp_password}
                       onChange={(e) => handleChange("smtp_password", e.target.value)}
                       autoComplete="new-password"
                     />
-                    <p className="mt-1 text-xs text-gray-400">
+                    <p className="mt-1 text-xs text-muted-foreground">
                       {config?.smtp_password_set
                         ? "✓ Contraseña configurada — solo escribe si quieres cambiarla"
                         : "⚠ Sin contraseña configurada"}
@@ -352,8 +354,8 @@ export function OcConfigPage() {
                 </section>
 
                 {/* Destinatarios */}
-                <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-                  <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                <section className="bg-card rounded-xl border border-border p-6 space-y-4">
+                  <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                     Destinatarios
                   </h2>
 
@@ -407,12 +409,12 @@ export function OcConfigPage() {
                 </section>
 
                 {/* Identidad de la empresa */}
-                <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+                <section className="bg-card rounded-xl border border-border p-6 space-y-4">
                   <div>
-                    <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                    <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                       Identidad de la empresa
                     </h2>
-                    <p className="text-xs text-gray-400 mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       Branding que aparece en el encabezado y pie de todos los correos.
                       Dejar vacío para usar los valores por defecto de LOGIMAT.
                     </p>
@@ -426,19 +428,19 @@ export function OcConfigPage() {
                       onChange={(v) => handleChange("empresa_nombre", v)}
                     />
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <Label className="mb-1">
                         Color principal (hex)
-                      </label>
+                      </Label>
                       <div className="flex items-center gap-2">
                         <input
                           type="color"
-                          className="h-9 w-12 rounded border border-gray-300 cursor-pointer p-0.5"
+                          className="h-9 w-12 rounded border border-border cursor-pointer p-0.5"
                           value={form.empresa_color || "#C8102E"}
                           onChange={(e) => handleChange("empresa_color", e.target.value)}
                         />
-                        <input
+                        <Input
                           type="text"
-                          className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                          className="flex-1 font-mono"
                           placeholder="#C8102E"
                           value={form.empresa_color}
                           onChange={(e) => handleChange("empresa_color", e.target.value)}
@@ -477,14 +479,14 @@ export function OcConfigPage() {
                 </section>
 
                 {/* Plantillas de correo */}
-                <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
+                <section className="bg-card rounded-xl border border-border p-6 space-y-5">
                   <div>
-                    <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                    <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                       Plantillas de correo
                     </h2>
-                    <p className="text-xs text-gray-400 mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       Personaliza el asunto y el cuerpo de cada flujo. Dejar en blanco usa el texto por defecto.
-                      Puedes usar <code className="bg-gray-100 px-1 rounded">{"{solicitante}"}</code> en los flujos 1, 2 y 4 para insertar el nombre del solicitante.
+                      Puedes usar <code className="bg-muted px-1 rounded">{"{solicitante}"}</code> en los flujos 1, 2 y 4 para insertar el nombre del solicitante.
                     </p>
                   </div>
 
@@ -523,17 +525,17 @@ export function OcConfigPage() {
                 </section>
 
                 {/* Listas del formulario de solicitud */}
-                <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
+                <section className="bg-card rounded-xl border border-border p-6 space-y-5">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                      <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                         Listas del formulario de solicitud
                       </h2>
-                      <p className="text-xs text-gray-400 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         Opciones que aparecen en los desplegables del formulario de nueva solicitud (módulo Operativo).
                       </p>
                     </div>
-                    <button
+                    <Button
                       type="button"
                       disabled={guardarListas.isPending}
                       onClick={() => {
@@ -541,10 +543,10 @@ export function OcConfigPage() {
                           onSuccess: () => setListasGuardadas(true),
                         })
                       }}
-                      className="shrink-0 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 transition-colors"
+                      className="shrink-0"
                     >
                       {guardarListas.isPending ? "Guardando…" : "Guardar listas"}
-                    </button>
+                    </Button>
                   </div>
 
                   {listasGuardadas && (
@@ -595,26 +597,27 @@ export function OcConfigPage() {
                 </section>
 
                 {/* Test SMTP */}
-                <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+                <section className="bg-card rounded-xl border border-border p-6 space-y-4">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                      <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                         Diagnóstico de correo
                       </h2>
-                      <p className="text-xs text-gray-400 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         Envía un correo de prueba al usuario SMTP configurado para verificar
                         que las credenciales funcionan. El error exacto se mostrará aquí.
                       </p>
                     </div>
-                    <button
+                    <Button
                       type="button"
                       onClick={handleTestEmail}
                       disabled={testing}
-                      className="shrink-0 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 transition-colors flex items-center gap-2"
+                      variant="outline"
+                      className="shrink-0 flex items-center gap-2"
                     >
                       {testing ? (
                         <>
-                          <svg className="animate-spin h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <svg className="animate-spin h-4 w-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
                           </svg>
@@ -628,7 +631,7 @@ export function OcConfigPage() {
                           Enviar correo de prueba
                         </>
                       )}
-                    </button>
+                    </Button>
                   </div>
 
                   {testResult && (
@@ -650,18 +653,18 @@ export function OcConfigPage() {
                 </section>
 
                 {/* Herramientas de prueba del motor */}
-                <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
-                  <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                <section className="bg-card rounded-xl border border-border p-6 space-y-5">
+                  <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                     Herramientas de prueba del motor
                   </h2>
 
                   {/* Excel solo */}
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <p className="text-sm font-medium text-gray-700">Cotización Excel</p>
-                      <p className="text-xs text-gray-400 mt-0.5">
+                      <p className="text-sm font-medium text-foreground">Cotización Excel</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
                         Genera un Excel con datos aleatorios y sinónimos del motor.
-                        Consecutivo único (<code className="bg-gray-100 px-1 rounded">prueba.001.xlsx</code>…).
+                        Consecutivo único (<code className="bg-muted px-1 rounded">prueba.001.xlsx</code>…).
                       </p>
                     </div>
                     <button
@@ -680,7 +683,7 @@ export function OcConfigPage() {
                           setGenerandoExcel(false)
                         }
                       }}
-                      className="shrink-0 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 transition-colors"
+                      className="shrink-0 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-60 transition-colors"
                     >
                       {generandoExcel ? "Generando…" : "Generar Excel"}
                     </button>
@@ -694,15 +697,15 @@ export function OcConfigPage() {
                     <p className="text-xs text-red-600 font-medium">✗ {errorExcel}</p>
                   )}
 
-                  <div className="border-t border-gray-100" />
+                  <div className="border-t border-border" />
 
                   {/* Par Cotización + Factura */}
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <p className="text-sm font-medium text-gray-700">
+                      <p className="text-sm font-medium text-foreground">
                         Par de prueba: Cotización + Factura PDF
                       </p>
-                      <p className="text-xs text-gray-400 mt-0.5">
+                      <p className="text-xs text-muted-foreground mt-0.5">
                         Descarga un <strong>.zip</strong> con el Excel de cotización y la factura de venta colombiana
                         con los <strong>mismos datos</strong> (NIT, proveedor, totales). Ideal para probar la validación
                         financiera end-to-end. Incluye resolución DIAN, IVA 19%, formato legal colombiano.
@@ -756,7 +759,7 @@ export function OcConfigPage() {
                   <button
                     type="submit"
                     disabled={saving}
-                    className="rounded-lg bg-blue-600 px-6 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 transition-colors"
+                    className="rounded-lg bg-[#003087] px-6 py-2 text-sm font-semibold text-white hover:bg-[#002266] disabled:opacity-60 transition-colors"
                   >
                     {saving ? "Guardando…" : "Guardar cambios"}
                   </button>
@@ -782,17 +785,17 @@ interface FieldProps {
 function Field({ label, placeholder, value, onChange, type = "text", hint }: FieldProps) {
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">
+      <label className="block text-sm font-medium text-foreground mb-1">
         {label}
       </label>
       <input
         type={type}
-        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />
-      {hint && <p className="mt-1 text-xs text-gray-400">{hint}</p>}
+      {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
     </div>
   )
 }
@@ -810,17 +813,17 @@ interface TextareaFieldProps {
 function TextareaField({ label, placeholder, value, onChange, hint }: TextareaFieldProps) {
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">
+      <label className="block text-sm font-medium text-foreground mb-1">
         {label}
       </label>
       <textarea
         rows={3}
-        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-y"
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />
-      {hint && <p className="mt-1 text-xs text-gray-400">{hint}</p>}
+      {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
     </div>
   )
 }
@@ -847,7 +850,7 @@ function ListaEditor({
 
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+      <label className="block text-sm font-medium text-foreground mb-2">{label}</label>
       <div className="flex flex-wrap gap-1.5 mb-2 min-h-[2rem]">
         {items.map((item) => (
           <span
@@ -865,7 +868,7 @@ function ListaEditor({
           </span>
         ))}
         {items.length === 0 && (
-          <span className="text-xs text-gray-400 italic">Sin opciones — agrega la primera</span>
+          <span className="text-xs text-muted-foreground italic">Sin opciones — agrega la primera</span>
         )}
       </div>
       <div className="flex gap-2">
@@ -875,12 +878,12 @@ function ListaEditor({
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); agregar() } }}
           placeholder="Escribe y presiona Enter o Agregar"
-          className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
         />
         <button
           type="button"
           onClick={agregar}
-          className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+          className="rounded-lg border border-border px-3 py-1.5 text-sm text-foreground hover:bg-muted transition-colors"
         >
           Agregar
         </button>
@@ -927,8 +930,8 @@ function ListaEditorBulk({
   return (
     <div className="sm:col-span-2">
       <div className="flex items-center justify-between mb-2">
-        <label className="block text-sm font-medium text-gray-700">
-          {label} <span className="text-gray-400 font-normal">({items.length} registrados)</span>
+        <label className="block text-sm font-medium text-foreground">
+          {label} <span className="text-muted-foreground font-normal">({items.length} registrados)</span>
         </label>
         {onUploadExcel && (
           <div className="flex items-center gap-2">
@@ -974,9 +977,9 @@ function ListaEditorBulk({
         onBlur={handleBlur}
         rows={6}
         placeholder="Un elemento por línea. O carga un Excel y se llenará automáticamente..."
-        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono resize-y"
+        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring font-mono resize-y"
       />
-      <p className="text-xs text-gray-400 mt-1">
+      <p className="text-xs text-muted-foreground mt-1">
         Puedes editar la lista manualmente (un cliente por línea). Haz clic fuera del recuadro para actualizar y luego presiona "Guardar listas" arriba.
       </p>
     </div>

@@ -160,7 +160,7 @@ export function PaquetesPage() {
           {/* Back */}
           <button
             onClick={() => navigate("/operativo")}
-            className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-600 mb-6 transition-colors"
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors"
           >
             ← Volver
           </button>
@@ -168,8 +168,8 @@ export function PaquetesPage() {
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-xl font-bold text-gray-900">Paquetes de Solicitudes</h1>
-              <p className="text-sm text-gray-500 mt-0.5">
+              <h1 className="text-xl font-bold text-foreground">Paquetes de Solicitudes</h1>
+              <p className="text-sm text-muted-foreground mt-0.5">
                 Templates reutilizables para crear solicitudes frecuentes en un clic.
               </p>
             </div>
@@ -183,7 +183,7 @@ export function PaquetesPage() {
 
           {/* Loading */}
           {isLoading && (
-            <div className="flex items-center justify-center py-24 text-gray-400 text-sm">
+            <div className="flex items-center justify-center py-24 text-muted-foreground text-sm">
               <svg
                 className="animate-spin h-5 w-5 mr-2 text-brand-blue"
                 xmlns="http://www.w3.org/2000/svg"
@@ -200,11 +200,11 @@ export function PaquetesPage() {
           {/* Empty state */}
           {!isLoading && (!paquetes || paquetes.length === 0) && (
             <div className="flex flex-col items-center justify-center py-24 gap-3">
-              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gray-100 text-gray-400">
+              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-muted text-muted-foreground">
                 <IconPaquete />
               </div>
-              <p className="text-sm font-medium text-gray-600">No tienes paquetes guardados</p>
-              <p className="text-xs text-gray-400">
+              <p className="text-sm font-medium text-foreground">No tienes paquetes guardados</p>
+              <p className="text-xs text-muted-foreground">
                 Crea un paquete para reutilizar solicitudes frecuentes con un solo clic.
               </p>
               <button
@@ -222,30 +222,30 @@ export function PaquetesPage() {
               {paquetes.map((p) => (
                 <div
                   key={p.id}
-                  className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
+                  className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5 shadow-sm"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-blue/8 text-brand-blue">
                       <span className="w-4 h-4"><IconPaquete /></span>
                     </div>
-                    <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 whitespace-nowrap">
+                    <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground whitespace-nowrap">
                       {p.items.length} {p.items.length === 1 ? "item" : "items"}
                     </span>
                   </div>
 
                   <div className="flex-1">
-                    <p className="text-sm font-semibold text-gray-900 leading-snug">{p.nombre}</p>
+                    <p className="text-sm font-semibold text-foreground leading-snug">{p.nombre}</p>
                     {p.descripcion_uso && (
-                      <p className="mt-0.5 text-xs text-gray-500 leading-relaxed line-clamp-2">
+                      <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed line-clamp-2">
                         {p.descripcion_uso}
                       </p>
                     )}
-                    <p className="mt-1 text-xs text-gray-400">
+                    <p className="mt-1 text-xs text-muted-foreground">
                       Por {p.creado_por_nombre}
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2 pt-1 border-t border-gray-100">
+                  <div className="flex items-center gap-2 pt-1 border-t border-border">
                     <button
                       onClick={() => handleUsarPaquete(p)}
                       className="flex-1 rounded-lg bg-brand-blue px-3 py-1.5 text-xs font-semibold text-white hover:brightness-105 transition-all text-center"
@@ -254,7 +254,7 @@ export function PaquetesPage() {
                     </button>
                     <button
                       onClick={() => setConfirmDeleteId(p.id)}
-                      className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 hover:border-red-300 hover:text-red-600 transition-colors"
+                      className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:border-red-300 hover:text-red-600 transition-colors"
                     >
                       Eliminar
                     </button>
@@ -268,13 +268,13 @@ export function PaquetesPage() {
       {/* ── Modal: Crear paquete ─────────────────────────────────────────────── */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 px-4 py-10">
-          <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl">
+          <div className="w-full max-w-2xl rounded-2xl bg-card shadow-xl">
             {/* Modal header */}
-            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-              <h2 className="text-base font-bold text-gray-900">Nuevo paquete de solicitudes</h2>
+            <div className="flex items-center justify-between border-b border-border px-6 py-4">
+              <h2 className="text-base font-bold text-foreground">Nuevo paquete de solicitudes</h2>
               <button
                 onClick={handleCloseForm}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-muted-foreground hover:text-foreground transition-colors"
               >
                 <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
@@ -285,7 +285,7 @@ export function PaquetesPage() {
             <form onSubmit={handleSubmit} className="px-6 py-5 space-y-5">
               {/* Nombre */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-foreground mb-1">
                   Nombre del paquete *
                 </label>
                 <input
@@ -293,13 +293,13 @@ export function PaquetesPage() {
                   value={nombre}
                   onChange={(e) => setNombre(e.target.value)}
                   placeholder="Ej. Mantenimiento preventivo mensual"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 />
               </div>
 
               {/* Descripción de uso */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-foreground mb-1">
                   Descripción de uso (opcional)
                 </label>
                 <textarea
@@ -307,14 +307,14 @@ export function PaquetesPage() {
                   value={descripcionUso}
                   onChange={(e) => setDescripcionUso(e.target.value)}
                   placeholder="¿Para qué se usa este paquete?"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
                 />
               </div>
 
               {/* Items */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-medium text-gray-700">Items del paquete *</label>
+                  <label className="text-sm font-medium text-foreground">Items del paquete *</label>
                   <button
                     type="button"
                     onClick={addItem}
@@ -328,10 +328,10 @@ export function PaquetesPage() {
                   {items.map((item, idx) => (
                     <div
                       key={idx}
-                      className="rounded-xl border border-gray-200 p-4 space-y-3 bg-gray-50"
+                      className="rounded-xl border border-border p-4 space-y-3 bg-muted"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                           Item {idx + 1}
                         </span>
                         {items.length > 1 && (
@@ -348,7 +348,7 @@ export function PaquetesPage() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {/* Descripción */}
                         <div className="sm:col-span-2">
-                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                          <label className="block text-xs font-medium text-foreground mb-1">
                             Descripción *
                           </label>
                           <input
@@ -356,19 +356,19 @@ export function PaquetesPage() {
                             value={item.descripcion}
                             onChange={(e) => updateItem(idx, "descripcion", e.target.value)}
                             placeholder="Describe el material o servicio"
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                           />
                         </div>
 
                         {/* Prioridad */}
                         <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                          <label className="block text-xs font-medium text-foreground mb-1">
                             Prioridad
                           </label>
                           <select
                             value={item.nivel_prioridad}
                             onChange={(e) => updateItem(idx, "nivel_prioridad", e.target.value)}
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                           >
                             {(listas?.prioridades ?? ["Alta", "Media", "Baja"]).map((p) => (
                               <option key={p} value={p}>{p}</option>
@@ -378,13 +378,13 @@ export function PaquetesPage() {
 
                         {/* Plataforma */}
                         <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                          <label className="block text-xs font-medium text-foreground mb-1">
                             Plataforma *
                           </label>
                           <select
                             value={item.plataforma || defaultPlataforma}
                             onChange={(e) => updateItem(idx, "plataforma", e.target.value)}
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                           >
                             {sedesOc.map((s) => (
                               <option key={s.id} value={s.name}>
@@ -396,13 +396,13 @@ export function PaquetesPage() {
 
                         {/* Categoría */}
                         <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                          <label className="block text-xs font-medium text-foreground mb-1">
                             Categoría
                           </label>
                           <select
                             value={item.categoria ?? ""}
                             onChange={(e) => updateItem(idx, "categoria", e.target.value)}
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                           >
                             <option value="">— Seleccionar —</option>
                             {listas?.categorias.map((c) => (
@@ -413,13 +413,13 @@ export function PaquetesPage() {
 
                         {/* Grupo artículos */}
                         <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                          <label className="block text-xs font-medium text-foreground mb-1">
                             Grupo de artículos
                           </label>
                           <select
                             value={item.grupo_articulos ?? ""}
                             onChange={(e) => updateItem(idx, "grupo_articulos", e.target.value)}
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                           >
                             <option value="">— Seleccionar —</option>
                             {listas?.grupos_articulos.map((g) => (
@@ -430,7 +430,7 @@ export function PaquetesPage() {
 
                         {/* Cantidad */}
                         <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                          <label className="block text-xs font-medium text-foreground mb-1">
                             Cantidad
                           </label>
                           <input
@@ -438,19 +438,19 @@ export function PaquetesPage() {
                             min={1}
                             value={item.cantidad}
                             onChange={(e) => updateItem(idx, "cantidad", parseInt(e.target.value, 10) || 1)}
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                           />
                         </div>
 
                         {/* Cliente */}
                         <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                          <label className="block text-xs font-medium text-foreground mb-1">
                             Cliente
                           </label>
                           <select
                             value={item.cliente ?? ""}
                             onChange={(e) => updateItem(idx, "cliente", e.target.value)}
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                           >
                             <option value="">— Sin cliente —</option>
                             {listas?.clientes.map((c) => (
@@ -461,7 +461,7 @@ export function PaquetesPage() {
 
                         {/* Placa/ficha */}
                         <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                          <label className="block text-xs font-medium text-foreground mb-1">
                             Placa / Ficha
                           </label>
                           <input
@@ -469,7 +469,7 @@ export function PaquetesPage() {
                             value={item.placa_ficha ?? ""}
                             onChange={(e) => updateItem(idx, "placa_ficha", e.target.value)}
                             placeholder="Ej. VH-001"
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                           />
                         </div>
                       </div>
@@ -490,7 +490,7 @@ export function PaquetesPage() {
                 <button
                   type="button"
                   onClick={handleCloseForm}
-                  className="rounded-lg border border-gray-300 px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                  className="rounded-lg border border-border px-5 py-2 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
                 >
                   Cancelar
                 </button>
@@ -510,23 +510,23 @@ export function PaquetesPage() {
       {/* ── Modal: Confirmar despacho múltiple ───────────────────────────────── */}
       {confirmDespacho && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl space-y-4">
+          <div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-xl space-y-4">
             <div className="flex items-center gap-3">
               <span className="text-2xl">📦</span>
               <div>
-                <h3 className="text-base font-bold text-gray-900">Despachar paquete</h3>
-                <p className="text-sm text-gray-500">{confirmDespacho.nombre}</p>
+                <h3 className="text-base font-bold text-foreground">Despachar paquete</h3>
+                <p className="text-sm text-muted-foreground">{confirmDespacho.nombre}</p>
               </div>
             </div>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-foreground">
               Se crearán <span className="font-semibold text-brand-blue">{confirmDespacho.items.length} solicitudes</span> de compra independientes:
             </p>
             <ul className="space-y-1 max-h-48 overflow-y-auto">
               {confirmDespacho.items.map((item, i) => (
-                <li key={i} className="flex items-start gap-2 text-xs text-gray-700 bg-gray-50 rounded-lg px-3 py-2">
-                  <span className="font-mono text-gray-400 shrink-0">{i + 1}.</span>
+                <li key={i} className="flex items-start gap-2 text-xs text-foreground bg-muted rounded-lg px-3 py-2">
+                  <span className="font-mono text-muted-foreground shrink-0">{i + 1}.</span>
                   <span className="flex-1">{item.descripcion}</span>
-                  <span className="text-gray-400 shrink-0">{item.plataforma}</span>
+                  <span className="text-muted-foreground shrink-0">{item.plataforma}</span>
                 </li>
               ))}
             </ul>
@@ -534,7 +534,7 @@ export function PaquetesPage() {
               <button
                 onClick={() => setConfirmDespacho(null)}
                 disabled={despachar.isPending}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted disabled:opacity-50 transition-colors"
               >
                 Cancelar
               </button>
@@ -555,9 +555,9 @@ export function PaquetesPage() {
       {/* ── Modal: Resultado del despacho ─────────────────────────────────────── */}
       {despachoResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl space-y-4 text-center">
+          <div className="w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl space-y-4 text-center">
             <span className="text-4xl">{despachoResult.errores === 0 ? "✅" : "⚠️"}</span>
-            <h3 className="text-base font-bold text-gray-900">
+            <h3 className="text-base font-bold text-foreground">
               {despachoResult.errores === 0
                 ? "¡Solicitudes creadas!"
                 : `${despachoResult.creadas} creadas, ${despachoResult.errores} fallaron`}
@@ -572,7 +572,7 @@ export function PaquetesPage() {
             <div className="flex gap-3">
               <button
                 onClick={() => setDespachoResult(null)}
-                className="flex-1 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                className="flex-1 rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
               >
                 Cerrar
               </button>
@@ -590,15 +590,15 @@ export function PaquetesPage() {
       {/* ── Modal: Confirmar eliminación ─────────────────────────────────────── */}
       {confirmDeleteId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl space-y-4">
-            <h3 className="text-base font-bold text-gray-900">Eliminar paquete</h3>
-            <p className="text-sm text-gray-600">
+          <div className="w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl space-y-4">
+            <h3 className="text-base font-bold text-foreground">Eliminar paquete</h3>
+            <p className="text-sm text-muted-foreground">
               ¿Estás seguro de que deseas eliminar este paquete? Esta acción no se puede deshacer.
             </p>
             <div className="flex items-center justify-end gap-3">
               <button
                 onClick={() => setConfirmDeleteId(null)}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
               >
                 Cancelar
               </button>

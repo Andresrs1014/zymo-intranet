@@ -20,7 +20,7 @@ export function GerencialPage() {
     <PageLayout
       title="Módulo Gerencial"
       belowTopBar={
-        <div className="border-b border-gray-200 bg-white px-6 shrink-0">
+        <div className="border-b border-border bg-card px-6 shrink-0">
           <nav className="flex gap-1 overflow-x-auto" aria-label="Tabs">
             {tabs
               .filter((t) => t.visible)
@@ -32,8 +32,8 @@ export function GerencialPage() {
                     whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 transition-colors
                     ${
                       activeTab === tab.id
-                        ? "border-blue-600 text-blue-600"
-                        : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                        ? "border-brand-blue text-brand-blue"
+                        : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
                     }
                   `}
                 >

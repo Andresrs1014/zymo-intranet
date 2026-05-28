@@ -65,7 +65,7 @@ export function ProveedoresPage() {
           {/* Cabecera */}
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-3">
-              <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+              <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={soloActivos}
@@ -74,7 +74,7 @@ export function ProveedoresPage() {
                 />
                 Solo activos
               </label>
-              <span className="text-sm text-gray-400">
+              <span className="text-sm text-muted-foreground">
                 {proveedores.length} proveedor{proveedores.length !== 1 ? "es" : ""}
               </span>
             </div>
@@ -88,33 +88,33 @@ export function ProveedoresPage() {
 
           {/* Tabla */}
           {isLoading ? (
-            <p className="text-sm text-gray-500">Cargando...</p>
+            <p className="text-sm text-muted-foreground">Cargando...</p>
           ) : proveedores.length === 0 ? (
             <EmptyState onCrear={abrirCrear} />
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
-              <table className="min-w-full divide-y divide-gray-100 text-sm">
-                <thead className="bg-gray-50">
+            <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
+              <table className="min-w-full divide-y divide-border text-sm">
+                <thead className="bg-muted">
                   <tr>
                     {["Nombre / Razón social", "NIT", "Email", "Teléfono", "Ciudad", "Categoría", "Estado", ""].map((h) => (
                       <th
                         key={h}
-                        className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide"
+                        className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide"
                       >
                         {h}
                       </th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-border">
                   {proveedores.map((p) => (
-                    <tr key={p.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-3 font-medium text-gray-900">{p.nombre}</td>
-                      <td className="px-4 py-3 text-gray-600">{p.nit ?? "—"}</td>
-                      <td className="px-4 py-3 text-gray-600">{p.email ?? "—"}</td>
-                      <td className="px-4 py-3 text-gray-600">{p.telefono ?? "—"}</td>
-                      <td className="px-4 py-3 text-gray-600">{p.ciudad ?? "—"}</td>
-                      <td className="px-4 py-3 text-gray-600">{p.categoria ?? "—"}</td>
+                    <tr key={p.id} className="hover:bg-muted transition-colors">
+                      <td className="px-4 py-3 font-medium text-foreground">{p.nombre}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{p.nit ?? "—"}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{p.email ?? "—"}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{p.telefono ?? "—"}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{p.ciudad ?? "—"}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{p.categoria ?? "—"}</td>
                       <td className="px-4 py-3">
                         <span
                           className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
@@ -266,15 +266,15 @@ function ProveedorModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-2xl rounded-xl bg-white shadow-xl overflow-y-auto max-h-[90vh]">
+      <div className="w-full max-w-2xl rounded-xl bg-card shadow-xl overflow-y-auto max-h-[90vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="text-base font-semibold text-gray-900">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <h2 className="text-base font-semibold text-foreground">
             {esEdicion ? "Editar proveedor" : "Nuevo proveedor"}
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+            className="text-muted-foreground hover:text-foreground text-xl leading-none"
           >
             ×
           </button>
@@ -282,11 +282,11 @@ function ProveedorModal({
 
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-5">
           {/* Zona de extracción automática */}
-          <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+          <div className="rounded-lg border border-dashed border-border bg-muted p-4">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
               Extracción automática (opcional)
             </p>
-            <p className="text-xs text-gray-500 mb-3">
+            <p className="text-xs text-muted-foreground mb-3">
               Sube el RUT u otro documento del proveedor (PDF, Excel, Word) para
               pre-llenar los campos automáticamente. Podrás corregir lo que sea necesario.
             </p>
@@ -295,7 +295,7 @@ function ProveedorModal({
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={extStatus === "loading"}
-              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors disabled:opacity-50"
+              className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors disabled:opacity-50"
             >
               {extStatus === "loading" ? "Extrayendo..." : "Subir documento"}
             </button>
@@ -381,14 +381,14 @@ function ProveedorModal({
               placeholder="Bogotá"
             />
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
+              <label className="block text-xs font-medium text-foreground mb-1">
                 Categoría
               </label>
               <select
                 name="categoria"
                 value={form.categoria ?? ""}
                 onChange={handleChange}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               >
                 <option value="">Sin categoría</option>
                 {CATEGORIAS.map((c) => (
@@ -399,7 +399,7 @@ function ProveedorModal({
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-foreground mb-1">
               Observaciones
             </label>
             <textarea
@@ -408,7 +408,7 @@ function ProveedorModal({
               onChange={handleChange}
               rows={3}
               placeholder="Notas internas sobre este proveedor..."
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
             />
           </div>
 
@@ -419,11 +419,11 @@ function ProveedorModal({
           )}
 
           {/* Acciones */}
-          <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
+          <div className="flex justify-end gap-3 pt-2 border-t border-border">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 transition-colors"
+              className="rounded-lg px-4 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors"
             >
               Cancelar
             </button>
@@ -462,7 +462,7 @@ function FormField({
 }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-700 mb-1">{label}</label>
+      <label className="block text-xs font-medium text-foreground mb-1">{label}</label>
       <input
         type={type}
         name={name}
@@ -470,7 +470,7 @@ function FormField({
         onChange={onChange}
         required={required}
         placeholder={placeholder}
-        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
       />
     </div>
   )
@@ -480,8 +480,8 @@ function EmptyState({ onCrear }: { onCrear: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-24 text-center">
       <p className="text-4xl mb-4">🏭</p>
-      <h3 className="text-base font-semibold text-gray-900 mb-1">Sin proveedores registrados</h3>
-      <p className="text-sm text-gray-500 mb-4">
+      <h3 className="text-base font-semibold text-foreground mb-1">Sin proveedores registrados</h3>
+      <p className="text-sm text-muted-foreground mb-4">
         Agrega el primer proveedor para que esté disponible en OC Automatizaciones.
       </p>
       <button

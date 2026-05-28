@@ -1,6 +1,7 @@
-import { useEffect, useCallback } from "react"
 import type { SolicitudConFactura, Factura, EstadoFactura } from "@/types/financiero"
 import { formatCOP } from "@/lib/formatters"
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 
 export interface VistaFacturacionModalProps {
   open: boolean
@@ -33,34 +34,14 @@ function labelEstadoFactura(e: EstadoFactura | null | undefined): string {
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-[minmax(11rem,14rem)_1fr] gap-1 sm:gap-4 py-2.5 border-b border-gray-100 last:border-0 text-sm">
-      <span className="text-gray-500 font-medium shrink-0">{label}</span>
-      <span className="text-gray-900 break-words">{value ?? "—"}</span>
+    <div className="grid grid-cols-1 sm:grid-cols-[minmax(11rem,14rem)_1fr] gap-1 sm:gap-4 py-2.5 border-b border-border last:border-0 text-sm">
+      <span className="text-muted-foreground font-medium shrink-0">{label}</span>
+      <span className="text-foreground break-words">{value ?? "—"}</span>
     </div>
   )
 }
 
 export function VistaFacturacionModal({ open, onClose, solicitud, factura }: VistaFacturacionModalProps) {
-  const onKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose()
-    },
-    [onClose]
-  )
-
-  useEffect(() => {
-    if (!open) return
-    document.addEventListener("keydown", onKeyDown)
-    const prev = document.body.style.overflow
-    document.body.style.overflow = "hidden"
-    return () => {
-      document.removeEventListener("keydown", onKeyDown)
-      document.body.style.overflow = prev
-    }
-  }, [open, onKeyDown])
-
-  if (!open) return null
-
   const numeroFactura = factura?.numero_factura ?? solicitud.numero_factura
   const valorFactura = factura?.valor_factura ?? solicitud.valor_factura
   const fechaFactura = factura?.fecha_factura ?? solicitud.fecha_factura
@@ -69,42 +50,19 @@ export function VistaFacturacionModal({ open, onClose, solicitud, factura }: Vis
   const estadoFactura = factura?.estado ?? solicitud.factura_estado
 
   return (
-    <div
-      className="fixed inset-0 z-[85] flex items-stretch justify-center sm:items-center sm:p-6 bg-black/60 backdrop-blur-[2px]"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="vista-facturacion-titulo"
-    >
-      <button
-        type="button"
-        className="absolute inset-0 cursor-default"
-        aria-label="Cerrar"
-        onClick={onClose}
-      />
-      <div
-        className="relative z-10 flex flex-col w-full sm:max-w-4xl sm:max-h-[min(92vh,880px)] h-full sm:h-auto sm:rounded-2xl bg-white shadow-2xl overflow-hidden border border-gray-200/80"
-        onClick={(e) => e.stopPropagation()}
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent
+        className="flex flex-col w-full sm:max-w-4xl sm:max-h-[min(92vh,880px)] h-full sm:h-auto p-0 overflow-hidden"
+        aria-labelledby="vista-facturacion-titulo"
       >
-        <header className="shrink-0 flex items-start justify-between gap-4 px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-slate-50 to-white">
-          <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-brand-blue mb-1">
-              Resumen para facturación
-            </p>
-            <h2 id="vista-facturacion-titulo" className="text-xl font-bold text-gray-900 truncate">
-              {solicitud.consecutivo_os ?? "Solicitud"}
-            </h2>
-            <p className="text-sm text-gray-600 mt-1 line-clamp-2">{solicitud.descripcion ?? "Sin descripción"}</p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="shrink-0 rounded-lg p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
-            aria-label="Cerrar ventana"
-          >
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+        <header className="shrink-0 px-6 py-5 border-b border-border bg-gradient-to-r from-muted to-card">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-brand-blue mb-1">
+            Resumen para facturación
+          </p>
+          <DialogTitle className="text-xl font-bold text-foreground truncate">
+            {solicitud.consecutivo_os ?? "Solicitud"}
+          </DialogTitle>
+          <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{solicitud.descripcion ?? "Sin descripción"}</p>
         </header>
 
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
@@ -119,8 +77,8 @@ export function VistaFacturacionModal({ open, onClose, solicitud, factura }: Vis
           </section>
 
           <section>
-            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Referencia OC / compra</h3>
-            <div className="rounded-xl border border-gray-100 bg-gray-50/50 px-4">
+            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-2">Referencia OC / compra</h3>
+            <div className="rounded-xl border border-border bg-muted/50 px-4">
               <Row label="Número OC" value={solicitud.numero_oc ? <span className="font-mono">{solicitud.numero_oc}</span> : "—"} />
               <Row label="Empresa (compra)" value={solicitud.empresa_compra_nombre ?? solicitud.plataforma} />
               <Row label="Solicitante" value={solicitud.solicitante_nombre} />
@@ -134,16 +92,16 @@ export function VistaFacturacionModal({ open, onClose, solicitud, factura }: Vis
           </section>
 
           <section>
-            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Proveedor</h3>
-            <div className="rounded-xl border border-gray-100 bg-gray-50/50 px-4">
+            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-2">Proveedor</h3>
+            <div className="rounded-xl border border-border bg-muted/50 px-4">
               <Row label="Razón social" value={solicitud.proveedor_nombre} />
               <Row label="NIT" value={solicitud.proveedor_nit ?? null} />
             </div>
           </section>
 
           <section>
-            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Documento de factura</h3>
-            <div className="rounded-xl border border-gray-100 bg-gray-50/50 px-4">
+            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-2">Documento de factura</h3>
+            <div className="rounded-xl border border-border bg-muted/50 px-4">
               <Row
                 label="Número de factura"
                 value={numeroFactura ? <span className="font-mono font-semibold text-brand-blue">{numeroFactura}</span> : "—"}
@@ -159,15 +117,15 @@ export function VistaFacturacionModal({ open, onClose, solicitud, factura }: Vis
             </div>
           </section>
 
-          <section className="rounded-xl border border-dashed border-gray-200 bg-gray-50/80 px-4 py-4">
+          <section className="rounded-xl border border-dashed border-border bg-muted/80 px-4 py-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold text-gray-800">Formato para facturación</p>
-                <p className="text-xs text-gray-500 mt-0.5 max-w-xl">
+                <p className="text-sm font-semibold text-foreground">Formato para facturación</p>
+                <p className="text-xs text-muted-foreground mt-0.5 max-w-xl">
                   Abre una vista de impresión con este resumen. Desde el diálogo del navegador puedes guardar como PDF.
                 </p>
               </div>
-              <button
+              <Button
                 type="button"
                 onClick={() =>
                   window.open(
@@ -176,24 +134,20 @@ export function VistaFacturacionModal({ open, onClose, solicitud, factura }: Vis
                     "noopener,noreferrer"
                   )
                 }
-                className="shrink-0 rounded-lg border border-brand-blue bg-brand-blue px-4 py-2.5 text-sm font-semibold text-white hover:brightness-105 transition-all"
+                className="shrink-0"
               >
                 Descargar / Imprimir
-              </button>
+              </Button>
             </div>
           </section>
         </div>
 
-        <footer className="shrink-0 px-6 py-3 border-t border-gray-100 bg-gray-50 flex justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg bg-brand-blue px-4 py-2 text-sm font-semibold text-white hover:brightness-105 transition-all"
-          >
+        <footer className="shrink-0 px-6 py-3 border-t border-border bg-muted flex justify-end">
+          <Button type="button" onClick={onClose}>
             Cerrar
-          </button>
+          </Button>
         </footer>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

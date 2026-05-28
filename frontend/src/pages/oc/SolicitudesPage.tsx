@@ -6,6 +6,7 @@ import { useSolicitudes, OC_SOLICITUDES_PAGE_SIZE, type SolicitudesFilters } fro
 import { useSedesParaSolicitudesOc } from "@/hooks/useSedes"
 import { Combobox } from "@/components/ui/Combobox"
 import { formatFechaRelativa } from "@/lib/dates"
+import { Button } from "@/components/ui/button"
 import type { EstadoOC, SolicitudOC } from "@/types/oc"
 
 const ESTADOS_OPTIONS = [
@@ -67,8 +68,8 @@ export function SolicitudesPage() {
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-xl font-bold text-gray-900">Solicitudes de Compra</h1>
-              <p className="text-sm text-gray-500 mt-0.5">
+              <h1 className="text-xl font-bold text-foreground">Solicitudes de Compra</h1>
+              <p className="text-sm text-muted-foreground mt-0.5">
                 Panel del Auxiliar de Compras
                 {isRefetching && (
                   <span className="ml-2 text-brand-blue/60">actualizando...</span>
@@ -96,31 +97,31 @@ export function SolicitudesPage() {
           </div>
 
           {/* Tabla */}
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
             {isLoading ? (
-              <div className="flex items-center justify-center py-16 text-gray-400 text-sm">
+              <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">
                 Cargando...
               </div>
             ) : solicitudes.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
-                <p className="text-gray-400 text-sm">No hay solicitudes con los filtros aplicados.</p>
+                <p className="text-muted-foreground text-sm">No hay solicitudes con los filtros aplicados.</p>
               </div>
             ) : (
               <>
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-gray-100 text-left">
-                      <th className="px-4 py-3 font-medium text-gray-500">Consecutivo</th>
-                      <th className="px-4 py-3 font-medium text-gray-500">Descripción</th>
-                      <th className="px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Solicitante</th>
-                      <th className="px-4 py-3 font-medium text-gray-500 hidden lg:table-cell">Plataforma</th>
-                      <th className="px-4 py-3 font-medium text-gray-500">Prioridad</th>
-                      <th className="px-4 py-3 font-medium text-gray-500">Estado</th>
-                      <th className="px-4 py-3 font-medium text-gray-500 hidden lg:table-cell">Fecha</th>
-                      <th className="px-4 py-3 font-medium text-gray-500 text-right">Acción</th>
+                    <tr className="border-b border-border text-left">
+                      <th className="px-4 py-3 font-medium text-muted-foreground">Consecutivo</th>
+                      <th className="px-4 py-3 font-medium text-muted-foreground">Descripción</th>
+                      <th className="px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Solicitante</th>
+                      <th className="px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">Plataforma</th>
+                      <th className="px-4 py-3 font-medium text-muted-foreground">Prioridad</th>
+                      <th className="px-4 py-3 font-medium text-muted-foreground">Estado</th>
+                      <th className="px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">Fecha</th>
+                      <th className="px-4 py-3 font-medium text-muted-foreground text-right">Acción</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-50">
+                  <tbody className="divide-y divide-muted/50">
                     {solicitudes.map((s) => (
                       <SolicitudRow
                         key={s.id}
@@ -153,23 +154,23 @@ function SolicitudRow({
   onView: () => void
 }) {
   return (
-    <tr className="hover:bg-gray-50 transition-colors">
+    <tr className="hover:bg-muted/50 transition-colors">
       <td className="px-4 py-3">
         <span className="font-mono text-xs font-medium text-brand-blue">
           {s.consecutivo_os}
         </span>
       </td>
       <td className="px-4 py-3">
-        <p className="font-medium text-gray-900 truncate max-w-[200px]">{s.descripcion}</p>
-        <p className="text-xs text-gray-400">Cant: {s.cantidad}</p>
+        <p className="font-medium text-foreground truncate max-w-[200px]">{s.descripcion}</p>
+        <p className="text-xs text-muted-foreground">Cant: {s.cantidad}</p>
       </td>
-      <td className="px-4 py-3 text-gray-600 hidden md:table-cell">
+      <td className="px-4 py-3 text-foreground hidden md:table-cell">
         <p className="truncate max-w-[140px]">{s.solicitante_nombre}</p>
         {s.area_solicitante && (
-          <p className="text-xs text-gray-400">{s.area_solicitante}</p>
+          <p className="text-xs text-muted-foreground">{s.area_solicitante}</p>
         )}
       </td>
-      <td className="px-4 py-3 text-gray-500 hidden lg:table-cell">
+      <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell">
         {s.plataforma ?? "—"}
       </td>
       <td className="px-4 py-3">
@@ -183,16 +184,18 @@ function SolicitudRow({
       <td className="px-4 py-3">
         <EstadoBadge estado={s.estado} />
       </td>
-      <td className="px-4 py-3 text-gray-400 text-xs hidden lg:table-cell">
+      <td className="px-4 py-3 text-muted-foreground text-xs hidden lg:table-cell">
         {formatDate(s.fecha_solicitud)}
       </td>
       <td className="px-4 py-3 text-right">
-        <button
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={onView}
-          className="rounded px-2 py-1 text-xs font-medium text-brand-blue hover:bg-brand-blue/10 transition-colors"
+          className="text-xs font-medium text-brand-blue hover:bg-brand-blue/10"
         >
           Ver detalle
-        </button>
+        </Button>
       </td>
     </tr>
   )
@@ -208,9 +211,9 @@ export function EstadoBadge({ estado }: { estado: EstadoOC | string }) {
     oc_enviada:            { label: "OC Enviada",          className: "bg-indigo-100 text-indigo-700" },
     oc_en_plataforma:      { label: "En plataforma",       className: "bg-violet-100 text-violet-700" },
     entregada:             { label: "Entregada",           className: "bg-teal-100 text-teal-700" },
-    cerrada:               { label: "Cerrada",             className: "bg-gray-100 text-gray-500" },
+    cerrada:               { label: "Cerrada",             className: "bg-muted text-muted-foreground" },
   }
-  const c = config[estado] ?? { label: estado, className: "bg-gray-100 text-gray-500" }
+  const c = config[estado] ?? { label: estado, className: "bg-muted text-muted-foreground" }
   return (
     <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${c.className}`}>
       {c.label}
@@ -222,10 +225,10 @@ function PrioridadBadge({ prioridad }: { prioridad: string }) {
   const config: Record<string, string> = {
     Alta:  "bg-red-50 text-red-600",
     Media: "bg-yellow-50 text-yellow-700",
-    Baja:  "bg-gray-100 text-gray-500",
+    Baja:  "bg-muted text-muted-foreground",
   }
   return (
-    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${config[prioridad] ?? "bg-gray-100 text-gray-500"}`}>
+    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${config[prioridad] ?? "bg-muted text-muted-foreground"}`}>
       {prioridad}
     </span>
   )

@@ -5,6 +5,7 @@ import { useAuthStore } from "@/store/authStore"
 import { useAgentPanelStore } from "@/store/agentPanelStore"
 import { canSeeGerencial, canUseAgentePanel } from "@/lib/permissions"
 import { useMinWidth } from "@/hooks/useMinWidth"
+import { SidebarProvider } from "@/components/ui/sidebar"
 
 const LG_PX = 1024
 
@@ -41,29 +42,31 @@ export function PageLayout({
   const showDockedPanel = Boolean(docked && agente && lg)
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
+    <SidebarProvider defaultOpen={true}>
+      <div className="flex h-screen w-full bg-gray-50">
+        <Sidebar />
 
-      <div className="flex flex-1 min-w-0 min-h-0">
-        <div className="flex flex-1 flex-col min-w-0 min-h-0 overflow-hidden">
-          <TopBar title={title} showAgentDockToggle={Boolean(agente)} />
-          {belowTopBar}
-          <main className={mainClassName}>{children}</main>
-          {afterMain}
+        <div className="flex flex-1 min-w-0 min-h-0">
+          <div className="flex flex-1 flex-col min-w-0 min-h-0 overflow-hidden">
+            <TopBar title={title} showAgentDockToggle={Boolean(agente)} />
+            {belowTopBar}
+            <main className={mainClassName}>{children}</main>
+            {afterMain}
+          </div>
+
+          {showDockedPanel && agente && user && (
+            <aside
+              className="hidden lg:flex w-[360px] max-w-[40vw] shrink-0 border-l border-gray-200 bg-white flex-col min-h-0"
+              aria-label="Panel del agente"
+            >
+              <AgentDockedPanel
+                agente={agente}
+                usuarioNombre={user.full_name ?? user.email}
+              />
+            </aside>
+          )}
         </div>
-
-        {showDockedPanel && agente && user && (
-          <aside
-            className="hidden lg:flex w-[360px] max-w-[40vw] shrink-0 border-l border-gray-200 bg-white flex-col min-h-0"
-            aria-label="Panel del agente"
-          >
-            <AgentDockedPanel
-              agente={agente}
-              usuarioNombre={user.full_name ?? user.email}
-            />
-          </aside>
-        )}
       </div>
-    </div>
+    </SidebarProvider>
   )
 }

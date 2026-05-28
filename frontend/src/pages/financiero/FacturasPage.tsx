@@ -7,6 +7,8 @@ import { api } from "@/lib/api"
 import { VistaFacturacionModal } from "@/components/financiero/VistaFacturacionModal"
 import { Combobox } from "@/components/ui/Combobox"
 import type { ComboboxOption } from "@/components/ui/Combobox"
+import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
 
 // ── Tipos de tab ──────────────────────────────────────────────────────────────
 
@@ -42,7 +44,7 @@ function formatCOP(value: number | null): string {
 function FacturaEstadoBadge({ facturaId, facturaEstado }: { facturaId: string | null; facturaEstado: EstadoFactura | null }) {
   if (!facturaId) {
     return (
-      <span className="inline-block rounded-full px-2.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-500">
+      <span className="inline-block rounded-full px-2.5 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
         Sin factura
       </span>
     )
@@ -131,17 +133,19 @@ export function FacturasPage() {
       )}
       <PageLayout title="Financiero">
           {/* Back button */}
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => navigate("/financiero")}
-            className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-600 mb-6 transition-colors"
+            className="text-muted-foreground mb-6"
           >
             ← Volver
-          </button>
+          </Button>
 
           {/* Header */}
           <div className="mb-6">
-            <h1 className="text-xl font-bold text-gray-900">Facturas de Proveedores</h1>
-            <p className="text-sm text-gray-500 mt-0.5">
+            <h1 className="text-xl font-bold text-foreground">Facturas de Proveedores</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
               OCs elegibles para facturación
             </p>
           </div>
@@ -149,7 +153,7 @@ export function FacturasPage() {
           {/* Filtros por proveedor y plataforma */}
           <div className="flex flex-wrap items-center gap-3 mb-4">
             <div className="flex items-center gap-2 min-w-0">
-              <label className="text-xs font-medium text-gray-500 whitespace-nowrap">Proveedor</label>
+              <Label className="text-xs whitespace-nowrap">Proveedor</Label>
               <Combobox
                 options={opcionesProveedor}
                 value={filtroProveedor}
@@ -159,7 +163,7 @@ export function FacturasPage() {
               />
             </div>
             <div className="flex items-center gap-2 min-w-0">
-              <label className="text-xs font-medium text-gray-500 whitespace-nowrap">Plataforma</label>
+              <Label className="text-xs whitespace-nowrap">Plataforma</Label>
               <Combobox
                 options={opcionesPlataforma}
                 value={filtroPlataforma}
@@ -169,18 +173,20 @@ export function FacturasPage() {
               />
             </div>
             {hayFiltrosActivos && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={limpiarFiltros}
-                className="text-xs font-medium text-brand-blue hover:text-brand-blue/70 transition-colors"
+                className="text-xs font-medium text-brand-blue hover:text-brand-blue/70"
               >
                 Limpiar filtros
-              </button>
+              </Button>
             )}
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-1 border-b border-gray-200">
+          <div className="flex gap-1 border-b border-border">
             {TABS.map((t) => {
               const conteo = contarPorTab(filtradoBase, t.key)
               return (
@@ -191,7 +197,7 @@ export function FacturasPage() {
                   className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                     tab === t.key
                       ? "border-brand-blue text-brand-blue"
-                      : "border-transparent text-gray-500 hover:text-gray-700"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   {t.label}
@@ -200,7 +206,7 @@ export function FacturasPage() {
                       className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${
                         tab === t.key
                           ? "bg-brand-blue/10 text-brand-blue"
-                          : "bg-gray-100 text-gray-500"
+                          : "bg-muted text-muted-foreground"
                       }`}
                     >
                       {conteo}
@@ -211,13 +217,13 @@ export function FacturasPage() {
             })}
           </div>
           {/* Descripción de la tab activa */}
-          <p className="text-xs text-gray-400 mt-2 mb-5">
+          <p className="text-xs text-muted-foreground mt-2 mb-5">
             {TABS.find((t) => t.key === tab)?.descripcion}
           </p>
 
           {/* Loading */}
           {isLoading && (
-            <div className="flex items-center justify-center py-24 text-gray-400 text-sm">
+            <div className="flex items-center justify-center py-24 text-muted-foreground text-sm">
               <svg className="animate-spin h-5 w-5 mr-2 text-brand-blue" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -228,8 +234,8 @@ export function FacturasPage() {
 
           {/* Empty */}
           {!isLoading && filtradas.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-24 text-gray-400">
-              <svg className="w-12 h-12 mb-3 text-gray-200" viewBox="0 0 20 20" fill="currentColor">
+            <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
+              <svg className="w-12 h-12 mb-3 text-border" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M4 4a2 2 0 0 1 2-2h4.586A2 2 0 0 1 12 2.586L15.414 6A2 2 0 0 1 16 7.414V16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4Z" clipRule="evenodd" />
               </svg>
               <p className="text-sm">No hay facturas en esta categoría</p>
@@ -261,7 +267,7 @@ function FacturaCard({
   const navigate = useNavigate()
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+    <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden hover:shadow-md transition-shadow">
       <div className="p-5">
         <div className="flex items-start justify-between gap-4">
           {/* Left — info principal */}
@@ -280,24 +286,24 @@ function FacturaCard({
               )}
               <FacturaEstadoBadge facturaId={s.factura_id} facturaEstado={s.factura_estado} />
             </div>
-            <p className="text-sm font-semibold text-gray-900 truncate">
+            <p className="text-sm font-semibold text-foreground truncate">
               {s.descripcion ?? "Sin descripción"}
             </p>
-            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-400">
+            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
               {s.proveedor_nombre && (
-                <span>Proveedor: <span className="text-gray-600">{s.proveedor_nombre}</span></span>
+                <span>Proveedor: <span className="text-foreground">{s.proveedor_nombre}</span></span>
               )}
               {s.area_solicitante && (
-                <span>Área: <span className="text-gray-600">{s.area_solicitante}</span></span>
+                <span>Área: <span className="text-foreground">{s.area_solicitante}</span></span>
               )}
               {s.condicion && String(s.condicion).trim() !== "" && (
-                <span>Condición: <span className="text-gray-600">{s.condicion}</span></span>
+                <span>Condición: <span className="text-foreground">{s.condicion}</span></span>
               )}
               {s.numero_oc && (
-                <span>OC: <span className="text-gray-600 font-mono">{s.numero_oc}</span></span>
+                <span>OC: <span className="text-foreground font-mono">{s.numero_oc}</span></span>
               )}
               {s.forma_pago && (
-                <span>Pago: <span className="text-gray-600">{s.forma_pago}</span></span>
+                <span>Pago: <span className="text-foreground">{s.forma_pago}</span></span>
               )}
               {s.tiene_proforma && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-bold text-yellow-700 uppercase tracking-wide">
@@ -341,29 +347,32 @@ function FacturaCard({
 
           {/* Center — valor */}
           <div className="shrink-0 text-right hidden sm:block">
-            <p className="text-xs text-gray-400">Valor aprobado</p>
-            <p className="text-sm font-semibold text-gray-800">{formatCOP(s.valor_aprobado)}</p>
+            <p className="text-xs text-muted-foreground">Valor aprobado</p>
+            <p className="text-sm font-semibold text-foreground">{formatCOP(s.valor_aprobado)}</p>
           </div>
 
           {/* Right — acciones */}
           <div className="shrink-0 flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={(e) => {
                 e.stopPropagation()
                 onVistaFacturacion()
               }}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
             >
               Vista facturación
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => navigate(`/financiero/facturas/${s.solicitud_id}`)}
-              className="rounded-lg bg-brand-blue/8 px-3 py-1.5 text-xs font-semibold text-brand-blue hover:bg-brand-blue/15 transition-colors"
+              className="text-brand-blue hover:text-brand-blue hover:bg-brand-blue/10"
             >
               Ver detalle
-            </button>
+            </Button>
           </div>
         </div>
       </div>

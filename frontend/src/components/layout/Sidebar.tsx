@@ -1,10 +1,52 @@
-import { NavLink } from "react-router-dom"
+import { NavLink, useLocation } from "react-router-dom"
+import {
+  LayoutDashboard,
+  Monitor,
+  ShieldCheck,
+  Database,
+  Truck,
+  Building2,
+  BarChart3,
+  LineChart,
+  Cpu,
+  CheckSquare,
+  ListTodo,
+  Layers,
+} from "lucide-react"
 import { useAuthStore } from "@/store/authStore"
-import { canSeeOC, canSeeSGC, canSeeOperativo, canSeeFinanciero, canSeeGerencial, canSeeIT, canSeeSIG, canSeeExtraccionIA, canSubmitDevTasks, canManageDevTasks, canSeeHelix } from "@/lib/permissions"
+import {
+  canSeeOC,
+  canSeeSGC,
+  canSeeOperativo,
+  canSeeFinanciero,
+  canSeeGerencial,
+  canSeeIT,
+  canSeeSIG,
+  canSeeExtraccionIA,
+  canSubmitDevTasks,
+  canManageDevTasks,
+  canSeeHelix,
+} from "@/lib/permissions"
+import {
+  Sidebar as ShadcnSidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarSeparator,
+  useSidebar,
+} from "@/components/ui/sidebar"
 
 export function Sidebar() {
   const user = useAuthStore((s) => s.user)
   const perms = user?.app_permissions
+  const location = useLocation()
+
   const showAdministrativo = user ? canSeeOC(user.role, user.area, perms) : false
   const showSGC            = user ? canSeeSGC(user.role, user.area, perms) : false
   const showOperativo      = user ? canSeeOperativo(user.role, user.area, perms) : false
@@ -13,294 +55,233 @@ export function Sidebar() {
   const showIT             = user ? canSeeIT(user.role, perms) : false
   const showSIG            = user ? canSeeSIG(user.role, perms) : false
   const showExtraccionIA   = user ? canSeeExtraccionIA(user.role, perms) : false
-  const showGestionTareas  = user ? (canSubmitDevTasks(user.user_tools ?? []) || canManageDevTasks(user.user_tools ?? [])) : false
+  const showGestionTareas  = user
+    ? canSubmitDevTasks(user.user_tools ?? []) || canManageDevTasks(user.user_tools ?? [])
+    : false
   const showHelix          = user ? canSeeHelix(user.role, perms) : false
 
+  // Derive user initials for the footer avatar
+  const initials = user?.full_name
+    ? user.full_name
+        .split(" ")
+        .slice(0, 2)
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+    : user?.email?.[0]?.toUpperCase() ?? "U"
+
+  const { state } = useSidebar()
+  const isCollapsed = state === "collapsed"
+
+  function isActive(paths: string[]): boolean {
+    return paths.some((p) => location.pathname.startsWith(p))
+  }
+
   return (
-    <aside className="flex h-full w-64 flex-col bg-brand-blue">
-      {/* Logo */}
-      <div className="flex items-center gap-2 px-6 py-5 border-b border-white/10">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-yellow">
-          <span className="text-brand-blue font-bold text-sm">Z</span>
+    <ShadcnSidebar collapsible="icon" className="border-r border-sidebar-border">
+      {/* ── Header: workspace logo ───────────────────────────────────── */}
+      <SidebarHeader className="px-3 py-4">
+        <div className="flex items-center gap-2.5 px-1">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm">
+            Z
+          </div>
+          {!isCollapsed && (
+            <div className="leading-none">
+              <p className="font-bold text-sm text-sidebar-foreground">ZYMO</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Intranet</p>
+            </div>
+          )}
         </div>
-        <div>
-          <p className="text-white font-bold text-base leading-none">ZYMO</p>
-          <p className="text-white/50 text-xs mt-0.5">Intranet</p>
-        </div>
-      </div>
+      </SidebarHeader>
 
-      {/* Navegación */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5" aria-label="Navegación principal">
-        <SidebarLink
-          to="/dashboard"
-          label="Dashboard"
-          icon={<IconDashboard />}
-        />
+      <SidebarSeparator />
 
-        <p className="px-3 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-wider text-white/30">
-          Módulos disponibles
-        </p>
+      <SidebarContent>
+        {/* ── Section: Dashboard ──────────────────────────────────────── */}
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <NavItem
+                to="/dashboard"
+                label="Dashboard"
+                icon={<LayoutDashboard className="w-4 h-4" />}
+                active={isActive(["/dashboard"])}
+              />
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
-        {showIT && (
-          <SidebarLink
-            to="/it"
-            label="IT"
-            icon={<IconIT />}
-          />
+        {/* ── Section: Módulos ────────────────────────────────────────── */}
+        {(showIT || showSGC || showSIG || showOperativo || showAdministrativo ||
+          showFinanciero || showGerencial || showExtraccionIA) && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Módulos disponibles</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {showIT && (
+                  <NavItem
+                    to="/it"
+                    label="IT"
+                    icon={<Monitor className="w-4 h-4" />}
+                    active={isActive(["/it"])}
+                  />
+                )}
+                {showSGC && (
+                  <NavItem
+                    to="/sgc"
+                    label="SGC"
+                    icon={<ShieldCheck className="w-4 h-4" />}
+                    active={isActive(["/sgc"])}
+                  />
+                )}
+                {showSIG && (
+                  <NavItem
+                    to="/sig"
+                    label="SIG"
+                    icon={<Database className="w-4 h-4" />}
+                    active={isActive(["/sig"])}
+                  />
+                )}
+                {showOperativo && (
+                  <NavItem
+                    to="/operativo"
+                    label="Operativo"
+                    icon={<Truck className="w-4 h-4" />}
+                    active={isActive(["/operativo"])}
+                  />
+                )}
+                {showAdministrativo && (
+                  <NavItem
+                    to="/administrativo"
+                    label="Administrativo"
+                    icon={<Building2 className="w-4 h-4" />}
+                    active={isActive(["/administrativo", "/oc"])}
+                  />
+                )}
+                {showFinanciero && (
+                  <NavItem
+                    to="/financiero"
+                    label="Financiero"
+                    icon={<BarChart3 className="w-4 h-4" />}
+                    active={isActive(["/financiero"])}
+                  />
+                )}
+                {showGerencial && (
+                  <NavItem
+                    to="/gerencial"
+                    label="Gerencial"
+                    icon={<LineChart className="w-4 h-4" />}
+                    active={isActive(["/gerencial"])}
+                  />
+                )}
+                {showExtraccionIA && (
+                  <NavItem
+                    to="/admin/extraccion-ia"
+                    label="Motor IA"
+                    icon={<Cpu className="w-4 h-4" />}
+                    active={isActive(["/admin/extraccion-ia"])}
+                  />
+                )}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
         )}
 
-        {showSGC && (
-          <SidebarLink
-            to="/sgc"
-            label="SGC"
-            icon={<IconSGC />}
-            matchPaths={["/sgc"]}
-          />
-        )}
-
-        {showSIG && (
-          <SidebarLink
-            to="/sig"
-            label="SIG"
-            icon={<IconSIG />}
-          />
-        )}
-
-        {showOperativo && (
-          <SidebarLink
-            to="/operativo"
-            label="Operativo"
-            icon={<IconOperativo />}
-            matchPaths={["/operativo"]}
-          />
-        )}
-
-        {showAdministrativo && (
-          <SidebarLink
-            to="/administrativo"
-            label="Administrativo"
-            icon={<IconAdministrativo />}
-            matchPaths={["/administrativo", "/oc"]}
-          />
-        )}
-
-        {showFinanciero && (
-          <SidebarLink
-            to="/financiero"
-            label="Financiero"
-            icon={<IconFinanciero />}
-            matchPaths={["/financiero"]}
-          />
-        )}
-
-        {showGerencial && (
-          <SidebarLink
-            to="/gerencial"
-            label="Gerencial"
-            icon={<IconGerencial />}
-            matchPaths={["/gerencial"]}
-          />
-        )}
-
-        {showExtraccionIA && (
-          <SidebarLink
-            to="/admin/extraccion-ia"
-            label="Motor IA"
-            icon={<IconMotorIA />}
-            matchPaths={["/admin/extraccion-ia"]}
-          />
-        )}
-
-        {/* Separador visual */}
+        {/* ── Section: Herramientas ───────────────────────────────────── */}
         {showGestionTareas && (
-          <div className="pt-3 mt-1 border-t border-white/10">
-            <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-white/30">
-              Mis herramientas
-            </p>
-            <SidebarLink
-              to="/herramientas/tareas"
-              label="Gestión de Tareas"
-              icon={<IconGestionTareas />}
-              matchPaths={["/herramientas/tareas"]}
-            />
-            <SidebarExternalLink
-              href="/tareas-v2"
-              label="Tareas V2"
-              icon={<IconGestionTareas />}
-            />
-          </div>
+          <>
+            <SidebarSeparator />
+            <SidebarGroup>
+              <SidebarGroupLabel>Mis herramientas</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <NavItem
+                    to="/herramientas/tareas"
+                    label="Gestión de Tareas"
+                    icon={<CheckSquare className="w-4 h-4" />}
+                    active={isActive(["/herramientas/tareas"])}
+                  />
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild tooltip="Tareas V2">
+                      <a
+                        href="/tareas-v2"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label="Tareas V2 (nueva pestaña)"
+                      >
+                        <ListTodo className="w-4 h-4" />
+                        <span>Tareas V2</span>
+                      </a>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
         )}
 
+        {/* ── Section: Planeación ────────────────────────────────────── */}
         {showHelix && (
-          <div className="pt-3 mt-1 border-t border-white/10">
-            <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-white/30">
-              Planeación
-            </p>
-            <SidebarLink
-              to="/planeacion/helix"
-              label="Helix Zymo"
-              icon={<IconHelix />}
-              matchPaths={["/planeacion/helix"]}
-            />
-          </div>
+          <>
+            <SidebarSeparator />
+            <SidebarGroup>
+              <SidebarGroupLabel>Planeación</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <NavItem
+                    to="/planeacion/helix"
+                    label="Helix Zymo"
+                    icon={<Layers className="w-4 h-4" />}
+                    active={isActive(["/planeacion/helix"])}
+                  />
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
         )}
-      </nav>
-    </aside>
+      </SidebarContent>
+
+      {/* ── Footer: user avatar ─────────────────────────────────────── */}
+      <SidebarSeparator />
+      <SidebarFooter className="px-3 py-3">
+        <div className="flex items-center gap-2.5 px-1">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold">
+            {initials}
+          </div>
+          {!isCollapsed && (
+            <div className="min-w-0 leading-none">
+              <p className="truncate text-sm font-medium text-sidebar-foreground">
+                {user?.full_name ?? user?.email ?? "Usuario"}
+              </p>
+              <p className="truncate text-xs text-muted-foreground mt-0.5 capitalize">
+                {user?.role ?? ""}
+              </p>
+            </div>
+          )}
+        </div>
+      </SidebarFooter>
+    </ShadcnSidebar>
   )
 }
 
-// ── Link genérico ─────────────────────────────────────────────────────────────
+// ── Internal nav item ─────────────────────────────────────────────────────────
 
-interface SidebarLinkProps {
+interface NavItemProps {
   to: string
   label: string
   icon: React.ReactNode
-  /** Rutas adicionales que activan el estado activo */
-  matchPaths?: string[]
+  active: boolean
 }
 
-function SidebarLink({ to, label, icon, matchPaths }: SidebarLinkProps) {
+function NavItem({ to, label, icon, active }: NavItemProps) {
   return (
-    <NavLink
-      to={to}
-      className={({ isActive }) => {
-        const extraActive = matchPaths?.some((p) =>
-          window.location.pathname.startsWith(p)
-        ) ?? false
-        const active = isActive || extraActive
-        return `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-150 ${
-          active
-            ? "bg-white/15 text-white"
-            : "text-white/60 hover:bg-white/10 hover:text-white"
-        }`
-      }}
-      aria-label={label}
-    >
-      <span className="shrink-0 w-5 h-5" aria-hidden="true">
-        {icon}
-      </span>
-      {label}
-    </NavLink>
-  )
-}
-
-// ── External link (opens in new tab) ──────────────────────────────────────────
-
-interface SidebarExternalLinkProps {
-  href: string
-  label: string
-  icon: React.ReactNode
-}
-
-function SidebarExternalLink({ href, label, icon }: SidebarExternalLinkProps) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/60 hover:bg-white/10 hover:text-white transition-colors duration-150"
-      aria-label={`${label} (nueva pestaña)`}
-    >
-      <span className="shrink-0 w-5 h-5" aria-hidden="true">
-        {icon}
-      </span>
-      {label}
-      <span className="ml-auto opacity-0 group-hover:opacity-60 transition-opacity" aria-hidden="true">
-        <svg viewBox="0 0 12 12" fill="currentColor" className="w-3 h-3">
-          <path d="M3.5 1H1.5A.5.5 0 0 0 1 1.5v9a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5V8.5a.5.5 0 0 0-1 0V10H2V2h1.5a.5.5 0 0 0 0-1ZM11 1H7a.5.5 0 0 0 0 1h2.793L5.146 6.646a.5.5 0 0 0 .708.708L10.5 2.707V5.5a.5.5 0 0 0 1 0V1.5A.5.5 0 0 0 11 1Z" />
-        </svg>
-      </span>
-    </a>
-  )
-}
-
-// ── Iconos SVG ────────────────────────────────────────────────────────────────
-
-function IconDashboard() {
-  return (
-    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-      <path d="M2 4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4ZM2 12a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-4ZM12 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2V4ZM12 12a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2v-4Z" />
-    </svg>
-  )
-}
-
-function IconIT() {
-  return (
-    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-      <path fillRule="evenodd" d="M2 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5Zm3.293 1.293a1 1 0 0 1 1.414 0l3 3a1 1 0 0 1 0 1.414l-3 3a1 1 0 0 1-1.414-1.414L7.586 10 5.293 7.707a1 1 0 0 1 0-1.414ZM11 12a1 1 0 1 0 0 2h3a1 1 0 1 0 0-2h-3Z" clipRule="evenodd" />
-    </svg>
-  )
-}
-
-function IconSGC() {
-  return (
-    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-      <path fillRule="evenodd" d="M4 4a2 2 0 0 1 2-2h4.586A2 2 0 0 1 12 2.586L15.414 6A2 2 0 0 1 16 7.414V16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4Zm2 6a1 1 0 0 1 1-1h6a1 1 0 1 1 0 2H7a1 1 0 0 1-1-1Zm1 3a1 1 0 1 0 0 2h6a1 1 0 1 0 0-2H7Z" clipRule="evenodd" />
-    </svg>
-  )
-}
-
-function IconSIG() {
-  return (
-    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-      <path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM4.332 8.027a6.012 6.012 0 0 1 1.912-2.706C6.512 5.73 6.974 6 7.5 6A1.5 1.5 0 0 1 9 7.5V8a2 2 0 0 0 4 0 2 2 0 0 1 1.523-1.943A5.977 5.977 0 0 1 16 10c0 .34-.028.675-.083 1H15a2 2 0 0 0-2 2v2.197A5.973 5.973 0 0 1 10 16v-2a2 2 0 0 0-2-2 2 2 0 0 1-2-2 2 2 0 0 0-1.668-1.973Z" clipRule="evenodd" />
-    </svg>
-  )
-}
-
-function IconAdministrativo() {
-  return (
-    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-      <path fillRule="evenodd" d="M4 16.5v-13h-.25a.75.75 0 0 1 0-1.5h12.5a.75.75 0 0 1 0 1.5H16v13h.25a.75.75 0 0 1 0 1.5h-3.5a.75.75 0 0 1-.75-.75v-2.5a.75.75 0 0 0-.75-.75h-2.5a.75.75 0 0 0-.75.75v2.5a.75.75 0 0 1-.75.75h-3.5a.75.75 0 0 1 0-1.5H4Zm3-11a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1Zm.5 3.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1Zm3.5-4a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1Zm.5 3.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1Z" clipRule="evenodd" />
-    </svg>
-  )
-}
-
-function IconOperativo() {
-  return (
-    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-      <path d="M6.5 3A1.5 1.5 0 0 0 5 4.5v.75a.75.75 0 0 1-.75.75H3a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-1.25A.75.75 0 0 1 15 5.25V4.5A1.5 1.5 0 0 0 13.5 3h-7ZM6.5 4.5h7v.75H6.5V4.5ZM4 8.5a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5Zm0 3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5Z" />
-    </svg>
-  )
-}
-
-function IconFinanciero() {
-  return (
-    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-      <path fillRule="evenodd" d="M1 4a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V4Zm12 4a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM4 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm13-1a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM1.75 14.5a.75.75 0 0 0 0 1.5c4.417 0 8.693.603 12.749 1.73 1.111.309 2.251-.512 2.251-1.696v-.784a.75.75 0 0 0-1.5 0v.784a.272.272 0 0 1-.35.25A49.43 49.43 0 0 0 1.75 14.5Z" clipRule="evenodd" />
-    </svg>
-  )
-}
-
-function IconGerencial() {
-  return (
-    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-      <path fillRule="evenodd" d="M6 6V5a3 3 0 0 1 3-3h2a3 3 0 0 1 3 3v1h2a2 2 0 0 1 2 2v3.57A22.952 22.952 0 0 1 10 13a22.95 22.95 0 0 1-8-1.43V8a2 2 0 0 1 2-2h2Zm2-1a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1H8V5Zm1 5a1 1 0 0 1 1-1h.01a1 1 0 1 1 0 2H10a1 1 0 0 1-1-1Z" clipRule="evenodd" />
-      <path d="M2 13.692V16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2.308A24.974 24.974 0 0 1 10 15c-2.796 0-5.487-.46-8-1.308Z" />
-    </svg>
-  )
-}
-
-function IconMotorIA() {
-  return (
-    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-      <path d="M13 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM18 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0ZM14 15a4 4 0 0 0-8 0v3h8v-3ZM6 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0ZM16 15a4 4 0 0 0-4-4v3h4v-3ZM4 15a4 4 0 0 0-4 4v1h4v-1a3 3 0 0 1 0-.012V15Z" />
-    </svg>
-  )
-}
-
-function IconGestionTareas() {
-  return (
-    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-      <path fillRule="evenodd" d="M6 2a1 1 0 0 0-1 1v1H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1V3a1 1 0 1 0-2 0v1H7V3a1 1 0 0 0-1-1Zm0 5a1 1 0 0 0 0 2h8a1 1 0 1 0 0-2H6Zm0 4a1 1 0 1 0 0 2h8a1 1 0 1 0 0-2H6Z" clipRule="evenodd" />
-    </svg>
-  )
-}
-
-function IconHelix() {
-  return (
-    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-      <path fillRule="evenodd" d="M10 2a8 8 0 1 0 0 16A8 8 0 0 0 10 2ZM6.5 7.5a.5.5 0 0 1 .5-.5h1.5V5.5a.5.5 0 0 1 1 0V7h1.5a.5.5 0 0 1 0 1H9.5v1.5h1.5a.5.5 0 0 1 0 1H9.5V12a.5.5 0 0 1-1 0v-1.5H7a.5.5 0 0 1 0-1h1.5V8H7a.5.5 0 0 1-.5-.5Z" clipRule="evenodd" />
-    </svg>
+    <SidebarMenuItem>
+      <SidebarMenuButton asChild isActive={active} tooltip={label}>
+        <NavLink to={to} aria-label={label}>
+          {icon}
+          <span>{label}</span>
+        </NavLink>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
   )
 }

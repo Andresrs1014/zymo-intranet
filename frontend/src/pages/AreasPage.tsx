@@ -15,13 +15,15 @@ import {
   type SedeItem,
 } from "@/hooks/useSedes"
 import { getApiError } from "@/hooks/useRoles"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 
 export function AreasPage() {
   return (
     <PageLayout title="Áreas y Sedes" mainClassName="flex-1 overflow-auto p-6">
           <div className="mb-6">
-            <h2 className="text-xl font-semibold text-gray-900">Áreas y Sedes</h2>
-            <p className="text-sm text-gray-500 mt-0.5">
+            <h2 className="text-xl font-semibold text-foreground">Áreas y Sedes</h2>
+            <p className="text-sm text-muted-foreground mt-0.5">
               Administra los catálogos de áreas y sedes de la organización.
             </p>
           </div>
@@ -149,7 +151,7 @@ function SedesPanel() {
 
   return (
     <div>
-      <p className="text-xs text-gray-500 mb-2 max-w-md">
+      <p className="text-xs text-muted-foreground mb-2 max-w-md">
         Solo las sedes con «OC compras» aparecen como plataforma al crear solicitudes. Ej.: Transversal puede existir como sede de usuario pero no formaliza compras.
       </p>
       <CatalogPanel
@@ -174,10 +176,10 @@ function SedesPanel() {
         renderAfterName={(item) => {
           if (item.visible_en_solicitudes_oc === undefined) return null
           return (
-            <label className="flex items-center gap-1.5 shrink-0 text-xs text-gray-600 cursor-pointer">
+            <label className="flex items-center gap-1.5 shrink-0 text-xs text-foreground cursor-pointer">
               <input
                 type="checkbox"
-                className="rounded border-gray-300"
+                className="rounded border-border"
                 checked={item.visible_en_solicitudes_oc}
                 onChange={async (e) => {
                   setError(undefined)
@@ -261,118 +263,136 @@ function CatalogPanel({
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-        <h3 className="font-semibold text-gray-900 text-sm">{title}</h3>
-        <button
+    <div className="bg-card rounded-xl border border-border overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+        <h3 className="font-semibold text-foreground text-sm">{title}</h3>
+        <Button
           onClick={onOpenCreate}
-          className="rounded-lg bg-brand-blue px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-blue/90 transition-colors"
+          variant="default"
+          size="sm"
+          className="text-xs px-3 py-1.5 h-auto"
         >
           + Nuevo
-        </button>
+        </Button>
       </div>
 
       {error && (
-        <p className="mx-4 mt-3 text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
+        <p className="mx-4 mt-3 text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">{error}</p>
       )}
 
       {showCreate && (
-        <form onSubmit={submitCreate} className="flex gap-2 px-4 py-3 border-b border-gray-50">
-          <input
+        <form onSubmit={submitCreate} className="flex gap-2 px-4 py-3 border-b border-border">
+          <Input
             type="text"
             autoFocus
             required
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder={`Nombre del ${entityLabel}`}
-            className={inputCls}
+            className="flex-1 h-8 text-sm"
           />
-          <button
+          <Button
             type="submit"
+            variant="default"
+            size="sm"
             disabled={isPending}
-            className="rounded-lg bg-brand-blue px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-blue/90 disabled:opacity-50 transition-colors whitespace-nowrap"
+            className="text-xs px-3 py-1.5 h-auto whitespace-nowrap"
           >
             {isPending ? "..." : "Agregar"}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={onCancelCreate}
-            className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+            className="text-xs px-3 py-1.5 h-auto"
           >
             ✕
-          </button>
+          </Button>
         </form>
       )}
 
       {isLoading ? (
-        <p className="px-4 py-6 text-xs text-gray-400">Cargando...</p>
+        <p className="px-4 py-6 text-xs text-muted-foreground">Cargando...</p>
       ) : items.length === 0 ? (
-        <p className="px-4 py-6 text-center text-xs text-gray-400">
+        <p className="px-4 py-6 text-center text-xs text-muted-foreground">
           No hay {title.toLowerCase()} registradas.
         </p>
       ) : (
-        <ul className="divide-y divide-gray-50">
+        <ul className="divide-y divide-border">
           {items.map((item) => (
-            <li key={item.id} className="flex flex-wrap items-center gap-2 px-4 py-2.5 hover:bg-gray-50 transition-colors">
+            <li key={item.id} className="flex flex-wrap items-center gap-2 px-4 py-2.5 hover:bg-muted transition-colors">
               {editTarget?.id === item.id ? (
                 <form onSubmit={submitEdit} className="flex flex-1 gap-2">
-                  <input
+                  <Input
                     type="text"
                     autoFocus
                     required
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
-                    className={inputCls}
+                    className="flex-1 h-8 text-sm"
                   />
-                  <button
+                  <Button
                     type="submit"
+                    variant="ghost"
+                    size="sm"
                     disabled={isPending}
-                    className="rounded px-2 py-1 text-xs font-medium text-brand-blue hover:bg-brand-blue/10 disabled:opacity-50 transition-colors"
+                    className="text-xs px-2 py-1 h-auto text-brand-blue hover:bg-brand-blue/10"
                   >
                     {isPending ? "..." : "Guardar"}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={onCancelEdit}
-                    className="rounded px-2 py-1 text-xs font-medium text-gray-500 hover:bg-gray-100 transition-colors"
+                    className="text-xs px-2 py-1 h-auto"
                   >
                     ✕
-                  </button>
+                  </Button>
                 </form>
               ) : deleteTarget?.id === item.id ? (
                 <div className="flex flex-1 items-center gap-2">
-                  <span className="flex-1 text-sm text-gray-700">{item.name}</span>
+                  <span className="flex-1 text-sm text-foreground">{item.name}</span>
                   <span className="text-xs text-red-500">¿Eliminar?</span>
-                  <button
+                  <Button
                     onClick={onDelete}
                     disabled={isPending}
-                    className="rounded px-2 py-1 text-xs font-medium text-red-500 hover:bg-red-50 disabled:opacity-50 transition-colors"
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs px-2 py-1 h-auto text-red-500 hover:bg-red-50"
                   >
                     {isPending ? "..." : "Sí"}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={onCancelDelete}
-                    className="rounded px-2 py-1 text-xs font-medium text-gray-500 hover:bg-gray-100 transition-colors"
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs px-2 py-1 h-auto"
                   >
                     No
-                  </button>
+                  </Button>
                 </div>
               ) : (
                 <>
-                  <span className="flex-1 text-sm text-gray-800 min-w-0">{item.name}</span>
+                  <span className="flex-1 text-sm text-foreground min-w-0">{item.name}</span>
                   {renderAfterName?.(item)}
-                  <button
+                  <Button
                     onClick={() => openEdit(item)}
-                    className="rounded px-2 py-1 text-xs font-medium text-brand-blue hover:bg-brand-blue/10 transition-colors"
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs px-2 py-1 h-auto text-brand-blue hover:bg-brand-blue/10"
                   >
                     Editar
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={() => onDeleteRequest(item)}
-                    className="rounded px-2 py-1 text-xs font-medium text-red-500 hover:bg-red-50 transition-colors"
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs px-2 py-1 h-auto text-red-500 hover:bg-red-50"
                   >
                     Eliminar
-                  </button>
+                  </Button>
                 </>
               )}
             </li>
@@ -382,6 +402,3 @@ function CatalogPanel({
     </div>
   )
 }
-
-const inputCls =
-  "flex-1 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-900 focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue transition-colors"

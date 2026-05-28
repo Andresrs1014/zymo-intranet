@@ -4,6 +4,16 @@ import type { CreateUserPayload, UpdateUserPayload } from "@/hooks/useUsers"
 import { useRoles } from "@/hooks/useRoles"
 import { useAreas } from "@/hooks/useAreas"
 import { useSedes } from "@/hooks/useSedes"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
 
 interface Props {
   user?: UserListItem
@@ -66,64 +76,52 @@ export function UserFormModal({ user, onSubmit, onClose, isLoading, error }: Pro
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="font-semibold text-gray-900 text-base">
+    <Dialog open={true} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="w-full max-w-md">
+        <DialogHeader>
+          <DialogTitle>
             {isEdit ? "Editar usuario" : "Nuevo usuario"}
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors text-xl leading-none"
-            aria-label="Cerrar"
-          >
-            ✕
-          </button>
-        </div>
+          </DialogTitle>
+        </DialogHeader>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 py-1">
           {error && (
-            <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
+            <p className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">{error}</p>
           )}
           {passwordError && (
-            <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{passwordError}</p>
+            <p className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">{passwordError}</p>
           )}
 
           {!isEdit && (
             <Field label="Correo electrónico">
-              <input
+              <Input
                 type="email"
                 required
                 autoComplete="off"
                 value={form.email}
                 onChange={(e) => set("email", e.target.value)}
-                className={inputCls}
               />
             </Field>
           )}
 
           <Field label="Nombre completo">
-            <input
+            <Input
               type="text"
               required
               value={form.full_name}
               onChange={(e) => set("full_name", e.target.value)}
-              className={inputCls}
             />
           </Field>
 
           {!isEdit && (
             <Field label="Contraseña">
-              <input
+              <Input
                 type="password"
                 required
                 minLength={8}
                 autoComplete="new-password"
                 value={form.password}
                 onChange={(e) => set("password", e.target.value)}
-                className={inputCls}
                 placeholder="Mínimo 8 caracteres"
               />
             </Field>
@@ -131,13 +129,12 @@ export function UserFormModal({ user, onSubmit, onClose, isLoading, error }: Pro
 
           {isEdit && (
             <Field label="Nueva contraseña (opcional)">
-              <input
+              <Input
                 type="password"
                 minLength={8}
                 autoComplete="new-password"
                 value={form.password}
                 onChange={(e) => set("password", e.target.value)}
-                className={inputCls}
                 placeholder="Dejar vacío para no cambiar · mín. 8 caracteres"
               />
             </Field>
@@ -147,7 +144,7 @@ export function UserFormModal({ user, onSubmit, onClose, isLoading, error }: Pro
             <select
               value={form.role}
               onChange={(e) => set("role", e.target.value)}
-              className={inputCls}
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             >
               {roles.map((r) => (
                 <option key={r.id} value={r.name}>
@@ -162,7 +159,7 @@ export function UserFormModal({ user, onSubmit, onClose, isLoading, error }: Pro
               <select
                 value={form.sede}
                 onChange={(e) => set("sede", e.target.value)}
-                className={inputCls}
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               >
                 <option value="">— Sin sede —</option>
                 {sedes.map((s) => (
@@ -174,7 +171,7 @@ export function UserFormModal({ user, onSubmit, onClose, isLoading, error }: Pro
               <select
                 value={form.area}
                 onChange={(e) => set("area", e.target.value)}
-                className={inputCls}
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               >
                 <option value="">— Sin área —</option>
                 {areas.map((a) => (
@@ -184,29 +181,26 @@ export function UserFormModal({ user, onSubmit, onClose, isLoading, error }: Pro
             </Field>
           </div>
 
-          <div className="flex gap-3 pt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-            >
+          <DialogFooter className="pt-1">
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
               Cancelar
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
+              variant="default"
               disabled={isLoading}
-              className="flex-1 rounded-lg bg-brand-blue px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-blue/90 disabled:opacity-50"
+              className="flex-1"
             >
               {isLoading
                 ? "Guardando..."
                 : isEdit
                   ? "Guardar cambios"
                   : "Crear usuario"}
-            </button>
-          </div>
+            </Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -219,11 +213,8 @@ function Field({
 }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
+      <Label className="block text-xs font-medium mb-1">{label}</Label>
       {children}
     </div>
   )
 }
-
-const inputCls =
-  "w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue transition-colors"

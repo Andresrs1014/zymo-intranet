@@ -38,13 +38,13 @@ export function OcSolicitudesPagination({
   }
 
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 border-t border-gray-100">
-      <p className="text-sm text-gray-500 order-2 sm:order-1">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 border-t border-border">
+      <p className="text-sm text-muted-foreground order-2 sm:order-1">
         Mostrando{" "}
-        <span className="font-medium text-gray-700">
+        <span className="font-medium text-foreground">
           {start}–{end}
         </span>{" "}
-        de <span className="font-medium text-gray-700">{totalItems}</span>
+        de <span className="font-medium text-foreground">{totalItems}</span>
       </p>
       <Pagination className="justify-end sm:justify-center order-1 sm:order-2 mx-0 w-full sm:w-auto">
         <PaginationContent>

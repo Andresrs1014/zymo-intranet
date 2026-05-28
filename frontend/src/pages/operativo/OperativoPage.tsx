@@ -11,9 +11,9 @@ export function OperativoPage() {
           <div className="mb-8">
             <div className="flex items-center gap-3 mb-1">
               <div className="h-6 w-1 rounded-full bg-brand-blue" />
-              <h2 className="text-xl font-bold text-gray-900">Operaciones</h2>
+              <h2 className="text-xl font-bold text-foreground">Operaciones</h2>
             </div>
-            <p className="pl-4 text-sm text-gray-500">
+            <p className="pl-4 text-sm text-muted-foreground">
               Gestión de solicitudes de compra y herramientas del área operativa.
             </p>
           </div>
@@ -95,19 +95,19 @@ function InternalCard({
   return (
     <Link
       to={to}
-      className="group flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all duration-150 hover:border-brand-blue/30 hover:shadow-md"
+      className="group flex flex-col gap-4 rounded-xl border border-border bg-card p-5 shadow-sm transition-all duration-150 hover:border-brand-blue/30 hover:shadow-md"
     >
       <div className="flex items-center justify-between">
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-blue/8 text-brand-blue transition-colors duration-150 group-hover:bg-brand-blue/15">
           <span className="w-5 h-5">{icon}</span>
         </div>
-        <svg className="w-3.5 h-3.5 text-gray-300 group-hover:text-brand-blue/40 transition-colors" viewBox="0 0 20 20" fill="currentColor">
+        <svg className="w-3.5 h-3.5 text-muted-foreground/40 group-hover:text-brand-blue/40 transition-colors" viewBox="0 0 20 20" fill="currentColor">
           <path fillRule="evenodd" d="M3 10a.75.75 0 0 1 .75-.75h10.638L10.23 5.29a.75.75 0 1 1 1.04-1.08l5.5 5.25a.75.75 0 0 1 0 1.08l-5.5 5.25a.75.75 0 1 1-1.04-1.08l4.158-3.96H3.75A.75.75 0 0 1 3 10Z" clipRule="evenodd" />
         </svg>
       </div>
       <div>
-        <p className="text-sm font-semibold text-gray-900">{label}</p>
-        <p className="mt-0.5 text-xs text-gray-500 leading-relaxed">{description}</p>
+        <p className="text-sm font-semibold text-foreground">{label}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">{description}</p>
       </div>
     </Link>
   )
@@ -131,20 +131,20 @@ function ExternalCard({
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="group flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all duration-150 hover:border-brand-blue/30 hover:shadow-md"
+      className="group flex flex-col gap-4 rounded-xl border border-border bg-card p-5 shadow-sm transition-all duration-150 hover:border-brand-blue/30 hover:shadow-md"
     >
       <div className="flex items-center justify-between">
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-blue/8 text-brand-blue transition-colors duration-150 group-hover:bg-brand-blue/15">
           <span className="w-5 h-5">{icon}</span>
         </div>
         {/* Indicador de enlace externo */}
-        <svg className="w-3.5 h-3.5 text-gray-300 group-hover:text-brand-blue/40 transition-colors" viewBox="0 0 20 20" fill="currentColor">
+        <svg className="w-3.5 h-3.5 text-muted-foreground/40 group-hover:text-brand-blue/40 transition-colors" viewBox="0 0 20 20" fill="currentColor">
           <path fillRule="evenodd" d="M4.25 5.5a.75.75 0 0 0-.75.75v8.5c0 .414.336.75.75.75h8.5a.75.75 0 0 0 .75-.75v-4a.75.75 0 0 1 1.5 0v4A2.25 2.25 0 0 1 12.75 17h-8.5A2.25 2.25 0 0 1 2 14.75v-8.5A2.25 2.25 0 0 1 4.25 4h5a.75.75 0 0 1 0 1.5h-5ZM10 2.75a.75.75 0 0 1 .75-.75h6.5a.75.75 0 0 1 .75.75v6.5a.75.75 0 0 1-1.5 0V4.56l-5.22 5.22a.75.75 0 1 1-1.06-1.06l5.22-5.22h-4.69a.75.75 0 0 1-.75-.75Z" clipRule="evenodd" />
         </svg>
       </div>
       <div>
-        <p className="text-sm font-semibold text-gray-900">{label}</p>
-        <p className="mt-0.5 text-xs text-gray-500 leading-relaxed">{description}</p>
+        <p className="text-sm font-semibold text-foreground">{label}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">{description}</p>
       </div>
     </a>
   )

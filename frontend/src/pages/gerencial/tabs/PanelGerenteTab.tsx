@@ -1,5 +1,8 @@
 import { useState, useEffect } from "react"
 import { useAuthStore } from "@/store/authStore"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8001"
 
@@ -111,7 +114,7 @@ export function PanelGerenteTab() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64 text-gray-400 text-sm">
+      <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">
         Cargando datos...
       </div>
     )
@@ -121,7 +124,7 @@ export function PanelGerenteTab() {
     <div className="p-6 space-y-6">
       {/* KPIs */}
       <section>
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
           Estado de la empresa
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -157,26 +160,28 @@ export function PanelGerenteTab() {
       {/* Órdenes directas */}
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
             Órdenes directas
           </h2>
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setMostrarFormOrden((v) => !v)}
-            className="text-xs font-medium text-blue-600 hover:text-blue-800 transition-colors"
+            className="text-xs font-medium text-brand-blue hover:text-brand-blue/80"
           >
             {mostrarFormOrden ? "Cancelar" : "+ Nueva orden"}
-          </button>
+          </Button>
         </div>
 
         {mostrarFormOrden && (
           <form onSubmit={handleCrearOrden} className="mb-4 rounded-xl border border-blue-100 bg-blue-50 p-4 space-y-3">
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Destinatario</label>
+              <Label className="block text-xs font-medium mb-1">Destinatario</Label>
               <select
                 required
                 value={nuevaOrden.destinatario_id}
                 onChange={(e) => setNuevaOrden((p) => ({ ...p, destinatario_id: e.target.value }))}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               >
                 <option value="">Seleccionar persona...</option>
                 {usuarios.map((u) => (
@@ -187,56 +192,55 @@ export function PanelGerenteTab() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Título de la tarea *</label>
-              <input
+              <Label className="block text-xs font-medium mb-1">Título de la tarea *</Label>
+              <Input
                 required
                 value={nuevaOrden.titulo}
                 onChange={(e) => setNuevaOrden((p) => ({ ...p, titulo: e.target.value }))}
                 placeholder="Ej: Revisar contrato con Proveedor XYZ"
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Descripción (opcional)</label>
+              <Label className="block text-xs font-medium mb-1">Descripción (opcional)</Label>
               <textarea
                 rows={2}
                 value={nuevaOrden.descripcion}
                 onChange={(e) => setNuevaOrden((p) => ({ ...p, descripcion: e.target.value }))}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-300"
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring"
               />
             </div>
-            <button
+            <Button
               type="submit"
               disabled={creandoOrden}
-              className="w-full py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              className="w-full"
             >
               {creandoOrden ? "Enviando..." : "Enviar orden"}
-            </button>
+            </Button>
           </form>
         )}
 
-        <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+        <div className="rounded-xl border border-border bg-card overflow-hidden">
           {ordenes.length === 0 ? (
-            <p className="text-center text-sm text-gray-400 py-6">Sin órdenes activas</p>
+            <p className="text-center text-sm text-muted-foreground py-6">Sin órdenes activas</p>
           ) : (
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-200">
+              <thead className="bg-muted border-b border-border">
                 <tr>
-                  <th className="text-left px-4 py-2 text-xs font-medium text-gray-500">Para</th>
-                  <th className="text-left px-4 py-2 text-xs font-medium text-gray-500">Tarea</th>
-                  <th className="text-left px-4 py-2 text-xs font-medium text-gray-500">Estado</th>
-                  <th className="text-left px-4 py-2 text-xs font-medium text-gray-500">Fecha</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Para</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Tarea</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Estado</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Fecha</th>
                 </tr>
               </thead>
               <tbody>
                 {ordenes.slice(0, 10).map((o) => (
-                  <tr key={o.id} className="border-b border-gray-100 last:border-0">
-                    <td className="px-4 py-2 font-medium text-gray-800">{o.destinatario_nombre}</td>
-                    <td className="px-4 py-2 text-gray-600 max-w-xs truncate">{o.titulo}</td>
+                  <tr key={o.id} className="border-b border-border last:border-0">
+                    <td className="px-4 py-2 font-medium text-foreground">{o.destinatario_nombre}</td>
+                    <td className="px-4 py-2 text-muted-foreground max-w-xs truncate">{o.titulo}</td>
                     <td className="px-4 py-2">
                       <EstadoBadge estado={o.estado} />
                     </td>
-                    <td className="px-4 py-2 text-gray-400 text-xs">
+                    <td className="px-4 py-2 text-muted-foreground text-xs">
                       {new Date(o.created_at).toLocaleDateString("es-CO")}
                     </td>
                   </tr>
@@ -249,21 +253,21 @@ export function PanelGerenteTab() {
 
       {/* Feed de actividad */}
       <section>
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
           Actividad reciente
         </h2>
         <div className="space-y-2">
           {actividad.length === 0 ? (
-            <p className="text-sm text-gray-400">Sin actividad reciente</p>
+            <p className="text-sm text-muted-foreground">Sin actividad reciente</p>
           ) : (
             actividad.map((item, i) => (
-              <div key={i} className="flex items-start gap-3 rounded-xl bg-white border border-gray-100 px-4 py-3">
+              <div key={i} className="flex items-start gap-3 rounded-xl bg-card border border-border px-4 py-3">
                 <span className="text-lg shrink-0">
                   {item.tipo === "tarea_dev" ? "💻" : "🤖"}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-700 truncate">{item.descripcion}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">
+                  <p className="text-sm text-foreground truncate">{item.descripcion}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     {new Date(item.timestamp).toLocaleString("es-CO")}
                   </p>
                 </div>
@@ -278,9 +282,9 @@ export function PanelGerenteTab() {
 
 function KPICard({ label, value, alert = false }: { label: string; value: number; alert?: boolean }) {
   return (
-    <div className={`rounded-xl border p-4 bg-white ${alert ? "border-red-200" : "border-gray-200"}`}>
-      <p className="text-xs text-gray-500 mb-1">{label}</p>
-      <p className={`text-2xl font-bold ${alert ? "text-red-600" : "text-gray-900"}`}>{value}</p>
+    <div className={`rounded-xl border p-4 bg-card ${alert ? "border-red-200" : "border-border"}`}>
+      <p className="text-xs text-muted-foreground mb-1">{label}</p>
+      <p className={`text-2xl font-bold ${alert ? "text-red-600" : "text-foreground"}`}>{value}</p>
     </div>
   )
 }
@@ -292,7 +296,7 @@ function EstadoBadge({ estado }: { estado: string }) {
     completada: "bg-green-100 text-green-700",
   }
   return (
-    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${map[estado] ?? "bg-gray-100 text-gray-600"}`}>
+    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${map[estado] ?? "bg-muted text-muted-foreground"}`}>
       {estado.replace("_", " ")}
     </span>
   )

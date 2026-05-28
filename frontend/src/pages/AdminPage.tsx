@@ -30,6 +30,14 @@ import {
 import { useTasks, useDeleteTask } from "@/hooks/useTasks"
 import type { Team } from "@/types/task"
 import type { UserListItem } from "@/types/auth"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
 
 type Tab = "activos" | "archivados" | "equipos"
 
@@ -125,22 +133,23 @@ export function AdminPage() {
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-xl font-bold text-gray-900">Usuarios</h1>
-              <p className="text-sm text-gray-500 mt-0.5">
+              <h1 className="text-xl font-bold text-foreground">Usuarios</h1>
+              <p className="text-sm text-muted-foreground mt-0.5">
                 Administra el acceso al portal
               </p>
             </div>
-            <button
+            <Button
               onClick={openCreate}
-              className="flex items-center gap-2 rounded-lg bg-brand-blue px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-blue/90"
+              variant="default"
+              className="flex items-center gap-2"
             >
               <span className="text-base leading-none">+</span>
               Nuevo usuario
-            </button>
+            </Button>
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-1 mb-4 bg-gray-100 rounded-lg p-1 w-fit">
+          <div className="flex gap-1 mb-4 bg-muted rounded-lg p-1 w-fit">
             {([
               { key: "activos", label: "Activos" },
               { key: "archivados", label: "Archivados" },
@@ -151,8 +160,8 @@ export function AdminPage() {
                 onClick={() => handleTabChange(t.key)}
                 className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
                   tab === t.key
-                    ? "bg-white text-gray-900 shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {t.label}
@@ -165,14 +174,14 @@ export function AdminPage() {
             <ArchivedTeamsPanel />
           ) : (
           /* Tabla usuarios */
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
             {isLoading ? (
-              <div className="flex items-center justify-center py-16 text-gray-400 text-sm">
+              <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">
                 Cargando...
               </div>
             ) : users.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
-                <p className="text-gray-400 text-sm">
+                <p className="text-muted-foreground text-sm">
                   {tab === "activos"
                     ? "No hay usuarios activos."
                     : "No hay usuarios archivados."}
@@ -181,21 +190,21 @@ export function AdminPage() {
             ) : (
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-100 text-left">
-                    <th className="px-4 py-3 font-medium text-gray-500">Usuario</th>
-                    <th className="px-4 py-3 font-medium text-gray-500">Rol</th>
-                    <th className="px-4 py-3 font-medium text-gray-500 hidden md:table-cell">
+                  <tr className="border-b border-border text-left">
+                    <th className="px-4 py-3 font-medium text-muted-foreground">Usuario</th>
+                    <th className="px-4 py-3 font-medium text-muted-foreground">Rol</th>
+                    <th className="px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">
                       Sede / Área
                     </th>
-                    <th className="px-4 py-3 font-medium text-gray-500 hidden lg:table-cell">
+                    <th className="px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">
                       Último acceso
                     </th>
-                    <th className="px-4 py-3 font-medium text-gray-500 text-right">
+                    <th className="px-4 py-3 font-medium text-muted-foreground text-right">
                       Acciones
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
+                <tbody className="divide-y divide-border">
                   {users.map((user) => (
                     <UserRow
                       key={user.id}
@@ -230,35 +239,42 @@ export function AdminPage() {
       )}
 
       {deleteTasksConfirm === "ask" && pendingDeleteUser && (
-        <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
-          onClick={() => { setDeleteTasksConfirm("idle"); setPendingDeleteUser(null) }}
+        <Dialog
+          open={true}
+          onOpenChange={(open) => {
+            if (!open) { setDeleteTasksConfirm("idle"); setPendingDeleteUser(null) }
+          }}
         >
-          <div className="bg-white rounded-xl p-6 max-w-sm w-full shadow-xl space-y-3" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-semibold text-gray-900">Eliminar usuario</h3>
-            <p className="text-sm text-gray-600">¿Qué hacer con las tareas de este usuario?</p>
-            <div className="flex flex-col gap-2 pt-1">
-              <button
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Eliminar usuario</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">¿Qué hacer con las tareas de este usuario?</p>
+            <DialogFooter className="flex-col gap-2 sm:flex-col">
+              <Button
                 onClick={() => { deleteUser.mutate({ id: pendingDeleteUser.id, deleteTasks: true }); setDeleteTasksConfirm("idle"); setPendingDeleteUser(null) }}
-                className="w-full py-2 bg-red-600 text-white rounded-lg text-sm font-medium"
+                variant="destructive"
+                className="w-full"
               >
                 Eliminar usuario y sus tareas
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => { deleteUser.mutate({ id: pendingDeleteUser.id, deleteTasks: false }); setDeleteTasksConfirm("idle"); setPendingDeleteUser(null) }}
-                className="w-full py-2 bg-gray-100 text-gray-700 rounded-lg text-sm"
+                variant="outline"
+                className="w-full"
               >
                 Eliminar usuario, dejar tareas dormidas
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => { setDeleteTasksConfirm("idle"); setPendingDeleteUser(null) }}
-                className="w-full py-2 text-gray-400 text-sm"
+                variant="ghost"
+                className="w-full"
               >
                 Cancelar
-              </button>
-            </div>
-          </div>
-        </div>
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
     </>
   )
@@ -276,68 +292,78 @@ interface RowProps {
 
 function UserRow({ user, tab, onEdit, onDeactivate, onReactivate, onDelete, onManageTools }: RowProps) {
   return (
-    <tr className="hover:bg-gray-50 transition-colors">
+    <tr className="hover:bg-muted transition-colors">
       <td className="px-4 py-3">
         <div className="flex items-center gap-3">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-blue/10 text-brand-blue font-semibold text-xs">
             {(user.full_name ?? user.email).charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0">
-            <p className="font-medium text-gray-900 truncate">
+            <p className="font-medium text-foreground truncate">
               {user.full_name ?? "—"}
             </p>
-            <p className="text-xs text-gray-400 truncate">{user.email}</p>
+            <p className="text-xs text-muted-foreground truncate">{user.email}</p>
           </div>
         </div>
       </td>
       <td className="px-4 py-3">
         <RoleBadge role={user.role} />
       </td>
-      <td className="px-4 py-3 text-gray-500 hidden md:table-cell">
+      <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">
         {user.sede ?? "—"}
-        {user.area ? <span className="text-gray-300"> · </span> : null}
+        {user.area ? <span className="text-muted-foreground/40"> · </span> : null}
         {user.area}
       </td>
-      <td className="px-4 py-3 text-gray-400 hidden lg:table-cell">
+      <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell">
         {user.last_login_at ? formatDate(user.last_login_at) : "Nunca"}
       </td>
       <td className="px-4 py-3 text-right">
         <div className="flex items-center justify-end gap-2">
           {tab === "activos" ? (
             <>
-              <button
+              <Button
                 onClick={() => onManageTools(user)}
-                className="rounded px-2 py-1 text-xs font-medium text-gray-500 hover:bg-gray-100 transition-colors"
+                variant="ghost"
+                size="sm"
+                className="text-xs px-2 py-1 h-auto"
               >
                 Herramientas
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => onEdit(user)}
-                className="rounded px-2 py-1 text-xs font-medium text-brand-blue hover:bg-brand-blue/10 transition-colors"
+                variant="ghost"
+                size="sm"
+                className="text-xs px-2 py-1 h-auto text-brand-blue hover:bg-brand-blue/10"
               >
                 Editar
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => onDeactivate(user)}
-                className="rounded px-2 py-1 text-xs font-medium text-red-500 hover:bg-red-50 transition-colors"
+                variant="ghost"
+                size="sm"
+                className="text-xs px-2 py-1 h-auto text-red-500 hover:bg-red-50"
               >
                 Desactivar
-              </button>
+              </Button>
             </>
           ) : (
             <>
-              <button
+              <Button
                 onClick={() => onReactivate(user)}
-                className="rounded px-2 py-1 text-xs font-medium text-green-600 hover:bg-green-50 transition-colors"
+                variant="ghost"
+                size="sm"
+                className="text-xs px-2 py-1 h-auto text-green-600 hover:bg-green-50"
               >
                 Reactivar
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => onDelete(user)}
-                className="rounded px-2 py-1 text-xs font-medium text-red-500 hover:bg-red-50 transition-colors"
+                variant="ghost"
+                size="sm"
+                className="text-xs px-2 py-1 h-auto text-red-500 hover:bg-red-50"
               >
                 Eliminar
-              </button>
+              </Button>
             </>
           )}
         </div>
@@ -352,12 +378,12 @@ function RoleBadge({ role }: { role: string }) {
     directivo: "bg-purple-100 text-purple-700",
     talento_cultura: "bg-pink-100 text-pink-700",
     comercial: "bg-brand-yellow/20 text-yellow-700",
-    operativo: "bg-gray-100 text-gray-600",
-    empleado: "bg-gray-100 text-gray-600",
+    operativo: "bg-muted text-muted-foreground",
+    empleado: "bg-muted text-muted-foreground",
   }
   return (
     <span
-      className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${colors[role] ?? "bg-gray-100 text-gray-600"}`}
+      className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${colors[role] ?? "bg-muted text-muted-foreground"}`}
     >
       {getRoleLabel(role)}
     </span>
@@ -376,8 +402,8 @@ function UserTasksPanel({ userId, allTeams }: { userId: number; allTeams: Team[]
 
   const tasks = result?.tasks ?? []
 
-  if (isLoading) return <p className="text-xs text-gray-400 py-2">Cargando tareas...</p>
-  if (tasks.length === 0) return <p className="text-xs text-gray-400 py-2">Sin tareas registradas.</p>
+  if (isLoading) return <p className="text-xs text-muted-foreground py-2">Cargando tareas...</p>
+  if (tasks.length === 0) return <p className="text-xs text-muted-foreground py-2">Sin tareas registradas.</p>
 
   const grouped = tasks.reduce<Record<number, typeof tasks>>((acc, t) => {
     if (!acc[t.teamId]) acc[t.teamId] = []
@@ -393,23 +419,23 @@ function UserTasksPanel({ userId, allTeams }: { userId: number; allTeams: Team[]
         const isOpen = openTeams[teamId] ?? false
 
         return (
-          <div key={teamId} className="rounded-lg border border-gray-100 overflow-hidden">
+          <div key={teamId} className="rounded-lg border border-border overflow-hidden">
             <button
               type="button"
               onClick={() => setOpenTeams((prev) => ({ ...prev, [teamId]: !isOpen }))}
-              className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+              className="w-full flex items-center justify-between px-3 py-2 bg-muted hover:bg-muted/80 transition-colors text-left"
             >
-              <span className="text-xs font-semibold text-gray-700">{teamName}</span>
-              <span className="text-xs text-gray-400">{teamTasks.length} tarea{teamTasks.length !== 1 ? "s" : ""} {isOpen ? "▲" : "▼"}</span>
+              <span className="text-xs font-semibold text-foreground">{teamName}</span>
+              <span className="text-xs text-muted-foreground">{teamTasks.length} tarea{teamTasks.length !== 1 ? "s" : ""} {isOpen ? "▲" : "▼"}</span>
             </button>
 
             {isOpen && (
-              <div className="divide-y divide-gray-50">
+              <div className="divide-y divide-border">
                 {teamTasks.map((task) => (
                   <div key={task.id} className="flex items-center justify-between gap-2 px-3 py-1.5 text-xs">
                     <div className="flex-1 min-w-0">
-                      <span className="font-medium text-gray-800 truncate block">{task.titulo}</span>
-                      <span className="text-gray-400">{task.fecha?.slice(0, 10)} · {task.estado}</span>
+                      <span className="font-medium text-foreground truncate block">{task.titulo}</span>
+                      <span className="text-muted-foreground">{task.fecha?.slice(0, 10)} · {task.estado}</span>
                     </div>
                     {confirmId === task.id ? (
                       <div className="flex gap-1 shrink-0">
@@ -419,14 +445,14 @@ function UserTasksPanel({ userId, allTeams }: { userId: number; allTeams: Team[]
                         >
                           Confirmar
                         </button>
-                        <button onClick={() => setConfirmId(null)} className="text-gray-400">
+                        <button onClick={() => setConfirmId(null)} className="text-muted-foreground">
                           Cancelar
                         </button>
                       </div>
                     ) : (
                       <button
                         onClick={() => setConfirmId(task.id)}
-                        className="shrink-0 text-gray-300 hover:text-red-500 transition-colors"
+                        className="shrink-0 text-muted-foreground/40 hover:text-red-500 transition-colors"
                         title="Borrar tarea"
                       >
                         🗑
@@ -450,35 +476,35 @@ function ArchivedTeamsPanel() {
   const [confirmId, setConfirmId] = useState<number | null>(null)
 
   if (isLoading) {
-    return <p className="text-sm text-gray-400 py-8 text-center">Cargando...</p>
+    return <p className="text-sm text-muted-foreground py-8 text-center">Cargando...</p>
   }
 
   if (teams.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
-        <p className="text-gray-400 text-sm">No hay equipos archivados.</p>
+        <p className="text-muted-foreground text-sm">No hay equipos archivados.</p>
       </div>
     )
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+    <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-gray-100 text-left">
-            <th className="px-4 py-3 font-medium text-gray-500">Equipo</th>
-            <th className="px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Archivado</th>
-            <th className="px-4 py-3 font-medium text-gray-500 text-right">Acciones</th>
+          <tr className="border-b border-border text-left">
+            <th className="px-4 py-3 font-medium text-muted-foreground">Equipo</th>
+            <th className="px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Archivado</th>
+            <th className="px-4 py-3 font-medium text-muted-foreground text-right">Acciones</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-50">
+        <tbody className="divide-y divide-border">
           {teams.map((team) => (
-            <tr key={team.id} className="hover:bg-gray-50/50">
+            <tr key={team.id} className="hover:bg-muted/50">
               <td className="px-4 py-3">
-                <span className="font-medium text-gray-800">{team.name}</span>
-                <span className="text-xs text-gray-400 ml-2">ID {team.id}</span>
+                <span className="font-medium text-foreground">{team.name}</span>
+                <span className="text-xs text-muted-foreground ml-2">ID {team.id}</span>
               </td>
-              <td className="px-4 py-3 text-xs text-gray-400 hidden md:table-cell">
+              <td className="px-4 py-3 text-xs text-muted-foreground hidden md:table-cell">
                 {new Date(team.updatedAt).toLocaleDateString("es-MX")}
               </td>
               <td className="px-4 py-3 text-right">
@@ -492,25 +518,29 @@ function ArchivedTeamsPanel() {
                     >
                       Confirmar
                     </button>
-                    <button onClick={() => setConfirmId(null)} className="text-xs text-gray-400 hover:text-gray-600">
+                    <button onClick={() => setConfirmId(null)} className="text-xs text-muted-foreground hover:text-foreground">
                       Cancelar
                     </button>
                   </div>
                 ) : (
                   <div className="flex items-center justify-end gap-2">
-                    <button
+                    <Button
                       onClick={() => restore.mutate(team.id)}
                       disabled={restore.isPending}
-                      className="rounded border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                      variant="outline"
+                      size="sm"
+                      className="text-xs px-3 py-1 h-auto"
                     >
                       Restaurar
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       onClick={() => setConfirmId(team.id)}
-                      className="rounded border border-red-200 bg-red-50 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-100"
+                      variant="outline"
+                      size="sm"
+                      className="text-xs px-3 py-1 h-auto border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
                     >
                       Borrar definitivo
-                    </button>
+                    </Button>
                   </div>
                 )}
               </td>
@@ -533,34 +563,40 @@ function DeleteWorkspaceInline({ teamId, teamName, onDeleted }: { teamId: number
         <div className="space-y-2">
           <p className="text-xs text-red-700">¿Eliminar <strong>"{teamName}"</strong>? Esta acción desactiva el equipo permanentemente.</p>
           <div className="flex gap-2">
-            <button
+            <Button
               onClick={() => setConfirm(false)}
-              className="flex-1 rounded border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-600"
+              variant="outline"
+              size="sm"
+              className="flex-1 text-xs px-3 py-1.5 h-auto"
             >
               Cancelar
-            </button>
-            <button
+            </Button>
+            <Button
               disabled={deleteTeam.isPending}
               onClick={async () => {
                 await deleteTeam.mutateAsync(teamId)
                 setConfirm(false)
                 onDeleted()
               }}
-              className="flex-1 rounded bg-red-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+              variant="destructive"
+              size="sm"
+              className="flex-1 text-xs px-3 py-1.5 h-auto"
             >
               {deleteTeam.isPending ? "Eliminando..." : "Sí, eliminar"}
-            </button>
+            </Button>
           </div>
         </div>
       ) : (
         <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-700">{teamName}</span>
-          <button
+          <span className="text-xs text-foreground">{teamName}</span>
+          <Button
             onClick={() => setConfirm(true)}
-            className="rounded bg-red-100 px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-200 transition-colors"
+            variant="ghost"
+            size="sm"
+            className="text-xs px-2 py-1 h-auto bg-red-100 text-red-700 hover:bg-red-200"
           >
             Eliminar espacio
-          </button>
+          </Button>
         </div>
       )}
     </div>
@@ -672,35 +708,30 @@ function UserToolsModal({ user, onClose }: { user: UserListItem; onClose: () => 
   const hasSubmitDev = activeTools.includes("tool_task_submit_dev")
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-xl bg-white shadow-xl flex flex-col max-h-[90vh]">
-        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 shrink-0">
-          <div>
-            <p className="font-semibold text-gray-900">Herramientas</p>
-            <p className="text-xs text-gray-400">{user.full_name ?? user.email}</p>
-          </div>
-          <button onClick={onClose} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
-            ✕
-          </button>
-        </div>
+    <Dialog open={true} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="w-full max-w-md flex flex-col max-h-[90vh]">
+        <DialogHeader>
+          <DialogTitle>Herramientas</DialogTitle>
+          <p className="text-xs text-muted-foreground">{user.full_name ?? user.email}</p>
+        </DialogHeader>
 
-        <div className="px-5 py-4 space-y-4 overflow-y-auto flex-1">
+        <div className="px-1 py-2 space-y-4 overflow-y-auto flex-1">
           {toolError && (
-            <p className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">{toolError}</p>
+            <p className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2 text-xs text-destructive">{toolError}</p>
           )}
 
           <div className="space-y-3">
-            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Permisos / Herramientas</h4>
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Permisos / Herramientas</h4>
             {isLoading ? (
-              <p className="text-sm text-gray-400 py-4 text-center">Cargando...</p>
+              <p className="text-sm text-muted-foreground py-4 text-center">Cargando...</p>
             ) : (
               TOOLS.map((tool) => {
                 const active = activeTools.includes(tool.key)
                 return (
-                  <div key={tool.key} className="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-3">
+                  <div key={tool.key} className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
                     <div>
-                      <p className="text-sm font-medium text-gray-800">{tool.label}</p>
-                      <p className="text-xs text-gray-400">{tool.desc}</p>
+                      <p className="text-sm font-medium text-foreground">{tool.label}</p>
+                      <p className="text-xs text-muted-foreground">{tool.desc}</p>
                     </div>
                     <button
                       onClick={() => toggle(tool.key, active)}
@@ -723,20 +754,20 @@ function UserToolsModal({ user, onClose }: { user: UserListItem; onClose: () => 
 
           {/* Gestor Team Assignment */}
           {hasManageDev && !isLoading && (
-            <div className="border-t border-gray-100 pt-4 space-y-3">
-              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Equipo que Gestiona (Gestor)</h4>
-              
+            <div className="border-t border-border pt-4 space-y-3">
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Equipo que Gestiona (Gestor)</h4>
+
               {ownedTeam ? (
-                <div className="rounded-lg bg-gray-50 border border-gray-200 px-4 py-3">
-                  <p className="text-[10px] text-gray-400 uppercase font-medium">Equipo asignado:</p>
-                  <p className="text-sm font-semibold text-gray-800">{ownedTeam.name}</p>
+                <div className="rounded-lg bg-muted border border-border px-4 py-3">
+                  <p className="text-[10px] text-muted-foreground uppercase font-medium">Equipo asignado:</p>
+                  <p className="text-sm font-semibold text-foreground">{ownedTeam.name}</p>
                 </div>
               ) : (
                 <p className="text-xs text-amber-600 font-medium">⚠️ Este gestor no tiene ningún equipo asignado aún.</p>
               )}
 
               <div className="space-y-2">
-                <label className="block text-[10px] font-medium text-gray-500 uppercase">Vincular a equipo existente</label>
+                <label className="block text-[10px] font-medium text-muted-foreground uppercase">Vincular a equipo existente</label>
                 <select
                   value={selectedTeamId}
                   onChange={(e) => {
@@ -744,7 +775,7 @@ function UserToolsModal({ user, onClose }: { user: UserListItem; onClose: () => 
                     setNewTeamName("")
                   }}
                   disabled={isBusy}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-gray-950"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 >
                   <option value="">Seleccionar equipo...</option>
                   {allTeams.map((team) => (
@@ -756,7 +787,7 @@ function UserToolsModal({ user, onClose }: { user: UserListItem; onClose: () => 
               </div>
 
               <div className="space-y-2">
-                <label className="block text-[10px] font-medium text-gray-500 uppercase">O Crear Nuevo Equipo para este Gestor</label>
+                <label className="block text-[10px] font-medium text-muted-foreground uppercase">O Crear Nuevo Equipo para este Gestor</label>
                 <input
                   type="text"
                   placeholder="Nombre del nuevo equipo..."
@@ -766,31 +797,32 @@ function UserToolsModal({ user, onClose }: { user: UserListItem; onClose: () => 
                     setSelectedTeamId("")
                   }}
                   disabled={isBusy}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-gray-950"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 />
               </div>
 
-              <button
+              <Button
                 type="button"
                 onClick={handleAssignOwner}
                 disabled={isBusy || (!selectedTeamId && !newTeamName.trim())}
-                className="w-full text-center rounded-lg bg-gray-950 text-white hover:bg-gray-850 px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50"
+                variant="default"
+                className="w-full"
               >
                 {newTeamName.trim() ? "Crear y Asignar Equipo" : "Vincular a Equipo"}
-              </button>
+              </Button>
             </div>
           )}
 
           {/* Colaborador Team Assignment */}
           {hasSubmitDev && !isLoading && (
-            <div className="border-t border-gray-100 pt-4 space-y-3">
-              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Equipos en los que Colabora</h4>
-              
+            <div className="border-t border-border pt-4 space-y-3">
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Equipos en los que Colabora</h4>
+
               {memberTeams.length > 0 ? (
                 <div className="space-y-1.5">
                   {memberTeams.map((team) => (
-                    <div key={team.id} className="flex items-center justify-between rounded-lg bg-gray-50 border border-gray-100 px-3 py-1.5">
-                      <span className="text-sm font-medium text-gray-800">{team.name}</span>
+                    <div key={team.id} className="flex items-center justify-between rounded-lg bg-muted border border-border px-3 py-1.5">
+                      <span className="text-sm font-medium text-foreground">{team.name}</span>
                       <button
                         type="button"
                         onClick={() => handleRemoveMember(team.id)}
@@ -807,13 +839,13 @@ function UserToolsModal({ user, onClose }: { user: UserListItem; onClose: () => 
               )}
 
               <div className="space-y-2 pt-1">
-                <label className="block text-[10px] font-medium text-gray-500 uppercase">Agregar a un equipo</label>
+                <label className="block text-[10px] font-medium text-muted-foreground uppercase">Agregar a un equipo</label>
                 <div className="flex gap-2">
                   <select
                     value={selectedColabTeamId}
                     onChange={(e) => setSelectedColabTeamId(e.target.value ? Number(e.target.value) : "")}
                     disabled={isBusy}
-                    className="flex-1 rounded-lg border border-gray-200 px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-gray-950"
+                    className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                   >
                     <option value="">Seleccionar equipo...</option>
                     {allTeams
@@ -824,21 +856,23 @@ function UserToolsModal({ user, onClose }: { user: UserListItem; onClose: () => 
                         </option>
                       ))}
                   </select>
-                  <button
+                  <Button
                     type="button"
                     onClick={handleAddMember}
                     disabled={isBusy || !selectedColabTeamId}
-                    className="rounded-lg bg-gray-950 text-white hover:bg-gray-850 px-4 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
+                    variant="default"
+                    size="sm"
+                    className="px-4 py-1.5 h-auto"
                   >
                     Agregar
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
           )}
 
-          <div className="border-t border-gray-100 pt-4 space-y-4">
-            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Tareas</h4>
+          <div className="border-t border-border pt-4 space-y-4">
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Tareas</h4>
             <UserTasksPanel userId={user.id} allTeams={allTeams} />
 
             {(userTeams?.ownedTeams ?? []).length > 0 && (
@@ -851,15 +885,15 @@ function UserToolsModal({ user, onClose }: { user: UserListItem; onClose: () => 
           </div>
         </div>
 
-        <div className="border-t border-gray-100 px-5 py-3 flex justify-end shrink-0">
-          <button
+        <DialogFooter className="border-t border-border">
+          <Button
             onClick={onClose}
-            className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+            variant="outline"
           >
             Cerrar
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

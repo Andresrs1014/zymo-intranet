@@ -63,7 +63,7 @@ export function MisSolicitudesPage() {
           {/* Breadcrumb */}
           <button
             onClick={() => navigate("/operativo")}
-            className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-600 mb-6 transition-colors"
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors"
           >
             ← Volver
           </button>
@@ -71,8 +71,8 @@ export function MisSolicitudesPage() {
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-xl font-bold text-gray-900">Mis Solicitudes</h1>
-              <p className="text-sm text-gray-500 mt-0.5">
+              <h1 className="text-xl font-bold text-foreground">Mis Solicitudes</h1>
+              <p className="text-sm text-muted-foreground mt-0.5">
                 Historial de compras asociadas a tu correo
                 {isRefetching && <span className="ml-2 text-brand-blue/60">actualizando...</span>}
               </p>
@@ -130,7 +130,7 @@ export function MisSolicitudesPage() {
 
           {/* Loading */}
           {isLoading && (
-            <div className="flex items-center justify-center py-24 text-gray-400 text-sm">
+            <div className="flex items-center justify-center py-24 text-muted-foreground text-sm">
               <svg className="animate-spin h-5 w-5 mr-2 text-brand-blue" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -141,8 +141,8 @@ export function MisSolicitudesPage() {
 
           {/* Sin solicitudes */}
           {!isLoading && filtradas.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-24 text-gray-400">
-              <svg className="w-12 h-12 mb-3 text-gray-200" viewBox="0 0 20 20" fill="currentColor">
+            <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
+              <svg className="w-12 h-12 mb-3 text-muted" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M4 4a2 2 0 0 1 2-2h4.586A2 2 0 0 1 12 2.586L15.414 6A2 2 0 0 1 16 7.414V16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4Z" clipRule="evenodd" />
               </svg>
               <p className="text-sm">No hay solicitudes {filtroEstado ? "con este estado" : "registradas"}</p>
@@ -224,8 +224,8 @@ function SolicitudCard({ solicitud: s }: { solicitud: SolicitudOC }) {
   }
 
   return (
-    <div className={`bg-white rounded-xl border shadow-sm overflow-hidden transition-shadow hover:shadow-md ${
-      necesitaCorreccion ? "border-amber-200" : necesitaConfirmacion ? "border-violet-200" : "border-gray-100"
+    <div className={`bg-card rounded-xl border shadow-sm overflow-hidden transition-shadow hover:shadow-md ${
+      necesitaCorreccion ? "border-amber-200" : necesitaConfirmacion ? "border-violet-200" : "border-border"
     }`}>
       {/* Barra de acción si requiere corrección */}
       {necesitaCorreccion && !corrigiendo && (
@@ -259,7 +259,7 @@ function SolicitudCard({ solicitud: s }: { solicitud: SolicitudOC }) {
           <p className="text-xs font-medium text-amber-700">Edita los campos que necesitas corregir:</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Descripción</label>
+              <label className="block text-xs text-muted-foreground mb-1">Descripción</label>
               <input
                 type="text"
                 value={corrDesc}
@@ -269,7 +269,7 @@ function SolicitudCard({ solicitud: s }: { solicitud: SolicitudOC }) {
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Cantidad</label>
+              <label className="block text-xs text-muted-foreground mb-1">Cantidad</label>
               <input
                 type="number"
                 value={corrCantidad}
@@ -280,7 +280,7 @@ function SolicitudCard({ solicitud: s }: { solicitud: SolicitudOC }) {
               />
             </div>
             <div className="sm:col-span-2">
-              <label className="block text-xs text-gray-500 mb-1">Observaciones</label>
+              <label className="block text-xs text-muted-foreground mb-1">Observaciones</label>
               <textarea
                 value={corrObs}
                 onChange={(e) => setCorrObs(e.target.value)}
@@ -300,7 +300,7 @@ function SolicitudCard({ solicitud: s }: { solicitud: SolicitudOC }) {
             </button>
             <button
               onClick={() => { setCorrigiendo(false); setCorrDesc(""); setCorrCantidad(""); setCorrObs("") }}
-              className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-50 transition-colors"
+              className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted transition-colors"
             >
               Cancelar
             </button>
@@ -333,7 +333,7 @@ function SolicitudCard({ solicitud: s }: { solicitud: SolicitudOC }) {
               </button>
               <button
                 onClick={() => setConfirmando(false)}
-                className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-50 transition-colors"
+                className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted transition-colors"
               >
                 Cancelar
               </button>
@@ -350,13 +350,13 @@ function SolicitudCard({ solicitud: s }: { solicitud: SolicitudOC }) {
               <EstadoBadge estado={s.estado} />
               <SlaIndicador solicitud={s} />
             </div>
-            <p className="text-sm font-semibold text-gray-900 truncate">{s.descripcion}</p>
+            <p className="text-sm font-semibold text-foreground truncate">{s.descripcion}</p>
             {cfg && (
-              <p className="text-xs text-gray-400 mt-0.5">{cfg.descripcion}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{cfg.descripcion}</p>
             )}
           </div>
           <div className="shrink-0 text-right">
-            <p className="text-xs text-gray-400">{formatFechaRelativa(s.fecha_solicitud)}</p>
+            <p className="text-xs text-muted-foreground">{formatFechaRelativa(s.fecha_solicitud)}</p>
             {s.nivel_prioridad === "Alta" && (
               <span className="inline-block mt-1 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-600">
                 Alta prioridad
@@ -377,11 +377,11 @@ function SolicitudCard({ solicitud: s }: { solicitud: SolicitudOC }) {
         </div>
 
         {/* Info adicional */}
-        <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400 border-t border-gray-50 pt-3">
-          {s.cantidad > 0 && <span>Cant: <span className="text-gray-600 font-medium">{s.cantidad}</span></span>}
-          {s.categoria && <span>Cat: <span className="text-gray-600">{s.categoria}</span></span>}
-          {s.placa_ficha && <span>Placa: <span className="text-gray-600 font-mono">{s.placa_ficha}</span></span>}
-          {s.plataforma && <span>Plataforma: <span className="text-gray-600">{s.plataforma}</span></span>}
+        <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground border-t border-border pt-3">
+          {s.cantidad > 0 && <span>Cant: <span className="text-foreground font-medium">{s.cantidad}</span></span>}
+          {s.categoria && <span>Cat: <span className="text-foreground">{s.categoria}</span></span>}
+          {s.placa_ficha && <span>Placa: <span className="text-foreground font-mono">{s.placa_ficha}</span></span>}
+          {s.plataforma && <span>Plataforma: <span className="text-foreground">{s.plataforma}</span></span>}
           <Link
             to={`/operativo/mis-solicitudes/${s.id}`}
             className="ml-auto text-brand-blue hover:underline font-medium"
@@ -408,9 +408,9 @@ function TimelineRow({
   return (
     <div className="flex items-center gap-1.5">
       <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${done ? "bg-teal-400" : "bg-gray-200"}`} />
-      <span className={done ? "text-gray-600" : "text-gray-300"}>{label}</span>
+      <span className={done ? "text-foreground" : "text-muted-foreground/40"}>{label}</span>
       {date && (
-        <span className="text-gray-400 ml-auto">{formatFechaHora(date)}</span>
+        <span className="text-muted-foreground ml-auto">{formatFechaHora(date)}</span>
       )}
     </div>
   )

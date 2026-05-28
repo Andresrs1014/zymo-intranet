@@ -326,22 +326,22 @@ export function NuevaSolicitudPage() {
     <>
       {showDraftModal && borrador && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full mx-4">
-            <h2 className="text-lg font-bold text-gray-900 mb-2">Borrador guardado</h2>
-            <p className="text-sm text-gray-500 mb-1">
+          <div className="bg-card rounded-2xl shadow-xl p-6 max-w-md w-full mx-4">
+            <h2 className="text-lg font-bold text-foreground mb-2">Borrador guardado</h2>
+            <p className="text-sm text-muted-foreground mb-1">
               Tienes un borrador guardado del{" "}
-              <span className="font-medium text-gray-700">
+              <span className="font-medium text-foreground">
                 {new Date(borrador.updated_at).toLocaleDateString("es-CO", {
                   day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit",
                 })}
               </span>
             </p>
-            <p className="text-sm text-gray-500 mb-5">¿Deseas continuar donde lo dejaste?</p>
+            <p className="text-sm text-muted-foreground mb-5">¿Deseas continuar donde lo dejaste?</p>
             <div className="flex gap-3 justify-end">
               <button
                 type="button"
                 onClick={descartarBorrador}
-                className="px-4 py-2 rounded-lg text-sm text-gray-600 border border-gray-200 hover:bg-gray-50 transition-colors"
+                className="px-4 py-2 rounded-lg text-sm text-muted-foreground border border-border hover:bg-muted transition-colors"
               >
                 Descartar
               </button>
@@ -360,15 +360,15 @@ export function NuevaSolicitudPage() {
           {/* Volver */}
           <button
             onClick={() => navigate("/operativo/mis-solicitudes")}
-            className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-600 mb-6 transition-colors"
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors"
           >
             ← Volver
           </button>
 
           {/* Header */}
           <div className="mb-6">
-            <h1 className="text-xl font-bold text-gray-900">Nueva Solicitud</h1>
-            <p className="text-sm text-gray-500 mt-0.5">
+            <h1 className="text-xl font-bold text-foreground">Nueva Solicitud</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
               Los campos marcados con * son obligatorios
             </p>
           </div>
@@ -381,7 +381,7 @@ export function NuevaSolicitudPage() {
               className={`flex items-center gap-2 rounded-xl border-2 px-5 py-3 text-sm font-semibold transition-all ${
                 tipoSolicitud === "compra"
                   ? "border-brand-blue bg-brand-blue text-white shadow-sm"
-                  : "border-gray-200 bg-white text-gray-600 hover:border-brand-blue/40 hover:bg-gray-50"
+                  : "border-border bg-card text-muted-foreground hover:border-brand-blue/40 hover:bg-muted"
               }`}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -395,7 +395,7 @@ export function NuevaSolicitudPage() {
               className={`flex items-center gap-2 rounded-xl border-2 px-5 py-3 text-sm font-semibold transition-all ${
                 tipoSolicitud === "mantenimiento"
                   ? "border-amber-500 bg-amber-500 text-white shadow-sm"
-                  : "border-gray-200 bg-white text-gray-600 hover:border-amber-400/40 hover:bg-gray-50"
+                  : "border-border bg-card text-muted-foreground hover:border-amber-400/40 hover:bg-muted"
               }`}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -447,7 +447,7 @@ export function NuevaSolicitudPage() {
 
           {/* Skeleton mientras cargan las listas */}
           {(listasLoading || sedesLoading) && (
-            <div className="flex items-center justify-center py-24 text-gray-400 text-sm">
+            <div className="flex items-center justify-center py-24 text-muted-foreground text-sm">
               <svg
                 className="animate-spin h-5 w-5 mr-2 text-brand-blue"
                 xmlns="http://www.w3.org/2000/svg"
@@ -467,7 +467,7 @@ export function NuevaSolicitudPage() {
               <p className="text-sm text-red-600 font-medium">
                 No se pudieron cargar las opciones del formulario.
               </p>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-muted-foreground">
                 Verifica tu conexión y recarga la página.
               </p>
               <button
@@ -482,22 +482,22 @@ export function NuevaSolicitudPage() {
           {!listasLoading && !sedesLoading && !listasError && !sedesError && (
             <form onSubmit={handleSubmit} className="space-y-6 max-w-3xl">
               {/* Sección Solicitante */}
-              <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-                <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+              <section className="bg-card rounded-xl border border-border p-6 space-y-4">
+                <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                   Solicitante
                 </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="rounded-lg bg-gray-50 border border-gray-100 px-3 py-2.5">
-                    <p className="text-xs text-gray-400 mb-0.5">Nombre</p>
-                    <p className="text-sm font-medium text-gray-700">{user?.full_name ?? "—"}</p>
+                  <div className="rounded-lg bg-muted border border-border px-3 py-2.5">
+                    <p className="text-xs text-muted-foreground mb-0.5">Nombre</p>
+                    <p className="text-sm font-medium text-foreground">{user?.full_name ?? "—"}</p>
                   </div>
-                  <div className="rounded-lg bg-gray-50 border border-gray-100 px-3 py-2.5">
-                    <p className="text-xs text-gray-400 mb-0.5">Área</p>
-                    <p className="text-sm font-medium text-gray-700">{user?.area ?? "—"}</p>
+                  <div className="rounded-lg bg-muted border border-border px-3 py-2.5">
+                    <p className="text-xs text-muted-foreground mb-0.5">Área</p>
+                    <p className="text-sm font-medium text-foreground">{user?.area ?? "—"}</p>
                   </div>
-                  <div className="rounded-lg bg-gray-50 border border-gray-100 px-3 py-2.5">
-                    <p className="text-xs text-gray-400 mb-0.5">Fecha</p>
-                    <p className="text-sm font-medium text-gray-700">
+                  <div className="rounded-lg bg-muted border border-border px-3 py-2.5">
+                    <p className="text-xs text-muted-foreground mb-0.5">Fecha</p>
+                    <p className="text-sm font-medium text-foreground">
                       {new Date().toLocaleDateString("es-CO")}
                     </p>
                   </div>
@@ -506,7 +506,7 @@ export function NuevaSolicitudPage() {
 
               {/* ── FORMULARIO: MANTENIMIENTO ────────────────────────────── */}
               {tipoSolicitud === "mantenimiento" && (
-                <section className="bg-white rounded-xl border border-amber-200 p-6 space-y-5">
+                <section className="bg-card rounded-xl border border-amber-200 p-6 space-y-5">
                   <h2 className="text-sm font-semibold text-amber-700 uppercase tracking-wide">
                     Datos del mantenimiento
                   </h2>
@@ -514,7 +514,7 @@ export function NuevaSolicitudPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                     {/* Prioridad */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-foreground mb-1">
                         Prioridad *
                       </label>
                       <Combobox
@@ -528,7 +528,7 @@ export function NuevaSolicitudPage() {
 
                     {/* Tipo de mantenimiento */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-foreground mb-1">
                         Tipo de mantenimiento *
                       </label>
                       <Combobox
@@ -547,7 +547,7 @@ export function NuevaSolicitudPage() {
 
                     {/* Placa del equipo */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-foreground mb-1">
                         Placa / Equipo
                       </label>
                       {listas?.placas && listas.placas.length > 0 ? (
@@ -564,27 +564,27 @@ export function NuevaSolicitudPage() {
                           value={form.placa_ficha ?? ""}
                           onChange={(e) => handleChange("placa_ficha", e.target.value)}
                           placeholder="Ej. VH-001 o número de ficha técnica"
-                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                         />
                       )}
                     </div>
 
                     {/* Fecha próximo mantenimiento */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-foreground mb-1">
                         Fecha próximo mantenimiento *
                       </label>
                       <input
                         type="date"
                         value={form.fecha_proximo_mantenimiento ?? ""}
                         onChange={(e) => handleChange("fecha_proximo_mantenimiento", e.target.value)}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                       />
                     </div>
 
                     {/* Plataforma */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-foreground mb-1">
                         Plataforma *
                       </label>
                       <Combobox
@@ -601,7 +601,7 @@ export function NuevaSolicitudPage() {
 
                     {/* Cantidad */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-foreground mb-1">
                         Cantidad *
                       </label>
                       <input
@@ -609,14 +609,14 @@ export function NuevaSolicitudPage() {
                         min={1}
                         value={form.cantidad}
                         onChange={(e) => handleChange("cantidad", parseInt(e.target.value, 10) || 1)}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                       />
                     </div>
                   </div>
 
                   {/* Descripción del mantenimiento */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-foreground mb-1">
                       Descripción del mantenimiento *
                     </label>
                     <textarea
@@ -624,13 +624,13 @@ export function NuevaSolicitudPage() {
                       value={form.descripcion}
                       onChange={(e) => handleChange("descripcion", e.target.value)}
                       placeholder="Describe el mantenimiento requerido, síntomas observados o trabajos a realizar..."
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
                     />
                   </div>
 
                   {/* Observaciones */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-foreground mb-1">
                       Observaciones adicionales
                     </label>
                     <textarea
@@ -638,7 +638,7 @@ export function NuevaSolicitudPage() {
                       value={form.observaciones_solicitante ?? ""}
                       onChange={(e) => handleChange("observaciones_solicitante", e.target.value)}
                       placeholder="Información adicional para el equipo de compras..."
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
                     />
                   </div>
                 </section>
@@ -646,15 +646,15 @@ export function NuevaSolicitudPage() {
 
               {/* ── FORMULARIO: COMPRA ──────────────────────────────────── */}
               {tipoSolicitud === "compra" && (
-                <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
-                  <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                <section className="bg-card rounded-xl border border-border p-6 space-y-5">
+                  <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                     Detalle del pedido
                   </h2>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                     {/* Prioridad */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-foreground mb-1">
                         Prioridad *
                       </label>
                       <Combobox
@@ -668,7 +668,7 @@ export function NuevaSolicitudPage() {
 
                     {/* Categoría */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-foreground mb-1">
                         Categoría / Estatus *
                       </label>
                       <Combobox
@@ -682,7 +682,7 @@ export function NuevaSolicitudPage() {
 
                     {/* Grupo de artículos */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-foreground mb-1">
                         Grupo de artículos *
                       </label>
                       <Combobox
@@ -696,7 +696,7 @@ export function NuevaSolicitudPage() {
 
                     {/* Cliente */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-foreground mb-1">
                         Cliente
                       </label>
                       <Combobox
@@ -710,7 +710,7 @@ export function NuevaSolicitudPage() {
 
                     {/* Condición */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-foreground mb-1">
                         Condición
                       </label>
                       <Combobox
@@ -724,7 +724,7 @@ export function NuevaSolicitudPage() {
 
                     {/* Plataforma */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-foreground mb-1">
                         Plataforma *
                       </label>
                       <Combobox
@@ -742,7 +742,7 @@ export function NuevaSolicitudPage() {
 
                   {/* Descripción */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-foreground mb-1">
                       Detalle / descripción material *
                     </label>
                     <textarea
@@ -750,12 +750,12 @@ export function NuevaSolicitudPage() {
                       value={form.descripcion}
                       onChange={(e) => handleChange("descripcion", e.target.value)}
                       placeholder="Describe el material o servicio que necesitas..."
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
                     />
                   </div>
 
                   <div className="max-w-xs">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-foreground mb-1">
                       Cantidad *
                     </label>
                     <input
@@ -763,13 +763,13 @@ export function NuevaSolicitudPage() {
                       min={1}
                       value={form.cantidad}
                       onChange={(e) => handleChange("cantidad", parseInt(e.target.value, 10) || 1)}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                     />
                   </div>
 
                   {/* Observaciones */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-foreground mb-1">
                       Observaciones del solicitante
                     </label>
                     <textarea
@@ -777,18 +777,18 @@ export function NuevaSolicitudPage() {
                       value={form.observaciones_solicitante ?? ""}
                       onChange={(e) => handleChange("observaciones_solicitante", e.target.value)}
                       placeholder="Información adicional para el equipo de compras..."
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
                     />
                   </div>
                 </section>
               )}
 
               {/* Sección de Evidencias */}
-              <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-                <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+              <section className="bg-card rounded-xl border border-border p-6 space-y-4">
+                <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                   Fotos / Evidencias
                 </h2>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   Sube fotos o archivos que ayuden al equipo de compras a identificar el producto (JPG, PNG, PDF). Opcional.
                 </p>
 
@@ -800,14 +800,14 @@ export function NuevaSolicitudPage() {
                   className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-8 cursor-pointer transition-colors ${
                     dragOver
                       ? "border-brand-blue bg-brand-blue/5"
-                      : "border-gray-200 hover:border-brand-blue/40 hover:bg-gray-50"
+                      : "border-border hover:border-brand-blue/40 hover:bg-muted"
                   }`}
                 >
-                  <svg className="w-8 h-8 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                  <svg className="w-8 h-8 text-muted-foreground/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
                   </svg>
-                  <p className="text-sm font-medium text-gray-600">Arrastra o haz clic para subir</p>
-                  <p className="text-xs text-gray-400">Hasta 5 archivos — JPG, PNG, PDF, Excel, Word, MSG — máx 20 MB c/u</p>
+                  <p className="text-sm font-medium text-foreground">Arrastra o haz clic para subir</p>
+                  <p className="text-xs text-muted-foreground">Hasta 5 archivos — JPG, PNG, PDF, Excel, Word, MSG — máx 20 MB c/u</p>
                 </div>
                 <input
                   ref={fileInputRef}
@@ -824,8 +824,8 @@ export function NuevaSolicitudPage() {
                     {archivos.map((archivo, index) => {
                       const isImg = archivo.type.startsWith("image/")
                       return (
-                        <div key={`${archivo.name}-${index}`} className="group relative flex items-center gap-3 bg-gray-50 hover:bg-gray-100/50 p-2.5 rounded-lg border border-gray-200 shadow-sm transition-colors pr-10">
-                          <div className={`flex items-center justify-center w-10 h-10 rounded shrink-0 ${isImg ? "bg-blue-100 text-brand-blue" : "bg-gray-200 text-gray-600"}`}>
+                        <div key={`${archivo.name}-${index}`} className="group relative flex items-center gap-3 bg-muted hover:bg-muted/80 p-2.5 rounded-lg border border-border shadow-sm transition-colors pr-10">
+                          <div className={`flex items-center justify-center w-10 h-10 rounded shrink-0 ${isImg ? "bg-blue-100 text-brand-blue" : "bg-muted-foreground/10 text-muted-foreground"}`}>
                             {isImg ? (
                               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg>
                             ) : (
@@ -833,8 +833,8 @@ export function NuevaSolicitudPage() {
                             )}
                           </div>
                           <div className="flex flex-col min-w-0">
-                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">{isImg ? "Imagen" : "Documento"}</span>
-                            <span className="truncate text-sm text-gray-700 font-medium">{archivo.name}</span>
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">{isImg ? "Imagen" : "Documento"}</span>
+                            <span className="truncate text-sm text-foreground font-medium">{archivo.name}</span>
                           </div>
                           <button
                             type="button"
@@ -864,7 +864,7 @@ export function NuevaSolicitudPage() {
                   type="button"
                   onClick={() => navigate("/operativo/mis-solicitudes")}
                   disabled={crear.isPending || subiendoArchivos}
-                  className="rounded-lg border border-gray-300 px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-60"
+                  className="rounded-lg border border-border px-5 py-2 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors disabled:opacity-60"
                 >
                   Cancelar
                 </button>

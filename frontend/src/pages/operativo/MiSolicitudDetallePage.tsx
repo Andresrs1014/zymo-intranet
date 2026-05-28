@@ -84,7 +84,7 @@ export function MiSolicitudDetallePage() {
 
   if (isLoading) {
     return (
-      <PageLayout title="Mis Solicitudes" mainClassName="flex-1 flex items-center justify-center overflow-hidden text-gray-400 text-sm">
+      <PageLayout title="Mis Solicitudes" mainClassName="flex-1 flex items-center justify-center overflow-hidden text-muted-foreground text-sm">
         Cargando...
       </PageLayout>
     )
@@ -92,7 +92,7 @@ export function MiSolicitudDetallePage() {
 
   if (!solicitud) {
     return (
-      <PageLayout title="Mis Solicitudes" mainClassName="flex-1 flex items-center justify-center overflow-hidden text-gray-400 text-sm">
+      <PageLayout title="Mis Solicitudes" mainClassName="flex-1 flex items-center justify-center overflow-hidden text-muted-foreground text-sm">
         Solicitud no encontrada.
       </PageLayout>
     )
@@ -121,7 +121,7 @@ export function MiSolicitudDetallePage() {
     >
           <button
             onClick={() => navigate("/operativo/mis-solicitudes")}
-            className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-600 mb-6 transition-colors"
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors"
           >
             ← Volver
           </button>
@@ -140,9 +140,9 @@ export function MiSolicitudDetallePage() {
                   </span>
                 )}
               </div>
-              <h1 className="text-xl font-bold text-gray-900">{solicitud.descripcion}</h1>
+              <h1 className="text-xl font-bold text-foreground">{solicitud.descripcion}</h1>
               {ESTADO_DESC[solicitud.estado] && (
-                <p className="text-sm text-gray-500 mt-1">{ESTADO_DESC[solicitud.estado]}</p>
+                <p className="text-sm text-muted-foreground mt-1">{ESTADO_DESC[solicitud.estado]}</p>
               )}
             </div>
           </div>
@@ -166,8 +166,8 @@ export function MiSolicitudDetallePage() {
                 </button>
               ) : (
                 <div className="bg-white rounded-lg border border-green-300 p-4 flex flex-col gap-3">
-                  <p className="text-sm font-semibold text-gray-800">¿Confirmas que recibiste el pedido?</p>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm font-semibold text-foreground">¿Confirmas que recibiste el pedido?</p>
+                  <p className="text-sm text-muted-foreground">
                     Al aceptar, confirmas la recepción del producto y la solicitud quedará <strong>cerrada definitivamente</strong>. Esta acción no se puede deshacer.
                   </p>
                   <div className="flex gap-2">
@@ -183,7 +183,7 @@ export function MiSolicitudDetallePage() {
                     </button>
                     <button
                       onClick={() => setMostrarConfirmacion(false)}
-                      className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+                      className="bg-background border border-border hover:bg-muted text-foreground rounded-lg px-4 py-2 text-sm font-medium transition-colors"
                     >
                       Cancelar
                     </button>
@@ -195,8 +195,8 @@ export function MiSolicitudDetallePage() {
 
           <div className="max-w-2xl space-y-4">
             {/* Datos del pedido */}
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-              <h2 className="text-sm font-semibold text-gray-700 mb-4">Detalle del Pedido</h2>
+            <div className="bg-card rounded-xl border border-border shadow-sm p-5">
+              <h2 className="text-sm font-semibold text-foreground mb-4">Detalle del Pedido</h2>
               <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
                 <InfoItem label="Cantidad" value={String(solicitud.cantidad)} />
                 <InfoItem label="Prioridad" value={solicitud.nivel_prioridad} />
@@ -216,9 +216,9 @@ export function MiSolicitudDetallePage() {
                 <InfoItem label="Fecha solicitud" value={formatFechaHora(solicitud.fecha_solicitud)} />
               </div>
               {solicitud.observaciones_solicitante && (
-                <div className="mt-3 pt-3 border-t border-gray-50">
-                  <p className="text-xs text-gray-400 mb-1">Observaciones</p>
-                  <p className="text-sm text-gray-700">{solicitud.observaciones_solicitante}</p>
+                <div className="mt-3 pt-3 border-t border-border">
+                  <p className="text-xs text-muted-foreground mb-1">Observaciones</p>
+                  <p className="text-sm text-foreground">{solicitud.observaciones_solicitante}</p>
                 </div>
               )}
               {solicitud.observaciones_compras && solicitud.estado === "en_correccion" && (
@@ -230,11 +230,11 @@ export function MiSolicitudDetallePage() {
             </div>
 
             {/* Fotos del producto */}
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-              <h2 className="text-sm font-semibold text-gray-700 mb-3">
+            <div className="bg-card rounded-xl border border-border shadow-sm p-5">
+              <h2 className="text-sm font-semibold text-foreground mb-3">
                 Fotos / archivos de referencia del producto
               </h2>
-              <p className="text-xs text-gray-400 mb-4">
+              <p className="text-xs text-muted-foreground mb-4">
                 Sube fotos o archivos para ayudar al equipo de compras a identificar el producto exacto.
               </p>
 
@@ -252,16 +252,16 @@ export function MiSolicitudDetallePage() {
                 className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-8 cursor-pointer transition-colors ${
                   dragOver
                     ? "border-brand-blue bg-brand-blue/5"
-                    : "border-gray-200 hover:border-brand-blue/40 hover:bg-gray-50"
+                    : "border-border hover:border-brand-blue/40 hover:bg-muted"
                 }`}
               >
-                <svg className="w-8 h-8 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                <svg className="w-8 h-8 text-muted-foreground/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
                 </svg>
-                <p className="text-sm font-medium text-gray-600">
+                <p className="text-sm font-medium text-foreground">
                   {subirFoto.isPending ? "Subiendo..." : "Arrastra o haz clic para subir"}
                 </p>
-                <p className="text-xs text-gray-400">JPG, PNG, PDF, Excel, Word</p>
+                <p className="text-xs text-muted-foreground">JPG, PNG, PDF, Excel, Word</p>
               </div>
               <input
                 ref={fileInputRef}
@@ -279,7 +279,7 @@ export function MiSolicitudDetallePage() {
               {fotos.length > 0 && (
                 <div className="mt-4 grid grid-cols-3 gap-3">
                   {fotos.map((filename) => (
-                    <div key={filename} className="relative group rounded-lg overflow-hidden border border-gray-100 bg-gray-50">
+                    <div key={filename} className="relative group rounded-lg overflow-hidden border border-border bg-muted">
                       {isImage(filename) ? (
                         <img
                           src={buildFotoUrl(filename)}
@@ -317,21 +317,21 @@ export function MiSolicitudDetallePage() {
 
             {/* Documentos de la Compra */}
             {(cotizacionAprobada || orden) && (
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-                <h2 className="text-sm font-semibold text-gray-700 mb-4">Documentos de la Compra</h2>
+              <div className="bg-card rounded-xl border border-border shadow-sm p-5">
+                <h2 className="text-sm font-semibold text-foreground mb-4">Documentos de la Compra</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {cotizacionAprobada && (
-                    <div className="rounded-lg border border-gray-100 bg-gray-50 p-4 flex flex-col justify-between">
+                    <div className="rounded-lg border border-border bg-muted p-4 flex flex-col justify-between">
                       <div>
-                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Cotización Aprobada</p>
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-3">Cotización Aprobada</p>
                         <div className="space-y-2 mb-4 text-sm">
                           <div className="flex justify-between">
-                            <span className="text-gray-500">Proveedor:</span>
-                            <span className="font-medium text-gray-900 truncate ml-2 max-w-[60%]" title={cotizacionAprobada.proveedor_nombre}>{cotizacionAprobada.proveedor_nombre}</span>
+                            <span className="text-muted-foreground">Proveedor:</span>
+                            <span className="font-medium text-foreground truncate ml-2 max-w-[60%]" title={cotizacionAprobada.proveedor_nombre}>{cotizacionAprobada.proveedor_nombre}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-gray-500">Valor Total:</span>
-                            <span className="font-medium text-gray-900">{formatCOP(cotizacionAprobada.valor_total)}</span>
+                            <span className="text-muted-foreground">Valor Total:</span>
+                            <span className="font-medium text-foreground">{formatCOP(cotizacionAprobada.valor_total)}</span>
                           </div>
                         </div>
                       </div>
@@ -349,7 +349,7 @@ export function MiSolicitudDetallePage() {
                               document.body.appendChild(a); a.click(); document.body.removeChild(a)
                             }
                           }}
-                          className="flex items-center justify-center w-full gap-2 rounded-lg bg-white border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
+                          className="flex items-center justify-center w-full gap-2 rounded-lg bg-card border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors shadow-sm"
                         >
                           <svg className="w-4 h-4 text-brand-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -362,17 +362,17 @@ export function MiSolicitudDetallePage() {
                   )}
 
                   {orden && (
-                    <div className="rounded-lg border border-gray-100 bg-gray-50 p-4 flex flex-col justify-between">
+                    <div className="rounded-lg border border-border bg-muted p-4 flex flex-col justify-between">
                       <div>
-                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Orden de Compra</p>
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-3">Orden de Compra</p>
                         <div className="space-y-2 mb-4 text-sm">
                           <div className="flex justify-between">
-                            <span className="text-gray-500">Número OC:</span>
+                            <span className="text-muted-foreground">Número OC:</span>
                             <span className="font-mono font-bold text-brand-blue">{orden.numero_oc}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-gray-500">Plataforma:</span>
-                            <span className="font-medium text-gray-900">{solicitud.plataforma}</span>
+                            <span className="text-muted-foreground">Plataforma:</span>
+                            <span className="font-medium text-foreground">{solicitud.plataforma}</span>
                           </div>
                         </div>
                       </div>
@@ -398,8 +398,8 @@ export function MiSolicitudDetallePage() {
 function InfoItem({ label, value }: { label: string; value: string | null | undefined }) {
   return (
     <div>
-      <p className="text-xs text-gray-400">{label}</p>
-      <p className="text-sm text-gray-800 font-medium">{value ?? "—"}</p>
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="text-sm text-foreground font-medium">{value ?? "—"}</p>
     </div>
   )
 }

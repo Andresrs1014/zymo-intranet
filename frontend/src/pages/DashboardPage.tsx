@@ -12,16 +12,16 @@ export function DashboardPage() {
   return (
     <PageLayout title="Dashboard">
       <div className="mb-6">
-        <h1 className="text-xl font-bold text-gray-900">
+        <h1 className="text-xl font-bold text-foreground">
           Bienvenido{user?.full_name ? `, ${user.full_name.split(" ")[0]}` : ""}
         </h1>
-        <p className="text-sm text-gray-400 mt-0.5">Accesos rápidos a plataformas externas</p>
+        <p className="text-sm text-muted-foreground mt-0.5">Accesos rápidos a plataformas externas</p>
       </div>
 
       {externalApps.length === 0 ? (
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-muted-foreground">
           No hay aplicaciones externas asignadas a tu rol. Un administrador puede añadir permisos en{" "}
-          <span className="font-medium text-gray-700">Configuración → Roles</span>.
+          <span className="font-medium text-foreground">Configuración → Roles</span>.
         </p>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

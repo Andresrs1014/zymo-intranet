@@ -171,7 +171,7 @@ export function SolicitudDetallePage() {
 
   if (isLoading) {
     return (
-      <PageLayout title="OC Automatizaciones" mainClassName="flex-1 flex items-center justify-center overflow-hidden text-gray-400 text-sm">
+      <PageLayout title="OC Automatizaciones" mainClassName="flex-1 flex items-center justify-center overflow-hidden text-muted-foreground text-sm">
         Cargando...
       </PageLayout>
     )
@@ -179,7 +179,7 @@ export function SolicitudDetallePage() {
 
   if (!solicitud) {
     return (
-      <PageLayout title="OC Automatizaciones" mainClassName="flex-1 flex items-center justify-center overflow-hidden text-gray-400 text-sm">
+      <PageLayout title="OC Automatizaciones" mainClassName="flex-1 flex items-center justify-center overflow-hidden text-muted-foreground text-sm">
         Solicitud no encontrada.
       </PageLayout>
     )
@@ -503,8 +503,8 @@ export function SolicitudDetallePage() {
           <>
           {modoRechazoSol ? (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-              <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4 space-y-4">
-                <h3 className="text-base font-semibold text-gray-900">
+              <div className="bg-card rounded-xl shadow-xl p-6 w-full max-w-md mx-4 space-y-4">
+                <h3 className="text-base font-semibold text-foreground">
                   {solicitudYaEnCorreccion ? "Cancelar solicitud" : "Rechazar solicitud"}
                 </h3>
 
@@ -516,7 +516,7 @@ export function SolicitudDetallePage() {
                       className={`rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors ${
                         modoRechazoSol === "cancelar"
                           ? "border-red-400 bg-red-50 text-red-700"
-                          : "border-gray-200 text-gray-500 hover:bg-gray-50"
+                          : "border-border text-muted-foreground hover:bg-muted"
                       }`}
                     >
                       Cancelar solicitud
@@ -527,7 +527,7 @@ export function SolicitudDetallePage() {
                       className={`rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors ${
                         modoRechazoSol === "correccion"
                           ? "border-amber-400 bg-amber-50 text-amber-700"
-                          : "border-gray-200 text-gray-500 hover:bg-gray-50"
+                          : "border-border text-muted-foreground hover:bg-muted"
                       }`}
                     >
                       Mandar a corrección
@@ -541,14 +541,14 @@ export function SolicitudDetallePage() {
                   </p>
                 )}
 
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-muted-foreground">
                   {solicitudYaEnCorreccion || modoRechazoSol === "cancelar"
                     ? `La solicitud quedará cancelada definitivamente. Se notificará a ${solicitud.solicitante_email} por correo.`
                     : `La solicitud regresará al solicitante para que la corrija desde la intranet.`}
                 </p>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                  <label className="block text-xs font-medium text-foreground mb-1.5">
                     {modoRechazoSol === "cancelar" ? "Motivo de cancelación *" : "¿Qué debe corregir? *"}
                   </label>
                   <textarea
@@ -557,8 +557,8 @@ export function SolicitudDetallePage() {
                     onChange={(e) => setTextoRechazoSol(e.target.value)}
                     className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none transition-colors ${
                       modoRechazoSol === "cancelar"
-                        ? "border-gray-300 focus:ring-2 focus:ring-red-400"
-                        : "border-gray-300 focus:ring-2 focus:ring-amber-400"
+                        ? "border-border focus:ring-2 focus:ring-red-400"
+                        : "border-border focus:ring-2 focus:ring-amber-400"
                     }`}
                     placeholder={
                       modoRechazoSol === "cancelar"
@@ -597,7 +597,7 @@ export function SolicitudDetallePage() {
                       setTextoRechazoSol("")
                       setErrorOC(null)
                     }}
-                    className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                    className="rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
                   >
                     Cerrar
                   </button>
@@ -607,19 +607,19 @@ export function SolicitudDetallePage() {
           ) : null}
             {mostrarCancelarDirectivo ? (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-                <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md space-y-4">
-                  <h3 className="text-base font-semibold text-gray-900">Cancelar solicitud (directivo)</h3>
-                  <p className="text-sm text-gray-500">
+                <div className="bg-card rounded-xl shadow-xl p-6 w-full max-w-md space-y-4">
+                  <h3 className="text-base font-semibold text-foreground">Cancelar solicitud (directivo)</h3>
+                  <p className="text-sm text-muted-foreground">
                     La solicitud quedará cancelada. Se notificará al solicitante por correo. Esta acción está
                     disponible hasta que el pedido esté marcado en plataforma.
                   </p>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1.5">Motivo *</label>
+                    <label className="block text-xs font-medium text-foreground mb-1.5">Motivo *</label>
                     <textarea
                       rows={4}
                       value={textoCancelarDirectivo}
                       onChange={(e) => setTextoCancelarDirectivo(e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 resize-none"
+                      className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 resize-none"
                       placeholder="Justificación de la cancelación..."
                       autoFocus
                     />
@@ -639,7 +639,7 @@ export function SolicitudDetallePage() {
                         setMostrarCancelarDirectivo(false)
                         setTextoCancelarDirectivo("")
                       }}
-                      className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+                      className="rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-muted"
                     >
                       Cerrar
                     </button>
@@ -651,7 +651,7 @@ export function SolicitudDetallePage() {
             {/* Modal de archivado — solo admin */}
             {mostrarModalArchivar && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md space-y-4">
+                <div className="bg-card rounded-xl shadow-xl p-6 w-full max-w-md space-y-4">
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100">
                       <svg className="h-5 w-5 text-amber-600" viewBox="0 0 20 20" fill="currentColor">
@@ -660,10 +660,10 @@ export function SolicitudDetallePage() {
                       </svg>
                     </div>
                     <div>
-                      <h3 className="text-base font-semibold text-gray-900">
+                      <h3 className="text-base font-semibold text-foreground">
                         {solicitud.archivada ? "Desarchivar solicitud" : "Archivar solicitud"}
                       </h3>
-                      <p className="text-xs text-gray-500 mt-0.5">
+                      <p className="text-xs text-muted-foreground mt-0.5">
                         {solicitud.archivada ? "La solicitud volverá a aparecer en listas y KPIs" : "La solicitud se ocultará de listas y KPIs"}
                       </p>
                     </div>
@@ -675,7 +675,7 @@ export function SolicitudDetallePage() {
                   </div>
 
                   {!solicitud.archivada && (
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-foreground">
                       Los datos se conservan intactos. La solicitud no aparecerá en los KPIs ni en el listado de compras.
                       Puedes desarchivarla en cualquier momento.
                     </p>
@@ -716,7 +716,7 @@ export function SolicitudDetallePage() {
                       type="button"
                       onClick={() => { setMostrarModalArchivar(false); setErrorArchivar(null) }}
                       disabled={archivarSolicitud.isPending}
-                      className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                      className="rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-muted disabled:opacity-50"
                     >
                       Cancelar
                     </button>
@@ -728,7 +728,7 @@ export function SolicitudDetallePage() {
             {/* Modal de eliminación permanente — solo admin */}
             {mostrarModalEliminar && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md space-y-4">
+                <div className="bg-card rounded-xl shadow-xl p-6 w-full max-w-md space-y-4">
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100">
                       <svg className="h-5 w-5 text-red-600" viewBox="0 0 20 20" fill="currentColor">
@@ -736,8 +736,8 @@ export function SolicitudDetallePage() {
                       </svg>
                     </div>
                     <div>
-                      <h3 className="text-base font-semibold text-gray-900">Eliminar solicitud</h3>
-                      <p className="text-xs text-gray-500 mt-0.5">Esta acción es permanente e irreversible</p>
+                      <h3 className="text-base font-semibold text-foreground">Eliminar solicitud</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">Esta acción es permanente e irreversible</p>
                     </div>
                   </div>
 
@@ -746,10 +746,10 @@ export function SolicitudDetallePage() {
                     <p className="text-xs mt-0.5 text-red-700">{solicitud.descripcion}</p>
                   </div>
 
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-foreground">
                     Se eliminarán permanentemente la solicitud, sus cotizaciones, historial, órdenes de compra
                     y todos los archivos asociados (PDFs, fotos, proforma).
-                    <strong className="text-gray-900"> Los KPIs se actualizarán automáticamente.</strong>
+                    <strong className="text-foreground"> Los KPIs se actualizarán automáticamente.</strong>
                   </p>
 
                   {errorEliminar && (
@@ -780,7 +780,7 @@ export function SolicitudDetallePage() {
                       type="button"
                       onClick={() => { setMostrarModalEliminar(false); setErrorEliminar(null) }}
                       disabled={eliminarSolicitud.isPending}
-                      className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                      className="rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-muted disabled:opacity-50"
                     >
                       Cancelar
                     </button>
@@ -792,16 +792,16 @@ export function SolicitudDetallePage() {
             {mostrarCorreccionDirectivo && cotizacionAprobada ? (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
                 <div
-                  className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col"
+                  className="bg-card rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col"
                   role="dialog"
                   aria-labelledby="corr-dir-title"
                 >
-                  <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 shrink-0">
+                  <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4 shrink-0">
                     <div>
-                      <h3 id="corr-dir-title" className="text-base font-semibold text-gray-900">
+                      <h3 id="corr-dir-title" className="text-base font-semibold text-foreground">
                         Corrección directiva de la cotización
                       </h3>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         El estado del flujo no cambia. Si la OC ya fue enviada al proveedor, se regenera el PDF y se reenvía
                         automáticamente cuando aplique.
                       </p>
@@ -809,7 +809,7 @@ export function SolicitudDetallePage() {
                     <button
                       type="button"
                       onClick={() => { setMostrarCorreccionDirectivo(false); setCorrDirError(null) }}
-                      className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                      className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
                       aria-label="Cerrar"
                     >
                       ×
@@ -822,48 +822,48 @@ export function SolicitudDetallePage() {
                       </div>
                     ) : null}
                     <div>
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Proveedor</p>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Proveedor</p>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <div className="sm:col-span-2">
-                          <label className="block text-xs text-gray-500 mb-1">Nombre *</label>
+                          <label className="block text-xs text-muted-foreground mb-1">Nombre *</label>
                           <input
                             type="text"
                             value={corrDirProveedorNombre}
                             onChange={(e) => setCorrDirProveedorNombre(e.target.value)}
-                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                            className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
                           />
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-500 mb-1">NIT</label>
+                          <label className="block text-xs text-muted-foreground mb-1">NIT</label>
                           <input
                             type="text"
                             value={corrDirProveedorNit}
                             onChange={(e) => setCorrDirProveedorNit(e.target.value)}
-                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                            className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
                           />
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-500 mb-1">Email</label>
+                          <label className="block text-xs text-muted-foreground mb-1">Email</label>
                           <input
                             type="email"
                             value={corrDirProveedorEmail}
                             onChange={(e) => setCorrDirProveedorEmail(e.target.value)}
-                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                            className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
                           />
                         </div>
                         <div className="sm:col-span-2">
-                          <label className="block text-xs text-gray-500 mb-1">N° cotización proveedor</label>
+                          <label className="block text-xs text-muted-foreground mb-1">N° cotización proveedor</label>
                           <input
                             type="text"
                             value={corrDirNumeroCot}
                             onChange={(e) => setCorrDirNumeroCot(e.target.value)}
-                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                            className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
                           />
                         </div>
                       </div>
                     </div>
                     <div>
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Valores</p>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Valores</p>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         <FormFieldCOP
                           label="Subtotal sin IVA"
@@ -879,7 +879,7 @@ export function SolicitudDetallePage() {
                             setCorrDirValorIva(String(iva))
                             setCorrDirValorTotal(String(total))
                           }}
-                          inputClassName="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                          inputClassName="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
                         />
                         <FormFieldCOP
                           label="IVA"
@@ -908,7 +908,7 @@ export function SolicitudDetallePage() {
                             setCorrDirValorIva(String(iva))
                             setCorrDirValorTotal(String(total))
                           }}
-                          inputClassName="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                          inputClassName="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
                         />
                         <FormFieldCOP
                           label="Total con IVA *"
@@ -924,7 +924,7 @@ export function SolicitudDetallePage() {
                             setCorrDirValorIva(String(iva))
                             setCorrDirValorTotal(String(t))
                           }}
-                          inputClassName="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                          inputClassName="w-full rounded-lg border border-border px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
                         />
                       </div>
                       <div className="mt-2 max-w-xs">
@@ -932,45 +932,45 @@ export function SolicitudDetallePage() {
                           label="Valor aprobado"
                           value={parseCopNumber(corrDirValorAprobado)}
                           onChange={(v) => setCorrDirValorAprobado(v != null ? String(v) : "")}
-                          inputClassName="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                          inputClassName="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
                         />
                       </div>
                     </div>
                     <div>
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Condiciones</p>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Condiciones</p>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <div>
-                          <label className="block text-xs text-gray-500 mb-1">Forma de pago</label>
+                          <label className="block text-xs text-muted-foreground mb-1">Forma de pago</label>
                           <input
                             type="text"
                             value={corrDirFormaPago}
                             onChange={(e) => setCorrDirFormaPago(e.target.value)}
-                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                            className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
                           />
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-500 mb-1">Plazo de entrega</label>
+                          <label className="block text-xs text-muted-foreground mb-1">Plazo de entrega</label>
                           <input
                             type="text"
                             value={corrDirPlazoEntrega}
                             onChange={(e) => setCorrDirPlazoEntrega(e.target.value)}
-                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                            className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
                           />
                         </div>
                         <div className="sm:col-span-2">
-                          <label className="block text-xs text-gray-500 mb-1">Observaciones (cotización)</label>
+                          <label className="block text-xs text-muted-foreground mb-1">Observaciones (cotización)</label>
                           <textarea
                             rows={2}
                             value={corrDirObsCotizacion}
                             onChange={(e) => setCorrDirObsCotizacion(e.target.value)}
-                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                            className="w-full rounded-lg border border-border px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
                           />
                         </div>
                       </div>
                     </div>
                     <div>
                       <div className="flex items-center justify-between gap-2 mb-2">
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Ítems</p>
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Ítems</p>
                         <button
                           type="button"
                           onClick={() =>
@@ -984,23 +984,23 @@ export function SolicitudDetallePage() {
                           + Agregar ítem
                         </button>
                       </div>
-                      <div className="overflow-x-auto rounded-lg border border-gray-200">
+                      <div className="overflow-x-auto rounded-lg border border-border">
                         <table className="min-w-full text-xs">
-                          <thead className="bg-gray-50">
+                          <thead className="bg-muted">
                             <tr>
-                              <th className="px-2 py-2 text-left font-medium text-gray-500">#</th>
-                              <th className="px-2 py-2 text-left font-medium text-gray-500">Descripción *</th>
-                              <th className="px-2 py-2 text-left font-medium text-gray-500">Ref.</th>
-                              <th className="px-2 py-2 text-right font-medium text-gray-500">Cant.</th>
-                              <th className="px-2 py-2 text-right font-medium text-gray-500">V. unit.</th>
-                              <th className="px-2 py-2 text-right font-medium text-gray-500">V. total</th>
+                              <th className="px-2 py-2 text-left font-medium text-muted-foreground">#</th>
+                              <th className="px-2 py-2 text-left font-medium text-muted-foreground">Descripción *</th>
+                              <th className="px-2 py-2 text-left font-medium text-muted-foreground">Ref.</th>
+                              <th className="px-2 py-2 text-right font-medium text-muted-foreground">Cant.</th>
+                              <th className="px-2 py-2 text-right font-medium text-muted-foreground">V. unit.</th>
+                              <th className="px-2 py-2 text-right font-medium text-muted-foreground">V. total</th>
                               <th className="px-1 py-2" />
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-100">
                             {corrDirItems.map((row, idx) => (
-                              <tr key={idx} className="bg-white">
-                                <td className="px-2 py-1.5 text-gray-400 font-mono w-8">{idx + 1}</td>
+                              <tr key={idx} className="bg-background">
+                                <td className="px-2 py-1.5 text-muted-foreground font-mono w-8">{idx + 1}</td>
                                 <td className="px-2 py-1.5">
                                   <input
                                     type="text"
@@ -1009,7 +1009,7 @@ export function SolicitudDetallePage() {
                                       const v = e.target.value
                                       patchCorrDirItem(idx, "meta", (r) => ({ ...r, descripcion: v }))
                                     }}
-                                    className="w-full min-w-[140px] rounded border border-gray-200 px-2 py-1"
+                                    className="w-full min-w-[140px] rounded border border-border px-2 py-1"
                                   />
                                 </td>
                                 <td className="px-2 py-1.5">
@@ -1020,7 +1020,7 @@ export function SolicitudDetallePage() {
                                       const v = e.target.value
                                       patchCorrDirItem(idx, "meta", (r) => ({ ...r, referencia: v }))
                                     }}
-                                    className="w-20 rounded border border-gray-200 px-2 py-1"
+                                    className="w-20 rounded border border-border px-2 py-1"
                                   />
                                 </td>
                                 <td className="px-2 py-1.5 text-right">
@@ -1031,7 +1031,7 @@ export function SolicitudDetallePage() {
                                       const n = e.target.value === "" ? undefined : Number(e.target.value)
                                       patchCorrDirItem(idx, "cantidad", (r) => ({ ...r, cantidad: n }))
                                     }}
-                                    className="w-16 rounded border border-gray-200 px-2 py-1 text-right"
+                                    className="w-16 rounded border border-border px-2 py-1 text-right"
                                   />
                                 </td>
                                 <td className="px-2 py-1.5 text-right">
@@ -1045,7 +1045,7 @@ export function SolicitudDetallePage() {
                                         valor_unitario: n,
                                       }))
                                     }}
-                                    className="w-24 rounded border border-gray-200 px-2 py-1 text-right"
+                                    className="w-24 rounded border border-border px-2 py-1 text-right"
                                   />
                                 </td>
                                 <td className="px-2 py-1.5 text-right">
@@ -1056,7 +1056,7 @@ export function SolicitudDetallePage() {
                                       const n = e.target.value === "" ? undefined : Number(e.target.value)
                                       patchCorrDirItem(idx, "valor_total", (r) => ({ ...r, valor_total: n }))
                                     }}
-                                    className="w-24 rounded border border-gray-200 px-2 py-1 text-right"
+                                    className="w-24 rounded border border-border px-2 py-1 text-right"
                                   />
                                 </td>
                                 <td className="px-1 py-1.5">
@@ -1098,25 +1098,25 @@ export function SolicitudDetallePage() {
                           rows={3}
                           value={corrDirMotivoCierre}
                           onChange={(e) => setCorrDirMotivoCierre(e.target.value)}
-                          className="w-full rounded-lg border border-red-300 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-400/40 bg-white"
+                          className="w-full rounded-lg border border-red-300 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-400/40 bg-background"
                           placeholder="Ej. Error en el NIT detectado en auditoría del 15/05/2026, requiere corrección para cierre contable..."
                         />
                       </div>
                     )}
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                      <label className="block text-xs font-medium text-foreground mb-1">
                         Motivo de la corrección (visible en historial y correos) — mín. 5 caracteres *
                       </label>
                       <textarea
                         rows={3}
                         value={corrDirNotaDirectivo}
                         onChange={(e) => setCorrDirNotaDirectivo(e.target.value)}
-                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                        className="w-full rounded-lg border border-border px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
                         placeholder="Ej. Se corrigió el NIT y el valor acordado con el proveedor..."
                       />
                     </div>
                   </div>
-                  <div className="flex gap-3 border-t border-gray-100 px-5 py-4 shrink-0 bg-gray-50/80 rounded-b-xl">
+                  <div className="flex gap-3 border-t border-border px-5 py-4 shrink-0 bg-muted/80 rounded-b-xl">
                     <button
                       type="button"
                       onClick={handleGuardarCorreccionDirectiva}
@@ -1128,7 +1128,7 @@ export function SolicitudDetallePage() {
                     <button
                       type="button"
                       onClick={() => { setMostrarCorreccionDirectivo(false); setCorrDirError(null) }}
-                      className="rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50"
+                      className="rounded-lg border border-border bg-card px-4 py-2.5 text-sm text-foreground hover:bg-muted"
                     >
                       Cancelar
                     </button>
@@ -1142,7 +1142,7 @@ export function SolicitudDetallePage() {
           {/* Breadcrumb */}
           <button
             onClick={() => navigate("/oc/solicitudes")}
-            className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-600 mb-6 transition-colors"
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors"
           >
             ← Volver
           </button>
@@ -1166,7 +1166,7 @@ export function SolicitudDetallePage() {
                   </span>
                 )}
               </div>
-              <h1 className="text-xl font-bold text-gray-900">{solicitud.descripcion}</h1>
+              <h1 className="text-xl font-bold text-foreground">{solicitud.descripcion}</h1>
             </div>
 
             <div className="flex gap-2 shrink-0 flex-wrap justify-end">
@@ -1222,7 +1222,7 @@ export function SolicitudDetallePage() {
                   className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                     solicitud.archivada
                       ? "border-amber-400 bg-amber-50 text-amber-700 hover:bg-amber-100"
-                      : "border-amber-300 bg-white text-amber-500 hover:bg-amber-50 hover:border-amber-400"
+                      : "border-amber-300 bg-card text-amber-500 hover:bg-amber-50 hover:border-amber-400"
                   }`}
                 >
                   <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
@@ -1237,7 +1237,7 @@ export function SolicitudDetallePage() {
                   type="button"
                   onClick={() => { setMostrarModalEliminar(true); setErrorEliminar(null) }}
                   title="Eliminar solicitud permanentemente (solo admin)"
-                  className="rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-50 hover:border-red-400 transition-colors"
+                  className="rounded-lg border border-red-300 bg-card px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-50 hover:border-red-400 transition-colors"
                 >
                   <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z" clipRule="evenodd" />
@@ -1333,12 +1333,12 @@ export function SolicitudDetallePage() {
                   {/* Indicador de cuántas cotizaciones se han subido */}
                   <div className="flex items-center gap-2 mb-3">
                     <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                      cotizaciones.length === 1 ? "bg-gray-100 text-gray-600" : "bg-blue-50 text-blue-700"
+                      cotizaciones.length === 1 ? "bg-muted text-foreground" : "bg-blue-50 text-blue-700"
                     }`}>
                       {cotizaciones.length === 1 ? "1 cotización presentada" : `${cotizaciones.length} cotizaciones presentadas`}
                     </span>
                     {cotizaciones.length === 1 && (
-                      <span className="text-xs text-gray-400">El proceso recomienda 3 cotizaciones</span>
+                      <span className="text-xs text-muted-foreground">El proceso recomienda 3 cotizaciones</span>
                     )}
                   </div>
                   <div className="space-y-3">
@@ -1350,9 +1350,9 @@ export function SolicitudDetallePage() {
               )}
 
               {muestraAyudaProformaPrevCotizacion && (
-                <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
-                  <span className="font-medium text-gray-700">Anticipo / proforma: </span>
-                  podrá gestionarse después de usar <strong className="text-gray-900">Cargar cotización</strong> por
+                <div className="rounded-xl border border-border bg-muted px-4 py-3 text-sm text-foreground">
+                  <span className="font-medium text-foreground">Anticipo / proforma: </span>
+                  podrá gestionarse después de usar <strong className="text-foreground">Cargar cotización</strong> por
                   primera vez en esta solicitud.
                 </div>
               )}
@@ -1369,14 +1369,14 @@ export function SolicitudDetallePage() {
               <div className={`rounded-xl border px-4 py-3 space-y-3 ${
                 solicitud.tiene_proforma
                   ? "border-yellow-300 bg-yellow-50"
-                  : "border-gray-200 bg-white"
+                  : "border-border bg-card"
               }`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <svg className={`w-4 h-4 ${solicitud.tiene_proforma ? "text-yellow-600" : "text-gray-400"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <svg className={`w-4 h-4 ${solicitud.tiene_proforma ? "text-yellow-600" : "text-muted-foreground"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" />
                     </svg>
-                    <span className={`text-sm font-semibold ${solicitud.tiene_proforma ? "text-yellow-800" : "text-gray-500"}`}>
+                    <span className={`text-sm font-semibold ${solicitud.tiene_proforma ? "text-yellow-800" : "text-muted-foreground"}`}>
                       {solicitud.tiene_proforma ? "Tiene anticipo / proforma" : "Sin anticipo / proforma"}
                     </span>
                     {solicitud.tiene_proforma && (
@@ -1398,7 +1398,7 @@ export function SolicitudDetallePage() {
                     className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50 ${
                       solicitud.tiene_proforma
                         ? "border-yellow-300 bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
-                        : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
+                        : "border-border bg-card text-foreground hover:bg-muted"
                     }`}
                   >
                     {actualizarProforma.isPending
@@ -1440,7 +1440,7 @@ export function SolicitudDetallePage() {
                       ) : (
                         <span className="text-xs text-yellow-600 italic">Sin archivo de proforma aún</span>
                       )}
-                      <label className="flex items-center gap-1.5 cursor-pointer rounded-lg border border-yellow-300 bg-white px-3 py-1.5 text-xs font-semibold text-yellow-700 hover:bg-yellow-50 transition-colors disabled:opacity-50">
+                      <label className="flex items-center gap-1.5 cursor-pointer rounded-lg border border-yellow-300 bg-card px-3 py-1.5 text-xs font-semibold text-yellow-700 hover:bg-yellow-50 transition-colors disabled:opacity-50">
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                         </svg>
@@ -1477,7 +1477,7 @@ export function SolicitudDetallePage() {
               {/* Fotos de evidencia (cotización) — visible solo cuando el auxiliar está cotizando */}
               {solicitud.estado === "en_cotizacion" && (
                 <Section title="Fotos de evidencia (cotización)">
-                  <p className="text-xs text-gray-400 mb-3">
+                  <p className="text-xs text-muted-foreground mb-3">
                     Sube fotos de lo que cotizaste: capturas de pantalla, fotos de productos, referencias visuales, etc.
                   </p>
                   <div
@@ -1498,16 +1498,16 @@ export function SolicitudDetallePage() {
                     className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-8 cursor-pointer transition-colors ${
                       evidenciaDragOver
                         ? "border-brand-blue bg-brand-blue/5"
-                        : "border-gray-200 hover:border-brand-blue/40 hover:bg-gray-50"
+                        : "border-border hover:border-brand-blue/40 hover:bg-muted"
                     }`}
                   >
-                    <svg className="w-8 h-8 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                    <svg className="w-8 h-8 text-muted-foreground/50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
                     </svg>
-                    <p className="text-sm font-medium text-gray-600">
+                    <p className="text-sm font-medium text-foreground">
                       {subirFoto.isPending ? "Subiendo..." : evidenciaDragOver ? "Suelta aquí" : "Arrastra o haz clic para subir"}
                     </p>
-                    <p className="text-xs text-gray-400">JPG, PNG, PDF, Excel, Word, MSG — hasta 5 archivos, máx 20 MB c/u</p>
+                    <p className="text-xs text-muted-foreground">JPG, PNG, PDF, Excel, Word, MSG — hasta 5 archivos, máx 20 MB c/u</p>
                   </div>
                   <input
                     ref={evidenciaInputRef}
@@ -1529,7 +1529,7 @@ export function SolicitudDetallePage() {
                   {(solicitud.fotos_producto ?? []).length > 0 && (
                     <div className="mt-4 grid grid-cols-3 gap-3">
                       {(solicitud.fotos_producto ?? []).map((filename) => (
-                        <div key={filename} className="relative group rounded-lg overflow-hidden border border-gray-100 bg-gray-50">
+                        <div key={filename} className="relative group rounded-lg overflow-hidden border border-border bg-muted">
                           {/\.(jpg|jpeg|png|gif|webp)$/i.test(filename) ? (
                             <img
                               src={buildFotoUrl(filename)}
@@ -1542,7 +1542,7 @@ export function SolicitudDetallePage() {
                               href={buildFotoUrl(filename)}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="flex flex-col items-center justify-center h-24 gap-1 text-gray-400 hover:text-brand-blue transition-colors"
+                              className="flex flex-col items-center justify-center h-24 gap-1 text-muted-foreground hover:text-brand-blue transition-colors"
                             >
                               <svg className="w-7 h-7" viewBox="0 0 20 20" fill="currentColor">
                                 <path fillRule="evenodd" d="M4 4a2 2 0 0 1 2-2h4.586A2 2 0 0 1 12 2.586L15.414 6A2 2 0 0 1 16 7.414V16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4Z" clipRule="evenodd" />
@@ -1573,14 +1573,14 @@ export function SolicitudDetallePage() {
                   <InfoItem label="Grupo de artículos" value={solicitud.grupo_articulos} />
                   {puedeEditarPrioridad ? (
                     <div>
-                      <p className="text-xs text-gray-400 mb-1">Prioridad</p>
+                      <p className="text-xs text-muted-foreground mb-1">Prioridad</p>
                       <select
                         value={solicitud.nivel_prioridad}
                         disabled={cambiarPrioridad.isPending}
                         onChange={(e) =>
                           cambiarPrioridad.mutate({ id: solicitud.id, nivel_prioridad: e.target.value })
                         }
-                        className="rounded-md border border-gray-200 px-2 py-1 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue disabled:opacity-50"
+                        className="rounded-md border border-border px-2 py-1 text-sm font-medium text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-brand-blue disabled:opacity-50"
                       >
                         <option value="Alta">Alta</option>
                         <option value="Media">Media</option>
@@ -1607,11 +1607,11 @@ export function SolicitudDetallePage() {
                   )}
                 </InfoGrid>
                 {solicitud.observaciones_solicitante && (
-                  <div className="mt-3 pt-3 border-t border-gray-50">
-                    <p className="text-xs font-medium text-gray-400 mb-1">
+                  <div className="mt-3 pt-3 border-t border-border/30">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">
                       Observaciones del solicitante
                     </p>
-                    <p className="text-sm text-gray-700">{solicitud.observaciones_solicitante}</p>
+                    <p className="text-sm text-foreground">{solicitud.observaciones_solicitante}</p>
                   </div>
                 )}
               </Section>
@@ -1625,8 +1625,8 @@ export function SolicitudDetallePage() {
                   <InfoItem label="Plataforma" value={solicitud.plataforma} />
                 </InfoGrid>
                 {solicitud.evidencia_url && (
-                  <div className="mt-3 pt-3 border-t border-gray-50">
-                    <p className="text-xs font-medium text-gray-400 mb-1">Evidencia adjunta</p>
+                  <div className="mt-3 pt-3 border-t border-border/30">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Evidencia adjunta</p>
                     <a
                       href={solicitud.evidencia_url}
                       target="_blank"
@@ -1742,41 +1742,41 @@ export function SolicitudDetallePage() {
                         <p className="text-xs text-amber-900">{solicitud.observaciones_compras}</p>
                       </div>
                     ) : (
-                      <p className="text-xs text-gray-400">El equipo de compras requiere que corrijas tu solicitud.</p>
+                      <p className="text-xs text-muted-foreground">El equipo de compras requiere que corrijas tu solicitud.</p>
                     )}
 
                     {/* Formulario de edición */}
                     <div className="space-y-2">
-                      <p className="text-xs font-medium text-gray-600">Edita los campos que necesitas corregir:</p>
+                      <p className="text-xs font-medium text-foreground">Edita los campos que necesitas corregir:</p>
                       <div>
-                        <label className="block text-xs text-gray-500 mb-1">Descripción</label>
+                        <label className="block text-xs text-muted-foreground mb-1">Descripción</label>
                         <input
                           type="text"
                           value={corrDesc}
                           onChange={(e) => setCorrDesc(e.target.value)}
                           placeholder={solicitud.descripcion}
-                          className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                          className="w-full rounded-lg border border-border px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-500 mb-1">Cantidad</label>
+                        <label className="block text-xs text-muted-foreground mb-1">Cantidad</label>
                         <input
                           type="number"
                           value={corrCantidad}
                           onChange={(e) => setCorrCantidad(e.target.value)}
                           placeholder={String(solicitud.cantidad)}
                           min="1"
-                          className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                          className="w-full rounded-lg border border-border px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-500 mb-1">Observaciones</label>
+                        <label className="block text-xs text-muted-foreground mb-1">Observaciones</label>
                         <textarea
                           value={corrObs}
                           onChange={(e) => setCorrObs(e.target.value)}
                           placeholder={solicitud.observaciones_solicitante ?? "Añade observaciones..."}
                           rows={3}
-                          className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:outline-none resize-none focus:ring-2 focus:ring-amber-400"
+                          className="w-full rounded-lg border border-border px-3 py-1.5 text-sm focus:outline-none resize-none focus:ring-2 focus:ring-amber-400"
                         />
                       </div>
                       {editarCorreccion.isError && (
@@ -1819,7 +1819,7 @@ export function SolicitudDetallePage() {
               {(esAuxiliarAsignado || tieneAccesoCompras) &&
                 (solicitud.estado === "en_cotizacion" || (solicitud.estado === "rechazada" && cotizaciones.length > 0)) && (
                   <Section title="Gestión">
-                    <p className="text-xs text-gray-500 mb-3">
+                    <p className="text-xs text-muted-foreground mb-3">
                       {solicitud.estado === "rechazada"
                         ? "La cotización fue rechazada. Carga una nueva."
                         : "Carga la cotización del proveedor para enviar a aprobación."}
@@ -1839,17 +1839,17 @@ export function SolicitudDetallePage() {
                 <Section title="Auxiliar asignado">
                   {solicitud.auxiliar_id && (
                     <div className="mb-3">
-                      <p className="text-sm font-semibold text-gray-800">
+                      <p className="text-sm font-semibold text-foreground">
                         {auxiliar?.full_name ?? `Usuario #${solicitud.auxiliar_id}`}
                       </p>
                       {auxiliar?.email && (
-                        <p className="text-xs text-gray-400 mt-0.5">{auxiliar.email}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{auxiliar.email}</p>
                       )}
                     </div>
                   )}
                   {puedeAsignarOtro && (
                     <div className="space-y-2">
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-muted-foreground">
                         {solicitud.auxiliar_id ? "Reasignar:" : "Asignar auxiliar:"}
                       </p>
                       <select
@@ -1860,7 +1860,7 @@ export function SolicitudDetallePage() {
                           if (!val || !id) return
                           asignar.mutate({ id, auxiliar_id: val })
                         }}
-                        className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30 bg-white disabled:opacity-50"
+                        className="w-full rounded-lg border border-border px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30 bg-background disabled:opacity-50"
                       >
                         <option value="" disabled>— Seleccionar —</option>
                         {usuariosCompras.map((u) => (
@@ -1879,7 +1879,7 @@ export function SolicitudDetallePage() {
 
               {/* Fotos / archivos de referencia del producto */}
               <Section title="Fotos del producto">
-                <p className="text-xs text-gray-400 mb-3">
+                <p className="text-xs text-muted-foreground mb-3">
                   Sube imágenes o archivos que ayuden a identificar el producto exacto.
                 </p>
                 <div
@@ -1900,7 +1900,7 @@ export function SolicitudDetallePage() {
                   className={`flex flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed py-4 cursor-pointer transition-colors text-xs ${
                     fotoDragOver
                       ? "border-brand-blue bg-brand-blue/5 text-brand-blue"
-                      : "border-gray-200 text-gray-400 hover:border-brand-blue/30 hover:bg-gray-50"
+                      : "border-border text-muted-foreground hover:border-brand-blue/30 hover:bg-muted"
                   }`}
                 >
                   <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
@@ -1928,7 +1928,7 @@ export function SolicitudDetallePage() {
                 {(solicitud.fotos_producto ?? []).length > 0 && (
                   <div className="mt-3 grid grid-cols-3 gap-2">
                     {(solicitud.fotos_producto ?? []).map((filename) => (
-                      <div key={filename} className="relative group rounded-lg overflow-hidden border border-gray-100 bg-gray-50">
+                      <div key={filename} className="relative group rounded-lg overflow-hidden border border-border bg-muted">
                         {/\.(jpg|jpeg|png|gif|webp)$/i.test(filename) ? (
                           <img
                             src={buildFotoUrl(filename)}
@@ -1941,7 +1941,7 @@ export function SolicitudDetallePage() {
                             href={buildFotoUrl(filename)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex flex-col items-center justify-center h-16 gap-1 text-gray-400 hover:text-brand-blue transition-colors"
+                            className="flex flex-col items-center justify-center h-16 gap-1 text-muted-foreground hover:text-brand-blue transition-colors"
                           >
                             <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
                               <path fillRule="evenodd" d="M4 4a2 2 0 0 1 2-2h4.586A2 2 0 0 1 12 2.586L15.414 6A2 2 0 0 1 16 7.414V16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4Z" clipRule="evenodd" />
@@ -2067,7 +2067,7 @@ function PanelAprobacion({
       </div>
 
       {/* Resumen de la cotización */}
-      <div className="bg-white rounded-lg border border-orange-100 p-4 mb-4 space-y-3">
+      <div className="bg-card rounded-lg border border-orange-100 p-4 mb-4 space-y-3">
         {/* Botón para ver el archivo adjunto — usa blob para evitar problemas de token en URL */}
         {cotizacion.pdf_path && (
           <button
@@ -2084,24 +2084,24 @@ function PanelAprobacion({
         {/* Proveedor + N° cotización */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <p className="text-xs text-gray-400">Proveedor</p>
-            <p className="text-sm font-semibold text-gray-800">{cotizacion.proveedor_nombre}</p>
+            <p className="text-xs text-muted-foreground">Proveedor</p>
+            <p className="text-sm font-semibold text-foreground">{cotizacion.proveedor_nombre}</p>
             {cotizacion.proveedor_nit && (
-              <p className="text-xs text-gray-400">NIT: {cotizacion.proveedor_nit}</p>
+              <p className="text-xs text-muted-foreground">NIT: {cotizacion.proveedor_nit}</p>
             )}
             {cotizacion.proveedor_email && (
-              <p className="text-xs text-gray-400">{cotizacion.proveedor_email}</p>
+              <p className="text-xs text-muted-foreground">{cotizacion.proveedor_email}</p>
             )}
           </div>
           <div>
-            <p className="text-xs text-gray-400">N° cotización</p>
-            <p className="text-sm font-medium text-gray-800">
+            <p className="text-xs text-muted-foreground">N° cotización</p>
+            <p className="text-sm font-medium text-foreground">
               {cotizacion.numero_cotizacion_proveedor ?? "—"}
             </p>
             {cotizacion.fecha_estimada_entrega && (
               <>
-                <p className="text-xs text-gray-400 mt-1">Fecha estimada de entrega</p>
-                <p className="text-xs text-gray-700">{cotizacion.fecha_estimada_entrega}</p>
+                <p className="text-xs text-muted-foreground mt-1">Fecha estimada de entrega</p>
+                <p className="text-xs text-foreground">{cotizacion.fecha_estimada_entrega}</p>
               </>
             )}
           </div>
@@ -2110,39 +2110,39 @@ function PanelAprobacion({
         {/* Tabla de ítems — solo si tiene ítems */}
         {cotizacion.items && cotizacion.items.length > 0 && (
           <div>
-            <p className="text-xs text-gray-400 mb-1.5">
+            <p className="text-xs text-muted-foreground mb-1.5">
               Ítems ({cotizacion.items.length})
             </p>
-            <div className="overflow-x-auto rounded-lg border border-gray-100">
+            <div className="overflow-x-auto rounded-lg border border-border">
               <table className="min-w-full text-xs">
-                <thead className="bg-gray-50">
+                <thead className="bg-muted">
                   <tr>
-                    <th className="px-2 py-1.5 text-left font-medium text-gray-500">#</th>
-                    <th className="px-2 py-1.5 text-left font-medium text-gray-500">Descripción</th>
-                    <th className="px-2 py-1.5 text-right font-medium text-gray-500">Cant.</th>
-                    <th className="px-2 py-1.5 text-right font-medium text-gray-500">V. Unit.</th>
-                    <th className="px-2 py-1.5 text-right font-medium text-gray-500">V. Total</th>
+                    <th className="px-2 py-1.5 text-left font-medium text-muted-foreground">#</th>
+                    <th className="px-2 py-1.5 text-left font-medium text-muted-foreground">Descripción</th>
+                    <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Cant.</th>
+                    <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">V. Unit.</th>
+                    <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">V. Total</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {cotizacion.items.map((item, i) => (
-                    <tr key={i} className="bg-white">
-                      <td className="px-2 py-1.5 text-gray-400 font-mono">{item.num ?? i + 1}</td>
-                      <td className="px-2 py-1.5 text-gray-700">
+                    <tr key={i} className="bg-background">
+                      <td className="px-2 py-1.5 text-muted-foreground font-mono">{item.num ?? i + 1}</td>
+                      <td className="px-2 py-1.5 text-foreground">
                         {item.descripcion}
                         {item.referencia && (
-                          <span className="ml-1 text-gray-400">({item.referencia})</span>
+                          <span className="ml-1 text-muted-foreground">({item.referencia})</span>
                         )}
                       </td>
-                      <td className="px-2 py-1.5 text-right text-gray-700">
+                      <td className="px-2 py-1.5 text-right text-foreground">
                         {item.cantidad ?? "—"}
                       </td>
-                      <td className="px-2 py-1.5 text-right text-gray-700 font-mono">
+                      <td className="px-2 py-1.5 text-right text-foreground font-mono">
                         {item.valor_unitario != null
                           ? formatCurrency(item.valor_unitario)
                           : "—"}
                       </td>
-                      <td className="px-2 py-1.5 text-right text-gray-800 font-mono font-medium">
+                      <td className="px-2 py-1.5 text-right text-foreground font-mono font-medium">
                         {item.valor_total != null
                           ? formatCurrency(item.valor_total)
                           : "—"}
@@ -2159,15 +2159,15 @@ function PanelAprobacion({
         <div className="border-t border-orange-100 pt-3 space-y-1.5">
           {cotizacion.valor_antes_iva != null && (
             <div className="flex justify-between items-center text-sm">
-              <span className="text-gray-500">Subtotal (sin IVA)</span>
-              <span className="font-medium text-gray-700">
+              <span className="text-muted-foreground">Subtotal (sin IVA)</span>
+              <span className="font-medium text-foreground">
                 {formatCurrency(cotizacion.valor_antes_iva)}
               </span>
             </div>
           )}
           {cotizacion.valor_iva != null && (
             <div className="flex justify-between items-center text-sm">
-              <span className="text-gray-500">IVA</span>
+              <span className="text-muted-foreground">IVA</span>
               <span className="font-medium text-orange-600">
                 + {formatCurrency(cotizacion.valor_iva)}
               </span>
@@ -2189,20 +2189,20 @@ function PanelAprobacion({
           <div className="grid grid-cols-2 gap-2 border-t border-orange-100 pt-3">
             {cotizacion.forma_pago && (
               <div>
-                <p className="text-xs text-gray-400">Forma de pago</p>
-                <p className="text-xs text-gray-700">{cotizacion.forma_pago}</p>
+                <p className="text-xs text-muted-foreground">Forma de pago</p>
+                <p className="text-xs text-foreground">{cotizacion.forma_pago}</p>
               </div>
             )}
             {cotizacion.plazo_entrega && (
               <div>
-                <p className="text-xs text-gray-400">Plazo entrega</p>
-                <p className="text-xs text-gray-700">{cotizacion.plazo_entrega}</p>
+                <p className="text-xs text-muted-foreground">Plazo entrega</p>
+                <p className="text-xs text-foreground">{cotizacion.plazo_entrega}</p>
               </div>
             )}
             {cotizacion.observaciones && (
               <div className="col-span-2">
-                <p className="text-xs text-gray-400">Observaciones</p>
-                <p className="text-xs text-gray-700">{cotizacion.observaciones}</p>
+                <p className="text-xs text-muted-foreground">Observaciones</p>
+                <p className="text-xs text-foreground">{cotizacion.observaciones}</p>
               </div>
             )}
           </div>
@@ -2211,7 +2211,7 @@ function PanelAprobacion({
 
       {/* Formulario de edición de la cotización */}
       {modo === "editar" && (
-        <div className="bg-white rounded-lg border border-blue-200 p-4 mb-3 space-y-4">
+        <div className="bg-card rounded-lg border border-blue-200 p-4 mb-3 space-y-4">
           <div className="flex items-center gap-2">
             <span className="text-blue-600 text-base">✎</span>
             <p className="text-sm font-semibold text-blue-800">Corregir datos de la cotización</p>
@@ -2219,42 +2219,42 @@ function PanelAprobacion({
 
           {/* Proveedor */}
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Proveedor</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Proveedor</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Nombre *</label>
+                <label className="block text-xs text-muted-foreground mb-1">Nombre *</label>
                 <input
                   type="text"
                   value={editForm.proveedor_nombre ?? ""}
                   onChange={(e) => setEditForm((f) => ({ ...f, proveedor_nombre: e.target.value }))}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">NIT</label>
+                <label className="block text-xs text-muted-foreground mb-1">NIT</label>
                 <input
                   type="text"
                   value={editForm.proveedor_nit ?? ""}
                   onChange={(e) => setEditForm((f) => ({ ...f, proveedor_nit: e.target.value }))}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Email</label>
+                <label className="block text-xs text-muted-foreground mb-1">Email</label>
                 <input
                   type="email"
                   value={editForm.proveedor_email ?? ""}
                   onChange={(e) => setEditForm((f) => ({ ...f, proveedor_email: e.target.value }))}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">N° cotización proveedor</label>
+                <label className="block text-xs text-muted-foreground mb-1">N° cotización proveedor</label>
                 <input
                   type="text"
                   value={editForm.numero_cotizacion_proveedor ?? ""}
                   onChange={(e) => setEditForm((f) => ({ ...f, numero_cotizacion_proveedor: e.target.value }))}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
                 />
               </div>
             </div>
@@ -2262,58 +2262,58 @@ function PanelAprobacion({
 
           {/* Valores */}
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Valores</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Valores</p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <FormFieldCOP
                 label="Subtotal sin IVA"
                 value={editForm.valor_antes_iva ?? undefined}
                 onChange={(v) => setEditForm((f) => ({ ...f, valor_antes_iva: v ?? null }))}
-                inputClassName="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                inputClassName="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
               />
               <FormFieldCOP
                 label="IVA"
                 value={editForm.valor_iva ?? undefined}
                 onChange={(v) => setEditForm((f) => ({ ...f, valor_iva: v ?? null }))}
-                inputClassName="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                inputClassName="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
               />
               <FormFieldCOP
                 label="Total con IVA *"
                 value={editForm.valor_total ?? undefined}
                 onChange={(v) => setEditForm((f) => ({ ...f, valor_total: v ?? 0 }))}
-                inputClassName="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-300"
+                inputClassName="w-full rounded-lg border border-border px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-300"
               />
             </div>
           </div>
 
           {/* Condiciones */}
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Condiciones</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Condiciones</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Forma de pago</label>
+                <label className="block text-xs text-muted-foreground mb-1">Forma de pago</label>
                 <input
                   type="text"
                   value={editForm.forma_pago ?? ""}
                   onChange={(e) => setEditForm((f) => ({ ...f, forma_pago: e.target.value }))}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Plazo de entrega</label>
+                <label className="block text-xs text-muted-foreground mb-1">Plazo de entrega</label>
                 <input
                   type="text"
                   value={editForm.plazo_entrega ?? ""}
                   onChange={(e) => setEditForm((f) => ({ ...f, plazo_entrega: e.target.value }))}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
                 />
               </div>
               <div className="sm:col-span-2">
-                <label className="block text-xs text-gray-500 mb-1">Observaciones</label>
+                <label className="block text-xs text-muted-foreground mb-1">Observaciones</label>
                 <textarea
                   rows={2}
                   value={editForm.observaciones ?? ""}
                   onChange={(e) => setEditForm((f) => ({ ...f, observaciones: e.target.value }))}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  className="w-full rounded-lg border border-border px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-300"
                 />
               </div>
             </div>
@@ -2329,7 +2329,7 @@ function PanelAprobacion({
             </button>
             <button
               onClick={() => setModo("idle")}
-              className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+              className="rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
             >
               Cancelar
             </button>
@@ -2339,10 +2339,10 @@ function PanelAprobacion({
 
       {/* Formulario de aprobación */}
       {modo === "aprobar" && (
-        <div className="bg-white rounded-lg border border-green-200 p-4 mb-3 space-y-3">
+        <div className="bg-card rounded-lg border border-green-200 p-4 mb-3 space-y-3">
           <p className="text-sm font-medium text-green-800">Confirmar aprobación</p>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">
+            <label className="block text-xs text-muted-foreground mb-1">
               Valor aprobado — total con IVA (puedes ajustarlo)
             </label>
             <input
@@ -2351,11 +2351,11 @@ function PanelAprobacion({
               step="0.01"
               value={valorAprobado}
               onChange={(e) => setValorAprobado(Number(e.target.value))}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-300"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-300"
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">
+            <label className="block text-xs text-muted-foreground mb-1">
               Observaciones (opcional)
             </label>
             <textarea
@@ -2363,7 +2363,7 @@ function PanelAprobacion({
               value={observaciones}
               onChange={(e) => setObservaciones(e.target.value)}
               placeholder="Condiciones, restricciones, etc."
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-green-300"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-green-300"
             />
           </div>
           <div className="flex gap-2">
@@ -2376,7 +2376,7 @@ function PanelAprobacion({
             </button>
             <button
               onClick={() => setModo("idle")}
-              className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+              className="rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
             >
               Cancelar
             </button>
@@ -2386,14 +2386,14 @@ function PanelAprobacion({
 
       {/* Formulario de rechazo */}
       {modo === "rechazar" && (
-        <div className="bg-white rounded-lg border border-red-200 p-4 mb-3 space-y-3">
+        <div className="bg-card rounded-lg border border-red-200 p-4 mb-3 space-y-3">
           <p className="text-sm font-medium text-red-800">Motivo del rechazo</p>
           <textarea
             rows={3}
             value={motivoRechazo}
             onChange={(e) => setMotivoRechazo(e.target.value)}
             placeholder="Explica el motivo para que el auxiliar busque otra cotización..."
-            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-300"
+            className="w-full rounded-lg border border-border px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-300"
           />
           <div className="flex gap-2">
             <button
@@ -2405,7 +2405,7 @@ function PanelAprobacion({
             </button>
             <button
               onClick={() => setModo("idle")}
-              className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+              className="rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
             >
               Cancelar
             </button>
@@ -2415,9 +2415,9 @@ function PanelAprobacion({
 
       {/* Formulario cancelar solicitud */}
       {modo === "cancelar" && (
-        <div className="bg-white rounded-lg border border-red-200 p-4 mb-3 space-y-3">
+        <div className="bg-card rounded-lg border border-red-200 p-4 mb-3 space-y-3">
           <p className="text-sm font-medium text-red-800">Cancelar solicitud definitivamente</p>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-muted-foreground">
             La solicitud quedará cancelada y se notificará al solicitante por correo.
           </p>
           <textarea
@@ -2425,7 +2425,7 @@ function PanelAprobacion({
             value={justificacionCancelar}
             onChange={(e) => setJustificacionCancelar(e.target.value)}
             placeholder="Motivo de la cancelación..."
-            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-300"
+            className="w-full rounded-lg border border-border px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-300"
             autoFocus
           />
           <div className="flex gap-2">
@@ -2436,7 +2436,7 @@ function PanelAprobacion({
             >
               {isLoading ? "Procesando..." : "Confirmar cancelación"}
             </button>
-            <button onClick={() => setModo("idle")} className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+            <button onClick={() => setModo("idle")} className="rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors">
               Volver
             </button>
           </div>
@@ -2445,19 +2445,19 @@ function PanelAprobacion({
 
       {/* Formulario mandar a corrección */}
       {modo === "correccion" && (
-        <div className="bg-white rounded-lg border border-amber-200 p-4 mb-3 space-y-3">
+        <div className="bg-card rounded-lg border border-amber-200 p-4 mb-3 space-y-3">
           <p className="text-sm font-medium text-amber-800">Mandar a corrección</p>
 
           {/* Selector destino */}
           <div>
-            <p className="text-xs font-medium text-gray-500 mb-1.5">¿Quién debe corregir?</p>
+            <p className="text-xs font-medium text-muted-foreground mb-1.5">¿Quién debe corregir?</p>
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => setDestinoCorreccion("auxiliar")}
                 className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
                   destinoCorreccion === "auxiliar"
                     ? "border-amber-400 bg-amber-50 text-amber-700"
-                    : "border-gray-200 text-gray-500 hover:bg-gray-50"
+                    : "border-border text-muted-foreground hover:bg-muted"
                 }`}
               >
                 Auxiliar de compras
@@ -2467,13 +2467,13 @@ function PanelAprobacion({
                 className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
                   destinoCorreccion === "solicitante"
                     ? "border-amber-400 bg-amber-50 text-amber-700"
-                    : "border-gray-200 text-gray-500 hover:bg-gray-50"
+                    : "border-border text-muted-foreground hover:bg-muted"
                 }`}
               >
                 Solicitante
               </button>
             </div>
-            <p className="text-xs text-gray-400 mt-1.5">
+            <p className="text-xs text-muted-foreground mt-1.5">
               {destinoCorreccion === "auxiliar"
                 ? "El auxiliar buscará una nueva cotización."
                 : "El solicitante deberá editar su solicitud desde la intranet."}
@@ -2485,7 +2485,7 @@ function PanelAprobacion({
             value={queCorregir}
             onChange={(e) => setQueCorregir(e.target.value)}
             placeholder="¿Qué debe corregir?..."
-            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-amber-300"
+            className="w-full rounded-lg border border-border px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-amber-300"
             autoFocus
           />
           <div className="flex gap-2">
@@ -2496,7 +2496,7 @@ function PanelAprobacion({
             >
               {isLoading ? "Procesando..." : "Confirmar corrección"}
             </button>
-            <button onClick={() => setModo("idle")} className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+            <button onClick={() => setModo("idle")} className="rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors">
               Volver
             </button>
           </div>
@@ -2535,7 +2535,7 @@ function PanelAprobacion({
           <div className="flex gap-2">
             <button
               onClick={() => setModo("rechazar")}
-              className="flex-1 rounded-lg bg-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-300 transition-colors"
+              className="flex-1 rounded-lg bg-muted px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted/80 transition-colors"
             >
               ↺ Buscar nueva cotización
             </button>
@@ -2617,7 +2617,7 @@ function RegenerarOCExpand({
         <select
           value={plataformaRegen}
           onChange={(e) => setPlataformaRegen(e.target.value)}
-          className={`min-w-[160px] flex-1 rounded-lg border bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 ${t.select}`}
+          className={`min-w-[160px] flex-1 rounded-lg border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 ${t.select}`}
         >
           <option value="">— Seleccionar —</option>
           {plataformasDisponibles.map((p) => (
@@ -2702,17 +2702,17 @@ function PanelOrdenCompra({
   // Estado cerrada — solo informativo
   if (estado === "cerrada") {
     return (
-      <div className="bg-gray-50 border border-gray-200 rounded-xl p-5">
+      <div className="bg-muted border border-border rounded-xl p-5">
         <div className="flex items-center gap-2">
-          <span className="text-gray-500 text-lg">✔</span>
+          <span className="text-muted-foreground text-lg">✔</span>
           <div>
-            <p className="text-sm font-semibold text-gray-700">Solicitud cerrada</p>
-            {orden && <p className="text-xs text-gray-400 font-mono">{orden.numero_oc}</p>}
+            <p className="text-sm font-semibold text-foreground">Solicitud cerrada</p>
+            {orden && <p className="text-xs text-muted-foreground font-mono">{orden.numero_oc}</p>}
           </div>
           {orden && (
             <button
               onClick={onDescargar}
-              className="ml-auto rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+              className="ml-auto rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted transition-colors"
             >
               ↓ Descargar OC
             </button>
@@ -2936,20 +2936,20 @@ function PanelOrdenCompra({
         {/* Modal confirmación email proveedor */}
         {showModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-            <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4 space-y-4">
-              <h3 className="text-base font-semibold text-gray-900">Enviar OC al proveedor</h3>
-              <p className="text-sm text-gray-500">
+            <div className="bg-card rounded-xl shadow-xl p-6 w-full max-w-md mx-4 space-y-4">
+              <h3 className="text-base font-semibold text-foreground">Enviar OC al proveedor</h3>
+              <p className="text-sm text-muted-foreground">
                 Confirma o edita el correo del proveedor. La OC se enviará como adjunto.
               </p>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
+                <label className="block text-xs font-medium text-foreground mb-1">
                   Correo del proveedor
                 </label>
                 <input
                   type="email"
                   value={emailInput}
                   onChange={(e) => setEmailInput(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="proveedor@empresa.com"
                   autoFocus
                 />
@@ -2964,7 +2964,7 @@ function PanelOrdenCompra({
                 </button>
                 <button
                   onClick={() => setShowModal(false)}
-                  className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                  className="rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
                 >
                   Cancelar
                 </button>
@@ -2997,7 +2997,7 @@ function PanelOrdenCompra({
         <select
           value={plataforma}
           onChange={(e) => setPlataforma(e.target.value)}
-          className="w-full rounded-lg border border-brand-blue/30 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+          className="w-full rounded-lg border border-brand-blue/30 px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
         >
           <option value="">— Sin asignar —</option>
           {plataformasDisponibles.map((p) => (
@@ -3028,7 +3028,7 @@ function CotizacionCard({ cotizacion: c }: { cotizacion: CotizacionProveedor }) 
       ? "border-green-100 bg-green-50"
       : c.aprobada === false
       ? "border-red-100 bg-red-50"
-      : "border-gray-100 bg-white"
+      : "border-border bg-card"
 
   const estadoLabel =
     c.aprobada === true ? "Aprobada" : c.aprobada === false ? "Rechazada" : "En revisión"
@@ -3043,37 +3043,37 @@ function CotizacionCard({ cotizacion: c }: { cotizacion: CotizacionProveedor }) 
   return (
     <div className={`rounded-lg border p-4 ${estadoColor}`}>
       <div className="flex items-center justify-between mb-2">
-        <p className="font-semibold text-gray-800 text-sm">{c.proveedor_nombre}</p>
+        <p className="font-semibold text-foreground text-sm">{c.proveedor_nombre}</p>
         <span className={`text-xs font-medium ${estadoTextColor}`}>{estadoLabel}</span>
       </div>
       <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
         <div>
-          <span className="text-gray-400">
+          <span className="text-muted-foreground">
             {c.valor_iva != null ? "Total con IVA: " : "Valor total: "}
           </span>
-          <span className="font-semibold text-gray-900">{formatCurrency(c.valor_total)}</span>
+          <span className="font-semibold text-foreground">{formatCurrency(c.valor_total)}</span>
         </div>
         {c.valor_aprobado != null && (
           <div>
-            <span className="text-gray-400">Valor aprobado: </span>
+            <span className="text-muted-foreground">Valor aprobado: </span>
             <span className="font-medium text-green-700">{formatCurrency(c.valor_aprobado)}</span>
           </div>
         )}
         {c.numero_cotizacion_proveedor && (
           <div>
-            <span className="text-gray-400">N° cotización: </span>
-            <span className="font-medium text-gray-700">{c.numero_cotizacion_proveedor}</span>
+            <span className="text-muted-foreground">N° cotización: </span>
+            <span className="font-medium text-foreground">{c.numero_cotizacion_proveedor}</span>
           </div>
         )}
         {c.fecha_estimada_entrega && (
           <div>
-            <span className="text-gray-400">Entrega estimada: </span>
-            <span className="font-medium text-gray-700">{c.fecha_estimada_entrega}</span>
+            <span className="text-muted-foreground">Entrega estimada: </span>
+            <span className="font-medium text-foreground">{c.fecha_estimada_entrega}</span>
           </div>
         )}
       </div>
       {c.observaciones_aprobacion && (
-        <p className="mt-2 text-xs text-gray-500 italic">
+        <p className="mt-2 text-xs text-muted-foreground italic">
           "{c.observaciones_aprobacion}"
         </p>
       )}
@@ -3085,8 +3085,8 @@ function CotizacionCard({ cotizacion: c }: { cotizacion: CotizacionProveedor }) 
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-      <h2 className="text-sm font-semibold text-gray-700 mb-4">{title}</h2>
+    <div className="bg-card rounded-xl border border-border shadow-sm p-5">
+      <h2 className="text-sm font-semibold text-foreground mb-4">{title}</h2>
       {children}
     </div>
   )
@@ -3099,8 +3099,8 @@ function InfoGrid({ children }: { children: React.ReactNode }) {
 function InfoItem({ label, value }: { label: string; value: string | null | undefined }) {
   return (
     <div>
-      <p className="text-xs text-gray-400">{label}</p>
-      <p className="text-sm text-gray-800 font-medium">{value ?? "—"}</p>
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="text-sm text-foreground font-medium">{value ?? "—"}</p>
     </div>
   )
 }
@@ -3118,13 +3118,13 @@ function TimelineItem({
     <div className="flex items-center gap-3">
       <div
         className={`h-2.5 w-2.5 rounded-full shrink-0 ${
-          done ? "bg-green-500" : "bg-gray-200"
+          done ? "bg-green-500" : "bg-muted-foreground/30"
         }`}
       />
       <div className="flex-1 min-w-0">
-        <p className={`text-sm ${done ? "text-gray-800" : "text-gray-400"}`}>{label}</p>
+        <p className={`text-sm ${done ? "text-foreground" : "text-muted-foreground"}`}>{label}</p>
         {date && (
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-muted-foreground">
             {formatFechaHora(date)}
           </p>
         )}
@@ -3169,7 +3169,7 @@ function TablaCotizacionesComparativa({ cotizaciones }: { cotizaciones: Cotizaci
       <table className="min-w-full text-sm border-separate border-spacing-0">
         <thead>
           <tr>
-            <th className="sticky left-0 bg-white text-left text-xs font-semibold text-gray-500 py-2 pr-4 w-36 min-w-36">
+            <th className="sticky left-0 bg-card text-left text-xs font-semibold text-muted-foreground py-2 pr-4 w-36 min-w-36">
               Campo
             </th>
             {cotizaciones.map((c, i) => (
@@ -3178,7 +3178,7 @@ function TablaCotizacionesComparativa({ cotizaciones }: { cotizaciones: Cotizaci
                 className={`text-left text-xs font-semibold py-2 px-3 min-w-44 ${
                   c.aprobada === true
                     ? "text-green-700 border-l-2 border-green-400"
-                    : "text-gray-600 border-l border-gray-100"
+                    : "text-foreground border-l border-border"
                 }`}
               >
                 Cotización {i + 1}
@@ -3194,7 +3194,7 @@ function TablaCotizacionesComparativa({ cotizaciones }: { cotizaciones: Cotizaci
           <ComparativaFila label="Proveedor">
             {cotizaciones.map((c) => (
               <td key={c.id} className={comparativaCellClass(c)}>
-                <span className="font-medium text-gray-800">{c.proveedor_nombre}</span>
+                <span className="font-medium text-foreground">{c.proveedor_nombre}</span>
               </td>
             ))}
           </ComparativaFila>
@@ -3203,7 +3203,7 @@ function TablaCotizacionesComparativa({ cotizaciones }: { cotizaciones: Cotizaci
           <ComparativaFila label="N° cotización">
             {cotizaciones.map((c) => (
               <td key={c.id} className={comparativaCellClass(c)}>
-                {c.numero_cotizacion_proveedor ?? <span className="text-gray-300">—</span>}
+                {c.numero_cotizacion_proveedor ?? <span className="text-muted-foreground/50">—</span>}
               </td>
             ))}
           </ComparativaFila>
@@ -3214,7 +3214,7 @@ function TablaCotizacionesComparativa({ cotizaciones }: { cotizaciones: Cotizaci
               <td key={c.id} className={comparativaCellClass(c)}>
                 {c.valor_antes_iva != null
                   ? formatCurrency(c.valor_antes_iva)
-                  : <span className="text-gray-300">—</span>}
+                  : <span className="text-muted-foreground/50">—</span>}
               </td>
             ))}
           </ComparativaFila>
@@ -3225,14 +3225,14 @@ function TablaCotizacionesComparativa({ cotizaciones }: { cotizaciones: Cotizaci
               <td key={c.id} className={comparativaCellClass(c)}>
                 {c.valor_iva != null
                   ? formatCurrency(c.valor_iva)
-                  : <span className="text-gray-300">—</span>}
+                  : <span className="text-muted-foreground/50">—</span>}
               </td>
             ))}
           </ComparativaFila>
 
           {/* TOTAL CON IVA — fila destacada */}
-          <tr className="bg-gray-50">
-            <td className="sticky left-0 bg-gray-50 text-xs font-bold text-gray-700 py-2.5 pr-4">
+          <tr className="bg-muted">
+            <td className="sticky left-0 bg-muted text-xs font-bold text-foreground py-2.5 pr-4">
               TOTAL CON IVA
             </td>
             {cotizaciones.map((c) => (
@@ -3241,7 +3241,7 @@ function TablaCotizacionesComparativa({ cotizaciones }: { cotizaciones: Cotizaci
                 className={`text-sm font-bold py-2.5 px-3 ${
                   c.aprobada === true
                     ? "text-green-700 border-l-2 border-green-400"
-                    : "text-gray-900 border-l border-gray-100"
+                    : "text-foreground border-l border-border"
                 }`}
               >
                 {formatCurrency(c.valor_total)}
@@ -3253,7 +3253,7 @@ function TablaCotizacionesComparativa({ cotizaciones }: { cotizaciones: Cotizaci
           <ComparativaFila label="Forma de pago">
             {cotizaciones.map((c) => (
               <td key={c.id} className={comparativaCellClass(c)}>
-                {c.forma_pago ?? <span className="text-gray-300">—</span>}
+                {c.forma_pago ?? <span className="text-muted-foreground/50">—</span>}
               </td>
             ))}
           </ComparativaFila>
@@ -3262,7 +3262,7 @@ function TablaCotizacionesComparativa({ cotizaciones }: { cotizaciones: Cotizaci
           <ComparativaFila label="Plazo entrega">
             {cotizaciones.map((c) => (
               <td key={c.id} className={comparativaCellClass(c)}>
-                {c.plazo_entrega ?? <span className="text-gray-300">—</span>}
+                {c.plazo_entrega ?? <span className="text-muted-foreground/50">—</span>}
               </td>
             ))}
           </ComparativaFila>
@@ -3292,10 +3292,10 @@ function TablaCotizacionesComparativa({ cotizaciones }: { cotizaciones: Cotizaci
 }
 
 function comparativaCellClass(c: CotizacionProveedor): string {
-  return `text-sm text-gray-700 py-2 px-3 ${
+  return `text-sm text-foreground py-2 px-3 ${
     c.aprobada === true
       ? "border-l-2 border-green-400 bg-green-50/40"
-      : "border-l border-gray-100"
+      : "border-l border-border"
   }`
 }
 
@@ -3307,8 +3307,8 @@ function ComparativaFila({
   children: React.ReactNode
 }) {
   return (
-    <tr className="border-t border-gray-50 hover:bg-gray-50/50 transition-colors">
-      <td className="sticky left-0 bg-white text-xs text-gray-400 font-medium py-2 pr-4">
+    <tr className="border-t border-border/30 hover:bg-muted/50 transition-colors">
+      <td className="sticky left-0 bg-card text-xs text-muted-foreground font-medium py-2 pr-4">
         {label}
       </td>
       {children}
@@ -3345,13 +3345,13 @@ function HistorialTimeline({ entradas }: { entradas: HistorialEntrada[] }) {
           ? "bg-amber-500"
           : isLast
             ? "bg-brand-blue"
-            : "bg-gray-300"
+            : "bg-muted-foreground/30"
 
         return (
           <div key={e.id} className="flex gap-3">
             <div className="flex flex-col items-center shrink-0">
               <div className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${dotClass}`} />
-              {!isLast && <div className="mt-1 flex-1 w-px bg-gray-100" />}
+              {!isLast && <div className="mt-1 flex-1 w-px bg-muted" />}
             </div>
 
             <div
@@ -3363,7 +3363,7 @@ function HistorialTimeline({ entradas }: { entradas: HistorialEntrada[] }) {
                     <span className="inline-block rounded-full bg-amber-200 px-2 py-0.5 text-xs font-semibold text-amber-900">
                       Corrección directiva
                     </span>
-                    <span className="text-xs font-medium text-gray-600">
+                    <span className="text-xs font-medium text-foreground">
                       Etapa conservada · {estadoDisplayLabel(e.estado_nuevo)}
                     </span>
                   </div>
@@ -3378,10 +3378,10 @@ function HistorialTimeline({ entradas }: { entradas: HistorialEntrada[] }) {
                 <div className="flex flex-wrap items-center gap-2">
                   {e.estado_anterior ? (
                     <>
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-muted-foreground">
                         {estadoDisplayLabel(e.estado_anterior)}
                       </span>
-                      <span className="text-xs text-gray-300">→</span>
+                      <span className="text-xs text-muted-foreground/50">→</span>
                     </>
                   ) : null}
                   <span
@@ -3390,7 +3390,7 @@ function HistorialTimeline({ entradas }: { entradas: HistorialEntrada[] }) {
                     {estadoDisplayLabel(e.estado_nuevo)}
                   </span>
                   {accionLabel && (
-                    <span className="inline-block max-w-full rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] font-medium leading-snug text-gray-600">
+                    <span className="inline-block max-w-full rounded-md border border-border bg-muted px-2 py-0.5 text-[11px] font-medium leading-snug text-foreground">
                       {accionLabel}
                     </span>
                   )}
@@ -3399,9 +3399,9 @@ function HistorialTimeline({ entradas }: { entradas: HistorialEntrada[] }) {
 
               <div className="mt-0.5 flex flex-wrap items-center gap-2">
                 {e.usuario_nombre ? (
-                  <span className="text-xs text-gray-500">{e.usuario_nombre}</span>
+                  <span className="text-xs text-muted-foreground">{e.usuario_nombre}</span>
                 ) : null}
-                <span className="text-xs text-gray-400">{formatFechaRelativa(e.fecha)}</span>
+                <span className="text-xs text-muted-foreground">{formatFechaRelativa(e.fecha)}</span>
                 {!esCorrDir && e.es_reproceso ? (
                   <span className="text-[11px] font-medium text-amber-700">· Reproceso</span>
                 ) : null}
@@ -3417,7 +3417,7 @@ function HistorialTimeline({ entradas }: { entradas: HistorialEntrada[] }) {
 
 function notasParagraph(notas: string | null): ReactNode {
   if (!notas?.trim()) return null
-  return <p className="mt-1 text-xs italic text-gray-600">&quot;{notas}&quot;</p>
+  return <p className="mt-1 text-xs italic text-foreground">&quot;{notas}&quot;</p>
 }
 
 function estadoBadgeClass(estado: string): string {
@@ -3432,7 +3432,7 @@ function estadoBadgeClass(estado: string): string {
     oc_enviada: "bg-indigo-100 text-indigo-700",
     oc_en_plataforma: "bg-violet-100 text-violet-700",
     entregada: "bg-teal-100 text-teal-700",
-    cerrada: "bg-gray-100 text-gray-600",
+    cerrada: "bg-muted text-foreground",
   }
-  return map[estado] ?? "bg-gray-100 text-gray-600"
+  return map[estado] ?? "bg-muted text-foreground"
 }

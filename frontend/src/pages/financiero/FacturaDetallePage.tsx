@@ -22,6 +22,10 @@ import { formatCOP } from "@/lib/formatters"
 import { FormFieldCOP } from "@/components/forms/FormFieldCOP"
 import { api, openAuthenticatedApiBlob } from "@/lib/api"
 import { VistaFacturacionModal } from "@/components/financiero/VistaFacturacionModal"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 
 // ── Helpers de legibilidad ────────────────────────────────────────────────────
 
@@ -242,7 +246,7 @@ export function FacturaDetallePage() {
 
   if (loadingSolicitud) {
     return (
-      <PageLayout title="Financiero" mainClassName="flex-1 flex items-center justify-center text-gray-500 text-sm">
+      <PageLayout title="Financiero" mainClassName="flex-1 flex items-center justify-center text-muted-foreground text-sm">
         Cargando…
       </PageLayout>
     )
@@ -251,14 +255,15 @@ export function FacturaDetallePage() {
   if (errorSolicitud || !solicitud) {
     return (
       <PageLayout title="Financiero" mainClassName="flex-1 flex flex-col items-center justify-center gap-3 p-6">
-        <p className="text-sm text-gray-600">Esta solicitud no está disponible en Financiero o no existe.</p>
-        <button
+        <p className="text-sm text-muted-foreground">Esta solicitud no está disponible en Financiero o no existe.</p>
+        <Button
           type="button"
+          variant="ghost"
           onClick={() => navigate("/financiero/facturas")}
-          className="text-sm text-brand-blue font-medium hover:underline"
+          className="text-sm text-brand-blue font-medium"
         >
           Volver al listado
-        </button>
+        </Button>
       </PageLayout>
     )
   }
@@ -271,52 +276,51 @@ export function FacturaDetallePage() {
         solicitud={solicitud}
         factura={factura ?? null}
       />
-      {showDraftModal && borrador && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full mx-4">
-            <h2 className="text-lg font-bold text-gray-900 mb-2">Borrador guardado</h2>
-            <p className="text-sm text-gray-500 mb-1">
-              Tienes un borrador de factura guardado del{" "}
-              <span className="font-medium text-gray-700">
-                {new Date(borrador.updated_at).toLocaleDateString("es-CO", {
-                  day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit",
-                })}
-              </span>
-            </p>
-            <p className="text-sm text-gray-500 mb-5">¿Deseas continuar donde lo dejaste?</p>
-            <div className="flex gap-3 justify-end">
-              <button
-                type="button"
-                onClick={descartarBorrador}
-                className="px-4 py-2 rounded-lg text-sm text-gray-600 border border-gray-200 hover:bg-gray-50"
-              >
-                Descartar
-              </button>
-              <button
-                type="button"
-                onClick={restaurarBorrador}
-                className="px-4 py-2 rounded-lg text-sm bg-blue-600 text-white hover:bg-blue-700 font-medium"
-              >
-                Continuar borrador
-              </button>
-            </div>
+      <Dialog open={showDraftModal && !!borrador} onOpenChange={(open) => { if (!open) descartarBorrador() }}>
+        <DialogContent className="max-w-md">
+          <DialogTitle className="text-lg font-bold text-foreground mb-2">Borrador guardado</DialogTitle>
+          <p className="text-sm text-muted-foreground mb-1">
+            Tienes un borrador de factura guardado del{" "}
+            <span className="font-medium text-foreground">
+              {borrador && new Date(borrador.updated_at).toLocaleDateString("es-CO", {
+                day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit",
+              })}
+            </span>
+          </p>
+          <p className="text-sm text-muted-foreground mb-5">¿Deseas continuar donde lo dejaste?</p>
+          <div className="flex gap-3 justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={descartarBorrador}
+            >
+              Descartar
+            </Button>
+            <Button
+              type="button"
+              onClick={restaurarBorrador}
+            >
+              Continuar borrador
+            </Button>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
       <PageLayout title="Financiero">
           {/* Back button */}
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => navigate("/financiero/facturas")}
-            className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-600 mb-6 transition-colors"
+            className="text-muted-foreground mb-6"
           >
             ← Volver
-          </button>
+          </Button>
 
           {/* Header con estado */}
           <div className="flex items-start justify-between gap-3 mb-6 flex-wrap">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-xl font-bold text-gray-900">
+                <h1 className="text-xl font-bold text-foreground">
                   {solicitud?.consecutivo_os ?? solicitudId}
                 </h1>
                 {(solicitud?.empresa_compra_nombre || solicitud?.plataforma) && (
@@ -331,28 +335,29 @@ export function FacturaDetallePage() {
                   <FacturaEstadoBadge estado={(factura?.estado ?? solicitud.factura_estado)!} />
                 )}
               </div>
-              <p className="text-sm text-gray-500 mt-0.5 truncate max-w-xl">
+              <p className="text-sm text-muted-foreground mt-0.5 truncate max-w-xl">
                 {solicitud?.descripcion ?? "Sin descripción"}
               </p>
             </div>
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={() => setShowVistaFacturacion(true)}
-              className="shrink-0 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 transition-colors shadow-sm"
+              className="shrink-0"
             >
               Vista facturación
-            </button>
+            </Button>
           </div>
 
           <div className="space-y-6">
             {/* Bitácora financiera (todo el ciclo; proforma/anticipo) */}
-            <section className="bg-white rounded-xl border border-amber-100 shadow-sm p-6">
+            <section className="bg-card rounded-xl border border-amber-100 shadow-sm p-6">
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
                 <div>
-                  <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide">
+                  <h2 className="text-sm font-bold text-foreground uppercase tracking-wide">
                     Bitácora / observaciones del proceso
                   </h2>
-                  <p className="text-xs text-gray-500 mt-1 max-w-2xl">
+                  <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
                     Notas internas de contabilidad durante la compra (anticipo, proforma, dudas antes de validar la
                     factura). Independiente de las observaciones del documento de factura.
                   </p>
@@ -382,40 +387,40 @@ export function FacturaDetallePage() {
                   setBitacoraDirty(true)
                 }}
                 placeholder="Ej.: Anticipo aprobado 15/04; pendiente conciliar con factura final…"
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30 resize-y min-h-[88px]"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-y min-h-[88px]"
               />
               <div className="flex items-center justify-between mt-3 gap-2">
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-muted-foreground">
                   {solicitud.seguimiento_updated_at
                     ? `Último guardado: ${new Date(solicitud.seguimiento_updated_at).toLocaleString("es-CO")}`
                   : "Sin guardados aún"}
                 </p>
-                <button
+                <Button
                   type="button"
                   onClick={handleGuardarBitacora}
                   disabled={!bitacoraDirty || actualizarSeguimiento.isPending}
-                  className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:brightness-105 disabled:opacity-50 transition-all"
+                  className="bg-amber-600 hover:bg-amber-700"
                 >
                   {actualizarSeguimiento.isPending ? "Guardando…" : "Guardar bitácora"}
-                </button>
+                </Button>
               </div>
             </section>
 
             {/* Cotizaciones cargadas (solo lectura + adjuntos) */}
-            <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-              <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-1">
+            <section className="bg-card rounded-xl border border-border shadow-sm p-6">
+              <h2 className="text-sm font-bold text-foreground uppercase tracking-wide mb-1">
                 Cotizaciones del proceso
               </h2>
-              <p className="text-xs text-gray-500 mb-4">
+              <p className="text-xs text-muted-foreground mb-4">
                 Vista de cotizaciones cargadas por Compras. Puede abrir adjuntos; no se suben archivos desde Financiero.
               </p>
               {cotizacionesLista.length === 0 ? (
-                <p className="text-sm text-gray-400">No hay cotizaciones registradas.</p>
+                <p className="text-sm text-muted-foreground">No hay cotizaciones registradas.</p>
               ) : (
-                <div className="overflow-x-auto rounded-lg border border-gray-100">
+                <div className="overflow-x-auto rounded-lg border border-border">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="text-left text-xs font-medium text-gray-500 uppercase border-b border-gray-100 bg-gray-50">
+                      <tr className="text-left text-xs font-medium text-muted-foreground uppercase border-b border-border bg-muted">
                         <th className="px-3 py-2">Fecha</th>
                         <th className="px-3 py-2">Proveedor</th>
                         <th className="px-3 py-2">N° cot. prov.</th>
@@ -425,10 +430,10 @@ export function FacturaDetallePage() {
                         <th className="px-3 py-2">Adjunto</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-50">
+                    <tbody className="divide-y divide-border">
                       {cotizacionesLista.map((c) => (
-                        <tr key={c.id} className="text-gray-800">
-                          <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">
+                        <tr key={c.id} className="text-foreground">
+                          <td className="px-3 py-2 whitespace-nowrap text-xs text-muted-foreground">
                             {new Date(c.created_at).toLocaleString("es-CO", {
                               dateStyle: "short",
                               timeStyle: "short",
@@ -437,7 +442,7 @@ export function FacturaDetallePage() {
                           <td className="px-3 py-2">
                             <span className="font-medium">{c.proveedor_nombre}</span>
                             {c.proveedor_nit && (
-                              <span className="block text-xs text-gray-500">NIT {c.proveedor_nit}</span>
+                              <span className="block text-xs text-muted-foreground">NIT {c.proveedor_nit}</span>
                             )}
                           </td>
                           <td className="px-3 py-2 text-xs font-mono">
@@ -465,15 +470,17 @@ export function FacturaDetallePage() {
                           </td>
                           <td className="px-3 py-2">
                             {c.tiene_adjunto ? (
-                              <button
+                              <Button
                                 type="button"
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => handleVerAdjuntoCotizacion(c.id)}
-                                className="text-xs font-medium text-brand-blue hover:underline"
+                                className="text-xs font-medium text-brand-blue hover:underline p-0 h-auto"
                               >
                                 Ver archivo
-                              </button>
+                              </Button>
                             ) : (
-                              <span className="text-xs text-gray-400">Sin archivo</span>
+                              <span className="text-xs text-muted-foreground">Sin archivo</span>
                             )}
                           </td>
                         </tr>
@@ -485,31 +492,33 @@ export function FacturaDetallePage() {
             </section>
 
             {/* ── Sección A: Info de la OC ───────────────────────────────── */}
-            <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+            <section className="bg-card rounded-xl border border-border shadow-sm p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide">
+                  <h2 className="text-sm font-bold text-foreground uppercase tracking-wide">
                     Información de la OC
                   </h2>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Datos de la orden emitida y de la cotización aprobada asociada (referencia para conciliar con la factura).
                   </p>
                 </div>
-                <button
+                <Button
                   type="button"
+                  variant="outline"
+                  size="sm"
                   onClick={() =>
                     openAuthenticatedApiBlob(
                       `/api/financiero/solicitudes/${solicitudId}/descargar-oc`
                     )
                   }
-                  className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                  className="flex items-center gap-1.5"
                 >
                   <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M10.75 2.75a.75.75 0 0 0-1.5 0v8.614L6.295 8.235a.75.75 0 1 0-1.09 1.03l4.25 4.5a.75.75 0 0 0 1.09 0l4.25-4.5a.75.75 0 0 0-1.09-1.03l-2.955 3.129V2.75Z" />
                     <path d="M3.5 12.75a.75.75 0 0 0-1.5 0v2.5A2.75 2.75 0 0 0 4.75 18h10.5A2.75 2.75 0 0 0 18 15.25v-2.5a.75.75 0 0 0-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5Z" />
                   </svg>
                   Descargar OC
-                </button>
+                </Button>
               </div>
 
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 text-sm">
@@ -529,23 +538,23 @@ export function FacturaDetallePage() {
             </section>
 
             {/* ── Nueva sección comparativa: OC + Formulario | Visor PDF ─── */}
-            <section className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="px-6 pt-5 pb-3 border-b border-gray-100">
-                <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide">
+            <section className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+              <div className="px-6 pt-5 pb-3 border-b border-border">
+                <h2 className="text-sm font-bold text-foreground uppercase tracking-wide">
                   Factura del proveedor
                 </h2>
-                <p className="text-xs text-gray-500 mt-0.5">
+                <p className="text-xs text-muted-foreground mt-0.5">
                   Complete los tres campos y adjunte el archivo. La fecha se pre-rellena con el día de hoy.
                 </p>
               </div>
 
               <div className="flex min-h-[600px]">
                 {/* ── Columna izquierda ───────────────────────────────────── */}
-                <div className="w-1/2 border-r border-gray-100 flex flex-col">
+                <div className="w-1/2 border-r border-border flex flex-col">
 
                   {/* Cuadrante 1: Referencia de la OC */}
-                  <div className="p-5 border-b border-gray-100 flex-shrink-0">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                  <div className="p-5 border-b border-border flex-shrink-0">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
                       Referencia OC
                     </p>
                     <div className="space-y-2">
@@ -574,13 +583,13 @@ export function FacturaDetallePage() {
                           {solicitud.items_cotizacion.map((item, idx) => (
                             <div
                               key={idx}
-                              className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-700"
+                              className="rounded-lg bg-muted px-3 py-2 text-xs text-foreground"
                             >
                               <span className="font-medium">
                                 {item.descripcion ?? `Ítem ${idx + 1}`}
                               </span>
                               {item.cantidad != null && (
-                                <span className="ml-2 text-gray-500">× {item.cantidad}</span>
+                                <span className="ml-2 text-muted-foreground">× {item.cantidad}</span>
                               )}
                               {item.valor_total != null && (
                                 <span className="ml-2 font-mono text-gray-600">
@@ -596,12 +605,12 @@ export function FacturaDetallePage() {
 
                   {/* Cuadrante 2: Formulario de facturación */}
                   <div className="p-5 flex-1 flex flex-col">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
                       Datos de la factura
                     </p>
 
                     {!solicitud.factura_id && crearFacturaBorrador.isPending && (
-                      <div className="py-8 text-center text-sm text-gray-500">Preparando registro…</div>
+                      <div className="py-8 text-center text-sm text-muted-foreground">Preparando registro…</div>
                     )}
 
                     {!solicitud.factura_id && crearFacturaBorrador.isError && (
@@ -701,25 +710,27 @@ export function FacturaDetallePage() {
                         </div>
 
                         <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-2">
-                          <button
+                          <Button
                             type="button"
+                            variant="outline"
+                            size="sm"
                             onClick={handleEliminar}
                             disabled={eliminarFactura.isPending}
-                            className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors flex items-center gap-1"
+                            className="border-red-200 text-red-600 hover:bg-red-50 flex items-center gap-1"
                           >
                             <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
                               <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z" clipRule="evenodd" />
                             </svg>
                             {eliminarFactura.isPending ? "Eliminando…" : "Eliminar"}
-                          </button>
+                          </Button>
                           <div className="flex gap-2">
-                            <button
+                            <Button
+                              size="sm"
                               onClick={handleGuardar}
                               disabled={!formDirty || actualizarFactura.isPending}
-                              className="rounded-lg bg-brand-blue px-3 py-1.5 text-xs font-semibold text-white hover:brightness-105 disabled:opacity-50 transition-all"
                             >
                               {actualizarFactura.isPending ? "Guardando…" : "Guardar cambios"}
-                            </button>
+                            </Button>
                           </div>
                         </div>
                       </>
@@ -728,32 +739,34 @@ export function FacturaDetallePage() {
                 </div>
 
                 {/* ── Columna derecha: Visor PDF ────────────────────────────── */}
-                <div className="w-1/2 flex flex-col bg-gray-50">
-                  <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                <div className="w-1/2 flex flex-col bg-muted">
+                  <div className="px-4 py-3 border-b border-border flex items-center justify-between flex-shrink-0">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                       Vista previa de la factura
                     </p>
                     {factura?.pdf_path && (
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="sm"
                         onClick={() =>
                           openAuthenticatedApiBlob(`/api/financiero/facturas/${facturaId}/pdf`)
                         }
-                        className="text-xs text-brand-blue hover:underline flex items-center gap-1"
+                        className="text-xs text-brand-blue hover:underline flex items-center gap-1 h-auto p-0"
                       >
                         <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
                           <path fillRule="evenodd" d="M4.25 5.5a.75.75 0 0 0-.75.75v8.5c0 .414.336.75.75.75h8.5a.75.75 0 0 0 .75-.75v-4a.75.75 0 0 1 1.5 0v4A2.25 2.25 0 0 1 12.75 17h-8.5A2.25 2.25 0 0 1 2 14.75v-8.5A2.25 2.25 0 0 1 4.25 4h5a.75.75 0 0 1 0 1.5h-5Z" clipRule="evenodd" />
                           <path fillRule="evenodd" d="M6.194 12.753a.75.75 0 0 0 1.06.053L16.5 4.44v2.81a.75.75 0 0 0 1.5 0v-4.5a.75.75 0 0 0-.75-.75h-4.5a.75.75 0 0 0 0 1.5h2.553l-9.056 8.194a.75.75 0 0 0-.053 1.06Z" clipRule="evenodd" />
                         </svg>
                         Abrir en pestaña
-                      </button>
+                      </Button>
                     )}
                   </div>
 
                   <div className="flex-1 relative">
                     {!factura?.pdf_path && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 text-gray-400">
-                        <svg className="w-12 h-12 mb-3 text-gray-200" viewBox="0 0 24 24" fill="currentColor">
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 text-muted-foreground">
+                        <svg className="w-12 h-12 mb-3 text-border" viewBox="0 0 24 24" fill="currentColor">
                           <path d="M5 4a2 2 0 0 1 2-2h6l5 5v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4Z" />
                         </svg>
                         <p className="text-sm">Adjunte un archivo PDF para verlo aquí</p>
@@ -762,22 +775,24 @@ export function FacturaDetallePage() {
                     )}
 
                     {factura?.pdf_path && !factura.pdf_path.toLowerCase().endsWith(".pdf") && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 text-gray-400">
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 text-muted-foreground">
                         <p className="text-sm">Vista previa solo disponible para PDF.</p>
-                        <button
+                        <Button
                           type="button"
+                          variant="ghost"
+                          size="sm"
                           onClick={() =>
                             openAuthenticatedApiBlob(`/api/financiero/facturas/${facturaId}/pdf`)
                           }
                           className="mt-3 text-sm text-brand-blue hover:underline font-medium"
                         >
                           Descargar archivo adjunto
-                        </button>
+                        </Button>
                       </div>
                     )}
 
                     {factura?.pdf_path?.toLowerCase().endsWith(".pdf") && pdfLoading && (
-                      <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">
+                      <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm">
                         Cargando PDF…
                       </div>
                     )}
@@ -796,8 +811,8 @@ export function FacturaDetallePage() {
 
             {/* ── Sección D: Cuentas Contables ──────────────────────────── */}
             {factura && (
-              <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-                <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-4">
+              <section className="bg-card rounded-xl border border-border shadow-sm p-6">
+                <h2 className="text-sm font-bold text-foreground uppercase tracking-wide mb-4">
                   Cuentas Contables
                 </h2>
 
@@ -810,7 +825,7 @@ export function FacturaDetallePage() {
                     onChange={(v) => setCuentaSeleccionada(v as number | null)}
                     placeholder="Buscar cuenta por número o nombre..."
                   />
-                  <button
+                  <Button
                     onClick={() => {
                       if (!cuentaSeleccionada || !facturaId) return
                       asignarCuenta.mutate(
@@ -819,37 +834,39 @@ export function FacturaDetallePage() {
                       )
                     }}
                     disabled={!cuentaSeleccionada || asignarCuenta.isPending}
-                    className="rounded-lg bg-brand-blue px-4 py-2 text-sm font-medium text-white hover:brightness-105 disabled:opacity-50 transition-all shrink-0"
+                    className="shrink-0"
                   >
                     Agregar
-                  </button>
+                  </Button>
                 </div>
 
                 {/* Lista de cuentas asignadas */}
                 {cuentasAsignadas.length === 0 ? (
-                  <p className="text-sm text-gray-400">No hay cuentas contables asignadas a esta factura.</p>
+                  <p className="text-sm text-muted-foreground">No hay cuentas contables asignadas a esta factura.</p>
                 ) : (
-                  <ul className="divide-y divide-gray-50">
+                  <ul className="divide-y divide-border">
                     {cuentasAsignadas.map((a) => (
                       <li key={a.id} className="flex items-center justify-between py-2.5 text-sm">
                         <div className="flex items-center gap-3">
-                          <span className="font-mono text-xs text-gray-400 w-14">{a.numero_cuenta}</span>
+                          <span className="font-mono text-xs text-muted-foreground w-14">{a.numero_cuenta}</span>
                           <div>
-                            <p className="text-gray-800 font-medium">{a.nombre_cuenta}</p>
+                            <p className="text-foreground font-medium">{a.nombre_cuenta}</p>
                             {a.tipo_gasto_nombre && (
-                              <p className="text-xs text-gray-400">{a.tipo_gasto_nombre}</p>
+                              <p className="text-xs text-muted-foreground">{a.tipo_gasto_nombre}</p>
                             )}
                           </div>
                         </div>
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => {
                             if (!facturaId) return
                             quitarCuenta.mutate({ facturaId, asignacionId: a.id })
                           }}
-                          className="text-xs text-red-500 hover:text-red-700 transition-colors ml-4"
+                          className="text-xs text-red-500 hover:text-red-700 ml-4"
                         >
                           Quitar
-                        </button>
+                        </Button>
                       </li>
                     ))}
                   </ul>
@@ -875,8 +892,8 @@ function InfoField({
 }) {
   return (
     <div>
-      <p className="text-xs text-gray-400">{label}</p>
-      <p className={`text-sm font-medium text-gray-800 ${mono ? "font-mono" : ""}`}>
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className={`text-sm font-medium text-foreground ${mono ? "font-mono" : ""}`}>
         {value ?? "—"}
       </p>
     </div>
@@ -894,12 +911,11 @@ function FormField({
 }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
-      <input
+      <Label className="block text-xs font-medium mb-1">{label}</Label>
+      <Input
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
       />
     </div>
   )
@@ -916,12 +932,11 @@ function FormFieldDate({
 }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
-      <input
+      <Label className="block text-xs font-medium mb-1">{label}</Label>
+      <Input
         type="date"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
       />
     </div>
   )
@@ -936,8 +951,8 @@ function OcRefField({
 }) {
   return (
     <div className="flex items-start gap-2 text-sm">
-      <span className="text-xs text-gray-400 w-32 shrink-0 pt-0.5">{label}</span>
-      <span className="text-gray-800 font-medium">{value ?? "—"}</span>
+      <span className="text-xs text-muted-foreground w-32 shrink-0 pt-0.5">{label}</span>
+      <span className="text-foreground font-medium">{value ?? "—"}</span>
     </div>
   )
 }

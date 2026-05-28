@@ -4,6 +4,7 @@ import { PageLayout } from "@/components/layout/PageLayout"
 import { OcSolicitudesPagination } from "@/components/oc/OcSolicitudesPagination"
 import { useSolicitudes, OC_SOLICITUDES_PAGE_SIZE } from "@/hooks/useOC"
 import { EstadoBadge } from "./SolicitudesPage"
+import { Button } from "@/components/ui/button"
 import type { SolicitudOC } from "@/types/oc"
 
 export function AprobacionPage() {
@@ -28,8 +29,8 @@ export function AprobacionPage() {
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-xl font-bold text-gray-900">Panel de Aprobaciones</h1>
-              <p className="text-sm text-gray-500 mt-0.5">
+              <h1 className="text-xl font-bold text-foreground">Panel de Aprobaciones</h1>
+              <p className="text-sm text-muted-foreground mt-0.5">
                 Solicitudes pendientes de tu revisión
                 {isRefetching && (
                   <span className="ml-2 text-brand-blue/60">actualizando...</span>
@@ -45,14 +46,14 @@ export function AprobacionPage() {
 
           {/* Contenido */}
           {isLoading ? (
-            <div className="flex items-center justify-center py-16 text-gray-400 text-sm">
+            <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">
               Cargando...
             </div>
           ) : solicitudes.length === 0 ? (
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm flex flex-col items-center justify-center py-20 text-center">
+            <div className="bg-card rounded-xl border border-border shadow-sm flex flex-col items-center justify-center py-20 text-center">
               <div className="text-4xl mb-4">✅</div>
-              <p className="text-gray-700 font-medium">Sin pendientes</p>
-              <p className="text-gray-400 text-sm mt-1">
+              <p className="text-foreground font-medium">Sin pendientes</p>
+              <p className="text-muted-foreground text-sm mt-1">
                 No hay cotizaciones esperando tu aprobación.
               </p>
             </div>
@@ -89,7 +90,7 @@ function AprobacionCard({
   )
 
   return (
-    <div className="bg-white rounded-xl border border-orange-100 shadow-sm p-5 flex items-center justify-between gap-4 hover:border-orange-200 transition-colors">
+    <div className="bg-card rounded-xl border border-orange-100 shadow-sm p-5 flex items-center justify-between gap-4 hover:border-orange-200 transition-colors">
       <div className="flex items-start gap-4 min-w-0">
         {/* Indicador de urgencia */}
         <div
@@ -98,7 +99,7 @@ function AprobacionCard({
               ? "bg-red-500"
               : s.nivel_prioridad === "Media"
               ? "bg-yellow-500"
-              : "bg-gray-300"
+              : "bg-muted-foreground/30"
           }`}
         />
 
@@ -108,12 +109,12 @@ function AprobacionCard({
               {s.consecutivo_os}
             </span>
             <EstadoBadge estado={s.estado} />
-            <span className="text-xs text-gray-400">· Prioridad {s.nivel_prioridad}</span>
+            <span className="text-xs text-muted-foreground">· Prioridad {s.nivel_prioridad}</span>
           </div>
 
-          <p className="font-medium text-gray-900 truncate">{s.descripcion}</p>
+          <p className="font-medium text-foreground truncate">{s.descripcion}</p>
 
-          <div className="flex items-center gap-4 mt-1.5 text-xs text-gray-400">
+          <div className="flex items-center gap-4 mt-1.5 text-xs text-muted-foreground">
             <span>Cant: {s.cantidad}</span>
             {s.area_solicitante && <span>{s.area_solicitante}</span>}
             {s.sede && <span>{s.sede}</span>}
@@ -125,22 +126,23 @@ function AprobacionCard({
       <div className="flex items-center gap-4 shrink-0">
         {/* Días en espera */}
         <div className="text-right hidden md:block">
-          <p className="text-xs text-gray-400">En espera</p>
+          <p className="text-xs text-muted-foreground">En espera</p>
           <p
             className={`text-sm font-semibold ${
-              diasEspera >= 3 ? "text-red-500" : "text-gray-700"
+              diasEspera >= 3 ? "text-red-500" : "text-foreground"
             }`}
           >
             {diasEspera === 0 ? "Hoy" : `${diasEspera}d`}
           </p>
         </div>
 
-        <button
+        <Button
           onClick={onRevisar}
-          className="rounded-lg bg-brand-blue px-4 py-2 text-sm font-medium text-white hover:bg-brand-blue/90 transition-colors"
+          variant="default"
+          size="sm"
         >
           Revisar
-        </button>
+        </Button>
       </div>
     </div>
   )

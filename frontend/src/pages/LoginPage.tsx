@@ -1,6 +1,9 @@
 import { useState, type FormEvent } from "react"
 import { useNavigate } from "react-router-dom"
 import { useLogin } from "@/hooks/useAuth"
+import { Card, CardHeader, CardContent } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -43,7 +46,7 @@ export function LoginPage() {
       </div>
 
       {/* Panel derecho — formulario */}
-      <div className="flex-1 flex items-center justify-center bg-gray-50 px-6 py-12">
+      <div className="flex-1 flex items-center justify-center bg-muted px-6 py-12">
         <div className="w-full max-w-md">
           {/* Logo móvil */}
           <div className="lg:hidden mb-8 text-center">
@@ -52,70 +55,74 @@ export function LoginPage() {
             </h1>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-1">
-              Bienvenido
-            </h2>
-            <p className="text-gray-500 text-sm mb-8">
-              Ingresa tus credenciales para acceder
-            </p>
+          <Card className="rounded-2xl">
+            <CardHeader>
+              <h2 className="text-2xl font-bold text-foreground">
+                Bienvenido
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Ingresa tus credenciales para acceder
+              </p>
+            </CardHeader>
 
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div>
-                <label
-                  htmlFor="email"
-                  className="block text-sm font-medium text-gray-700 mb-1.5"
-                >
-                  Correo electrónico
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="usuario@zymo.com"
-                  className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-brand-blue focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20 transition-colors"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="password"
-                  className="block text-sm font-medium text-gray-700 mb-1.5"
-                >
-                  Contraseña
-                </label>
-                <input
-                  id="password"
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-brand-blue focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20 transition-colors"
-                />
-              </div>
-
-              {error && (
-                <div className="rounded-lg bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-700">
-                  Credenciales incorrectas. Verifica tu correo y contraseña.
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div>
+                  <label
+                    htmlFor="email"
+                    className="block text-sm font-medium text-foreground mb-1.5"
+                  >
+                    Correo electrónico
+                  </label>
+                  <Input
+                    id="email"
+                    type="email"
+                    autoComplete="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="usuario@zymo.com"
+                  />
                 </div>
-              )}
 
-              <button
-                type="submit"
-                disabled={isPending}
-                className="w-full rounded-lg bg-brand-blue px-4 py-3 text-sm font-semibold text-white transition-all hover:bg-brand-blue/90 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {isPending ? "Ingresando…" : "Ingresar"}
-              </button>
-            </form>
-          </div>
+                <div>
+                  <label
+                    htmlFor="password"
+                    className="block text-sm font-medium text-foreground mb-1.5"
+                  >
+                    Contraseña
+                  </label>
+                  <Input
+                    id="password"
+                    type="password"
+                    autoComplete="current-password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                  />
+                </div>
 
-          <p className="mt-6 text-center text-xs text-gray-400">
+                {error && (
+                  <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-4 py-3 text-sm text-destructive">
+                    Credenciales incorrectas. Verifica tu correo y contraseña.
+                  </div>
+                )}
+
+                <Button
+                  type="submit"
+                  variant="default"
+                  disabled={isPending}
+                  className="w-full"
+                  size="lg"
+                >
+                  {isPending ? "Ingresando…" : "Ingresar"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          <p className="mt-6 text-center text-xs text-muted-foreground">
             ¿Problemas para acceder? Contacta al área de IT
           </p>
         </div>

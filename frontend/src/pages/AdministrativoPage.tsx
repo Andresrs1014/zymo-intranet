@@ -22,9 +22,9 @@ export function AdministrativoPage() {
           <div className="mb-8">
             <div className="flex items-center gap-3 mb-1">
               <div className="h-6 w-1 rounded-full bg-brand-blue" />
-              <h2 className="text-xl font-bold text-gray-900">Compras</h2>
+              <h2 className="text-xl font-bold text-foreground">Compras</h2>
             </div>
-            <p className="pl-4 text-sm text-gray-500">
+            <p className="pl-4 text-sm text-muted-foreground">
               Gestión de órdenes de compra y automatización del proceso de adquisición.
             </p>
           </div>
@@ -120,10 +120,10 @@ function SecondaryCard({ to, icon, label, description, badge }: SecondaryCardPro
   return (
     <NavLink
       to={to}
-      className="group flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all duration-150 hover:border-brand-blue/30 hover:shadow-md"
+      className="group flex flex-col gap-4 rounded-xl border border-border bg-card p-5 shadow-sm transition-all duration-150 hover:border-brand-blue/30 hover:shadow-md"
     >
       <div className="flex items-center justify-between">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-blue/8 text-brand-blue transition-colors duration-150 group-hover:bg-brand-blue/15">
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/8 text-brand-blue transition-colors duration-150 group-hover:bg-primary/15">
           <span className="w-5 h-5">{icon}</span>
         </div>
         {badge != null && badge > 0 && (
@@ -134,8 +134,8 @@ function SecondaryCard({ to, icon, label, description, badge }: SecondaryCardPro
       </div>
 
       <div>
-        <p className="text-sm font-semibold text-gray-900">{label}</p>
-        <p className="mt-0.5 text-xs text-gray-500 leading-relaxed">{description}</p>
+        <p className="text-sm font-semibold text-foreground">{label}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">{description}</p>
       </div>
     </NavLink>
   )

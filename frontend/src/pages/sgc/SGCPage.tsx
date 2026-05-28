@@ -8,9 +8,9 @@ export function SGCPage() {
           <div className="mb-8">
             <div className="flex items-center gap-3 mb-1">
               <div className="h-6 w-1 rounded-full bg-brand-blue" />
-              <h2 className="text-xl font-bold text-gray-900">Sistema de Gestión de Calidad</h2>
+              <h2 className="text-xl font-bold text-foreground">Sistema de Gestión de Calidad</h2>
             </div>
-            <p className="pl-4 text-sm text-gray-500">
+            <p className="pl-4 text-sm text-muted-foreground">
               Administración y control del catálogo de proveedores de la organización.
             </p>
           </div>
