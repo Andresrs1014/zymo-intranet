@@ -228,9 +228,12 @@ function TaskRow({ task, prioridades, nameMap, onSelect, onDelete }: TaskRowProp
   const prioColor = prioConfig?.color ?? "#6b7280"
   const prioLabel = prioConfig?.label ?? task.prioridad
 
-  // Prefer enriched name from member list, fall back to stored name
-  const responsableId = task.asignadoAId ?? task.subidoPorId
-  const displayName = nameMap.get(responsableId) ?? task.asignadoANombre ?? task.subidoPorNombre
+  // Resolve names: who assigned and who is assigned
+  const asignadoNombre = task.asignadoAId
+    ? (nameMap.get(task.asignadoAId) ?? task.asignadoANombre)
+    : null
+  const subidoPorNombre = nameMap.get(task.subidoPorId) ?? task.subidoPorNombre
+  const isSelfAssigned = !task.asignadoAId || task.asignadoAId === task.subidoPorId
 
   return (
     <tr
@@ -239,7 +242,16 @@ function TaskRow({ task, prioridades, nameMap, onSelect, onDelete }: TaskRowProp
       onMouseEnter={(e) => ((e.currentTarget as HTMLTableRowElement).style.background = "#f8f9fd")}
       onMouseLeave={(e) => ((e.currentTarget as HTMLTableRowElement).style.background = "")}
     >
-      <td style={{ padding: "12px 14px", fontSize: 13, color: "#5c6374" }}>{displayName}</td>
+      <td style={{ padding: "12px 14px", fontSize: 13 }}>
+        {isSelfAssigned ? (
+          <span style={{ color: "#5c6374" }}>{asignadoNombre ?? subidoPorNombre}</span>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <span style={{ color: "#121420", fontWeight: 500 }}>{asignadoNombre}</span>
+            <span style={{ fontSize: 11, color: "#9aa5b8" }}>por {subidoPorNombre}</span>
+          </div>
+        )}
+      </td>
       <td style={{ padding: "12px 14px", fontSize: 13, fontWeight: 500, color: "#121420" }}>{task.titulo}</td>
       <td style={{ padding: "12px 14px", fontSize: 12, color: "#5c6374" }}>{task.fecha.slice(0, 10)}</td>
       <td style={{ padding: "12px 14px" }}>

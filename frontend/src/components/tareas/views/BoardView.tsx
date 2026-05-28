@@ -99,25 +99,28 @@ function TaskCard({
             })()}
           </div>
         </div>
-        {task.asignadoANombre && (
-          <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}>
-            <div style={{
-              width: 22,
-              height: 22,
-              borderRadius: "50%",
-              background: "#ef3340",
-              color: "#fff",
-              fontSize: 9,
-              fontWeight: 700,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}>
-              {task.asignadoANombre.slice(0, 2).toUpperCase()}
+        {(task.asignadoANombre || task.subidoPorNombre) && (() => {
+          const isSelfAssigned = !task.asignadoAId || task.asignadoAId === task.subidoPorId
+          const displayName = task.asignadoANombre ?? task.subidoPorNombre
+          return (
+            <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{
+                width: 22, height: 22, borderRadius: "50%",
+                background: "#ef3340", color: "#fff",
+                fontSize: 9, fontWeight: 700,
+                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+              }}>
+                {displayName!.slice(0, 2).toUpperCase()}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 11, color: "#5c6374", lineHeight: 1.2 }}>{displayName}</div>
+                {!isSelfAssigned && task.subidoPorNombre && (
+                  <div style={{ fontSize: 10, color: "#b0b8c8", lineHeight: 1.2 }}>por {task.subidoPorNombre}</div>
+                )}
+              </div>
             </div>
-            <span style={{ fontSize: 11, color: "#5c6374" }}>{task.asignadoANombre}</span>
-          </div>
-        )}
+          )
+        })()}
       </div>
     </div>
   )
