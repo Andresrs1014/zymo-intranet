@@ -120,10 +120,10 @@ function SecondaryCard({ to, icon, label, description, badge }: SecondaryCardPro
   return (
     <NavLink
       to={to}
-      className="group flex flex-col gap-4 rounded-xl border border-border bg-card p-5 shadow-sm transition-all duration-150 hover:border-brand-blue/30 hover:shadow-md"
+      className="group flex flex-col gap-4 rounded-xl border border-border bg-card p-5 shadow-sm transition-all duration-150 hover:border-primary/30 hover:shadow-md"
     >
       <div className="flex items-center justify-between">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/8 text-brand-blue transition-colors duration-150 group-hover:bg-primary/15">
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/8 text-primary transition-colors duration-150 group-hover:bg-primary/15">
           <span className="w-5 h-5">{icon}</span>
         </div>
         {badge != null && badge > 0 && (
