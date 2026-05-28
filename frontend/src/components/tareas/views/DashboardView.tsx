@@ -65,9 +65,18 @@ export function DashboardView() {
 
       {/* No-entry alert */}
       {noEntry.length > 0 && (
-        <div style={{ background: "#fffbeb", border: "1px solid #fbbf24", borderRadius: 8, padding: "12px 16px", display: "flex", alignItems: "center", gap: 10, fontSize: 13 }}>
-          <span style={{ fontSize: 16 }}>⚠</span>
-          <span><strong>{noEntry.length} miembro{noEntry.length > 1 ? "s" : ""}</strong> sin registro de tarea hoy.</span>
+        <div style={{ background: "#fffbeb", border: "1px solid #fbbf24", borderRadius: 8, padding: "12px 16px", fontSize: 13 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: noEntry.length > 0 ? 6 : 0 }}>
+            <span style={{ fontSize: 16 }}>⚠</span>
+            <span><strong>{noEntry.length} miembro{noEntry.length > 1 ? "s" : ""}</strong> sin registro de tarea hoy:</span>
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, paddingLeft: 26 }}>
+            {noEntry.map((m) => (
+              <span key={m.userId} style={{ padding: "2px 10px", borderRadius: 99, fontSize: 11, fontWeight: 600, background: "#fef3c7", color: "#92400e", border: "1px solid #fde68a" }}>
+                {m.nombre || `Usuario ${m.userId}`}
+              </span>
+            ))}
+          </div>
         </div>
       )}
 

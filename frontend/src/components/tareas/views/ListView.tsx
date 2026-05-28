@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useTask } from "@/context/TaskContext"
-import { useTasks } from "@/hooks/useTasks"
+import { useTasks, useDeleteTask } from "@/hooks/useTasks"
 import { useTaskLists } from "@/hooks/useTaskLists"
 import { useTeamMembers } from "@/hooks/useTaskTeams"
 import { TaskDialog } from "@/components/tareas/TaskDialog"
@@ -220,9 +220,10 @@ interface TaskRowProps {
   prioridades: ListConfig[]
   nameMap: Map<number, string>
   onSelect: (t: Task) => void
+  onDelete: (taskId: number) => void
 }
 
-function TaskRow({ task, prioridades, nameMap, onSelect }: TaskRowProps) {
+function TaskRow({ task, prioridades, nameMap, onSelect, onDelete }: TaskRowProps) {
   const prioConfig = prioridades.find((p) => p.value === task.prioridad)
   const prioColor = prioConfig?.color ?? "#6b7280"
   const prioLabel = prioConfig?.label ?? task.prioridad
@@ -264,6 +265,22 @@ function TaskRow({ task, prioridades, nameMap, onSelect }: TaskRowProps) {
           {prioLabel}
         </span>
       </td>
+      <td style={{ padding: "12px 14px" }}>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            if (window.confirm("¿Eliminar esta tarea?")) onDelete(task.id)
+          }}
+          style={{ padding: "4px", borderRadius: 4, border: "none", background: "none", cursor: "pointer", color: "#9aa5b8" }}
+          onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "#ef3340")}
+          onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "#9aa5b8")}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>
+          </svg>
+        </button>
+      </td>
     </tr>
   )
 }
@@ -296,6 +313,8 @@ export function ListView() {
   const nameMap = new Map<number, string>(
     members.filter((m) => m.userNombre).map((m) => [m.userId, m.userNombre!])
   )
+
+  const deleteTask = useDeleteTask()
 
   const { data, isLoading } = useTasks({
     teamId: activeTeamId ?? undefined,
@@ -337,14 +356,14 @@ export function ListView() {
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
-                  {["Responsable", "Título", "Fecha", "Etiqueta", "Plataforma", "Tiempo", "Estado", "Prioridad"].map((h) => (
+                  {["Responsable", "Título", "Fecha", "Etiqueta", "Plataforma", "Tiempo", "Estado", "Prioridad", "Acciones"].map((h) => (
                     <th key={h} style={TH_STYLE}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {tasks.map((task) => (
-                  <TaskRow key={task.id} task={task} prioridades={prioridades} nameMap={nameMap} onSelect={setEditingTask} />
+                  <TaskRow key={task.id} task={task} prioridades={prioridades} nameMap={nameMap} onSelect={setEditingTask} onDelete={(id) => deleteTask.mutate(id)} />
                 ))}
               </tbody>
             </table>

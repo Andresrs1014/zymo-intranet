@@ -54,10 +54,10 @@ export function useCharts(teamId: number | null, range: DateRange = {}) {
 }
 
 export function useMembersWithoutEntryToday(teamId: number | null) {
-  return useQuery<{ userId: number }[]>({
+  return useQuery<{ userId: number; nombre: string }[]>({
     queryKey: ["taskDashboard", "without-entry-today", teamId],
     queryFn: async () => {
-      const { data } = await taskApi.get<{ userId: number }[]>(
+      const { data } = await taskApi.get<{ userId: number; nombre: string }[]>(
         `/api/dashboard/without-entry-today?teamId=${teamId}`,
       )
       return data

@@ -16,6 +16,7 @@ import { CSS } from "@dnd-kit/utilities"
 import { useTask } from "@/context/TaskContext"
 import { useTasks, useUpdateTask } from "@/hooks/useTasks"
 import { useTaskLists } from "@/hooks/useTaskLists"
+import { useTeamMembers } from "@/hooks/useTaskTeams"
 import { useTaskToast } from "@/components/tareas/TaskToast"
 import type { Task, ListConfig } from "@/types/task"
 
@@ -192,12 +193,19 @@ export function BoardView() {
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   )
 
+  const { data: members = [] } = useTeamMembers(activeTeamId)
+  const [memberFilter, setMemberFilter] = useState<number | null>(null)
+
   const estados = listsGrouped?.estado ?? []
   const prioridades = listsGrouped?.prioridad ?? []
   const tasks = taskResult?.tasks ?? []
 
+  const filteredTasks = memberFilter
+    ? tasks.filter((t) => t.asignadoAId === memberFilter || t.subidoPorId === memberFilter)
+    : tasks
+
   function getTasksByState(estado: string) {
-    return tasks.filter((t) => t.estado === estado)
+    return filteredTasks.filter((t) => t.estado === estado)
   }
 
   function handleDragStart(event: DragStartEvent) {
@@ -251,26 +259,52 @@ export function BoardView() {
   }
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCorners}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-    >
-      <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 16, alignItems: "flex-start" }}>
-        {estados.map((config) => (
-          <BoardColumn
-            key={config.value}
-            config={config}
-            tasks={getTasksByState(config.value)}
-            prioridades={prioridades}
-          />
-        ))}
+    <div>
+      <div style={{ marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 12, color: "#5c6374" }}>Miembro:</span>
+        <select
+          value={memberFilter ?? ""}
+          onChange={(e) => setMemberFilter(e.target.value ? Number(e.target.value) : null)}
+          style={{ padding: "6px 10px", borderRadius: 6, border: "1px solid #d8dde8", fontSize: 13, color: "#121420", background: "#fff" }}
+        >
+          <option value="">Todos</option>
+          {members.map((m) => (
+            <option key={m.userId} value={m.userId}>
+              {m.userNombre ?? `Usuario ${m.userId}`}
+            </option>
+          ))}
+        </select>
+        {memberFilter !== null && (
+          <button
+            type="button"
+            onClick={() => setMemberFilter(null)}
+            style={{ fontSize: 12, color: "#9aa5b8", cursor: "pointer", border: "none", background: "none", padding: "4px 6px" }}
+          >
+            Limpiar
+          </button>
+        )}
       </div>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 16, alignItems: "flex-start" }}>
+          {estados.map((config) => (
+            <BoardColumn
+              key={config.value}
+              config={config}
+              tasks={getTasksByState(config.value)}
+              prioridades={prioridades}
+            />
+          ))}
+        </div>
 
-      <DragOverlay>
-        {activeDragTask && <TaskCard task={activeDragTask} prioridades={prioridades} isDragging />}
-      </DragOverlay>
-    </DndContext>
+        <DragOverlay>
+          {activeDragTask && <TaskCard task={activeDragTask} prioridades={prioridades} isDragging />}
+        </DragOverlay>
+      </DndContext>
+    </div>
   )
 }
