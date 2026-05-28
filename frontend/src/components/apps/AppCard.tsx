@@ -8,12 +8,26 @@ interface AppCardProps {
 export function AppCard({ app }: AppCardProps) {
   const token = useAuthStore((s) => s.token)
 
-  function handleOpen(e: React.MouseEvent) {
+  async function handleOpen(e: React.MouseEvent) {
     e.preventDefault()
-    const url = token
-      ? `${app.url}?sso_token=${token}`
-      : app.url
-    window.open(url, "_blank", "noopener,noreferrer")
+    if (!app.url) return
+
+    if (app.sso_endpoint && token) {
+      try {
+        const res = await fetch(app.sso_endpoint, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (res.ok) {
+          const { sso_token } = await res.json()
+          window.open(`${app.url}?sso_token=${sso_token}`, "_blank", "noopener,noreferrer")
+          return
+        }
+      } catch {
+        // si falla el SSO, abre igual sin token
+      }
+    }
+
+    window.open(app.url, "_blank", "noopener,noreferrer")
   }
 
   return (

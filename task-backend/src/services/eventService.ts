@@ -206,11 +206,27 @@ export async function listEvents(
     where["participants"] = { some: { userId } }
   }
 
-  return prisma.event.findMany({
+  const events = await prisma.event.findMany({
     where,
     orderBy: [{ fecha: "asc" }, { horaInicio: "asc" }],
     include: { participants: true },
   })
+
+  // Enrich participant names best-effort (fixes stored "Usuario N" placeholders)
+  if (events.length > 0) {
+    const allParticipantIds = Array.from(new Set(events.flatMap((e) => e.participants.map((p) => p.userId))))
+    const nameMap = await enrichUserNames(allParticipantIds)
+    if (nameMap.size > 0) {
+      for (const event of events) {
+        for (const p of event.participants) {
+          const enriched = nameMap.get(p.userId)
+          if (enriched) p.userNombre = enriched
+        }
+      }
+    }
+  }
+
+  return events
 }
 
 // ─── Update event ─────────────────────────────────────────────────────────────

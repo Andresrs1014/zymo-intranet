@@ -5,6 +5,8 @@ export interface AppDefinition {
   icon: string
   category: "modulo" | "app_externa"
   url?: string
+  /** Endpoint de la intranet que emite un sso_token de corta duración para esta app */
+  sso_endpoint?: string
 }
 
 // ── Módulos internos de la intranet ───────────────────────────────────────────
@@ -99,6 +101,7 @@ export const EXTERNAL_APPS: AppDefinition[] = [
     name: "CRM Tarifas",
     description: "Gestión de clientes y tarifas comerciales",
     url: "https://crm.zymointranet.com",
+    sso_endpoint: "/api/auth/sso-token-crm",
   },
 ]
 

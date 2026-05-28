@@ -3,6 +3,7 @@ import { useTask } from "@/context/TaskContext"
 import { useTaskEvents, useCreateEvent, useConfirmAttendance } from "@/hooks/useTaskEvents"
 import { useTeamMembers, useAvailableUsers } from "@/hooks/useTaskTeams"
 import { useTaskLists } from "@/hooks/useTaskLists"
+import { useAuthStore } from "@/store/authStore"
 import type { TaskEvent } from "@/types/task"
 
 function formatDate(d: Date): string {
@@ -36,8 +37,10 @@ const INPUT_STYLE: React.CSSProperties = {
 
 // ─── Event Card ───────────────────────────────────────────────────────────────
 
-function EventCard({ event, onConfirm }: { event: TaskEvent; onConfirm: (id: number) => void }) {
+function EventCard({ event, currentUserId, onConfirm }: { event: TaskEvent; currentUserId: number | null; onConfirm: (id: number) => void }) {
   const hasConflict = event.participants.some((p) => p.hasConflict)
+  const isParticipant = currentUserId != null && event.participants.some((p) => p.userId === currentUserId)
+  const alreadyConfirmed = currentUserId != null && event.participants.find((p) => p.userId === currentUserId)?.confirmado === true
   return (
     <div
       style={{
@@ -94,22 +97,27 @@ function EventCard({ event, onConfirm }: { event: TaskEvent; onConfirm: (id: num
         {event.participants.length > 6 && (
           <span style={{ fontSize: 11, color: "#9aa5b8" }}>+{event.participants.length - 6}</span>
         )}
-        <button
-          onClick={() => onConfirm(event.id)}
-          style={{
-            marginLeft: "auto",
-            padding: "4px 12px",
-            borderRadius: 6,
-            border: "1px solid #d8dde8",
-            background: "#f4f6fa",
-            color: "#3f4652",
-            fontSize: 11,
-            fontWeight: 600,
-            cursor: "pointer",
-          }}
-        >
-          Confirmar asistencia
-        </button>
+        {isParticipant && !alreadyConfirmed && (
+          <button
+            onClick={() => onConfirm(event.id)}
+            style={{
+              marginLeft: "auto",
+              padding: "4px 12px",
+              borderRadius: 6,
+              border: "1px solid #d8dde8",
+              background: "#f4f6fa",
+              color: "#3f4652",
+              fontSize: 11,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Confirmar asistencia
+          </button>
+        )}
+        {isParticipant && alreadyConfirmed && (
+          <span style={{ marginLeft: "auto", fontSize: 11, color: "#10b981", fontWeight: 600 }}>✓ Confirmado</span>
+        )}
       </div>
     </div>
   )
@@ -136,7 +144,6 @@ type CreateForm = {
   horaFin: string
   descripcion: string
   modalidad: string
-  sede: string
   plataforma: string
   prioridad: string
   participantIds: number[]
@@ -167,7 +174,6 @@ function CreateEventForm({
     horaFin: "10:00",
     descripcion: "",
     modalidad: "",
-    sede: "",
     plataforma: "",
     prioridad: "",
     participantIds: [],
@@ -193,7 +199,6 @@ function CreateEventForm({
       duracionMinutos: diffMinutes(form.horaInicio, form.horaFin),
       descripcion: form.descripcion || undefined,
       modalidad: form.modalidad || undefined,
-      sede: form.modalidad === "presencial" ? form.sede || undefined : undefined,
       plataforma: form.plataforma || undefined,
       prioridad: form.prioridad || undefined,
       participantIds: form.participantIds.length > 0 ? form.participantIds : undefined,
@@ -274,36 +279,21 @@ function CreateEventForm({
           />
         </div>
 
-        {/* Modalidad + Sede */}
-        <div style={{ display: "grid", gridTemplateColumns: form.modalidad === "presencial" ? "1fr 1fr" : "1fr", gap: 10 }}>
-          <div>
-            <label style={{ fontSize: 11, fontWeight: 600, color: "#5c6374", display: "block", marginBottom: 4 }}>
-              Modalidad
-            </label>
-            <select
-              value={form.modalidad}
-              onChange={(e) => setForm((f) => ({ ...f, modalidad: e.target.value, sede: "" }))}
-              style={INPUT_STYLE}
-            >
-              <option value="">Seleccionar…</option>
-              {modalidades.map((m) => (
-                <option key={m.value} value={m.value}>{m.label}</option>
-              ))}
-            </select>
-          </div>
-          {form.modalidad === "presencial" && (
-            <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: "#5c6374", display: "block", marginBottom: 4 }}>
-                Sede
-              </label>
-              <input
-                placeholder="Sede o lugar"
-                value={form.sede}
-                onChange={(e) => setForm((f) => ({ ...f, sede: e.target.value }))}
-                style={INPUT_STYLE}
-              />
-            </div>
-          )}
+        {/* Modalidad */}
+        <div>
+          <label style={{ fontSize: 11, fontWeight: 600, color: "#5c6374", display: "block", marginBottom: 4 }}>
+            Modalidad
+          </label>
+          <select
+            value={form.modalidad}
+            onChange={(e) => setForm((f) => ({ ...f, modalidad: e.target.value }))}
+            style={INPUT_STYLE}
+          >
+            <option value="">Seleccionar…</option>
+            {modalidades.map((m) => (
+              <option key={m.value} value={m.value}>{m.label}</option>
+            ))}
+          </select>
         </div>
 
         {/* Plataforma + Prioridad */}
@@ -463,6 +453,7 @@ export function CalendarView() {
   const month = currentDate.getMonth()
   const days = getDaysInMonth(year, month)
 
+  const currentUser = useAuthStore((s) => s.user)
   const { data: events = [] } = useTaskEvents(activeTeamId)
   const confirmAttendance = useConfirmAttendance()
 
@@ -686,6 +677,7 @@ export function CalendarView() {
             <EventCard
               key={ev.id}
               event={ev}
+              currentUserId={currentUser?.id ?? null}
               onConfirm={(id) => confirmAttendance.mutate(id)}
             />
           ))

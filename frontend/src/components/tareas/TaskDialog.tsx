@@ -310,8 +310,8 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
             </div>
           </div>
 
-          {/* Row: hora inicio + hora fin + tiempo estimado */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+          {/* Row: hora inicio + hora fin */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
               <div style={LABEL_STYLE}>Hora inicio</div>
               <input
@@ -328,18 +328,6 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
                 style={INPUT_STYLE}
                 value={form.horaFin}
                 onChange={(e) => setForm((f) => ({ ...f, horaFin: e.target.value }))}
-              />
-            </div>
-            <div>
-              <div style={LABEL_STYLE}>T. estimado (min)</div>
-              <input
-                type="number"
-                min="5"
-                max="1440"
-                style={INPUT_STYLE}
-                placeholder="Ej. 120"
-                value={form.duracionEstimadaMinutos}
-                onChange={(e) => setForm((f) => ({ ...f, duracionEstimadaMinutos: e.target.value }))}
               />
             </div>
           </div>
@@ -360,8 +348,8 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
           )}
         </div>
 
-        {/* Comparativa tiempo estimado vs real */}
-        {isEdit && task && (task.tiempoTotalMinutos != null || task.duracionEstimadaMinutos != null) && (
+        {/* Tiempo real registrado */}
+        {isEdit && task && task.tiempoTotalMinutos != null && (
           <div style={{
             marginTop: 18,
             padding: "12px 16px",
@@ -373,32 +361,11 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
             alignItems: "center",
             fontSize: 13,
             color: "#3f4652",
-            flexWrap: "wrap",
           }}>
-            {task.duracionEstimadaMinutos != null && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                <span style={{ fontSize: 10, fontWeight: 700, color: "#9aa5b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>Estimado</span>
-                <span style={{ fontWeight: 700, fontSize: 15, color: "#3f4652" }}>{formatMin(task.duracionEstimadaMinutos)}</span>
-              </div>
-            )}
-            {task.tiempoTotalMinutos != null && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                <span style={{ fontSize: 10, fontWeight: 700, color: "#9aa5b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>Real</span>
-                <span style={{ fontWeight: 700, fontSize: 15, color: "#121420" }}>{formatMin(task.tiempoTotalMinutos)}</span>
-              </div>
-            )}
-            {task.duracionEstimadaMinutos != null && task.tiempoTotalMinutos != null && (() => {
-              const diff = task.tiempoTotalMinutos - task.duracionEstimadaMinutos
-              const over = diff > 0
-              return (
-                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: "#9aa5b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>Diferencia</span>
-                  <span style={{ fontWeight: 700, fontSize: 13, color: over ? "#ef4444" : "#10b981" }}>
-                    {over ? "+" : ""}{formatMin(Math.abs(diff))} {over ? "sobre" : "ahorrado"}
-                  </span>
-                </div>
-              )
-            })()}
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: "#9aa5b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>Tiempo real</span>
+              <span style={{ fontWeight: 700, fontSize: 15, color: "#121420" }}>{formatMin(task.tiempoTotalMinutos)}</span>
+            </div>
           </div>
         )}
 

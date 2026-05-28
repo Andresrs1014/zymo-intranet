@@ -86,9 +86,22 @@ export async function getPersonSummaries(user: AuthPayload, teamId: number, rang
   const dateFilter = buildDateFilter(range)
   const where = { teamId, ...(dateFilter ? { fecha: dateFilter } : {}) }
 
+  // Get actual team members to avoid showing users from other teams
+  const [teamMembers, teamOwner] = await Promise.all([
+    prisma.teamMember.findMany({
+      where: { teamId, isActive: true },
+      select: { userId: true },
+    }),
+    prisma.team.findFirst({ where: { id: teamId }, select: { ownerUserId: true } }),
+  ])
+  const memberIds = new Set([
+    ...(teamOwner ? [teamOwner.ownerUserId] : []),
+    ...teamMembers.map((m) => m.userId),
+  ])
+
   const rows = await prisma.task.groupBy({
     by: ["asignadoAId", "asignadoANombre", "estado"],
-    where: { ...where, asignadoAId: { not: null } },
+    where: { ...where, asignadoAId: { not: null, in: Array.from(memberIds) } },
     _count: { id: true },
     _sum: { tiempoTotalMinutos: true },
   })
