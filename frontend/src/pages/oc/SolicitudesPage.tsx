@@ -97,7 +97,7 @@ export function SolicitudesPage() {
           </div>
 
           {/* Tabla */}
-          <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+          <div className="bg-card rounded-xl border border-border shadow-sm overflow-x-auto">
             {isLoading ? (
               <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">
                 Cargando...
@@ -108,7 +108,7 @@ export function SolicitudesPage() {
               </div>
             ) : (
               <>
-                <table className="w-full text-sm">
+                <table className="w-full min-w-[600px] text-sm">
                   <thead>
                     <tr className="border-b border-border text-left">
                       <th className="px-4 py-3 font-medium text-muted-foreground">Consecutivo</th>

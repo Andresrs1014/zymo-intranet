@@ -21,14 +21,14 @@ export function AppCard({ app }: AppCardProps) {
       href={app.url}
       onClick={handleOpen}
       rel="noopener noreferrer"
-      className="group flex flex-col gap-3 rounded-xl border border-border bg-card p-6 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-brand-blue/20 hover:shadow-md"
+      className="group flex flex-col gap-3 rounded-xl border border-border bg-card p-6 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-primary/20 hover:shadow-md"
     >
       <div className="flex items-start justify-between">
         <span className="text-3xl" role="img" aria-label={app.name}>
           {app.icon}
         </span>
         <svg
-          className="h-4 w-4 text-muted-foreground/40 transition-colors group-hover:text-brand-blue"
+          className="h-4 w-4 text-muted-foreground/40 transition-colors group-hover:text-primary"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -43,7 +43,7 @@ export function AppCard({ app }: AppCardProps) {
       </div>
 
       <div>
-        <h3 className="font-semibold text-foreground group-hover:text-brand-blue transition-colors">
+        <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
           {app.name}
         </h3>
         <p className="mt-1 text-sm text-muted-foreground leading-snug">
@@ -52,7 +52,7 @@ export function AppCard({ app }: AppCardProps) {
       </div>
 
       <div className="mt-auto pt-1">
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-brand-blue/70 group-hover:text-brand-blue transition-colors">
+        <span className="inline-flex items-center gap-1 text-xs font-medium text-primary/70 group-hover:text-primary transition-colors">
           Abrir app
           <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />

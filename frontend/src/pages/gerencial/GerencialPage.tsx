@@ -32,7 +32,7 @@ export function GerencialPage() {
                     whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 transition-colors
                     ${
                       activeTab === tab.id
-                        ? "border-brand-blue text-brand-blue"
+                        ? "border-primary text-primary"
                         : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
                     }
                   `}
