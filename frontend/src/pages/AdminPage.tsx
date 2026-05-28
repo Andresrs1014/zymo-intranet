@@ -295,7 +295,7 @@ function UserRow({ user, tab, onEdit, onDeactivate, onReactivate, onDelete, onMa
     <tr className="hover:bg-muted transition-colors">
       <td className="px-4 py-3">
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-blue/10 text-brand-blue font-semibold text-xs">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold text-xs">
             {(user.full_name ?? user.email).charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0">
@@ -333,7 +333,7 @@ function UserRow({ user, tab, onEdit, onDeactivate, onReactivate, onDelete, onMa
                 onClick={() => onEdit(user)}
                 variant="ghost"
                 size="sm"
-                className="text-xs px-2 py-1 h-auto text-brand-blue hover:bg-brand-blue/10"
+                className="text-xs px-2 py-1 h-auto text-primary hover:bg-primary/10"
               >
                 Editar
               </Button>
@@ -374,7 +374,7 @@ function UserRow({ user, tab, onEdit, onDeactivate, onReactivate, onDelete, onMa
 
 function RoleBadge({ role }: { role: string }) {
   const colors: Record<string, string> = {
-    admin: "bg-brand-blue/10 text-brand-blue",
+    admin: "bg-primary/10 text-primary",
     directivo: "bg-purple-100 text-purple-700",
     talento_cultura: "bg-pink-100 text-pink-700",
     comercial: "bg-brand-yellow/20 text-yellow-700",

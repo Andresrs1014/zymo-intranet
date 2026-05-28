@@ -260,7 +260,7 @@ export function FacturaDetallePage() {
           type="button"
           variant="ghost"
           onClick={() => navigate("/financiero/facturas")}
-          className="text-sm text-brand-blue font-medium"
+          className="text-sm text-primary font-medium"
         >
           Volver al listado
         </Button>
@@ -475,7 +475,7 @@ export function FacturaDetallePage() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleVerAdjuntoCotizacion(c.id)}
-                                className="text-xs font-medium text-brand-blue hover:underline p-0 h-auto"
+                                className="text-xs font-medium text-primary hover:underline p-0 h-auto"
                               >
                                 Ver archivo
                               </Button>
@@ -643,7 +643,7 @@ export function FacturaDetallePage() {
                                 <button
                                   type="button"
                                   onClick={() => handleChange("valor_factura", solicitud.valor_aprobado!)}
-                                  className="text-xs text-brand-blue hover:underline"
+                                  className="text-xs text-primary hover:underline"
                                 >
                                   Usar valor OC ({formatCOP(solicitud.valor_aprobado)})
                                 </button>
@@ -676,8 +676,8 @@ export function FacturaDetallePage() {
                             onClick={() => fileInputRef.current?.click()}
                             className={`flex flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed px-4 py-5 cursor-pointer transition-colors ${
                               dragOver
-                                ? "border-brand-blue bg-brand-blue/5"
-                                : "border-gray-200 hover:border-brand-blue/40 hover:bg-white"
+                                ? "border-primary bg-primary/5"
+                                : "border-gray-200 hover:border-primary/40 hover:bg-white"
                             }`}
                           >
                             <p className="text-sm font-medium text-gray-700 text-center">
@@ -752,7 +752,7 @@ export function FacturaDetallePage() {
                         onClick={() =>
                           openAuthenticatedApiBlob(`/api/financiero/facturas/${facturaId}/pdf`)
                         }
-                        className="text-xs text-brand-blue hover:underline flex items-center gap-1 h-auto p-0"
+                        className="text-xs text-primary hover:underline flex items-center gap-1 h-auto p-0"
                       >
                         <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
                           <path fillRule="evenodd" d="M4.25 5.5a.75.75 0 0 0-.75.75v8.5c0 .414.336.75.75.75h8.5a.75.75 0 0 0 .75-.75v-4a.75.75 0 0 1 1.5 0v4A2.25 2.25 0 0 1 12.75 17h-8.5A2.25 2.25 0 0 1 2 14.75v-8.5A2.25 2.25 0 0 1 4.25 4h5a.75.75 0 0 1 0 1.5h-5Z" clipRule="evenodd" />
@@ -784,7 +784,7 @@ export function FacturaDetallePage() {
                           onClick={() =>
                             openAuthenticatedApiBlob(`/api/financiero/facturas/${facturaId}/pdf`)
                           }
-                          className="mt-3 text-sm text-brand-blue hover:underline font-medium"
+                          className="mt-3 text-sm text-primary hover:underline font-medium"
                         >
                           Descargar archivo adjunto
                         </Button>

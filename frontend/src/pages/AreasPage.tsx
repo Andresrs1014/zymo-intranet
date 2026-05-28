@@ -337,7 +337,7 @@ function CatalogPanel({
                     variant="ghost"
                     size="sm"
                     disabled={isPending}
-                    className="text-xs px-2 py-1 h-auto text-brand-blue hover:bg-brand-blue/10"
+                    className="text-xs px-2 py-1 h-auto text-primary hover:bg-primary/10"
                   >
                     {isPending ? "..." : "Guardar"}
                   </Button>
@@ -381,7 +381,7 @@ function CatalogPanel({
                     onClick={() => openEdit(item)}
                     variant="ghost"
                     size="sm"
-                    className="text-xs px-2 py-1 h-auto text-brand-blue hover:bg-brand-blue/10"
+                    className="text-xs px-2 py-1 h-auto text-primary hover:bg-primary/10"
                   >
                     Editar
                   </Button>

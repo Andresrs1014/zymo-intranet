@@ -949,7 +949,7 @@ function ListaEditorBulk({
               type="button"
               onClick={() => fileRef.current?.click()}
               disabled={isUploading}
-              className="flex items-center gap-1.5 rounded-lg border border-brand-blue/20 bg-blue-50 px-3 py-1.5 text-xs font-medium text-brand-blue hover:bg-blue-100 transition-colors disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-lg border border-primary/20 bg-blue-50 px-3 py-1.5 text-xs font-medium text-primary hover:bg-blue-100 transition-colors disabled:opacity-50"
             >
               {isUploading ? (
                 <>

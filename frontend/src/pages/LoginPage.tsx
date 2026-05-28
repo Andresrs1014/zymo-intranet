@@ -50,7 +50,7 @@ export function LoginPage() {
         <div className="w-full max-w-md">
           {/* Logo móvil */}
           <div className="lg:hidden mb-8 text-center">
-            <h1 className="text-brand-blue text-3xl font-bold">
+            <h1 className="text-primary text-3xl font-bold">
               ZYMO <span className="text-brand-yellow">Intranet</span>
             </h1>
           </div>

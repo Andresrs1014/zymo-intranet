@@ -72,7 +72,7 @@ export function SolicitudesPage() {
               <p className="text-sm text-muted-foreground mt-0.5">
                 Panel del Auxiliar de Compras
                 {isRefetching && (
-                  <span className="ml-2 text-brand-blue/60">actualizando...</span>
+                  <span className="ml-2 text-primary/60">actualizando...</span>
                 )}
               </p>
             </div>
@@ -156,7 +156,7 @@ function SolicitudRow({
   return (
     <tr className="hover:bg-muted/50 transition-colors">
       <td className="px-4 py-3">
-        <span className="font-mono text-xs font-medium text-brand-blue">
+        <span className="font-mono text-xs font-medium text-primary">
           {s.consecutivo_os}
         </span>
       </td>
@@ -192,7 +192,7 @@ function SolicitudRow({
           variant="ghost"
           size="sm"
           onClick={onView}
-          className="text-xs font-medium text-brand-blue hover:bg-brand-blue/10"
+          className="text-xs font-medium text-primary hover:bg-primary/10"
         >
           Ver detalle
         </Button>

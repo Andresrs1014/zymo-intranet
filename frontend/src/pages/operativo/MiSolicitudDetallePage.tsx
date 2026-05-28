@@ -130,7 +130,7 @@ export function MiSolicitudDetallePage() {
           <div className="flex items-center gap-3 mb-6">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <span className="font-mono text-sm font-bold text-brand-blue">
+                <span className="font-mono text-sm font-bold text-primary">
                   {solicitud.consecutivo_os}
                 </span>
                 <EstadoBadge estado={solicitud.estado} />
@@ -251,8 +251,8 @@ export function MiSolicitudDetallePage() {
                 onClick={() => fileInputRef.current?.click()}
                 className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-8 cursor-pointer transition-colors ${
                   dragOver
-                    ? "border-brand-blue bg-brand-blue/5"
-                    : "border-border hover:border-brand-blue/40 hover:bg-muted"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/40 hover:bg-muted"
                 }`}
               >
                 <svg className="w-8 h-8 text-muted-foreground/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
@@ -292,7 +292,7 @@ export function MiSolicitudDetallePage() {
                           href={buildFotoUrl(filename)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex flex-col items-center justify-center h-24 gap-1 text-gray-400 hover:text-brand-blue transition-colors"
+                          className="flex flex-col items-center justify-center h-24 gap-1 text-gray-400 hover:text-primary transition-colors"
                         >
                           <svg className="w-7 h-7" viewBox="0 0 20 20" fill="currentColor">
                             <path fillRule="evenodd" d="M4 4a2 2 0 0 1 2-2h4.586A2 2 0 0 1 12 2.586L15.414 6A2 2 0 0 1 16 7.414V16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4Z" clipRule="evenodd" />
@@ -351,7 +351,7 @@ export function MiSolicitudDetallePage() {
                           }}
                           className="flex items-center justify-center w-full gap-2 rounded-lg bg-card border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors shadow-sm"
                         >
-                          <svg className="w-4 h-4 text-brand-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                             <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                           </svg>
@@ -368,7 +368,7 @@ export function MiSolicitudDetallePage() {
                         <div className="space-y-2 mb-4 text-sm">
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Número OC:</span>
-                            <span className="font-mono font-bold text-brand-blue">{orden.numero_oc}</span>
+                            <span className="font-mono font-bold text-primary">{orden.numero_oc}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Plataforma:</span>

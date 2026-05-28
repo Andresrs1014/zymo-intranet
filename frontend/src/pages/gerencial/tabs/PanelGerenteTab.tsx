@@ -167,7 +167,7 @@ export function PanelGerenteTab() {
             variant="ghost"
             size="sm"
             onClick={() => setMostrarFormOrden((v) => !v)}
-            className="text-xs font-medium text-brand-blue hover:text-brand-blue/80"
+            className="text-xs font-medium text-primary hover:text-primary/80"
           >
             {mostrarFormOrden ? "Cancelar" : "+ Nueva orden"}
           </Button>

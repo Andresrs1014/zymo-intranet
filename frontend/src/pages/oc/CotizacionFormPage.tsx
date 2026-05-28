@@ -419,7 +419,7 @@ export function CotizacionFormPage() {
             <h1 className="text-xl font-bold text-foreground">Cargar Cotización</h1>
             {solicitud && (
               <p className="text-sm text-muted-foreground mt-0.5">
-                <span className="font-mono text-brand-blue font-semibold">
+                <span className="font-mono text-primary font-semibold">
                   {solicitud.consecutivo_os}
                 </span>{" "}
                 — {solicitud.descripcion}
@@ -463,8 +463,8 @@ export function CotizacionFormPage() {
                   extStatus === "loading"
                     ? "border-border opacity-50 cursor-not-allowed"
                     : dragOver
-                    ? "border-brand-blue bg-brand-blue/5 text-brand-blue/70"
-                    : "border-border text-muted-foreground hover:border-brand-blue/40 hover:text-brand-blue/70 hover:bg-brand-blue/5"
+                    ? "border-primary bg-primary/5 text-primary/70"
+                    : "border-border text-muted-foreground hover:border-primary/40 hover:text-primary/70 hover:bg-primary/5"
                 }`}
               >
                 {extStatus === "loading" ? (
@@ -554,7 +554,7 @@ export function CotizacionFormPage() {
               {/* Indicador mientras Gemini procesa en background */}
               {phase2Pending && (
                 <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground py-1">
-                  <svg className="animate-spin h-3.5 w-3.5 text-brand-blue" fill="none" viewBox="0 0 24 24">
+                  <svg className="animate-spin h-3.5 w-3.5 text-primary" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
                   </svg>
@@ -686,8 +686,8 @@ export function CotizacionFormPage() {
 
             {/* ── Catálogo de proveedores ───────────────────────────────────── */}
             {proveedores.length > 0 && (
-              <div className="bg-brand-blue/5 border border-brand-blue/20 rounded-xl p-4">
-                <label className="block text-sm font-medium text-brand-blue mb-2">
+              <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
+                <label className="block text-sm font-medium text-primary mb-2">
                   Seleccionar del catálogo de proveedores (opcional)
                 </label>
                 <select
@@ -1067,7 +1067,7 @@ export function CotizacionFormPage() {
               <button
                 type="submit"
                 disabled={crearCotizacion.isPending}
-                className="rounded-lg bg-brand-blue px-6 py-2.5 text-sm font-medium text-white hover:bg-brand-blue/90 disabled:opacity-50 transition-colors"
+                className="rounded-lg bg-brand-blue px-6 py-2.5 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-50 transition-colors"
               >
                 {crearCotizacion.isPending ? "Guardando..." : "Enviar a aprobación"}
               </button>

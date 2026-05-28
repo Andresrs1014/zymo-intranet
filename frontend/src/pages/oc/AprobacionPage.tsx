@@ -33,7 +33,7 @@ export function AprobacionPage() {
               <p className="text-sm text-muted-foreground mt-0.5">
                 Solicitudes pendientes de tu revisión
                 {isRefetching && (
-                  <span className="ml-2 text-brand-blue/60">actualizando...</span>
+                  <span className="ml-2 text-primary/60">actualizando...</span>
                 )}
               </p>
             </div>
@@ -105,7 +105,7 @@ function AprobacionCard({
 
         <div className="min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="font-mono text-xs font-bold text-brand-blue">
+            <span className="font-mono text-xs font-bold text-primary">
               {s.consecutivo_os}
             </span>
             <EstadoBadge estado={s.estado} />

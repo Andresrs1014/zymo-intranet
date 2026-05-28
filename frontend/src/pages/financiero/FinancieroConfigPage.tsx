@@ -190,7 +190,7 @@ function CuentasContablesSection() {
                     ) : (
                       <button
                         onClick={() => setEditando(c)}
-                        className="text-muted-foreground hover:text-brand-blue transition-colors"
+                        className="text-muted-foreground hover:text-primary transition-colors"
                         title="Cambiar tipo de gasto"
                       >
                         {c.tipo_gasto_nombre ?? <span className="text-border">—</span>}

@@ -317,7 +317,7 @@ export function KPIPage() {
             <p className="text-sm text-muted-foreground mt-0.5">
               Resumen del módulo OC Automatizaciones
               {isRefetching && (
-                <span className="ml-2 text-brand-blue/60">actualizando...</span>
+                <span className="ml-2 text-primary/60">actualizando...</span>
               )}
             </p>
           </div>
@@ -402,7 +402,7 @@ export function KPIPage() {
           {isLoading && (
             <div className="flex items-center justify-center py-24 text-muted-foreground text-sm">
               <svg
-                className="animate-spin h-5 w-5 mr-2 text-brand-blue"
+                className="animate-spin h-5 w-5 mr-2 text-primary"
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
                 viewBox="0 0 24 24"

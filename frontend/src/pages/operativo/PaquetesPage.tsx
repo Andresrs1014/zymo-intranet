@@ -185,7 +185,7 @@ export function PaquetesPage() {
           {isLoading && (
             <div className="flex items-center justify-center py-24 text-muted-foreground text-sm">
               <svg
-                className="animate-spin h-5 w-5 mr-2 text-brand-blue"
+                className="animate-spin h-5 w-5 mr-2 text-primary"
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
                 viewBox="0 0 24 24"
@@ -225,7 +225,7 @@ export function PaquetesPage() {
                   className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5 shadow-sm"
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-blue/8 text-brand-blue">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/8 text-primary">
                       <span className="w-4 h-4"><IconPaquete /></span>
                     </div>
                     <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground whitespace-nowrap">
@@ -318,7 +318,7 @@ export function PaquetesPage() {
                   <button
                     type="button"
                     onClick={addItem}
-                    className="text-xs text-brand-blue hover:underline font-medium"
+                    className="text-xs text-primary hover:underline font-medium"
                   >
                     + Agregar item
                   </button>
@@ -519,7 +519,7 @@ export function PaquetesPage() {
               </div>
             </div>
             <p className="text-sm text-foreground">
-              Se crearán <span className="font-semibold text-brand-blue">{confirmDespacho.items.length} solicitudes</span> de compra independientes:
+              Se crearán <span className="font-semibold text-primary">{confirmDespacho.items.length} solicitudes</span> de compra independientes:
             </p>
             <ul className="space-y-1 max-h-48 overflow-y-auto">
               {confirmDespacho.items.map((item, i) => (

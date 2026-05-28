@@ -158,7 +158,7 @@ export function RolesPage() {
                             onClick={() => openEdit(role)}
                             variant="ghost"
                             size="sm"
-                            className="text-xs px-2.5 py-1 h-auto text-brand-blue hover:bg-brand-blue/10"
+                            className="text-xs px-2.5 py-1 h-auto text-primary hover:bg-primary/10"
                           >
                             Editar
                           </Button>
@@ -236,7 +236,7 @@ function PermissionBadges({ role }: { role: RoleItem }) {
             className={`inline-block rounded px-1.5 py-0.5 text-xs font-medium ${
               isModule
                 ? "bg-indigo-50 text-indigo-700"
-                : "bg-brand-blue/10 text-brand-blue"
+                : "bg-primary/10 text-primary"
             }`}
           >
             {def?.icon} {def?.name ?? id}
@@ -349,7 +349,7 @@ function RoleFormModal({ role, onSubmit, onClose, isLoading, error }: RoleFormMo
               items={EXTERNAL_APPS}
               selected={permissions}
               onToggle={toggle}
-              badgeColor="bg-brand-blue/10 text-brand-blue"
+              badgeColor="bg-primary/10 text-primary"
             />
 
           </div>
@@ -400,7 +400,7 @@ function PermissionGroup({ title, subtitle, items, selected, onToggle, badgeColo
               type="checkbox"
               checked={selected.includes(item.id)}
               onChange={() => onToggle(item.id)}
-              className="mt-0.5 h-4 w-4 rounded border-border text-brand-blue focus:ring-brand-blue"
+              className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary"
             />
             <span className="flex-1">
               <span className={`inline-block rounded px-1.5 py-0.5 text-xs font-medium mb-0.5 ${badgeColor}`}>

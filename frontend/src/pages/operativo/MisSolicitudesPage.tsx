@@ -74,7 +74,7 @@ export function MisSolicitudesPage() {
               <h1 className="text-xl font-bold text-foreground">Mis Solicitudes</h1>
               <p className="text-sm text-muted-foreground mt-0.5">
                 Historial de compras asociadas a tu correo
-                {isRefetching && <span className="ml-2 text-brand-blue/60">actualizando...</span>}
+                {isRefetching && <span className="ml-2 text-primary/60">actualizando...</span>}
               </p>
             </div>
 
@@ -131,7 +131,7 @@ export function MisSolicitudesPage() {
           {/* Loading */}
           {isLoading && (
             <div className="flex items-center justify-center py-24 text-muted-foreground text-sm">
-              <svg className="animate-spin h-5 w-5 mr-2 text-brand-blue" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <svg className="animate-spin h-5 w-5 mr-2 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
@@ -346,7 +346,7 @@ function SolicitudCard({ solicitud: s }: { solicitud: SolicitudOC }) {
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <span className="font-mono text-xs font-bold text-brand-blue">{s.consecutivo_os}</span>
+              <span className="font-mono text-xs font-bold text-primary">{s.consecutivo_os}</span>
               <EstadoBadge estado={s.estado} />
               <SlaIndicador solicitud={s} />
             </div>
@@ -384,7 +384,7 @@ function SolicitudCard({ solicitud: s }: { solicitud: SolicitudOC }) {
           {s.plataforma && <span>Plataforma: <span className="text-foreground">{s.plataforma}</span></span>}
           <Link
             to={`/operativo/mis-solicitudes/${s.id}`}
-            className="ml-auto text-brand-blue hover:underline font-medium"
+            className="ml-auto text-primary hover:underline font-medium"
           >
             Ver detalle →
           </Link>

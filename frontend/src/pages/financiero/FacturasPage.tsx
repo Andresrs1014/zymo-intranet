@@ -178,7 +178,7 @@ export function FacturasPage() {
                 variant="ghost"
                 size="sm"
                 onClick={limpiarFiltros}
-                className="text-xs font-medium text-brand-blue hover:text-brand-blue/70"
+                className="text-xs font-medium text-primary hover:text-primary/70"
               >
                 Limpiar filtros
               </Button>
@@ -196,7 +196,7 @@ export function FacturasPage() {
                   onClick={() => setTab(t.key)}
                   className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                     tab === t.key
-                      ? "border-brand-blue text-brand-blue"
+                      ? "border-primary text-primary"
                       : "border-transparent text-muted-foreground hover:text-foreground"
                   }`}
                 >
@@ -205,7 +205,7 @@ export function FacturasPage() {
                     <span
                       className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${
                         tab === t.key
-                          ? "bg-brand-blue/10 text-brand-blue"
+                          ? "bg-primary/10 text-primary"
                           : "bg-muted text-muted-foreground"
                       }`}
                     >
@@ -224,7 +224,7 @@ export function FacturasPage() {
           {/* Loading */}
           {isLoading && (
             <div className="flex items-center justify-center py-24 text-muted-foreground text-sm">
-              <svg className="animate-spin h-5 w-5 mr-2 text-brand-blue" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <svg className="animate-spin h-5 w-5 mr-2 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
@@ -273,7 +273,7 @@ function FacturaCard({
           {/* Left — info principal */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <span className="font-mono text-xs font-bold text-brand-blue">
+              <span className="font-mono text-xs font-bold text-primary">
                 {s.consecutivo_os ?? "—"}
               </span>
               {(s.empresa_compra_nombre || s.plataforma) && (
@@ -369,7 +369,7 @@ function FacturaCard({
               variant="ghost"
               size="sm"
               onClick={() => navigate(`/financiero/facturas/${s.solicitud_id}`)}
-              className="text-brand-blue hover:text-brand-blue hover:bg-brand-blue/10"
+              className="text-primary hover:text-primary hover:bg-primary/10"
             >
               Ver detalle
             </Button>

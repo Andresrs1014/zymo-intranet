@@ -830,7 +830,7 @@ export function SolicitudDetallePage() {
                             type="text"
                             value={corrDirProveedorNombre}
                             onChange={(e) => setCorrDirProveedorNombre(e.target.value)}
-                            className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                            className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                           />
                         </div>
                         <div>
@@ -839,7 +839,7 @@ export function SolicitudDetallePage() {
                             type="text"
                             value={corrDirProveedorNit}
                             onChange={(e) => setCorrDirProveedorNit(e.target.value)}
-                            className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                            className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                           />
                         </div>
                         <div>
@@ -848,7 +848,7 @@ export function SolicitudDetallePage() {
                             type="email"
                             value={corrDirProveedorEmail}
                             onChange={(e) => setCorrDirProveedorEmail(e.target.value)}
-                            className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                            className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                           />
                         </div>
                         <div className="sm:col-span-2">
@@ -857,7 +857,7 @@ export function SolicitudDetallePage() {
                             type="text"
                             value={corrDirNumeroCot}
                             onChange={(e) => setCorrDirNumeroCot(e.target.value)}
-                            className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                            className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                           />
                         </div>
                       </div>
@@ -879,7 +879,7 @@ export function SolicitudDetallePage() {
                             setCorrDirValorIva(String(iva))
                             setCorrDirValorTotal(String(total))
                           }}
-                          inputClassName="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                          inputClassName="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                         />
                         <FormFieldCOP
                           label="IVA"
@@ -908,7 +908,7 @@ export function SolicitudDetallePage() {
                             setCorrDirValorIva(String(iva))
                             setCorrDirValorTotal(String(total))
                           }}
-                          inputClassName="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                          inputClassName="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                         />
                         <FormFieldCOP
                           label="Total con IVA *"
@@ -924,7 +924,7 @@ export function SolicitudDetallePage() {
                             setCorrDirValorIva(String(iva))
                             setCorrDirValorTotal(String(t))
                           }}
-                          inputClassName="w-full rounded-lg border border-border px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                          inputClassName="w-full rounded-lg border border-border px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary/30"
                         />
                       </div>
                       <div className="mt-2 max-w-xs">
@@ -932,7 +932,7 @@ export function SolicitudDetallePage() {
                           label="Valor aprobado"
                           value={parseCopNumber(corrDirValorAprobado)}
                           onChange={(v) => setCorrDirValorAprobado(v != null ? String(v) : "")}
-                          inputClassName="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                          inputClassName="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                         />
                       </div>
                     </div>
@@ -945,7 +945,7 @@ export function SolicitudDetallePage() {
                             type="text"
                             value={corrDirFormaPago}
                             onChange={(e) => setCorrDirFormaPago(e.target.value)}
-                            className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                            className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                           />
                         </div>
                         <div>
@@ -954,7 +954,7 @@ export function SolicitudDetallePage() {
                             type="text"
                             value={corrDirPlazoEntrega}
                             onChange={(e) => setCorrDirPlazoEntrega(e.target.value)}
-                            className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                            className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                           />
                         </div>
                         <div className="sm:col-span-2">
@@ -963,7 +963,7 @@ export function SolicitudDetallePage() {
                             rows={2}
                             value={corrDirObsCotizacion}
                             onChange={(e) => setCorrDirObsCotizacion(e.target.value)}
-                            className="w-full rounded-lg border border-border px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                            className="w-full rounded-lg border border-border px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
                           />
                         </div>
                       </div>
@@ -979,7 +979,7 @@ export function SolicitudDetallePage() {
                               { num: rows.length + 1, descripcion: "", cantidad: 1 },
                             ])
                           }
-                          className="text-xs font-medium text-brand-blue hover:underline"
+                          className="text-xs font-medium text-primary hover:underline"
                         >
                           + Agregar ítem
                         </button>
@@ -1111,7 +1111,7 @@ export function SolicitudDetallePage() {
                         rows={3}
                         value={corrDirNotaDirectivo}
                         onChange={(e) => setCorrDirNotaDirectivo(e.target.value)}
-                        className="w-full rounded-lg border border-border px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                        className="w-full rounded-lg border border-border px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
                         placeholder="Ej. Se corrigió el NIT y el valor acordado con el proveedor..."
                       />
                     </div>
@@ -1121,7 +1121,7 @@ export function SolicitudDetallePage() {
                       type="button"
                       onClick={handleGuardarCorreccionDirectiva}
                       disabled={corregirDirectivo.isPending}
-                      className="flex-1 rounded-lg bg-brand-blue px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-blue/90 disabled:opacity-50"
+                      className="flex-1 rounded-lg bg-brand-blue px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-50"
                     >
                       {corregirDirectivo.isPending ? "Guardando..." : "Guardar corrección"}
                     </button>
@@ -1151,7 +1151,7 @@ export function SolicitudDetallePage() {
           <div className="flex items-start justify-between mb-6">
             <div>
               <div className="flex items-center gap-3 mb-1">
-                <span className="font-mono text-sm font-bold text-brand-blue">
+                <span className="font-mono text-sm font-bold text-primary">
                   {solicitud.consecutivo_os}
                 </span>
                 <EstadoBadge estado={solicitud.estado} />
@@ -1208,7 +1208,7 @@ export function SolicitudDetallePage() {
                 <button
                   onClick={handleAsignarme}
                   disabled={asignar.isPending}
-                  className="rounded-lg bg-brand-blue px-4 py-2 text-sm font-medium text-white hover:bg-brand-blue/90 disabled:opacity-50 transition-colors"
+                  className="rounded-lg bg-brand-blue px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-50 transition-colors"
                 >
                   {asignar.isPending ? "Asignando..." : "Asignarme esta solicitud"}
                 </button>
@@ -1497,8 +1497,8 @@ export function SolicitudDetallePage() {
                     onClick={() => evidenciaInputRef.current?.click()}
                     className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-8 cursor-pointer transition-colors ${
                       evidenciaDragOver
-                        ? "border-brand-blue bg-brand-blue/5"
-                        : "border-border hover:border-brand-blue/40 hover:bg-muted"
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/40 hover:bg-muted"
                     }`}
                   >
                     <svg className="w-8 h-8 text-muted-foreground/50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
@@ -1542,7 +1542,7 @@ export function SolicitudDetallePage() {
                               href={buildFotoUrl(filename)}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="flex flex-col items-center justify-center h-24 gap-1 text-muted-foreground hover:text-brand-blue transition-colors"
+                              className="flex flex-col items-center justify-center h-24 gap-1 text-muted-foreground hover:text-primary transition-colors"
                             >
                               <svg className="w-7 h-7" viewBox="0 0 20 20" fill="currentColor">
                                 <path fillRule="evenodd" d="M4 4a2 2 0 0 1 2-2h4.586A2 2 0 0 1 12 2.586L15.414 6A2 2 0 0 1 16 7.414V16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4Z" clipRule="evenodd" />
@@ -1580,7 +1580,7 @@ export function SolicitudDetallePage() {
                         onChange={(e) =>
                           cambiarPrioridad.mutate({ id: solicitud.id, nivel_prioridad: e.target.value })
                         }
-                        className="rounded-md border border-border px-2 py-1 text-sm font-medium text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-brand-blue disabled:opacity-50"
+                        className="rounded-md border border-border px-2 py-1 text-sm font-medium text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
                       >
                         <option value="Alta">Alta</option>
                         <option value="Media">Media</option>
@@ -1631,7 +1631,7 @@ export function SolicitudDetallePage() {
                       href={solicitud.evidencia_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-sm text-brand-blue hover:underline"
+                      className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
                     >
                       📎 Ver evidencia
                     </a>
@@ -1826,7 +1826,7 @@ export function SolicitudDetallePage() {
                     </p>
                     <button
                       onClick={() => navigate(`/oc/solicitudes/${solicitud.id}/cotizar`)}
-                      className="w-full rounded-lg bg-brand-blue px-4 py-2 text-sm font-medium text-white hover:bg-brand-blue/90 transition-colors"
+                      className="w-full rounded-lg bg-brand-blue px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 transition-colors"
                     >
                       {solicitud.estado === "rechazada"
                         ? "Cargar nueva cotización"
@@ -1860,7 +1860,7 @@ export function SolicitudDetallePage() {
                           if (!val || !id) return
                           asignar.mutate({ id, auxiliar_id: val })
                         }}
-                        className="w-full rounded-lg border border-border px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30 bg-background disabled:opacity-50"
+                        className="w-full rounded-lg border border-border px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-background disabled:opacity-50"
                       >
                         <option value="" disabled>— Seleccionar —</option>
                         {usuariosCompras.map((u) => (
@@ -1870,7 +1870,7 @@ export function SolicitudDetallePage() {
                         ))}
                       </select>
                       {asignar.isPending && (
-                        <p className="text-xs text-brand-blue">Asignando...</p>
+                        <p className="text-xs text-primary">Asignando...</p>
                       )}
                     </div>
                   )}
@@ -1899,8 +1899,8 @@ export function SolicitudDetallePage() {
                   onClick={() => fotoInputRef.current?.click()}
                   className={`flex flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed py-4 cursor-pointer transition-colors text-xs ${
                     fotoDragOver
-                      ? "border-brand-blue bg-brand-blue/5 text-brand-blue"
-                      : "border-border text-muted-foreground hover:border-brand-blue/30 hover:bg-muted"
+                      ? "border-primary bg-primary/5 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/30 hover:bg-muted"
                   }`}
                 >
                   <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
@@ -1941,7 +1941,7 @@ export function SolicitudDetallePage() {
                             href={buildFotoUrl(filename)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex flex-col items-center justify-center h-16 gap-1 text-muted-foreground hover:text-brand-blue transition-colors"
+                            className="flex flex-col items-center justify-center h-16 gap-1 text-muted-foreground hover:text-primary transition-colors"
                           >
                             <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
                               <path fillRule="evenodd" d="M4 4a2 2 0 0 1 2-2h4.586A2 2 0 0 1 12 2.586L15.414 6A2 2 0 0 1 16 7.414V16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4Z" clipRule="evenodd" />
@@ -2980,24 +2980,24 @@ function PanelOrdenCompra({
 
   // OC no generada aún — selector de plataforma + botón para generarla
   return (
-    <div className="bg-blue-50 border border-brand-blue/20 rounded-xl p-5 space-y-4">
+    <div className="bg-blue-50 border border-primary/20 rounded-xl p-5 space-y-4">
       <div className="flex items-center gap-2">
-        <svg className="w-5 h-5 text-brand-blue shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" aria-hidden="true">
+        <svg className="w-5 h-5 text-primary shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
         </svg>
         <div>
-          <p className="text-sm font-semibold text-brand-blue">Generar Orden de Compra</p>
-          <p className="text-xs text-brand-blue/60">
+          <p className="text-sm font-semibold text-primary">Generar Orden de Compra</p>
+          <p className="text-xs text-primary/60">
             La cotización fue aprobada. Selecciona la plataforma y genera el documento oficial.
           </p>
         </div>
       </div>
       <div className="space-y-1">
-        <label className="block text-xs font-medium text-brand-blue/70">Plataforma</label>
+        <label className="block text-xs font-medium text-primary/70">Plataforma</label>
         <select
           value={plataforma}
           onChange={(e) => setPlataforma(e.target.value)}
-          className="w-full rounded-lg border border-brand-blue/30 px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+          className="w-full rounded-lg border border-primary/30 px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
         >
           <option value="">— Sin asignar —</option>
           {plataformasDisponibles.map((p) => (
@@ -3011,7 +3011,7 @@ function PanelOrdenCompra({
         <button
           onClick={() => onGenerar(plataforma)}
           disabled={isGenerating || isActualizando || !plataforma}
-          className="rounded-lg bg-brand-blue px-4 py-2 text-sm font-medium text-white hover:bg-brand-blue/90 disabled:opacity-50 transition-colors"
+          className="rounded-lg bg-brand-blue px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-50 transition-colors"
         >
           {isActualizando ? "Guardando..." : isGenerating ? "Generando..." : "Generar OC"}
         </button>

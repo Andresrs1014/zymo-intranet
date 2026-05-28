@@ -33,7 +33,7 @@ export function ImageModal({ isOpen, imageUrl, filename, onClose }: ImageModalPr
             <a
               href={imageUrl}
               download={filename}
-              className="p-1.5 text-gray-500 hover:text-brand-blue hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-medium"
+              className="p-1.5 text-gray-500 hover:text-primary hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-medium"
               title="Descargar imagen"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

@@ -46,7 +46,7 @@ export function ExtraccionIAPage() {
                 { label: "Pendientes de revisión", value: metricas.pendientes, color: "text-amber-600" },
                 { label: "Aprobados", value: metricas.aprobados, color: "text-green-600" },
                 { label: "Rechazados", value: metricas.rechazados, color: "text-red-500" },
-                { label: "Sinónimos aprendidos", value: metricas.total_sinonimos_aprendidos, color: "text-brand-blue" },
+                { label: "Sinónimos aprendidos", value: metricas.total_sinonimos_aprendidos, color: "text-primary" },
               ].map((m) => (
                 <div key={m.label} className="bg-white rounded-xl border border-gray-100 p-4">
                   <p className={`text-2xl font-bold ${m.color}`}>{m.value}</p>
@@ -64,7 +64,7 @@ export function ExtraccionIAPage() {
                 type="button"
                 onClick={() => setTab(t)}
                 className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                  tab === t ? "border-brand-blue text-brand-blue" : "border-transparent text-gray-500 hover:text-gray-700"
+                  tab === t ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700"
                 }`}
               >
                 {t === "cola"
@@ -113,7 +113,7 @@ export function ExtraccionIAPage() {
                       <select
                         value={campoSeleccionado[item.id] ?? ""}
                         onChange={(e) => setCampoSeleccionado((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                        className="rounded-lg border border-gray-200 px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                        className="rounded-lg border border-gray-200 px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
                       >
                         <option value="">Seleccionar campo…</option>
                         {metricas?.campos_canonicos_disponibles.map((c) => (
@@ -164,7 +164,7 @@ export function ExtraccionIAPage() {
                       {sinonimos.map((s) => (
                         <tr key={s.id} className="text-gray-700">
                           <td className="px-4 py-2.5 font-mono text-xs">"{s.label}"</td>
-                          <td className="px-4 py-2.5 text-brand-blue font-medium text-xs">{s.canonical_field}</td>
+                          <td className="px-4 py-2.5 text-primary font-medium text-xs">{s.canonical_field}</td>
                           <td className="px-4 py-2.5 text-gray-500">{s.veces_visto}×</td>
                           <td className="px-4 py-2.5 text-gray-400 text-xs">{s.aprobado_por_email}</td>
                           <td className="px-4 py-2.5">

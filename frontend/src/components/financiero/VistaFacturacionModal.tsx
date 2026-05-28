@@ -56,7 +56,7 @@ export function VistaFacturacionModal({ open, onClose, solicitud, factura }: Vis
         aria-labelledby="vista-facturacion-titulo"
       >
         <header className="shrink-0 px-6 py-5 border-b border-border bg-gradient-to-r from-muted to-card">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-brand-blue mb-1">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-primary mb-1">
             Resumen para facturación
           </p>
           <DialogTitle className="text-xl font-bold text-foreground truncate">
@@ -104,7 +104,7 @@ export function VistaFacturacionModal({ open, onClose, solicitud, factura }: Vis
             <div className="rounded-xl border border-border bg-muted/50 px-4">
               <Row
                 label="Número de factura"
-                value={numeroFactura ? <span className="font-mono font-semibold text-brand-blue">{numeroFactura}</span> : "—"}
+                value={numeroFactura ? <span className="font-mono font-semibold text-primary">{numeroFactura}</span> : "—"}
               />
               <Row label="Fecha factura" value={formatFechaFactura(fechaFactura)} />
               <Row label="Valor factura" value={formatCOP(valorFactura)} />
