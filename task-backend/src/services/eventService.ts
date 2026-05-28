@@ -19,6 +19,24 @@ function overlaps(a: TimeSlot, b: TimeSlot): boolean {
   return a.startMinutes < b.endMinutes && b.startMinutes < a.endMinutes
 }
 
+async function enrichUserNames(userIds: number[]): Promise<Map<number, string>> {
+  const nameMap = new Map<number, string>()
+  try {
+    const res = await fetch(`${env.INTRANET_API_URL}/api/tasks-v2/users`, {
+      headers: { "X-Internal-Key": env.INTERNAL_KEY },
+    })
+    if (res.ok) {
+      const users = await res.json() as { id: number; full_name: string | null; email: string }[]
+      for (const u of users) {
+        if (userIds.includes(u.id)) {
+          nameMap.set(u.id, u.full_name ?? u.email)
+        }
+      }
+    }
+  } catch { /* best-effort */ }
+  return nameMap
+}
+
 /** Detect schedule conflicts for a set of participants on a given date */
 async function detectConflicts(
   eventId: number | null,
@@ -103,6 +121,8 @@ export async function createEvent(user: AuthPayload, input: CreateEventInput) {
     participantIds,
   )
 
+  const nameMap = await enrichUserNames(participantIds)
+
   const created = await prisma.event.create({
     data: {
       teamId: input.teamId,
@@ -121,7 +141,7 @@ export async function createEvent(user: AuthPayload, input: CreateEventInput) {
       participants: {
         create: participantIds.map((uid) => ({
           userId: uid,
-          userNombre: uid === userId ? (user.full_name ?? `Usuario ${uid}`) : `Usuario ${uid}`,
+          userNombre: uid === userId ? (user.full_name ?? `Usuario ${uid}`) : (nameMap.get(uid) ?? `Usuario ${uid}`),
           hasConflict: conflicts.has(uid),
           conflictDetail: conflicts.get(uid) ?? null,
           confirmado: uid === userId,
@@ -329,11 +349,13 @@ export async function updateParticipants(
       currentParticipantIds,
     )
 
+    const nameMap = await enrichUserNames(toAdd)
+
     await prisma.eventParticipant.createMany({
       data: toAdd.map((uid) => ({
         eventId,
         userId: uid,
-        userNombre: uid === userId ? (user.full_name ?? `Usuario ${uid}`) : `Usuario ${uid}`,
+        userNombre: uid === userId ? (user.full_name ?? `Usuario ${uid}`) : (nameMap.get(uid) ?? `Usuario ${uid}`),
         hasConflict: conflicts.has(uid),
         conflictDetail: conflicts.get(uid) ?? null,
         confirmado: false,

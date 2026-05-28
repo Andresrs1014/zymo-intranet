@@ -148,16 +148,22 @@ export async function createTask(
     if (!isMember) throw new AppError(422, "El usuario asignado no pertenece al equipo")
   }
 
+  // Auto-asignar al creador si no hay asignado explícito
+  const resolvedAsignadoId = input.asignadoAId ?? userId
+  const resolvedAsignadoNombre = input.asignadoAId
+    ? (input.asignadoANombre ?? null)
+    : (user.full_name ?? `Usuario ${userId}`)
+
   const aceptacion: TaskAcceptanceStatus =
-    input.asignadoAId && input.asignadoAId !== userId ? "pendiente" : "aceptada"
+    resolvedAsignadoId !== userId ? "pendiente" : "aceptada"
 
   const task = await prisma.task.create({
     data: {
       teamId: input.teamId,
       subidoPorId: userId,
       subidoPorNombre: user.full_name ?? `Usuario ${userId}`,
-      asignadoAId: input.asignadoAId ?? null,
-      asignadoANombre: input.asignadoANombre ?? null,
+      asignadoAId: resolvedAsignadoId,
+      asignadoANombre: resolvedAsignadoNombre,
       titulo,
       descripcionTecnica: input.descripcionTecnica ?? null,
       etiqueta: input.etiqueta,

@@ -2,6 +2,8 @@ import prisma from "../config/prisma"
 import { AppError } from "../middleware/errorHandler"
 import { AuthPayload, getUserId, isAdmin } from "../middleware/auth"
 import { getManagedTeamIds, getMemberTeamIds } from "../utils/permissions"
+import axios from "axios"
+import { env } from "../config/env"
 
 interface DateRange {
   desde?: string
@@ -78,7 +80,7 @@ export async function getTeamKpis(user: AuthPayload, teamId: number, range: Date
 
 // ─── Person summaries ─────────────────────────────────────────────────────────
 
-export async function getPersonSummaries(user: AuthPayload, teamId: number, range: DateRange) {
+export async function getPersonSummaries(user: AuthPayload, teamId: number, range: DateRange, token?: string) {
   await assertManagerAccess(user, teamId)
 
   const dateFilter = buildDateFilter(range)
@@ -90,6 +92,20 @@ export async function getPersonSummaries(user: AuthPayload, teamId: number, rang
     _count: { id: true },
     _sum: { tiempoTotalMinutos: true },
   })
+
+  // Build name map from intranet API (best-effort)
+  let nameMap = new Map<number, string>()
+  if (token) {
+    try {
+      const res = await axios.get<{ id: number; full_name: string | null; email: string }[]>(
+        `${env.INTRANET_API_URL}/api/tasks-v2/users`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      )
+      for (const u of Array.isArray(res.data) ? res.data : []) {
+        nameMap.set(u.id, u.full_name ?? u.email)
+      }
+    } catch { /* enrichment is best-effort */ }
+  }
 
   const personMap = new Map<number, {
     userId: number
@@ -104,7 +120,7 @@ export async function getPersonSummaries(user: AuthPayload, teamId: number, rang
     if (!personMap.has(uid)) {
       personMap.set(uid, {
         userId: uid,
-        nombre: row.asignadoANombre ?? `Usuario ${uid}`,
+        nombre: nameMap.get(uid) ?? row.asignadoANombre ?? `Usuario ${uid}`,
         total: 0,
         horasTotal: 0,
         byEstado: {},
@@ -159,7 +175,7 @@ export async function getCharts(user: AuthPayload, teamId: number, range: DateRa
 
 // ─── Without entry today ──────────────────────────────────────────────────────
 
-export async function getMembersWithoutEntryToday(user: AuthPayload, teamId: number) {
+export async function getMembersWithoutEntryToday(user: AuthPayload, teamId: number, token?: string) {
   await assertManagerAccess(user, teamId)
 
   const today = new Date()
@@ -185,9 +201,23 @@ export async function getMembersWithoutEntryToday(user: AuthPayload, teamId: num
   ])
   const withEntry = new Set(todayAssignees.map((t) => t.asignadoAId!))
 
+  // Enrich names best-effort
+  let nameMap = new Map<number, string>()
+  if (token) {
+    try {
+      const res = await axios.get<{ id: number; full_name: string | null; email: string }[]>(
+        `${env.INTRANET_API_URL}/api/tasks-v2/users`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      )
+      for (const u of Array.isArray(res.data) ? res.data : []) {
+        nameMap.set(u.id, u.full_name ?? u.email)
+      }
+    } catch { /* best-effort */ }
+  }
+
   return Array.from(allIds)
     .filter((id) => !withEntry.has(id))
-    .map((id) => ({ userId: id }))
+    .map((id) => ({ userId: id, nombre: nameMap.get(id) ?? `Usuario ${id}` }))
 }
 
 // ─── My KPIs ─────────────────────────────────────────────────────────────────
