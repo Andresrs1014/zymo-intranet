@@ -76,7 +76,7 @@ export function TaskShell({ children }: TaskShellProps) {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "64px minmax(0, 1fr)",
+            gridTemplateColumns: "auto minmax(0, 1fr)",
             minHeight: "100vh",
           }}
         >

@@ -63,6 +63,7 @@ function TaskFiltersBar({ teamId, filters, onChange, members }: TaskFiltersBarPr
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
+          className={`task-filter-btn${activeCount > 0 ? " has-filters" : ""}`}
           style={{
             display: "flex",
             alignItems: "center",
@@ -106,7 +107,7 @@ function TaskFiltersBar({ teamId, filters, onChange, members }: TaskFiltersBarPr
 
       {/* Collapsible panel */}
       {open && (
-        <div style={{
+        <div className="task-filter-panel" style={{
           background: "#fff",
           border: "1px solid #e8ebf4",
           borderRadius: 10,

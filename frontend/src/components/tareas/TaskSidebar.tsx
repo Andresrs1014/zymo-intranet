@@ -8,6 +8,8 @@ import {
   Users,
   Settings,
   Plus,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react"
 import { useTask, type TaskView } from "@/context/TaskContext"
 import { useMyTeams, useCreateTeam } from "@/hooks/useTaskTeams"
@@ -43,6 +45,7 @@ export function TaskSidebar() {
   const { user } = useAuthStore()
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [newTeamName, setNewTeamName] = useState("")
+  const [expanded, setExpanded] = useState(false)
 
   const isGestor = user?.user_tools?.includes("tool_task_manage_dev") ?? false
   const isManager = myRole === "owner" || myRole === "co_gestor"
@@ -65,47 +68,81 @@ export function TaskSidebar() {
   const visibleNav = NAV_ITEMS.filter((item) => !item.managerOnly || isManager)
   const activeTeam = teams.find((t) => t.id === activeTeamId)
 
+  const sidebarWidth = expanded ? 220 : 64
+
   return (
     <aside
       style={{
         display: "flex",
         flexDirection: "column",
-        alignItems: "center",
+        alignItems: expanded ? "flex-start" : "center",
         gap: 8,
         padding: "16px 8px",
         background: "linear-gradient(180deg, #1e232c 0%, #252b36 100%)",
         borderRight: "1px solid rgba(255,255,255,0.07)",
         minHeight: "100vh",
-        width: 64,
+        width: sidebarWidth,
+        transition: "width 220ms ease",
+        overflow: "hidden",
+        flexShrink: 0,
       }}
     >
-      {/* Brand mark */}
-      <div
-        style={{
-          width: 36,
-          height: 36,
-          borderRadius: 8,
-          background: "linear-gradient(135deg, #ef3340, #ff6b75)",
-          color: "#fff",
-          fontSize: "1.1rem",
-          fontWeight: 900,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          marginBottom: 8,
-          boxShadow: "0 4px 12px rgba(239,51,64,0.35)",
-          flexShrink: 0,
-        }}
-      >
-        T
+      {/* Brand + toggle row */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: expanded ? "space-between" : "center", width: "100%", paddingLeft: expanded ? 4 : 0, paddingRight: expanded ? 4 : 0, marginBottom: 8 }}>
+        <div
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 8,
+            background: "linear-gradient(135deg, #ef3340, #ff6b75)",
+            color: "#fff",
+            fontSize: "1.1rem",
+            fontWeight: 900,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 4px 12px rgba(239,51,64,0.35)",
+            flexShrink: 0,
+          }}
+        >
+          T
+        </div>
+        {expanded && (
+          <div style={{ marginLeft: 8, flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", whiteSpace: "nowrap" }}>Tareas 2.0</div>
+            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", whiteSpace: "nowrap" }}>Gestión de equipos</div>
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="task-sidebar-toggle"
+          data-label={expanded ? "Colapsar" : "Expandir"}
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 6,
+            border: "none",
+            background: "rgba(255,255,255,0.07)",
+            color: "rgba(255,255,255,0.4)",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+            marginLeft: expanded ? 4 : 0,
+          }}
+        >
+          {expanded ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
+        </button>
       </div>
 
       {/* Divider */}
-      <div style={{ width: 32, height: 1, background: "rgba(255,255,255,0.08)", marginBottom: 4 }} />
+      <div style={{ width: expanded ? "100%" : 32, height: 1, background: "rgba(255,255,255,0.08)", marginBottom: 4 }} />
 
       {/* Team circles */}
       {!isLoading && teams.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, width: "100%", alignItems: "center" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, width: "100%", alignItems: expanded ? "flex-start" : "center", paddingLeft: expanded ? 4 : 0 }}>
           {teams.map((team) => {
             const isSelected = team.id === activeTeamId
             const color = teamColor(team.id)
@@ -115,10 +152,10 @@ export function TaskSidebar() {
                 key={team.id}
                 type="button"
                 onClick={() => setActiveTeamId(team.id)}
-                data-label={team.name}
+                data-label={!expanded ? team.name : undefined}
                 className={`task-nav-icon task-team-btn${isSelected ? " selected" : ""}`}
                 style={{
-                  width: 36,
+                  width: expanded ? "100%" : 36,
                   height: 36,
                   borderRadius: 8,
                   border: "none",
@@ -129,10 +166,15 @@ export function TaskSidebar() {
                   cursor: "pointer",
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center",
+                  justifyContent: expanded ? "flex-start" : "center",
+                  gap: 8,
+                  paddingLeft: expanded ? 8 : 0,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
                 }}
               >
-                {initial}
+                <span style={{ flexShrink: 0 }}>{initial}</span>
+                {expanded && <span style={{ fontSize: 12, overflow: "hidden", textOverflow: "ellipsis" }}>{team.name}</span>}
               </button>
             )
           })}
@@ -223,7 +265,7 @@ export function TaskSidebar() {
       <div style={{ width: 32, height: 1, background: "rgba(255,255,255,0.08)", margin: "4px 0" }} />
 
       {/* Navigation icons */}
-      <nav style={{ display: "flex", flexDirection: "column", gap: 4, width: "100%", alignItems: "center" }}>
+      <nav style={{ display: "flex", flexDirection: "column", gap: 4, width: "100%", alignItems: expanded ? "flex-start" : "center", paddingLeft: expanded ? 4 : 0 }}>
         {visibleNav.map(({ view, label, icon }) => {
           const isActive = activeView === view
           return (
@@ -231,10 +273,10 @@ export function TaskSidebar() {
               key={view}
               type="button"
               onClick={() => setActiveView(view)}
-              data-label={label}
+              data-label={!expanded ? label : undefined}
               className={`task-nav-icon${isActive ? " active" : ""}`}
               style={{
-                width: 40,
+                width: expanded ? "100%" : 40,
                 height: 40,
                 border: "none",
                 borderRadius: 8,
@@ -243,11 +285,14 @@ export function TaskSidebar() {
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
+                justifyContent: expanded ? "flex-start" : "center",
+                gap: expanded ? 10 : 0,
+                paddingLeft: expanded ? 10 : 0,
                 position: "relative",
+                whiteSpace: "nowrap",
               }}
             >
-              {/* Active indicator dot */}
+              {/* Active indicator bar */}
               {isActive && (
                 <span style={{
                   position: "absolute",
@@ -261,6 +306,7 @@ export function TaskSidebar() {
                 }} />
               )}
               {icon}
+              {expanded && <span style={{ fontSize: 13, fontWeight: isActive ? 600 : 400 }}>{label}</span>}
             </button>
           )
         })}
