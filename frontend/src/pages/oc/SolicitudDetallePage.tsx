@@ -4,11 +4,9 @@ import { PageLayout } from "@/components/layout/PageLayout"
 import { api } from "@/lib/api"
 import {
   encabezadoDesdeItems,
-  ivaYTotalDesdeSubtotal,
   recalcLineFromCantVu,
   recalcUnitarioFromCantVt,
   roundCOP,
-  subtotalEIvaDesdeTotal,
   subtotalFromItems,
 } from "@/lib/ocValoresCalculo"
 import { formatFechaHora, formatFechaRelativa } from "@/lib/dates"
@@ -408,8 +406,8 @@ export function SolicitudDetallePage() {
       return
     }
     const esProcesoCerrado = ["cerrada", "entregada"].includes(solicitud?.estado ?? "")
-    if (esProcesoCerrado && corrDirMotivoCierre.trim().length < 10) {
-      setCorrDirError("Debes justificar por qué realizas una corrección después de cerrado el proceso (mínimo 10 caracteres).")
+    if (esProcesoCerrado && corrDirMotivoCierre.trim().length < 3) {
+      setCorrDirError("Debes justificar por qué realizas una corrección después de cerrado el proceso.")
       return
     }
     if (!corrDirProveedorNombre.trim()) {
@@ -418,13 +416,14 @@ export function SolicitudDetallePage() {
     }
     const vt = parseCopNumber(corrDirValorTotal)
     if (vt == null || vt <= 0) {
-      setCorrDirError("Indica un total con IVA válido mayor a cero.")
+      setCorrDirError("Indica un total válido mayor a cero.")
       return
     }
     const vaIva = parseCopNumber(corrDirValorIva)
     const vSub = parseCopNumber(corrDirValorAntesIva)
+    // Solo validar coherencia si los tres campos están llenos
     if (vSub != null && vaIva != null && Math.abs(vSub + vaIva - vt) > 2) {
-      setCorrDirError("Subtotal sin IVA + IVA debe coincidir con el total con IVA (tolerancia 1–2 pesos por redondeo).")
+      setCorrDirError("Subtotal sin IVA + IVA no coincide con el total (tolerancia 1–2 pesos por redondeo).")
       return
     }
     const itemsPayload = corrDirItems
@@ -441,16 +440,7 @@ export function SolicitudDetallePage() {
       setCorrDirError("Agrega al menos un ítem con descripción.")
       return
     }
-    const subCab = parseCopNumber(corrDirValorAntesIva)
-    const sumaLineas = roundCOP(
-      subtotalFromItems(corrDirItems.filter((it) => it.descripcion?.trim())),
-    )
-    if (sumaLineas > 0 && subCab != null && Math.abs(sumaLineas - roundCOP(subCab)) > 2) {
-      setCorrDirError(
-        `La suma de valores totales de ítems (${sumaLineas.toLocaleString("es-CO")}) no coincide con el subtotal sin IVA (${roundCOP(subCab).toLocaleString("es-CO")}). Revisa la tabla o los tres montos de encabezado.`,
-      )
-      return
-    }
+    // Validación items vs subtotal removida — subtotal e IVA son opcionales
     const valorAprobadoNum = parseCopNumber(corrDirValorAprobado)
     const payload: CorregirDirectivoPayload = {
       proveedor_nombre: corrDirProveedorNombre.trim(),
@@ -869,60 +859,23 @@ export function SolicitudDetallePage() {
                           label="Subtotal sin IVA"
                           value={parseCopNumber(corrDirValorAntesIva)}
                           onChange={(v) => {
-                            if (v == null) {
-                              setCorrDirValorAntesIva("")
-                              return
-                            }
-                            const s = roundCOP(v)
-                            const { iva, total } = ivaYTotalDesdeSubtotal(s)
-                            setCorrDirValorAntesIva(String(s))
-                            setCorrDirValorIva(String(iva))
-                            setCorrDirValorTotal(String(total))
+                            setCorrDirValorAntesIva(v != null ? String(roundCOP(v)) : "")
                           }}
                           inputClassName="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                         />
                         <FormFieldCOP
-                          label="IVA"
+                          label="IVA (si aplica)"
                           value={parseCopNumber(corrDirValorIva)}
                           onChange={(v) => {
-                            let sub = parseCopNumber(corrDirValorAntesIva)
-                            if (sub == null) {
-                              const tt = parseCopNumber(corrDirValorTotal)
-                              if (tt != null) {
-                                const { subtotal } = subtotalEIvaDesdeTotal(tt)
-                                sub = subtotal
-                                setCorrDirValorAntesIva(String(subtotal))
-                              }
-                            }
-                            if (sub == null) {
-                              setCorrDirError("Indica primero el subtotal sin IVA o el total con IVA.")
-                              return
-                            }
-                            setCorrDirError(null)
-                            if (v == null) {
-                              setCorrDirValorIva("")
-                              return
-                            }
-                            const iva = roundCOP(v)
-                            const total = roundCOP(sub + iva)
-                            setCorrDirValorIva(String(iva))
-                            setCorrDirValorTotal(String(total))
+                            setCorrDirValorIva(v != null ? String(roundCOP(v)) : "")
                           }}
                           inputClassName="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                         />
                         <FormFieldCOP
-                          label="Total con IVA *"
+                          label="Total *"
                           value={parseCopNumber(corrDirValorTotal)}
                           onChange={(v) => {
-                            if (v == null) {
-                              setCorrDirValorTotal("")
-                              return
-                            }
-                            const t = roundCOP(v)
-                            const { subtotal, iva } = subtotalEIvaDesdeTotal(t)
-                            setCorrDirValorAntesIva(String(subtotal))
-                            setCorrDirValorIva(String(iva))
-                            setCorrDirValorTotal(String(t))
+                            setCorrDirValorTotal(v != null ? String(roundCOP(v)) : "")
                           }}
                           inputClassName="w-full rounded-lg border border-border px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary/30"
                         />
@@ -1092,7 +1045,7 @@ export function SolicitudDetallePage() {
                           quedará registrada y se te enviará una notificación de alerta.
                         </p>
                         <label className="block text-xs font-medium text-red-700 mt-1">
-                          Justificación obligatoria — mín. 10 caracteres *
+                          Justificación de la corrección (obligatoria) *
                         </label>
                         <textarea
                           rows={3}

@@ -1232,10 +1232,10 @@ def corregir_directivo(
         )
 
     es_post_cierre = solicitud.estado in _ESTADOS_POST_CIERRE
-    if es_post_cierre and (not payload.motivo_post_cierre or len(payload.motivo_post_cierre.strip()) < 10):
+    if es_post_cierre and (not payload.motivo_post_cierre or len(payload.motivo_post_cierre.strip()) < 3):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Se requiere una justificación de al menos 10 caracteres para corregir un proceso ya cerrado.",
+            detail="Se requiere una justificación para corregir un proceso ya cerrado.",
         )
 
     # Actualizar solo los campos provistos
