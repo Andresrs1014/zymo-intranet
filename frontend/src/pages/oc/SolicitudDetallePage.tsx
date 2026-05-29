@@ -449,8 +449,6 @@ export function SolicitudDetallePage() {
       setCorrDirError("Indica un total válido mayor a cero.")
       return
     }
-    const vaIva = parseCopNumber(corrDirValorIva)
-    const vSub = parseCopNumber(corrDirValorAntesIva)
     const itemsPayload = corrDirItems
       .filter((it) => it.descripcion?.trim())
       .map((it, i) => ({
