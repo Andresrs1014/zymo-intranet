@@ -1,11 +1,17 @@
-"""Nombre comercial de la empresa según plataforma (lee platforms/*/config.json)."""
+"""Nombre comercial de la empresa según plataforma (lee platforms/*/config.json).
+
+Este módulo es la fuente de verdad del mapa plataforma→slug.
+email_service.py y documentos.py importan SLUG_MAP desde aquí.
+Para agregar una plataforma nueva basta editar este archivo.
+"""
 import json
 from pathlib import Path
 from typing import Optional
 
 _PLATFORMS_DIR = Path(__file__).resolve().parent.parent / "platforms"
 
-_SLUG_MAP = {
+# Fuente de verdad única. email_service y documentos importan desde aquí.
+SLUG_MAP: dict[str, str] = {
     "logimat": "logimat",
     "logimat 2": "logimat",
     "logimat2": "logimat",
@@ -20,6 +26,9 @@ _SLUG_MAP = {
     "imc deposito s.a.s.": "imcdep",
     "imc depósito s.a.s.": "imcdep",
 }
+
+# Alias privado para compatibilidad interna
+_SLUG_MAP = SLUG_MAP
 
 
 def nombre_empresa_desde_plataforma(plataforma: Optional[str]) -> Optional[str]:

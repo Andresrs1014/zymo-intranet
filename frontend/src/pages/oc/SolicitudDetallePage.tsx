@@ -1,4 +1,4 @@
-import { type ReactNode, useRef, useState } from "react"
+import { type ReactNode, useEffect, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { api } from "@/lib/api"
@@ -56,6 +56,30 @@ import { EstadoBadge } from "./SolicitudesPage"
 import { ImageModal } from "@/components/ui/ImageModal"
 import { absoluteApiUrl } from "@/lib/api"
 import type { CotizacionProveedor, HistorialEntrada, ItemCotizacion, OrdenCompra } from "@/types/oc"
+
+/** Componente <img> que carga la imagen via fetch con Authorization header (no expone token en URL). */
+function AuthImg({ src, alt, className, onClick }: { src: string; alt: string; className?: string; onClick?: () => void }) {
+  const token = useAuthStore((s) => s.token)
+  const [blobUrl, setBlobUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!src) return
+    let revoked = false
+    fetch(src, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+      .then((r) => r.blob())
+      .then((blob) => {
+        if (!revoked) setBlobUrl(URL.createObjectURL(blob))
+      })
+      .catch(() => setBlobUrl(src)) // fallback: usa URL directa si falla
+    return () => {
+      revoked = true
+      setBlobUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return null })
+    }
+  }, [src, token])
+
+  if (!blobUrl) return <div className={className} style={{ background: "#f3f4f6" }} />
+  return <img src={blobUrl} alt={alt} className={className} onClick={onClick} />
+}
 
 /** Descarga el PDF/xlsx de una cotización usando el header Authorization (no expone token en URL). */
 async function abrirCotizacionPdf(cotizacionId: string): Promise<void> {
@@ -230,10 +254,16 @@ export function SolicitudDetallePage() {
     solicitudOcProformaSoloFinanciero(solicitud.estado) &&
     solicitud.tiene_proforma
 
-  const buildFotoUrl = (filename: string) => {
-    const t = token ? encodeURIComponent(token) : ""
-    const qp = t ? `?token=${t}` : ""
-    return absoluteApiUrl(`/api/oc/solicitudes/${solicitud.id}/fotos/${filename}${qp}`)
+  // URL limpia sin token — AuthImg y fetchFotoBlob inyectan el token via Authorization header
+  const buildFotoUrl = (filename: string) =>
+    absoluteApiUrl(`/api/oc/solicitudes/${solicitud.id}/fotos/${filename}`)
+
+  const fetchFotoBlob = async (filename: string): Promise<string> => {
+    const res = await fetch(buildFotoUrl(filename), {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+    const blob = await res.blob()
+    return URL.createObjectURL(blob)
   }
 
 
@@ -1226,7 +1256,7 @@ export function SolicitudDetallePage() {
                       correccionCotizacion.mutate({ cotizacionId, que_corregir, destino })
                     }
                     onEditar={(cotizacionId, payload) =>
-                      editarCotizacion.mutate({ cotizacionId, payload })
+                      editarCotizacion.mutate({ cotizacionId, solicitudId: id, payload })
                     }
                     isLoading={aprobar.isPending || rechazar.isPending || cancelarCotizacion.isPending || correccionCotizacion.isPending || editarCotizacion.isPending}
                   />
@@ -1483,17 +1513,18 @@ export function SolicitudDetallePage() {
                       {(solicitud.fotos_producto ?? []).map((filename) => (
                         <div key={filename} className="relative group rounded-lg overflow-hidden border border-border bg-muted">
                           {/\.(jpg|jpeg|png|gif|webp)$/i.test(filename) ? (
-                            <img
+                            <AuthImg
                               src={buildFotoUrl(filename)}
                               alt={filename}
                               className="w-full h-24 object-cover cursor-pointer"
-                              onClick={() => setModalImage({ url: buildFotoUrl(filename), filename })}
+                              onClick={() => {
+                                void fetchFotoBlob(filename).then((url) => setModalImage({ url, filename }))
+                              }}
                             />
                           ) : (
                             <a
-                              href={buildFotoUrl(filename)}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                              href="#"
+                              onClick={async (e) => { e.preventDefault(); const url = await fetchFotoBlob(filename); window.open(url, "_blank") }}
                               className="flex flex-col items-center justify-center h-24 gap-1 text-muted-foreground hover:text-primary transition-colors"
                             >
                               <svg className="w-7 h-7" viewBox="0 0 20 20" fill="currentColor">
@@ -1882,17 +1913,18 @@ export function SolicitudDetallePage() {
                     {(solicitud.fotos_producto ?? []).map((filename) => (
                       <div key={filename} className="relative group rounded-lg overflow-hidden border border-border bg-muted">
                         {/\.(jpg|jpeg|png|gif|webp)$/i.test(filename) ? (
-                          <img
+                          <AuthImg
                             src={buildFotoUrl(filename)}
                             alt={filename}
                             className="w-full h-16 object-cover cursor-pointer"
-                            onClick={() => setModalImage({ url: buildFotoUrl(filename), filename })}
+                            onClick={() => {
+                              void fetchFotoBlob(filename).then((url) => setModalImage({ url, filename }))
+                            }}
                           />
                         ) : (
                           <a
-                            href={buildFotoUrl(filename)}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                            href="#"
+                            onClick={async (e) => { e.preventDefault(); const url = await fetchFotoBlob(filename); window.open(url, "_blank") }}
                             className="flex flex-col items-center justify-center h-16 gap-1 text-muted-foreground hover:text-primary transition-colors"
                           >
                             <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">

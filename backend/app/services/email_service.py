@@ -28,6 +28,7 @@ import mimetypes as _mimetypes
 from pathlib import Path as _Path
 
 from app.config import settings
+from app.services.platform_empresa import SLUG_MAP as _SLUG_MAP_EMAIL
 
 if TYPE_CHECKING:
     from app.models.oc import CotizacionProveedor, SolicitudOC
@@ -35,22 +36,6 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 _PLATFORMS_DIR_EMAIL = _Path(__file__).parent.parent / "platforms"
-
-_SLUG_MAP_EMAIL: dict[str, str] = {
-    "logimat": "logimat",
-    "logimat 2": "logimat",
-    "logimat2": "logimat",
-    "logimat s.a.s.": "logimat",
-    "imccargo": "imccargo",
-    "imc cargo": "imccargo",
-    "imc cargo international": "imccargo",
-    "imc cargo international s.a.s.": "imccargo",
-    "imcdep": "imcdep",
-    "imc deposito": "imcdep",
-    "imc depósito": "imcdep",
-    "imc deposito s.a.s.": "imcdep",
-    "imc depósito s.a.s.": "imcdep",
-}
 
 # Branding por defecto — datos genéricos del grupo. NITs y datos específicos van en config.json
 _BRANDING_DEFAULTS: dict[str, str] = {

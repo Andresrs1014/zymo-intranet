@@ -21,6 +21,7 @@ from app.models.oc import CotizacionProveedor, OrdenCompra, SolicitudOC
 from app.models.user import User
 from app.oc_database import get_oc_db
 from app.services.historial import registrar_cambio_estado
+from app.services.platform_empresa import SLUG_MAP as _SLUG_MAP
 
 router = APIRouter(tags=["OC - Documentos"])
 
@@ -51,23 +52,6 @@ class OrdenCompraRead(BaseModel):
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
-
-_SLUG_MAP = {
-    "logimat": "logimat",
-    "logimat 2": "logimat",
-    "logimat2": "logimat",
-    "logimat s.a.s.": "logimat",
-    "imccargo": "imccargo",
-    "imc cargo": "imccargo",
-    "imc cargo international": "imccargo",
-    "imc cargo international s.a.s.": "imccargo",
-    "imcdep": "imcdep",
-    "imc deposito": "imcdep",
-    "imc depósito": "imcdep",
-    "imc deposito s.a.s.": "imcdep",
-    "imc depósito s.a.s.": "imcdep",
-}
-
 
 def _load_platform_config(plataforma: Optional[str]) -> dict:
     import json

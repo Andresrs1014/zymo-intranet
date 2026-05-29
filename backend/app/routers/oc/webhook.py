@@ -3,6 +3,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, func, select
 
 from app.config import settings
@@ -93,35 +94,48 @@ def nueva_solicitud(
     """
     _verify_secret(x_pa_secret)
 
-    consecutivo = _generar_consecutivo(oc_db)
+    # Retry loop para manejar race condition en consecutivos duplicados
+    solicitud = None
+    for _ in range(5):
+        consecutivo = _generar_consecutivo(oc_db)
+        candidato = SolicitudOC(
+            consecutivo_os=consecutivo,
+            descripcion=payload.descripcion,
+            cantidad=payload.cantidad,
+            nivel_prioridad="Media",
+            solicitante_nombre=payload.solicitante_nombre,
+            solicitante_email=payload.solicitante_email,
+            categoria=payload.categoria,
+            grupo_articulos=payload.grupo_articulos,
+            area_solicitante=payload.area_solicitante,
+            cliente=payload.cliente,
+            condicion=payload.condicion,
+            plataforma=payload.plataforma,
+            observaciones_solicitante=payload.observaciones_solicitante,
+            estado=EstadoOC.nueva,
+            fecha_solicitud=datetime.now(timezone.utc),
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
+        try:
+            oc_db.add(candidato)
+            oc_db.commit()
+            oc_db.refresh(candidato)
+            solicitud = candidato
+            break
+        except IntegrityError:
+            oc_db.rollback()
 
-    solicitud = SolicitudOC(
-        consecutivo_os=consecutivo,
-        descripcion=payload.descripcion,
-        cantidad=payload.cantidad,
-        nivel_prioridad="Media",
-        solicitante_nombre=payload.solicitante_nombre,
-        solicitante_email=payload.solicitante_email,
-        categoria=payload.categoria,
-        grupo_articulos=payload.grupo_articulos,
-        area_solicitante=payload.area_solicitante,
-        cliente=payload.cliente,
-        condicion=payload.condicion,
-        plataforma=payload.plataforma,
-        observaciones_solicitante=payload.observaciones_solicitante,
-        estado=EstadoOC.nueva,
-        fecha_solicitud=datetime.now(timezone.utc),
-        created_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
-    )
-    oc_db.add(solicitud)
-    oc_db.commit()
-    oc_db.refresh(solicitud)
+    if solicitud is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="No se pudo generar un consecutivo único. Intenta de nuevo.",
+        )
 
     print(f"[webhook] Nueva solicitud: {consecutivo} — {solicitud.id}")
 
     return WebhookResponse(
         ok=True,
         solicitud_id=str(solicitud.id),
-        consecutivo_os=consecutivo,
+        consecutivo_os=solicitud.consecutivo_os,
     )

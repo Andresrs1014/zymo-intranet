@@ -404,7 +404,7 @@ export interface EditarCotizacionPayload {
   forma_pago?: string
   plazo_entrega?: string
   observaciones?: string
-  items?: object[]
+  items?: ItemCotizacion[]
 }
 
 export function useEditarCotizacionDirector() {
@@ -415,6 +415,7 @@ export function useEditarCotizacionDirector() {
       payload,
     }: {
       cotizacionId: string
+      solicitudId?: string
       payload: EditarCotizacionPayload
     }) => {
       const { data } = await api.patch<CotizacionProveedor>(
@@ -423,11 +424,14 @@ export function useEditarCotizacionDirector() {
       )
       return data
     },
-    onSuccess: (_data, { cotizacionId }) => {
-      qc.invalidateQueries({ queryKey: ["oc", "cotizaciones"] })
-      qc.invalidateQueries({ queryKey: ["oc", "solicitud"] })
-      // Invalidar por solicitud_id usando el retorno
-      void cotizacionId
+    onSuccess: (_data, { solicitudId }) => {
+      qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
+      if (solicitudId) {
+        qc.invalidateQueries({ queryKey: ["oc", "solicitudes", solicitudId] })
+        qc.invalidateQueries({ queryKey: ["oc", "cotizaciones", solicitudId] })
+        qc.invalidateQueries({ queryKey: ["oc", "orden", solicitudId] })
+        qc.invalidateQueries({ queryKey: ["oc", "historial", solicitudId] })
+      }
     },
   })
 }
@@ -443,7 +447,7 @@ export interface CorregirDirectivoPayload {
   forma_pago?: string
   plazo_entrega?: string
   observaciones?: string
-  items?: object[]
+  items?: ItemCotizacion[]
   valor_aprobado?: number
   observacion_correccion: string  // OBLIGATORIO
   motivo_post_cierre?: string     // Obligatorio solo cuando estado es cerrada/entregada
