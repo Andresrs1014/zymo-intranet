@@ -3,11 +3,12 @@ import { useNavigate, useParams } from "react-router-dom"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { api } from "@/lib/api"
 import {
-  encabezadoDesdeItems,
+  subtotalFromItems,
   recalcLineFromCantVu,
   recalcUnitarioFromCantVt,
   roundCOP,
 } from "@/lib/ocValoresCalculo"
+import { formatCOP } from "@/lib/formatters"
 import { formatFechaHora, formatFechaRelativa } from "@/lib/dates"
 import {
   useSolicitud,
@@ -361,10 +362,10 @@ export function SolicitudDetallePage() {
   }
 
   function syncCorrDirHeaderFromItems(items: ItemCotizacion[]) {
-    const h = encabezadoDesdeItems(items)
-    setCorrDirValorAntesIva(String(h.subtotal))
-    setCorrDirValorIva(String(h.iva))
-    setCorrDirValorTotal(String(h.total))
+    const subtotal = roundCOP(subtotalFromItems(items))
+    const ivaActual = parseCopNumber(corrDirValorIva) ?? 0
+    setCorrDirValorAntesIva(String(subtotal))
+    setCorrDirValorTotal(String(subtotal + ivaActual))
   }
 
   /** Actualiza fila según qué celda editó el usuario; sincroniza encabezado desde ítems. */
@@ -450,11 +451,6 @@ export function SolicitudDetallePage() {
     }
     const vaIva = parseCopNumber(corrDirValorIva)
     const vSub = parseCopNumber(corrDirValorAntesIva)
-    // Solo validar coherencia si los tres campos están llenos
-    if (vSub != null && vaIva != null && Math.abs(vSub + vaIva - vt) > 2) {
-      setCorrDirError("Subtotal sin IVA + IVA no coincide con el total (tolerancia 1–2 pesos por redondeo).")
-      return
-    }
     const itemsPayload = corrDirItems
       .filter((it) => it.descripcion?.trim())
       .map((it, i) => ({
@@ -884,30 +880,29 @@ export function SolicitudDetallePage() {
                     <div>
                       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Valores</p>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        <FormFieldCOP
-                          label="Subtotal sin IVA"
-                          value={parseCopNumber(corrDirValorAntesIva)}
-                          onChange={(v) => {
-                            setCorrDirValorAntesIva(v != null ? String(roundCOP(v)) : "")
-                          }}
-                          inputClassName="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                        />
+                        <div>
+                          <label className="block text-xs text-muted-foreground mb-1">Subtotal sin IVA</label>
+                          <div className="w-full rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm tabular-nums text-foreground select-none">
+                            {formatCOP(parseCopNumber(corrDirValorAntesIva) ?? 0)}
+                          </div>
+                        </div>
                         <FormFieldCOP
                           label="IVA (si aplica)"
                           value={parseCopNumber(corrDirValorIva)}
                           onChange={(v) => {
-                            setCorrDirValorIva(v != null ? String(roundCOP(v)) : "")
+                            const iva = v != null ? roundCOP(v) : 0
+                            const sub = parseCopNumber(corrDirValorAntesIva) ?? 0
+                            setCorrDirValorIva(String(iva))
+                            setCorrDirValorTotal(String(sub + iva))
                           }}
                           inputClassName="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                         />
-                        <FormFieldCOP
-                          label="Total *"
-                          value={parseCopNumber(corrDirValorTotal)}
-                          onChange={(v) => {
-                            setCorrDirValorTotal(v != null ? String(roundCOP(v)) : "")
-                          }}
-                          inputClassName="w-full rounded-lg border border-border px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary/30"
-                        />
+                        <div>
+                          <label className="block text-xs text-muted-foreground mb-1">Total</label>
+                          <div className="w-full rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm font-semibold tabular-nums text-foreground select-none">
+                            {formatCOP(parseCopNumber(corrDirValorTotal) ?? 0)}
+                          </div>
+                        </div>
                       </div>
                       <div className="mt-2 max-w-xs">
                         <FormFieldCOP

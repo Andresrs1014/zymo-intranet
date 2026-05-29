@@ -6,6 +6,7 @@ import { useTaskAISuggestions } from "@/hooks/useTaskAI"
 import { useTaskToast } from "./TaskToast"
 import { useAuthStore } from "@/store/authStore"
 import type { Task, CreateTaskInput, UpdateTaskInput } from "@/types/task"
+import { AttachmentExplorerV2 } from "./AttachmentExplorerV2"
 
 function formatMin(min: number): string {
   if (min < 60) return `${min}m`
@@ -34,6 +35,8 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
   // Task is assigned to the current user and pending acceptance
   const isAssignedToMe = isEdit && task && user && task.asignadoAId === user.id
   const isPendingAcceptance = isAssignedToMe && task?.aceptacion === "pendiente"
+
+  const [adjuntosOpen, setAdjuntosOpen] = useState(false)
 
   const [form, setForm] = useState({
     titulo: "",
@@ -427,7 +430,27 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
           </div>
         )}
 
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 24 }}>
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 24, alignItems: "center" }}>
+          {isEdit && task && (
+            <button
+              onClick={() => setAdjuntosOpen(true)}
+              style={{
+                padding: "9px 16px",
+                borderRadius: 8,
+                border: "1px solid #d8dde8",
+                background: "#fff",
+                fontSize: 13,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                color: "#3f4652",
+                marginRight: "auto",
+              }}
+            >
+              📎 Adjuntos
+            </button>
+          )}
           <button
             onClick={onClose}
             style={{ padding: "9px 22px", borderRadius: 8, border: "1px solid #d8dde8", background: "#fff", fontSize: 13, cursor: "pointer" }}
@@ -452,6 +475,15 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
           </button>
         </div>
       </div>
+
+      {isEdit && task && adjuntosOpen && (
+        <AttachmentExplorerV2
+          taskId={task.id}
+          taskTitulo={task.titulo}
+          open={adjuntosOpen}
+          onClose={() => setAdjuntosOpen(false)}
+        />
+      )}
     </div>
   )
 }

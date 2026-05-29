@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { taskApi } from "@/lib/taskApi"
 import type { TaskAttachment } from "@/types/task"
@@ -46,4 +47,50 @@ export function useDeleteTaskV2Attachment() {
 
 export function getTaskV2AttachmentUrl(attachmentId: number): string {
   return `/api/attachments/${attachmentId}/download`
+}
+
+export function useAttachmentV2BlobUrl(attachmentId: number | null) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(false)
+
+  useEffect(() => {
+    if (attachmentId === null) {
+      setBlobUrl(null)
+      setLoading(false)
+      setError(false)
+      return
+    }
+
+    let objectUrl: string | null = null
+    const controller = new AbortController()
+
+    setLoading(true)
+    setError(false)
+    setBlobUrl(null)
+
+    taskApi
+      .get(getTaskV2AttachmentUrl(attachmentId), {
+        responseType: "blob",
+        signal: controller.signal,
+      })
+      .then(({ data }) => {
+        objectUrl = URL.createObjectURL(data as Blob)
+        setBlobUrl(objectUrl)
+        setLoading(false)
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setError(true)
+          setLoading(false)
+        }
+      })
+
+    return () => {
+      controller.abort()
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }, [attachmentId])
+
+  return { blobUrl, loading, error }
 }
