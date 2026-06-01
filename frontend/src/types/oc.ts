@@ -95,6 +95,7 @@ export interface CotizacionProveedor {
   extraccion_automatica: boolean
   aprobada: boolean | null
   valor_aprobado: number | null
+  valor_aprobado_original: number | null
   aprobado_por_id: number | null
   observaciones_aprobacion: string | null
   items: ItemCotizacion[] | null

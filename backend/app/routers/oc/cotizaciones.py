@@ -127,6 +127,7 @@ class CotizacionRead(BaseModel):
     extraccion_automatica: bool
     aprobada: Optional[bool]
     valor_aprobado: Optional[float]
+    valor_aprobado_original: Optional[float] = None
     aprobado_por_id: Optional[int]
     observaciones_aprobacion: Optional[str]
     created_at: datetime
@@ -182,8 +183,8 @@ class CorregirDirectivoPayload(BaseModel):
     items: Optional[list[dict]] = None
     # Puede cambiar el valor aprobado
     valor_aprobado: Optional[float] = None
-    # Nota obligatoria del director sobre la corrección (mínimo 5 caracteres)
-    observacion_correccion: str = Field(..., min_length=5, max_length=1000)
+    # Nota opcional del director sobre la corrección
+    observacion_correccion: Optional[str] = Field(default=None, max_length=1000)
     # Justificación requerida cuando el proceso ya está cerrado/entregado
     motivo_post_cierre: Optional[str] = Field(default=None, max_length=2000)
 
@@ -1265,22 +1266,26 @@ def corregir_directivo(
             for i, item in enumerate(payload.items)
         ]
     if payload.valor_aprobado is not None:
+        # Preservar el valor original la primera vez que se corrige
+        if cotizacion.valor_aprobado_original is None and cotizacion.valor_aprobado != payload.valor_aprobado:
+            cotizacion.valor_aprobado_original = cotizacion.valor_aprobado
         cotizacion.valor_aprobado = payload.valor_aprobado
 
+    nota = (payload.observacion_correccion or "").strip() or None
+
     # Actualizar quién realizó la última modificación y su nota.
-    # Intencional: aprobado_por_id refleja al último responsable de la cotización.
-    # La trazabilidad del aprobador original queda en el historial de estados.
     cotizacion.aprobado_por_id = current_user.id
-    cotizacion.observaciones_aprobacion = payload.observacion_correccion
+    if nota:
+        cotizacion.observaciones_aprobacion = nota
     oc_db.add(cotizacion)
 
     # Registrar en historial sin cambiar estado
     estado_actual = solicitud.estado
-    notas_historial = payload.observacion_correccion
+    notas_historial = nota or "Corrección directiva sin observación."
     if es_post_cierre and payload.motivo_post_cierre:
         notas_historial = (
             f"[CORRECCIÓN POST-CIERRE] Justificación: {payload.motivo_post_cierre.strip()}\n"
-            f"Observación: {payload.observacion_correccion}"
+            f"Observación: {nota or '(sin observación)'}"
         )
     registrar_cambio_estado(
         oc_db,
@@ -1323,7 +1328,7 @@ def corregir_directivo(
         send_correccion_directivo,
         solicitud,
         cotizacion,
-        payload.observacion_correccion,
+        nota or "",
         current_user.full_name,
         auxiliar_email,
     )
@@ -1336,7 +1341,7 @@ def corregir_directivo(
             current_user.full_name,
             current_user.email,
             payload.motivo_post_cierre or "",
-            payload.observacion_correccion,
+            nota or "",
         )
 
     return cotizacion

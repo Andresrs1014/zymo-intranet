@@ -128,6 +128,8 @@ class CotizacionProveedor(SQLModel, table=True):
     # Aprobación
     aprobada: Optional[bool] = Field(default=None)
     valor_aprobado: Optional[float] = Field(default=None)
+    # Guardado la primera vez que el director corrige el valor aprobado (trazabilidad)
+    valor_aprobado_original: Optional[float] = Field(default=None)
     # Referencia al user.id de intranet.db — sin FK constraint (DBs separadas)
     aprobado_por_id: Optional[int] = Field(default=None)
     observaciones_aprobacion: Optional[str] = Field(default=None)

@@ -449,7 +449,7 @@ export interface CorregirDirectivoPayload {
   observaciones?: string
   items?: ItemCotizacion[]
   valor_aprobado?: number
-  observacion_correccion: string  // OBLIGATORIO
+  observacion_correccion?: string
   motivo_post_cierre?: string     // Obligatorio solo cuando estado es cerrada/entregada
 }
 

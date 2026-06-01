@@ -136,9 +136,6 @@ export function CotizacionFormPage() {
 
   const totalItems = sumaItems(items)
   const hayItems = items.length > 0
-  // Con ítems: los precios de fila son base sin IVA → total = suma + IVA
-  const ivaConItems = form.valor_iva ?? 0
-  const valorTotalConItems = totalItems + ivaConItems
 
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -163,23 +160,6 @@ export function CotizacionFormPage() {
 
   function aplicarExtraccion(ext: ExtraccionResult) {
     const extItems = ext.items ?? []
-    const sumaExtItems = extItems.reduce<number>((acc, it) => acc + (it.valor_total ?? 0), 0)
-
-    // Si el backend extrajo un total global pero no pudo extraer el IVA,
-    // lo derivamos aquí como (total_extraído − suma_ítems). Esto funciona
-    // para cualquier formato de cotización (con o sin label explícito de IVA).
-    let ivaDerivado: number | undefined = ext.valor_iva ?? undefined
-    if (
-      ivaDerivado == null &&
-      extItems.length > 0 &&
-      ext.valor_total != null &&
-      sumaExtItems > 0
-    ) {
-      const diff = Math.round((ext.valor_total - sumaExtItems) * 100) / 100
-      if (diff > 0 && diff <= sumaExtItems * 0.35) {
-        ivaDerivado = diff
-      }
-    }
 
     setForm((prev) => ({
       ...prev,
@@ -187,8 +167,6 @@ export function CotizacionFormPage() {
       proveedor_nombre: ext.proveedor_nombre ?? prev.proveedor_nombre,
       numero_cotizacion_proveedor: ext.numero_cotizacion_proveedor ?? prev.numero_cotizacion_proveedor,
       valor_unitario: ext.valor_unitario ?? prev.valor_unitario,
-      valor_antes_iva: ext.valor_antes_iva ?? prev.valor_antes_iva,
-      valor_iva: ivaDerivado ?? prev.valor_iva,
       valor_total: ext.valor_total ?? prev.valor_total,
       forma_pago: ext.forma_pago ?? prev.forma_pago,
       plazo_entrega: ext.plazo_entrega ?? prev.plazo_entrega,
@@ -313,7 +291,7 @@ export function CotizacionFormPage() {
       return
     }
 
-    const valorTotal = hayItems ? valorTotalConItems : form.valor_total
+    const valorTotal = hayItems ? totalItems : form.valor_total
     if (!valorTotal || valorTotal <= 0) {
       submitInFlight.current = false
       setError("El valor total debe ser mayor a 0.")
@@ -332,8 +310,8 @@ export function CotizacionFormPage() {
     const payload: CotizacionCreatePayload = {
       ...form,
       valor_total: valorTotal,
-      // Con ítems, la suma de filas es siempre el subtotal antes de IVA
-      valor_antes_iva: hayItems ? totalItems : form.valor_antes_iva,
+      valor_antes_iva: undefined,
+      valor_iva: undefined,
       proveedor_nit: form.proveedor_nit || undefined,
       proveedor_email: form.proveedor_email || undefined,
       numero_cotizacion_proveedor: form.numero_cotizacion_proveedor || undefined,
@@ -362,7 +340,7 @@ export function CotizacionFormPage() {
       }
     )
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form, items, hayItems, valorTotalConItems, totalItems, id, crearCotizacion, deleteDraft, navigate])
+  }, [form, items, hayItems, totalItems, id, crearCotizacion, deleteDraft, navigate])
 
   if (loadingSolicitud) {
     return (
@@ -872,110 +850,30 @@ export function CotizacionFormPage() {
               <h2 className="text-sm font-semibold text-foreground">Valores</h2>
 
               {hayItems ? (
-                /* Con ítems: subtotal = suma de filas, total = subtotal + IVA */
-                <div className="space-y-3">
-                  <div className="rounded-lg bg-indigo-50 border border-indigo-200 px-4 py-3 text-xs text-indigo-700 space-y-1">
-                    <div className="flex justify-between">
-                      <span>Subtotal ({items.length} ítem{items.length !== 1 ? "s" : ""}):</span>
-                      <span className="font-bold">
-                        ${totalItems.toLocaleString("es-CO", { minimumFractionDigits: 0 })}
-                      </span>
-                    </div>
-                    {ivaConItems > 0 && (
-                      <div className="flex justify-between text-orange-600">
-                        <span>+ IVA:</span>
-                        <span className="font-bold">
-                          ${ivaConItems.toLocaleString("es-CO", { minimumFractionDigits: 0 })}
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex justify-between border-t border-indigo-200 pt-1 text-sm font-semibold text-indigo-900">
-                      <span>Total a pagar:</span>
-                      <span>
-                        ${valorTotalConItems.toLocaleString("es-CO", { minimumFractionDigits: 0 })}
-                      </span>
-                    </div>
+                /* Con ítems: total = suma de filas */
+                <div className="rounded-lg bg-indigo-50 border border-indigo-200 px-4 py-3 text-xs text-indigo-700">
+                  <div className="flex justify-between items-center text-sm font-semibold text-indigo-900">
+                    <span>Total ({items.length} ítem{items.length !== 1 ? "s" : ""}):</span>
+                    <span className="font-mono">
+                      ${totalItems.toLocaleString("es-CO", { minimumFractionDigits: 0 })}
+                    </span>
                   </div>
-                  <Field label="IVA (si aplica)">
-                    <MoneyInputCOP
-                      value={form.valor_iva}
-                      onChange={(v) => setForm((prev) => ({ ...prev, valor_iva: v }))}
-                      placeholder="0"
-                      className={inputCls}
-                    />
-                  </Field>
                 </div>
               ) : (
-                /* Sin ítems: campos manuales con auto-cálculo */
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormFieldCOP
-                      label="Valor unitario"
-                      value={form.valor_unitario || undefined}
-                      onChange={(v) => setForm((prev) => ({ ...prev, valor_unitario: v ?? 0 }))}
-                      inputClassName={inputCls}
-                    />
-                    <FormFieldCOP
-                      label="Subtotal (antes de IVA)"
-                      value={form.valor_antes_iva}
-                      onChange={(v) => {
-                        setForm((prev) => {
-                          const next = { ...prev, valor_antes_iva: v }
-                          if (v != null && prev.valor_iva != null) {
-                            next.valor_total = Math.round((v + prev.valor_iva) * 100) / 100
-                          }
-                          return next
-                        })
-                      }}
-                      inputClassName={inputCls}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormFieldCOP
-                      label="IVA"
-                      value={form.valor_iva}
-                      onChange={(v) => {
-                        setForm((prev) => {
-                          const next = { ...prev, valor_iva: v }
-                          if (prev.valor_antes_iva != null && v != null) {
-                            next.valor_total =
-                              Math.round((prev.valor_antes_iva + v) * 100) / 100
-                          }
-                          return next
-                        })
-                      }}
-                      inputClassName={inputCls}
-                    />
-                    <FormFieldCOP
-                      label="Valor total *"
-                      value={form.valor_total || undefined}
-                      onChange={(v) => {
-                        setForm((prev) => {
-                          const next = { ...prev, valor_total: v ?? 0 }
-                          if (v != null && prev.valor_iva != null) {
-                            next.valor_antes_iva =
-                              Math.round((v - prev.valor_iva) * 100) / 100
-                          }
-                          return next
-                        })
-                      }}
-                      inputClassName={inputCls}
-                    />
-                  </div>
-                  {/* Indicador de consistencia */}
-                  {form.valor_antes_iva != null && form.valor_iva != null && form.valor_total > 0 && (
-                    (() => {
-                      const esperado = Math.round((form.valor_antes_iva + form.valor_iva) * 100) / 100
-                      const diff = Math.abs(esperado - form.valor_total)
-                      return diff > 1 ? (
-                        <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                          ⚠ Subtotal + IVA = {esperado.toLocaleString("es-CO")} — no coincide con el total ingresado ({form.valor_total.toLocaleString("es-CO")})
-                        </p>
-                      ) : (
-                        <p className="text-xs text-green-600">✓ Subtotal + IVA coinciden con el total</p>
-                      )
-                    })()
-                  )}
+                /* Sin ítems: valor unitario + valor total */
+                <div className="grid grid-cols-2 gap-4">
+                  <FormFieldCOP
+                    label="Valor unitario"
+                    value={form.valor_unitario || undefined}
+                    onChange={(v) => setForm((prev) => ({ ...prev, valor_unitario: v ?? 0 }))}
+                    inputClassName={inputCls}
+                  />
+                  <FormFieldCOP
+                    label="Valor total *"
+                    value={form.valor_total || undefined}
+                    onChange={(v) => setForm((prev) => ({ ...prev, valor_total: v ?? 0 }))}
+                    inputClassName={inputCls}
+                  />
                 </div>
               )}
 

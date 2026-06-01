@@ -164,6 +164,8 @@ export function SolicitudDetallePage() {
   const [corrDirValorIva, setCorrDirValorIva] = useState("")
   const [corrDirValorTotal, setCorrDirValorTotal] = useState("")
   const [corrDirValorAprobado, setCorrDirValorAprobado] = useState("")
+  /** Valor aprobado al abrir el modal — para mostrar el "antes" sin que cambie al editar */
+  const [corrDirValorAprobadoSnapshot, setCorrDirValorAprobadoSnapshot] = useState("")
   const [corrDirFormaPago, setCorrDirFormaPago] = useState("")
   const [corrDirPlazoEntrega, setCorrDirPlazoEntrega] = useState("")
   /** Observaciones de la cotización (campo proveedor). */
@@ -402,9 +404,9 @@ export function SolicitudDetallePage() {
     setCorrDirValorAntesIva(c.valor_antes_iva != null ? String(c.valor_antes_iva) : "")
     setCorrDirValorIva(c.valor_iva != null ? String(c.valor_iva) : "")
     setCorrDirValorTotal(c.valor_total != null ? String(c.valor_total) : "")
-    setCorrDirValorAprobado(
-      String(c.valor_aprobado ?? c.valor_total ?? ""),
-    )
+    const valorAprobadoActual = String(c.valor_aprobado ?? c.valor_total ?? "")
+    setCorrDirValorAprobado(valorAprobadoActual)
+    setCorrDirValorAprobadoSnapshot(valorAprobadoActual)
     setCorrDirFormaPago(c.forma_pago ?? "")
     setCorrDirPlazoEntrega(c.plazo_entrega ?? "")
     setCorrDirObsCotizacion(c.observaciones ?? "")
@@ -431,10 +433,6 @@ export function SolicitudDetallePage() {
   function handleGuardarCorreccionDirectiva() {
     const c = cotizacionAprobada
     if (!c || !id) return
-    if (corrDirNotaDirectivo.trim().length < 5) {
-      setCorrDirError("La observación del director debe tener al menos 5 caracteres.")
-      return
-    }
     const esProcesoCerrado = ["cerrada", "entregada"].includes(solicitud?.estado ?? "")
     if (esProcesoCerrado && corrDirMotivoCierre.trim().length < 3) {
       setCorrDirError("Debes justificar por qué realizas una corrección después de cerrado el proceso.")
@@ -478,7 +476,7 @@ export function SolicitudDetallePage() {
       observaciones: corrDirObsCotizacion.trim() || undefined,
       items: itemsPayload,
       valor_aprobado: valorAprobadoNum,
-      observacion_correccion: corrDirNotaDirectivo.trim(),
+      observacion_correccion: corrDirNotaDirectivo.trim() || undefined,
       motivo_post_cierre: corrDirMotivoCierre.trim() || undefined,
     }
     setCorrDirError(null)
@@ -876,39 +874,33 @@ export function SolicitudDetallePage() {
                       </div>
                     </div>
                     <div>
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Valores</p>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        <div>
-                          <label className="block text-xs text-muted-foreground mb-1">Subtotal sin IVA</label>
-                          <div className="w-full rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm tabular-nums text-foreground select-none">
-                            {formatCOP(parseCopNumber(corrDirValorAntesIva) ?? 0)}
-                          </div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Valor aprobado</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        {/* Valor original — solo lectura, no cambia al editar */}
+                        <div className="rounded-lg border border-border bg-muted/30 p-3">
+                          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1">Valor actual</p>
+                          <p className="text-lg font-bold tabular-nums text-foreground">
+                            {formatCOP(parseCopNumber(corrDirValorAprobadoSnapshot) ?? 0)}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">Aprobado previamente</p>
                         </div>
-                        <FormFieldCOP
-                          label="IVA (si aplica)"
-                          value={parseCopNumber(corrDirValorIva)}
-                          onChange={(v) => {
-                            const iva = v != null ? roundCOP(v) : 0
-                            const sub = parseCopNumber(corrDirValorAntesIva) ?? 0
-                            setCorrDirValorIva(String(iva))
-                            setCorrDirValorTotal(String(sub + iva))
-                          }}
-                          inputClassName="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                        />
-                        <div>
-                          <label className="block text-xs text-muted-foreground mb-1">Total</label>
-                          <div className="w-full rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm font-semibold tabular-nums text-foreground select-none">
-                            {formatCOP(parseCopNumber(corrDirValorTotal) ?? 0)}
-                          </div>
+                        {/* Nuevo valor editable */}
+                        <div className="rounded-lg border-2 border-primary/30 bg-primary/5 p-3">
+                          <p className="text-[10px] font-semibold uppercase tracking-widest text-primary mb-1.5">Nuevo valor</p>
+                          <FormFieldCOP
+                            label=""
+                            value={parseCopNumber(corrDirValorAprobado)}
+                            onChange={(v) => setCorrDirValorAprobado(v != null ? String(v) : "")}
+                            inputClassName="w-full rounded-lg border border-primary/40 bg-background px-3 py-1.5 text-base font-bold tabular-nums text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          />
                         </div>
                       </div>
-                      <div className="mt-2 max-w-xs">
-                        <FormFieldCOP
-                          label="Valor aprobado"
-                          value={parseCopNumber(corrDirValorAprobado)}
-                          onChange={(v) => setCorrDirValorAprobado(v != null ? String(v) : "")}
-                          inputClassName="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                        />
+                      {/* Total de la cotización — solo lectura, referencia */}
+                      <div className="mt-2 flex items-center justify-between rounded-lg bg-muted/40 border border-border px-3 py-2">
+                        <span className="text-xs text-muted-foreground">Total cotización (referencia)</span>
+                        <span className="text-sm font-semibold tabular-nums text-foreground">
+                          {formatCOP(parseCopNumber(corrDirValorTotal) ?? 0)}
+                        </span>
                       </div>
                     </div>
                     <div>
@@ -1079,15 +1071,16 @@ export function SolicitudDetallePage() {
                       </div>
                     )}
                     <div>
-                      <label className="block text-xs font-medium text-foreground mb-1">
-                        Motivo de la corrección (visible en historial y correos) — mín. 5 caracteres *
+                      <label className="block text-xs font-medium text-muted-foreground mb-1">
+                        Observación de la corrección
+                        <span className="ml-1 font-normal opacity-60">(opcional — aparece en historial y correos)</span>
                       </label>
                       <textarea
-                        rows={3}
+                        rows={2}
                         value={corrDirNotaDirectivo}
                         onChange={(e) => setCorrDirNotaDirectivo(e.target.value)}
                         className="w-full rounded-lg border border-border px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
-                        placeholder="Ej. Se corrigió el NIT y el valor acordado con el proveedor..."
+                        placeholder="Ej. Se ajustó el valor acordado con el proveedor..."
                       />
                     </div>
                   </div>
@@ -2150,15 +2143,53 @@ function PanelAprobacion({
               </span>
             </div>
           )}
-          {/* Total con IVA — siempre prominente */}
+          {/* Total — siempre prominente */}
           <div className="flex justify-between items-center bg-orange-50 rounded-lg px-3 py-2 mt-1">
-            <span className="text-sm font-semibold text-orange-900">
-              {cotizacion.valor_iva != null ? "Total con IVA" : "Valor total"}
-            </span>
+            <span className="text-sm font-semibold text-orange-900">Valor total</span>
             <span className="text-xl font-bold text-orange-900">
               {formatCurrency(cotizacion.valor_total)}
             </span>
           </div>
+
+          {/* Valor aprobado — muestra original y corregido si hubo corrección */}
+          {cotizacion.valor_aprobado != null && (
+            <div className="mt-2 rounded-lg border border-green-200 overflow-hidden">
+              {cotizacion.valor_aprobado_original != null ? (
+                /* Hubo corrección — mostrar ambos valores */
+                <div className="grid grid-cols-2 divide-x divide-green-200">
+                  <div className="px-3 py-2.5 bg-green-50/60">
+                    <p className="text-[10px] font-semibold uppercase tracking-widest text-green-700/60 mb-0.5">
+                      Valor inicial aprobado
+                    </p>
+                    <p className="text-sm font-medium tabular-nums text-green-700/70 line-through">
+                      {formatCurrency(cotizacion.valor_aprobado_original)}
+                    </p>
+                  </div>
+                  <div className="px-3 py-2.5 bg-green-50">
+                    <p className="text-[10px] font-semibold uppercase tracking-widest text-green-800 mb-0.5 flex items-center gap-1">
+                      Valor aprobado
+                      <span className="rounded-full bg-amber-100 text-amber-700 px-1.5 py-px text-[9px] font-bold normal-case tracking-normal">
+                        Corregido
+                      </span>
+                    </p>
+                    <p className="text-base font-bold tabular-nums text-green-900">
+                      {formatCurrency(cotizacion.valor_aprobado)}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                /* Sin corrección — valor único */
+                <div className="flex justify-between items-center px-3 py-2.5 bg-green-50">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-green-800">
+                    Valor aprobado
+                  </p>
+                  <p className="text-base font-bold tabular-nums text-green-900">
+                    {formatCurrency(cotizacion.valor_aprobado)}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Condiciones */}

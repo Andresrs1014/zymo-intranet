@@ -45,6 +45,12 @@ def create_oc_tables() -> None:
         except Exception:
             pass  # columna ya existe
 
+        # Migración: valor aprobado original (trazabilidad de correcciones directivas)
+        try:
+            conn.execute(text("ALTER TABLE oc_cotizaciones ADD COLUMN valor_aprobado_original FLOAT"))
+        except Exception:
+            pass  # columna ya existe
+
         # Migración: columnas de trazabilidad de reprocesos en historial
         for col_def in [
             "ALTER TABLE oc_historial_estados ADD COLUMN es_reproceso BOOLEAN NOT NULL DEFAULT 0",
