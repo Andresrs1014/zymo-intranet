@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useRef, useCallback } from "react"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import type { TaskAttachment } from "@/types/task"
 import {
@@ -14,6 +14,10 @@ interface Props {
   open: boolean
   onClose: () => void
 }
+
+const LIST_MIN = 160
+const LIST_MAX = 420
+const LIST_DEFAULT = 240
 
 function fileIcon(mimeType: string): string {
   if (mimeType.startsWith("image/")) return "🖼️"
@@ -96,12 +100,39 @@ export function AttachmentExplorerV2({ taskId, taskTitulo, open, onClose }: Prop
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const [listWidth, setListWidth] = useState(LIST_DEFAULT)
 
   const upload = useUploadTaskV2Attachment()
   const deleteMutation = useDeleteTaskV2Attachment()
 
   const selected = attachments.find((a) => a.id === selectedId) ?? attachments[0] ?? null
 
+  // ── Drag-to-resize ──────────────────────────────────────────────────────────
+  const dragging = useRef(false)
+  const startX = useRef(0)
+  const startWidth = useRef(LIST_DEFAULT)
+
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    dragging.current = true
+    startX.current = e.clientX
+    startWidth.current = listWidth
+
+    const onMove = (ev: MouseEvent) => {
+      if (!dragging.current) return
+      const delta = ev.clientX - startX.current
+      setListWidth(Math.min(LIST_MAX, Math.max(LIST_MIN, startWidth.current + delta)))
+    }
+    const onUp = () => {
+      dragging.current = false
+      window.removeEventListener("mousemove", onMove)
+      window.removeEventListener("mouseup", onUp)
+    }
+    window.addEventListener("mousemove", onMove)
+    window.addEventListener("mouseup", onUp)
+    e.preventDefault()
+  }, [listWidth])
+
+  // ── Handlers ────────────────────────────────────────────────────────────────
   const handleFileInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? [])
     setUploadError(null)
@@ -127,7 +158,7 @@ export function AttachmentExplorerV2({ taskId, taskTitulo, open, onClose }: Prop
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-4xl max-h-[80vh] p-0 gap-0 flex flex-col overflow-hidden">
+      <DialogContent className="max-w-6xl w-[92vw] max-h-[90vh] h-[90vh] p-0 gap-0 flex flex-col overflow-hidden">
         {/* Header */}
         <div className="px-4 py-3 border-b border-gray-100 shrink-0 pr-12">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-0.5">
@@ -137,9 +168,12 @@ export function AttachmentExplorerV2({ taskId, taskTitulo, open, onClose }: Prop
         </div>
 
         {/* Two-panel body */}
-        <div className="flex flex-1 min-h-0">
+        <div className="flex flex-1 min-h-0 overflow-hidden">
           {/* Left: file list */}
-          <div className="w-56 shrink-0 border-r border-gray-100 flex flex-col bg-gray-50/60">
+          <div
+            className="shrink-0 border-r border-gray-100 flex flex-col bg-gray-50/60"
+            style={{ width: listWidth }}
+          >
             <div className="flex-1 overflow-y-auto py-1">
               {attachments.length === 0 && (
                 <p className="text-xs text-gray-400 text-center py-10 px-4">
@@ -164,7 +198,6 @@ export function AttachmentExplorerV2({ taskId, taskTitulo, open, onClose }: Prop
                     <p className="truncate font-medium leading-snug">{a.filename}</p>
                     <p className="text-[10px] text-gray-400 mt-0.5">{formatBytes(a.sizeBytes)}</p>
                   </div>
-                  {/* Inline delete confirm */}
                   {confirmDeleteId === a.id ? (
                     <div className="flex gap-1 shrink-0 items-center" onClick={(e) => e.stopPropagation()}>
                       <button
@@ -220,8 +253,15 @@ export function AttachmentExplorerV2({ taskId, taskTitulo, open, onClose }: Prop
             </div>
           </div>
 
+          {/* Drag handle */}
+          <div
+            onMouseDown={onMouseDown}
+            className="w-1.5 shrink-0 cursor-col-resize bg-transparent hover:bg-blue-200 active:bg-blue-400 transition-colors"
+            title="Arrastra para ajustar el tamaño"
+          />
+
           {/* Right: preview */}
-          <div className="flex-1 overflow-auto bg-white flex items-center justify-center min-h-[300px]">
+          <div className="flex-1 overflow-auto bg-white flex items-center justify-center">
             {selected ? (
               <AttachmentPreview key={selected.id} attachment={selected} />
             ) : (
