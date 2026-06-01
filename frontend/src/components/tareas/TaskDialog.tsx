@@ -431,7 +431,7 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
         )}
 
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 24, alignItems: "center" }}>
-          {isEdit && task && (
+          {isEdit && task ? (
             <button
               onClick={() => setAdjuntosOpen(true)}
               style={{
@@ -450,6 +450,26 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
             >
               📎 Adjuntos
             </button>
+          ) : (
+            <div
+              title="Guarda la tarea primero para adjuntar archivos"
+              style={{
+                padding: "9px 16px",
+                borderRadius: 8,
+                border: "1px solid #e8ebf4",
+                background: "#f8f9fd",
+                fontSize: 13,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                color: "#b0b8c9",
+                marginRight: "auto",
+                cursor: "not-allowed",
+                userSelect: "none",
+              }}
+            >
+              📎 Adjuntos
+            </div>
           )}
           <button
             onClick={onClose}
