@@ -74,6 +74,13 @@ export const INTERNAL_MODULES: AppDefinition[] = [
     name: "Motor IA — Extracción",
     description: "Panel de revisión de candidatos, sinónimos aprendidos y métricas del motor de extracción",
   },
+  {
+    id: "mod_helix",
+    category: "modulo",
+    icon: "🧬",
+    name: "Helix Zymo",
+    description: "Tablero de planeación de proyectos y actividades del equipo",
+  },
 ]
 
 // ── Aplicaciones externas ─────────────────────────────────────────────────────

@@ -10,6 +10,7 @@ import {
   canSeeGerencial,
   canUseAgentePanel,
   canSeeExtraccionIA,
+  canSeeHelix,
   canManageDevTasks,
   canSubmitDevTasks,
 } from "@/lib/permissions"
@@ -139,6 +140,13 @@ function ExtraccionIARoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user)
   if (!user) return <Navigate to="/login" replace />
   if (!canSeeExtraccionIA(user.role, user.app_permissions)) return <Navigate to="/dashboard" replace />
+  return <>{children}</>
+}
+
+function HelixRoute({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user)
+  if (!user) return <Navigate to="/login" replace />
+  if (!canSeeHelix(user.role, user.app_permissions)) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
 
@@ -429,9 +437,9 @@ export default function App() {
         <Route
           path="/planeacion/helix"
           element={
-            <PrivateRoute>
+            <HelixRoute>
               <HelixPage />
-            </PrivateRoute>
+            </HelixRoute>
           }
         />
 
