@@ -527,6 +527,39 @@ def _migrate_oc_db() -> None:
                 pass  # Ya existe
 
 
+def _normalize_plataformas_oc() -> None:
+    """Normaliza valores históricos del campo plataforma en oc_solicitudes.
+
+    Algunas solicitudes antiguas fueron creadas con variantes de capitalización
+    (logimat, Logimat, imccargo, IMC Cargo, imcdep) antes de que existiera el
+    catálogo de sedes como fuente de verdad. Esta migración los deja alineados
+    con los nombres canónicos de la tabla `sede`.
+    """
+    mapping = [
+        # (valores_a_corregir, nombre_canonico)
+        (("logimat", "Logimat"), "LOGIMAT"),
+        (("imccargo", "IMC Cargo"), "IMCCARGO"),
+        (("imcdep",), "IMC Depósito"),
+    ]
+    with get_oc_engine().connect() as conn:
+        for variantes, canonical in mapping:
+            placeholders = ", ".join(f"'{v}'" for v in variantes)
+            result = conn.execute(
+                text(f"SELECT COUNT(*) FROM oc_solicitudes WHERE plataforma IN ({placeholders})")
+            )
+            count = result.scalar() or 0
+            if count:
+                conn.execute(
+                    text(
+                        f"UPDATE oc_solicitudes SET plataforma = :canonical "
+                        f"WHERE plataforma IN ({placeholders})"
+                    ),
+                    {"canonical": canonical},
+                )
+                conn.commit()
+                print(f"[normalize_plataformas] '{canonical}' ← normalizados {count} registros ({', '.join(variantes)}).")
+
+
 def _migrate_oc_cotizaciones() -> None:
     """Agrega columnas nuevas a oc_cotizaciones sin tocar datos existentes."""
     nuevas = [
@@ -588,6 +621,7 @@ async def lifespan(app: FastAPI):
     create_oc_tables()
     _migrate_oc_db()
     _migrate_oc_cotizaciones()
+    _normalize_plataformas_oc()
     create_sgc_tables()
     create_financiero_tables()
     create_agent_tables()

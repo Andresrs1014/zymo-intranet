@@ -2,7 +2,8 @@ import { useState, useMemo, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { OcSolicitudesPagination } from "@/components/oc/OcSolicitudesPagination"
-import { useSolicitudes, usePlataformasOC, OC_SOLICITUDES_PAGE_SIZE, type SolicitudesFilters } from "@/hooks/useOC"
+import { useSolicitudes, OC_SOLICITUDES_PAGE_SIZE, type SolicitudesFilters } from "@/hooks/useOC"
+import { useSedesParaSolicitudesOc } from "@/hooks/useSedes"
 import { Combobox } from "@/components/ui/Combobox"
 import { formatFechaRelativa } from "@/lib/dates"
 import { Button } from "@/components/ui/button"
@@ -26,10 +27,10 @@ export function SolicitudesPage() {
   const [plataformaFiltro, setPlataformaFiltro] = useState<string | null>(null)
   const [page, setPage] = useState(1)
 
-  const { data: plataformas = [] } = usePlataformasOC()
+  const { data: sedesOc = [] } = useSedesParaSolicitudesOc()
   const opcionesPlataformaFiltro = useMemo(
-    () => plataformas.map((p) => ({ value: p, label: p })),
-    [plataformas],
+    () => sedesOc.map((s) => ({ value: s.name, label: s.name })),
+    [sedesOc],
   )
 
   const listFilters = useMemo((): SolicitudesFilters => {
