@@ -214,6 +214,7 @@ def get_plataformas_distintas(
 def list_solicitudes(
     estado: Optional[str] = Query(default=None),
     plataforma: Optional[str] = Query(default=None),
+    area: Optional[str] = Query(default=None),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
     current_user: User = Depends(require_compras),
@@ -226,6 +227,8 @@ def list_solicitudes(
         conds.append(SolicitudOC.estado == estado)
     if plataforma:
         conds.append(SolicitudOC.plataforma == plataforma)
+    if area:
+        conds.append(SolicitudOC.area_solicitante == area)
 
     total = oc_db.exec(select(func.count(SolicitudOC.id)).where(*conds)).one()
     query = (

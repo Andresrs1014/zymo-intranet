@@ -4,6 +4,7 @@ import { PageLayout } from "@/components/layout/PageLayout"
 import { OcSolicitudesPagination } from "@/components/oc/OcSolicitudesPagination"
 import { useSolicitudes, OC_SOLICITUDES_PAGE_SIZE, type SolicitudesFilters } from "@/hooks/useOC"
 import { useSedesParaSolicitudesOc } from "@/hooks/useSedes"
+import { useAreas } from "@/hooks/useAreas"
 import { Combobox } from "@/components/ui/Combobox"
 import { formatFechaRelativa } from "@/lib/dates"
 import { Button } from "@/components/ui/button"
@@ -25,24 +26,31 @@ export function SolicitudesPage() {
   const navigate = useNavigate()
   const [estadoFiltro, setEstadoFiltro] = useState<string | null>(null)
   const [plataformaFiltro, setPlataformaFiltro] = useState<string | null>(null)
+  const [areaFiltro, setAreaFiltro] = useState<string | null>(null)
   const [page, setPage] = useState(1)
 
   const { data: sedesOc = [] } = useSedesParaSolicitudesOc()
+  const { data: areas = [] } = useAreas()
   const opcionesPlataformaFiltro = useMemo(
     () => sedesOc.map((s) => ({ value: s.name, label: s.name })),
     [sedesOc],
+  )
+  const opcionesAreaFiltro = useMemo(
+    () => areas.map((a) => ({ value: a.name, label: a.name })),
+    [areas],
   )
 
   const listFilters = useMemo((): SolicitudesFilters => {
     const f: SolicitudesFilters = {}
     if (estadoFiltro) f.estado = estadoFiltro
     if (plataformaFiltro) f.plataforma = plataformaFiltro
+    if (areaFiltro) f.area = areaFiltro
     return f
-  }, [estadoFiltro, plataformaFiltro])
+  }, [estadoFiltro, plataformaFiltro, areaFiltro])
 
   useEffect(() => {
     setPage(1)
-  }, [estadoFiltro, plataformaFiltro])
+  }, [estadoFiltro, plataformaFiltro, areaFiltro])
 
   const { data, isLoading, isRefetching } = useSolicitudes(listFilters, page)
   const solicitudes = data?.items ?? []
@@ -84,6 +92,13 @@ export function SolicitudesPage() {
               value={plataformaFiltro}
               onChange={(v) => setPlataformaFiltro(v as string | null)}
               placeholder="Todas las plataformas"
+            />
+            <Combobox
+              className="w-48"
+              options={opcionesAreaFiltro}
+              value={areaFiltro}
+              onChange={(v) => setAreaFiltro(v as string | null)}
+              placeholder="Todas las áreas"
             />
           </div>
 

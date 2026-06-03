@@ -72,6 +72,7 @@ export function FacturasPage() {
   const [vistaSolicitud, setVistaSolicitud] = useState<SolicitudConFactura | null>(null)
   const [filtroProveedor, setFiltroProveedor] = useState<string | null>(null)
   const [filtroPlataforma, setFiltroPlataforma] = useState<string | null>(null)
+  const [filtroArea, setFiltroArea] = useState<string | null>(null)
 
   // Opciones únicas para los combobox, derivadas de los datos cargados
   const opcionesProveedor: ComboboxOption[] = useMemo(() => {
@@ -94,15 +95,26 @@ export function FacturasPage() {
       .map((p) => ({ value: p, label: p }))
   }, [solicitudes])
 
+  const opcionesArea: ComboboxOption[] = useMemo(() => {
+    const vals = new Set<string>()
+    for (const s of solicitudes) {
+      if (s.area_solicitante) vals.add(s.area_solicitante)
+    }
+    return Array.from(vals)
+      .sort((a, b) => a.localeCompare(b, "es"))
+      .map((a) => ({ value: a, label: a }))
+  }, [solicitudes])
+
   // Pre-filtrado por proveedor y plataforma — alimenta los conteos de tabs
   const filtradoBase = useMemo(
     () =>
       solicitudes.filter((s) => {
         if (filtroProveedor && s.proveedor_nombre !== filtroProveedor) return false
         if (filtroPlataforma && s.plataforma !== filtroPlataforma) return false
+        if (filtroArea && s.area_solicitante !== filtroArea) return false
         return true
       }),
-    [solicitudes, filtroProveedor, filtroPlataforma],
+    [solicitudes, filtroProveedor, filtroPlataforma, filtroArea],
   )
 
   // Filtrado final: proveedor + plataforma + tab activo
@@ -112,11 +124,12 @@ export function FacturasPage() {
     return filtradoBase.filter((s) => s.factura_estado === tab)
   }, [filtradoBase, tab])
 
-  const hayFiltrosActivos = filtroProveedor !== null || filtroPlataforma !== null
+  const hayFiltrosActivos = filtroProveedor !== null || filtroPlataforma !== null || filtroArea !== null
 
   function limpiarFiltros() {
     setFiltroProveedor(null)
     setFiltroPlataforma(null)
+    setFiltroArea(null)
   }
 
   return (
@@ -168,6 +181,16 @@ export function FacturasPage() {
                 onChange={(v) => setFiltroPlataforma(v as string | null)}
                 placeholder="Todas las plataformas"
                 className="w-52"
+              />
+            </div>
+            <div className="flex items-center gap-2 min-w-0">
+              <Label className="text-xs whitespace-nowrap">Área</Label>
+              <Combobox
+                options={opcionesArea}
+                value={filtroArea}
+                onChange={(v) => setFiltroArea(v as string | null)}
+                placeholder="Todas las áreas"
+                className="w-48"
               />
             </div>
             {hayFiltrosActivos && (

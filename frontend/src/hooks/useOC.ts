@@ -21,6 +21,7 @@ export const OC_SOLICITUDES_PAGE_SIZE = 50
 export interface SolicitudesFilters {
   estado?: string
   plataforma?: string
+  area?: string
 }
 
 export function usePlataformasOC() {
@@ -43,6 +44,7 @@ export function useSolicitudes(filters: SolicitudesFilters = {}, page: number = 
       params.set("skip", String(Math.max(0, (page - 1) * OC_SOLICITUDES_PAGE_SIZE)))
       if (filters.estado) params.set("estado", filters.estado)
       if (filters.plataforma) params.set("plataforma", filters.plataforma)
+      if (filters.area) params.set("area", filters.area)
       const { data } = await api.get<SolicitudesListResponse>(`/api/oc/solicitudes?${params}`)
       return data
     },
