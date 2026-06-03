@@ -85,15 +85,13 @@ export function FacturasPage() {
   }, [solicitudes])
 
   const opcionesPlataforma: ComboboxOption[] = useMemo(() => {
-    const map = new Map<string, string>()
+    const vals = new Set<string>()
     for (const s of solicitudes) {
-      if (s.plataforma) {
-        map.set(s.plataforma, s.empresa_compra_nombre ?? s.plataforma)
-      }
+      if (s.plataforma) vals.add(s.plataforma)
     }
-    return Array.from(map.entries())
-      .sort((a, b) => a[1].localeCompare(b[1], "es"))
-      .map(([val, label]) => ({ value: val, label }))
+    return Array.from(vals)
+      .sort((a, b) => a.localeCompare(b, "es"))
+      .map((p) => ({ value: p, label: p }))
   }, [solicitudes])
 
   // Pre-filtrado por proveedor y plataforma — alimenta los conteos de tabs

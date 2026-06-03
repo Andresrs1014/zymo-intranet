@@ -7,7 +7,6 @@ import { useListasFormulario, useCrearSolicitudInterna, usePaquetes, useSubirFot
 import type { SolicitudInternaCreate } from "@/hooks/useOC"
 import { useDraft, useAutosaveDraft, useDeleteDraft } from "@/hooks/useDraft"
 import { useSedesParaSolicitudesOc } from "@/hooks/useSedes"
-import { defaultPlataformaDesdeSedes } from "@/lib/plataformaOc"
 
 const PRIORIDAD_SLA: Record<string, string> = {
   Alta:  "Alta — primera respuesta en 4 horas",
@@ -125,17 +124,6 @@ export function NuevaSolicitudPage() {
     [sedesOc]
   )
 
-  const fallbackPlataforma = useMemo(
-    () => defaultPlataformaDesdeSedes(sedesOc, user?.sede),
-    [sedesOc, user?.sede]
-  )
-
-  const plataformaEfectiva = useMemo(() => {
-    const p = form.plataforma?.trim()
-    if (p) return p
-    return fallbackPlataforma
-  }, [form.plataforma, fallbackPlataforma])
-
   // Cambiar tipo de solicitud limpia el formulario
   function cambiarTipo(tipo: TipoSolicitud) {
     setTipoSolicitud(tipo)
@@ -143,7 +131,6 @@ export function NuevaSolicitudPage() {
       tipo === "compra"
         ? { ...FORM_COMPRA_VACIO }
         : { ...FORM_MANTENIMIENTO_VACIO }
-    next.plataforma = defaultPlataformaDesdeSedes(sedesOc, user?.sede)
     setForm(next as SolicitudInternaCreate)
     setPaqueteNombre(null)
     setError(null)
@@ -166,12 +153,12 @@ export function NuevaSolicitudPage() {
       cantidad: item.cantidad ?? 1,
       cliente: item.cliente ?? "",
       condicion: item.condicion ?? "",
-      plataforma: item.plataforma ?? defaultPlataformaDesdeSedes(sedesOc, user?.sede),
+      plataforma: item.plataforma ?? "",
       observaciones_solicitante: item.observaciones_solicitante ?? "",
     })
     setPaqueteNombre(paquete.nombre)
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [paqueteId, paquetes, sedesOc, user?.sede])
+  }, [paqueteId, paquetes, sedesOc])
 
   useEffect(() => {
     // Solo verificar el borrador una vez al montar la página.
@@ -235,7 +222,7 @@ export function NuevaSolicitudPage() {
     }
     if (!form.nivel_prioridad) return "Selecciona la prioridad."
     if (!form.descripcion.trim()) return "Ingresa la descripción."
-    if (!plataformaEfectiva) return "Selecciona la plataforma."
+    if (!form.plataforma?.trim()) return "Selecciona la plataforma."
     if (form.cantidad < 1) return "La cantidad debe ser al menos 1."
 
     if (tipoSolicitud === "compra") {
@@ -288,7 +275,7 @@ export function NuevaSolicitudPage() {
       const payload: SolicitudInternaCreate = {
         ...form,
         tipo_solicitud: tipoSolicitud,
-        plataforma: plataformaEfectiva,
+        plataforma: form.plataforma!,
         cliente: form.cliente || undefined,
         condicion: form.condicion || undefined,
         placa_ficha: tipoSolicitud === "mantenimiento" ? form.placa_ficha || undefined : undefined,
@@ -432,10 +419,7 @@ export function NuevaSolicitudPage() {
               <button
                 type="button"
                 onClick={() => {
-                  setForm({
-                    ...FORM_COMPRA_VACIO,
-                    plataforma: defaultPlataformaDesdeSedes(sedesOc, user?.sede),
-                  })
+                  setForm({ ...FORM_COMPRA_VACIO })
                   setPaqueteNombre(null)
                 }}
                 className="text-xs text-indigo-400 hover:text-indigo-600 transition-colors shrink-0"
@@ -590,10 +574,8 @@ export function NuevaSolicitudPage() {
                       <Combobox
                         className="w-full"
                         options={opcionesPlataforma}
-                        value={plataformaEfectiva || null}
-                        onChange={(v) =>
-                          handleChange("plataforma", (v as string) || fallbackPlataforma)
-                        }
+                        value={form.plataforma || null}
+                        onChange={(v) => handleChange("plataforma", (v as string) ?? "")}
                         placeholder="Buscar plataforma…"
                         disabled={opcionesPlataforma.length === 0}
                       />
@@ -730,10 +712,8 @@ export function NuevaSolicitudPage() {
                       <Combobox
                         className="w-full"
                         options={opcionesPlataforma}
-                        value={plataformaEfectiva || null}
-                        onChange={(v) =>
-                          handleChange("plataforma", (v as string) || fallbackPlataforma)
-                        }
+                        value={form.plataforma || null}
+                        onChange={(v) => handleChange("plataforma", (v as string) ?? "")}
                         placeholder="Buscar plataforma…"
                         disabled={opcionesPlataforma.length === 0}
                       />

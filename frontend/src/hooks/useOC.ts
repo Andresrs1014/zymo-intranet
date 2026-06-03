@@ -23,6 +23,17 @@ export interface SolicitudesFilters {
   plataforma?: string
 }
 
+export function usePlataformasOC() {
+  return useQuery({
+    queryKey: ["oc", "plataformas"],
+    queryFn: async () => {
+      const { data } = await api.get<string[]>("/api/oc/solicitudes/plataformas")
+      return data
+    },
+    staleTime: 60_000,
+  })
+}
+
 export function useSolicitudes(filters: SolicitudesFilters = {}, page: number = 1) {
   return useQuery({
     queryKey: ["oc", "solicitudes", filters, page],

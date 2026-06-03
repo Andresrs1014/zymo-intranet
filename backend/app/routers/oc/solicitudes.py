@@ -195,6 +195,21 @@ class HistorialEstadoRead(BaseModel):
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
+@router.get("/plataformas", response_model=list[str])
+def get_plataformas_distintas(
+    current_user: User = Depends(require_compras),
+    oc_db: Session = Depends(get_oc_db),
+):
+    """Valores distintos de plataforma almacenados en solicitudes OC (para filtros de UI)."""
+    rows = oc_db.exec(
+        select(SolicitudOC.plataforma)
+        .where(SolicitudOC.plataforma.is_not(None))  # type: ignore[union-attr]
+        .distinct()
+        .order_by(SolicitudOC.plataforma)
+    ).all()
+    return [r for r in rows if r]
+
+
 @router.get("", response_model=SolicitudesListResponse)
 def list_solicitudes(
     estado: Optional[str] = Query(default=None),

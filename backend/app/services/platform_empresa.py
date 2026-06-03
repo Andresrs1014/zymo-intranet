@@ -32,7 +32,9 @@ _SLUG_MAP = SLUG_MAP
 
 
 def nombre_empresa_desde_plataforma(plataforma: Optional[str]) -> Optional[str]:
-    slug = _SLUG_MAP.get((plataforma or "").lower().strip(), "logimat")
+    slug = _SLUG_MAP.get((plataforma or "").lower().strip())
+    if slug is None:
+        return None
     config_path = _PLATFORMS_DIR / slug / "config.json"
     if not config_path.exists():
         return None

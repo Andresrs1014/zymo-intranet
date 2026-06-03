@@ -2,8 +2,7 @@ import { useState, useMemo, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { OcSolicitudesPagination } from "@/components/oc/OcSolicitudesPagination"
-import { useSolicitudes, OC_SOLICITUDES_PAGE_SIZE, type SolicitudesFilters } from "@/hooks/useOC"
-import { useSedesParaSolicitudesOc } from "@/hooks/useSedes"
+import { useSolicitudes, usePlataformasOC, OC_SOLICITUDES_PAGE_SIZE, type SolicitudesFilters } from "@/hooks/useOC"
 import { Combobox } from "@/components/ui/Combobox"
 import { formatFechaRelativa } from "@/lib/dates"
 import { Button } from "@/components/ui/button"
@@ -21,26 +20,17 @@ const ESTADOS_OPTIONS = [
   { value: "cerrada", label: "Cerrada" },
 ]
 
-/** Valores antiguos de plataforma (antes de alinear con catálogo de sedes). */
-const PLATAFORMA_FILTRO_LEGACY: { value: string; label: string }[] = [
-  { value: "Logimat", label: "Logimat (histórico)" },
-  { value: "IMC Cargo", label: "IMC Cargo (histórico)" },
-  { value: "IMC Depósito", label: "IMC Depósito (histórico)" },
-]
-
 export function SolicitudesPage() {
   const navigate = useNavigate()
   const [estadoFiltro, setEstadoFiltro] = useState<string | null>(null)
   const [plataformaFiltro, setPlataformaFiltro] = useState<string | null>(null)
   const [page, setPage] = useState(1)
 
-  const { data: sedesOc = [] } = useSedesParaSolicitudesOc()
-  const opcionesPlataformaFiltro = useMemo(() => {
-    const actuales = sedesOc.map((s) => ({ value: s.name, label: s.name }))
-    const seen = new Set(actuales.map((o) => o.value.toLowerCase()))
-    const legacy = PLATAFORMA_FILTRO_LEGACY.filter((o) => !seen.has(o.value.toLowerCase()))
-    return [...actuales, ...legacy]
-  }, [sedesOc])
+  const { data: plataformas = [] } = usePlataformasOC()
+  const opcionesPlataformaFiltro = useMemo(
+    () => plataformas.map((p) => ({ value: p, label: p })),
+    [plataformas],
+  )
 
   const listFilters = useMemo((): SolicitudesFilters => {
     const f: SolicitudesFilters = {}
