@@ -11,6 +11,7 @@ export function useMyTeams() {
       const { data } = await taskApi.get<Team[]>("/api/teams/my-teams")
       return data
     },
+    refetchOnWindowFocus: true,
   })
 }
 
@@ -126,6 +127,7 @@ export function usePromoteMember() {
     },
     onSuccess: (_data, { teamId }) => {
       qc.invalidateQueries({ queryKey: ["taskTeams", teamId, "members"] })
+      qc.invalidateQueries({ queryKey: ["taskTeams", "my"] })
     },
   })
 }
@@ -138,6 +140,7 @@ export function useDemoteMember() {
     },
     onSuccess: (_data, { teamId }) => {
       qc.invalidateQueries({ queryKey: ["taskTeams", teamId, "members"] })
+      qc.invalidateQueries({ queryKey: ["taskTeams", "my"] })
     },
   })
 }

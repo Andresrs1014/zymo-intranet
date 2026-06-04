@@ -404,7 +404,14 @@ function ListsSettings() {
   const items = lists?.[activeListTab] ?? []
 
   async function handleCreate() {
-    if (!newItemForm.value.trim() || !newItemForm.label.trim()) return
+    if (!newItemForm.value.trim()) {
+      showToast("El campo 'Valor (slug)' es obligatorio", "error")
+      return
+    }
+    if (!newItemForm.label.trim()) {
+      showToast("El campo 'Etiqueta visible' es obligatorio", "error")
+      return
+    }
     try {
       await createItem.mutateAsync({ teamId: activeTeamId!, listType: activeListTab, ...newItemForm })
       showToast("Item creado", "success")
