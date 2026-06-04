@@ -55,6 +55,10 @@ class Settings(BaseSettings):
     # ── Módulo Gerencial (PostgreSQL — piloto migración) ──────────────────────
     gerencial_database_url: str = "sqlite:///./data/gerencial.db"  # Override con PostgreSQL en producción
 
+    # ── Anthropic / Claude (proxy NetVault — la API key nunca sale del servidor) ──
+    anthropic_api_key: str = ""
+    anthropic_model: str = "claude-opus-4-5-20251001"
+
     # ── Agentes IA ────────────────────────────────────────────────────────────
     agents_database_url: str = "sqlite:///./data/agents.db"
     gemini_api_key: str = ""
