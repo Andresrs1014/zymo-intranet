@@ -365,9 +365,8 @@ export function SolicitudDetallePage() {
 
   function syncCorrDirHeaderFromItems(items: ItemCotizacion[]) {
     const subtotal = roundCOP(subtotalFromItems(items))
-    const ivaActual = parseCopNumber(corrDirValorIva) ?? 0
     setCorrDirValorAntesIva(String(subtotal))
-    setCorrDirValorTotal(String(subtotal + ivaActual))
+    setCorrDirValorTotal(String(subtotal))
   }
 
   /** Actualiza fila según qué celda editó el usuario; sincroniza encabezado desde ítems. */
