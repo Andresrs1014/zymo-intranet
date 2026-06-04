@@ -8,6 +8,7 @@ import {
   canSeeOperativo,
   canSeeFinanciero,
   canSeeGerencial,
+  canSeeSIG,
   canUseAgentePanel,
   canSeeExtraccionIA,
   canSeeHelix,
@@ -47,6 +48,7 @@ import { ExtraccionIAPage } from "@/pages/admin/ExtraccionIAPage"
 import { GestionTareasPage } from "@/pages/herramientas/tareas/GestionTareasPage"
 import { HelixPage } from "@/pages/planeacion/helix/HelixPage"
 import { TaskPage } from "@/pages/tareas/TaskPage"
+import { SigPage } from "@/pages/sig/SigPage"
 
 // Decodifica el claim `exp` del JWT sin verificar firma (solo para chequeo local de expiración)
 function isTokenExpired(token: string): boolean {
@@ -140,6 +142,13 @@ function ExtraccionIARoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user)
   if (!user) return <Navigate to="/login" replace />
   if (!canSeeExtraccionIA(user.role, user.app_permissions)) return <Navigate to="/dashboard" replace />
+  return <>{children}</>
+}
+
+function SigRoute({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user)
+  if (!user) return <Navigate to="/login" replace />
+  if (!canSeeSIG(user.role, user.app_permissions)) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
 
@@ -430,6 +439,16 @@ export default function App() {
             <PrivateRoute>
               <TaskPage />
             </PrivateRoute>
+          }
+        />
+
+        {/* SIG — Sistema Integrado de Gestión */}
+        <Route
+          path="/sig/*"
+          element={
+            <SigRoute>
+              <SigPage />
+            </SigRoute>
           }
         />
 

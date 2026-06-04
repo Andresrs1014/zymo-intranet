@@ -122,9 +122,46 @@ services:
       timeout: 5s
       retries: 10
 
+  sig-backend:
+    build:
+      context: ./sig-backend
+      dockerfile: Dockerfile
+    ports:
+      - "3003:3003"
+    env_file:
+      - ./backend/.env
+    environment:
+      - NODE_ENV=production
+      - PORT=3003
+      - DATABASE_URL=postgresql://${SIG_DB_USER:-sig}:${SIG_DB_PASSWORD}@sig-db:5432/${SIG_DB_NAME:-sigdb}
+      - INTRANET_API_URL=http://backend:8001
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:81}
+    depends_on:
+      sig-db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  sig-db:
+    image: postgres:15-alpine
+    ports:
+      - "5435:5432"
+    environment:
+      - POSTGRES_USER=${SIG_DB_USER:-sig}
+      - POSTGRES_PASSWORD=${SIG_DB_PASSWORD}
+      - POSTGRES_DB=${SIG_DB_NAME:-sigdb}
+    volumes:
+      - sig_db_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${SIG_DB_USER:-sig} -d ${SIG_DB_NAME:-sigdb}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   backend_data:
   helix_db_data:
   helix_uploads:
   task_db_data:
   task_uploads:
+  sig_db_data:

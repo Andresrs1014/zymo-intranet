@@ -1,0 +1,84 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Áreas de procedimientos (creadas por admin, BD inicia vacía) ──────────────
+
+model SigArea {
+  id             Int                @id @default(autoincrement())
+  nombre         String
+  descripcion    String?
+  color          String             @default("#3b82f6")
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  procedimientos SigProcedimiento[]
+}
+
+// ── Procedimiento (el "repositorio" de un documento) ──────────────────────────
+
+model SigProcedimiento {
+  id          Int                    @id @default(autoincrement())
+  areaId      Int
+  area        SigArea                @relation(fields: [areaId], references: [id])
+  codigo      String                 @unique
+  titulo      String
+  descripcion String?
+  estado      SigEstadoProcedimiento @default(BORRADOR)
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+  commits     SigCommit[]
+
+  @@index([areaId])
+  @@index([estado])
+}
+
+enum SigEstadoProcedimiento {
+  BORRADOR
+  VIGENTE
+  OBSOLETO
+}
+
+// ── Commit — lo que envía NetVault (antes vs después del agente IA) ────────────
+
+model SigCommit {
+  id               Int                @id @default(autoincrement())
+  procedimientoId  Int
+  procedimiento    SigProcedimiento   @relation(fields: [procedimientoId], references: [id], onDelete: Cascade)
+
+  // Par de diff: texto original del doc vs lo que procesó el agente
+  contenidoOriginal String            @db.Text
+  contenidoAgente   String            @db.Text
+  flujogramaMmd     String?           @db.Text
+  sinCambios        Boolean           @default(false)
+
+  // Metadata del commit
+  mensaje          String
+  autorId          Int
+  autorNombre      String
+  versionDoc       String?            // versión del doc original ("v3", "17", etc.)
+
+  // Revisión del Gerente
+  estado           SigEstadoCommit    @default(PENDIENTE_REVISION)
+  aprobadoPor      Int?
+  aprobadoNombre   String?
+  aprobadoEn       DateTime?
+  comentarioRevision String?          @db.Text
+
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@index([procedimientoId])
+  @@index([estado])
+  @@index([createdAt])
+}
+
+enum SigEstadoCommit {
+  PENDIENTE_REVISION
+  APROBADO
+  RECHAZADO
+}
