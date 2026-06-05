@@ -269,23 +269,34 @@ def _parse_response(raw: str, req: AnalyzeRequest) -> dict[str, Any]:
     if start < 0 or end < 0:
         raise ValueError(f"Claude no devolvió JSON válido: {raw[:300]}")
     json_str = clean[start : end + 1]
+
+    # Intento 1: JSON estándar
     try:
         return json.loads(json_str)
     except json.JSONDecodeError as exc:
-        logger.error(
-            "[netvault] JSON inválido en char %d — contexto: ...%s...",
-            exc.pos,
-            json_str[max(0, exc.pos - 120) : exc.pos + 120],
-        )
-    # Segundo intento: escapar caracteres de control literales dentro de strings
+        logger.warning("[netvault] JSON inválido en char %d, intentando reparar…", exc.pos)
+
+    # Intento 2: escapar control chars literales (\n, \r, \t dentro de strings)
     sanitized = _sanitize_json_string(json_str)
     try:
         return json.loads(sanitized)
-    except json.JSONDecodeError as exc2:
-        raise ValueError(
-            f"Claude no devolvió JSON válido (char {exc2.pos}): "
-            f"{sanitized[max(0, exc2.pos - 200) : exc2.pos + 200]}"
-        )
+    except json.JSONDecodeError:
+        pass
+
+    # Intento 3: json-repair (maneja comillas, backslashes y truncamientos)
+    try:
+        from json_repair import repair_json  # type: ignore[import]
+        repaired = repair_json(sanitized, return_objects=True)
+        if isinstance(repaired, dict) and repaired:
+            logger.info("[netvault] JSON reparado con json-repair")
+            return repaired  # type: ignore[return-value]
+    except Exception as repair_exc:
+        logger.warning("[netvault] json-repair falló: %s", repair_exc)
+
+    raise ValueError(
+        f"Claude no devolvió JSON válido (char {json_str.find(json_str[8000:8100] if len(json_str) > 8000 else '')}) — "
+        f"primeros 300 chars: {json_str[:300]}"
+    )
 
 
 def _diff_flowcharts(old: str, new: str) -> str:
