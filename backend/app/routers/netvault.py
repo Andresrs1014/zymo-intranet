@@ -132,7 +132,7 @@ CORPUS_RULES = [
 # ── Schemas de request / response ─────────────────────────────────────────────
 
 class AnalyzeRequest(BaseModel):
-    procedureCode: str = Field(..., min_length=1, max_length=50)
+    procedureCode: str = Field(..., min_length=1, max_length=200)
     area: str = Field(..., min_length=1, max_length=100)
     textContent: str = Field(..., min_length=10, max_length=50_000)
     existingFlowchartMmd: str | None = None
