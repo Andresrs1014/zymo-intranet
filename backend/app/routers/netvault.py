@@ -237,6 +237,32 @@ JSON exacto (sin texto fuera del JSON):
 }}"""
 
 
+def _sanitize_json_string(json_str: str) -> str:
+    """Escapa saltos de línea y tabs literales dentro de strings JSON."""
+    result: list[str] = []
+    in_string = False
+    escape_next = False
+    for ch in json_str:
+        if escape_next:
+            result.append(ch)
+            escape_next = False
+        elif ch == "\\":
+            result.append(ch)
+            escape_next = True
+        elif ch == '"':
+            in_string = not in_string
+            result.append(ch)
+        elif in_string and ch == "\n":
+            result.append("\\n")
+        elif in_string and ch == "\r":
+            result.append("\\r")
+        elif in_string and ch == "\t":
+            result.append("\\t")
+        else:
+            result.append(ch)
+    return "".join(result)
+
+
 def _parse_response(raw: str, req: AnalyzeRequest) -> dict[str, Any]:
     clean = re.sub(r"^```json\s*", "", raw, flags=re.IGNORECASE)
     clean = re.sub(r"^```\s*", "", clean, flags=re.IGNORECASE)
@@ -245,7 +271,24 @@ def _parse_response(raw: str, req: AnalyzeRequest) -> dict[str, Any]:
     end = clean.rfind("}")
     if start < 0 or end < 0:
         raise ValueError(f"Claude no devolvió JSON válido: {raw[:300]}")
-    return json.loads(clean[start : end + 1])
+    json_str = clean[start : end + 1]
+    try:
+        return json.loads(json_str)
+    except json.JSONDecodeError as exc:
+        logger.error(
+            "[netvault] JSON inválido en char %d — contexto: ...%s...",
+            exc.pos,
+            json_str[max(0, exc.pos - 120) : exc.pos + 120],
+        )
+    # Segundo intento: escapar caracteres de control literales dentro de strings
+    sanitized = _sanitize_json_string(json_str)
+    try:
+        return json.loads(sanitized)
+    except json.JSONDecodeError as exc2:
+        raise ValueError(
+            f"Claude no devolvió JSON válido (char {exc2.pos}): "
+            f"{sanitized[max(0, exc2.pos - 200) : exc2.pos + 200]}"
+        )
 
 
 def _diff_flowcharts(old: str, new: str) -> str:
