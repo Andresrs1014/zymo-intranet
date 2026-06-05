@@ -57,7 +57,7 @@ class Settings(BaseSettings):
 
     # ── Anthropic / Claude (proxy NetVault — la API key nunca sale del servidor) ──
     anthropic_api_key: str = ""
-    anthropic_model: str = "claude-opus-4-5-20251001"
+    anthropic_model: str = "claude-sonnet-4-6"
 
     # ── Agentes IA ────────────────────────────────────────────────────────────
     agents_database_url: str = "sqlite:///./data/agents.db"
