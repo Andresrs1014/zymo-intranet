@@ -6,14 +6,16 @@ NetVault envía el documento y recibe el paquete de análisis completo.
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
 import re
+import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
 from app.config import settings
@@ -332,22 +334,15 @@ def _assemble_package(req: AnalyzeRequest, parsed: dict[str, Any]) -> dict[str, 
     return pkg
 
 
-# ── Endpoints ──────────────────────────────────────────────────────────────────
+# ── Job store en memoria (se limpia al reiniciar el contenedor) ───────────────
+# { job_id: { status: "pending"|"done"|"error", data?: pkg, error?: str } }
+_jobs: dict[str, dict[str, Any]] = {}
 
-@router.post("/analizar")
-async def analizar_procedimiento(
-    body: AnalyzeRequest,
-    _user: User = Depends(get_current_user),
-) -> dict[str, Any]:
-    """Analiza un procedimiento con Claude y devuelve el paquete completo."""
-    if not settings.anthropic_api_key:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="ANTHROPIC_API_KEY no configurada en el servidor.",
-        )
 
+def _run_analysis_job(job_id: str, body: AnalyzeRequest) -> None:
+    """Ejecuta el análisis en un hilo de background y actualiza _jobs."""
     try:
-        import anthropic  # importación tardía — no requerido si no se usa el endpoint
+        import anthropic
 
         client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
         response = client.beta.messages.create(
@@ -361,28 +356,48 @@ async def analizar_procedimiento(
         tokens_out = response.usage.output_tokens
         cost_usd   = (tokens_in * 3 + tokens_out * 15) / 1_000_000
         logger.info(
-            "[netvault/analizar] %s — in=%d out=%d costo≈$%.4f",
-            body.procedureCode, tokens_in, tokens_out, cost_usd,
+            "[netvault/job:%s] %s — in=%d out=%d costo≈$%.4f",
+            job_id[:8], body.procedureCode, tokens_in, tokens_out, cost_usd,
         )
-        raw = response.content[0].text
+        raw    = response.content[0].text
         parsed = _parse_response(raw, body)
-        pkg = _assemble_package(body, parsed)
-        return {"ok": True, "data": pkg}
+        pkg    = _assemble_package(body, parsed)
+        _jobs[job_id] = {"status": "done", "data": pkg}
+    except Exception as exc:
+        logger.exception("[netvault/job:%s] Error", job_id[:8])
+        _jobs[job_id] = {"status": "error", "error": str(exc)}
 
-    except ImportError:
+
+# ── Endpoints ──────────────────────────────────────────────────────────────────
+
+@router.post("/analizar")
+async def analizar_procedimiento(
+    body: AnalyzeRequest,
+    background_tasks: BackgroundTasks,
+    _user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Inicia el análisis en background y retorna un job_id inmediatamente."""
+    if not settings.anthropic_api_key:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Librería 'anthropic' no instalada en el backend.",
+            detail="ANTHROPIC_API_KEY no configurada en el servidor.",
         )
-    except ValueError as exc:
-        logger.error("[netvault/analizar] Parse error: %s", exc)
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
-    except Exception as exc:
-        logger.exception("[netvault/analizar] Error inesperado")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        )
+    job_id = str(uuid.uuid4())
+    _jobs[job_id] = {"status": "pending"}
+    background_tasks.add_task(_run_analysis_job, job_id, body)
+    return {"ok": True, "job_id": job_id}
+
+
+@router.get("/job/{job_id}")
+async def get_job(
+    job_id: str,
+    _user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Consulta el estado de un job de análisis."""
+    job = _jobs.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job no encontrado")
+    return {"ok": True, **job}
 
 
 @router.post("/chat")
