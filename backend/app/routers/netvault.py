@@ -134,13 +134,13 @@ CORPUS_RULES = [
 class AnalyzeRequest(BaseModel):
     procedureCode: str = Field(..., min_length=1, max_length=200)
     area: str = Field(..., min_length=1, max_length=100)
-    textContent: str = Field(..., min_length=10, max_length=50_000)
+    textContent: str = Field(..., min_length=10, max_length=40_000)
     existingFlowchartMmd: str | None = None
 
 
 class ChatRequest(BaseModel):
-    messages: list[dict[str, str]]
-    system: str | None = None
+    messages: list[dict[str, str]] = Field(..., max_length=20)
+    system: str | None = Field(default=None, max_length=500)
 
 
 # ── Construcción del prompt ────────────────────────────────────────────────────
@@ -199,7 +199,7 @@ def _build_user_message(req: AnalyzeRequest) -> str:
 
 DOCUMENTO FUENTE:
 ---
-{req.textContent[:14000]}
+{req.textContent[:12000]}
 ---
 {chart_section}
 INSTRUCCIONES:
@@ -352,10 +352,17 @@ async def analizar_procedimiento(
         client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
         response = client.beta.messages.create(
             model=settings.anthropic_model,
-            max_tokens=16000,
+            max_tokens=12000,
             betas=["output-128k-2025-02-19"],
             system=_build_system_prompt(),
             messages=[{"role": "user", "content": _build_user_message(body)}],
+        )
+        tokens_in  = response.usage.input_tokens
+        tokens_out = response.usage.output_tokens
+        cost_usd   = (tokens_in * 3 + tokens_out * 15) / 1_000_000
+        logger.info(
+            "[netvault/analizar] %s — in=%d out=%d costo≈$%.4f",
+            body.procedureCode, tokens_in, tokens_out, cost_usd,
         )
         raw = response.content[0].text
         parsed = _parse_response(raw, body)
