@@ -342,7 +342,7 @@ def _run_analysis_job(job_id: str, body: AnalyzeRequest) -> None:
         client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
         response = client.beta.messages.create(
             model=settings.anthropic_model,
-            max_tokens=8000,
+            max_tokens=12000,
             betas=["output-128k-2025-02-19"],
             system=_build_system_prompt(),
             messages=[{"role": "user", "content": _build_user_message(body)}],
