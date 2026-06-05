@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react"
+import { type ReactNode, useState } from "react"
 import { NavLink, useNavigate } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { sigApi } from "@/lib/sigApi"
@@ -32,7 +32,7 @@ const ESTADO_BADGE: Record<string, string> = {
 export function SigShell({ children, isGerente }: Props) {
   const navigate = useNavigate()
   const [expandedAreas, setExpandedAreas] = useState<Set<number>>(new Set())
-  const [sidebarW, setSidebarW] = useState(260)
+  const [sidebarW] = useState(260)
 
   const { data: areas = [] } = useQuery<SigArea[]>({
     queryKey: ["sig", "areas"],

@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { sigApi } from "@/lib/sigApi"
-import { cn } from "@/lib/utils"
 
 interface PendingCommit {
   id: number

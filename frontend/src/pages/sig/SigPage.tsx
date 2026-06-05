@@ -1,4 +1,3 @@
-import { useState } from "react"
 import { Routes, Route } from "react-router-dom"
 import { SigShell } from "@/components/sig/SigShell"
 import { SigAreaList } from "@/components/sig/SigAreaList"
@@ -10,13 +9,11 @@ import { useAuthStore } from "@/store/authStore"
 export function SigPage() {
   const user = useAuthStore((s) => s.user)
   const isGerente = user?.role === "admin" || user?.role === "gerente"
-  const [selectedProcId, setSelectedProcId] = useState<number | null>(null)
-
   return (
     <SigShell isGerente={isGerente}>
       <Routes>
         <Route index element={
-          <SigAreaList onSelectProcedimiento={setSelectedProcId} />
+          <SigAreaList onSelectProcedimiento={() => {}} />
         } />
         <Route path="procedimientos/:id" element={
           <SigProcedimientoDetail />

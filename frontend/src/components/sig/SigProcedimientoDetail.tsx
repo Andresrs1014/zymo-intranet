@@ -99,7 +99,7 @@ export function SigProcedimientoDetail() {
           )}
 
           <div className="space-y-0">
-            {proc.commits.map((commit, i) => {
+            {proc.commits.map((commit) => {
               const estadoInfo = ESTADO_COMMIT[commit.estado]
               return (
                 <div key={commit.id} className="flex gap-4 relative">
