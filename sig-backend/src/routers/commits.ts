@@ -9,8 +9,8 @@ const router = Router()
 
 const CommitSchema = z.object({
   procedimientoId: z.number().int().positive(),
-  contenidoOriginal: z.string().min(1),
-  contenidoAgente: z.string().min(1),
+  contenidoOriginal: z.string().default(""),   // vacío en commits de inicialización
+  contenidoAgente: z.string().default(""),     // vacío en commits de inicialización
   flujogramaMmd: z.string().optional(),
   sinCambios: z.boolean().default(false),
   mensaje: z.string().min(1).max(500),

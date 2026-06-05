@@ -38,10 +38,10 @@ router.get("/:id", async (req: Request, res: Response) => {
   res.json(area)
 })
 
-// POST /api/areas — solo admin
+// POST /api/areas — admin o gerente
 router.post("/", requireSigAccess, async (req: Request, res: Response) => {
   const role = req.user?.role
-  if (role !== "admin") { res.status(403).json({ error: "Solo admin puede crear áreas" }); return }
+  if (role !== "admin" && role !== "gerente") { res.status(403).json({ error: "Solo admin o gerente puede crear áreas" }); return }
 
   const parsed = AreaSchema.safeParse(req.body)
   if (!parsed.success) { res.status(422).json({ error: parsed.error.flatten() }); return }
@@ -50,10 +50,10 @@ router.post("/", requireSigAccess, async (req: Request, res: Response) => {
   res.status(201).json(area)
 })
 
-// PATCH /api/areas/:id — solo admin
+// PATCH /api/areas/:id — admin o gerente
 router.patch("/:id", requireSigAccess, async (req: Request, res: Response) => {
   const role = req.user?.role
-  if (role !== "admin") { res.status(403).json({ error: "Solo admin puede editar áreas" }); return }
+  if (role !== "admin" && role !== "gerente") { res.status(403).json({ error: "Solo admin o gerente puede editar áreas" }); return }
 
   const id = parseInt(req.params.id)
   const parsed = AreaSchema.partial().safeParse(req.body)

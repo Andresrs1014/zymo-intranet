@@ -11,7 +11,7 @@ import json
 import logging
 import re
 from datetime import datetime, timezone
-from typing import Any, Literal
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -23,10 +23,6 @@ from app.models.user import User
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/netvault", tags=["netvault"])
-
-# ── Tipos de área permitidos ──────────────────────────────────────────────────
-
-ProcedureArea = Literal["T&C", "P&C", "Transportes"]
 
 # ── Rúbrica embebida (sincronizada con resources/rubrica/rubrica-agent.json) ──
 
@@ -137,7 +133,7 @@ CORPUS_RULES = [
 
 class AnalyzeRequest(BaseModel):
     procedureCode: str = Field(..., min_length=1, max_length=50)
-    area: ProcedureArea
+    area: str = Field(..., min_length=1, max_length=100)
     textContent: str = Field(..., min_length=10, max_length=50_000)
     existingFlowchartMmd: str | None = None
 

@@ -3,8 +3,10 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlmodel import Session, select
 
@@ -676,6 +678,16 @@ app.include_router(admin_extraccion_router)
 app.include_router(herramientas_tareas_router)
 app.include_router(tasks_v2_router)
 app.include_router(netvault_router)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    import logging as _logging
+    _logging.getLogger("uvicorn.error").error(
+        "422 Validation error on %s %s — %s",
+        request.method, request.url.path, exc.errors()
+    )
+    return JSONResponse(status_code=422, content={"detail": exc.errors()})
 
 
 @app.get("/health")
