@@ -204,38 +204,33 @@ DOCUMENTO FUENTE:
 {req.textContent[:12000]}
 ---
 {chart_section}
-INSTRUCCIONES:
+INSTRUCCIONES (responde conciso):
 1. Evalúa todas las categorías: {category_list}.
-2. Genera hallazgos concretos (mínimo 3 si el documento lo permite).
-3. Normaliza a markdown con las secciones de la rúbrica.
-4. Flujograma Mermaid del proceso principal.
-5. Extrae tiempos solo si el texto los menciona.
-6. Propuestas accionables (intranet, mcp, mejora_proceso, eliminar_paso).
-7. Corpus ZYMO: chunks con entidades y relaciones.
+2. Máximo 6 hallazgos (los más relevantes).
+3. Markdown normalizado: Objetivo, Pasos principales y Excepciones breves.
+4. Flujograma Mermaid (máximo 12 nodos).
+5. Tiempos: solo si el texto los menciona, máximo 5.
+6. Propuestas: máximo 3.
+7. Corpus ZYMO: máximo 3 chunks.
 
 JSON exacto (sin texto fuera del JSON):
 {{
-  "flowchartMmd": "flowchart LR\\n  ...",
-  "markdownNormalized": "# {req.procedureCode} — ...\\n\\n## Objetivo\\n...",
-  "findings": [
-    {{
-      "id": "F001",
-      "category": "{first_cat}",
-      "severity": "critica|alta|media|baja",
-      "description": "...",
-      "suggestion": "...",
-      "visibility": "interna|publica"
-    }}
-  ],
-  "times": [
-    {{ "activity": "...", "minMinutes": 0, "maxMinutes": 0, "unit": "minutos|horas|días", "rawText": "..." }}
-  ],
-  "proposals": [
-    {{ "type": "desarrollo_intranet|mcp|mejora_proceso|eliminar_paso", "title": "...", "description": "...", "priority": "alta|media|baja" }}
-  ],
-  "zymoCorpus": [
-    {{ "source": "{req.procedureCode}", "chunk": "...", "entities": ["..."], "relations": [{{"from": "...", "to": "...", "type": "..."}}] }}
-  ]
+  "flowchartMmd": "flowchart LR
+  ...",
+  "markdownNormalized": "# {req.procedureCode}
+
+## Objetivo
+...
+
+## Pasos
+...
+
+## Excepciones
+...",
+  "findings": [{{"id":"F001","category":"{first_cat}","severity":"critica|alta|media|baja","description":"...","suggestion":"...","visibility":"interna|publica"}}],
+  "times": [{{"activity":"...","minMinutes":0,"maxMinutes":0,"unit":"minutos|horas|días","rawText":"..."}}],
+  "proposals": [{{"type":"desarrollo_intranet|mcp|mejora_proceso|eliminar_paso","title":"...","description":"...","priority":"alta|media|baja"}}],
+  "zymoCorpus": [{{"source":"{req.procedureCode}","chunk":"...","entities":["..."],"relations":[{{"from":"...","to":"...","type":"..."}}]}}]
 }}"""
 
 
@@ -347,7 +342,7 @@ def _run_analysis_job(job_id: str, body: AnalyzeRequest) -> None:
         client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
         response = client.beta.messages.create(
             model=settings.anthropic_model,
-            max_tokens=12000,
+            max_tokens=8000,
             betas=["output-128k-2025-02-19"],
             system=_build_system_prompt(),
             messages=[{"role": "user", "content": _build_user_message(body)}],
