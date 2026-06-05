@@ -350,9 +350,10 @@ async def analizar_procedimiento(
         import anthropic  # importación tardía — no requerido si no se usa el endpoint
 
         client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-        response = client.messages.create(
+        response = client.beta.messages.create(
             model=settings.anthropic_model,
-            max_tokens=8192,
+            max_tokens=16000,
+            betas=["output-128k-2025-02-19"],
             system=_build_system_prompt(),
             messages=[{"role": "user", "content": _build_user_message(body)}],
         )
