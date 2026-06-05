@@ -144,7 +144,7 @@ services:
   sig-db:
     image: postgres:15-alpine
     ports:
-      - "5435:5432"
+      - "5436:5432"
     environment:
       - POSTGRES_USER=${SIG_DB_USER:-sig}
       - POSTGRES_PASSWORD=${SIG_DB_PASSWORD}
