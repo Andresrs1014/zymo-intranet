@@ -127,7 +127,7 @@ services:
       context: ./sig-backend
       dockerfile: Dockerfile
     ports:
-      - "3003:3003"
+      - "3004:3003"
     env_file:
       - ./backend/.env
     environment:
