@@ -1,7 +1,11 @@
+import logging
+
 from sqlmodel import SQLModel, Session, create_engine
 
 from app.config import settings
 from app.sqlite_paths import ensure_sqlite_parent_dir
+
+log = logging.getLogger(__name__)
 
 _oc_engine = None
 
@@ -22,8 +26,13 @@ def create_oc_tables() -> None:
     """Crea solo las tablas del módulo OC en oc.db."""
     # Importar modelos para registrarlos en SQLModel.metadata
     from app.models.oc import SolicitudOC, CotizacionProveedor, OrdenCompra, Proveedor, OcConfig, HistorialEstado, PaqueteSolicitud  # noqa: F401
+    from app.models.mantenimiento import SolicitudMantenimiento, TipoMantenimientoConfig, HistorialMantenimiento  # noqa: F401
 
-    oc_table_names = {"oc_solicitudes", "oc_cotizaciones", "oc_ordenes", "oc_proveedores", "oc_config", "oc_historial_estados", "oc_paquetes"}
+    oc_table_names = {
+        "oc_solicitudes", "oc_cotizaciones", "oc_ordenes", "oc_proveedores",
+        "oc_config", "oc_historial_estados", "oc_paquetes",
+        "mnt_solicitudes", "mnt_tipos_config", "mnt_historial",
+    }
     tables = [
         SQLModel.metadata.tables[t]
         for t in oc_table_names
@@ -75,9 +84,22 @@ def create_oc_tables() -> None:
             "ON oc_historial_estados(solicitud_id, fecha ASC)"
         ))
 
+        # Mantenimiento — vínculo desde OC hacia solicitud de mantenimiento
+        try:
+            conn.execute(text("ALTER TABLE oc_solicitudes ADD COLUMN mantenimiento_id INTEGER"))
+            log.info("[oc_db] Columna oc_solicitudes.mantenimiento_id agregada.")
+        except Exception:
+            pass  # columna ya existe
+
+        # Índice de rendimiento para mantenimiento_id
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_oc_solicitudes_mantenimiento_id "
+            "ON oc_solicitudes(mantenimiento_id)"
+        ))
+
         conn.commit()
 
-    print("[oc] Tablas OC verificadas en oc.db.")
+    log.info("[oc] Tablas OC verificadas en oc.db.")
 
 
 def get_oc_db():
