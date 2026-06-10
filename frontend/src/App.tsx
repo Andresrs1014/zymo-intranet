@@ -14,6 +14,7 @@ import {
   canSeeHelix,
   canManageDevTasks,
   canSubmitDevTasks,
+  canSeeMantenimiento,
 } from "@/lib/permissions"
 import { useAgentPanelStore } from "@/store/agentPanelStore"
 import { useMinWidth } from "@/hooks/useMinWidth"
@@ -49,6 +50,9 @@ import { GestionTareasPage } from "@/pages/herramientas/tareas/GestionTareasPage
 import { HelixPage } from "@/pages/planeacion/helix/HelixPage"
 import { TaskPage } from "@/pages/tareas/TaskPage"
 import { SigPage } from "@/pages/sig/SigPage"
+import MantenimientoPage from "@/pages/mantenimiento/MantenimientoPage"
+import NuevaMantenimientoPage from "@/pages/mantenimiento/NuevaMantenimientoPage"
+import MantenimientoDetallePage from "@/pages/mantenimiento/MantenimientoDetallePage"
 
 // Decodifica el claim `exp` del JWT sin verificar firma (solo para chequeo local de expiración)
 function isTokenExpired(token: string): boolean {
@@ -156,6 +160,13 @@ function HelixRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user)
   if (!user) return <Navigate to="/login" replace />
   if (!canSeeHelix(user.role, user.app_permissions)) return <Navigate to="/dashboard" replace />
+  return <>{children}</>
+}
+
+function MantenimientoRoute({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user)
+  if (!user) return <Navigate to="/login" replace />
+  if (!canSeeMantenimiento(user.role, user.app_permissions)) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
 
@@ -459,6 +470,32 @@ export default function App() {
             <HelixRoute>
               <HelixPage />
             </HelixRoute>
+          }
+        />
+
+        {/* Módulo de Mantenimiento */}
+        <Route
+          path="/mantenimiento"
+          element={
+            <MantenimientoRoute>
+              <MantenimientoPage />
+            </MantenimientoRoute>
+          }
+        />
+        <Route
+          path="/mantenimiento/nueva"
+          element={
+            <MantenimientoRoute>
+              <NuevaMantenimientoPage />
+            </MantenimientoRoute>
+          }
+        />
+        <Route
+          path="/mantenimiento/:id"
+          element={
+            <MantenimientoRoute>
+              <MantenimientoDetallePage />
+            </MantenimientoRoute>
           }
         />
 

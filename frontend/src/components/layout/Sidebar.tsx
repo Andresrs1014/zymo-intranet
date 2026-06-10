@@ -12,6 +12,7 @@ import {
   CheckSquare,
   ListTodo,
   Layers,
+  Wrench,
 } from "lucide-react"
 import { useAuthStore } from "@/store/authStore"
 import {
@@ -26,6 +27,7 @@ import {
   canSubmitDevTasks,
   canManageDevTasks,
   canSeeHelix,
+  canSeeMantenimiento,
 } from "@/lib/permissions"
 import {
   Sidebar as ShadcnSidebar,
@@ -59,6 +61,7 @@ export function Sidebar() {
     ? canSubmitDevTasks(user.user_tools ?? []) || canManageDevTasks(user.user_tools ?? [])
     : false
   const showHelix          = user ? canSeeHelix(user.role, perms) : false
+  const showMantenimiento  = user ? canSeeMantenimiento(user.role, perms) : false
 
   // Derive user initials for the footer avatar
   const initials = user?.full_name
@@ -112,7 +115,7 @@ export function Sidebar() {
 
         {/* ── Section: Módulos ────────────────────────────────────────── */}
         {(showIT || showSGC || showSIG || showOperativo || showAdministrativo ||
-          showFinanciero || showGerencial || showExtraccionIA) && (
+          showFinanciero || showGerencial || showExtraccionIA || showMantenimiento) && (
           <SidebarGroup>
             <SidebarGroupLabel>Módulos disponibles</SidebarGroupLabel>
             <SidebarGroupContent>
@@ -179,6 +182,14 @@ export function Sidebar() {
                     label="Motor IA"
                     icon={<Cpu className="w-4 h-4" />}
                     active={isActive(["/admin/extraccion-ia"])}
+                  />
+                )}
+                {showMantenimiento && (
+                  <NavItem
+                    to="/mantenimiento"
+                    label="Mantenimiento"
+                    icon={<Wrench className="w-4 h-4" />}
+                    active={isActive(["/mantenimiento"])}
                   />
                 )}
               </SidebarMenu>
