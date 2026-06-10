@@ -1,7 +1,7 @@
 import { useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { PageLayout } from "@/components/layout/PageLayout"
-import { useSolicitud, useSubirFotoSolicitud, useEliminarFotoSolicitud, useCotizaciones, useOrden, useMarcarEntregada } from "@/hooks/useOC"
+import { useSolicitud, useSubirFotoSolicitud, useEliminarFotoSolicitud, useCotizaciones, useOrden, useMarcarEntregada, useComprasVinculadas } from "@/hooks/useOC"
 import { useAuthStore } from "@/store/authStore"
 import { formatFechaHora } from "@/lib/dates"
 import { formatCOP } from "@/lib/formatters"
@@ -39,6 +39,9 @@ export function MiSolicitudDetallePage() {
   const subirFoto = useSubirFotoSolicitud()
   const eliminarFoto = useEliminarFotoSolicitud()
   const marcarEntregada = useMarcarEntregada()
+  const { data: comprasVinculadas = [] } = useComprasVinculadas(
+    solicitud?.tipo_solicitud === "mantenimiento" ? id : undefined
+  )
 
   const cotizacionAprobada = cotizaciones.find((c) => c.aprobada === true)
 
@@ -388,6 +391,44 @@ export function MiSolicitudDetallePage() {
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+            {/* Mini Compras — solo para solicitudes de mantenimiento */}
+            {solicitud.tipo_solicitud === "mantenimiento" && (
+              <div className="bg-card rounded-xl border border-amber-200 shadow-sm p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-sm font-semibold text-amber-700">Compras Vinculadas</h2>
+                  <button
+                    onClick={() => navigate(`/operativo/nueva-solicitud?origen=${solicitud.id}`)}
+                    className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:brightness-105 transition-all"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                    Solicitar compra
+                  </button>
+                </div>
+                {comprasVinculadas.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-3">
+                    No hay compras vinculadas aún.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {comprasVinculadas.map((c) => (
+                      <div
+                        key={String(c.id)}
+                        onClick={() => navigate(`/operativo/mis-solicitudes/${c.id}`)}
+                        className="flex items-center justify-between rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs cursor-pointer hover:bg-muted transition-colors"
+                      >
+                        <span className="font-mono font-semibold text-foreground">{c.consecutivo_os}</span>
+                        <span className="text-muted-foreground truncate mx-2 flex-1">{c.descripcion}</span>
+                        <span className="inline-block bg-blue-100 text-blue-700 rounded-full px-2 py-0.5 font-medium shrink-0">
+                          {c.estado}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

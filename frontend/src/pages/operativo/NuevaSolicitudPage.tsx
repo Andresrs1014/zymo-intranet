@@ -4,6 +4,7 @@ import { PageLayout } from "@/components/layout/PageLayout"
 import { Combobox } from "@/components/ui/Combobox"
 import { useAuthStore } from "@/store/authStore"
 import { useListasFormulario, useCrearSolicitudInterna, usePaquetes, useSubirFotoSolicitud } from "@/hooks/useOC"
+import { useTiposMantenimiento } from "@/hooks/useMantenimiento"
 import type { SolicitudInternaCreate } from "@/hooks/useOC"
 import { useDraft, useAutosaveDraft, useDeleteDraft } from "@/hooks/useDraft"
 import { useSedesParaSolicitudesOc } from "@/hooks/useSedes"
@@ -36,20 +37,17 @@ const FORM_MANTENIMIENTO_VACIO: SolicitudInternaCreate = {
   cantidad: 1,
   plataforma: "",
   placa_ficha: "",
-  tipo_mantenimiento: undefined,
+  tipo_mantenimiento: "",
+  clasificacion_mantenimiento: "correctivo",
   fecha_proximo_mantenimiento: "",
   observaciones_solicitante: "",
 }
-
-const OPCIONES_TIPO_MANTENIMIENTO = [
-  { value: "correctivo", label: "Correctivo" },
-  { value: "preventivo", label: "Preventivo" },
-] as const
 
 export function NuevaSolicitudPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const paqueteId = searchParams.get("paquete")
+  const origenId  = searchParams.get("origen")
 
   const user = useAuthStore((s) => s.user)
   const { data: listas, isLoading: listasLoading, isError: listasError } = useListasFormulario()
@@ -59,11 +57,16 @@ export function NuevaSolicitudPage() {
     isError: sedesError,
   } = useSedesParaSolicitudesOc()
   const { data: paquetes } = usePaquetes()
+  const { data: tiposMantenimiento = [] } = useTiposMantenimiento()
   const crear = useCrearSolicitudInterna()
   const subirFoto = useSubirFotoSolicitud()
 
   const [tipoSolicitud, setTipoSolicitud] = useState<TipoSolicitud>("compra")
-  const [form, setForm] = useState<SolicitudInternaCreate>(FORM_COMPRA_VACIO)
+  const [form, setForm] = useState<SolicitudInternaCreate>(() =>
+    origenId
+      ? { ...FORM_COMPRA_VACIO, origen_solicitud_id: origenId }
+      : FORM_COMPRA_VACIO
+  )
   const [paqueteNombre, setPaqueteNombre] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [showDraftModal, setShowDraftModal] = useState(false)
@@ -124,13 +127,18 @@ export function NuevaSolicitudPage() {
     [sedesOc]
   )
 
+  const opcionesTipoMantenimiento = useMemo(
+    () => tiposMantenimiento.filter((t) => t.activo).map((t) => ({ value: t.nombre, label: t.nombre })),
+    [tiposMantenimiento]
+  )
+
   // Cambiar tipo de solicitud limpia el formulario
   function cambiarTipo(tipo: TipoSolicitud) {
     setTipoSolicitud(tipo)
     const next =
       tipo === "compra"
         ? { ...FORM_COMPRA_VACIO }
-        : { ...FORM_MANTENIMIENTO_VACIO }
+        : { ...FORM_MANTENIMIENTO_VACIO, origen_solicitud_id: origenId ?? undefined }
     setForm(next as SolicitudInternaCreate)
     setPaqueteNombre(null)
     setError(null)
@@ -223,16 +231,19 @@ export function NuevaSolicitudPage() {
     if (!form.nivel_prioridad) return "Selecciona la prioridad."
     if (!form.descripcion.trim()) return "Ingresa la descripción."
     if (!form.plataforma?.trim()) return "Selecciona la plataforma."
-    if (form.cantidad < 1) return "La cantidad debe ser al menos 1."
 
     if (tipoSolicitud === "compra") {
+      if (form.cantidad < 1) return "La cantidad debe ser al menos 1."
       if (!form.categoria) return "Selecciona la categoría."
       if (!form.grupo_articulos) return "Selecciona el grupo de artículos."
     }
 
     if (tipoSolicitud === "mantenimiento") {
       if (!form.tipo_mantenimiento) return "Selecciona el tipo de mantenimiento."
-      if (!form.fecha_proximo_mantenimiento) return "Indica la fecha del próximo mantenimiento."
+      if (!form.clasificacion_mantenimiento) return "Selecciona la clasificación (correctivo/preventivo)."
+      if (form.clasificacion_mantenimiento === "preventivo" && !form.fecha_proximo_mantenimiento) {
+        return "Indica la fecha del próximo mantenimiento."
+      }
     }
 
     return null
@@ -272,20 +283,25 @@ export function NuevaSolicitudPage() {
     }
 
     try {
+      const esMant = tipoSolicitud === "mantenimiento"
       const payload: SolicitudInternaCreate = {
         ...form,
         tipo_solicitud: tipoSolicitud,
         plataforma: form.plataforma!,
         cliente: form.cliente || undefined,
         condicion: form.condicion || undefined,
-        placa_ficha: tipoSolicitud === "mantenimiento" ? form.placa_ficha || undefined : undefined,
+        placa_ficha: esMant ? form.placa_ficha || undefined : undefined,
         observaciones_solicitante: form.observaciones_solicitante || undefined,
-        // Compra: limpiar campos de mantenimiento
-        tipo_mantenimiento: tipoSolicitud === "mantenimiento" ? form.tipo_mantenimiento : undefined,
-        fecha_proximo_mantenimiento: tipoSolicitud === "mantenimiento" ? form.fecha_proximo_mantenimiento : undefined,
-        // Mantenimiento: limpiar campos de compra que no aplican
-        categoria: tipoSolicitud === "compra" ? form.categoria || undefined : undefined,
-        grupo_articulos: tipoSolicitud === "compra" ? form.grupo_articulos || undefined : undefined,
+        // Mantenimiento
+        tipo_mantenimiento: esMant ? form.tipo_mantenimiento || undefined : undefined,
+        clasificacion_mantenimiento: esMant ? form.clasificacion_mantenimiento || undefined : undefined,
+        fecha_proximo_mantenimiento: esMant && form.clasificacion_mantenimiento === "preventivo"
+          ? form.fecha_proximo_mantenimiento || undefined
+          : undefined,
+        origen_solicitud_id: esMant ? form.origen_solicitud_id || undefined : undefined,
+        // Compra
+        categoria: !esMant ? form.categoria || undefined : undefined,
+        grupo_articulos: !esMant ? form.grupo_articulos || undefined : undefined,
       }
 
       const solicitudCreada = await crear.mutateAsync(payload)
@@ -391,6 +407,16 @@ export function NuevaSolicitudPage() {
               Solicitud de Mantenimiento
             </button>
           </div>
+
+          {/* Banner: compra vinculada a mantenimiento */}
+          {origenId && tipoSolicitud === "compra" && (
+            <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <span className="text-amber-500 text-base shrink-0">🔧</span>
+              <p className="text-sm text-amber-800">
+                Esta compra quedará vinculada a la solicitud de mantenimiento.
+              </p>
+            </div>
+          )}
 
           {/* Aviso de mantenimiento */}
           {tipoSolicitud === "mantenimiento" && (
@@ -510,22 +536,17 @@ export function NuevaSolicitudPage() {
                       />
                     </div>
 
-                    {/* Tipo de mantenimiento */}
+                    {/* Tipo de mantenimiento — lista configurable */}
                     <div>
                       <label className="block text-sm font-medium text-foreground mb-1">
                         Tipo de mantenimiento *
                       </label>
                       <Combobox
                         className="w-full"
-                        options={[...OPCIONES_TIPO_MANTENIMIENTO]}
-                        value={form.tipo_mantenimiento ?? null}
-                        onChange={(v) =>
-                          handleChange(
-                            "tipo_mantenimiento",
-                            v ? (v as "correctivo" | "preventivo") : undefined
-                          )
-                        }
-                        placeholder="Buscar tipo…"
+                        options={opcionesTipoMantenimiento}
+                        value={form.tipo_mantenimiento || null}
+                        onChange={(v) => handleChange("tipo_mantenimiento", v != null ? String(v) : "")}
+                        placeholder="Seleccionar tipo…"
                       />
                     </div>
 
@@ -553,19 +574,6 @@ export function NuevaSolicitudPage() {
                       )}
                     </div>
 
-                    {/* Fecha próximo mantenimiento */}
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-1">
-                        Fecha próximo mantenimiento *
-                      </label>
-                      <input
-                        type="date"
-                        value={form.fecha_proximo_mantenimiento ?? ""}
-                        onChange={(e) => handleChange("fecha_proximo_mantenimiento", e.target.value)}
-                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                      />
-                    </div>
-
                     {/* Plataforma */}
                     <div>
                       <label className="block text-sm font-medium text-foreground mb-1">
@@ -581,19 +589,51 @@ export function NuevaSolicitudPage() {
                       />
                     </div>
 
-                    {/* Cantidad */}
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-1">
-                        Cantidad *
-                      </label>
-                      <input
-                        type="number"
-                        min={1}
-                        value={form.cantidad}
-                        onChange={(e) => handleChange("cantidad", parseInt(e.target.value, 10) || 1)}
-                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                      />
+                  </div>
+
+                  {/* Clasificación — Correctivo / Preventivo */}
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Clasificación *
+                    </label>
+                    <div className="flex gap-3">
+                      {(["correctivo", "preventivo"] as const).map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => {
+                            handleChange("clasificacion_mantenimiento", c)
+                            if (c === "correctivo") handleChange("fecha_proximo_mantenimiento", "")
+                          }}
+                          className={`flex items-center gap-2 rounded-xl border-2 px-5 py-3 text-sm font-semibold transition-all ${
+                            form.clasificacion_mantenimiento === c
+                              ? c === "correctivo"
+                                ? "border-red-500 bg-red-50 text-red-700"
+                                : "border-emerald-500 bg-emerald-50 text-emerald-700"
+                              : "border-border bg-card text-muted-foreground hover:border-muted-foreground/40"
+                          }`}
+                        >
+                          {c === "correctivo" ? "🔴 Correctivo" : "🟢 Preventivo"}
+                        </button>
+                      ))}
                     </div>
+                  </div>
+
+                  {/* Fecha próximo mantenimiento — solo si preventivo */}
+                  <div
+                    className={`overflow-hidden transition-all duration-200 ${
+                      form.clasificacion_mantenimiento === "preventivo" ? "max-h-24 opacity-100" : "max-h-0 opacity-0 pointer-events-none"
+                    }`}
+                  >
+                    <label className="block text-sm font-medium text-foreground mb-1">
+                      Fecha próximo mantenimiento *
+                    </label>
+                    <input
+                      type="date"
+                      value={form.fecha_proximo_mantenimiento ?? ""}
+                      onChange={(e) => handleChange("fecha_proximo_mantenimiento", e.target.value)}
+                      className="w-full max-w-xs rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
                   </div>
 
                   {/* Descripción del mantenimiento */}

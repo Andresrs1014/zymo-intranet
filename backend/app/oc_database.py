@@ -97,6 +97,21 @@ def create_oc_tables() -> None:
             "ON oc_solicitudes(mantenimiento_id)"
         ))
 
+        # Migración: clasificación de mantenimiento (correctivo/preventivo) y origen de compra vinculada
+        try:
+            conn.execute(text("ALTER TABLE oc_solicitudes ADD COLUMN clasificacion_mantenimiento VARCHAR(20)"))
+        except Exception:
+            pass  # columna ya existe
+        try:
+            conn.execute(text("ALTER TABLE oc_solicitudes ADD COLUMN origen_solicitud_id VARCHAR(36)"))
+        except Exception:
+            pass  # columna ya existe
+
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_oc_solicitudes_origen_solicitud_id "
+            "ON oc_solicitudes(origen_solicitud_id)"
+        ))
+
         conn.commit()
 
     log.info("[oc] Tablas OC verificadas en oc.db.")

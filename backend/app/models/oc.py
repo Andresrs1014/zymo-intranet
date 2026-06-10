@@ -45,8 +45,11 @@ class SolicitudOC(SQLModel, table=True):
     # Tipo de solicitud: compra normal o mantenimiento de equipos/infraestructura
     tipo_solicitud: str = Field(default="compra", max_length=20)
     # Solo aplica cuando tipo_solicitud = "mantenimiento"
-    tipo_mantenimiento: Optional[str] = Field(default=None, max_length=20)
+    tipo_mantenimiento: Optional[str] = Field(default=None, max_length=100)
+    clasificacion_mantenimiento: Optional[str] = Field(default=None, max_length=20)  # "correctivo" | "preventivo"
     fecha_proximo_mantenimiento: Optional[date] = Field(default=None)
+    # Si esta compra fue generada desde una solicitud de mantenimiento (self-reference)
+    origen_solicitud_id: Optional[uuid.UUID] = Field(default=None)
 
     # Archivado (soft-delete): oculta la solicitud de listas y KPIs sin borrar datos
     archivada: bool = Field(default=False)

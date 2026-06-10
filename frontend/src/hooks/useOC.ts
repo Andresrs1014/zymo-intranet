@@ -682,9 +682,11 @@ export interface SolicitudInternaCreate {
   plataforma: string
   placa_ficha?: string
   // Solo para mantenimiento
-  tipo_mantenimiento?: "correctivo" | "preventivo"
+  tipo_mantenimiento?: string
+  clasificacion_mantenimiento?: string  // "correctivo" | "preventivo"
   fecha_proximo_mantenimiento?: string
   observaciones_solicitante?: string
+  origen_solicitud_id?: string
 }
 
 export function useCrearSolicitudInterna() {
@@ -698,6 +700,17 @@ export function useCrearSolicitudInterna() {
       qc.invalidateQueries({ queryKey: ["oc", "mis-solicitudes"] })
       qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
     },
+  })
+}
+
+export function useComprasVinculadas(solicitudId: string | undefined) {
+  return useQuery({
+    queryKey: ["oc", "compras-vinculadas", solicitudId],
+    queryFn: async () => {
+      const { data } = await api.get<SolicitudOC[]>(`/api/oc/solicitudes/${solicitudId}/compras-vinculadas`)
+      return data
+    },
+    enabled: !!solicitudId,
   })
 }
 

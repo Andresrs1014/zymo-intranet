@@ -67,7 +67,9 @@ class SolicitudRead(BaseModel):
     placa_ficha: Optional[str]
     tipo_solicitud: str = "compra"
     tipo_mantenimiento: Optional[str] = None
+    clasificacion_mantenimiento: Optional[str] = None
     fecha_proximo_mantenimiento: Optional[date]
+    origen_solicitud_id: Optional[uuid.UUID] = None
     archivada: bool = False
     tiene_proforma: bool = False
     proforma_path: Optional[str] = None
@@ -161,9 +163,11 @@ class SolicitudInternaCreate(BaseModel):
     plataforma: str
     placa_ficha: Optional[str] = None
     # Solo para mantenimiento
-    tipo_mantenimiento: Optional[Literal["correctivo", "preventivo"]] = None
+    tipo_mantenimiento: Optional[str] = None
+    clasificacion_mantenimiento: Optional[str] = None  # "correctivo" | "preventivo"
     fecha_proximo_mantenimiento: Optional[date] = None
     observaciones_solicitante: Optional[str] = None
+    origen_solicitud_id: Optional[uuid.UUID] = None
 
     def validate_campos_por_tipo(self) -> None:
         """Valida que los campos requeridos según tipo_solicitud estén presentes."""
@@ -175,8 +179,10 @@ class SolicitudInternaCreate(BaseModel):
         elif self.tipo_solicitud == "mantenimiento":
             if not self.tipo_mantenimiento:
                 raise ValueError("tipo_mantenimiento es obligatorio para solicitudes de mantenimiento.")
-            if not self.fecha_proximo_mantenimiento:
-                raise ValueError("fecha_proximo_mantenimiento es obligatoria para solicitudes de mantenimiento.")
+            if not self.clasificacion_mantenimiento:
+                raise ValueError("clasificacion_mantenimiento es obligatoria para solicitudes de mantenimiento.")
+            if self.clasificacion_mantenimiento == "preventivo" and not self.fecha_proximo_mantenimiento:
+                raise ValueError("fecha_proximo_mantenimiento es obligatoria para mantenimiento preventivo.")
 
 
 class HistorialEstadoRead(BaseModel):
@@ -276,6 +282,8 @@ async def crear_solicitud_interna(
             estado=EstadoOC.nueva,
             tipo_solicitud=payload.tipo_solicitud,
             tipo_mantenimiento=payload.tipo_mantenimiento,
+            clasificacion_mantenimiento=payload.clasificacion_mantenimiento,
+            origen_solicitud_id=payload.origen_solicitud_id,
             nivel_prioridad=payload.nivel_prioridad,
             categoria=payload.categoria,
             grupo_articulos=payload.grupo_articulos,
@@ -352,6 +360,19 @@ def get_solicitud(
     if not is_compras and not is_solicitante:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Sin acceso a esta solicitud.")
     return solicitud
+
+
+@router.get("/{solicitud_id}/compras-vinculadas", response_model=list[SolicitudRead])
+def get_compras_vinculadas(
+    solicitud_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    oc_db: Session = Depends(get_oc_db),
+):
+    """Retorna todas las solicitudes de compra creadas a partir de una solicitud de mantenimiento."""
+    compras = oc_db.exec(
+        select(SolicitudOC).where(SolicitudOC.origen_solicitud_id == solicitud_id)
+    ).all()
+    return compras
 
 
 @router.patch("/{solicitud_id}/asignar", response_model=SolicitudRead)
