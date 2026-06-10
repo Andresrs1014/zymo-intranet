@@ -7,6 +7,11 @@ import type { ListasFormulario } from "@/hooks/useOC"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  useTiposMantenimiento,
+  useCrearTipoMantenimiento,
+  useToggleTipoMantenimiento,
+} from "@/hooks/useMantenimiento"
 
 async function descargarExcelPrueba(): Promise<string> {
   const res = await api.get("/api/oc/config/test/generar-excel", { responseType: "blob" })
@@ -742,6 +747,17 @@ export function OcConfigPage() {
                   )}
                 </section>
 
+                {/* Tipos de Mantenimiento */}
+                <section className="bg-card rounded-xl border border-border p-6 space-y-5">
+                  <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
+                    Tipos de Mantenimiento
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    Lista de tipos disponibles al crear una solicitud de mantenimiento.
+                  </p>
+                  <TiposMantenimientoConfig />
+                </section>
+
                 {/* Feedback guardado */}
                 {error && (
                   <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
@@ -768,6 +784,70 @@ export function OcConfigPage() {
             )}
           </div>
     </PageLayout>
+  )
+}
+
+// ── Tipos de Mantenimiento sub-componente ─────────────────────────────────────
+
+function TiposMantenimientoConfig() {
+  const { data: tipos = [], isLoading } = useTiposMantenimiento(false) // incluir inactivos
+  const { mutateAsync: crear, isPending: creando } = useCrearTipoMantenimiento()
+  const { mutateAsync: toggle } = useToggleTipoMantenimiento()
+  const [nuevoNombre, setNuevoNombre] = useState("")
+  const [err, setErr] = useState<string | null>(null)
+
+  async function handleCrear(e: React.FormEvent) {
+    e.preventDefault()
+    setErr(null)
+    if (!nuevoNombre.trim()) return setErr("El nombre es requerido.")
+    try {
+      await crear({ nombre: nuevoNombre.trim() })
+      setNuevoNombre("")
+    } catch {
+      setErr("Error al crear el tipo.")
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <form onSubmit={handleCrear} className="flex gap-2">
+        <input
+          type="text"
+          className="flex-1 h-9 rounded-md border border-border bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+          placeholder="Nuevo tipo de mantenimiento..."
+          value={nuevoNombre}
+          onChange={(e) => setNuevoNombre(e.target.value)}
+        />
+        <Button type="submit" size="sm" disabled={creando}>
+          {creando ? "Agregando…" : "Agregar"}
+        </Button>
+      </form>
+      {err && <p className="text-xs text-destructive">{err}</p>}
+
+      {isLoading && <p className="text-sm text-muted-foreground">Cargando...</p>}
+      <div className="space-y-2">
+        {tipos.map((t) => (
+          <div
+            key={t.id}
+            className={`flex items-center justify-between rounded-lg border px-3 py-2 ${
+              t.activo ? "border-border bg-background" : "border-border/40 bg-muted/30 opacity-60"
+            }`}
+          >
+            <span className="text-sm text-foreground">{t.nombre}</span>
+            <button
+              type="button"
+              onClick={() => toggle({ id: t.id, activo: !t.activo })}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {t.activo ? "Desactivar" : "Activar"}
+            </button>
+          </div>
+        ))}
+        {tipos.length === 0 && !isLoading && (
+          <p className="text-sm text-muted-foreground">No hay tipos configurados aún.</p>
+        )}
+      </div>
+    </div>
   )
 }
 
