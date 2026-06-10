@@ -112,7 +112,7 @@ export default function NuevaMantenimientoPage() {
             <Combobox
               options={tiposOptions}
               value={tipoMantenimiento}
-              onChange={setTipoMantenimiento}
+              onChange={(v) => setTipoMantenimiento(v ?? "")}
               placeholder="Seleccionar tipo..."
             />
           </div>
