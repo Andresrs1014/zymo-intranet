@@ -314,16 +314,16 @@ const ESTADO_DOT: Record<string, string> = {
 }
 
 function ProcNode({
-  proc, area, expanded, activeKey, onToggle, onSelect, onSelectCommit, isManager,
+  proc, expanded, activeKey, onToggle, onSelect, onSelectCommit,
 }: {
   proc: SigProcedimiento
-  area: SigArea
+  area?: SigArea
   expanded: boolean
   activeKey: string | null
   onToggle: () => void
   onSelect: () => void
   onSelectCommit: (id: number, info: CommitOpenInfo) => void
-  isManager: boolean
+  isManager?: boolean
 }) {
   const isActive = activeKey === `proc-${proc.id}`
 
@@ -401,10 +401,10 @@ const COMMIT_DOT: Record<string, string> = {
 }
 
 function CommitNode({
-  commit, procCodigo, activeKey, onSelect,
+  commit, activeKey, onSelect,
 }: {
   commit: SigCommit
-  procCodigo: string
+  procCodigo?: string
   activeKey: string | null
   onSelect: () => void
 }) {

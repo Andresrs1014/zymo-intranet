@@ -9,7 +9,7 @@ import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import {
   FileText, GitCommit, Inbox, X,
-  GitBranchPlus, Clock, ChevronRight, Check, AlertCircle, Circle,
+  GitBranchPlus, Clock, ChevronRight, Check, Circle,
 } from "lucide-react"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
