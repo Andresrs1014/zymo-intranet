@@ -3,11 +3,11 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
-
-log = logging.getLogger(__name__)
 from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, func, select
+
+log = logging.getLogger(__name__)
 
 from app.config import settings
 from app.oc_database import get_oc_db
