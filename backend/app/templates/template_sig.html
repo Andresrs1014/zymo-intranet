@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    /* ── Variables de marca ZYMO — rojo y blanco ─────────────────────────── */
+    :root {
+      --red:        #E31E24;
+      --red-dark:   #B71C1C;
+      --red-light:  #FFF5F5;
+      --red-mid:    #FECACA;
+      --navy:       #1C1C1E;
+      --slate:      #52525B;
+      --border:     #D4D4D8;
+      --bg:         #FAFAFA;
+      --white:      #FFFFFF;
+    }
+
+    /* ── Página ──────────────────────────────────────────────────────────── */
+    @page {
+      size: A4 portrait;
+      margin: 1.2cm 1.6cm 1.4cm 1.6cm;
+      @bottom-center {
+        content: counter(page) " / " counter(pages);
+        font-size: 7pt;
+        color: #A1A1AA;
+        font-family: Arial, sans-serif;
+      }
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 9.5pt;
+      color: var(--navy);
+      margin: 0;
+      padding: 0;
+      background: var(--white);
+    }
+
+    /* ── Barra roja superior gruesa ───────────────────────────────────────── */
+    .top-bar {
+      background: var(--red);
+      height: 6px;
+      margin-bottom: 0;
+    }
+
+    /* ── Header: logo + empresa + badge código ────────────────────────────── */
+    .header {
+      display: table;
+      width: 100%;
+      border: 1px solid var(--border);
+      border-top: none;
+      margin-bottom: 0;
+    }
+    .header-logo  {
+      display: table-cell;
+      width: 22%;
+      vertical-align: middle;
+      padding: 8px 12px;
+      border-right: 1px solid var(--border);
+    }
+    .header-logo img { max-width: 120px; max-height: 52px; }
+    .header-title {
+      display: table-cell;
+      vertical-align: middle;
+      text-align: center;
+      padding: 8px 12px;
+      border-right: 1px solid var(--border);
+    }
+    .header-title .doc-type {
+      font-size: 7.5pt;
+      color: var(--slate);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      font-weight: 700;
+    }
+    .header-title .doc-name {
+      font-size: 10pt;
+      font-weight: 700;
+      color: var(--navy);
+      margin-top: 2px;
+    }
+    .header-meta {
+      display: table-cell;
+      width: 26%;
+      vertical-align: middle;
+      padding: 0;
+    }
+    .header-meta table {
+      width: 100%;
+      margin: 0;
+      border-collapse: collapse;
+    }
+    .header-meta td {
+      border-bottom: 1px solid var(--border);
+      padding: 3px 8px;
+      font-size: 7.5pt;
+    }
+    .header-meta td:last-child { border-bottom: none; }
+    .header-meta .mlabel {
+      font-weight: 700;
+      color: var(--slate);
+      background: var(--bg);
+      width: 50%;
+      border-right: 1px solid var(--border);
+    }
+    .header-meta .mvalue { color: var(--navy); }
+    .header-meta .mvalue.code {
+      font-weight: 700;
+      color: var(--red);
+      font-size: 8.5pt;
+    }
+    .header-meta .mvalue.estado-vigente { color: #16A34A; font-weight: 700; }
+    .header-meta .mvalue.estado-borrador { color: #D97706; font-weight: 700; }
+    .header-meta .mvalue.estado-obsoleto { color: #71717A; }
+
+    /* ── Divisor ─────────────────────────────────────────────────────────── */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 8px 0;
+    }
+
+    /* ── Título del procedimiento ─────────────────────────────────────────── */
+    .proc-title-block {
+      background: var(--red);
+      color: var(--white);
+      padding: 7px 12px;
+      margin-bottom: 0;
+    }
+    .proc-title-block .proc-code {
+      font-size: 8pt;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      opacity: 0.85;
+      text-transform: uppercase;
+    }
+    .proc-title-block .proc-name {
+      font-size: 12pt;
+      font-weight: 700;
+      margin-top: 1px;
+    }
+    .proc-subtitle {
+      font-size: 8pt;
+      color: var(--slate);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-top: none;
+      padding: 4px 12px;
+      margin-bottom: 10px;
+    }
+
+    /* ── Section title (bloque de encabezado de sección) ─────────────────── */
+    .section-title {
+      background: var(--red-light);
+      border-left: 3px solid var(--red);
+      border-top: 1px solid var(--red-mid);
+      border-bottom: 1px solid var(--red-mid);
+      color: var(--red-dark);
+      font-weight: 700;
+      font-size: 8pt;
+      padding: 4px 8px;
+      margin-top: 10px;
+      margin-bottom: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      page-break-after: avoid;
+    }
+
+    /* ── Info table (objetivo, alcance, responsables) ─────────────────────── */
+    .info-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 0;
+      margin-top: 0;
+    }
+    .info-table td {
+      border: 1px solid var(--border);
+      padding: 5px 8px;
+      font-size: 9pt;
+      vertical-align: top;
+    }
+    .info-table .label {
+      font-weight: 700;
+      color: var(--slate);
+      background: var(--bg);
+      width: 16%;
+      white-space: nowrap;
+    }
+
+    /* ── Tabla de actividades / matriz ───────────────────────────────────── */
+    .matrix-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 0;
+      margin-bottom: 0;
+      font-size: 8.5pt;
+    }
+    .matrix-table th {
+      background: var(--red);
+      color: var(--white);
+      font-weight: 700;
+      font-size: 8pt;
+      padding: 5px 7px;
+      border: 1px solid var(--red-dark);
+      text-align: left;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      page-break-after: avoid;
+    }
+    .matrix-table td {
+      border: 1px solid var(--border);
+      padding: 5px 7px;
+      vertical-align: top;
+    }
+    .matrix-table tbody tr:nth-child(even) td { background: var(--bg); }
+    .matrix-table .step-num {
+      width: 4%;
+      text-align: center;
+      font-weight: 700;
+      color: var(--red);
+    }
+    .matrix-table .step-name {
+      width: 20%;
+      font-weight: 700;
+      color: var(--navy);
+    }
+    .matrix-table .step-desc { width: 46%; line-height: 1.45; }
+    .matrix-table .step-resp { width: 18%; }
+    .matrix-table .step-docs { width: 17%; font-size: 8pt; }
+
+    /* ── Tabla control de registros ───────────────────────────────────────── */
+    .control-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 0;
+      font-size: 9pt;
+    }
+    .control-table th {
+      background: var(--red);
+      color: var(--white);
+      font-weight: 700;
+      font-size: 8pt;
+      padding: 5px 7px;
+      border: 1px solid var(--red-dark);
+      text-align: center;
+      text-transform: uppercase;
+    }
+    .control-table td {
+      border: 1px solid var(--border);
+      padding: 5px 8px;
+      vertical-align: middle;
+      text-align: center;
+    }
+    .control-table tbody tr:nth-child(even) td { background: var(--bg); }
+    .control-table .role-label {
+      font-weight: 700;
+      color: var(--red);
+      background: var(--red-light);
+      text-align: left;
+      width: 16%;
+    }
+
+    /* ── Tabla historial de cambios ───────────────────────────────────────── */
+    .changes-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 8.5pt;
+    }
+    .changes-table th {
+      background: var(--navy);
+      color: var(--white);
+      font-weight: 700;
+      font-size: 8pt;
+      padding: 5px 7px;
+      border: 1px solid #3F3F46;
+      text-align: center;
+      text-transform: uppercase;
+    }
+    .changes-table td {
+      border: 1px solid var(--border);
+      padding: 4px 7px;
+      vertical-align: top;
+    }
+    .changes-table tbody tr:nth-child(even) td { background: var(--bg); }
+    .changes-table .ver { width: 8%; text-align: center; font-weight: 700; color: var(--red); }
+    .changes-table .fecha { width: 14%; text-align: center; }
+
+    /* ── Bloque de contenido markdown ─────────────────────────────────────── */
+    .content-block {
+      border: 1px solid var(--border);
+      border-top: none;
+      padding: 8px 12px;
+      font-size: 9pt;
+      line-height: 1.5;
+      color: var(--navy);
+    }
+    .content-block p    { margin: 0 0 5px 0; }
+    .content-block ul   { margin: 4px 0; padding-left: 18px; }
+    .content-block li   { margin-bottom: 2px; }
+    .content-block strong { color: var(--navy); }
+
+    /* ── Sección de condiciones / texto libre ─────────────────────────────── */
+    .free-text {
+      border: 1px solid var(--border);
+      border-top: none;
+      padding: 7px 10px;
+      font-size: 9pt;
+      line-height: 1.5;
+      background: var(--white);
+    }
+
+    /* ── Texto legal / nota ───────────────────────────────────────────────── */
+    .nota-block {
+      background: var(--red-light);
+      border: 1px solid var(--red-mid);
+      border-left: 3px solid var(--red);
+      padding: 7px 10px;
+      font-size: 8pt;
+      color: var(--slate);
+      margin-top: 8px;
+      margin-bottom: 6px;
+      line-height: 1.4;
+    }
+    .nota-block strong { color: var(--red-dark); }
+
+    /* ── Firmas ──────────────────────────────────────────────────────────── */
+    .firmas-wrap {
+      display: table;
+      width: 100%;
+      margin-top: 16px;
+      page-break-inside: avoid;
+    }
+    .firma-col {
+      display: table-cell;
+      width: 33.3%;
+      text-align: center;
+      padding: 0 10px;
+      vertical-align: top;
+    }
+    .firma-line {
+      border-top: 1.2px solid var(--navy);
+      padding-top: 4px;
+    }
+    .firma-rol {
+      font-size: 7.5pt;
+      font-weight: 700;
+      color: var(--red);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .firma-nombre {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-style: italic;
+      font-size: 10pt;
+      font-weight: 700;
+      color: var(--navy);
+      margin-top: 2px;
+    }
+    .firma-sub {
+      font-size: 7.5pt;
+      color: var(--slate);
+      margin-top: 1px;
+    }
+
+    /* ── Pie de página ───────────────────────────────────────────────────── */
+    .footer-bar {
+      background: var(--red);
+      height: 3px;
+      margin-top: 16px;
+    }
+    .footer-text {
+      font-size: 7pt;
+      color: var(--slate);
+      text-align: center;
+      margin-top: 4px;
+    }
+    .footer-confidential {
+      font-size: 6.5pt;
+      color: #A1A1AA;
+      text-align: center;
+      margin-top: 2px;
+    }
+
+    /* ── Utilidades ──────────────────────────────────────────────────────── */
+    .text-right  { text-align: right !important; }
+    .text-center { text-align: center !important; }
+    .fw-bold     { font-weight: 700; }
+    .text-red    { color: var(--red); }
+    .mt-6        { margin-top: 6px; }
+    .page-break  { page-break-before: always; }
+  </style>
+</head>
+<body>
+
+  <!-- Barra roja superior -->
+  <div class="top-bar"></div>
+
+  <!-- ENCABEZADO INSTITUCIONAL -->
+  <div class="header">
+    <div class="header-logo">
+      {% if logo_url %}
+      <img src="{{ logo_url }}" alt="Logo {{ empresa_nombre }}">
+      {% else %}
+      <div style="font-size:11pt;font-weight:700;color:var(--red);">{{ empresa_nombre }}</div>
+      {% endif %}
+    </div>
+    <div class="header-title">
+      <div class="doc-type">Sistema Integrado de Gestión</div>
+      <div class="doc-name">Procedimiento</div>
+    </div>
+    <div class="header-meta">
+      <table>
+        <tr>
+          <td class="mlabel">Código</td>
+          <td class="mvalue code">{{ codigo }}</td>
+        </tr>
+        <tr>
+          <td class="mlabel">Versión</td>
+          <td class="mvalue">{{ version }}</td>
+        </tr>
+        <tr>
+          <td class="mlabel">Fecha</td>
+          <td class="mvalue">{{ fecha_emision }}</td>
+        </tr>
+        <tr>
+          <td class="mlabel">Estado</td>
+          <td class="mvalue estado-{{ estado_lower }}">{{ estado }}</td>
+        </tr>
+        <tr>
+          <td class="mlabel">Área</td>
+          <td class="mvalue">{{ area }}</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- TÍTULO DEL PROCEDIMIENTO -->
+  <div class="proc-title-block">
+    <div class="proc-code">{{ codigo }}</div>
+    <div class="proc-name">{{ titulo }}</div>
+  </div>
+  {% if descripcion %}
+  <div class="proc-subtitle">{{ descripcion }}</div>
+  {% else %}
+  <div style="margin-bottom:10px;"></div>
+  {% endif %}
+
+  <!-- SECCIÓN: CONTENIDO PROCESADO POR IA -->
+  <div class="section-title">Contenido del Procedimiento (Procesado SIG)</div>
+  <div class="content-block">
+    {{ contenido_agente_html | safe }}
+  </div>
+
+  <!-- SECCIÓN: DOCUMENTO ORIGINAL (referencia) -->
+  {% if contenido_original and mostrar_original %}
+  <div class="section-title mt-6">Documento Original (Referencia)</div>
+  <div class="free-text" style="font-size:8pt;color:var(--slate);white-space:pre-wrap;font-family:monospace;">{{ contenido_original }}</div>
+  {% endif %}
+
+  <!-- SECCIÓN: CONTROL DE REGISTROS -->
+  <div class="section-title">Control de Registros</div>
+  <table class="control-table">
+    <thead>
+      <tr>
+        <th style="width:16%;">Rol</th>
+        <th style="width:28%;">Nombre</th>
+        <th style="width:28%;">Cargo</th>
+        <th style="width:28%;">Fecha</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="role-label">Elaboró</td>
+        <td>{{ elaboro_nombre }}</td>
+        <td>{{ elaboro_cargo }}</td>
+        <td>{{ elaboro_fecha }}</td>
+      </tr>
+      {% if reviso_nombre %}
+      <tr>
+        <td class="role-label">Revisó</td>
+        <td>{{ reviso_nombre }}</td>
+        <td>{{ reviso_cargo }}</td>
+        <td>{{ reviso_fecha }}</td>
+      </tr>
+      {% endif %}
+      <tr>
+        <td class="role-label">Aprobó</td>
+        <td>{{ aprobo_nombre }}</td>
+        <td>{{ aprobo_cargo }}</td>
+        <td>{{ aprobo_fecha }}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- NOTA DE TRAZABILIDAD -->
+  <div class="nota-block">
+    <strong>Trazabilidad SIG:</strong>
+    Commit <strong>#{{ commit_id }}</strong> — aprobado por <strong>{{ aprobo_nombre }}</strong>
+    el {{ aprobo_fecha }}.
+    Versión de documento fuente: {{ version_doc or "N/A" }}.
+    Generado el {{ fecha_generacion }}.
+  </div>
+
+  <!-- FIRMAS -->
+  <div class="firmas-wrap">
+    <div class="firma-col">
+      <div class="firma-line">
+        <div class="firma-rol">Elaboró</div>
+        <div class="firma-nombre">{{ elaboro_nombre }}</div>
+        <div class="firma-sub">{{ elaboro_cargo }}</div>
+      </div>
+    </div>
+    <div class="firma-col">
+      <div class="firma-line">
+        <div class="firma-rol">Revisó / SIG</div>
+        <div class="firma-nombre">{{ reviso_nombre or "—" }}</div>
+        <div class="firma-sub">{{ reviso_cargo or "" }}</div>
+      </div>
+    </div>
+    <div class="firma-col">
+      <div class="firma-line">
+        <div class="firma-rol">Aprobó</div>
+        <div class="firma-nombre">{{ aprobo_nombre }}</div>
+        <div class="firma-sub">{{ aprobo_cargo }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Barra roja inferior + pie -->
+  <div class="footer-bar"></div>
+  <div class="footer-text">
+    {{ empresa_nombre }}
+    {% if empresa_nit %}&nbsp;·&nbsp; NIT {{ empresa_nit }}{% endif %}
+    {% if empresa_ciudad %}&nbsp;·&nbsp; {{ empresa_ciudad }}{% endif %}
+  </div>
+  <div class="footer-confidential">
+    Documento interno — {{ codigo }} v{{ version }} — Sistema Integrado de Gestión
+  </div>
+
+</body>
+</html>

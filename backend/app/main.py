@@ -41,6 +41,7 @@ from app.routers.herramientas_tareas import router as herramientas_tareas_router
 from app.routers.tasks_v2 import router as tasks_v2_router
 from app.routers.netvault import router as netvault_router
 from app.routers.mantenimiento.router import router as mantenimiento_router
+from app.routers.sig_pdf import router as sig_pdf_router
 from app.models.mantenimiento import SolicitudMantenimiento, TipoMantenimientoConfig, HistorialMantenimiento  # noqa: F401
 
 
@@ -687,6 +688,7 @@ app.include_router(herramientas_tareas_router)
 app.include_router(tasks_v2_router)
 app.include_router(netvault_router)
 app.include_router(mantenimiento_router)
+app.include_router(sig_pdf_router)
 
 
 @app.exception_handler(RequestValidationError)

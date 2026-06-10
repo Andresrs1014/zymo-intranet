@@ -3,13 +3,14 @@ import { useQuery } from "@tanstack/react-query"
 import { useAuthStore } from "@/store/authStore"
 import { cn } from "@/lib/utils"
 import { sigApi } from "@/lib/sigApi"
+import { api } from "@/lib/api"
 import { SigExplorer, type ProcedureOpenInfo, type CommitOpenInfo } from "@/components/sig/SigExplorer"
 import { SigDiffEditor } from "@/components/sig/SigDiffEditor"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import {
   FileText, GitCommit, Inbox, X,
-  GitBranchPlus, Clock, ChevronRight, Check, Circle,
+  GitBranchPlus, Clock, ChevronRight, Check, Circle, Download,
 } from "lucide-react"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -433,36 +434,87 @@ function ProcedureFileView({
             </div>
           )}
           {proc.commits.map((commit) => (
-            <button
+            <CommitHistoryRow
               key={commit.id}
-              onClick={() => onOpenCommit(commit.id, { mensaje: commit.mensaje, codigo: proc.codigo })}
-              className="w-full text-left px-3 py-2.5 hover:bg-zinc-800/40 transition-colors border-b border-zinc-800/30 group"
-            >
-              <div className="flex items-start gap-2">
-                <Circle
-                  className={cn("h-2 w-2 mt-0.5 shrink-0 fill-current", COMMIT_STATE_DOT[commit.estado])}
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="text-[11px] text-zinc-500 group-hover:text-zinc-300 transition-colors truncate leading-tight">
-                    {commit.mensaje}
-                  </p>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="text-[9px] text-zinc-700 font-mono">
-                      #{String(commit.id).padStart(4, "0")}
-                    </span>
-                    <span className="text-[9px] text-zinc-700">·</span>
-                    <span className="text-[9px] text-zinc-700 font-mono">
-                      {new Date(commit.createdAt).toLocaleDateString("es-CO", {
-                        day: "2-digit", month: "short",
-                      })}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </button>
+              commit={commit}
+              procCodigo={proc.codigo}
+              onOpen={() => onOpenCommit(commit.id, { mensaje: commit.mensaje, codigo: proc.codigo })}
+            />
           ))}
         </div>
       </div>
+    </div>
+  )
+}
+
+// ── Commit history row (con botón PDF para aprobados) ─────────────────────────
+
+function CommitHistoryRow({
+  commit, procCodigo, onOpen,
+}: {
+  commit: ProcDetail["commits"][0]
+  procCodigo: string
+  onOpen: () => void
+}) {
+  const [downloading, setDownloading] = useState(false)
+
+  async function handleDownloadPdf(e: React.MouseEvent) {
+    e.stopPropagation()
+    setDownloading(true)
+    try {
+      const res = await api.get(`/api/sig/pdf/commit/${commit.id}`, { responseType: "blob" })
+      const url = URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }))
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `${procCodigo}_v${commit.versionDoc || "1"}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch {
+      // silencioso — el usuario puede reintentar
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  return (
+    <div className="border-b border-zinc-800/30 group">
+      <button
+        onClick={onOpen}
+        className="w-full text-left px-3 py-2 hover:bg-zinc-800/40 transition-colors"
+      >
+        <div className="flex items-start gap-2">
+          <Circle
+            className={cn("h-2 w-2 mt-0.5 shrink-0 fill-current", COMMIT_STATE_DOT[commit.estado])}
+          />
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] text-zinc-500 group-hover:text-zinc-300 transition-colors truncate leading-tight">
+              {commit.mensaje}
+            </p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="text-[9px] text-zinc-700 font-mono">#{String(commit.id).padStart(4, "0")}</span>
+              <span className="text-[9px] text-zinc-700">·</span>
+              <span className="text-[9px] text-zinc-700 font-mono">
+                {new Date(commit.createdAt).toLocaleDateString("es-CO", { day: "2-digit", month: "short" })}
+              </span>
+            </div>
+          </div>
+          {commit.estado === "APROBADO" && (
+            <button
+              onClick={handleDownloadPdf}
+              disabled={downloading}
+              title="Descargar PDF"
+              className="h-5 w-5 rounded flex items-center justify-center text-zinc-700 hover:text-[#ef3340] hover:bg-[#ef3340]/10 transition-colors disabled:opacity-40 shrink-0"
+            >
+              {downloading
+                ? <div className="h-3 w-3 rounded-full border border-zinc-600 border-t-zinc-400 animate-spin" />
+                : <Download className="h-3 w-3" />
+              }
+            </button>
+          )}
+        </div>
+      </button>
     </div>
   )
 }
