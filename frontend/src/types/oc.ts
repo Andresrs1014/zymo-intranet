@@ -30,6 +30,7 @@ export interface SolicitudOC {
   tipo_solicitud: "compra" | "mantenimiento"
   tipo_mantenimiento: string | null
   clasificacion_mantenimiento: string | null
+  modalidad_mantenimiento: string | null
   fecha_proximo_mantenimiento: string | null
   origen_solicitud_id: string | null
   archivada: boolean

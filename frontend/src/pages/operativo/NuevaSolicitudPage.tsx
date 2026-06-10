@@ -39,6 +39,7 @@ const FORM_MANTENIMIENTO_VACIO: SolicitudInternaCreate = {
   placa_ficha: "",
   tipo_mantenimiento: "",
   clasificacion_mantenimiento: "correctivo",
+  modalidad_mantenimiento: "interno",
   fecha_proximo_mantenimiento: "",
   observaciones_solicitante: "",
 }
@@ -48,6 +49,7 @@ export function NuevaSolicitudPage() {
   const [searchParams] = useSearchParams()
   const paqueteId = searchParams.get("paquete")
   const origenId  = searchParams.get("origen")
+  const tipoParam = searchParams.get("tipo") as TipoSolicitud | null
 
   const user = useAuthStore((s) => s.user)
   const { data: listas, isLoading: listasLoading, isError: listasError } = useListasFormulario()
@@ -61,12 +63,14 @@ export function NuevaSolicitudPage() {
   const crear = useCrearSolicitudInterna()
   const subirFoto = useSubirFotoSolicitud()
 
-  const [tipoSolicitud, setTipoSolicitud] = useState<TipoSolicitud>("compra")
-  const [form, setForm] = useState<SolicitudInternaCreate>(() =>
-    origenId
-      ? { ...FORM_COMPRA_VACIO, origen_solicitud_id: origenId }
-      : FORM_COMPRA_VACIO
+  const [tipoSolicitud, setTipoSolicitud] = useState<TipoSolicitud>(
+    tipoParam === "mantenimiento" ? "mantenimiento" : "compra"
   )
+  const [form, setForm] = useState<SolicitudInternaCreate>(() => {
+    if (tipoParam === "mantenimiento") return { ...FORM_MANTENIMIENTO_VACIO }
+    if (origenId) return { ...FORM_COMPRA_VACIO, origen_solicitud_id: origenId }
+    return FORM_COMPRA_VACIO
+  })
   const [paqueteNombre, setPaqueteNombre] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [showDraftModal, setShowDraftModal] = useState(false)
@@ -295,6 +299,7 @@ export function NuevaSolicitudPage() {
         // Mantenimiento
         tipo_mantenimiento: esMant ? form.tipo_mantenimiento || undefined : undefined,
         clasificacion_mantenimiento: esMant ? form.clasificacion_mantenimiento || undefined : undefined,
+        modalidad_mantenimiento: esMant ? form.modalidad_mantenimiento || undefined : undefined,
         fecha_proximo_mantenimiento: esMant && form.clasificacion_mantenimiento === "preventivo"
           ? form.fecha_proximo_mantenimiento || undefined
           : undefined,
@@ -594,29 +599,34 @@ export function NuevaSolicitudPage() {
                   {/* Clasificación — Correctivo / Preventivo */}
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-2">
-                      Clasificación *
+                      Clasificacion *
                     </label>
-                    <div className="flex gap-3">
-                      {(["correctivo", "preventivo"] as const).map((c) => (
-                        <button
-                          key={c}
-                          type="button"
-                          onClick={() => {
-                            handleChange("clasificacion_mantenimiento", c)
-                            if (c === "correctivo") handleChange("fecha_proximo_mantenimiento", "")
-                          }}
-                          className={`flex items-center gap-2 rounded-xl border-2 px-5 py-3 text-sm font-semibold transition-all ${
-                            form.clasificacion_mantenimiento === c
-                              ? c === "correctivo"
-                                ? "border-red-500 bg-red-50 text-red-700"
-                                : "border-emerald-500 bg-emerald-50 text-emerald-700"
-                              : "border-border bg-card text-muted-foreground hover:border-muted-foreground/40"
-                          }`}
-                        >
-                          {c === "correctivo" ? "🔴 Correctivo" : "🟢 Preventivo"}
-                        </button>
-                      ))}
-                    </div>
+                    <SegmentedControl
+                      value={form.clasificacion_mantenimiento ?? "correctivo"}
+                      options={[
+                        { value: "correctivo", label: "Correctivo", accent: "red" },
+                        { value: "preventivo", label: "Preventivo", accent: "green" },
+                      ]}
+                      onChange={(v) => {
+                        handleChange("clasificacion_mantenimiento", v)
+                        if (v === "correctivo") handleChange("fecha_proximo_mantenimiento", "")
+                      }}
+                    />
+                  </div>
+
+                  {/* Modalidad — Interno / Externo */}
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Modalidad *
+                    </label>
+                    <SegmentedControl
+                      value={form.modalidad_mantenimiento ?? "interno"}
+                      options={[
+                        { value: "interno", label: "Interno" },
+                        { value: "externo", label: "Externo" },
+                      ]}
+                      onChange={(v) => handleChange("modalidad_mantenimiento", v)}
+                    />
                   </div>
 
                   {/* Fecha próximo mantenimiento — solo si preventivo */}
@@ -910,5 +920,51 @@ export function NuevaSolicitudPage() {
           )}
       </PageLayout>
     </>
+  )
+}
+
+// ── SegmentedControl ──────────────────────────────────────────────────────────
+
+interface SegmentOption {
+  value: string
+  label: string
+  accent?: "red" | "green"
+}
+
+interface SegmentedControlProps {
+  value: string
+  options: SegmentOption[]
+  onChange: (value: string) => void
+}
+
+function SegmentedControl({ value, options, onChange }: SegmentedControlProps) {
+  return (
+    <div className="inline-flex border border-border rounded-md overflow-hidden divide-x divide-border">
+      {options.map((opt) => {
+        const isSelected = value === opt.value
+        const accentBorder =
+          isSelected && opt.accent === "red"
+            ? "border-l-2 border-l-red-500"
+            : isSelected && opt.accent === "green"
+            ? "border-l-2 border-l-emerald-500"
+            : ""
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            className={[
+              "px-5 py-2 text-sm transition-colors",
+              accentBorder,
+              isSelected
+                ? "bg-muted text-foreground font-semibold"
+                : "bg-card text-muted-foreground hover:bg-muted/50",
+            ].join(" ")}
+          >
+            {opt.label}
+          </button>
+        )
+      })}
+    </div>
   )
 }

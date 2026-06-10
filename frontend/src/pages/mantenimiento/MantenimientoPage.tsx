@@ -1,56 +1,87 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Plus, Search } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { PageLayout } from "@/components/layout/PageLayout"
-import {
-  EstadoMantenimientoBadge,
-  ClasificacionBadge,
-  ModalidadBadge,
-} from "@/components/mantenimiento/EstadoMantenimientoBadge"
-import { useSolicitudesMantenimiento } from "@/hooks/useMantenimiento"
-import { useAuthStore } from "@/store/authStore"
-import { canManageMantenimiento } from "@/lib/permissions"
-import {
-  Pagination,
-  PaginationContent,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination"
-import type { MantenimientoFilters } from "@/types/mantenimiento"
+import { useSolicitudes, OC_SOLICITUDES_PAGE_SIZE } from "@/hooks/useOC"
+import type { SolicitudesFilters } from "@/hooks/useOC"
+import type { SolicitudOC } from "@/types/oc"
 import { formatDistanceToNow } from "date-fns"
 import { es } from "date-fns/locale"
 
-const ESTADOS_FILTER = [
-  { value: "",           label: "Todos los estados" },
-  { value: "solicitud",  label: "Solicitud" },
-  { value: "evaluacion", label: "Evaluación" },
-  { value: "programado", label: "Programado" },
-  { value: "ejecucion",  label: "En Ejecución" },
-  { value: "completado", label: "Completado" },
-  { value: "cerrado",    label: "Cerrado" },
-  { value: "cancelado",  label: "Cancelado" },
-]
+const ESTADO_LABELS: Record<string, string> = {
+  nueva: "Nueva",
+  en_cotizacion: "En cotización",
+  pendiente_aprobacion: "Pendiente aprobación",
+  aprobada: "Aprobada",
+  rechazada: "Rechazada",
+  cancelada: "Cancelada",
+  en_correccion: "En corrección",
+  oc_enviada: "OC enviada",
+  oc_en_plataforma: "En plataforma",
+  entregada: "Entregada",
+  cerrada: "Cerrada",
+}
+
+const ESTADO_COLOR: Record<string, string> = {
+  nueva: "bg-sky-50 text-sky-700 border-sky-200",
+  en_cotizacion: "bg-amber-50 text-amber-700 border-amber-200",
+  pendiente_aprobacion: "bg-orange-50 text-orange-700 border-orange-200",
+  aprobada: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  rechazada: "bg-red-50 text-red-700 border-red-200",
+  cancelada: "bg-red-50 text-red-600 border-red-200",
+  en_correccion: "bg-yellow-50 text-yellow-700 border-yellow-200",
+  oc_enviada: "bg-indigo-50 text-indigo-700 border-indigo-200",
+  oc_en_plataforma: "bg-purple-50 text-purple-700 border-purple-200",
+  entregada: "bg-teal-50 text-teal-700 border-teal-200",
+  cerrada: "bg-muted text-muted-foreground border-border",
+}
+
+function EstadoBadge({ estado }: { estado: string }) {
+  const colorClass = ESTADO_COLOR[estado] ?? "bg-muted text-muted-foreground border-border"
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${colorClass}`}>
+      {ESTADO_LABELS[estado] ?? estado}
+    </span>
+  )
+}
+
+function ClasifBadge({ value }: { value: string | null }) {
+  if (!value) return <span className="text-muted-foreground text-xs">—</span>
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${
+      value === "correctivo"
+        ? "bg-red-50 text-red-700 border-red-200"
+        : "bg-emerald-50 text-emerald-700 border-emerald-200"
+    }`}>
+      {value === "correctivo" ? "Correctivo" : "Preventivo"}
+    </span>
+  )
+}
+
+function ModalidadBadge({ value }: { value: string | null }) {
+  if (!value) return <span className="text-muted-foreground text-xs">—</span>
+  return (
+    <span className="inline-flex items-center rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+      {value === "interno" ? "Interno" : "Externo"}
+    </span>
+  )
+}
 
 export default function MantenimientoPage() {
   const navigate = useNavigate()
-  const { user } = useAuthStore()
-  const [page, setPage]       = useState(1)
-  const [filters, setFilters] = useState<MantenimientoFilters>({})
-  const [search, setSearch]   = useState("")
+  const [page, setPage] = useState(1)
+  const [filters, setFilters] = useState<SolicitudesFilters>({ tipo_solicitud: "mantenimiento" })
+  const [search, setSearch] = useState("")
 
-  const activeFilters: MantenimientoFilters = {
+  const activeFilters: SolicitudesFilters = {
     ...filters,
-    q: search || undefined,
+    tipo_solicitud: "mantenimiento",
   }
 
-  const { data, isLoading } = useSolicitudesMantenimiento(activeFilters, page)
+  const { data, isLoading } = useSolicitudes(activeFilters, page)
+  const totalPages = data ? Math.ceil(data.total / OC_SOLICITUDES_PAGE_SIZE) : 1
 
-  const puedeCrear = canManageMantenimiento(user?.role ?? "", user?.app_permissions)
-
-  function handleSearchSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  function handleEstadoChange(estado: string) {
+    setFilters((f) => ({ ...f, estado: estado || undefined }))
     setPage(1)
   }
 
@@ -65,21 +96,29 @@ export default function MantenimientoPage() {
               {data?.total ?? 0} solicitudes en total
             </p>
           </div>
-          {puedeCrear && (
-            <Button onClick={() => navigate("/mantenimiento/nueva")} className="gap-2">
-              <Plus className="w-4 h-4" />
-              Nueva solicitud
-            </Button>
-          )}
+          <button
+            onClick={() => navigate("/operativo/nueva-solicitud")}
+            className="flex items-center gap-2 rounded-lg bg-amber-500 hover:brightness-105 px-4 py-2 text-sm font-semibold text-white transition-all"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
+            </svg>
+            Nueva solicitud
+          </button>
         </div>
 
         {/* Filtros */}
         <div className="flex gap-3 flex-wrap">
-          <form onSubmit={handleSearchSubmit} className="relative flex-1 min-w-[200px] max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <form
+            onSubmit={(e) => { e.preventDefault(); setPage(1) }}
+            className="relative flex-1 min-w-[200px] max-w-xs"
+          >
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0Z" />
+            </svg>
             <input
               type="text"
-              placeholder="Buscar por título o #..."
+              placeholder="Buscar por descripcion o #..."
               className="w-full pl-9 pr-3 h-9 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-1 focus:ring-ring"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -89,31 +128,15 @@ export default function MantenimientoPage() {
           <select
             className="h-9 rounded-md border border-border bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
             value={filters.estado ?? ""}
-            onChange={(e) => { setFilters(f => ({ ...f, estado: e.target.value as any })); setPage(1) }}
+            onChange={(e) => handleEstadoChange(e.target.value)}
           >
-            {ESTADOS_FILTER.map(o => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-
-          <select
-            className="h-9 rounded-md border border-border bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-            value={filters.clasificacion ?? ""}
-            onChange={(e) => { setFilters(f => ({ ...f, clasificacion: e.target.value as any })); setPage(1) }}
-          >
-            <option value="">Todas las clasificaciones</option>
-            <option value="preventivo">Preventivo</option>
-            <option value="correctivo">Correctivo</option>
-          </select>
-
-          <select
-            className="h-9 rounded-md border border-border bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-            value={filters.modalidad ?? ""}
-            onChange={(e) => { setFilters(f => ({ ...f, modalidad: e.target.value as any })); setPage(1) }}
-          >
-            <option value="">Todas las modalidades</option>
-            <option value="interno">Interno</option>
-            <option value="externo">Externo</option>
+            <option value="">Todos los estados</option>
+            <option value="nueva">Nueva</option>
+            <option value="en_cotizacion">En cotización</option>
+            <option value="pendiente_aprobacion">Pendiente aprobación</option>
+            <option value="aprobada">Aprobada</option>
+            <option value="cancelada">Cancelada</option>
+            <option value="cerrada">Cerrada</option>
           </select>
         </div>
 
@@ -123,13 +146,13 @@ export default function MantenimientoPage() {
             <thead>
               <tr className="border-b border-border text-left">
                 <th className="px-4 py-3 font-medium text-muted-foreground">#</th>
-                <th className="px-4 py-3 font-medium text-muted-foreground">Título</th>
+                <th className="px-4 py-3 font-medium text-muted-foreground">Descripcion</th>
                 <th className="px-4 py-3 font-medium text-muted-foreground">Tipo</th>
-                <th className="px-4 py-3 font-medium text-muted-foreground">Clasificación</th>
+                <th className="px-4 py-3 font-medium text-muted-foreground">Clasificacion</th>
                 <th className="px-4 py-3 font-medium text-muted-foreground">Modalidad</th>
                 <th className="px-4 py-3 font-medium text-muted-foreground">Estado</th>
-                <th className="px-4 py-3 font-medium text-muted-foreground">Asignado</th>
-                <th className="px-4 py-3 font-medium text-muted-foreground">Creado</th>
+                <th className="px-4 py-3 font-medium text-muted-foreground">Solicitante</th>
+                <th className="px-4 py-3 font-medium text-muted-foreground">Fecha</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-muted/50">
@@ -140,70 +163,73 @@ export default function MantenimientoPage() {
                   </td>
                 </tr>
               )}
-              {!isLoading && data?.items.length === 0 && (
+              {!isLoading && (data?.items ?? []).length === 0 && (
                 <tr>
                   <td colSpan={8} className="px-4 py-10 text-center text-muted-foreground text-sm">
                     No se encontraron solicitudes.
                   </td>
                 </tr>
               )}
-              {data?.items.map((sol) => (
-                <tr
-                  key={sol.id}
-                  className="hover:bg-muted/50 transition-colors cursor-pointer"
-                  onClick={() => navigate(`/mantenimiento/${sol.id}`)}
-                >
-                  <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                    {sol.consecutivo}
-                  </td>
-                  <td className="px-4 py-3 font-medium text-foreground max-w-[200px] truncate">
-                    {sol.titulo}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">{sol.tipo_mantenimiento}</td>
-                  <td className="px-4 py-3">
-                    <ClasificacionBadge clasificacion={sol.clasificacion} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <ModalidadBadge modalidad={sol.modalidad} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <EstadoMantenimientoBadge estado={sol.estado} />
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground text-xs">
-                    {sol.asignado_nombre ?? "—"}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground text-xs">
-                    {formatDistanceToNow(new Date(sol.created_at), { addSuffix: true, locale: es })}
-                  </td>
-                </tr>
-              ))}
+              {(data?.items ?? [])
+                .filter((sol: SolicitudOC) =>
+                  !search ||
+                  sol.descripcion.toLowerCase().includes(search.toLowerCase()) ||
+                  sol.consecutivo_os.toLowerCase().includes(search.toLowerCase())
+                )
+                .map((sol: SolicitudOC) => (
+                  <tr
+                    key={sol.id}
+                    className="hover:bg-muted/50 transition-colors cursor-pointer"
+                    onClick={() => navigate(`/operativo/mis-solicitudes/${sol.id}`)}
+                  >
+                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                      {sol.consecutivo_os}
+                    </td>
+                    <td className="px-4 py-3 font-medium text-foreground max-w-[200px] truncate">
+                      {sol.descripcion}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground text-xs">
+                      {sol.tipo_mantenimiento ?? "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <ClasifBadge value={sol.clasificacion_mantenimiento} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <ModalidadBadge value={sol.modalidad_mantenimiento} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <EstadoBadge estado={sol.estado} />
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground text-xs">
+                      {sol.solicitante_nombre}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground text-xs">
+                      {formatDistanceToNow(new Date(sol.created_at), { addSuffix: true, locale: es })}
+                    </td>
+                  </tr>
+                ))}
             </tbody>
           </table>
 
-          {data && data.pages > 1 && (
-            <div className="px-4 py-3 border-t border-border">
-              <Pagination className="justify-end">
-                <PaginationContent>
-                  <PaginationPrevious
-                    href="#"
-                    onClick={(e) => { e.preventDefault(); setPage(p => Math.max(1, p - 1)) }}
-                  />
-                  {Array.from({ length: data.pages }, (_, i) => i + 1).map((p) => (
-                    <PaginationLink
-                      key={p}
-                      href="#"
-                      isActive={p === page}
-                      onClick={(e) => { e.preventDefault(); setPage(p) }}
-                    >
-                      {p}
-                    </PaginationLink>
-                  ))}
-                  <PaginationNext
-                    href="#"
-                    onClick={(e) => { e.preventDefault(); setPage(p => Math.min(data.pages, p + 1)) }}
-                  />
-                </PaginationContent>
-              </Pagination>
+          {totalPages > 1 && (
+            <div className="px-4 py-3 border-t border-border flex items-center justify-end gap-2">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="px-3 py-1 text-sm rounded-md border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 transition-colors"
+              >
+                Anterior
+              </button>
+              <span className="text-sm text-muted-foreground">
+                {page} / {totalPages}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="px-3 py-1 text-sm rounded-md border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 transition-colors"
+              >
+                Siguiente
+              </button>
             </div>
           )}
         </div>

@@ -22,6 +22,7 @@ export interface SolicitudesFilters {
   estado?: string
   plataforma?: string
   area?: string
+  tipo_solicitud?: string
 }
 
 export function usePlataformasOC() {
@@ -45,6 +46,7 @@ export function useSolicitudes(filters: SolicitudesFilters = {}, page: number = 
       if (filters.estado) params.set("estado", filters.estado)
       if (filters.plataforma) params.set("plataforma", filters.plataforma)
       if (filters.area) params.set("area", filters.area)
+      if (filters.tipo_solicitud) params.set("tipo_solicitud", filters.tipo_solicitud)
       const { data } = await api.get<SolicitudesListResponse>(`/api/oc/solicitudes?${params}`)
       return data
     },
@@ -684,6 +686,7 @@ export interface SolicitudInternaCreate {
   // Solo para mantenimiento
   tipo_mantenimiento?: string
   clasificacion_mantenimiento?: string  // "correctivo" | "preventivo"
+  modalidad_mantenimiento?: string      // "interno" | "externo"
   fecha_proximo_mantenimiento?: string
   observaciones_solicitante?: string
   origen_solicitud_id?: string

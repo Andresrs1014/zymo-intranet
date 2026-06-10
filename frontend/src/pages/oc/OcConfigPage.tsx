@@ -796,10 +796,9 @@ function TiposMantenimientoConfig() {
   const [nuevoNombre, setNuevoNombre] = useState("")
   const [err, setErr] = useState<string | null>(null)
 
-  async function handleCrear(e: React.FormEvent) {
-    e.preventDefault()
+  async function handleCrear() {
     setErr(null)
-    if (!nuevoNombre.trim()) return setErr("El nombre es requerido.")
+    if (!nuevoNombre.trim()) { setErr("El nombre es requerido."); return }
     try {
       await crear({ nombre: nuevoNombre.trim() })
       setNuevoNombre("")
@@ -810,18 +809,19 @@ function TiposMantenimientoConfig() {
 
   return (
     <div className="space-y-4">
-      <form onSubmit={handleCrear} className="flex gap-2">
+      <div className="flex gap-2">
         <input
           type="text"
           className="flex-1 h-9 rounded-md border border-border bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
           placeholder="Nuevo tipo de mantenimiento..."
           value={nuevoNombre}
           onChange={(e) => setNuevoNombre(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void handleCrear() } }}
         />
-        <Button type="submit" size="sm" disabled={creando}>
+        <Button type="button" size="sm" disabled={creando} onClick={() => void handleCrear()}>
           {creando ? "Agregando…" : "Agregar"}
         </Button>
-      </form>
+      </div>
       {err && <p className="text-xs text-destructive">{err}</p>}
 
       {isLoading && <p className="text-sm text-muted-foreground">Cargando...</p>}

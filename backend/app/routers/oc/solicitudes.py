@@ -68,6 +68,7 @@ class SolicitudRead(BaseModel):
     tipo_solicitud: str = "compra"
     tipo_mantenimiento: Optional[str] = None
     clasificacion_mantenimiento: Optional[str] = None
+    modalidad_mantenimiento: Optional[str] = None
     fecha_proximo_mantenimiento: Optional[date]
     origen_solicitud_id: Optional[uuid.UUID] = None
     archivada: bool = False
@@ -165,6 +166,7 @@ class SolicitudInternaCreate(BaseModel):
     # Solo para mantenimiento
     tipo_mantenimiento: Optional[str] = None
     clasificacion_mantenimiento: Optional[str] = None  # "correctivo" | "preventivo"
+    modalidad_mantenimiento: Optional[str] = None      # "interno" | "externo"
     fecha_proximo_mantenimiento: Optional[date] = None
     observaciones_solicitante: Optional[str] = None
     origen_solicitud_id: Optional[uuid.UUID] = None
@@ -221,6 +223,7 @@ def list_solicitudes(
     estado: Optional[str] = Query(default=None),
     plataforma: Optional[str] = Query(default=None),
     area: Optional[str] = Query(default=None),
+    tipo_solicitud: Optional[str] = Query(default=None),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
     current_user: User = Depends(require_compras),
@@ -235,6 +238,8 @@ def list_solicitudes(
         conds.append(SolicitudOC.plataforma == plataforma)
     if area:
         conds.append(SolicitudOC.area_solicitante == area)
+    if tipo_solicitud:
+        conds.append(SolicitudOC.tipo_solicitud == tipo_solicitud)
 
     total = oc_db.exec(select(func.count(SolicitudOC.id)).where(*conds)).one()
     query = (
@@ -283,6 +288,7 @@ async def crear_solicitud_interna(
             tipo_solicitud=payload.tipo_solicitud,
             tipo_mantenimiento=payload.tipo_mantenimiento,
             clasificacion_mantenimiento=payload.clasificacion_mantenimiento,
+            modalidad_mantenimiento=payload.modalidad_mantenimiento,
             origen_solicitud_id=payload.origen_solicitud_id,
             nivel_prioridad=payload.nivel_prioridad,
             categoria=payload.categoria,

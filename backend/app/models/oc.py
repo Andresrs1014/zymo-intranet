@@ -47,6 +47,7 @@ class SolicitudOC(SQLModel, table=True):
     # Solo aplica cuando tipo_solicitud = "mantenimiento"
     tipo_mantenimiento: Optional[str] = Field(default=None, max_length=100)
     clasificacion_mantenimiento: Optional[str] = Field(default=None, max_length=20)  # "correctivo" | "preventivo"
+    modalidad_mantenimiento: Optional[str] = Field(default=None, max_length=20)     # "interno" | "externo"
     fecha_proximo_mantenimiento: Optional[date] = Field(default=None)
     # Si esta compra fue generada desde una solicitud de mantenimiento (self-reference)
     origen_solicitud_id: Optional[uuid.UUID] = Field(default=None)

@@ -112,6 +112,12 @@ def create_oc_tables() -> None:
             "ON oc_solicitudes(origen_solicitud_id)"
         ))
 
+        # Migración: modalidad de mantenimiento (interno/externo)
+        try:
+            conn.execute(text("ALTER TABLE oc_solicitudes ADD COLUMN modalidad_mantenimiento VARCHAR(20)"))
+        except Exception:
+            pass  # columna ya existe
+
         conn.commit()
 
     log.info("[oc] Tablas OC verificadas en oc.db.")
