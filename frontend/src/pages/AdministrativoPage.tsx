@@ -2,13 +2,14 @@ import { NavLink } from "react-router-dom"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { useAuthStore } from "@/store/authStore"
 import { useSolicitudes } from "@/hooks/useOC"
-import { canApproveOC, canConfigureOC } from "@/lib/permissions"
+import { canApproveOC, canConfigureOC, canManageMantenimiento } from "@/lib/permissions"
 
 export function AdministrativoPage() {
   const user = useAuthStore((s) => s.user)
   const perms = user?.app_permissions
-  const canApprove   = user ? canApproveOC(user.role, perms) : false
-  const canConfigure = user ? canConfigureOC(user.role, perms) : false
+  const canApprove    = user ? canApproveOC(user.role, perms) : false
+  const canConfigure  = user ? canConfigureOC(user.role, perms) : false
+  const canManageMant = user ? canManageMantenimiento(user.role, perms) : false
 
   const { data } = useSolicitudes(
     canApprove ? { estado: "pendiente_aprobacion" } : {},
@@ -68,6 +69,28 @@ export function AdministrativoPage() {
                 />
               )}
             </div>
+          )}
+
+          {/* ── Mantenimiento section ─────────────────────────────────── */}
+          {canManageMant && (
+            <>
+              <div className="mt-10 mb-8">
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="h-6 w-1 rounded-full bg-amber-500" />
+                  <h2 className="text-xl font-bold text-foreground">Mantenimiento</h2>
+                </div>
+                <p className="pl-4 text-sm text-muted-foreground">
+                  Gestión de solicitudes de mantenimiento correctivo y preventivo.
+                </p>
+              </div>
+
+              <PrimaryCard
+                to="/mantenimiento"
+                icon={<IconMantenimiento />}
+                label="Solicitudes de Mantenimiento"
+                description="Consulta, gestiona y da seguimiento a todas las solicitudes de mantenimiento del equipo."
+              />
+            </>
           )}
     </PageLayout>
   )
@@ -171,6 +194,14 @@ function IconConfig() {
   return (
     <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
       <path fillRule="evenodd" d="M7.84 1.804A1 1 0 0 1 8.82 1h2.36a1 1 0 0 1 .98.804l.331 1.652a6.993 6.993 0 0 1 1.929 1.115l1.598-.54a1 1 0 0 1 1.186.447l1.18 2.044a1 1 0 0 1-.205 1.251l-1.267 1.113a7.047 7.047 0 0 1 0 2.228l1.267 1.113a1 1 0 0 1 .205 1.251l-1.18 2.044a1 1 0 0 1-1.186.447l-1.598-.54a6.993 6.993 0 0 1-1.929 1.115l-.33 1.652a1 1 0 0 1-.98.804H8.82a1 1 0 0 1-.98-.804l-.331-1.652a6.993 6.993 0 0 1-1.929-1.115l-1.598.54a1 1 0 0 1-1.186-.447l-1.18-2.044a1 1 0 0 1 .205-1.251l1.267-1.114a7.05 7.05 0 0 1 0-2.227L1.821 7.773a1 1 0 0 1-.205-1.251l1.18-2.044a1 1 0 0 1 1.186-.447l1.598.54A6.992 6.992 0 0 1 7.51 3.456l.33-1.652ZM10 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clipRule="evenodd" />
+    </svg>
+  )
+}
+
+function IconMantenimiento() {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <path fillRule="evenodd" d="M14.5 1a.75.75 0 0 1 .75.75v.508a3.75 3.75 0 0 1 0 7.484V18.25a.75.75 0 0 1-1.5 0V9.742a3.75 3.75 0 0 1 0-7.484V1.75A.75.75 0 0 1 14.5 1Zm-9 0a.75.75 0 0 1 .75.75v8.508a3.75 3.75 0 0 1 0 7.484v.508a.75.75 0 0 1-1.5 0v-.508a3.75 3.75 0 0 1 0-7.484V1.75A.75.75 0 0 1 5.5 1Z" clipRule="evenodd" />
     </svg>
   )
 }

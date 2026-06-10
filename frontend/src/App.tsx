@@ -14,7 +14,6 @@ import {
   canSeeHelix,
   canManageDevTasks,
   canSubmitDevTasks,
-  canSeeMantenimiento,
 } from "@/lib/permissions"
 import { useAgentPanelStore } from "@/store/agentPanelStore"
 import { useMinWidth } from "@/hooks/useMinWidth"
@@ -166,7 +165,7 @@ function HelixRoute({ children }: { children: React.ReactNode }) {
 function MantenimientoRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user)
   if (!user) return <Navigate to="/login" replace />
-  if (!canSeeMantenimiento(user.role, user.app_permissions)) return <Navigate to="/dashboard" replace />
+  if (!canSeeOC(user.role, user.area, user.app_permissions)) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
 
