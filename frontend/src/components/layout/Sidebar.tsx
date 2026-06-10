@@ -134,12 +134,19 @@ export function Sidebar() {
                   />
                 )}
                 {showSIG && (
-                  <NavItem
-                    to="/sig"
-                    label="SIG"
-                    icon={<Database className="w-4 h-4" />}
-                    active={isActive(["/sig"])}
-                  />
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild tooltip="SIG">
+                      <a
+                        href="/sig"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label="SIG (nueva pestaña)"
+                      >
+                        <Database className="w-4 h-4" />
+                        <span>SIG</span>
+                      </a>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
                 )}
                 {showOperativo && (
                   <NavItem

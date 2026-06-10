@@ -163,16 +163,16 @@ function TitleBar({
   return (
     <div className="h-9 shrink-0 flex items-center justify-between px-4 border-b border-zinc-800/80 bg-[#111113]">
       <div className="flex items-center gap-3">
-        <span className="text-[11px] font-bold tracking-[0.18em] text-zinc-400 font-mono uppercase">SIG</span>
-        <div className="h-3 w-px bg-zinc-800" />
-        <span className="text-[11px] text-zinc-600">Sistema Integrado de Gestión</span>
+        <span className="text-[11px] font-bold tracking-[0.18em] text-[#ef3340] font-mono uppercase">SIG</span>
+        <div className="h-3 w-px bg-[#ef3340]/20" />
+        <span className="text-[11px] text-zinc-500">Sistema Integrado de Gestión</span>
       </div>
       {isGerente && pendingCount > 0 && (
         <button
           onClick={onOpenQueue}
-          className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded border border-amber-500/30 bg-amber-500/8 text-amber-400 hover:bg-amber-500/15 transition-colors font-mono"
+          className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded border border-[#FFD700]/30 bg-[#FFD700]/8 text-[#FFD700] hover:bg-[#FFD700]/15 transition-colors font-mono"
         >
-          <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+          <span className="h-1.5 w-1.5 rounded-full bg-[#FFD700] animate-pulse shrink-0" />
           {pendingCount} pendiente{pendingCount !== 1 ? "s" : ""}
         </button>
       )}
@@ -184,8 +184,8 @@ function TitleBar({
 
 const TAB_ICON: Record<TabIcon, React.ReactNode> = {
   file:  <FileText className="h-3.5 w-3.5 text-zinc-500" />,
-  diff:  <GitCommit className="h-3.5 w-3.5 text-[#00a8c8]/70" />,
-  queue: <Inbox className="h-3.5 w-3.5 text-amber-500/70" />,
+  diff:  <GitCommit className="h-3.5 w-3.5 text-[#00a8c8]/80" />,
+  queue: <Inbox className="h-3.5 w-3.5 text-[#FFD700]/70" />,
 }
 
 function TabBar({
@@ -244,17 +244,17 @@ function WelcomeView() {
   return (
     <div className="flex flex-col items-center justify-center h-full gap-6 bg-[#0a0a0b]">
       <div className="flex flex-col items-center gap-3 text-center">
-        <div className="h-12 w-12 rounded-lg border border-zinc-800 flex items-center justify-center bg-[#111113]">
-          <GitBranchPlus className="h-6 w-6 text-zinc-700" />
+        <div className="h-12 w-12 rounded-lg border border-[#ef3340]/20 flex items-center justify-center bg-[#111113]">
+          <GitBranchPlus className="h-6 w-6 text-[#ef3340]/40" />
         </div>
         <div>
-          <p className="text-sm font-medium text-zinc-400 font-mono">Sistema Integrado de Gestión</p>
-          <p className="text-[11px] text-zinc-700 mt-1">
+          <p className="text-sm font-medium text-zinc-300 font-mono">Sistema Integrado de Gestión</p>
+          <p className="text-[11px] text-zinc-600 mt-1">
             Selecciona un procedimiento o commit en el explorador
           </p>
         </div>
       </div>
-      <div className="flex flex-col gap-1.5 text-[11px] text-zinc-700 font-mono">
+      <div className="flex flex-col gap-1.5 text-[11px] text-zinc-600 font-mono">
         <div className="flex items-center gap-2">
           <ChevronRight className="h-3 w-3" />
           <span>Clic en un área para expandir</span>
@@ -299,14 +299,14 @@ interface CommitFull {
 
 const ESTADO_PROC_BADGE: Record<string, string> = {
   BORRADOR: "text-zinc-500 border-zinc-700/60 bg-zinc-800/30",
-  VIGENTE:  "text-emerald-400 border-emerald-500/40 bg-emerald-500/5",
+  VIGENTE:  "text-[#1f9d6a] border-[#1f9d6a]/40 bg-[#1f9d6a]/8",
   OBSOLETO: "text-zinc-600 border-zinc-700/40 bg-zinc-800/20",
 }
 
 const COMMIT_STATE_DOT: Record<string, string> = {
-  PENDIENTE_REVISION: "fill-amber-500 text-amber-500",
-  APROBADO:           "fill-emerald-500 text-emerald-500",
-  RECHAZADO:          "fill-red-500 text-red-500",
+  PENDIENTE_REVISION: "fill-[#FFD700] text-[#FFD700]",
+  APROBADO:           "fill-[#1f9d6a] text-[#1f9d6a]",
+  RECHAZADO:          "fill-[#ef3340] text-[#ef3340]",
 }
 
 function ProcedureFileView({
@@ -353,8 +353,8 @@ function ProcedureFileView({
         <div className="shrink-0 flex items-center gap-1.5 px-4 h-7 border-b border-zinc-800/60 bg-[#0d0d0f]">
           <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: proc.area.color }} />
           <span className="text-[11px] text-zinc-600 font-mono">{proc.area.nombre}</span>
-          <ChevronRight className="h-3 w-3 text-zinc-700" />
-          <FileText className="h-3 w-3 text-zinc-600" />
+          <ChevronRight className="h-3 w-3 text-[#ef3340]/30" />
+          <FileText className="h-3 w-3 text-zinc-500" />
           <span className="text-[11px] text-zinc-400 font-mono font-medium">{proc.codigo}</span>
           <div className="ml-2">
             <span className={cn(
@@ -420,8 +420,8 @@ function ProcedureFileView({
       {/* Right panel: commit history */}
       <div className="w-64 shrink-0 border-l border-zinc-800/60 flex flex-col bg-[#0d0d0f]">
         <div className="flex items-center gap-2 px-3 h-7 border-b border-zinc-800/60 shrink-0">
-          <Clock className="h-3 w-3 text-zinc-700" />
-          <span className="text-[10px] text-zinc-600 font-mono uppercase tracking-widest">
+          <Clock className="h-3 w-3 text-[#00a8c8]/50" />
+          <span className="text-[10px] text-[#00a8c8]/50 font-mono uppercase tracking-widest">
             Historial
           </span>
         </div>
@@ -495,12 +495,12 @@ function ReviewQueueView({
 
       {/* Header */}
       <div className="shrink-0 flex items-center gap-2 px-4 h-7 border-b border-zinc-800/60 bg-[#0d0d0f]">
-        <Inbox className="h-3 w-3 text-amber-500/70" />
+        <Inbox className="h-3 w-3 text-[#FFD700]/70" />
         <span className="text-[11px] text-zinc-500 font-mono">Cola de revisión</span>
         {commits.length > 0 && (
           <>
             <div className="mx-1 h-3 w-px bg-zinc-800" />
-            <span className="text-[11px] text-amber-400 font-mono">{commits.length} pendiente{commits.length !== 1 ? "s" : ""}</span>
+            <span className="text-[11px] text-[#FFD700] font-mono font-semibold">{commits.length} pendiente{commits.length !== 1 ? "s" : ""}</span>
           </>
         )}
       </div>
@@ -572,7 +572,7 @@ function ReviewQueueView({
                     <span className="text-[10px] text-amber-400/60 font-mono">
                       #{String(commit.id).padStart(4, "0")}
                     </span>
-                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#FFD700] animate-pulse" />
                   </div>
                 </button>
               ))}
@@ -597,7 +597,7 @@ function StatusBar({
 
   return (
     <div className="h-5 shrink-0 flex items-center gap-4 px-4 border-t border-zinc-800/60 bg-[#111113]">
-      <span className="text-[10px] text-zinc-700 font-mono">SIG</span>
+      <span className="text-[10px] text-[#ef3340]/50 font-mono font-bold">SIG</span>
       {viewLabel && (
         <>
           <div className="h-3 w-px bg-zinc-800" />
@@ -607,7 +607,7 @@ function StatusBar({
       {isGerente && pendingCount > 0 && (
         <>
           <div className="h-3 w-px bg-zinc-800" />
-          <span className="text-[10px] text-amber-500/70 font-mono">
+          <span className="text-[10px] text-[#FFD700]/80 font-mono">
             ● {pendingCount} commit{pendingCount !== 1 ? "s" : ""} pendiente{pendingCount !== 1 ? "s" : ""}
           </span>
         </>

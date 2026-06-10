@@ -105,12 +105,12 @@ export function SigExplorer({
     >
       {/* Explorer header */}
       <div className="flex items-center justify-between px-3 h-9 shrink-0 border-b border-zinc-800/60">
-        <span className="text-[10px] font-semibold text-zinc-500 tracking-widest uppercase">Explorador</span>
+        <span className="text-[10px] font-semibold text-[#ef3340]/70 tracking-widest uppercase">Explorador</span>
         {isAdmin && (
           <button
             title="Nueva área"
             onClick={() => setShowNewArea(true)}
-            className="h-5 w-5 rounded flex items-center justify-center text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
+            className="h-5 w-5 rounded flex items-center justify-center text-zinc-600 hover:text-[#ef3340] hover:bg-[#ef3340]/10 transition-colors"
           >
             <Plus className="h-3.5 w-3.5" />
           </button>
@@ -127,14 +127,14 @@ export function SigExplorer({
             className={cn(
               "w-full flex items-center gap-2 px-3 py-1.5 text-left transition-colors group",
               activeKey === "queue"
-                ? "bg-zinc-800/60 text-zinc-200"
-                : "text-zinc-500 hover:bg-zinc-800/40 hover:text-zinc-300",
+                ? "bg-[#ef3340]/10 text-zinc-200 border-l-2 border-[#ef3340]/60"
+                : "text-zinc-500 hover:bg-zinc-800/40 hover:text-zinc-300 border-l-2 border-transparent",
             )}
           >
             <Inbox className="h-3.5 w-3.5 shrink-0" />
             <span className="text-[12px] flex-1">Cola de revisión</span>
             {pendingCount > 0 && (
-              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-mono font-bold tabular-nums border border-amber-500/30">
+              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#FFD700]/15 text-[#FFD700] font-mono font-bold tabular-nums border border-[#FFD700]/30">
                 {pendingCount}
               </span>
             )}
@@ -148,7 +148,7 @@ export function SigExplorer({
         {/* Section label */}
         {areas.length > 0 && (
           <div className="px-3 pt-1 pb-0.5">
-            <span className="text-[9px] text-zinc-700 font-mono uppercase tracking-widest">Áreas</span>
+            <span className="text-[9px] text-[#ef3340]/40 font-mono uppercase tracking-widest">Áreas</span>
           </div>
         )}
 
@@ -178,7 +178,7 @@ export function SigExplorer({
       {/* New area form */}
       {showNewArea && isAdmin && (
         <div className="border-t border-zinc-800 bg-[#0d0d0f] p-3 shrink-0">
-          <p className="text-[10px] text-zinc-500 font-mono mb-2 uppercase tracking-widest">Nueva área</p>
+          <p className="text-[10px] text-[#ef3340]/60 font-mono mb-2 uppercase tracking-widest">Nueva área</p>
 
           <input
             autoFocus
@@ -188,7 +188,7 @@ export function SigExplorer({
               if (e.key === "Enter" && newAreaForm.nombre.trim()) createArea.mutate(newAreaForm)
               if (e.key === "Escape") { setShowNewArea(false); setFormError(null) }
             }}
-            className="w-full bg-[#0a0a0b] border border-zinc-700 rounded px-2.5 py-1.5 text-xs text-zinc-100 font-mono focus:outline-none focus:ring-1 focus:ring-zinc-600 placeholder:text-zinc-700 mb-2"
+            className="w-full bg-[#0a0a0b] border border-zinc-700 rounded px-2.5 py-1.5 text-xs text-zinc-100 font-mono focus:outline-none focus:ring-1 focus:ring-[#ef3340]/40 placeholder:text-zinc-700 mb-2"
             placeholder="Nombre del área"
           />
 
@@ -220,7 +220,7 @@ export function SigExplorer({
             <button
               disabled={!newAreaForm.nombre.trim() || createArea.isPending}
               onClick={() => createArea.mutate(newAreaForm)}
-              className="flex-1 text-[10px] py-1.5 rounded bg-zinc-700 hover:bg-zinc-600 text-zinc-200 disabled:opacity-40 transition-colors font-mono"
+              className="flex-1 text-[10px] py-1.5 rounded bg-[#ef3340]/80 hover:bg-[#ef3340] text-white disabled:opacity-40 transition-colors font-mono"
             >
               Crear
             </button>
@@ -309,7 +309,7 @@ function AreaNode({
 
 const ESTADO_DOT: Record<string, string> = {
   BORRADOR: "text-zinc-600",
-  VIGENTE:  "text-emerald-500",
+  VIGENTE:  "text-[#1f9d6a]",
   OBSOLETO: "text-zinc-700",
 }
 
@@ -340,7 +340,7 @@ function ProcNode({
     <div>
       <div className={cn(
         "flex items-center group rounded transition-colors",
-        isActive ? "bg-zinc-800/60" : "hover:bg-zinc-800/30",
+        isActive ? "bg-[#ef3340]/8 border-l-2 border-[#ef3340]/50" : "hover:bg-zinc-800/30 border-l-2 border-transparent",
       )}>
         {/* Expand toggle for commits */}
         <button
@@ -395,9 +395,9 @@ function ProcNode({
 // ── Commit Node ────────────────────────────────────────────────────────────────
 
 const COMMIT_DOT: Record<string, string> = {
-  PENDIENTE_REVISION: "text-amber-500 animate-pulse",
-  APROBADO:           "text-emerald-500",
-  RECHAZADO:          "text-red-500",
+  PENDIENTE_REVISION: "text-[#FFD700] animate-pulse",
+  APROBADO:           "text-[#1f9d6a]",
+  RECHAZADO:          "text-[#ef3340]",
 }
 
 function CommitNode({
@@ -414,11 +414,11 @@ function CommitNode({
     <button
       onClick={onSelect}
       className={cn(
-        "w-full flex items-center gap-1.5 py-1 px-2 text-left rounded transition-colors group",
-        isActive ? "bg-zinc-800/60" : "hover:bg-zinc-800/30",
+        "w-full flex items-center gap-1.5 py-1 px-2 text-left rounded transition-colors group border-l-2",
+        isActive ? "bg-[#00a8c8]/8 border-[#00a8c8]/40" : "hover:bg-zinc-800/30 border-transparent",
       )}
     >
-      <GitCommit className="h-3 w-3 shrink-0 text-zinc-700" />
+      <GitCommit className="h-3 w-3 shrink-0 text-[#00a8c8]/40" />
       <span className={cn(
         "text-[11px] font-mono flex-1 truncate",
         isActive ? "text-zinc-300" : "text-zinc-600 group-hover:text-zinc-500",

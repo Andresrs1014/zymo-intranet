@@ -195,8 +195,8 @@ export function SigDiffEditor({ commitId, isGerente }: Props) {
               </span>
               {!commit.sinCambios && (
                 <>
-                  <span className="text-[11px] text-emerald-500 font-mono">+{additions}</span>
-                  <span className="text-[11px] text-red-400 font-mono">−{deletions}</span>
+                  <span className="text-[11px] text-[#1f9d6a] font-mono font-semibold">+{additions}</span>
+                  <span className="text-[11px] text-[#ef3340] font-mono font-semibold">−{deletions}</span>
                 </>
               )}
             </div>
@@ -208,14 +208,14 @@ export function SigDiffEditor({ commitId, isGerente }: Props) {
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => setShowReject(true)}
-                  className="flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded border border-zinc-700 text-zinc-400 hover:border-red-500/50 hover:text-red-400 transition-colors font-mono"
+                  className="flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded border border-zinc-700 text-zinc-400 hover:border-[#ef3340]/50 hover:text-[#ef3340] transition-colors font-mono"
                 >
                   <X className="h-3 w-3" /> Rechazar
                 </button>
                 <button
                   onClick={() => aprobar.mutate()}
                   disabled={aprobar.isPending}
-                  className="flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded bg-emerald-600/90 hover:bg-emerald-600 text-white disabled:opacity-50 transition-colors font-mono"
+                  className="flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded bg-[#1f9d6a]/90 hover:bg-[#1f9d6a] text-white disabled:opacity-50 transition-colors font-mono"
                 >
                   <Check className="h-3 w-3" />
                   {aprobar.isPending ? "Aprobando..." : "Aprobar"}
@@ -232,7 +232,7 @@ export function SigDiffEditor({ commitId, isGerente }: Props) {
         </div>
 
         {commit.comentarioRevision && (
-          <div className="mt-3 flex items-start gap-2 rounded border border-red-500/20 bg-red-950/20 px-3 py-2">
+          <div className="mt-3 flex items-start gap-2 rounded border border-red-500/20 bg-[#130407] px-3 py-2">
             <AlertCircle className="h-3.5 w-3.5 text-red-400 mt-0.5 shrink-0" />
             <div>
               <span className="text-[11px] font-semibold text-red-400 font-mono">RECHAZADO — </span>
@@ -308,7 +308,7 @@ export function SigDiffEditor({ commitId, isGerente }: Props) {
               <button
                 disabled={!rejectComment.trim() || rechazar.isPending}
                 onClick={() => rechazar.mutate()}
-                className="text-[11px] px-4 py-2 rounded bg-red-700/80 hover:bg-red-700 text-white disabled:opacity-40 transition-colors font-mono"
+                className="text-[11px] px-4 py-2 rounded bg-[#ef3340]/80 hover:bg-[#ef3340] text-white disabled:opacity-40 transition-colors font-mono"
               >
                 {rechazar.isPending ? "Rechazando..." : "Confirmar rechazo"}
               </button>
@@ -385,15 +385,15 @@ function SplitDiff({ rows }: { rows: DiffRow[] }) {
         if (row.kind === "change") {
           return (
             <div key={i} className="flex">
-              <div className="flex-1 flex items-baseline min-w-0 bg-red-950/25 border-r border-zinc-800/30">
-                <span className={cn(LN, "text-red-400/40 bg-red-950/30")}>{row.leftNo}</span>
-                <span className="w-4 shrink-0 text-center text-red-400/60 font-bold">−</span>
-                <span className="flex-1 px-1 text-red-200 whitespace-pre-wrap break-all">{row.left || " "}</span>
+              <div className="flex-1 flex items-baseline min-w-0 bg-[#1a0608] border-r border-zinc-800/30">
+                <span className={cn(LN, "text-[#ef3340]/50 bg-[#130407]")}>{row.leftNo}</span>
+                <span className="w-4 shrink-0 text-center text-[#ef3340]/70 font-bold">−</span>
+                <span className="flex-1 px-1 text-[#fca5a5] whitespace-pre-wrap break-all">{row.left || " "}</span>
               </div>
-              <div className="flex-1 flex items-baseline min-w-0 bg-emerald-950/25">
-                <span className={cn(LN, "text-emerald-400/40 bg-emerald-950/30")}>{row.rightNo}</span>
-                <span className="w-4 shrink-0 text-center text-emerald-400/60 font-bold">+</span>
-                <span className="flex-1 px-1 text-emerald-200 whitespace-pre-wrap break-all">{row.right || " "}</span>
+              <div className="flex-1 flex items-baseline min-w-0 bg-[#061410]">
+                <span className={cn(LN, "text-[#1f9d6a]/50 bg-[#04100d]")}>{row.rightNo}</span>
+                <span className="w-4 shrink-0 text-center text-[#1f9d6a]/70 font-bold">+</span>
+                <span className="flex-1 px-1 text-[#86efac] whitespace-pre-wrap break-all">{row.right || " "}</span>
               </div>
             </div>
           )
@@ -403,10 +403,10 @@ function SplitDiff({ rows }: { rows: DiffRow[] }) {
         if (row.kind === "delete") {
           return (
             <div key={i} className="flex">
-              <div className="flex-1 flex items-baseline min-w-0 bg-red-950/20 border-r border-zinc-800/30">
-                <span className={cn(LN, "text-red-400/40 bg-red-950/25")}>{row.leftNo}</span>
-                <span className="w-4 shrink-0 text-center text-red-400/60 font-bold">−</span>
-                <span className="flex-1 px-1 text-red-200 whitespace-pre-wrap break-all">{row.left || " "}</span>
+              <div className="flex-1 flex items-baseline min-w-0 bg-[#130407] border-r border-zinc-800/30">
+                <span className={cn(LN, "text-[#ef3340]/50 bg-[#1a0608]")}>{row.leftNo}</span>
+                <span className="w-4 shrink-0 text-center text-[#ef3340]/70 font-bold">−</span>
+                <span className="flex-1 px-1 text-[#fca5a5] whitespace-pre-wrap break-all">{row.left || " "}</span>
               </div>
               <div className="flex-1 min-w-0 bg-[#0f0f11] border-r border-zinc-800/10" />
             </div>
@@ -418,10 +418,10 @@ function SplitDiff({ rows }: { rows: DiffRow[] }) {
           return (
             <div key={i} className="flex">
               <div className="flex-1 min-w-0 bg-[#0f0f11] border-r border-zinc-800/30" />
-              <div className="flex-1 flex items-baseline min-w-0 bg-emerald-950/20">
-                <span className={cn(LN, "text-emerald-400/40 bg-emerald-950/25")}>{row.rightNo}</span>
-                <span className="w-4 shrink-0 text-center text-emerald-400/60 font-bold">+</span>
-                <span className="flex-1 px-1 text-emerald-200 whitespace-pre-wrap break-all">{row.right || " "}</span>
+              <div className="flex-1 flex items-baseline min-w-0 bg-[#04100d]">
+                <span className={cn(LN, "text-[#1f9d6a]/50 bg-[#061410]")}>{row.rightNo}</span>
+                <span className="w-4 shrink-0 text-center text-[#1f9d6a]/70 font-bold">+</span>
+                <span className="flex-1 px-1 text-[#86efac] whitespace-pre-wrap break-all">{row.right || " "}</span>
               </div>
             </div>
           )
@@ -466,44 +466,44 @@ function InlineDiff({ rows }: { rows: InlineRow[] }) {
 
         if (kind === "delete") {
           return (
-            <div key={i} className="flex bg-red-950/20">
-              <span className={cn(LN, "text-red-400/40 bg-red-950/25 w-12")}>{row.leftNo}</span>
+            <div key={i} className="flex bg-[#130407]">
+              <span className={cn(LN, "text-[#ef3340]/50 bg-[#1a0608] w-12")}>{row.leftNo}</span>
               <span className="w-12 shrink-0 bg-[#0a0a0b]/30" />
-              <span className="w-5 shrink-0 text-center text-red-400/70 font-bold">−</span>
-              <span className="flex-1 px-1 text-red-200 whitespace-pre-wrap break-all">{row.left || " "}</span>
+              <span className="w-5 shrink-0 text-center text-[#ef3340]/80 font-bold">−</span>
+              <span className="flex-1 px-1 text-[#fca5a5] whitespace-pre-wrap break-all">{row.left || " "}</span>
             </div>
           )
         }
 
         if (kind === "insert") {
           return (
-            <div key={i} className="flex bg-emerald-950/20">
+            <div key={i} className="flex bg-[#04100d]">
               <span className="w-12 shrink-0 bg-[#0a0a0b]/30" />
-              <span className={cn(LN, "text-emerald-400/40 bg-emerald-950/25 w-12")}>{row.rightNo}</span>
-              <span className="w-5 shrink-0 text-center text-emerald-400/70 font-bold">+</span>
-              <span className="flex-1 px-1 text-emerald-200 whitespace-pre-wrap break-all">{row.right || " "}</span>
+              <span className={cn(LN, "text-[#1f9d6a]/50 bg-[#061410] w-12")}>{row.rightNo}</span>
+              <span className="w-5 shrink-0 text-center text-[#1f9d6a]/80 font-bold">+</span>
+              <span className="flex-1 px-1 text-[#86efac] whitespace-pre-wrap break-all">{row.right || " "}</span>
             </div>
           )
         }
 
         if (kind === "change-del") {
           return (
-            <div key={i} className="flex bg-red-950/20">
-              <span className={cn(LN, "text-red-400/40 bg-red-950/25 w-12")}>{row.leftNo}</span>
+            <div key={i} className="flex bg-[#130407]">
+              <span className={cn(LN, "text-[#ef3340]/50 bg-[#1a0608] w-12")}>{row.leftNo}</span>
               <span className="w-12 shrink-0 bg-[#0a0a0b]/30" />
-              <span className="w-5 shrink-0 text-center text-red-400/70 font-bold">−</span>
-              <span className="flex-1 px-1 text-red-200 whitespace-pre-wrap break-all">{row.left || " "}</span>
+              <span className="w-5 shrink-0 text-center text-[#ef3340]/80 font-bold">−</span>
+              <span className="flex-1 px-1 text-[#fca5a5] whitespace-pre-wrap break-all">{row.left || " "}</span>
             </div>
           )
         }
 
         if (kind === "change-ins") {
           return (
-            <div key={i} className="flex bg-emerald-950/20">
+            <div key={i} className="flex bg-[#04100d]">
               <span className="w-12 shrink-0 bg-[#0a0a0b]/30" />
-              <span className={cn(LN, "text-emerald-400/40 bg-emerald-950/25 w-12")}>{row.rightNo}</span>
-              <span className="w-5 shrink-0 text-center text-emerald-400/70 font-bold">+</span>
-              <span className="flex-1 px-1 text-emerald-200 whitespace-pre-wrap break-all">{row.right || " "}</span>
+              <span className={cn(LN, "text-[#1f9d6a]/50 bg-[#061410] w-12")}>{row.rightNo}</span>
+              <span className="w-5 shrink-0 text-center text-[#1f9d6a]/80 font-bold">+</span>
+              <span className="flex-1 px-1 text-[#86efac] whitespace-pre-wrap break-all">{row.right || " "}</span>
             </div>
           )
         }
@@ -518,9 +518,9 @@ function InlineDiff({ rows }: { rows: InlineRow[] }) {
 
 function EstadoBadge({ estado }: { estado: string }) {
   const map: Record<string, string> = {
-    PENDIENTE_REVISION: "text-amber-400 border-amber-500/40 bg-amber-500/5",
-    APROBADO:           "text-emerald-400 border-emerald-500/40 bg-emerald-500/5",
-    RECHAZADO:          "text-red-400 border-red-500/40 bg-red-500/5",
+    PENDIENTE_REVISION: "text-[#FFD700] border-[#FFD700]/40 bg-[#FFD700]/8",
+    APROBADO:           "text-[#1f9d6a] border-[#1f9d6a]/40 bg-[#1f9d6a]/8",
+    RECHAZADO:          "text-[#ef3340] border-[#ef3340]/40 bg-[#ef3340]/8",
   }
   const labels: Record<string, string> = {
     PENDIENTE_REVISION: "pendiente",
