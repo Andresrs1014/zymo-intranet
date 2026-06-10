@@ -1,0 +1,352 @@
+import { useState } from "react"
+import { useNavigate, useParams } from "react-router-dom"
+import { ArrowLeft, Plus } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { PageLayout } from "@/components/layout/PageLayout"
+import {
+  EstadoMantenimientoBadge,
+  ClasificacionBadge,
+  ModalidadBadge,
+} from "@/components/mantenimiento/EstadoMantenimientoBadge"
+import { CrearOCVinculadaModal } from "@/components/mantenimiento/CrearOCVinculadaModal"
+import {
+  useSolicitudMantenimiento,
+  useHistorialMantenimiento,
+  useOCsVinculadas,
+  useCambiarEstadoMantenimiento,
+} from "@/hooks/useMantenimiento"
+import { useAuthStore } from "@/store/authStore"
+import { canManageMantenimiento } from "@/lib/permissions"
+import type { EstadoMantenimiento } from "@/types/mantenimiento"
+import { format } from "date-fns"
+import { es } from "date-fns/locale"
+
+// Mapa de transiciones para mostrar botones de acción
+const SIGUIENTE_ESTADO: Record<string, { label: string; estado: EstadoMantenimiento }> = {
+  solicitud:  { label: "Iniciar evaluación",     estado: "evaluacion" },
+  evaluacion: { label: "Marcar como programado", estado: "programado" },
+  programado: { label: "Iniciar ejecución",      estado: "ejecucion"  },
+  ejecucion:  { label: "Marcar como completado", estado: "completado" },
+  completado: { label: "Cerrar solicitud",       estado: "cerrado"    },
+}
+
+const TABS = ["Info", "Timeline", "Compras"] as const
+type Tab = (typeof TABS)[number]
+
+export default function MantenimientoDetallePage() {
+  const { id } = useParams<{ id: string }>()
+  const solicitudId = id ? parseInt(id) : null
+  const navigate    = useNavigate()
+  const { user }    = useAuthStore()
+
+  const [activeTab, setActiveTab]   = useState<Tab>("Info")
+  const [showCrearOC, setShowCrearOC] = useState(false)
+
+  const { data: sol, isLoading } = useSolicitudMantenimiento(solicitudId)
+  const { data: historial = [] } = useHistorialMantenimiento(activeTab === "Timeline" ? solicitudId : null)
+  const { data: ocs = [] }       = useOCsVinculadas(activeTab === "Compras" ? solicitudId : null)
+  const { mutateAsync: cambiarEstado, isPending: cambiandoEstado } = useCambiarEstadoMantenimiento()
+
+  const puedeGestionar = canManageMantenimiento(user?.role ?? "", user?.app_permissions)
+
+  if (isLoading) {
+    return (
+      <PageLayout title="Mantenimiento">
+        <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">
+          Cargando...
+        </div>
+      </PageLayout>
+    )
+  }
+
+  if (!sol) {
+    return (
+      <PageLayout title="Mantenimiento">
+        <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">
+          Solicitud no encontrada.
+        </div>
+      </PageLayout>
+    )
+  }
+
+  const siguienteAccion = SIGUIENTE_ESTADO[sol.estado]
+
+  async function handleAvanzarEstado() {
+    if (!siguienteAccion || !solicitudId) return
+    await cambiarEstado({ id: solicitudId, payload: { estado_nuevo: siguienteAccion.estado } })
+  }
+
+  async function handleCancelar() {
+    if (!solicitudId) return
+    await cambiarEstado({
+      id: solicitudId,
+      payload: { estado_nuevo: "cancelado", nota: "Cancelado manualmente." },
+    })
+  }
+
+  // Pasos del progress bar
+  const PASOS: EstadoMantenimiento[] = [
+    "solicitud", "evaluacion", "programado", "ejecucion", "completado", "cerrado",
+  ]
+  const pasoActualIdx = PASOS.indexOf(sol.estado as EstadoMantenimiento)
+
+  return (
+    <PageLayout title={sol.consecutivo}>
+      {/* Top bar con breadcrumb */}
+      <div className="flex items-center gap-3 mb-4">
+        <button
+          onClick={() => navigate("/mantenimiento")}
+          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Mantenimientos
+        </button>
+        <span className="text-muted-foreground">/</span>
+        <span className="text-sm font-semibold text-foreground font-mono">{sol.consecutivo}</span>
+        <EstadoMantenimientoBadge estado={sol.estado as EstadoMantenimiento} />
+      </div>
+
+      {/* Layout principal: sidebar + contenido */}
+      <div className="flex gap-0 rounded-xl border border-border bg-card overflow-hidden min-h-[500px]">
+
+        {/* SIDEBAR IZQUIERDO */}
+        <div className="w-56 shrink-0 border-r border-border bg-background flex flex-col">
+          {/* Tabs */}
+          <div className="flex border-b border-border">
+            {TABS.map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`flex-1 py-2.5 text-xs font-semibold transition-colors relative ${
+                  activeTab === tab
+                    ? "text-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {tab === "Compras" && ocs.length > 0 && (
+                  <span className="absolute top-1.5 right-1 w-3.5 h-3.5 bg-primary text-primary-foreground rounded-full text-[9px] flex items-center justify-center">
+                    {ocs.length}
+                  </span>
+                )}
+                {tab}
+                {activeTab === tab && (
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Contenido del tab */}
+          <div className="p-4 overflow-y-auto flex-1">
+            {activeTab === "Info" && (
+              <div className="space-y-4 text-sm">
+                <Field label="Tipo" value={sol.tipo_mantenimiento} />
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Clasificación</p>
+                  <ClasificacionBadge clasificacion={sol.clasificacion} />
+                </div>
+                {sol.clasificacion === "preventivo" && sol.fecha_proxima_mantenimiento && (
+                  <Field
+                    label="Próximo mantenimiento"
+                    value={format(new Date(sol.fecha_proxima_mantenimiento + "T00:00:00"), "dd/MM/yyyy")}
+                  />
+                )}
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Modalidad</p>
+                  <ModalidadBadge modalidad={sol.modalidad} />
+                </div>
+                <Field label="Solicitado por" value={sol.solicitante_nombre ?? "—"} />
+                <Field
+                  label="Fecha solicitud"
+                  value={format(new Date(sol.created_at), "dd/MM/yyyy", { locale: es })}
+                />
+                {sol.asignado_nombre && (
+                  <Field label="Asignado a" value={sol.asignado_nombre} />
+                )}
+                {sol.fecha_programada && (
+                  <Field
+                    label="Programado para"
+                    value={format(new Date(sol.fecha_programada), "dd/MM/yyyy HH:mm", { locale: es })}
+                  />
+                )}
+              </div>
+            )}
+
+            {activeTab === "Timeline" && (
+              <div className="space-y-3">
+                {historial.length === 0 && (
+                  <p className="text-xs text-muted-foreground">Sin actividad registrada.</p>
+                )}
+                {historial.map((h) => (
+                  <div key={h.id} className="text-xs">
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                      <span className="font-medium text-foreground">{h.usuario_nombre}</span>
+                    </div>
+                    <p className="text-muted-foreground pl-3">
+                      {h.estado_anterior
+                        ? `${h.estado_anterior} → ${h.estado_nuevo}`
+                        : `Creó la solicitud (${h.estado_nuevo})`}
+                    </p>
+                    {h.nota && (
+                      <p className="text-muted-foreground pl-3 italic">{h.nota}</p>
+                    )}
+                    <p className="text-muted-foreground/60 pl-3 text-[10px] mt-0.5">
+                      {format(new Date(h.fecha), "dd/MM/yyyy HH:mm", { locale: es })}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {activeTab === "Compras" && (
+              <div className="space-y-3">
+                {puedeGestionar && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full gap-1.5 text-xs"
+                    onClick={() => setShowCrearOC(true)}
+                  >
+                    <Plus className="w-3 h-3" />
+                    Nueva solicitud de compra
+                  </Button>
+                )}
+                {ocs.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-4">
+                    No hay compras vinculadas a este mantenimiento.
+                  </p>
+                )}
+                {ocs.map((oc) => (
+                  <div
+                    key={oc.id}
+                    className="rounded-lg border border-border bg-muted/40 p-3 text-xs"
+                  >
+                    <p className="font-mono font-semibold text-foreground">{oc.consecutivo_os}</p>
+                    <p className="text-muted-foreground mt-0.5 truncate">{oc.descripcion}</p>
+                    <div className="flex items-center justify-between mt-1.5">
+                      <span className="inline-block bg-blue-100 text-blue-700 rounded-full px-2 py-0.5 text-[10px] font-medium">
+                        {oc.estado}
+                      </span>
+                      <span className="text-muted-foreground/60">{oc.nivel_prioridad}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* CONTENIDO PRINCIPAL */}
+        <div className="flex-1 p-6 overflow-y-auto">
+          {/* Descripción */}
+          <div className="mb-6">
+            <h2 className="text-base font-bold text-foreground mb-1">{sol.titulo}</h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">{sol.descripcion}</p>
+          </div>
+
+          {/* Barra de progreso */}
+          {sol.estado !== "cancelado" && (
+            <div className="mb-8">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
+                Progreso
+              </p>
+              <div className="flex items-center gap-0">
+                {PASOS.map((paso, idx) => {
+                  const isPast    = idx < pasoActualIdx
+                  const isCurrent = idx === pasoActualIdx
+                  return (
+                    <div key={paso} className="flex items-center flex-1 last:flex-none">
+                      <div className="flex flex-col items-center gap-1">
+                        <div
+                          className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                            isPast
+                              ? "bg-green-500 text-white"
+                              : isCurrent
+                              ? "bg-orange-400 text-white"
+                              : "bg-muted border border-border text-muted-foreground"
+                          }`}
+                        >
+                          {isPast ? "✓" : isCurrent ? "→" : idx + 1}
+                        </div>
+                        <span
+                          className={`text-[9px] font-medium capitalize ${
+                            isPast ? "text-green-600" : isCurrent ? "text-orange-500" : "text-muted-foreground"
+                          }`}
+                        >
+                          {paso}
+                        </span>
+                      </div>
+                      {idx < PASOS.length - 1 && (
+                        <div
+                          className={`flex-1 h-0.5 mx-1 mb-4 ${
+                            isPast ? "bg-green-400" : "bg-muted"
+                          }`}
+                        />
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {sol.estado === "cancelado" && (
+            <div className="mb-6 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+              <p className="text-sm font-semibold text-red-800">Solicitud cancelada</p>
+            </div>
+          )}
+
+          {/* Notas de evaluación */}
+          {sol.notas_evaluacion && (
+            <div className="mb-6 bg-muted rounded-lg px-4 py-3">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                Notas de evaluación
+              </p>
+              <p className="text-sm text-foreground">{sol.notas_evaluacion}</p>
+            </div>
+          )}
+
+          {/* Acciones */}
+          {puedeGestionar && (
+            <div className="flex gap-3 flex-wrap">
+              {siguienteAccion && sol.estado !== "cancelado" && (
+                <Button onClick={handleAvanzarEstado} disabled={cambiandoEstado}>
+                  {cambiandoEstado ? "Guardando…" : siguienteAccion.label}
+                </Button>
+              )}
+              {["solicitud", "evaluacion", "programado"].includes(sol.estado) && (
+                <Button
+                  variant="outline"
+                  onClick={handleCancelar}
+                  disabled={cambiandoEstado}
+                  className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                >
+                  Cancelar solicitud
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Modal OC vinculada */}
+      {showCrearOC && (
+        <CrearOCVinculadaModal
+          open={showCrearOC}
+          onClose={() => setShowCrearOC(false)}
+          mantenimiento={sol}
+        />
+      )}
+    </PageLayout>
+  )
+}
+
+function Field({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
+      <p className="text-foreground font-medium">{value}</p>
+    </div>
+  )
+}
