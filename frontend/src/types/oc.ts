@@ -27,8 +27,13 @@ export interface SolicitudOC {
   condicion: string | null
   observaciones_solicitante: string | null
   placa_ficha: string | null
+  /**
+   * @deprecated Migrating to SolicitudMantenimiento module. These fields remain for historical records only.
+   */
   tipo_solicitud: "compra" | "mantenimiento"
+  /** @deprecated See SolicitudMantenimiento.clasificacion */
   tipo_mantenimiento: "correctivo" | "preventivo" | null
+  /** @deprecated See SolicitudMantenimiento.fecha_proxima_mantenimiento */
   fecha_proximo_mantenimiento: string | null
   archivada: boolean
   tiene_proforma: boolean

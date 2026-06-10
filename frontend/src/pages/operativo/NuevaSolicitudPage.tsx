@@ -158,7 +158,7 @@ export function NuevaSolicitudPage() {
     })
     setPaqueteNombre(paquete.nombre)
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [paqueteId, paquetes, sedesOc])
+  }, [paqueteId, paquetes])
 
   useEffect(() => {
     // Solo verificar el borrador una vez al montar la página.
@@ -188,7 +188,7 @@ export function NuevaSolicitudPage() {
 
   function _filtrarNuevosArchivos(nuevos: File[], actuales: File[]): File[] {
     const validos = nuevos.filter((f) => {
-      if (f.size > MAX_FILE_BYTES) { alert(`"${f.name}" supera el límite de 20 MB.`); return false }
+      if (f.size > MAX_FILE_BYTES) { setError(`"${f.name}" supera el límite de 20 MB.`); return false }
       return true
     })
     const disponibles = MAX_FILES - actuales.length

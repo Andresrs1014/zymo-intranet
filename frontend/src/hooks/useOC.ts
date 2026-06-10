@@ -26,7 +26,7 @@ export interface SolicitudesFilters {
 
 export function usePlataformasOC() {
   return useQuery({
-    queryKey: ["oc", "plataformas"],
+    queryKey: ["oc", "plataformas-filtro"],
     queryFn: async () => {
       const { data } = await api.get<string[]>("/api/oc/solicitudes/plataformas")
       return data
@@ -874,7 +874,7 @@ export interface PlataformaOption {
 
 export function usePlataformas() {
   return useQuery({
-    queryKey: ["oc", "plataformas"],
+    queryKey: ["oc", "plataformas-config"],
     queryFn: async () => {
       const { data } = await api.get<PlataformaOption[]>("/api/oc/plataformas")
       return data

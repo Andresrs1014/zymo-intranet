@@ -1,7 +1,10 @@
+import logging
 from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
+
+log = logging.getLogger(__name__)
 from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, func, select
@@ -132,7 +135,7 @@ def nueva_solicitud(
             detail="No se pudo generar un consecutivo único. Intenta de nuevo.",
         )
 
-    print(f"[webhook] Nueva solicitud: {consecutivo} — {solicitud.id}")
+    log.info("[webhook] Nueva solicitud: %s — %s", consecutivo, solicitud.id)
 
     return WebhookResponse(
         ok=True,

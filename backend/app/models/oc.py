@@ -204,7 +204,7 @@ class PaqueteSolicitud(SQLModel, table=True):
     creado_por_id: int
     creado_por_nombre: str = Field(max_length=200)
     # Lista de items del paquete: [{nivel_prioridad, categoria, grupo_articulos, descripcion, cantidad, plataforma, ...}]
-    items: list = Field(default=[], sa_column=Column(JSON))
+    items: list = Field(default_factory=list, sa_column=Column(JSON))
     activo: bool = Field(default=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
