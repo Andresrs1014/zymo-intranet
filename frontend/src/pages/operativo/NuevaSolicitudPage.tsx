@@ -4,8 +4,9 @@ import { PageLayout } from "@/components/layout/PageLayout"
 import { Combobox } from "@/components/ui/Combobox"
 import { useAuthStore } from "@/store/authStore"
 import { useListasFormulario, useCrearSolicitudInterna, usePaquetes, useSubirFotoSolicitud } from "@/hooks/useOC"
-import { useTiposMantenimiento } from "@/hooks/useMantenimiento"
+import { useTiposMantenimiento, useCrearMantenimiento } from "@/hooks/useMantenimiento"
 import type { SolicitudInternaCreate } from "@/hooks/useOC"
+import type { CrearMantenimientoPayload } from "@/types/mantenimiento"
 import { useDraft, useAutosaveDraft, useDeleteDraft } from "@/hooks/useDraft"
 import { useSedesParaSolicitudesOc } from "@/hooks/useSedes"
 
@@ -30,18 +31,22 @@ const FORM_COMPRA_VACIO: SolicitudInternaCreate = {
   observaciones_solicitante: "",
 }
 
-const FORM_MANTENIMIENTO_VACIO: SolicitudInternaCreate = {
-  tipo_solicitud: "mantenimiento",
-  nivel_prioridad: "",
-  descripcion: "",
-  cantidad: 1,
-  plataforma: "",
-  placa_ficha: "",
+interface FormMant {
+  titulo: string
+  tipo_mantenimiento: string
+  clasificacion: "correctivo" | "preventivo"
+  modalidad: "interno" | "externo"
+  fecha_proxima: string
+  descripcion: string
+}
+
+const FORM_MANT_VACIO: FormMant = {
+  titulo: "",
   tipo_mantenimiento: "",
-  clasificacion_mantenimiento: "correctivo",
-  modalidad_mantenimiento: "interno",
-  fecha_proximo_mantenimiento: "",
-  observaciones_solicitante: "",
+  clasificacion: "correctivo",
+  modalidad: "interno",
+  fecha_proxima: "",
+  descripcion: "",
 }
 
 export function NuevaSolicitudPage() {
@@ -61,16 +66,17 @@ export function NuevaSolicitudPage() {
   const { data: paquetes } = usePaquetes()
   const { data: tiposMantenimiento = [] } = useTiposMantenimiento()
   const crear = useCrearSolicitudInterna()
+  const crearMant = useCrearMantenimiento()
   const subirFoto = useSubirFotoSolicitud()
 
   const [tipoSolicitud, setTipoSolicitud] = useState<TipoSolicitud>(
     tipoParam === "mantenimiento" ? "mantenimiento" : "compra"
   )
   const [form, setForm] = useState<SolicitudInternaCreate>(() => {
-    if (tipoParam === "mantenimiento") return { ...FORM_MANTENIMIENTO_VACIO }
     if (origenId) return { ...FORM_COMPRA_VACIO, origen_solicitud_id: origenId }
     return FORM_COMPRA_VACIO
   })
+  const [formMant, setFormMant] = useState<FormMant>(FORM_MANT_VACIO)
   const [paqueteNombre, setPaqueteNombre] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [showDraftModal, setShowDraftModal] = useState(false)
@@ -139,11 +145,11 @@ export function NuevaSolicitudPage() {
   // Cambiar tipo de solicitud limpia el formulario
   function cambiarTipo(tipo: TipoSolicitud) {
     setTipoSolicitud(tipo)
-    const next =
-      tipo === "compra"
-        ? { ...FORM_COMPRA_VACIO }
-        : { ...FORM_MANTENIMIENTO_VACIO, origen_solicitud_id: origenId ?? undefined }
-    setForm(next as SolicitudInternaCreate)
+    if (tipo === "compra") {
+      setForm(origenId ? { ...FORM_COMPRA_VACIO, origen_solicitud_id: origenId } : { ...FORM_COMPRA_VACIO })
+    } else {
+      setFormMant({ ...FORM_MANT_VACIO })
+    }
     setPaqueteNombre(null)
     setError(null)
   }
@@ -229,25 +235,25 @@ export function NuevaSolicitudPage() {
   }
 
   function validarFormulario(): string | null {
-    if (sedesOc.length === 0) {
-      return "No hay sedes habilitadas para compras (OC). Un administrador debe marcar al menos una sede con «OC compras» en Áreas y sedes."
-    }
-    if (!form.nivel_prioridad) return "Selecciona la prioridad."
-    if (!form.descripcion.trim()) return "Ingresa la descripción."
-    if (!form.plataforma?.trim()) return "Selecciona la plataforma."
-
     if (tipoSolicitud === "compra") {
+      if (sedesOc.length === 0) {
+        return "No hay sedes habilitadas para compras (OC). Un administrador debe marcar al menos una sede con «OC compras» en Áreas y sedes."
+      }
+      if (!form.nivel_prioridad) return "Selecciona la prioridad."
+      if (!form.descripcion.trim()) return "Ingresa la descripción."
+      if (!form.plataforma?.trim()) return "Selecciona la plataforma."
       if (form.cantidad < 1) return "La cantidad debe ser al menos 1."
       if (!form.categoria) return "Selecciona la categoría."
       if (!form.grupo_articulos) return "Selecciona el grupo de artículos."
     }
 
     if (tipoSolicitud === "mantenimiento") {
-      if (!form.tipo_mantenimiento) return "Selecciona el tipo de mantenimiento."
-      if (!form.clasificacion_mantenimiento) return "Selecciona la clasificación (correctivo/preventivo)."
-      if (form.clasificacion_mantenimiento === "preventivo" && !form.fecha_proximo_mantenimiento) {
+      if (!formMant.titulo.trim()) return "Ingresa un titulo para el mantenimiento."
+      if (!formMant.tipo_mantenimiento) return "Selecciona el tipo de mantenimiento."
+      if (formMant.clasificacion === "preventivo" && !formMant.fecha_proxima) {
         return "Indica la fecha del próximo mantenimiento."
       }
+      if (!formMant.descripcion.trim()) return "Ingresa la descripción del trabajo a realizar."
     }
 
     return null
@@ -258,10 +264,7 @@ export function NuevaSolicitudPage() {
     const payload = borrador.payload as unknown as SolicitudInternaCreate & { tipo_solicitud?: string }
     const tipo = (payload.tipo_solicitud ?? "compra") as TipoSolicitud
     setTipoSolicitud(tipo)
-    setForm({
-      ...(tipo === "compra" ? FORM_COMPRA_VACIO : FORM_MANTENIMIENTO_VACIO),
-      ...payload,
-    })
+    if (tipo === "compra") setForm({ ...FORM_COMPRA_VACIO, ...payload })
     setDraftRestored(true)
     setShowDraftModal(false)
   }
@@ -274,9 +277,7 @@ export function NuevaSolicitudPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
 
-    // Bloqueo inmediato: evita que clics rápidos disparen varias requests
-    // antes de que React Query cambie isPending a true
-    if (submitInFlight.current || crear.isPending) return
+    if (submitInFlight.current || crear.isPending || crearMant.isPending) return
     submitInFlight.current = true
 
     const validationError = validarFormulario()
@@ -287,46 +288,49 @@ export function NuevaSolicitudPage() {
     }
 
     try {
-      const esMant = tipoSolicitud === "mantenimiento"
-      const payload: SolicitudInternaCreate = {
-        ...form,
-        tipo_solicitud: tipoSolicitud,
-        plataforma: form.plataforma!,
-        cliente: form.cliente || undefined,
-        condicion: form.condicion || undefined,
-        placa_ficha: esMant ? form.placa_ficha || undefined : undefined,
-        observaciones_solicitante: form.observaciones_solicitante || undefined,
-        // Mantenimiento
-        tipo_mantenimiento: esMant ? form.tipo_mantenimiento || undefined : undefined,
-        clasificacion_mantenimiento: esMant ? form.clasificacion_mantenimiento || undefined : undefined,
-        modalidad_mantenimiento: esMant ? form.modalidad_mantenimiento || undefined : undefined,
-        fecha_proximo_mantenimiento: esMant && form.clasificacion_mantenimiento === "preventivo"
-          ? form.fecha_proximo_mantenimiento || undefined
-          : undefined,
-        origen_solicitud_id: esMant ? form.origen_solicitud_id || undefined : undefined,
-        // Compra
-        categoria: !esMant ? form.categoria || undefined : undefined,
-        grupo_articulos: !esMant ? form.grupo_articulos || undefined : undefined,
+      if (tipoSolicitud === "mantenimiento") {
+        // Escribe en mnt_solicitudes con sus propios estados
+        const mantPayload: CrearMantenimientoPayload = {
+          titulo: formMant.titulo.trim(),
+          descripcion: formMant.descripcion.trim(),
+          tipo_mantenimiento: formMant.tipo_mantenimiento,
+          clasificacion: formMant.clasificacion,
+          modalidad: formMant.modalidad,
+          fecha_proxima_mantenimiento: formMant.clasificacion === "preventivo" ? (formMant.fecha_proxima || null) : null,
+        }
+        await crearMant.mutateAsync(mantPayload)
+        navigate("/mantenimiento")
+      } else {
+        // Compra — flujo OC normal
+        const payload: SolicitudInternaCreate = {
+          ...form,
+          tipo_solicitud: "compra",
+          plataforma: form.plataforma!,
+          cliente: form.cliente || undefined,
+          condicion: form.condicion || undefined,
+          observaciones_solicitante: form.observaciones_solicitante || undefined,
+          categoria: form.categoria || undefined,
+          grupo_articulos: form.grupo_articulos || undefined,
+        }
+
+        const solicitudCreada = await crear.mutateAsync(payload)
+
+        if (archivos.length > 0) {
+          setSubiendoArchivos(true)
+          const promesas = archivos.map((archivo) =>
+            subirFoto.mutateAsync({ solicitudId: solicitudCreada.id, file: archivo })
+          )
+          await Promise.all(promesas)
+          setSubiendoArchivos(false)
+        }
+
+        navigate("/operativo/mis-solicitudes")
+        deleteDraft.mutate({ tipo: "solicitud_nueva" })
       }
-
-      const solicitudCreada = await crear.mutateAsync(payload)
-
-      if (archivos.length > 0) {
-        setSubiendoArchivos(true)
-        const promesas = archivos.map((archivo) =>
-          subirFoto.mutateAsync({ solicitudId: solicitudCreada.id, file: archivo })
-        )
-        await Promise.all(promesas)
-        setSubiendoArchivos(false)
-      }
-
-      // submitInFlight no necesita reset aquí: la navegación desmonta el componente
-      navigate("/operativo/mis-solicitudes")
-      deleteDraft.mutate({ tipo: "solicitud_nueva" })
     } catch {
       submitInFlight.current = false
       setSubiendoArchivos(false)
-      setError("Error al procesar la solicitud o subir las evidencias. Intenta de nuevo.")
+      setError("Error al procesar la solicitud. Intenta de nuevo.")
     }
   }
 
@@ -365,6 +369,7 @@ export function NuevaSolicitudPage() {
         </div>
       )}
       <PageLayout title="Operativo">
+        <div className="max-w-3xl mx-auto">
           {/* Volver */}
           <button
             onClick={() => navigate("/operativo/mis-solicitudes")}
@@ -495,7 +500,7 @@ export function NuevaSolicitudPage() {
           )}
 
           {!listasLoading && !sedesLoading && !listasError && !sedesError && (
-            <form onSubmit={handleSubmit} className="space-y-6 max-w-3xl">
+            <form onSubmit={handleSubmit} className="space-y-6">
               {/* Sección Solicitante */}
               <section className="bg-card rounded-xl border border-border p-6 space-y-4">
                 <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
@@ -526,22 +531,22 @@ export function NuevaSolicitudPage() {
                     Datos del mantenimiento
                   </h2>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                    {/* Prioridad */}
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-1">
-                        Prioridad *
-                      </label>
-                      <Combobox
-                        className="w-full"
-                        options={opcionesPrioridad}
-                        value={form.nivel_prioridad || null}
-                        onChange={(v) => handleChange("nivel_prioridad", (v as string) ?? "")}
-                        placeholder="Buscar prioridad…"
-                      />
-                    </div>
+                  {/* Titulo */}
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-1">
+                      Titulo *
+                    </label>
+                    <input
+                      type="text"
+                      value={formMant.titulo}
+                      onChange={(e) => setFormMant((p) => ({ ...p, titulo: e.target.value }))}
+                      placeholder="Ej. Falla en montacargas VH-001, mantenimiento preventivo compresor..."
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
+                  </div>
 
-                    {/* Tipo de mantenimiento — lista configurable */}
+                  {/* Tipo de mantenimiento */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                     <div>
                       <label className="block text-sm font-medium text-foreground mb-1">
                         Tipo de mantenimiento *
@@ -549,9 +554,9 @@ export function NuevaSolicitudPage() {
                       <Combobox
                         className="w-full"
                         options={opcionesTipoMantenimiento}
-                        value={form.tipo_mantenimiento || null}
-                        onChange={(v) => handleChange("tipo_mantenimiento", v != null ? String(v) : "")}
-                        placeholder="Seleccionar tipo…"
+                        value={formMant.tipo_mantenimiento || null}
+                        onChange={(v) => setFormMant((p) => ({ ...p, tipo_mantenimiento: v != null ? String(v) : "" }))}
+                        placeholder="Seleccionar tipo..."
                       />
                     </div>
 
@@ -564,36 +569,18 @@ export function NuevaSolicitudPage() {
                         <Combobox
                           className="w-full"
                           options={opcionesPlaca}
-                          value={form.placa_ficha || null}
-                          onChange={(v) => handleChange("placa_ficha", (v as string) ?? "")}
-                          placeholder="Buscar placa o equipo…"
+                          value={null}
+                          onChange={() => {}}
+                          placeholder="Buscar placa o equipo..."
                         />
                       ) : (
                         <input
                           type="text"
-                          value={form.placa_ficha ?? ""}
-                          onChange={(e) => handleChange("placa_ficha", e.target.value)}
                           placeholder="Ej. VH-001 o número de ficha técnica"
                           className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                         />
                       )}
                     </div>
-
-                    {/* Plataforma */}
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-1">
-                        Plataforma *
-                      </label>
-                      <Combobox
-                        className="w-full"
-                        options={opcionesPlataforma}
-                        value={form.plataforma || null}
-                        onChange={(v) => handleChange("plataforma", (v as string) ?? "")}
-                        placeholder="Buscar plataforma…"
-                        disabled={opcionesPlataforma.length === 0}
-                      />
-                    </div>
-
                   </div>
 
                   {/* Clasificación — Correctivo / Preventivo */}
@@ -602,15 +589,16 @@ export function NuevaSolicitudPage() {
                       Clasificacion *
                     </label>
                     <SegmentedControl
-                      value={form.clasificacion_mantenimiento ?? "correctivo"}
+                      value={formMant.clasificacion}
                       options={[
                         { value: "correctivo", label: "Correctivo", accent: "red" },
                         { value: "preventivo", label: "Preventivo", accent: "green" },
                       ]}
-                      onChange={(v) => {
-                        handleChange("clasificacion_mantenimiento", v)
-                        if (v === "correctivo") handleChange("fecha_proximo_mantenimiento", "")
-                      }}
+                      onChange={(v) => setFormMant((p) => ({
+                        ...p,
+                        clasificacion: v as "correctivo" | "preventivo",
+                        fecha_proxima: v === "correctivo" ? "" : p.fecha_proxima,
+                      }))}
                     />
                   </div>
 
@@ -620,56 +608,40 @@ export function NuevaSolicitudPage() {
                       Modalidad *
                     </label>
                     <SegmentedControl
-                      value={form.modalidad_mantenimiento ?? "interno"}
+                      value={formMant.modalidad}
                       options={[
                         { value: "interno", label: "Interno" },
                         { value: "externo", label: "Externo" },
                       ]}
-                      onChange={(v) => handleChange("modalidad_mantenimiento", v)}
+                      onChange={(v) => setFormMant((p) => ({ ...p, modalidad: v as "interno" | "externo" }))}
                     />
                   </div>
 
                   {/* Fecha próximo mantenimiento — solo si preventivo */}
-                  <div
-                    className={`overflow-hidden transition-all duration-200 ${
-                      form.clasificacion_mantenimiento === "preventivo" ? "max-h-24 opacity-100" : "max-h-0 opacity-0 pointer-events-none"
-                    }`}
-                  >
+                  <div className={`overflow-hidden transition-all duration-200 ${
+                    formMant.clasificacion === "preventivo" ? "max-h-24 opacity-100" : "max-h-0 opacity-0 pointer-events-none"
+                  }`}>
                     <label className="block text-sm font-medium text-foreground mb-1">
-                      Fecha próximo mantenimiento *
+                      Fecha proxima de mantenimiento *
                     </label>
                     <input
                       type="date"
-                      value={form.fecha_proximo_mantenimiento ?? ""}
-                      onChange={(e) => handleChange("fecha_proximo_mantenimiento", e.target.value)}
+                      value={formMant.fecha_proxima}
+                      onChange={(e) => setFormMant((p) => ({ ...p, fecha_proxima: e.target.value }))}
                       className="w-full max-w-xs rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                     />
                   </div>
 
-                  {/* Descripción del mantenimiento */}
+                  {/* Descripción */}
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-1">
-                      Descripción del mantenimiento *
+                      Descripcion del trabajo a realizar *
                     </label>
                     <textarea
                       rows={4}
-                      value={form.descripcion}
-                      onChange={(e) => handleChange("descripcion", e.target.value)}
-                      placeholder="Describe el mantenimiento requerido, síntomas observados o trabajos a realizar..."
-                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
-                    />
-                  </div>
-
-                  {/* Observaciones */}
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">
-                      Observaciones adicionales
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={form.observaciones_solicitante ?? ""}
-                      onChange={(e) => handleChange("observaciones_solicitante", e.target.value)}
-                      placeholder="Información adicional para el equipo de compras..."
+                      value={formMant.descripcion}
+                      onChange={(e) => setFormMant((p) => ({ ...p, descripcion: e.target.value }))}
+                      placeholder="Describe el mantenimiento requerido, sintomas observados o trabajos a realizar..."
                       className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
                     />
                   </div>
@@ -918,6 +890,7 @@ export function NuevaSolicitudPage() {
               </div>
             </form>
           )}
+        </div>
       </PageLayout>
     </>
   )

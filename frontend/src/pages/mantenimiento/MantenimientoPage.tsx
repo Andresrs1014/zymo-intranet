@@ -1,41 +1,34 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { PageLayout } from "@/components/layout/PageLayout"
-import { useSolicitudes, OC_SOLICITUDES_PAGE_SIZE } from "@/hooks/useOC"
-import type { SolicitudesFilters } from "@/hooks/useOC"
-import type { SolicitudOC } from "@/types/oc"
+import { useSolicitudesMantenimiento } from "@/hooks/useMantenimiento"
+import type { MantenimientoFilters, SolicitudMantenimiento, EstadoMantenimiento } from "@/types/mantenimiento"
 import { formatDistanceToNow } from "date-fns"
 import { es } from "date-fns/locale"
 
-const ESTADO_LABELS: Record<string, string> = {
-  nueva: "Nueva",
-  en_cotizacion: "En cotización",
-  pendiente_aprobacion: "Pendiente aprobación",
-  aprobada: "Aprobada",
-  rechazada: "Rechazada",
-  cancelada: "Cancelada",
-  en_correccion: "En corrección",
-  oc_enviada: "OC enviada",
-  oc_en_plataforma: "En plataforma",
-  entregada: "Entregada",
-  cerrada: "Cerrada",
+const MNT_PAGE_SIZE = 20
+
+const ESTADO_LABELS: Record<EstadoMantenimiento, string> = {
+  solicitud:  "Solicitud",
+  evaluacion: "En evaluación",
+  programado: "Programado",
+  ejecucion:  "En ejecución",
+  completado: "Completado",
+  cerrado:    "Cerrado",
+  cancelado:  "Cancelado",
 }
 
-const ESTADO_COLOR: Record<string, string> = {
-  nueva: "bg-sky-50 text-sky-700 border-sky-200",
-  en_cotizacion: "bg-amber-50 text-amber-700 border-amber-200",
-  pendiente_aprobacion: "bg-orange-50 text-orange-700 border-orange-200",
-  aprobada: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  rechazada: "bg-red-50 text-red-700 border-red-200",
-  cancelada: "bg-red-50 text-red-600 border-red-200",
-  en_correccion: "bg-yellow-50 text-yellow-700 border-yellow-200",
-  oc_enviada: "bg-indigo-50 text-indigo-700 border-indigo-200",
-  oc_en_plataforma: "bg-purple-50 text-purple-700 border-purple-200",
-  entregada: "bg-teal-50 text-teal-700 border-teal-200",
-  cerrada: "bg-muted text-muted-foreground border-border",
+const ESTADO_COLOR: Record<EstadoMantenimiento, string> = {
+  solicitud:  "bg-sky-50 text-sky-700 border-sky-200",
+  evaluacion: "bg-yellow-50 text-yellow-700 border-yellow-200",
+  programado: "bg-indigo-50 text-indigo-700 border-indigo-200",
+  ejecucion:  "bg-orange-50 text-orange-700 border-orange-200",
+  completado: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  cerrado:    "bg-muted text-muted-foreground border-border",
+  cancelado:  "bg-red-50 text-red-700 border-red-200",
 }
 
-function EstadoBadge({ estado }: { estado: string }) {
+function EstadoBadge({ estado }: { estado: EstadoMantenimiento }) {
   const colorClass = ESTADO_COLOR[estado] ?? "bg-muted text-muted-foreground border-border"
   return (
     <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${colorClass}`}>
@@ -44,8 +37,7 @@ function EstadoBadge({ estado }: { estado: string }) {
   )
 }
 
-function ClasifBadge({ value }: { value: string | null }) {
-  if (!value) return <span className="text-muted-foreground text-xs">—</span>
+function ClasifBadge({ value }: { value: string }) {
   return (
     <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${
       value === "correctivo"
@@ -57,8 +49,7 @@ function ClasifBadge({ value }: { value: string | null }) {
   )
 }
 
-function ModalidadBadge({ value }: { value: string | null }) {
-  if (!value) return <span className="text-muted-foreground text-xs">—</span>
+function ModalidadBadge({ value }: { value: string }) {
   return (
     <span className="inline-flex items-center rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
       {value === "interno" ? "Interno" : "Externo"}
@@ -69,19 +60,19 @@ function ModalidadBadge({ value }: { value: string | null }) {
 export default function MantenimientoPage() {
   const navigate = useNavigate()
   const [page, setPage] = useState(1)
-  const [filters, setFilters] = useState<SolicitudesFilters>({ tipo_solicitud: "mantenimiento" })
+  const [filters, setFilters] = useState<MantenimientoFilters>({})
   const [search, setSearch] = useState("")
 
-  const activeFilters: SolicitudesFilters = {
-    ...filters,
-    tipo_solicitud: "mantenimiento",
-  }
-
-  const { data, isLoading } = useSolicitudes(activeFilters, page)
-  const totalPages = data ? Math.ceil(data.total / OC_SOLICITUDES_PAGE_SIZE) : 1
+  const { data, isLoading } = useSolicitudesMantenimiento(filters, page)
+  const totalPages = data ? Math.ceil(data.total / MNT_PAGE_SIZE) : 1
 
   function handleEstadoChange(estado: string) {
-    setFilters((f) => ({ ...f, estado: estado || undefined }))
+    setFilters((f) => ({ ...f, estado: (estado || undefined) as MantenimientoFilters["estado"] }))
+    setPage(1)
+  }
+
+  function handleClasifChange(clasificacion: string) {
+    setFilters((f) => ({ ...f, clasificacion: (clasificacion || undefined) as MantenimientoFilters["clasificacion"] }))
     setPage(1)
   }
 
@@ -118,7 +109,7 @@ export default function MantenimientoPage() {
             </svg>
             <input
               type="text"
-              placeholder="Buscar por descripcion o #..."
+              placeholder="Buscar por título o #..."
               className="w-full pl-9 pr-3 h-9 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-1 focus:ring-ring"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -131,12 +122,23 @@ export default function MantenimientoPage() {
             onChange={(e) => handleEstadoChange(e.target.value)}
           >
             <option value="">Todos los estados</option>
-            <option value="nueva">Nueva</option>
-            <option value="en_cotizacion">En cotización</option>
-            <option value="pendiente_aprobacion">Pendiente aprobación</option>
-            <option value="aprobada">Aprobada</option>
-            <option value="cancelada">Cancelada</option>
-            <option value="cerrada">Cerrada</option>
+            <option value="solicitud">Solicitud</option>
+            <option value="evaluacion">En evaluación</option>
+            <option value="programado">Programado</option>
+            <option value="ejecucion">En ejecución</option>
+            <option value="completado">Completado</option>
+            <option value="cerrado">Cerrado</option>
+            <option value="cancelado">Cancelado</option>
+          </select>
+
+          <select
+            className="h-9 rounded-md border border-border bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            value={filters.clasificacion ?? ""}
+            onChange={(e) => handleClasifChange(e.target.value)}
+          >
+            <option value="">Todas las clasificaciones</option>
+            <option value="preventivo">Preventivo</option>
+            <option value="correctivo">Correctivo</option>
           </select>
         </div>
 
@@ -146,9 +148,9 @@ export default function MantenimientoPage() {
             <thead>
               <tr className="border-b border-border text-left">
                 <th className="px-4 py-3 font-medium text-muted-foreground">#</th>
-                <th className="px-4 py-3 font-medium text-muted-foreground">Descripcion</th>
+                <th className="px-4 py-3 font-medium text-muted-foreground">Título</th>
                 <th className="px-4 py-3 font-medium text-muted-foreground">Tipo</th>
-                <th className="px-4 py-3 font-medium text-muted-foreground">Clasificacion</th>
+                <th className="px-4 py-3 font-medium text-muted-foreground">Clasificación</th>
                 <th className="px-4 py-3 font-medium text-muted-foreground">Modalidad</th>
                 <th className="px-4 py-3 font-medium text-muted-foreground">Estado</th>
                 <th className="px-4 py-3 font-medium text-muted-foreground">Solicitante</th>
@@ -171,37 +173,37 @@ export default function MantenimientoPage() {
                 </tr>
               )}
               {(data?.items ?? [])
-                .filter((sol: SolicitudOC) =>
+                .filter((sol: SolicitudMantenimiento) =>
                   !search ||
-                  sol.descripcion.toLowerCase().includes(search.toLowerCase()) ||
-                  sol.consecutivo_os.toLowerCase().includes(search.toLowerCase())
+                  sol.titulo.toLowerCase().includes(search.toLowerCase()) ||
+                  sol.consecutivo.toLowerCase().includes(search.toLowerCase())
                 )
-                .map((sol: SolicitudOC) => (
+                .map((sol: SolicitudMantenimiento) => (
                   <tr
                     key={sol.id}
                     className="hover:bg-muted/50 transition-colors cursor-pointer"
-                    onClick={() => navigate(`/operativo/mis-solicitudes/${sol.id}`)}
+                    onClick={() => navigate(`/mantenimiento/${sol.id}`)}
                   >
                     <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                      {sol.consecutivo_os}
+                      {sol.consecutivo}
                     </td>
                     <td className="px-4 py-3 font-medium text-foreground max-w-[200px] truncate">
-                      {sol.descripcion}
+                      {sol.titulo}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground text-xs">
-                      {sol.tipo_mantenimiento ?? "—"}
+                      {sol.tipo_mantenimiento}
                     </td>
                     <td className="px-4 py-3">
-                      <ClasifBadge value={sol.clasificacion_mantenimiento} />
+                      <ClasifBadge value={sol.clasificacion} />
                     </td>
                     <td className="px-4 py-3">
-                      <ModalidadBadge value={sol.modalidad_mantenimiento} />
+                      <ModalidadBadge value={sol.modalidad} />
                     </td>
                     <td className="px-4 py-3">
                       <EstadoBadge estado={sol.estado} />
                     </td>
                     <td className="px-4 py-3 text-muted-foreground text-xs">
-                      {sol.solicitante_nombre}
+                      {sol.solicitante_nombre ?? "—"}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground text-xs">
                       {formatDistanceToNow(new Date(sol.created_at), { addSuffix: true, locale: es })}
