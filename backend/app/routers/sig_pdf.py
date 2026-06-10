@@ -155,7 +155,11 @@ async def generar_pdf_procedimiento(
 
     if resp.status_code == 404:
         raise HTTPException(status_code=404, detail="Commit no encontrado")
+    if resp.status_code == 401:
+        _log.error("sig-backend rechazó el token interno (401) — verificar JWT_SECRET / SECRET_KEY")
+        raise HTTPException(status_code=502, detail="Error de autenticación interna con sig-backend")
     if resp.status_code != 200:
+        _log.error("sig-backend respondió %s: %s", resp.status_code, resp.text[:200])
         raise HTTPException(
             status_code=502,
             detail=f"sig-backend respondió {resp.status_code}",
@@ -250,7 +254,13 @@ def _build_internal_token() -> str:
     Usa el mismo JWT_SECRET del sig-backend (variable de entorno compartida).
     """
     from jose import jwt as jose_jwt
-    secret = os.getenv("SIG_JWT_SECRET", os.getenv("JWT_SECRET", "sig-dev-secret"))
+    # sig-backend reads JWT_SECRET ?? SECRET_KEY — match the same priority chain
+    secret = (
+        os.getenv("SIG_JWT_SECRET")
+        or os.getenv("JWT_SECRET")
+        or os.getenv("SECRET_KEY")
+        or "sig-dev-secret"
+    )
     payload = {
         "sub":             "internal-backend",
         "role":            "admin",
