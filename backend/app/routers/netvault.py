@@ -143,6 +143,7 @@ class AnalyzeRequest(BaseModel):
 class ChatRequest(BaseModel):
     messages: list[dict[str, str]] = Field(..., max_length=20)
     system: str | None = Field(default=None, max_length=500)
+    modelo: str = Field(default="claude", pattern=r"^(claude|gemini)$")
 
 
 # ── Construcción del prompt ────────────────────────────────────────────────────
@@ -407,11 +408,54 @@ async def get_job(
 
 
 @router.post("/chat")
-async def chat_claude(
+async def chat_netvault(
     body: ChatRequest,
     _user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
-    """Proxy de chat directo a Claude."""
+    """Proxy de chat a Claude o Gemini según el campo `modelo`."""
+    if body.modelo == "gemini":
+        if not settings.gemini_api_key:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="GEMINI_API_KEY no configurada en el servidor.",
+            )
+        try:
+            import google.generativeai as genai
+
+            genai.configure(api_key=settings.gemini_api_key)
+            system_txt = body.system or "Eres un asistente útil y conciso. Responde en español."
+            model = genai.GenerativeModel(
+                settings.gemini_model,
+                system_instruction=system_txt,
+            )
+            # Convertir historial al formato Gemini
+            history = []
+            messages_to_send = body.messages
+            if messages_to_send and messages_to_send[-1]["role"] == "user":
+                messages_to_send = messages_to_send[:-1]
+                last_user_msg = body.messages[-1]["content"]
+            else:
+                last_user_msg = ""
+
+            for m in messages_to_send:
+                role = "user" if m["role"] == "user" else "model"
+                history.append({"role": role, "parts": [m["content"]]})
+
+            chat = model.start_chat(history=history)
+            response = chat.send_message(last_user_msg)
+            text = response.text
+            return {"ok": True, "content": text, "tokens": 0, "modelo": "gemini"}
+
+        except ImportError:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Librería 'google-generativeai' no instalada en el backend.",
+            )
+        except Exception as exc:
+            logger.exception("[netvault/chat/gemini] Error")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
+
+    # Default: Claude
     if not settings.anthropic_api_key:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -429,7 +473,7 @@ async def chat_claude(
         if body.system:
             kwargs["system"] = body.system
         response = client.messages.create(**kwargs)
-        return {"ok": True, "content": response.content[0].text, "tokens": response.usage.output_tokens}
+        return {"ok": True, "content": response.content[0].text, "tokens": response.usage.output_tokens, "modelo": "claude"}
 
     except ImportError:
         raise HTTPException(
@@ -437,7 +481,7 @@ async def chat_claude(
             detail="Librería 'anthropic' no instalada en el backend.",
         )
     except Exception as exc:
-        logger.exception("[netvault/chat] Error")
+        logger.exception("[netvault/chat/claude] Error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
 
 
