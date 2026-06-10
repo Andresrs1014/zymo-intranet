@@ -1,11 +1,8 @@
-import logging
 from datetime import date, datetime, timezone
 from enum import Enum
 from typing import Optional
 
 from sqlmodel import Field, SQLModel
-
-log = logging.getLogger(__name__)
 
 
 class EstadoMantenimiento(str, Enum):
@@ -65,7 +62,7 @@ class TipoMantenimientoConfig(SQLModel, table=True):
     __tablename__ = "mnt_tipos_config"
 
     id:     Optional[int] = Field(default=None, primary_key=True)
-    nombre: str = Field(max_length=100)
+    nombre: str = Field(max_length=100, unique=True)
     activo: bool = Field(default=True)
     orden:  int = Field(default=0)
 
