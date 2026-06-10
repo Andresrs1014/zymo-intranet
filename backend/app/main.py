@@ -109,6 +109,12 @@ _DEFAULT_ROLES = [
         "description": "Módulo de facturas y validación contable",
         "app_permissions": ["mod_financiero", "matriz"],
     },
+    {
+        "name": "auxiliar_mantenimiento",
+        "label": "Auxiliar de Mantenimiento",
+        "description": "Gestión de solicitudes de mantenimiento — sin acceso al módulo OC/Compras",
+        "app_permissions": ["mod_mantenimiento"],
+    },
 ]
 
 

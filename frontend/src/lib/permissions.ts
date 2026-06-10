@@ -115,3 +115,28 @@ export function canSeeHelix(role: string, appPerms?: string[]): boolean {
   if (role === "admin") return true
   return hasPerm(appPerms, "mod_helix")
 }
+
+export function canSeeMantenimiento(
+  role: string,
+  appPerms?: string[]
+): boolean {
+  if (role === "admin") return true
+  if (role === "directivo") return true
+  if (role === "auxiliar_mantenimiento") return true
+  return hasPerm(appPerms, "mod_mantenimiento")
+}
+
+export function canManageMantenimiento(
+  role: string,
+  appPerms?: string[]
+): boolean {
+  if (role === "admin") return true
+  if (role === "auxiliar_mantenimiento") return true
+  if (hasPerm(appPerms, "mod_mantenimiento")) return true
+  return false
+}
+
+/** Solo admin y directivo pueden ver todos — auxiliar ve los suyos */
+export function canSeeAllMantenimientos(role: string): boolean {
+  return role === "admin" || role === "directivo"
+}
