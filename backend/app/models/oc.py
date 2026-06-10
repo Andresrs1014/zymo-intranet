@@ -51,6 +51,10 @@ class SolicitudOC(SQLModel, table=True):
     # Archivado (soft-delete): oculta la solicitud de listas y KPIs sin borrar datos
     archivada: bool = Field(default=False)
 
+    # Vínculo opcional con el módulo de Mantenimiento
+    # Si esta OC fue generada desde una solicitud de mantenimiento, este campo la referencia.
+    mantenimiento_id: Optional[int] = Field(default=None, index=True)
+
     # Anticipo/proforma — en «Cargar cotización» o detalle mientras la solicitud está en cotización y antes de enviar la OC
     tiene_proforma: bool = Field(default=False)
     # Ruta al archivo de proforma subido por compras (dentro del volumen Docker)
