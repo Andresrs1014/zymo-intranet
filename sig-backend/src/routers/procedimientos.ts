@@ -88,6 +88,54 @@ router.patch("/:id", requireSigAccess, async (req: Request, res: Response) => {
   res.json(proc)
 })
 
+// GET /api/procedimientos/:id/sync — último commit aprobado para sincronización con NetVault
+router.get("/:id/sync", async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id)
+  const proc = await prisma.sigProcedimiento.findUnique({
+    where: { id },
+    include: {
+      area: true,
+      commits: {
+        where: { estado: "APROBADO" },
+        orderBy: { aprobadoEn: "desc" },
+        take: 1,
+        select: {
+          id: true,
+          contenidoAgente: true,
+          flujogramaMmd: true,
+          mensaje: true,
+          autorNombre: true,
+          aprobadoNombre: true,
+          aprobadoEn: true,
+          versionDoc: true,
+          createdAt: true,
+        },
+      },
+    },
+  })
+  if (!proc) { res.status(404).json({ error: "Procedimiento no encontrado" }); return }
+
+  const latest = proc.commits[0] ?? null
+  res.json({
+    procedimientoId: proc.id,
+    codigo: proc.codigo,
+    titulo: proc.titulo,
+    estado: proc.estado,
+    area: { nombre: proc.area.nombre, color: proc.area.color },
+    latestApproved: latest ? {
+      commitId:        latest.id,
+      contenidoAgente: latest.contenidoAgente,
+      flujogramaMmd:   latest.flujogramaMmd,
+      mensaje:         latest.mensaje,
+      autorNombre:     latest.autorNombre,
+      aprobadoNombre:  latest.aprobadoNombre,
+      aprobadoEn:      latest.aprobadoEn,
+      versionDoc:      latest.versionDoc,
+      createdAt:       latest.createdAt,
+    } : null,
+  })
+})
+
 // DELETE /api/procedimientos/:id — solo admin
 router.delete("/:id", requireSigAccess, async (req: Request, res: Response) => {
   const role = req.user?.role

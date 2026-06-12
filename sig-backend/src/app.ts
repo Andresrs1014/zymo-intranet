@@ -6,6 +6,8 @@ import { authenticate } from "./middleware/auth"
 import areasRouter from "./routers/areas"
 import procedimientosRouter from "./routers/procedimientos"
 import commitsRouter from "./routers/commits"
+import instructivosRouter from "./routers/instructivos"
+import analisisRouter from "./routers/analisis"
 
 const app = express()
 
@@ -26,6 +28,8 @@ app.use("/api", authenticate)
 app.use("/api/areas", areasRouter)
 app.use("/api/procedimientos", procedimientosRouter)
 app.use("/api/commits", commitsRouter)
+app.use("/api/instructivos", instructivosRouter)
+app.use("/api/analisis", analisisRouter)
 
 // 404
 app.use((_req: Request, res: Response) => {

@@ -495,3 +495,504 @@ async def estado(
         "claude_disponible": bool(settings.anthropic_api_key),
         "modelo": settings.anthropic_model if settings.anthropic_api_key else None,
     }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Nuevos endpoints SIG — análisis segmentados por fase
+# ══════════════════════════════════════════════════════════════════════════════
+
+# ── Schemas ───────────────────────────────────────────────────────────────────
+
+class CoherenciaRequest(BaseModel):
+    procedimientoId: int
+    procedureCode: str = Field(..., min_length=1, max_length=200)
+    area: str = Field(..., min_length=1, max_length=100)
+    textContent: str = Field(..., min_length=10, max_length=40_000)
+    existingFlowchartMmd: str | None = None
+
+
+class MejorasRequest(BaseModel):
+    procedimientoId: int
+    procedureCode: str = Field(..., min_length=1, max_length=200)
+    area: str = Field(..., min_length=1, max_length=100)
+    textContent: str = Field(..., min_length=10, max_length=40_000)
+
+
+class InstructivoItem(BaseModel):
+    id: int
+    codigo: str
+    titulo: str
+    contenido: str = Field(..., max_length=20_000)
+
+
+class ProcVsInstRequest(BaseModel):
+    procedimientoId: int
+    procedureCode: str = Field(..., min_length=1, max_length=200)
+    area: str = Field(..., min_length=1, max_length=100)
+    textContent: str = Field(..., min_length=10, max_length=40_000)
+    instructivos: list[InstructivoItem] = Field(..., min_length=1, max_length=10)
+
+
+class IndexarLightRAGRequest(BaseModel):
+    procedimientoId: int
+    procedureCode: str = Field(..., min_length=1, max_length=200)
+    area: str = Field(..., min_length=1, max_length=100)
+    textContent: str = Field(..., min_length=10, max_length=40_000)
+    instructivos: list[InstructivoItem] = Field(default_factory=list, max_length=10)
+
+
+# ── Prompts coherencia ────────────────────────────────────────────────────────
+
+def _build_coherencia_system() -> str:
+    return """Eres el agente de coherencia de procedimientos de NetVault (ZYMO).
+Detecta si el procedimiento es internamente coherente y, si se provee un flujograma, si el texto y el flujograma son consistentes.
+
+Responde ÚNICAMENTE con JSON válido (sin markdown fence):
+{
+  "coherente": true|false,
+  "puntaje": 0.0-1.0,
+  "resumen": "Párrafo de 2-4 oraciones.",
+  "issues": [
+    {"tipo": "ambigüedad|paso_faltante|contradicción|rol_sin_definir|condición_incompleta|otro",
+     "descripcion": "...",
+     "severidad": "critica|alta|media|baja"}
+  ],
+  "flujogramaConsistente": true|false|null,
+  "flujogramaDiff": "líneas con + para nuevo, - para eliminado, o null"
+}
+
+Reglas:
+- coherente = true si no hay issues critica o alta.
+- puntaje 1.0 = sin problemas, 0.0 = incoherente.
+- issues: máximo 8; incluir al menos 1 positivo (baja) si está bien.
+- Si no hay flujograma: flujogramaConsistente = null, flujogramaDiff = null.
+- NO inventar pasos que no estén en el documento."""
+
+
+def _build_coherencia_user(req: CoherenciaRequest) -> str:
+    chart = ""
+    if req.existingFlowchartMmd:
+        chart = f"\nFLUJOGRAMA EXISTENTE:\n```\n{req.existingFlowchartMmd}\n```\n"
+    return f"""Analiza la coherencia interna del procedimiento **{req.procedureCode}** (área: {req.area}).
+
+DOCUMENTO:
+---
+{req.textContent[:15000]}
+---
+{chart}
+Evalúa:
+1. ¿Los pasos son coherentes (sin contradicciones, sin referencias rotas)?
+2. ¿Los roles están definidos de forma consistente?
+3. ¿Las condiciones si/entonces tienen ambas ramas documentadas?
+4. Si hay flujograma: ¿coincide con los pasos del texto?
+
+Responde ÚNICAMENTE con el JSON especificado."""
+
+
+def _run_coherencia_job(job_id: str, body: CoherenciaRequest) -> None:
+    try:
+        import anthropic
+        client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+        response = client.messages.create(
+            model=settings.anthropic_model,
+            max_tokens=3000,
+            system=_build_coherencia_system(),
+            messages=[{"role": "user", "content": _build_coherencia_user(body)}],
+        )
+        tokens_in  = response.usage.input_tokens
+        tokens_out = response.usage.output_tokens
+        logger.info(
+            "[netvault/coherencia/job:%s] %s — in=%d out=%d",
+            job_id[:8], body.procedureCode, tokens_in, tokens_out,
+        )
+
+        class _R:
+            procedureCode = body.procedureCode
+            area          = body.area
+            textContent   = body.textContent
+
+        parsed = _parse_response(response.content[0].text, _R())  # type: ignore[arg-type]
+        _jobs[job_id] = {
+            "status": "done",
+            "tipo": "coherencia",
+            "data": {
+                **parsed,
+                "procedimientoId": body.procedimientoId,
+                "procedureCode":   body.procedureCode,
+                "tokensUsados":    tokens_in + tokens_out,
+                "modeloUsado":     settings.anthropic_model,
+            },
+        }
+    except Exception as exc:
+        logger.exception("[netvault/coherencia/job:%s] Error", job_id[:8])
+        _jobs[job_id] = {"status": "error", "error": str(exc)}
+
+
+# ── Prompts mejoras ───────────────────────────────────────────────────────────
+
+def _build_mejoras_system() -> str:
+    return """Eres el agente de mejora de procedimientos de NetVault (ZYMO).
+Identifica brechas, oportunidades de mejora, automatización posible y huecos. No evalúes coherencia interna.
+
+Responde ÚNICAMENTE con JSON válido (sin markdown fence):
+{
+  "resumen": "Párrafo ejecutivo de 3-5 oraciones.",
+  "findings": [
+    {"id": "F001",
+     "category": "completitud|responsabilidades|riesgos|tiempos|cumplimiento|mejora_continua|automatizacion",
+     "severity": "critica|alta|media|baja",
+     "description": "...",
+     "suggestion": "...",
+     "visibility": "interna|publica"}
+  ],
+  "proposals": [
+    {"type": "desarrollo_intranet|mcp|mejora_proceso|eliminar_paso|automatizacion",
+     "title": "...",
+     "description": "...",
+     "priority": "alta|media|baja"}
+  ],
+  "markdownMejorado": "# CÓDIGO\\n\\n## Objetivo\\n..."
+}
+
+Reglas:
+- findings: máximo 10. proposals: máximo 5 accionables.
+- markdownMejorado: versión mejorada con secciones: Objetivo, Alcance, Responsables (tabla), Desarrollo (numerado), Excepciones, Registros.
+- NO inventar hechos que no estén en el documento."""
+
+
+def _build_mejoras_user(req: MejorasRequest) -> str:
+    return f"""Analiza las oportunidades de mejora de **{req.procedureCode}** (área: {req.area}).
+
+DOCUMENTO:
+---
+{req.textContent[:15000]}
+---
+
+Identifica:
+1. Brechas: pasos incompletos, responsabilidades vagas, riesgos no mitigados.
+2. Automatización: qué pasos podría automatizar la intranet ZYMO.
+3. Eliminación: pasos redundantes o de bajo valor.
+4. Cumplimiento: normativa faltante, registros no definidos.
+5. KPIs o indicadores que deberían existir.
+
+Responde ÚNICAMENTE con el JSON especificado."""
+
+
+def _run_mejoras_job(job_id: str, body: MejorasRequest) -> None:
+    try:
+        import anthropic
+        client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+        response = client.messages.create(
+            model=settings.anthropic_model,
+            max_tokens=8000,
+            system=_build_mejoras_system(),
+            messages=[{"role": "user", "content": _build_mejoras_user(body)}],
+        )
+        tokens_in  = response.usage.input_tokens
+        tokens_out = response.usage.output_tokens
+        logger.info(
+            "[netvault/mejoras/job:%s] %s — in=%d out=%d",
+            job_id[:8], body.procedureCode, tokens_in, tokens_out,
+        )
+
+        class _R:
+            procedureCode = body.procedureCode
+            area          = body.area
+            textContent   = body.textContent
+
+        parsed = _parse_response(response.content[0].text, _R())  # type: ignore[arg-type]
+        _jobs[job_id] = {
+            "status": "done",
+            "tipo": "mejoras",
+            "data": {
+                **parsed,
+                "procedimientoId": body.procedimientoId,
+                "procedureCode":   body.procedureCode,
+                "tokensUsados":    tokens_in + tokens_out,
+                "modeloUsado":     settings.anthropic_model,
+            },
+        }
+    except Exception as exc:
+        logger.exception("[netvault/mejoras/job:%s] Error", job_id[:8])
+        _jobs[job_id] = {"status": "error", "error": str(exc)}
+
+
+# ── Prompts proc-vs-instructivos ──────────────────────────────────────────────
+
+def _build_pvsi_system() -> str:
+    return """Eres el agente de coherencia documental de ZYMO.
+Verifica que el procedimiento principal y sus documentos de soporte no se contradigan.
+
+Responde ÚNICAMENTE con JSON válido (sin markdown fence):
+{
+  "coherente": true|false,
+  "resumen": "Párrafo de 2-4 oraciones.",
+  "conflictos": [
+    {"instructivoCodigo": "INS-OP-001",
+     "descripcion": "...",
+     "severidad": "critica|alta|media|baja"}
+  ]
+}
+
+Reglas:
+- coherente = true si no hay conflictos critica o alta.
+- conflictos: máximo 8. Si hay 0, array vacío.
+- Incluir el código del documento afectado en cada conflicto."""
+
+
+def _build_pvsi_user(req: ProcVsInstRequest) -> str:
+    inst_blocks = "\n\n".join(
+        f"### {i.codigo} — {i.titulo}\n{i.contenido[:3000]}"
+        for i in req.instructivos
+    )
+    return f"""Verifica coherencia entre el procedimiento y sus documentos de soporte.
+
+PROCEDIMIENTO ({req.procedureCode} — {req.area}):
+---
+{req.textContent[:8000]}
+---
+
+DOCUMENTOS DE SOPORTE:
+{inst_blocks}
+
+Detecta: contradicciones de pasos, roles definidos diferente, secuencias que difieren, referencias cruzadas rotas.
+
+Responde ÚNICAMENTE con el JSON especificado."""
+
+
+def _run_pvsi_job(job_id: str, body: ProcVsInstRequest) -> None:
+    try:
+        import anthropic
+        client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+        response = client.messages.create(
+            model=settings.anthropic_model,
+            max_tokens=4000,
+            system=_build_pvsi_system(),
+            messages=[{"role": "user", "content": _build_pvsi_user(body)}],
+        )
+        tokens_in  = response.usage.input_tokens
+        tokens_out = response.usage.output_tokens
+        logger.info(
+            "[netvault/pvsi/job:%s] %s — in=%d out=%d",
+            job_id[:8], body.procedureCode, tokens_in, tokens_out,
+        )
+
+        class _R:
+            procedureCode = body.procedureCode
+            area          = body.area
+            textContent   = body.textContent
+
+        parsed = _parse_response(response.content[0].text, _R())  # type: ignore[arg-type]
+        _jobs[job_id] = {
+            "status": "done",
+            "tipo": "proc_vs_inst",
+            "data": {
+                **parsed,
+                "procedimientoId": body.procedimientoId,
+                "instructivoIds":  [i.id for i in body.instructivos],
+                "procedureCode":   body.procedureCode,
+                "tokensUsados":    tokens_in + tokens_out,
+                "modeloUsado":     settings.anthropic_model,
+            },
+        }
+    except Exception as exc:
+        logger.exception("[netvault/pvsi/job:%s] Error", job_id[:8])
+        _jobs[job_id] = {"status": "error", "error": str(exc)}
+
+
+# ── Indexar LightRAG ──────────────────────────────────────────────────────────
+
+async def _run_indexar_job(job_id: str, body: IndexarLightRAGRequest) -> None:
+    try:
+        from app.agents.lightrag_service import indexar_texto  # type: ignore[import]
+
+        chunks = [f"# {body.procedureCode} — {body.area}\n\n{body.textContent[:20000]}"]
+        for inst in body.instructivos:
+            chunks.append(f"# {inst.codigo} — {inst.titulo}\n\n{inst.contenido[:5000]}")
+
+        indexados = 0
+        for chunk in chunks:
+            ok = await indexar_texto(chunk)
+            if ok:
+                indexados += 1
+
+        _jobs[job_id] = {
+            "status": "done",
+            "tipo": "indexar_lightrag",
+            "data": {
+                "procedimientoId": body.procedimientoId,
+                "procedureCode":   body.procedureCode,
+                "chunksIndexados": indexados,
+                "mensaje":         f"Indexados {indexados} de {len(chunks)} documentos en LightRAG.",
+            },
+        }
+    except Exception as exc:
+        logger.exception("[netvault/indexar/job:%s] Error", job_id[:8])
+        _jobs[job_id] = {"status": "error", "error": str(exc)}
+
+
+# ── Endpoints ─────────────────────────────────────────────────────────────────
+
+@router.post("/analizar-coherencia")
+async def analizar_coherencia(
+    body: CoherenciaRequest,
+    background_tasks: BackgroundTasks,
+    _user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Análisis lean: coherencia interna + comparación vs flujograma existente."""
+    if not settings.anthropic_api_key:
+        raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY no configurada en el servidor.")
+    job_id = str(uuid.uuid4())
+    _jobs[job_id] = {"status": "pending", "tipo": "coherencia"}
+    background_tasks.add_task(_run_coherencia_job, job_id, body)
+    return {"ok": True, "job_id": job_id}
+
+
+@router.post("/analizar-mejoras")
+async def analizar_mejoras(
+    body: MejorasRequest,
+    background_tasks: BackgroundTasks,
+    _user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Análisis heavy: brechas, oportunidades de mejora y markdown mejorado."""
+    if not settings.anthropic_api_key:
+        raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY no configurada en el servidor.")
+    job_id = str(uuid.uuid4())
+    _jobs[job_id] = {"status": "pending", "tipo": "mejoras"}
+    background_tasks.add_task(_run_mejoras_job, job_id, body)
+    return {"ok": True, "job_id": job_id}
+
+
+@router.post("/analizar-proc-vs-inst")
+async def analizar_proc_vs_inst(
+    body: ProcVsInstRequest,
+    background_tasks: BackgroundTasks,
+    _user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Verifica coherencia entre el procedimiento y sus documentos de soporte."""
+    if not settings.anthropic_api_key:
+        raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY no configurada en el servidor.")
+    job_id = str(uuid.uuid4())
+    _jobs[job_id] = {"status": "pending", "tipo": "proc_vs_inst"}
+    background_tasks.add_task(_run_pvsi_job, job_id, body)
+    return {"ok": True, "job_id": job_id}
+
+
+@router.post("/indexar-lightrag")
+async def indexar_lightrag(
+    body: IndexarLightRAGRequest,
+    background_tasks: BackgroundTasks,
+    _user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Indexa el procedimiento y sus documentos de soporte en LightRAG."""
+    job_id = str(uuid.uuid4())
+    _jobs[job_id] = {"status": "pending", "tipo": "indexar_lightrag"}
+    background_tasks.add_task(_run_indexar_job, job_id, body)
+    return {"ok": True, "job_id": job_id}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Edición con IA — edición quirúrgica desde la intranet
+# ══════════════════════════════════════════════════════════════════════════════
+
+class EditarConIARequest(BaseModel):
+    procedimientoId: int
+    procedureCode: str = Field(..., min_length=1, max_length=200)
+    area: str = Field(..., min_length=1, max_length=100)
+    contenidoActual: str = Field(..., min_length=10, max_length=40_000)
+    instruccion: str = Field(..., min_length=5, max_length=2000)
+
+
+def _build_editar_system() -> str:
+    return """Eres el agente de edición de procedimientos de NetVault (ZYMO).
+Recibes un procedimiento en markdown y una instrucción de edición específica del usuario.
+Tu tarea es aplicar ÚNICAMENTE los cambios solicitados, dejando el resto del documento intacto.
+
+Responde ÚNICAMENTE con JSON válido (sin markdown fence):
+{
+  "contenidoEditado": "# CÓDIGO\\n\\n## Objetivo\\n...",
+  "resumen": "Descripción en 2-3 oraciones de exactamente qué se cambió.",
+  "cambios": [
+    {"seccion": "Responsables", "tipo": "modificacion|adicion|eliminacion", "descripcion": "..."}
+  ]
+}
+
+Reglas estrictas:
+- Mantener el mismo formato markdown del documento original.
+- NO modificar secciones que no estén contempladas en la instrucción.
+- NO inventar hechos nuevos que no estén en la instrucción ni en el documento.
+- Los cambios deben ser mínimos, quirúrgicos y trazables.
+- Si la instrucción es ambigua, hacer la interpretación más conservadora.
+- El campo contenidoEditado debe contener el documento COMPLETO, no solo el fragmento editado."""
+
+
+def _build_editar_user(req: EditarConIARequest) -> str:
+    return f"""Aplica la siguiente instrucción de edición al procedimiento **{req.procedureCode}** (área: {req.area}).
+
+INSTRUCCIÓN DEL USUARIO:
+{req.instruccion}
+
+DOCUMENTO ACTUAL:
+---
+{req.contenidoActual[:20000]}
+---
+
+Aplica ÚNICAMENTE los cambios indicados en la instrucción.
+Devuelve el documento completo con los cambios aplicados en el campo contenidoEditado.
+Responde ÚNICAMENTE con el JSON especificado."""
+
+
+def _run_editar_job(job_id: str, body: EditarConIARequest) -> None:
+    try:
+        import anthropic
+        client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+        response = client.messages.create(
+            model=settings.anthropic_model,
+            max_tokens=12000,
+            system=_build_editar_system(),
+            messages=[{"role": "user", "content": _build_editar_user(body)}],
+        )
+        tokens_in  = response.usage.input_tokens
+        tokens_out = response.usage.output_tokens
+        logger.info(
+            "[netvault/editar/job:%s] %s — in=%d out=%d",
+            job_id[:8], body.procedureCode, tokens_in, tokens_out,
+        )
+
+        class _R:
+            procedureCode = body.procedureCode
+            area          = body.area
+            textContent   = body.contenidoActual
+
+        parsed = _parse_response(response.content[0].text, _R())  # type: ignore[arg-type]
+        _jobs[job_id] = {
+            "status": "done",
+            "tipo": "editar_con_ia",
+            "data": {
+                **parsed,
+                "procedimientoId":  body.procedimientoId,
+                "procedureCode":    body.procedureCode,
+                "contenidoOriginal": body.contenidoActual,
+                "instruccion":      body.instruccion,
+                "tokensUsados":     tokens_in + tokens_out,
+                "modeloUsado":      settings.anthropic_model,
+            },
+        }
+    except Exception as exc:
+        logger.exception("[netvault/editar/job:%s] Error", job_id[:8])
+        _jobs[job_id] = {"status": "error", "error": str(exc)}
+
+
+@router.post("/editar-con-ia")
+async def editar_con_ia(
+    body: EditarConIARequest,
+    background_tasks: BackgroundTasks,
+    _user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Edición quirúrgica de procedimiento con IA. Retorna job_id para polling."""
+    if not settings.anthropic_api_key:
+        raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY no configurada en el servidor.")
+    job_id = str(uuid.uuid4())
+    _jobs[job_id] = {"status": "pending", "tipo": "editar_con_ia"}
+    background_tasks.add_task(_run_editar_job, job_id, body)
+    return {"ok": True, "job_id": job_id}

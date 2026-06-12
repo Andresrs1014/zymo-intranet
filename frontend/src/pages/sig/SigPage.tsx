@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useAuthStore } from "@/store/authStore"
 import { cn } from "@/lib/utils"
 import { sigApi } from "@/lib/sigApi"
@@ -11,7 +11,9 @@ import remarkGfm from "remark-gfm"
 import {
   FileText, GitCommit, Inbox, X,
   GitBranchPlus, Clock, ChevronRight, Check, Circle, Download,
+  Pencil, Eye, Sparkles, Save, XCircle, Loader,
 } from "lucide-react"
+import { SigAiEditorPanel } from "@/components/sig/SigAiEditorPanel"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -298,6 +300,8 @@ interface CommitFull {
   contenidoAgente: string
 }
 
+type EditorMode = "view" | "edit" | "ai"
+
 const ESTADO_PROC_BADGE: Record<string, string> = {
   BORRADOR: "text-zinc-500 border-zinc-300 bg-zinc-100",
   VIGENTE:  "text-helix-done border-helix-done/40 bg-helix-done/10",
@@ -313,6 +317,14 @@ const COMMIT_STATE_DOT: Record<string, string> = {
 function ProcedureFileView({
   id, onOpenCommit,
 }: { id: number; onOpenCommit: (id: number, info: CommitOpenInfo) => void }) {
+  const [editorMode, setEditorMode] = useState<EditorMode>("view")
+  const [editContent, setEditContent] = useState("")
+  const [commitMsg, setCommitMsg] = useState("")
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState("")
+
+  const qc = useQueryClient()
+
   const { data: proc, isLoading: procLoading } = useQuery<ProcDetail>({
     queryKey: ["sig", "procedimiento", id],
     queryFn: async () => (await sigApi.get(`/api/procedimientos/${id}`)).data,
@@ -325,6 +337,34 @@ function ProcedureFileView({
     queryFn: async () => (await sigApi.get(`/api/commits/${latestApproved!.id}`)).data,
     enabled: !!latestApproved,
   })
+
+  // Cuando entra al modo edición, prefill con el contenido actual
+  function enterEdit() {
+    setEditContent(content?.contenidoAgente ?? "")
+    setCommitMsg("")
+    setSaveError("")
+    setEditorMode("edit")
+  }
+
+  async function handleSaveEdit() {
+    if (!proc || !commitMsg.trim() || saving) return
+    setSaving(true)
+    setSaveError("")
+    try {
+      await sigApi.post("/api/commits", {
+        procedimientoId: id,
+        contenidoOriginal: content?.contenidoAgente ?? "",
+        contenidoAgente: editContent,
+        mensaje: commitMsg,
+      })
+      qc.invalidateQueries({ queryKey: ["sig", "procedimiento", id] })
+      setEditorMode("view")
+    } catch (e: any) {
+      setSaveError(e?.response?.data?.error ?? "Error al guardar la versión.")
+    } finally {
+      setSaving(false)
+    }
+  }
 
   if (procLoading) {
     return (
@@ -344,6 +384,9 @@ function ProcedureFileView({
     )
   }
 
+  const currentContent = content?.contenidoAgente ?? ""
+  const procArea = proc.area
+
   return (
     <div className="flex h-full bg-white overflow-hidden">
 
@@ -351,71 +394,154 @@ function ProcedureFileView({
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
 
         {/* Breadcrumb bar */}
-        <div className="shrink-0 flex items-center gap-1.5 px-4 h-7 border-b border-zinc-200 bg-zinc-50">
-          <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: proc.area.color }} />
-          <span className="text-[11px] text-zinc-500 font-mono">{proc.area.nombre}</span>
+        <div className="shrink-0 flex items-center gap-1.5 px-4 h-8 border-b border-zinc-200 bg-zinc-50">
+          <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: procArea.color }} />
+          <span className="text-[11px] text-zinc-500 font-mono">{procArea.nombre}</span>
           <ChevronRight className="h-3 w-3 text-helix-accent/30" />
           <FileText className="h-3 w-3 text-zinc-400" />
           <span className="text-[11px] text-zinc-700 font-mono font-medium">{proc.codigo}</span>
-          <div className="ml-2">
-            <span className={cn(
-              "text-[9px] px-1.5 py-0.5 rounded border font-mono",
-              ESTADO_PROC_BADGE[proc.estado],
-            )}>
+          <div className="ml-1">
+            <span className={cn("text-[9px] px-1.5 py-0.5 rounded border font-mono", ESTADO_PROC_BADGE[proc.estado])}>
               {proc.estado.toLowerCase()}
             </span>
           </div>
-        </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-auto px-8 py-6">
-          <div className="max-w-3xl mx-auto">
-
-            {/* Header */}
-            <div className="mb-8">
-              <h1 className="text-xl font-bold text-zinc-900 font-mono mb-1">{proc.codigo}</h1>
-              <p className="text-sm text-zinc-600">{proc.titulo}</p>
-              {proc.descripcion && (
-                <p className="text-xs text-zinc-400 mt-2">{proc.descripcion}</p>
-              )}
-            </div>
-
-            {/* Document content */}
-            {content?.contenidoAgente ? (
-              <div className="prose prose-sm max-w-none
-                prose-headings:font-mono prose-headings:text-zinc-800 prose-headings:font-semibold
-                prose-p:text-zinc-600 prose-p:leading-relaxed
-                prose-code:text-helix-ai prose-code:bg-zinc-100 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-[11px]
-                prose-pre:bg-zinc-50 prose-pre:border prose-pre:border-zinc-200
-                prose-strong:text-zinc-700 prose-strong:font-semibold
-                prose-li:text-zinc-600 prose-li:marker:text-zinc-400
-                prose-hr:border-zinc-200
-                prose-blockquote:border-l-zinc-300 prose-blockquote:text-zinc-500
-                prose-table:text-xs prose-th:text-zinc-600 prose-td:text-zinc-500
-                prose-a:text-helix-ai prose-a:no-underline hover:prose-a:underline"
+          {/* Editor mode controls */}
+          <div className="ml-auto flex items-center gap-1">
+            {editorMode === "view" && currentContent && (
+              <>
+                <button
+                  onClick={enterEdit}
+                  className="flex items-center gap-1 text-[10px] px-2 py-1 rounded border border-zinc-200 text-zinc-500 hover:border-zinc-300 hover:text-zinc-700 transition-colors font-mono"
+                >
+                  <Pencil className="h-3 w-3" />
+                  Editar
+                </button>
+                <button
+                  onClick={() => setEditorMode("ai")}
+                  className="flex items-center gap-1 text-[10px] px-2 py-1 rounded border border-violet-200 text-violet-600 hover:bg-violet-50 transition-colors font-mono"
+                >
+                  <Sparkles className="h-3 w-3" />
+                  Editar con IA
+                </button>
+              </>
+            )}
+            {(editorMode === "edit" || editorMode === "ai") && (
+              <button
+                onClick={() => setEditorMode("view")}
+                className="flex items-center gap-1 text-[10px] px-2 py-1 rounded border border-zinc-200 text-zinc-500 hover:text-zinc-700 transition-colors font-mono"
               >
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {content.contenidoAgente}
-                </ReactMarkdown>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-16 gap-3">
-                <div className="h-8 w-8 rounded border border-zinc-200 flex items-center justify-center">
-                  <FileText className="h-4 w-4 text-zinc-300" />
-                </div>
-                <div className="text-center">
-                  <p className="text-sm text-zinc-500 font-mono">Sin contenido publicado</p>
-                  <p className="text-[11px] text-zinc-400 mt-1">
-                    {proc.commits.length === 0
-                      ? "Aún no hay commits. Usa NetVault para enviar el primer análisis."
-                      : "Hay commits en revisión. Aprueba uno para publicar el contenido."
-                    }
-                  </p>
-                </div>
-              </div>
+                <Eye className="h-3 w-3" />
+                Vista
+              </button>
             )}
           </div>
         </div>
+
+        {/* AI Editor mode */}
+        {editorMode === "ai" && (
+          <div className="flex-1 overflow-hidden">
+            <SigAiEditorPanel
+              procedimientoId={id}
+              procedureCode={proc.codigo}
+              area={procArea.nombre}
+              contenidoActual={currentContent}
+              onCommitCreated={() => setEditorMode("view")}
+            />
+          </div>
+        )}
+
+        {/* Manual edit mode */}
+        {editorMode === "edit" && (
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="shrink-0 flex items-center gap-2 px-4 py-2 border-b border-zinc-200 bg-amber-50">
+              <Pencil className="h-3 w-3 text-amber-500" />
+              <span className="text-[11px] text-amber-600 font-mono">Modo edición — los cambios crearán una nueva versión para revisión</span>
+            </div>
+            <textarea
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              className="flex-1 font-mono text-[12px] text-zinc-700 p-6 resize-none focus:outline-none bg-white"
+              spellCheck={false}
+            />
+            <div className="shrink-0 flex items-center gap-3 px-4 py-3 border-t border-zinc-200 bg-zinc-50">
+              <input
+                value={commitMsg}
+                onChange={(e) => setCommitMsg(e.target.value)}
+                placeholder="Mensaje descriptivo de los cambios…"
+                className="flex-1 text-[12px] font-mono px-3 py-1.5 border border-zinc-200 rounded focus:outline-none focus:ring-1 focus:ring-helix-accent text-zinc-700 bg-white"
+              />
+              {saveError && <span className="text-[10px] text-red-500 font-mono">{saveError}</span>}
+              <button
+                onClick={handleSaveEdit}
+                disabled={!commitMsg.trim() || saving}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded text-[11px] font-mono font-medium transition-all",
+                  commitMsg.trim() && !saving
+                    ? "bg-helix-accent text-white hover:opacity-90"
+                    : "bg-zinc-200 text-zinc-400 cursor-not-allowed"
+                )}
+              >
+                {saving ? <><Loader className="h-3 w-3 animate-spin" /> Guardando…</> : <><Save className="h-3 w-3" /> Guardar versión</>}
+              </button>
+              <button onClick={() => setEditorMode("view")} className="p-1.5 text-zinc-400 hover:text-zinc-700 transition-colors">
+                <XCircle className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* View mode */}
+        {editorMode === "view" && (
+          <div className="flex-1 overflow-auto px-8 py-6">
+            <div className="max-w-3xl mx-auto">
+
+              {/* Header */}
+              <div className="mb-8">
+                <h1 className="text-xl font-bold text-zinc-900 font-mono mb-1">{proc.codigo}</h1>
+                <p className="text-sm text-zinc-600">{proc.titulo}</p>
+                {proc.descripcion && (
+                  <p className="text-xs text-zinc-400 mt-2">{proc.descripcion}</p>
+                )}
+              </div>
+
+              {/* Document content */}
+              {currentContent ? (
+                <div className="prose prose-sm max-w-none
+                  prose-headings:font-mono prose-headings:text-zinc-800 prose-headings:font-semibold
+                  prose-p:text-zinc-600 prose-p:leading-relaxed
+                  prose-code:text-helix-ai prose-code:bg-zinc-100 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-[11px]
+                  prose-pre:bg-zinc-50 prose-pre:border prose-pre:border-zinc-200
+                  prose-strong:text-zinc-700 prose-strong:font-semibold
+                  prose-li:text-zinc-600 prose-li:marker:text-zinc-400
+                  prose-hr:border-zinc-200
+                  prose-blockquote:border-l-zinc-300 prose-blockquote:text-zinc-500
+                  prose-table:text-xs prose-th:text-zinc-600 prose-td:text-zinc-500
+                  prose-a:text-helix-ai prose-a:no-underline hover:prose-a:underline"
+                >
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {currentContent}
+                  </ReactMarkdown>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-16 gap-3">
+                  <div className="h-8 w-8 rounded border border-zinc-200 flex items-center justify-center">
+                    <FileText className="h-4 w-4 text-zinc-300" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-zinc-500 font-mono">Sin contenido publicado</p>
+                    <p className="text-[11px] text-zinc-400 mt-1">
+                      {proc.commits.length === 0
+                        ? "Aún no hay commits. Usa NetVault para enviar el primer análisis."
+                        : "Hay commits en revisión. Aprueba uno para publicar el contenido."
+                      }
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Right panel: commit history */}

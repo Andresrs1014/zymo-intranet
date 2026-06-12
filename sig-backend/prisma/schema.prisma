@@ -31,7 +31,11 @@ model SigProcedimiento {
   estado      SigEstadoProcedimiento @default(BORRADOR)
   createdAt   DateTime               @default(now())
   updatedAt   DateTime               @updatedAt
-  commits     SigCommit[]
+  commits              SigCommit[]
+  instructivos         SigInstructivo[]
+  analisisCoherencia   SigAnalisisCoherencia[]
+  analisisMejoras      SigAnalisisMejoras[]
+  analisisProcVsInst   SigAnalisisProcVsInst[]
 
   @@index([areaId])
   @@index([estado])
@@ -81,4 +85,101 @@ enum SigEstadoCommit {
   PENDIENTE_REVISION
   APROBADO
   RECHAZADO
+}
+
+// ── Instructivo — documento de soporte de un procedimiento ────────────────────
+
+model SigInstructivo {
+  id              Int              @id @default(autoincrement())
+  procedimientoId Int
+  procedimiento   SigProcedimiento @relation(fields: [procedimientoId], references: [id], onDelete: Cascade)
+
+  codigo          String
+  titulo          String
+  descripcion     String?
+
+  contenido         String  @db.Text
+  contenidoOriginal String? @db.Text
+  versionDoc        String  @default("1.0")
+
+  autorId     Int
+  autorNombre String
+
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([procedimientoId])
+  @@index([codigo])
+}
+
+// ── Análisis de Coherencia ────────────────────────────────────────────────────
+
+model SigAnalisisCoherencia {
+  id              Int              @id @default(autoincrement())
+  procedimientoId Int
+  procedimiento   SigProcedimiento @relation(fields: [procedimientoId], references: [id], onDelete: Cascade)
+
+  coherente  Boolean
+  puntaje    Float?
+  resumen    String @db.Text
+  issues     Json   @default("[]")
+
+  flujogramaConsistente Boolean?
+  flujogramaDiff        String?  @db.Text
+
+  autorId      Int
+  autorNombre  String
+  tokensUsados Int?
+  modeloUsado  String @default("claude-sonnet-4-6")
+
+  createdAt DateTime @default(now())
+
+  @@index([procedimientoId])
+  @@index([createdAt])
+}
+
+// ── Análisis de Mejoras ───────────────────────────────────────────────────────
+
+model SigAnalisisMejoras {
+  id              Int              @id @default(autoincrement())
+  procedimientoId Int
+  procedimiento   SigProcedimiento @relation(fields: [procedimientoId], references: [id], onDelete: Cascade)
+
+  findings         Json   @default("[]")
+  proposals        Json   @default("[]")
+  markdownMejorado String? @db.Text
+  resumen          String  @db.Text
+
+  autorId      Int
+  autorNombre  String
+  tokensUsados Int?
+  modeloUsado  String @default("claude-sonnet-4-6")
+
+  createdAt DateTime @default(now())
+
+  @@index([procedimientoId])
+  @@index([createdAt])
+}
+
+// ── Análisis Procedimiento vs Instructivos ────────────────────────────────────
+
+model SigAnalisisProcVsInst {
+  id              Int              @id @default(autoincrement())
+  procedimientoId Int
+  procedimiento   SigProcedimiento @relation(fields: [procedimientoId], references: [id], onDelete: Cascade)
+
+  instructivoIds Json    @default("[]")
+  coherente      Boolean
+  resumen        String  @db.Text
+  conflictos     Json    @default("[]")
+
+  autorId      Int
+  autorNombre  String
+  tokensUsados Int?
+  modeloUsado  String @default("claude-sonnet-4-6")
+
+  createdAt DateTime @default(now())
+
+  @@index([procedimientoId])
 }
