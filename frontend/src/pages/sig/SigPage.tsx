@@ -11,7 +11,7 @@ import remarkGfm from "remark-gfm"
 import {
   FileText, GitCommit, Inbox, X,
   GitBranchPlus, Clock, ChevronRight, Check, Circle, Download,
-  Pencil, Eye, Sparkles, Save, XCircle, Loader, AlertCircle, Trash2,
+  Pencil, Eye, Sparkles, Save, XCircle, Loader, AlertCircle,
 } from "lucide-react"
 import { SigAiEditorPanel } from "@/components/sig/SigAiEditorPanel"
 
