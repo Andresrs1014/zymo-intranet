@@ -9,7 +9,6 @@ import { useState, useRef, useEffect } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { api } from "@/lib/api"
 import { sigApi } from "@/lib/sigApi"
-import { useAuthStore } from "@/store/authStore"
 import { cn } from "@/lib/utils"
 import {
   Sparkles, Send, Loader, CheckCircle2, XCircle,
@@ -47,8 +46,7 @@ export function SigAiEditorPanel({
   contenidoActual,
   onCommitCreated,
 }: Props) {
-  const user = useAuthStore((s) => s.user)
-  const qc   = useQueryClient()
+  const qc = useQueryClient()
 
   const [instruccion, setInstruccion] = useState("")
   const [phase, setPhase] = useState<Phase>("idle")
