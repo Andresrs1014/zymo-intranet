@@ -2,10 +2,13 @@ import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { sigApi } from "@/lib/sigApi"
 import { cn } from "@/lib/utils"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
 import {
   GitCommit, Check, X, AlertCircle,
-  SplitSquareHorizontal, AlignLeft,
+  SplitSquareHorizontal, AlignLeft, FileText,
 } from "lucide-react"
+import type { ProcedureOpenInfo } from "@/components/sig/SigExplorer"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -33,7 +36,7 @@ interface CommitDetail {
   }
 }
 
-type DiffMode = "split" | "inline"
+type DiffMode = "split" | "inline" | "documento"
 
 interface DiffRow {
   kind: "context" | "change" | "delete" | "insert" | "hunk"
@@ -52,6 +55,7 @@ type InlineRow =
 interface Props {
   commitId: number
   isGerente: boolean
+  onOpenProcedure?: (id: number, info: ProcedureOpenInfo) => void
 }
 
 // ── Diff Parser ────────────────────────────────────────────────────────────────
@@ -115,7 +119,7 @@ function flattenForInline(rows: DiffRow[]): InlineRow[] {
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 
-export function SigDiffEditor({ commitId, isGerente }: Props) {
+export function SigDiffEditor({ commitId, isGerente, onOpenProcedure }: Props) {
   const qc = useQueryClient()
   const [mode, setMode] = useState<DiffMode>("split")
   const [showReject, setShowReject] = useState(false)
@@ -130,7 +134,7 @@ export function SigDiffEditor({ commitId, isGerente }: Props) {
   const aprobar = useMutation({
     mutationFn: () => sigApi.post(`/api/commits/${commitId}/aprobar`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["sig"] }); setActionError(null) },
-    onError: (e: any) => setActionError(e?.response?.data?.error ?? "Error al aprobar"),
+    onError: (e: unknown) => setActionError((e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "Error al aprobar"),
   })
 
   const rechazar = useMutation({
@@ -139,7 +143,7 @@ export function SigDiffEditor({ commitId, isGerente }: Props) {
       qc.invalidateQueries({ queryKey: ["sig"] })
       setShowReject(false); setRejectComment(""); setActionError(null)
     },
-    onError: (e: any) => setActionError(e?.response?.data?.error ?? "Error al rechazar"),
+    onError: (e: unknown) => setActionError((e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "Error al rechazar"),
   })
 
   if (isLoading) {
@@ -160,10 +164,11 @@ export function SigDiffEditor({ commitId, isGerente }: Props) {
     )
   }
 
-  const isPending = commit.estado === "PENDIENTE_REVISION"
-  const rows = parseDiff(commit.patch)
-  const additions = rows.filter((r) => r.kind === "insert" || r.kind === "change").length
-  const deletions = rows.filter((r) => r.kind === "delete" || r.kind === "change").length
+  const isPending  = commit.estado === "PENDIENTE_REVISION"
+  const rows       = parseDiff(commit.patch)
+  const additions  = rows.filter((r) => r.kind === "insert" || r.kind === "change").length
+  const deletions  = rows.filter((r) => r.kind === "delete"  || r.kind === "change").length
+  const hasDiff    = !commit.sinCambios && rows.length > 0
 
   return (
     <div className="flex flex-col h-full bg-white">
@@ -172,15 +177,35 @@ export function SigDiffEditor({ commitId, isGerente }: Props) {
       <div className="shrink-0 border-b border-zinc-200 bg-zinc-50 px-5 py-3">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
+
+            {/* Breadcrumb — procedimiento code is now a link */}
             <div className="flex items-center gap-1.5 mb-2">
               <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: commit.procedimiento.area.color }} />
               <span className="text-[11px] text-zinc-500 font-mono">{commit.procedimiento.area.nombre}</span>
               <span className="text-[11px] text-zinc-300">/</span>
-              <span className="text-[11px] text-zinc-600 font-mono font-medium">{commit.procedimiento.codigo}</span>
+              {onOpenProcedure ? (
+                <button
+                  onClick={() => onOpenProcedure(commit.procedimiento.id, {
+                    codigo:     commit.procedimiento.codigo,
+                    titulo:     commit.procedimiento.titulo,
+                    areaColor:  commit.procedimiento.area.color,
+                    areaNombre: commit.procedimiento.area.nombre,
+                  })}
+                  className="text-[11px] text-zinc-600 font-mono font-medium hover:text-helix-accent hover:underline transition-colors"
+                  title="Abrir procedimiento"
+                >
+                  {commit.procedimiento.codigo}
+                </button>
+              ) : (
+                <span className="text-[11px] text-zinc-600 font-mono font-medium">
+                  {commit.procedimiento.codigo}
+                </span>
+              )}
               <span className="text-[11px] text-zinc-300">/</span>
               <GitCommit className="h-3 w-3 text-zinc-400" />
               <span className="text-[11px] text-zinc-500 font-mono">#{String(commit.id).padStart(4, "0")}</span>
             </div>
+
             <p className="text-sm font-medium text-zinc-900">{commit.mensaje}</p>
             <div className="flex items-center gap-3 mt-1.5 flex-wrap">
               <span className="text-[11px] text-zinc-500 font-mono">{commit.autorNombre}</span>
@@ -193,7 +218,7 @@ export function SigDiffEditor({ commitId, isGerente }: Props) {
                   hour: "2-digit", minute: "2-digit",
                 })}
               </span>
-              {!commit.sinCambios && (
+              {hasDiff && (
                 <>
                   <span className="text-[11px] text-helix-done font-mono font-semibold">+{additions}</span>
                   <span className="text-[11px] text-helix-accent font-mono font-semibold">−{deletions}</span>
@@ -243,37 +268,57 @@ export function SigDiffEditor({ commitId, isGerente }: Props) {
         {actionError && <p className="mt-2 text-[11px] text-red-500 font-mono">{actionError}</p>}
       </div>
 
-      {/* Diff toolbar */}
+      {/* Toolbar — Split | Inline | Documento */}
       <div className="shrink-0 flex items-center justify-between px-4 h-8 border-b border-zinc-200 bg-zinc-50">
         <div className="flex items-center gap-0.5">
           <button
             onClick={() => setMode("split")}
+            disabled={!hasDiff}
             className={cn(
               "flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded transition-colors font-mono",
-              mode === "split" ? "bg-zinc-200 text-zinc-800" : "text-zinc-400 hover:text-zinc-700",
+              mode === "split" ? "bg-zinc-200 text-zinc-800"
+              : !hasDiff ? "text-zinc-300 cursor-not-allowed"
+              : "text-zinc-400 hover:text-zinc-700",
             )}
           >
             <SplitSquareHorizontal className="h-3 w-3" /> Split
           </button>
           <button
             onClick={() => setMode("inline")}
+            disabled={!hasDiff}
             className={cn(
               "flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded transition-colors font-mono",
-              mode === "inline" ? "bg-zinc-200 text-zinc-800" : "text-zinc-400 hover:text-zinc-700",
+              mode === "inline" ? "bg-zinc-200 text-zinc-800"
+              : !hasDiff ? "text-zinc-300 cursor-not-allowed"
+              : "text-zinc-400 hover:text-zinc-700",
             )}
           >
             <AlignLeft className="h-3 w-3" /> Inline
           </button>
+          <button
+            onClick={() => setMode("documento")}
+            className={cn(
+              "flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded transition-colors font-mono",
+              mode === "documento" ? "bg-zinc-200 text-zinc-800" : "text-zinc-400 hover:text-zinc-700",
+            )}
+          >
+            <FileText className="h-3 w-3" /> Documento
+          </button>
         </div>
         <span className="text-[10px] text-zinc-400 font-mono">
-          {rows.length} líneas · {additions} adiciones · {deletions} eliminaciones
+          {hasDiff
+            ? `${rows.length} líneas · +${additions} −${deletions}`
+            : "sin cambios"
+          }
         </span>
       </div>
 
-      {/* Diff content */}
+      {/* Content */}
       <div className="flex-1 overflow-hidden">
-        {commit.sinCambios
-          ? <NoChangesView />
+        {mode === "documento"
+          ? <DocumentoView content={commit.contenidoAgente} />
+          : commit.sinCambios
+          ? <NoChangesView onViewDoc={() => setMode("documento")} />
           : mode === "split"
           ? <SplitDiff rows={rows} />
           : <InlineDiff rows={flattenForInline(rows)} />
@@ -320,9 +365,45 @@ export function SigDiffEditor({ commitId, isGerente }: Props) {
   )
 }
 
+// ── Documento view — full rendered markdown ────────────────────────────────────
+
+function DocumentoView({ content }: { content: string }) {
+  if (!content?.trim()) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-3 bg-white">
+        <FileText className="h-8 w-8 text-zinc-200" />
+        <p className="text-sm text-zinc-400 font-mono">Sin contenido en este commit</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="h-full overflow-auto bg-white">
+      <div className="max-w-3xl mx-auto px-8 py-6">
+        <div className="prose prose-sm max-w-none
+          prose-headings:font-mono prose-headings:text-zinc-800 prose-headings:font-semibold
+          prose-p:text-zinc-600 prose-p:leading-relaxed
+          prose-code:text-helix-ai prose-code:bg-zinc-100 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-[11px]
+          prose-pre:bg-zinc-50 prose-pre:border prose-pre:border-zinc-200
+          prose-strong:text-zinc-700 prose-strong:font-semibold
+          prose-li:text-zinc-600 prose-li:marker:text-zinc-400
+          prose-hr:border-zinc-200
+          prose-blockquote:border-l-zinc-300 prose-blockquote:text-zinc-500
+          prose-table:text-xs prose-th:text-zinc-600 prose-td:text-zinc-500
+          prose-a:text-helix-ai prose-a:no-underline hover:prose-a:underline"
+        >
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {content}
+          </ReactMarkdown>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── No changes ─────────────────────────────────────────────────────────────────
 
-function NoChangesView() {
+function NoChangesView({ onViewDoc }: { onViewDoc: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center h-full gap-3 bg-white">
       <div className="h-10 w-10 rounded-full border border-emerald-400/30 flex items-center justify-center">
@@ -334,6 +415,13 @@ function NoChangesView() {
           El agente revisó el procedimiento y lo encontró conforme. No se realizaron modificaciones.
         </p>
       </div>
+      <button
+        onClick={onViewDoc}
+        className="flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded border border-zinc-200 text-zinc-500 hover:border-zinc-300 hover:text-zinc-700 transition-colors font-mono"
+      >
+        <FileText className="h-3 w-3" />
+        Ver documento completo
+      </button>
     </div>
   )
 }
@@ -356,7 +444,6 @@ function SplitDiff({ rows }: { rows: DiffRow[] }) {
       </div>
 
       {rows.map((row, i) => {
-        // Hunk header — spans full width
         if (row.kind === "hunk") {
           return (
             <div key={i} className="flex bg-sky-50 border-y border-sky-200 h-7 items-center px-3">
@@ -364,8 +451,6 @@ function SplitDiff({ rows }: { rows: DiffRow[] }) {
             </div>
           )
         }
-
-        // Context line
         if (row.kind === "context") {
           return (
             <div key={i} className="flex">
@@ -380,8 +465,6 @@ function SplitDiff({ rows }: { rows: DiffRow[] }) {
             </div>
           )
         }
-
-        // Change line — both sides have content
         if (row.kind === "change") {
           return (
             <div key={i} className="flex">
@@ -398,8 +481,6 @@ function SplitDiff({ rows }: { rows: DiffRow[] }) {
             </div>
           )
         }
-
-        // Delete line — only left has content, right is empty slot
         if (row.kind === "delete") {
           return (
             <div key={i} className="flex">
@@ -412,8 +493,6 @@ function SplitDiff({ rows }: { rows: DiffRow[] }) {
             </div>
           )
         }
-
-        // Insert line — left is empty slot, right has content
         if (row.kind === "insert") {
           return (
             <div key={i} className="flex">
@@ -426,14 +505,13 @@ function SplitDiff({ rows }: { rows: DiffRow[] }) {
             </div>
           )
         }
-
         return null
       })}
     </div>
   )
 }
 
-// ── Inline Diff — pre-flattened rows, change = del row then ins row ────────────
+// ── Inline Diff ────────────────────────────────────────────────────────────────
 
 function InlineDiff({ rows }: { rows: InlineRow[] }) {
   return (
@@ -444,7 +522,6 @@ function InlineDiff({ rows }: { rows: InlineRow[] }) {
 
       {rows.map((item, i) => {
         const { kind, row } = item
-
         if (kind === "hunk") {
           return (
             <div key={i} className="flex bg-sky-50 border-y border-sky-200 h-7 items-center px-3">
@@ -452,7 +529,6 @@ function InlineDiff({ rows }: { rows: InlineRow[] }) {
             </div>
           )
         }
-
         if (kind === "context") {
           return (
             <div key={i} className="flex">
@@ -463,7 +539,6 @@ function InlineDiff({ rows }: { rows: InlineRow[] }) {
             </div>
           )
         }
-
         if (kind === "delete") {
           return (
             <div key={i} className="flex bg-red-50">
@@ -474,7 +549,6 @@ function InlineDiff({ rows }: { rows: InlineRow[] }) {
             </div>
           )
         }
-
         if (kind === "insert") {
           return (
             <div key={i} className="flex bg-green-50">
@@ -485,7 +559,6 @@ function InlineDiff({ rows }: { rows: InlineRow[] }) {
             </div>
           )
         }
-
         if (kind === "change-del") {
           return (
             <div key={i} className="flex bg-red-50">
@@ -496,7 +569,6 @@ function InlineDiff({ rows }: { rows: InlineRow[] }) {
             </div>
           )
         }
-
         if (kind === "change-ins") {
           return (
             <div key={i} className="flex bg-green-50">
@@ -507,7 +579,6 @@ function InlineDiff({ rows }: { rows: InlineRow[] }) {
             </div>
           )
         }
-
         return null
       })}
     </div>

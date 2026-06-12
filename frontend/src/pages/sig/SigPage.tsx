@@ -144,7 +144,12 @@ export function SigPage() {
               <ProcedureFileView id={activeView.id} onOpenCommit={openCommit} />
             )}
             {activeView.kind === "commit" && (
-              <SigDiffEditor commitId={activeView.id} isGerente={isGerente} />
+              <SigDiffEditor
+                key={activeView.id}
+                commitId={activeView.id}
+                isGerente={isGerente}
+                onOpenProcedure={openProcedure}
+              />
             )}
             {activeView.kind === "queue" && (
               <ReviewQueueView onOpenCommit={openCommit} />
@@ -331,12 +336,21 @@ function ProcedureFileView({
     queryFn: async () => (await sigApi.get(`/api/procedimientos/${id}`)).data,
   })
 
-  const latestApproved = proc?.commits.find((c) => c.estado === "APROBADO")
+  // Mostrar el último aprobado; si no hay ninguno, usar el pending más reciente como preview.
+  // El backend devuelve commits en orden descendente (más nuevo primero), pero lo forzamos
+  // con un sort explícito para no depender del contrato silencioso del backend.
+  const sortedCommits  = [...(proc?.commits ?? [])].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  )
+  const latestApproved = sortedCommits.find((c) => c.estado === "APROBADO")
+  const latestPending  = sortedCommits.find((c) => c.estado === "PENDIENTE_REVISION")
+  const contentCommit  = latestApproved ?? latestPending
+  const isPreview      = !latestApproved && !!latestPending
 
   const { data: content } = useQuery<CommitFull>({
-    queryKey: ["sig", "commit", latestApproved?.id],
-    queryFn: async () => (await sigApi.get(`/api/commits/${latestApproved!.id}`)).data,
-    enabled: !!latestApproved,
+    queryKey: ["sig", "commit", contentCommit?.id],
+    queryFn: async () => (await sigApi.get(`/api/commits/${contentCommit!.id}`)).data,
+    enabled: !!contentCommit,
   })
 
   // Cuando entra al modo edición, prefill con el contenido actual
@@ -360,8 +374,8 @@ function ProcedureFileView({
       })
       qc.invalidateQueries({ queryKey: ["sig", "procedimiento", id] })
       setEditorMode("view")
-    } catch (e: any) {
-      setSaveError(e?.response?.data?.error ?? "Error al guardar la versión.")
+    } catch (e: unknown) {
+      setSaveError((e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "Error al guardar la versión.")
     } finally {
       setSaving(false)
     }
@@ -494,6 +508,24 @@ function ProcedureFileView({
 
         {/* View mode */}
         {editorMode === "view" && (
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Banner: preview de versión pendiente — solo cuando hay contenido que mostrar */}
+            {isPreview && !!currentContent && (
+              <div className="shrink-0 flex items-center gap-2 px-4 py-1.5 border-b border-amber-200 bg-amber-50">
+                <Clock className="h-3 w-3 text-amber-500 shrink-0" />
+                <span className="text-[11px] text-amber-700 font-mono">
+                  Vista previa — versión pendiente de aprobación
+                </span>
+                {latestPending && (
+                  <button
+                    onClick={() => onOpenCommit(latestPending.id, { mensaje: latestPending.mensaje, codigo: proc.codigo })}
+                    className="ml-auto text-[10px] text-amber-600 hover:text-amber-800 underline font-mono transition-colors"
+                  >
+                    Ver diff #{String(latestPending.id).padStart(4, "0")}
+                  </button>
+                )}
+              </div>
+            )}
           <div className="flex-1 overflow-auto px-8 py-6">
             <div className="max-w-3xl mx-auto">
 
@@ -541,6 +573,7 @@ function ProcedureFileView({
                 </div>
               )}
             </div>
+          </div>
           </div>
         )}
       </div>
@@ -622,9 +655,13 @@ function CommitHistoryRow({
           {pdfError}
         </div>
       )}
-      <button
+      {/* Clickable row — `relative` here so PDF button is positioned within the row only */}
+      <div
+        role="button"
+        tabIndex={0}
         onClick={onOpen}
-        className="w-full text-left px-3 py-2 hover:bg-zinc-100 transition-colors"
+        onKeyDown={(e) => e.key === "Enter" && onOpen()}
+        className="relative px-3 py-2 hover:bg-zinc-100 transition-colors cursor-pointer"
       >
         <div className="flex items-start gap-2">
           <Circle
@@ -642,21 +679,28 @@ function CommitHistoryRow({
               </span>
             </div>
           </div>
-          {commit.estado === "APROBADO" && (
-            <button
-              onClick={handleDownloadPdf}
-              disabled={downloading}
-              title="Descargar PDF"
-              className="h-5 w-5 rounded flex items-center justify-center text-zinc-400 hover:text-helix-accent hover:bg-helix-accent/10 transition-colors disabled:opacity-40 shrink-0"
-            >
-              {downloading
-                ? <div className="h-3 w-3 rounded-full border border-zinc-300 border-t-zinc-500 animate-spin" />
-                : <Download className="h-3 w-3" />
-              }
-            </button>
-          )}
+          {/* Spacer so text doesn't overlap PDF button */}
+          {commit.estado === "APROBADO" && <div className="w-6 shrink-0" />}
         </div>
-      </button>
+
+        {/* PDF button — inside the row div so top-1/2 is relative to row height only */}
+        {commit.estado === "APROBADO" && (
+          <button
+            onClick={(e) => { e.stopPropagation(); handleDownloadPdf(e) }}
+            disabled={downloading}
+            title="Descargar PDF"
+            aria-label="Descargar PDF"
+            className="absolute right-3 top-1/2 -translate-y-1/2 h-6 w-6 rounded flex items-center justify-center
+                       text-zinc-400 hover:text-helix-accent hover:bg-helix-accent/10
+                       transition-colors disabled:opacity-40"
+          >
+            {downloading
+              ? <div className="h-3 w-3 rounded-full border border-zinc-300 border-t-zinc-500 animate-spin" />
+              : <Download className="h-3 w-3" />
+            }
+          </button>
+        )}
+      </div>
     </div>
   )
 }
