@@ -101,7 +101,7 @@ export function SigPage() {
   const pendingCount = pendientes.length
 
   return (
-    <div className="h-screen flex flex-col bg-white text-zinc-900 overflow-hidden select-none">
+    <div className="h-screen flex flex-col bg-zinc-50 text-zinc-900 overflow-hidden select-none">
 
       {/* Title bar */}
       <TitleBar
@@ -170,11 +170,11 @@ function TitleBar({
   isGerente, pendingCount, onOpenQueue,
 }: { isGerente: boolean; pendingCount: number; onOpenQueue: () => void }) {
   return (
-    <div className="h-9 shrink-0 flex items-center justify-between px-4 border-b border-zinc-200 bg-white">
+    <div className="h-10 shrink-0 flex items-center justify-between px-4 border-b border-zinc-200 bg-white">
       <div className="flex items-center gap-3">
-        <span className="text-[11px] font-bold tracking-[0.18em] text-helix-accent font-mono uppercase">SIG</span>
-        <div className="h-3 w-px bg-helix-accent/20" />
-        <span className="text-[11px] text-zinc-500">Sistema Integrado de Gestión</span>
+        <span className="text-xs font-bold tracking-[0.18em] text-helix-accent font-mono uppercase">SIG</span>
+        <div className="h-3.5 w-px bg-helix-accent/30" />
+        <span className="text-xs text-zinc-500">Sistema Integrado de Gestión</span>
       </div>
       {isGerente && pendingCount > 0 && (
         <button
@@ -206,7 +206,9 @@ function TabBar({
   onClose: (key: string) => void
 }) {
   return (
-    <div className="flex items-end shrink-0 bg-zinc-50 border-b border-zinc-200 overflow-x-auto scrollbar-none">
+    <div className="flex items-end shrink-0 bg-zinc-50 border-b border-zinc-200 overflow-x-auto scrollbar-none relative">
+      {/* Fade gradient en el borde derecho para indicar scroll */}
+      <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-zinc-50 to-transparent pointer-events-none z-10" />
       {tabs.map((tab) => {
         const isActive = tab.key === activeKey
         return (
@@ -251,31 +253,39 @@ function TabBar({
 
 function WelcomeView() {
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-6 bg-white">
-      <div className="flex flex-col items-center gap-3 text-center">
-        <div className="h-12 w-12 rounded-lg border border-helix-accent/20 flex items-center justify-center bg-zinc-50">
-          <GitBranchPlus className="h-6 w-6 text-helix-accent/40" />
+    <div className="flex flex-col items-center justify-center h-full gap-8 bg-zinc-50 relative overflow-hidden">
+      {/* Subtle grid pattern */}
+      <div
+        className="absolute inset-0 opacity-[0.03]"
+        style={{
+          backgroundImage: `radial-gradient(circle, #374151 1px, transparent 1px)`,
+          backgroundSize: '24px 24px',
+        }}
+      />
+
+      <div className="relative flex flex-col items-center gap-4 text-center">
+        <div className="h-14 w-14 rounded-xl border border-helix-accent/25 flex items-center justify-center bg-white shadow-sm">
+          <GitBranchPlus className="h-7 w-7 text-helix-accent/60" />
         </div>
         <div>
-          <p className="text-sm font-medium text-zinc-700 font-mono">Sistema Integrado de Gestión</p>
-          <p className="text-[11px] text-zinc-500 mt-1">
+          <p className="text-sm font-semibold text-zinc-700 font-mono">Sistema Integrado de Gestión</p>
+          <p className="text-xs text-zinc-500 mt-1">
             Selecciona un procedimiento o commit en el explorador
           </p>
         </div>
       </div>
-      <div className="flex flex-col gap-1.5 text-[11px] text-zinc-400 font-mono">
-        <div className="flex items-center gap-2">
-          <ChevronRight className="h-3 w-3" />
-          <span>Clic en un área para expandir</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <ChevronRight className="h-3 w-3" />
-          <span>Clic en un procedimiento para ver el documento</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <ChevronRight className="h-3 w-3" />
-          <span>Clic en un commit para ver el diff</span>
-        </div>
+
+      <div className="relative flex flex-col gap-2 text-xs text-zinc-400 font-mono">
+        {[
+          "Clic en un área para expandir",
+          "Clic en un procedimiento para ver el documento",
+          "Clic en un commit para ver el diff",
+        ].map((hint, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <ChevronRight className="h-3 w-3 text-helix-accent/40" />
+            <span>{hint}</span>
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -540,7 +550,7 @@ function ProcedureFileView({
 
               {/* Document content */}
               {currentContent ? (
-                <div className="prose prose-sm max-w-none
+                <div className="prose prose-sm max-w-3xl mx-auto px-6
                   prose-headings:font-mono prose-headings:text-zinc-800 prose-headings:font-semibold
                   prose-p:text-zinc-600 prose-p:leading-relaxed
                   prose-code:text-helix-ai prose-code:bg-zinc-100 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-[11px]
@@ -668,13 +678,13 @@ function CommitHistoryRow({
             className={cn("h-2 w-2 mt-0.5 shrink-0 fill-current", COMMIT_STATE_DOT[commit.estado])}
           />
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] text-zinc-600 group-hover:text-zinc-900 transition-colors truncate leading-tight">
+            <p className="text-xs text-zinc-600 group-hover:text-zinc-900 transition-colors truncate leading-tight">
               {commit.mensaje}
             </p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-[9px] text-zinc-400 font-mono">#{String(commit.id).padStart(4, "0")}</span>
-              <span className="text-[9px] text-zinc-400">·</span>
-              <span className="text-[9px] text-zinc-400 font-mono">
+              <span className="text-[10px] text-zinc-400 font-mono">#{String(commit.id).padStart(4, "0")}</span>
+              <span className="text-[10px] text-zinc-400">·</span>
+              <span className="text-[10px] text-zinc-400 font-mono">
                 {new Date(commit.createdAt).toLocaleDateString("es-CO", { day: "2-digit", month: "short" })}
               </span>
             </div>
@@ -835,17 +845,17 @@ function StatusBar({
 
   return (
     <div className="h-5 shrink-0 flex items-center gap-4 px-4 border-t border-zinc-200 bg-zinc-50">
-      <span className="text-[10px] text-helix-accent/60 font-mono font-bold">SIG</span>
+      <span className="text-[11px] text-helix-accent/60 font-mono font-bold">SIG</span>
       {viewLabel && (
         <>
           <div className="h-3 w-px bg-zinc-200" />
-          <span className="text-[10px] text-zinc-400 font-mono">{viewLabel}</span>
+          <span className="text-[11px] text-zinc-500 font-mono">{viewLabel}</span>
         </>
       )}
       {isGerente && pendingCount > 0 && (
         <>
           <div className="h-3 w-px bg-zinc-200" />
-          <span className="text-[10px] text-amber-500 font-mono">
+          <span className="text-[11px] text-amber-500 font-mono">
             ● {pendingCount} commit{pendingCount !== 1 ? "s" : ""} pendiente{pendingCount !== 1 ? "s" : ""}
           </span>
         </>

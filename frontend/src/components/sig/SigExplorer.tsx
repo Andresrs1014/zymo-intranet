@@ -101,13 +101,10 @@ export function SigExplorer({
   }
 
   return (
-    <div
-      className="flex flex-col shrink-0 border-r border-zinc-200 bg-zinc-50 overflow-hidden"
-      style={{ width: 264 }}
-    >
+    <div className="flex flex-col shrink-0 w-52 xl:w-64 border-r border-zinc-200 bg-zinc-50 overflow-hidden min-w-[180px]">
       {/* Explorer header */}
       <div className="flex items-center justify-between px-3 h-9 shrink-0 border-b border-zinc-200">
-        <span className="text-[10px] font-semibold text-helix-accent/70 tracking-widest uppercase">Explorador</span>
+        <span className="text-[11px] font-semibold text-helix-accent/80 tracking-widest uppercase">Explorador</span>
         {isAdmin && (
           <button
             title="Nueva área"
@@ -136,7 +133,7 @@ export function SigExplorer({
             <Inbox className="h-3.5 w-3.5 shrink-0" />
             <span className="text-[12px] flex-1">Cola de revisión</span>
             {pendingCount > 0 && (
-              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-600 font-mono font-bold tabular-nums border border-amber-300">
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-600 font-mono font-bold tabular-nums border border-amber-300">
                 {pendingCount}
               </span>
             )}
@@ -150,7 +147,7 @@ export function SigExplorer({
         {/* Section label */}
         {areas.length > 0 && (
           <div className="px-3 pt-1 pb-0.5">
-            <span className="text-[9px] text-helix-accent/50 font-mono uppercase tracking-widest">Áreas</span>
+            <span className="text-[10px] text-helix-accent/60 font-mono uppercase tracking-widest">Áreas</span>
           </div>
         )}
 
