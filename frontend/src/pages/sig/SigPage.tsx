@@ -11,7 +11,7 @@ import remarkGfm from "remark-gfm"
 import {
   FileText, GitCommit, Inbox, X,
   GitBranchPlus, Clock, ChevronRight, Check, Circle, Download,
-  Pencil, Eye, Sparkles, Save, XCircle, Loader,
+  Pencil, Eye, Sparkles, Save, XCircle, Loader, AlertCircle, Trash2,
 } from "lucide-react"
 import { SigAiEditorPanel } from "@/components/sig/SigAiEditorPanel"
 
@@ -121,6 +121,7 @@ export function SigPage() {
           onSelectProcedure={openProcedure}
           onSelectCommit={openCommit}
           onOpenQueue={openQueue}
+          onDeleteProcedure={(id) => closeTab(`proc-${id}`)}
         />
 
         {/* Right: editor area */}
@@ -583,10 +584,12 @@ function CommitHistoryRow({
   onOpen: () => void
 }) {
   const [downloading, setDownloading] = useState(false)
+  const [pdfError, setPdfError] = useState<string | null>(null)
 
   async function handleDownloadPdf(e: React.MouseEvent) {
     e.stopPropagation()
     setDownloading(true)
+    setPdfError(null)
     try {
       const res = await api.get(`/api/sig/pdf/commit/${commit.id}`, { responseType: "blob" })
       const url = URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }))
@@ -597,8 +600,15 @@ function CommitHistoryRow({
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
-    } catch {
-      // silencioso — el usuario puede reintentar
+    } catch (err: any) {
+      const status = err?.response?.status
+      const msg =
+        status === 404 ? "Commit no encontrado" :
+        status === 409 ? "Solo se puede generar PDF de commits aprobados" :
+        status === 502 ? "Error de comunicación interna — revisa logs del servidor" :
+        status === 503 ? "sig-backend no disponible" :
+        "Error al generar PDF — revisa logs del servidor"
+      setPdfError(msg)
     } finally {
       setDownloading(false)
     }
@@ -606,6 +616,12 @@ function CommitHistoryRow({
 
   return (
     <div className="border-b border-zinc-200/60 group">
+      {pdfError && (
+        <div className="px-3 pt-1.5 pb-0.5 text-[10px] text-red-500 font-mono flex items-center gap-1">
+          <AlertCircle className="h-3 w-3 shrink-0" />
+          {pdfError}
+        </div>
+      )}
       <button
         onClick={onOpen}
         className="w-full text-left px-3 py-2 hover:bg-zinc-100 transition-colors"

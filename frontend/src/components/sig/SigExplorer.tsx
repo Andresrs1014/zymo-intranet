@@ -5,7 +5,7 @@ import { useAuthStore } from "@/store/authStore"
 import { cn } from "@/lib/utils"
 import {
   ChevronRight, ChevronDown, FolderOpen, Folder,
-  FileText, GitCommit, Inbox, Plus, Circle,
+  FileText, GitCommit, Inbox, Plus, Circle, Trash2, AlertTriangle,
 } from "lucide-react"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -20,6 +20,7 @@ interface SigArea {
 
 interface SigProcedimiento {
   id: number
+  areaId: number
   codigo: string
   titulo: string
   estado: "BORRADOR" | "VIGENTE" | "OBSOLETO"
@@ -51,6 +52,7 @@ interface Props {
   onSelectProcedure: (id: number, info: ProcedureOpenInfo) => void
   onSelectCommit: (id: number, info: CommitOpenInfo) => void
   onOpenQueue: () => void
+  onDeleteProcedure?: (id: number) => void
 }
 
 const COLORS = [
@@ -62,7 +64,7 @@ const COLORS = [
 
 export function SigExplorer({
   activeKey, isGerente, pendingCount,
-  onSelectProcedure, onSelectCommit, onOpenQueue,
+  onSelectProcedure, onSelectCommit, onOpenQueue, onDeleteProcedure,
 }: Props) {
   const user = useAuthStore((s) => s.user)
   const isAdmin = user?.role === "admin"
@@ -171,6 +173,7 @@ export function SigExplorer({
             onSelectProcedure={onSelectProcedure}
             onSelectCommit={onSelectCommit}
             isManager={isManager}
+            onDeleteProcedure={onDeleteProcedure}
           />
         ))}
       </div>
@@ -235,7 +238,7 @@ export function SigExplorer({
 
 function AreaNode({
   area, expanded, expandedProcs, activeKey,
-  onToggleArea, onToggleProc, onSelectProcedure, onSelectCommit, isManager,
+  onToggleArea, onToggleProc, onSelectProcedure, onSelectCommit, isManager, onDeleteProcedure,
 }: {
   area: SigArea
   expanded: boolean
@@ -246,6 +249,7 @@ function AreaNode({
   onSelectProcedure: (id: number, info: ProcedureOpenInfo) => void
   onSelectCommit: (id: number, info: CommitOpenInfo) => void
   isManager: boolean
+  onDeleteProcedure?: (id: number) => void
 }) {
   const { data: procs = [] } = useQuery<SigProcedimiento[]>({
     queryKey: ["sig", "procs-by-area", area.id],
@@ -297,6 +301,7 @@ function AreaNode({
               }
               onSelectCommit={onSelectCommit}
               isManager={isManager}
+              onDeleteProcedure={onDeleteProcedure}
             />
           ))}
         </div>
@@ -314,7 +319,7 @@ const ESTADO_DOT: Record<string, string> = {
 }
 
 function ProcNode({
-  proc, expanded, activeKey, onToggle, onSelect, onSelectCommit,
+  proc, expanded, activeKey, onToggle, onSelect, onSelectCommit, isManager, onDeleteProcedure,
 }: {
   proc: SigProcedimiento
   area?: SigArea
@@ -324,8 +329,20 @@ function ProcNode({
   onSelect: () => void
   onSelectCommit: (id: number, info: CommitOpenInfo) => void
   isManager?: boolean
+  onDeleteProcedure?: (id: number) => void
 }) {
   const isActive = activeKey === `proc-${proc.id}`
+  const qc = useQueryClient()
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
+  const deleteMutation = useMutation({
+    mutationFn: () => sigApi.delete(`/api/procedimientos/${proc.id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["sig", "procs-by-area", proc.areaId] })
+      qc.invalidateQueries({ queryKey: ["sig", "areas"] })
+      onDeleteProcedure?.(proc.id)
+    },
+  })
 
   const { data: commits = [] } = useQuery<SigCommit[]>({
     queryKey: ["sig", "commits-by-proc", proc.id],
@@ -356,7 +373,7 @@ function ProcNode({
         {/* File row — click to open procedure */}
         <button
           onClick={onSelect}
-          className="flex items-center gap-1.5 flex-1 min-w-0 py-1 pr-2 text-left"
+          className="flex items-center gap-1.5 flex-1 min-w-0 py-1 pr-1 text-left"
         >
           <FileText className="h-3.5 w-3.5 shrink-0 text-zinc-400 group-hover:text-zinc-500 transition-colors" />
           <span className={cn(
@@ -366,9 +383,39 @@ function ProcNode({
             {proc.codigo}
           </span>
           <Circle
-            className={cn("h-2 w-2 shrink-0 fill-current", ESTADO_DOT[proc.estado])}
+            className={cn("h-2 w-2 shrink-0 fill-current mr-1", ESTADO_DOT[proc.estado])}
           />
         </button>
+
+        {/* Delete — only for managers */}
+        {isManager && (
+          confirmDelete ? (
+            <div className="flex items-center gap-0.5 pr-1 shrink-0">
+              <AlertTriangle className="h-2.5 w-2.5 text-amber-400" />
+              <button
+                onClick={(e) => { e.stopPropagation(); deleteMutation.mutate() }}
+                disabled={deleteMutation.isPending}
+                className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors font-mono"
+              >
+                {deleteMutation.isPending ? "…" : "Sí"}
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); setConfirmDelete(false) }}
+                className="text-[9px] px-1 py-0.5 rounded text-zinc-400 hover:text-zinc-600 transition-colors font-mono"
+              >
+                No
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={(e) => { e.stopPropagation(); setConfirmDelete(true) }}
+              className="opacity-0 group-hover:opacity-50 hover:!opacity-100 pr-1.5 text-zinc-400 hover:text-red-400 transition-all shrink-0"
+              title="Eliminar procedimiento"
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          )
+        )}
       </div>
 
       {/* Commits */}

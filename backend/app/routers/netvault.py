@@ -136,7 +136,7 @@ CORPUS_RULES = [
 class AnalyzeRequest(BaseModel):
     procedureCode: str = Field(..., min_length=1, max_length=200)
     area: str = Field(..., min_length=1, max_length=100)
-    textContent: str = Field(..., min_length=10, max_length=40_000)
+    textContent: str = Field(..., min_length=10, max_length=200_000)
     existingFlowchartMmd: str | None = None
 
 
@@ -507,7 +507,7 @@ class CoherenciaRequest(BaseModel):
     procedimientoId: int
     procedureCode: str = Field(..., min_length=1, max_length=200)
     area: str = Field(..., min_length=1, max_length=100)
-    textContent: str = Field(..., min_length=10, max_length=40_000)
+    textContent: str = Field(..., min_length=10, max_length=200_000)
     existingFlowchartMmd: str | None = None
 
 
@@ -515,7 +515,7 @@ class MejorasRequest(BaseModel):
     procedimientoId: int
     procedureCode: str = Field(..., min_length=1, max_length=200)
     area: str = Field(..., min_length=1, max_length=100)
-    textContent: str = Field(..., min_length=10, max_length=40_000)
+    textContent: str = Field(..., min_length=10, max_length=200_000)
 
 
 class InstructivoItem(BaseModel):
@@ -529,7 +529,7 @@ class ProcVsInstRequest(BaseModel):
     procedimientoId: int
     procedureCode: str = Field(..., min_length=1, max_length=200)
     area: str = Field(..., min_length=1, max_length=100)
-    textContent: str = Field(..., min_length=10, max_length=40_000)
+    textContent: str = Field(..., min_length=10, max_length=200_000)
     instructivos: list[InstructivoItem] = Field(..., min_length=1, max_length=10)
 
 
@@ -537,7 +537,7 @@ class IndexarLightRAGRequest(BaseModel):
     procedimientoId: int
     procedureCode: str = Field(..., min_length=1, max_length=200)
     area: str = Field(..., min_length=1, max_length=100)
-    textContent: str = Field(..., min_length=10, max_length=40_000)
+    textContent: str = Field(..., min_length=10, max_length=200_000)
     instructivos: list[InstructivoItem] = Field(default_factory=list, max_length=10)
 
 

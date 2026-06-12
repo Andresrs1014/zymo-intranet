@@ -60,6 +60,8 @@ def _md_to_html(md: str) -> str:
     """Convierte markdown básico a HTML para WeasyPrint."""
     if not md:
         return ""
+    # Eliminar imágenes base64 embebidas — hacen el HTML enorme y rompen WeasyPrint
+    md = re.sub(r"!\[[^\]]*\]\(data:[^)]{8,}\)", "[imagen]", md)
     # Escapar HTML primero
     md = md.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     lines = md.split("\n")

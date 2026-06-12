@@ -136,14 +136,21 @@ router.get("/:id/sync", async (req: Request, res: Response) => {
   })
 })
 
-// DELETE /api/procedimientos/:id — solo admin
+// DELETE /api/procedimientos/:id — admin o gerente
 router.delete("/:id", requireSigAccess, async (req: Request, res: Response) => {
   const role = req.user?.role
-  if (role !== "admin") { res.status(403).json({ error: "Solo admin puede eliminar procedimientos" }); return }
+  if (role !== "admin" && role !== "gerente") {
+    res.status(403).json({ error: "Solo admin o gerente puede eliminar procedimientos" })
+    return
+  }
 
   const id = parseInt(req.params.id)
-  await prisma.sigProcedimiento.delete({ where: { id } })
-  res.status(204).send()
+  try {
+    await prisma.sigProcedimiento.delete({ where: { id } })
+    res.status(204).send()
+  } catch {
+    res.status(404).json({ error: "Procedimiento no encontrado" })
+  }
 })
 
 export default router
