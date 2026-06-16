@@ -1,8 +1,6 @@
-import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 
 export function DesarrolloInnovacionTab() {
-  const navigate = useNavigate()
 
   return (
     <div className="flex flex-col items-center justify-center py-20 px-6 text-center">

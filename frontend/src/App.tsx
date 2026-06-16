@@ -12,8 +12,6 @@ import {
   canUseAgentePanel,
   canSeeExtraccionIA,
   canSeeHelix,
-  canManageDevTasks,
-  canSubmitDevTasks,
 } from "@/lib/permissions"
 import { useAgentPanelStore } from "@/store/agentPanelStore"
 import { useMinWidth } from "@/hooks/useMinWidth"
