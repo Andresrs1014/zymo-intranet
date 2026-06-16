@@ -12,7 +12,7 @@ import {
   FileText, GitCommit, Inbox, X,
   GitBranchPlus, Clock, ChevronRight, Check, Circle, Download,
   Pencil, Eye, Sparkles, Save, XCircle, Loader, AlertCircle,
-  FlaskConical, RefreshCw,
+  FlaskConical, RefreshCw, BookOpen, ChevronDown, ChevronUp, BookMarked,
 } from "lucide-react"
 import { SigAiEditorPanel } from "@/components/sig/SigAiEditorPanel"
 import { SigAnalisisPanel } from "@/components/sig/SigAnalisisPanel"
@@ -380,6 +380,25 @@ const COMMIT_STATE_DOT: Record<string, string> = {
   RECHAZADO:          "fill-helix-accent text-helix-accent",
 }
 
+// Strips YAML frontmatter and Word-converter warnings before display
+function cleanProcContent(raw: string): string {
+  let s = raw.replace(/^---[\s\S]*?---\s*\n?/, "").trimStart()
+  s = s.replace(/^>.*unrecogni[sz]ed[^\n]*\n?/gim, "")
+  s = s.replace(/\n{3,}/g, "\n\n")
+  return s.trim()
+}
+
+interface ProcInstructivo {
+  id:          number
+  codigo:      string
+  titulo:      string
+  descripcion: string | null
+  contenido:   string
+  versionDoc:  string
+  autorNombre: string
+  createdAt:   string
+}
+
 function ProcedureFileView({
   id, onOpenCommit,
 }: { id: number; onOpenCommit: (id: number, info: CommitOpenInfo) => void }) {
@@ -586,36 +605,79 @@ function ProcedureFileView({
                 )}
               </div>
             )}
-          <div className="flex-1 overflow-auto px-8 py-6">
-            <div className="max-w-3xl mx-auto">
+          <div className="flex-1 overflow-auto bg-white">
+            <div className="max-w-3xl mx-auto px-8 py-8">
 
-              {/* Header */}
-              <div className="mb-8">
-                <h1 className="text-xl font-bold text-zinc-900 font-mono mb-1">{proc.codigo}</h1>
-                <p className="text-sm text-zinc-600">{proc.titulo}</p>
+              {/* Document header */}
+              <div className="mb-8 pb-6 border-b border-zinc-100">
+                <div className="h-0.5 w-10 rounded-full mb-5" style={{ backgroundColor: procArea.color }} />
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h1 className="text-lg font-bold text-zinc-900 font-mono tracking-tight">{proc.codigo}</h1>
+                    <p className="text-[14px] text-zinc-600 mt-1.5 leading-snug">{proc.titulo}</p>
+                  </div>
+                  <span className={cn("shrink-0 text-[10px] px-2 py-1 rounded border font-mono mt-0.5", ESTADO_PROC_BADGE[proc.estado])}>
+                    {proc.estado.toLowerCase()}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 mt-4">
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: procArea.color }} />
+                    <span className="text-[11px] text-zinc-400 font-mono">{procArea.nombre}</span>
+                  </div>
+                  {contentCommit?.versionDoc && (
+                    <>
+                      <div className="h-3 w-px bg-zinc-200" />
+                      <span className="text-[11px] text-zinc-400 font-mono">v{contentCommit.versionDoc}</span>
+                    </>
+                  )}
+                  {contentCommit?.createdAt && (
+                    <>
+                      <div className="h-3 w-px bg-zinc-200" />
+                      <span className="text-[11px] text-zinc-400 font-mono">
+                        {new Date(contentCommit.createdAt).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" })}
+                      </span>
+                    </>
+                  )}
+                </div>
                 {proc.descripcion && (
-                  <p className="text-xs text-zinc-400 mt-2">{proc.descripcion}</p>
+                  <p className="text-[11px] text-zinc-400 mt-3 leading-relaxed border-l-2 border-zinc-200 pl-3 italic">
+                    {proc.descripcion}
+                  </p>
                 )}
               </div>
 
               {/* Document content */}
               {currentContent ? (
-                <div className="prose prose-sm max-w-3xl mx-auto px-6
-                  prose-headings:font-mono prose-headings:text-zinc-800 prose-headings:font-semibold
-                  prose-p:text-zinc-600 prose-p:leading-relaxed
-                  prose-code:text-helix-ai prose-code:bg-zinc-100 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-[11px]
-                  prose-pre:bg-zinc-50 prose-pre:border prose-pre:border-zinc-200
-                  prose-strong:text-zinc-700 prose-strong:font-semibold
-                  prose-li:text-zinc-600 prose-li:marker:text-zinc-400
-                  prose-hr:border-zinc-200
-                  prose-blockquote:border-l-zinc-300 prose-blockquote:text-zinc-500
-                  prose-table:text-xs prose-th:text-zinc-600 prose-td:text-zinc-500
-                  prose-a:text-helix-ai prose-a:no-underline hover:prose-a:underline"
-                >
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {currentContent}
-                  </ReactMarkdown>
-                </div>
+                <>
+                  <div className="prose max-w-none
+                    prose-headings:font-mono prose-headings:text-zinc-800 prose-headings:font-bold prose-headings:tracking-tight
+                    prose-h1:text-base prose-h1:border-b prose-h1:border-zinc-200 prose-h1:pb-2 prose-h1:mb-4
+                    prose-h2:text-[14px] prose-h2:text-zinc-700 prose-h2:mt-8 prose-h2:mb-3
+                    prose-h3:text-[13px] prose-h3:text-zinc-600 prose-h3:mt-5
+                    prose-p:text-zinc-600 prose-p:leading-relaxed prose-p:text-[13px]
+                    prose-strong:text-zinc-800 prose-strong:font-semibold
+                    prose-li:text-zinc-600 prose-li:text-[13px] prose-li:leading-relaxed
+                    prose-ul:space-y-1.5 prose-ol:space-y-1.5
+                    prose-ul:my-3 prose-ol:my-3
+                    prose-code:text-helix-ai prose-code:bg-zinc-100 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-[11px] prose-code:font-mono
+                    prose-pre:bg-zinc-50 prose-pre:border prose-pre:border-zinc-200 prose-pre:rounded-lg prose-pre:text-[11px]
+                    prose-blockquote:border-l-2 prose-blockquote:border-amber-300 prose-blockquote:bg-amber-50/60 prose-blockquote:rounded-r prose-blockquote:text-amber-700 prose-blockquote:text-[11px] prose-blockquote:py-2 prose-blockquote:not-italic
+                    prose-table:text-[12px] prose-table:w-full prose-table:border-collapse
+                    prose-th:bg-zinc-50 prose-th:text-zinc-700 prose-th:font-mono prose-th:font-semibold prose-th:text-[11px] prose-th:px-3 prose-th:py-2 prose-th:border prose-th:border-zinc-200 prose-th:text-left
+                    prose-td:text-zinc-600 prose-td:text-[12px] prose-td:px-3 prose-td:py-2 prose-td:border prose-td:border-zinc-100
+                    prose-tr:even:bg-zinc-50/50
+                    prose-hr:border-zinc-200 prose-hr:my-6
+                    prose-a:text-helix-ai prose-a:no-underline hover:prose-a:underline"
+                  >
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {cleanProcContent(currentContent)}
+                    </ReactMarkdown>
+                  </div>
+
+                  {/* Instructivos section */}
+                  <InstructivosSection procId={id} />
+                </>
               ) : (
                 <div className="flex flex-col items-center justify-center py-16 gap-3">
                   <div className="h-8 w-8 rounded border border-zinc-200 flex items-center justify-center">
@@ -667,6 +729,92 @@ function ProcedureFileView({
   )
 }
 
+// ── Instructivos accordion ────────────────────────────────────────────────────
+
+function InstructivosSection({ procId }: { procId: number }) {
+  const [expanded, setExpanded] = useState<number | null>(null)
+
+  const { data: instructivos = [], isLoading } = useQuery<ProcInstructivo[]>({
+    queryKey: ["sig", "instructivos", procId],
+    queryFn:  () => sigApi.get(`/api/instructivos?procedimientoId=${procId}&activo=true`).then((r) => r.data),
+  })
+
+  if (isLoading || instructivos.length === 0) return null
+
+  return (
+    <div className="mt-12 pt-8 border-t border-zinc-100">
+      <div className="flex items-center gap-2 mb-5">
+        <BookOpen className="h-4 w-4 text-zinc-400" />
+        <span className="text-[13px] font-mono font-semibold text-zinc-600">Documentos de soporte</span>
+        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-zinc-200 text-zinc-400 ml-1">
+          {instructivos.length}
+        </span>
+      </div>
+      <div className="space-y-2">
+        {instructivos.map((inst) => (
+          <InstructivoCard
+            key={inst.id}
+            inst={inst}
+            isExpanded={expanded === inst.id}
+            onToggle={() => setExpanded(expanded === inst.id ? null : inst.id)}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function InstructivoCard({
+  inst, isExpanded, onToggle,
+}: { inst: ProcInstructivo; isExpanded: boolean; onToggle: () => void }) {
+  return (
+    <div className="border border-zinc-200 rounded-lg overflow-hidden transition-all">
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center gap-3 px-4 py-3 bg-zinc-50 hover:bg-zinc-100 transition-colors text-left"
+      >
+        <BookMarked className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+        <span className="text-[11px] font-mono font-bold text-zinc-700 shrink-0">{inst.codigo}</span>
+        <div className="h-3 w-px bg-zinc-300 shrink-0" />
+        <span className="text-[12px] text-zinc-600 flex-1 truncate">{inst.titulo}</span>
+        <span className="text-[9px] font-mono text-zinc-400 shrink-0">v{inst.versionDoc}</span>
+        {isExpanded
+          ? <ChevronUp className="h-3 w-3 text-zinc-400 shrink-0" />
+          : <ChevronDown className="h-3 w-3 text-zinc-400 shrink-0" />
+        }
+      </button>
+      {isExpanded && (
+        <div className="border-t border-zinc-100 bg-white">
+          {inst.descripcion && (
+            <p className="text-[11px] text-zinc-400 italic px-5 pt-4 pb-0">{inst.descripcion}</p>
+          )}
+          <div className="px-6 py-5
+            prose prose-sm max-w-none
+            prose-headings:font-mono prose-headings:text-zinc-700 prose-headings:font-semibold prose-headings:text-[13px]
+            prose-p:text-zinc-600 prose-p:text-[13px] prose-p:leading-relaxed
+            prose-strong:text-zinc-800 prose-strong:font-semibold
+            prose-li:text-zinc-600 prose-li:text-[13px] prose-li:leading-relaxed
+            prose-ul:space-y-1.5 prose-ol:space-y-1.5 prose-ul:my-3 prose-ol:my-3
+            prose-code:text-helix-ai prose-code:bg-zinc-100 prose-code:px-1 prose-code:rounded prose-code:text-[11px]
+            prose-table:text-[12px] prose-th:text-zinc-600 prose-th:font-mono prose-th:font-semibold prose-th:text-[11px] prose-th:border prose-th:border-zinc-200 prose-th:px-3 prose-th:py-1.5 prose-th:bg-zinc-50
+            prose-td:text-zinc-600 prose-td:text-[12px] prose-td:border prose-td:border-zinc-100 prose-td:px-3 prose-td:py-1.5
+            prose-hr:border-zinc-200"
+          >
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {cleanProcContent(inst.contenido)}
+            </ReactMarkdown>
+          </div>
+          <div className="px-5 pb-3 flex items-center gap-2">
+            <span className="text-[9px] text-zinc-400 font-mono">
+              {inst.autorNombre} · {new Date(inst.createdAt).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" })}
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Commit history row (con botón PDF para aprobados) ─────────────────────────
 
 function CommitHistoryRow({
@@ -693,8 +841,8 @@ function CommitHistoryRow({
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
-    } catch (err: any) {
-      const status = err?.response?.status
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status
       const msg =
         status === 404 ? "Commit no encontrado" :
         status === 409 ? "Solo se puede generar PDF de commits aprobados" :

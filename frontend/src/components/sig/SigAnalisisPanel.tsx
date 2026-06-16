@@ -45,12 +45,16 @@ interface ProcSummary {
 
 // ── Netvault polling ──────────────────────────────────────────────────────────
 
+const NETVAULT_TERMINAL = new Set(["done", "error", "cancelled", "failed", "aborted"])
+
 async function pollNetvaultJob(jobId: string): Promise<unknown> {
   for (let i = 0; i < 120; i++) {
     await new Promise<void>((r) => setTimeout(r, 2500))
     const { data } = await api.get(`/api/netvault/job/${jobId}`)
-    if (data.status === "done")  return data.result
+    if (data.status === "done") return data.result
     if (data.status === "error") throw new Error(data.error ?? "El análisis falló en netvault")
+    if (NETVAULT_TERMINAL.has(data.status as string))
+      throw new Error(`Estado inesperado del job: ${data.status as string}`)
   }
   throw new Error("Tiempo de espera agotado (5 min)")
 }
@@ -266,6 +270,8 @@ function ProcAnalisisCard({ proc }: { proc: ProcListItem }) {
       const { text, instructivos } = content
       const summary: ProcSummary = { id: proc.id, codigo: proc.codigo, titulo: proc.titulo }
       void runAnalysis(summary, type, text, type === "proc-vs-inst" ? instructivos : undefined)
+    } catch {
+      // fetchContent failed before job creation — loading resets in finally
     } finally {
       setLoading(null)
     }
@@ -283,6 +289,8 @@ function ProcAnalisisCard({ proc }: { proc: ProcListItem }) {
       void runAnalysis(summary, "mejoras", text)
       if (instructivos.length > 0) void runAnalysis(summary, "proc-vs-inst", text, instructivos)
       void runAnalysis(summary, "lightrag", text)
+    } catch {
+      // fetchContent failed — jobs weren't created, nothing to update; loading resets in finally
     } finally {
       setLoading(null)
     }
