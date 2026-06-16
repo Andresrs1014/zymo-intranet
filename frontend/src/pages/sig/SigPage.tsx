@@ -12,13 +12,14 @@ import {
   FileText, GitCommit, Inbox, X,
   GitBranchPlus, Clock, ChevronRight, Check, Circle, Download,
   Pencil, Eye, Sparkles, Save, XCircle, Loader, AlertCircle,
-  FlaskConical, RefreshCw, BookOpen, ChevronDown, ChevronUp, BookMarked,
+  FlaskConical, RefreshCw, BookOpen, ChevronDown, ChevronUp, BookMarked, UploadCloud,
 } from "lucide-react"
 import { SigAiEditorPanel } from "@/components/sig/SigAiEditorPanel"
 import { SigAnalisisPanel } from "@/components/sig/SigAnalisisPanel"
 import { SigAnalisisSyncView } from "@/components/sig/SigAnalisisSyncView"
 import { SigAnalisisQueue } from "@/components/sig/SigAnalisisQueue"
 import { SigAnalisisInspector } from "@/components/sig/SigAnalisisInspector"
+import { SigCargarModal, type PreselectedProc } from "@/components/sig/SigCargarModal"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -44,10 +45,20 @@ type ActiveView =
 export function SigPage() {
   const user = useAuthStore((s) => s.user)
   const isGerente = user?.role === "admin" || user?.role === "gerente"
+  const canEditSig = isGerente || (user?.app_permissions?.includes("mod_sig") ?? false)
 
   const [openTabs, setOpenTabs] = useState<TabMeta[]>([])
   const [activeKey, setActiveKey] = useState<string | null>(null)
   const [views, setViews] = useState<Record<string, ActiveView>>({})
+
+  // Carga de procedimientos / nuevas versiones desde documento
+  const [cargarOpen, setCargarOpen] = useState(false)
+  const [cargarProc, setCargarProc] = useState<PreselectedProc | null>(null)
+
+  const openCargar = useCallback((proc: PreselectedProc | null) => {
+    setCargarProc(proc)
+    setCargarOpen(true)
+  }, [])
 
   const { data: pendientes = [] } = useQuery<unknown[]>({
     queryKey: ["sig", "commits", "pendientes"],
@@ -121,10 +132,12 @@ export function SigPage() {
       {/* Title bar */}
       <TitleBar
         isGerente={isGerente}
+        canEditSig={canEditSig}
         pendingCount={pendingCount}
         onOpenQueue={openQueue}
         onOpenAnalisis={openAnalisis}
         onOpenSync={openAnalisisSync}
+        onCargar={() => openCargar(null)}
       />
 
       {/* Body */}
@@ -134,10 +147,12 @@ export function SigPage() {
         <SigExplorer
           activeKey={activeKey}
           isGerente={isGerente}
+          canEditSig={canEditSig}
           pendingCount={pendingCount}
           onSelectProcedure={openProcedure}
           onSelectCommit={openCommit}
           onOpenQueue={openQueue}
+          onCargarVersion={openCargar}
           onDeleteProcedure={(id) => closeTab(`proc-${id}`)}
         />
 
@@ -185,6 +200,14 @@ export function SigPage() {
 
       {/* Floating inspector — bottom-left near sidebar */}
       <SigAnalisisInspector />
+
+      {/* Carga de procedimiento / nueva versión desde documento */}
+      {cargarOpen && (
+        <SigCargarModal
+          preselected={cargarProc}
+          onClose={() => setCargarOpen(false)}
+        />
+      )}
     </div>
   )
 }
@@ -192,13 +215,15 @@ export function SigPage() {
 // ── Title bar ──────────────────────────────────────────────────────────────────
 
 function TitleBar({
-  isGerente, pendingCount, onOpenQueue, onOpenAnalisis, onOpenSync,
+  isGerente, canEditSig, pendingCount, onOpenQueue, onOpenAnalisis, onOpenSync, onCargar,
 }: {
   isGerente:      boolean
+  canEditSig:     boolean
   pendingCount:   number
   onOpenQueue:    () => void
   onOpenAnalisis: () => void
   onOpenSync:     () => void
+  onCargar:       () => void
 }) {
   return (
     <div className="h-10 shrink-0 flex items-center justify-between px-4 border-b border-zinc-200 bg-white">
@@ -209,6 +234,15 @@ function TitleBar({
       </div>
 
       <div className="flex items-center gap-2">
+        {canEditSig && (
+          <button
+            onClick={onCargar}
+            className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded border border-helix-accent/30 text-helix-accent hover:bg-helix-accent/5 transition-colors font-mono"
+          >
+            <UploadCloud className="h-3 w-3" />
+            Cargar procedimiento
+          </button>
+        )}
         <button
           onClick={onOpenAnalisis}
           className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded border border-violet-200 text-violet-600 hover:bg-violet-50 transition-colors font-mono"

@@ -5,8 +5,9 @@ import { useAuthStore } from "@/store/authStore"
 import { cn } from "@/lib/utils"
 import {
   ChevronRight, ChevronDown, FolderOpen, Folder,
-  FileText, GitCommit, Inbox, Plus, Circle, Trash2, AlertTriangle,
+  FileText, GitCommit, Inbox, Plus, Circle, Trash2, AlertTriangle, UploadCloud,
 } from "lucide-react"
+import type { PreselectedProc } from "@/components/sig/SigCargarModal"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -48,10 +49,12 @@ export interface CommitOpenInfo {
 interface Props {
   activeKey: string | null
   isGerente: boolean
+  canEditSig?: boolean
   pendingCount: number
   onSelectProcedure: (id: number, info: ProcedureOpenInfo) => void
   onSelectCommit: (id: number, info: CommitOpenInfo) => void
   onOpenQueue: () => void
+  onCargarVersion?: (proc: PreselectedProc) => void
   onDeleteProcedure?: (id: number) => void
 }
 
@@ -63,8 +66,8 @@ const COLORS = [
 // ── Main Explorer ──────────────────────────────────────────────────────────────
 
 export function SigExplorer({
-  activeKey, isGerente, pendingCount,
-  onSelectProcedure, onSelectCommit, onOpenQueue, onDeleteProcedure,
+  activeKey, isGerente, canEditSig, pendingCount,
+  onSelectProcedure, onSelectCommit, onOpenQueue, onCargarVersion, onDeleteProcedure,
 }: Props) {
   const user = useAuthStore((s) => s.user)
   const isAdmin = user?.role === "admin"
@@ -170,6 +173,8 @@ export function SigExplorer({
             onSelectProcedure={onSelectProcedure}
             onSelectCommit={onSelectCommit}
             isManager={isManager}
+            canEditSig={canEditSig}
+            onCargarVersion={onCargarVersion}
             onDeleteProcedure={onDeleteProcedure}
           />
         ))}
@@ -235,7 +240,7 @@ export function SigExplorer({
 
 function AreaNode({
   area, expanded, expandedProcs, activeKey,
-  onToggleArea, onToggleProc, onSelectProcedure, onSelectCommit, isManager, onDeleteProcedure,
+  onToggleArea, onToggleProc, onSelectProcedure, onSelectCommit, isManager, canEditSig, onCargarVersion, onDeleteProcedure,
 }: {
   area: SigArea
   expanded: boolean
@@ -246,6 +251,8 @@ function AreaNode({
   onSelectProcedure: (id: number, info: ProcedureOpenInfo) => void
   onSelectCommit: (id: number, info: CommitOpenInfo) => void
   isManager: boolean
+  canEditSig?: boolean
+  onCargarVersion?: (proc: PreselectedProc) => void
   onDeleteProcedure?: (id: number) => void
 }) {
   const { data: procs = [] } = useQuery<SigProcedimiento[]>({
@@ -298,6 +305,17 @@ function AreaNode({
               }
               onSelectCommit={onSelectCommit}
               isManager={isManager}
+              canEditSig={canEditSig}
+              onCargarVersion={() =>
+                onCargarVersion?.({
+                  id: proc.id,
+                  codigo: proc.codigo,
+                  titulo: proc.titulo,
+                  areaId: area.id,
+                  areaNombre: area.nombre,
+                  areaColor: area.color,
+                })
+              }
               onDeleteProcedure={onDeleteProcedure}
             />
           ))}
@@ -316,7 +334,7 @@ const ESTADO_DOT: Record<string, string> = {
 }
 
 function ProcNode({
-  proc, expanded, activeKey, onToggle, onSelect, onSelectCommit, isManager, onDeleteProcedure,
+  proc, expanded, activeKey, onToggle, onSelect, onSelectCommit, isManager, canEditSig, onCargarVersion, onDeleteProcedure,
 }: {
   proc: SigProcedimiento
   area?: SigArea
@@ -326,6 +344,8 @@ function ProcNode({
   onSelect: () => void
   onSelectCommit: (id: number, info: CommitOpenInfo) => void
   isManager?: boolean
+  canEditSig?: boolean
+  onCargarVersion?: () => void
   onDeleteProcedure?: (id: number) => void
 }) {
   const isActive = activeKey === `proc-${proc.id}`
@@ -383,6 +403,17 @@ function ProcNode({
             className={cn("h-2 w-2 shrink-0 fill-current mr-1", ESTADO_DOT[proc.estado])}
           />
         </button>
+
+        {/* Cargar nueva versión desde documento */}
+        {canEditSig && onCargarVersion && !confirmDelete && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onCargarVersion() }}
+            className="opacity-0 group-hover:opacity-50 hover:!opacity-100 pr-1 text-zinc-400 hover:text-helix-accent transition-all shrink-0"
+            title="Cargar nueva versión desde documento"
+          >
+            <UploadCloud className="h-3 w-3" />
+          </button>
+        )}
 
         {/* Delete — only for managers */}
         {isManager && (
