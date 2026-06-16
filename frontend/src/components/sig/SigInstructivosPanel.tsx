@@ -1,0 +1,518 @@
+/**
+ * SigInstructivosPanel — Documentos de soporte (instructivos) por procedimiento.
+ *
+ * Réplica web del flujo de net_file_manager: cargar MD/TXT/DOCX/PDF, vincular
+ * al procedimiento vía POST /api/instructivos. Sin sistema de commits.
+ */
+import { useRef, useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { sigApi } from "@/lib/sigApi"
+import { cn } from "@/lib/utils"
+import { extractTextFromFile, isAnalyzableFile, SUPPORTED_ACCEPT } from "@/lib/sigDocExtract"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
+import {
+  BookOpen, Plus, FileText, Trash2, Loader, AlertCircle, AlertTriangle,
+  ChevronDown, ChevronUp, X, FileCheck, Upload, FolderOpen,
+} from "lucide-react"
+
+const MAX_INSTRUCTIVOS = 10
+
+export interface SigInstructivo {
+  id: number
+  procedimientoId: number
+  codigo: string
+  titulo: string
+  descripcion: string | null
+  contenido: string
+  versionDoc: string
+  autorNombre: string
+  createdAt: string
+}
+
+interface Props {
+  procedimientoId: number
+  procCodigo?: string
+  canEdit?: boolean
+}
+
+interface FormState {
+  visible: boolean
+  fileName: string
+  contenido: string
+  codigo: string
+  titulo: string
+  descripcion: string
+  versionDoc: string
+  error: string
+  submitting: boolean
+}
+
+const FORM_DEFAULT: FormState = {
+  visible: false, fileName: "", contenido: "", codigo: "",
+  titulo: "", descripcion: "", versionDoc: "1.0", error: "", submitting: false,
+}
+
+function cleanContent(raw: string): string {
+  let s = raw.replace(/^---[\s\S]*?---\s*\n?/, "").trimStart()
+  s = s.replace(/^>.*unrecogni[sz]ed[^\n]*\n?/gim, "")
+  s = s.replace(/\n{3,}/g, "\n\n")
+  return s.trim()
+}
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime()
+  const days = Math.floor(diff / 86_400_000)
+  if (days === 0) return "Hoy"
+  if (days === 1) return "Ayer"
+  if (days < 30) return `Hace ${days} días`
+  return new Date(iso).toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" })
+}
+
+function getErr(e: unknown, fallback: string): string {
+  const data = (e as { response?: { data?: { error?: string | { message?: string } } } })?.response?.data
+  if (typeof data?.error === "string") return data.error
+  return fallback
+}
+
+const PROSE = `prose prose-sm max-w-none
+  prose-headings:font-mono prose-headings:text-zinc-700 prose-headings:font-semibold prose-headings:text-[13px]
+  prose-p:text-zinc-600 prose-p:text-[13px] prose-p:leading-relaxed
+  prose-strong:text-zinc-800 prose-strong:font-semibold
+  prose-li:text-zinc-600 prose-li:text-[13px] prose-li:leading-relaxed
+  prose-ul:space-y-1.5 prose-ol:space-y-1.5 prose-ul:my-3 prose-ol:my-3
+  prose-code:text-helix-ai prose-code:bg-zinc-100 prose-code:px-1 prose-code:rounded prose-code:text-[11px]
+  prose-table:text-[12px] prose-th:text-zinc-600 prose-th:font-mono prose-th:font-semibold prose-th:text-[11px] prose-th:border prose-th:border-zinc-200 prose-th:px-3 prose-th:py-1.5 prose-th:bg-zinc-50
+  prose-td:text-zinc-600 prose-td:text-[12px] prose-td:border prose-td:border-zinc-100 prose-td:px-3 prose-td:py-1.5
+  prose-hr:border-zinc-200`
+
+export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = false }: Props) {
+  const qc = useQueryClient()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const formRef = useRef<HTMLDivElement>(null)
+
+  const [form, setForm] = useState<FormState>(FORM_DEFAULT)
+  const [expanded, setExpanded] = useState<number | null>(null)
+  const [deleting, setDeleting] = useState<number | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
+  const [extracting, setExtracting] = useState(false)
+
+  const { data: instructivos = [], isLoading } = useQuery<SigInstructivo[]>({
+    queryKey: ["sig", "instructivos", procedimientoId],
+    queryFn: () =>
+      sigApi.get(`/api/instructivos?procedimientoId=${procedimientoId}&activo=true`).then((r) => r.data),
+  })
+
+  const atLimit = instructivos.length >= MAX_INSTRUCTIVOS
+  const showSection = canEdit || isLoading || instructivos.length > 0
+
+  if (!showSection) return null
+
+  async function handleFile(file: File) {
+    if (!isAnalyzableFile(file.name)) {
+      setForm((f) => ({ ...f, error: "Formato no soportado. Usa MD, TXT, DOCX o PDF." }))
+      return
+    }
+    setExtracting(true)
+    setForm((f) => ({ ...f, error: "" }))
+    try {
+      const text = await extractTextFromFile(file)
+      const baseName = file.name.replace(/\.[^.]+$/, "").replace(/[-_]/g, " ")
+      setForm((f) => ({
+        ...f,
+        visible: true,
+        fileName: file.name,
+        contenido: text,
+        titulo: baseName,
+        codigo: "",
+        error: "",
+      }))
+      setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 100)
+    } catch (e) {
+      setForm((f) => ({
+        ...f,
+        error: e instanceof Error ? e.message : "No se pudo leer el archivo.",
+      }))
+    } finally {
+      setExtracting(false)
+    }
+  }
+
+  function openFilePicker() {
+    if (atLimit || form.visible) return
+    fileInputRef.current?.click()
+  }
+
+  async function handleSave() {
+    const { codigo, titulo, contenido, descripcion, versionDoc } = form
+    if (!codigo.trim()) {
+      setForm((f) => ({ ...f, error: "El código es obligatorio (ej. INS-OP-001)." }))
+      return
+    }
+    if (!titulo.trim()) {
+      setForm((f) => ({ ...f, error: "El título es obligatorio." }))
+      return
+    }
+    if (!contenido.trim()) {
+      setForm((f) => ({ ...f, error: "El documento no tiene contenido." }))
+      return
+    }
+    if (atLimit) {
+      setForm((f) => ({ ...f, error: `Límite de ${MAX_INSTRUCTIVOS} documentos por procedimiento.` }))
+      return
+    }
+
+    setForm((f) => ({ ...f, submitting: true, error: "" }))
+    try {
+      const res = await sigApi.post("/api/instructivos", {
+        procedimientoId,
+        codigo: codigo.trim().toUpperCase(),
+        titulo: titulo.trim(),
+        descripcion: descripcion.trim() || undefined,
+        contenido,
+        contenidoOriginal: contenido,
+        versionDoc: versionDoc.trim() || "1.0",
+      })
+      const created = res.data?.created?.[0] as SigInstructivo | undefined
+      if (!created) {
+        const errMsg = res.data?.errors?.[0]?.error
+        setForm((f) => ({
+          ...f,
+          submitting: false,
+          error: typeof errMsg === "string" ? errMsg : "No se pudo guardar. Intente de nuevo.",
+        }))
+        return
+      }
+      qc.invalidateQueries({ queryKey: ["sig", "instructivos", procedimientoId] })
+      setForm(FORM_DEFAULT)
+    } catch (e) {
+      setForm((f) => ({ ...f, submitting: false, error: getErr(e, "No se pudo guardar.") }))
+    }
+  }
+
+  async function handleDelete(id: number) {
+    setDeleting(id)
+    setConfirmDeleteId(null)
+    try {
+      await sigApi.delete(`/api/instructivos/${id}`)
+      qc.invalidateQueries({ queryKey: ["sig", "instructivos", procedimientoId] })
+      if (expanded === id) setExpanded(null)
+    } catch {
+      // silent — user can retry
+    } finally {
+      setDeleting(null)
+    }
+  }
+
+  return (
+    <div className="mt-12 pt-8 border-t border-zinc-100">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={SUPPORTED_ACCEPT}
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          if (file) void handleFile(file)
+          e.target.value = ""
+        }}
+      />
+
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3 mb-5">
+        <div>
+          <div className="flex items-center gap-2">
+            <BookOpen className="h-4 w-4 text-zinc-400" />
+            <span className="text-[13px] font-mono font-semibold text-zinc-600">Documentos de soporte</span>
+            {instructivos.length > 0 && (
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-zinc-200 text-zinc-400">
+                {instructivos.length}
+              </span>
+            )}
+          </div>
+          <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed max-w-md">
+            Instructivos, guías o normas que complementan
+            {procCodigo ? ` ${procCodigo}` : " este procedimiento"}.
+          </p>
+        </div>
+
+        {canEdit && (
+          <button
+            onClick={openFilePicker}
+            disabled={extracting || form.visible || atLimit}
+            className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-mono font-semibold
+                       border border-helix-accent/30 text-helix-accent hover:bg-helix-accent/5
+                       transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {extracting ? <Loader className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+            Agregar documento
+          </button>
+        )}
+      </div>
+
+      {/* Capacity bar */}
+      {canEdit && instructivos.length > 0 && (
+        <div className="flex items-center gap-2 mb-4">
+          <div className="flex-1 h-1 rounded-full bg-zinc-100">
+            <div
+              className="h-1 rounded-full bg-helix-done/60 transition-all duration-500"
+              style={{ width: `${(instructivos.length / MAX_INSTRUCTIVOS) * 100}%` }}
+            />
+          </div>
+          <span className="text-[10px] text-zinc-400 font-mono tabular-nums">
+            {instructivos.length} / {MAX_INSTRUCTIVOS}
+          </span>
+        </div>
+      )}
+
+      {/* Upload form */}
+      {form.visible && canEdit && (
+        <div
+          ref={formRef}
+          className="mb-4 rounded-xl border border-helix-accent/25 bg-helix-accent/5 p-4 space-y-3"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FileText className="h-3.5 w-3.5 text-helix-accent" />
+              <p className="text-[12px] font-semibold text-zinc-700 font-mono">Nuevo documento</p>
+            </div>
+            <button
+              onClick={() => setForm(FORM_DEFAULT)}
+              className="p-1 rounded text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
+          {form.fileName && (
+            <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white border border-zinc-200">
+              <FolderOpen className="h-3 w-3 text-zinc-400 shrink-0" />
+              <span className="text-[11px] text-zinc-600 truncate font-mono">{form.fileName}</span>
+              <span className="ml-auto text-[10px] text-zinc-400 font-mono tabular-nums">
+                {form.contenido.length.toLocaleString()} caracteres
+              </span>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Código *">
+              <input
+                value={form.codigo}
+                onChange={(e) => setForm((f) => ({ ...f, codigo: e.target.value.toUpperCase() }))}
+                placeholder="INS-OP-001"
+                className={inputCls}
+              />
+            </Field>
+            <Field label="Versión">
+              <input
+                value={form.versionDoc}
+                onChange={(e) => setForm((f) => ({ ...f, versionDoc: e.target.value }))}
+                placeholder="1.0"
+                className={inputCls}
+              />
+            </Field>
+          </div>
+
+          <Field label="Título *">
+            <input
+              value={form.titulo}
+              onChange={(e) => setForm((f) => ({ ...f, titulo: e.target.value }))}
+              placeholder="Ej. Instructivo de recepción de muestras"
+              className={inputCls}
+            />
+          </Field>
+
+          <Field label="Descripción (opcional)">
+            <input
+              value={form.descripcion}
+              onChange={(e) => setForm((f) => ({ ...f, descripcion: e.target.value }))}
+              placeholder="Propósito o alcance de este documento"
+              className={inputCls}
+            />
+          </Field>
+
+          {form.error && (
+            <div className="flex items-start gap-2 px-2.5 py-2 rounded-lg bg-red-50 border border-red-200">
+              <AlertCircle className="h-3.5 w-3.5 text-red-500 shrink-0 mt-0.5" />
+              <p className="text-[11px] text-red-600">{form.error}</p>
+            </div>
+          )}
+
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={() => setForm(FORM_DEFAULT)}
+              className="flex-1 py-1.5 rounded-lg text-[11px] font-mono border border-zinc-200 text-zinc-500 hover:bg-zinc-50 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => void handleSave()}
+              disabled={form.submitting}
+              className="flex-1 py-1.5 rounded-lg text-[11px] font-mono font-semibold bg-helix-accent text-white hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-1.5"
+            >
+              {form.submitting
+                ? <><Loader className="h-3 w-3 animate-spin" /> Guardando…</>
+                : <><FileCheck className="h-3 w-3" /> Guardar documento</>
+              }
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Loading */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-8 gap-2 text-zinc-400">
+          <Loader className="h-4 w-4 animate-spin" />
+          <span className="text-xs font-mono">Cargando documentos…</span>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!isLoading && instructivos.length === 0 && canEdit && !form.visible && (
+        <div className="flex flex-col items-center justify-center py-10 gap-3 rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50">
+          <BookOpen className="h-8 w-8 text-zinc-300" />
+          <div className="text-center space-y-1">
+            <p className="text-[12px] font-mono text-zinc-500">Sin documentos de soporte</p>
+            <p className="text-[11px] text-zinc-400 max-w-[260px] leading-relaxed">
+              Agrega instructivos o guías que complementen el procedimiento. No es obligatorio.
+            </p>
+          </div>
+          <button
+            onClick={openFilePicker}
+            disabled={extracting}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-mono font-semibold
+                       border border-helix-accent/30 text-helix-accent hover:bg-helix-accent/5 transition-colors"
+          >
+            <Upload className="h-3 w-3" />
+            Cargar primer documento
+          </button>
+        </div>
+      )}
+
+      {/* List */}
+      {!isLoading && instructivos.length > 0 && (
+        <div className="space-y-2">
+          {instructivos.map((inst) => {
+            const isExpanded = expanded === inst.id
+            return (
+              <div
+                key={inst.id}
+                className="border border-zinc-200 rounded-lg overflow-hidden transition-all hover:border-zinc-300"
+              >
+                <div className="flex items-start gap-3 px-4 py-3 bg-zinc-50/80 group">
+                  <div className="shrink-0 w-8 h-8 rounded-lg bg-white border border-zinc-200 flex items-center justify-center mt-0.5">
+                    <FileText className="h-3.5 w-3.5 text-zinc-400" />
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[11px] font-mono font-bold text-zinc-700">{inst.codigo}</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-400 font-mono">
+                        v{inst.versionDoc}
+                      </span>
+                    </div>
+                    <p className="text-[12px] text-zinc-600 mt-0.5 leading-snug">{inst.titulo}</p>
+                    {inst.descripcion && (
+                      <p className="text-[11px] text-zinc-400 mt-0.5 line-clamp-1">{inst.descripcion}</p>
+                    )}
+                    <div className="flex items-center gap-2 mt-1 text-[10px] text-zinc-400 font-mono">
+                      <span>{timeAgo(inst.createdAt)}</span>
+                      <span>·</span>
+                      <span>{inst.autorNombre}</span>
+                    </div>
+                  </div>
+
+                  <div className="shrink-0 flex items-center gap-0.5">
+                    <button
+                      onClick={() => setExpanded(isExpanded ? null : inst.id)}
+                      title={isExpanded ? "Contraer" : "Vista previa"}
+                      className="p-1.5 rounded text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors"
+                    >
+                      {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                    </button>
+
+                    {canEdit && (
+                      confirmDeleteId === inst.id ? (
+                        <div className="flex items-center gap-1">
+                          <AlertTriangle className="h-2.5 w-2.5 text-amber-500" />
+                          <button
+                            onClick={() => void handleDelete(inst.id)}
+                            disabled={deleting === inst.id}
+                            className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-500 border border-red-200 hover:bg-red-500/20 font-mono"
+                          >
+                            {deleting === inst.id ? "…" : "Sí"}
+                          </button>
+                          <button
+                            onClick={() => setConfirmDeleteId(null)}
+                            className="text-[9px] px-1 py-0.5 rounded text-zinc-400 hover:text-zinc-600 font-mono"
+                          >
+                            No
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmDeleteId(inst.id)}
+                          disabled={deleting === inst.id}
+                          className="p-1.5 rounded text-zinc-400 opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:text-red-500 hover:bg-red-50 transition-all disabled:opacity-40"
+                          title="Eliminar documento"
+                        >
+                          {deleting === inst.id
+                            ? <Loader className="h-3.5 w-3.5 animate-spin" />
+                            : <Trash2 className="h-3.5 w-3.5" />
+                          }
+                        </button>
+                      )
+                    )}
+                  </div>
+                </div>
+
+                {isExpanded && (
+                  <div className="border-t border-zinc-100 bg-white px-6 py-5">
+                    {inst.descripcion && (
+                      <p className="text-[11px] text-zinc-400 italic mb-3 leading-relaxed">{inst.descripcion}</p>
+                    )}
+                    <div className={cn(PROSE)}>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {cleanContent(inst.contenido)}
+                      </ReactMarkdown>
+                    </div>
+                    <p className="text-[9px] text-zinc-400 mt-3 text-right font-mono tabular-nums">
+                      {inst.contenido.split("\n").length} líneas · {inst.contenido.length.toLocaleString()} caracteres
+                    </p>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {atLimit && canEdit && (
+        <div className="flex items-center gap-2 px-3 py-2 mt-3 rounded-lg bg-amber-50 border border-amber-200">
+          <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+          <p className="text-[11px] text-amber-700 font-mono">
+            Límite de {MAX_INSTRUCTIVOS} documentos alcanzado. Elimina uno para agregar más.
+          </p>
+        </div>
+      )}
+
+      {canEdit && (
+        <p className="text-[10px] text-zinc-400 text-center mt-4 font-mono opacity-70">
+          Formatos: MD · TXT · DOCX · PDF
+        </p>
+      )}
+    </div>
+  )
+}
+
+const inputCls =
+  "w-full bg-white border border-zinc-200 rounded-lg px-2.5 py-1.5 text-[12px] text-zinc-700 font-mono placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-helix-accent/40 transition-colors"
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="text-[10px] text-zinc-400 uppercase tracking-widest font-mono block mb-1">{label}</label>
+      {children}
+    </div>
+  )
+}
