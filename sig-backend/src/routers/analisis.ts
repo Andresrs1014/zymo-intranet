@@ -135,4 +135,43 @@ router.get("/proc-vs-inst", async (req: Request, res: Response) => {
   res.json(analisis)
 })
 
+// ── GET /api/analisis/historial — todos los tipos combinados ──────────────────
+router.get("/historial", async (req: Request, res: Response) => {
+  const { tipo, procedimientoId, limit } = req.query
+  const take      = limit ? parseInt(limit as string) : 100
+  const pidFilter = procedimientoId ? { procedimientoId: parseInt(procedimientoId as string) } : {}
+
+  const include = {
+    procedimiento: {
+      select: {
+        codigo: true,
+        titulo: true,
+        area: { select: { nombre: true, color: true } },
+      },
+    },
+  }
+
+  const [coherencias, mejoras, procVsInst] = await Promise.all([
+    (!tipo || tipo === "coherencia")
+      ? prisma.sigAnalisisCoherencia.findMany({ where: pidFilter, orderBy: { createdAt: "desc" }, take, include })
+      : Promise.resolve([]),
+    (!tipo || tipo === "mejoras")
+      ? prisma.sigAnalisisMejoras.findMany({ where: pidFilter, orderBy: { createdAt: "desc" }, take, include })
+      : Promise.resolve([]),
+    (!tipo || tipo === "proc-vs-inst")
+      ? prisma.sigAnalisisProcVsInst.findMany({ where: pidFilter, orderBy: { createdAt: "desc" }, take, include })
+      : Promise.resolve([]),
+  ])
+
+  const combined = [
+    ...coherencias.map((a) => ({ ...a, tipo: "coherencia" as const })),
+    ...mejoras.map((a)    => ({ ...a, tipo: "mejoras"    as const })),
+    ...procVsInst.map((a) => ({ ...a, tipo: "proc-vs-inst" as const })),
+  ]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, take)
+
+  res.json(combined)
+})
+
 export default router

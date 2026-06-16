@@ -101,23 +101,39 @@ router.post("/", requireSigAccess, async (req: Request, res: Response) => {
     return
   }
 
+  const isGerente   = req.user!.role === "gerente" || req.user!.role === "admin"
+  const estadoFinal = isGerente ? "APROBADO" : "PENDIENTE_REVISION"
+
   const commit = await prisma.sigCommit.create({
     data: {
-      procedimientoId: parsed.data.procedimientoId,
+      procedimientoId:   parsed.data.procedimientoId,
       contenidoOriginal: parsed.data.contenidoOriginal,
-      contenidoAgente: parsed.data.contenidoAgente,
-      flujogramaMmd: parsed.data.flujogramaMmd,
-      sinCambios: parsed.data.sinCambios,
-      mensaje: parsed.data.mensaje,
-      autorId: userId,
-      autorNombre: userName,
-      versionDoc: parsed.data.versionDoc,
-      estado: "PENDIENTE_REVISION",
+      contenidoAgente:   parsed.data.contenidoAgente,
+      flujogramaMmd:     parsed.data.flujogramaMmd,
+      sinCambios:        parsed.data.sinCambios,
+      mensaje:           parsed.data.mensaje,
+      autorId:           userId,
+      autorNombre:       userName,
+      versionDoc:        parsed.data.versionDoc,
+      estado:            estadoFinal,
+      ...(isGerente ? {
+        aprobadoPor:    userId,
+        aprobadoNombre: userName,
+        aprobadoEn:     new Date(),
+      } : {}),
     },
     include: {
       procedimiento: { select: { codigo: true, titulo: true } },
     },
   })
+
+  // Si el gerente aprueba directamente, el procedimiento pasa a VIGENTE
+  if (isGerente && !parsed.data.sinCambios) {
+    await prisma.sigProcedimiento.update({
+      where: { id: parsed.data.procedimientoId },
+      data:  { estado: "VIGENTE" },
+    })
+  }
 
   res.status(201).json(commit)
 })

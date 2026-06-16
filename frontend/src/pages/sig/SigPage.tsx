@@ -12,12 +12,16 @@ import {
   FileText, GitCommit, Inbox, X,
   GitBranchPlus, Clock, ChevronRight, Check, Circle, Download,
   Pencil, Eye, Sparkles, Save, XCircle, Loader, AlertCircle,
+  FlaskConical, RefreshCw,
 } from "lucide-react"
 import { SigAiEditorPanel } from "@/components/sig/SigAiEditorPanel"
+import { SigAnalisisPanel } from "@/components/sig/SigAnalisisPanel"
+import { SigAnalisisSyncView } from "@/components/sig/SigAnalisisSyncView"
+import { SigAnalisisQueue } from "@/components/sig/SigAnalisisQueue"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-type TabIcon = "file" | "diff" | "queue"
+type TabIcon = "file" | "diff" | "queue" | "analisis" | "sync"
 
 interface TabMeta {
   key: string
@@ -31,6 +35,8 @@ type ActiveView =
   | { kind: "procedure"; id: number }
   | { kind: "commit"; id: number }
   | { kind: "queue" }
+  | { kind: "analisis" }
+  | { kind: "analisis-sync" }
 
 // ── SigPage ────────────────────────────────────────────────────────────────────
 
@@ -95,19 +101,29 @@ export function SigPage() {
     openTab({ kind: "queue" }, { key: "queue", icon: "queue", title: "Cola de revisión" })
   }, [openTab])
 
+  const openAnalisis = useCallback(() => {
+    openTab({ kind: "analisis" }, { key: "analisis", icon: "analisis", title: "Análisis IA" })
+  }, [openTab])
+
+  const openAnalisisSync = useCallback(() => {
+    openTab({ kind: "analisis-sync" }, { key: "analisis-sync", icon: "sync", title: "Sincronización" })
+  }, [openTab])
+
   // ── Derived state ─────────────────────────────────────────────────────────────
 
   const activeView: ActiveView = (activeKey && views[activeKey]) || { kind: "welcome" }
   const pendingCount = pendientes.length
 
   return (
-    <div className="h-screen flex flex-col bg-zinc-50 text-zinc-900 overflow-hidden select-none">
+    <div className="h-screen flex flex-col bg-zinc-50 text-zinc-900 overflow-hidden select-none relative">
 
       {/* Title bar */}
       <TitleBar
         isGerente={isGerente}
         pendingCount={pendingCount}
         onOpenQueue={openQueue}
+        onOpenAnalisis={openAnalisis}
+        onOpenSync={openAnalisisSync}
       />
 
       {/* Body */}
@@ -154,12 +170,17 @@ export function SigPage() {
             {activeView.kind === "queue" && (
               <ReviewQueueView onOpenCommit={openCommit} />
             )}
+            {activeView.kind === "analisis" && <SigAnalisisPanel />}
+            {activeView.kind === "analisis-sync" && <SigAnalisisSyncView />}
           </div>
         </div>
       </div>
 
       {/* Status bar */}
       <StatusBar pendingCount={pendingCount} isGerente={isGerente} activeView={activeView} />
+
+      {/* Analysis job queue — Google Drive style overlay */}
+      <SigAnalisisQueue />
     </div>
   )
 }
@@ -167,8 +188,14 @@ export function SigPage() {
 // ── Title bar ──────────────────────────────────────────────────────────────────
 
 function TitleBar({
-  isGerente, pendingCount, onOpenQueue,
-}: { isGerente: boolean; pendingCount: number; onOpenQueue: () => void }) {
+  isGerente, pendingCount, onOpenQueue, onOpenAnalisis, onOpenSync,
+}: {
+  isGerente:      boolean
+  pendingCount:   number
+  onOpenQueue:    () => void
+  onOpenAnalisis: () => void
+  onOpenSync:     () => void
+}) {
   return (
     <div className="h-10 shrink-0 flex items-center justify-between px-4 border-b border-zinc-200 bg-white">
       <div className="flex items-center gap-3">
@@ -176,15 +203,32 @@ function TitleBar({
         <div className="h-3.5 w-px bg-helix-accent/30" />
         <span className="text-xs text-zinc-500">Sistema Integrado de Gestión</span>
       </div>
-      {isGerente && pendingCount > 0 && (
+
+      <div className="flex items-center gap-2">
         <button
-          onClick={onOpenQueue}
-          className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded border border-amber-300 bg-amber-50 text-amber-600 hover:bg-amber-100 transition-colors font-mono"
+          onClick={onOpenAnalisis}
+          className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded border border-violet-200 text-violet-600 hover:bg-violet-50 transition-colors font-mono"
         >
-          <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
-          {pendingCount} pendiente{pendingCount !== 1 ? "s" : ""}
+          <FlaskConical className="h-3 w-3" />
+          Análisis IA
         </button>
-      )}
+        <button
+          onClick={onOpenSync}
+          className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded border border-zinc-200 text-zinc-500 hover:border-zinc-400 hover:text-zinc-700 transition-colors font-mono"
+        >
+          <RefreshCw className="h-3 w-3" />
+          Sincronización
+        </button>
+        {isGerente && pendingCount > 0 && (
+          <button
+            onClick={onOpenQueue}
+            className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded border border-amber-300 bg-amber-50 text-amber-600 hover:bg-amber-100 transition-colors font-mono"
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+            {pendingCount} pendiente{pendingCount !== 1 ? "s" : ""}
+          </button>
+        )}
+      </div>
     </div>
   )
 }
@@ -192,9 +236,11 @@ function TitleBar({
 // ── Tab bar ────────────────────────────────────────────────────────────────────
 
 const TAB_ICON: Record<TabIcon, React.ReactNode> = {
-  file:  <FileText className="h-3.5 w-3.5 text-zinc-400" />,
-  diff:  <GitCommit className="h-3.5 w-3.5 text-helix-ai/80" />,
-  queue: <Inbox className="h-3.5 w-3.5 text-amber-500/70" />,
+  file:    <FileText      className="h-3.5 w-3.5 text-zinc-400" />,
+  diff:    <GitCommit     className="h-3.5 w-3.5 text-helix-ai/80" />,
+  queue:   <Inbox         className="h-3.5 w-3.5 text-amber-500/70" />,
+  analisis:<FlaskConical  className="h-3.5 w-3.5 text-violet-500/80" />,
+  sync:    <RefreshCw     className="h-3.5 w-3.5 text-zinc-400" />,
 }
 
 function TabBar({
@@ -838,9 +884,11 @@ function StatusBar({
   pendingCount, isGerente, activeView,
 }: { pendingCount: number; isGerente: boolean; activeView: ActiveView }) {
   const viewLabel =
-    activeView.kind === "procedure" ? "procedure"
-    : activeView.kind === "commit" ? "diff"
-    : activeView.kind === "queue" ? "queue"
+    activeView.kind === "procedure"    ? "procedure"
+    : activeView.kind === "commit"     ? "diff"
+    : activeView.kind === "queue"      ? "queue"
+    : activeView.kind === "analisis"   ? "análisis ia"
+    : activeView.kind === "analisis-sync" ? "sincronización"
     : ""
 
   return (
