@@ -5,16 +5,17 @@ import { sigApi } from "@/lib/sigApi"
 import { useSigAnalisisStore, type AnalysisType } from "@/store/sigAnalisisStore"
 import { useRunAnalysis } from "./SigAnalisisPanel"
 import {
-  X, Minus, Target, Lightbulb, GitCompare, Database,
+  X, Minus, Target, Lightbulb, GitCompare, Database, Users,
   Loader, CheckCircle2, AlertTriangle, ChevronDown,
 } from "lucide-react"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface ProcMeta {
-  id:     number
-  codigo: string
-  titulo: string
+  id:         number
+  codigo:     string
+  titulo:     string
+  areaNombre: string
 }
 
 interface AnalisisResult {
@@ -27,6 +28,7 @@ interface AnalisisResult {
   issues?:     Array<{ tipo: string; descripcion: string; severidad: string }>
   proposals?:  Array<{ descripcion: string; categoria?: string }>
   conflictos?: Array<{ instructivoCodigo: string; descripcion: string; severidad: string }>
+  cargos?:     Array<{ cargo: string; funciones: string[]; mencionadoEn: string[] }>
 }
 
 interface ProcSyncData {
@@ -66,6 +68,13 @@ const TABS: Array<{
     icon:  <GitCompare className="h-3 w-3" />,
     color: "text-violet-600 border-violet-200",
     dot:   "bg-violet-400",
+  },
+  {
+    type:  "cargos",
+    label: "Cargos",
+    icon:  <Users     className="h-3 w-3" />,
+    color: "text-rose-600 border-rose-200",
+    dot:   "bg-rose-400",
   },
   {
     type:  "lightrag",
@@ -123,6 +132,7 @@ function InspectorHeader({
     queryKey: ["sig", "proc-meta", procId],
     queryFn:  () => sigApi.get(`/api/procedimientos/${procId}`).then((r) => ({
       id: r.data.id, codigo: r.data.codigo, titulo: r.data.titulo,
+      areaNombre: (r.data.area?.nombre as string | undefined) ?? "",
     })),
   })
 
@@ -258,13 +268,18 @@ function AnalysisTabContent({
       const text = syncData.latestApproved?.contenidoAgente
       if (!text) return
 
-      const procMeta = (await sigApi.get(`/api/procedimientos/${procId}`)).data as ProcMeta & { codigo: string; titulo: string }
+      const procMeta = (await sigApi.get(`/api/procedimientos/${procId}`)).data
       let instructivos: Instructivo[] = []
-      if (type === "proc-vs-inst") {
+      if (type === "proc-vs-inst" || type === "cargos") {
         instructivos = (await sigApi.get(`/api/instructivos?procedimientoId=${procId}&activo=true`)).data
       }
       void runAnalysis(
-        { id: procId, codigo: procMeta.codigo, titulo: procMeta.titulo },
+        {
+          id:         procId,
+          codigo:     procMeta.codigo as string,
+          titulo:     procMeta.titulo as string,
+          areaNombre: (procMeta.area?.nombre as string | undefined) ?? "",
+        },
         type,
         text,
         instructivos.length > 0 ? instructivos : undefined,
@@ -351,6 +366,9 @@ function ResultView({ type, result }: { type: AnalysisType; result: AnalisisResu
       )}
       {type === "proc-vs-inst" && (
         <ProcVsInstResult result={result} />
+      )}
+      {type === "cargos" && (
+        <CargosResult result={result} />
       )}
       {type === "lightrag" && (
         <LightRAGResult result={result} />
@@ -495,6 +513,52 @@ function ProcVsInstResult({ result }: { result: AnalisisResult }) {
         {conflictos.length > 5 && (
           <p className="text-[9px] text-zinc-400 font-mono">+{conflictos.length - 5} más…</p>
         )}
+      </div>
+    </div>
+  )
+}
+
+function CargosResult({ result }: { result: AnalisisResult }) {
+  const cargos = result.cargos ?? []
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-1.5 text-[11px] font-mono text-zinc-600">
+        <Users className="h-3.5 w-3.5 text-rose-500" />
+        <span className="font-semibold">{cargos.length}</span>
+        <span>cargo{cargos.length !== 1 ? "s" : ""} identificado{cargos.length !== 1 ? "s" : ""}</span>
+      </div>
+      {cargos.length === 0 && (
+        <p className="text-[10px] text-zinc-400 font-mono">Sin cargos identificados.</p>
+      )}
+      <div className="space-y-2">
+        {cargos.map((c, i) => (
+          <div key={i} className="rounded-lg border border-rose-100 bg-rose-50/50 p-2.5">
+            <p className="text-[11px] font-mono font-semibold text-rose-700">{c.cargo}</p>
+            {c.funciones.length > 0 && (
+              <ul className="mt-1.5 space-y-0.5">
+                {c.funciones.slice(0, 4).map((f, j) => (
+                  <li key={j} className="flex items-start gap-1 text-[10px] text-zinc-600">
+                    <span className="shrink-0 text-rose-400 mt-0.5">•</span>
+                    {f}
+                  </li>
+                ))}
+                {c.funciones.length > 4 && (
+                  <li className="text-[9px] text-zinc-400 font-mono">+{c.funciones.length - 4} más…</li>
+                )}
+              </ul>
+            )}
+            {c.mencionadoEn.length > 0 && (
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {c.mencionadoEn.map((doc, k) => (
+                  <span key={k} className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-500">
+                    {doc}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   )

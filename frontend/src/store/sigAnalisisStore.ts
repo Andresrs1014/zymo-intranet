@@ -1,6 +1,6 @@
 import { create } from "zustand"
 
-export type AnalysisType = "coherencia" | "mejoras" | "proc-vs-inst" | "lightrag"
+export type AnalysisType = "coherencia" | "mejoras" | "proc-vs-inst" | "cargos" | "lightrag"
 export type JobStatus   = "running" | "done" | "error"
 
 export interface AnalysisJob {

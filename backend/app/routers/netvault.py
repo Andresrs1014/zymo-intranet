@@ -891,6 +891,118 @@ async def indexar_lightrag(
     return {"ok": True, "job_id": job_id}
 
 
+# ── Cargos y Funciones ────────────────────────────────────────────────────────
+
+class CargosRequest(BaseModel):
+    procedimientoId: int
+    procedureCode: str = Field(..., min_length=1, max_length=200)
+    area: str = Field(..., min_length=1, max_length=100)
+    textContent: str = Field(..., min_length=10, max_length=200_000)
+    instructivos: list[InstructivoItem] = Field(default_factory=list, max_length=10)
+
+
+def _build_cargos_system() -> str:
+    return """Eres el agente de análisis de cargos y funciones de ZYMO.
+Analiza el procedimiento y sus documentos de soporte para identificar todos los cargos/roles mencionados y las funciones que se les atribuyen.
+
+Responde ÚNICAMENTE con JSON válido (sin markdown fence):
+{
+  "resumen": "Párrafo de 2-4 oraciones describiendo los actores clave del proceso.",
+  "cargos": [
+    {
+      "cargo": "Nombre exacto del cargo o rol como aparece en el documento",
+      "funciones": [
+        "Función o responsabilidad 1 que se menciona para este cargo",
+        "Función o responsabilidad 2"
+      ],
+      "mencionadoEn": ["PROC-001", "INS-OP-001"]
+    }
+  ]
+}
+
+Reglas:
+- Extraer TODOS los cargos mencionados (Gerente, Operador, Jefe de X, etc.).
+- funciones: máximo 6 por cargo; solo las que están explícitamente en el documento.
+- mencionadoEn: listar el código del procedimiento o instructivo donde aparece.
+- No inventar cargos ni funciones que no estén en los documentos.
+- Si el mismo cargo aparece en múltiples documentos, consolidar en una sola entrada."""
+
+
+def _build_cargos_user(req: CargosRequest) -> str:
+    inst_blocks = ""
+    if req.instructivos:
+        inst_blocks = "\n\nDOCUMENTOS DE SOPORTE:\n" + "\n\n".join(
+            f"### {i.codigo} — {i.titulo}\n{i.contenido[:3000]}"
+            for i in req.instructivos
+        )
+    return f"""Analiza los cargos y funciones del procedimiento **{req.procedureCode}** (área: {req.area}).
+
+PROCEDIMIENTO:
+---
+{req.textContent[:12000]}
+---
+{inst_blocks}
+
+Identifica todos los cargos/roles y las funciones que cada uno desempeña según los documentos.
+
+Responde ÚNICAMENTE con el JSON especificado."""
+
+
+def _run_cargos_job(job_id: str, body: CargosRequest) -> None:
+    try:
+        import anthropic
+        client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+        response = client.messages.create(
+            model=settings.anthropic_model,
+            max_tokens=4000,
+            system=_build_cargos_system(),
+            messages=[{"role": "user", "content": _build_cargos_user(body)}],
+        )
+        tokens_in  = response.usage.input_tokens
+        tokens_out = response.usage.output_tokens
+        logger.info(
+            "[netvault/cargos/job:%s] %s — in=%d out=%d",
+            job_id[:8], body.procedureCode, tokens_in, tokens_out,
+        )
+
+        raw = response.content[0].text.strip()
+        try:
+            import json as _json
+            parsed = _json.loads(raw)
+        except Exception:
+            parsed = {"resumen": raw, "cargos": []}
+
+        _jobs[job_id] = {
+            "status": "done",
+            "tipo": "cargos",
+            "data": {
+                **parsed,
+                "procedimientoId": body.procedimientoId,
+                "procedureCode":   body.procedureCode,
+                "tokensUsados":    tokens_in + tokens_out,
+                "modeloUsado":     settings.anthropic_model,
+            },
+        }
+    except Exception as exc:
+        logger.exception("[netvault/cargos/job:%s] Error", job_id[:8])
+        _jobs[job_id] = {"status": "error", "error": str(exc)}
+
+
+@router.post("/analizar-cargos")
+async def analizar_cargos(
+    body: CargosRequest,
+    background_tasks: BackgroundTasks,
+    _user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Identifica cargos/roles y sus funciones en el procedimiento e instructivos."""
+    if not settings.anthropic_api_key:
+        raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY no configurada en el servidor.")
+    job_id = str(uuid.uuid4())
+    _jobs[job_id] = {"status": "pending", "tipo": "cargos"}
+    background_tasks.add_task(_run_cargos_job, job_id, body)
+    return {"ok": True, "job_id": job_id}
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Edición con IA — edición quirúrgica desde la intranet
 # ══════════════════════════════════════════════════════════════════════════════

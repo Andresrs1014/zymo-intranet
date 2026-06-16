@@ -2,11 +2,11 @@ import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { cn } from "@/lib/utils"
 import { sigApi } from "@/lib/sigApi"
-import { Download, Filter, Target, Lightbulb, GitCompare, Database, CheckCircle2, AlertTriangle } from "lucide-react"
+import { Download, Filter, Target, Lightbulb, GitCompare, Database, Users, CheckCircle2, AlertTriangle } from "lucide-react"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type AnalysisTipo = "coherencia" | "mejoras" | "proc-vs-inst"
+type AnalysisTipo = "coherencia" | "mejoras" | "proc-vs-inst" | "cargos"
 
 interface HistorialItem {
   id:             number
@@ -23,6 +23,8 @@ interface HistorialItem {
   proposals?:     unknown[]
   // proc-vs-inst
   conflictos?:    unknown[]
+  // cargos
+  cargos?:        Array<{ cargo: string; funciones: string[] }>
   procedimiento: {
     codigo: string
     titulo: string
@@ -96,6 +98,21 @@ function buildMarkdown(item: HistorialItem): string {
     ].join("\n")
   }
 
+  if (item.tipo === "cargos") {
+    const cargos = item.cargos ?? []
+    return header + [
+      `## Cargos y Funciones (${cargos.length})`,
+      ``,
+      cargos.length === 0
+        ? "_Sin cargos identificados_"
+        : cargos.map((c) => [
+            `### ${c.cargo}`,
+            ``,
+            c.funciones.map((f) => `- ${f}`).join("\n"),
+          ].join("\n")).join("\n\n"),
+    ].join("\n")
+  }
+
   return header
 }
 
@@ -132,18 +149,21 @@ const TIPO_LABEL: Record<AnalysisTipo, string> = {
   coherencia:    "Coherencia",
   mejoras:       "Mejoras",
   "proc-vs-inst":"Proc/Inst",
+  cargos:        "Cargos",
 }
 
 const TIPO_ICON: Record<AnalysisTipo, React.ReactNode> = {
   coherencia:    <Target className="h-3.5 w-3.5" />,
   mejoras:       <Lightbulb className="h-3.5 w-3.5" />,
   "proc-vs-inst":<GitCompare className="h-3.5 w-3.5" />,
+  cargos:        <Users className="h-3.5 w-3.5" />,
 }
 
 const TIPO_CHIP: Record<AnalysisTipo, string> = {
   coherencia:    "bg-blue-50 text-blue-600 border-blue-200",
   mejoras:       "bg-amber-50 text-amber-600 border-amber-200",
   "proc-vs-inst":"bg-violet-50 text-violet-600 border-violet-200",
+  cargos:        "bg-rose-50 text-rose-600 border-rose-200",
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -165,6 +185,7 @@ export function SigAnalisisSyncView() {
     { value: "coherencia",   label: "Coherencia",  icon: <Target className="h-3 w-3" /> },
     { value: "mejoras",      label: "Mejoras",     icon: <Lightbulb className="h-3 w-3" /> },
     { value: "proc-vs-inst", label: "Proc/Inst",   icon: <GitCompare className="h-3 w-3" /> },
+    { value: "cargos",       label: "Cargos",      icon: <Users className="h-3 w-3" /> },
   ]
 
   return (
@@ -256,6 +277,7 @@ function HistorialRow({ item, onDownload }: { item: HistorialItem; onDownload: (
   const proposals  = (item.proposals  as unknown[] | undefined) ?? []
   const conflictos = (item.conflictos as unknown[] | undefined) ?? []
   const issues     = (item.issues     as unknown[] | undefined) ?? []
+  const cargos     = (item.cargos     as unknown[] | undefined) ?? []
 
   return (
     <div className="flex items-center gap-3 px-4 py-3 bg-white border border-zinc-200 rounded-lg hover:border-zinc-300 transition-all group">
@@ -318,6 +340,12 @@ function HistorialRow({ item, onDownload }: { item: HistorialItem; onDownload: (
               {conflictos.length} conflict.
             </span>
           )
+        )}
+        {item.tipo === "cargos" && (
+          <span className="text-[11px] font-mono text-zinc-600">
+            <span className="font-bold text-zinc-800">{cargos.length}</span>
+            <span className="text-zinc-400"> cargos</span>
+          </span>
         )}
         {item.tipo === "coherencia" && (
           <div className="text-[9px] font-mono text-zinc-400 mt-0.5">{issues.length} hallazgos</div>

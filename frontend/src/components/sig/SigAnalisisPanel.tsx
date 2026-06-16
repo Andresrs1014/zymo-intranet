@@ -6,7 +6,7 @@ import { api } from "@/lib/api"
 import { useSigAnalisisStore, type AnalysisType } from "@/store/sigAnalisisStore"
 import {
   Search, SlidersHorizontal, FileText,
-  Target, Lightbulb, GitCompare, Database, Loader,
+  Target, Lightbulb, GitCompare, Database, Users, Loader,
 } from "lucide-react"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -38,9 +38,10 @@ interface Instructivo {
 }
 
 interface ProcSummary {
-  id:     number
-  codigo: string
-  titulo: string
+  id:         number
+  codigo:     string
+  titulo:     string
+  areaNombre: string
 }
 
 // ── Netvault polling ──────────────────────────────────────────────────────────
@@ -51,7 +52,7 @@ async function pollNetvaultJob(jobId: string): Promise<unknown> {
   for (let i = 0; i < 120; i++) {
     await new Promise<void>((r) => setTimeout(r, 2500))
     const { data } = await api.get(`/api/netvault/job/${jobId}`)
-    if (data.status === "done") return data.result
+    if (data.status === "done") return data.data
     if (data.status === "error") throw new Error(data.error ?? "El análisis falló en netvault")
     if (NETVAULT_TERMINAL.has(data.status as string))
       throw new Error(`Estado inesperado del job: ${data.status as string}`)
@@ -79,33 +80,45 @@ export function useRunAnalysis() {
     })
 
     try {
-      let netvaultRes: { jobId: string }
+      let netvaultRes: { job_id: string }
+
+      const base = {
+        procedimientoId: proc.id,
+        procedureCode:   proc.codigo,
+        area:            proc.areaNombre,
+        textContent,
+      }
+      const instList = (instructivos ?? []).map((i) => ({
+        id: i.id, codigo: i.codigo, titulo: i.titulo, contenido: i.contenido,
+      }))
 
       if (type === "coherencia") {
-        netvaultRes = (await api.post("/api/netvault/analizar-coherencia", { textContent })).data
+        netvaultRes = (await api.post("/api/netvault/analizar-coherencia", base)).data
       } else if (type === "mejoras") {
-        netvaultRes = (await api.post("/api/netvault/analizar-mejoras", { textContent })).data
+        netvaultRes = (await api.post("/api/netvault/analizar-mejoras", base)).data
       } else if (type === "proc-vs-inst") {
-        const instText = (instructivos ?? [])
-          .map((i) => `# ${i.codigo} — ${i.titulo}\n\n${i.contenido}`)
-          .join("\n\n---\n\n")
         netvaultRes = (await api.post("/api/netvault/analizar-proc-vs-inst", {
-          textContent, instructivosText: instText,
+          ...base, instructivos: instList,
+        })).data
+      } else if (type === "cargos") {
+        netvaultRes = (await api.post("/api/netvault/analizar-cargos", {
+          ...base, instructivos: instList,
         })).data
       } else {
         netvaultRes = (await api.post("/api/netvault/indexar-lightrag", {
-          textContent, codigo: proc.codigo, titulo: proc.titulo,
+          ...base, instructivos: instList,
         })).data
       }
 
-      updateJob(localId, { netvaultJobId: netvaultRes.jobId })
-      const result = await pollNetvaultJob(netvaultRes.jobId)
+      updateJob(localId, { netvaultJobId: netvaultRes.job_id })
+      const result = await pollNetvaultJob(netvaultRes.job_id)
 
       if (type !== "lightrag") {
         const endpoint =
-          type === "coherencia" ? "/api/analisis/coherencia" :
-          type === "mejoras"    ? "/api/analisis/mejoras"    :
-                                  "/api/analisis/proc-vs-inst"
+          type === "coherencia"  ? "/api/analisis/coherencia"  :
+          type === "mejoras"     ? "/api/analisis/mejoras"     :
+          type === "cargos"      ? "/api/analisis/cargos"      :
+                                   "/api/analisis/proc-vs-inst"
         await sigApi.post(endpoint, {
           procedimientoId: proc.id,
           ...(result as Record<string, unknown>),
@@ -134,6 +147,7 @@ const ANALYSIS_TYPES: Array<{
   { type: "coherencia",    label: "Coherencia",  icon: <Target    className="h-3 w-3" />, color: "text-blue-600   border-blue-200   bg-blue-50   hover:bg-blue-100" },
   { type: "mejoras",       label: "Mejoras",     icon: <Lightbulb className="h-3 w-3" />, color: "text-amber-600  border-amber-200  bg-amber-50  hover:bg-amber-100" },
   { type: "proc-vs-inst",  label: "Proc/Inst",   icon: <GitCompare className="h-3 w-3" />, color: "text-violet-600 border-violet-200 bg-violet-50 hover:bg-violet-100" },
+  { type: "cargos",        label: "Cargos",      icon: <Users     className="h-3 w-3" />, color: "text-rose-600   border-rose-200   bg-rose-50   hover:bg-rose-100" },
   { type: "lightrag",      label: "LightRAG",    icon: <Database  className="h-3 w-3" />, color: "text-emerald-600 border-emerald-200 bg-emerald-50 hover:bg-emerald-100" },
 ]
 
@@ -268,8 +282,9 @@ function ProcAnalisisCard({ proc }: { proc: ProcListItem }) {
       const content = await fetchContent()
       if (!content) return
       const { text, instructivos } = content
-      const summary: ProcSummary = { id: proc.id, codigo: proc.codigo, titulo: proc.titulo }
-      void runAnalysis(summary, type, text, type === "proc-vs-inst" ? instructivos : undefined)
+      const summary: ProcSummary = { id: proc.id, codigo: proc.codigo, titulo: proc.titulo, areaNombre: proc.area.nombre }
+      const needsInst = type === "proc-vs-inst" || type === "cargos"
+      void runAnalysis(summary, type, text, needsInst ? instructivos : undefined)
     } catch {
       // fetchContent failed before job creation — loading resets in finally
     } finally {
@@ -284,11 +299,12 @@ function ProcAnalisisCard({ proc }: { proc: ProcListItem }) {
       const content = await fetchContent()
       if (!content) return
       const { text, instructivos } = content
-      const summary: ProcSummary = { id: proc.id, codigo: proc.codigo, titulo: proc.titulo }
+      const summary: ProcSummary = { id: proc.id, codigo: proc.codigo, titulo: proc.titulo, areaNombre: proc.area.nombre }
       void runAnalysis(summary, "coherencia", text)
       void runAnalysis(summary, "mejoras", text)
       if (instructivos.length > 0) void runAnalysis(summary, "proc-vs-inst", text, instructivos)
-      void runAnalysis(summary, "lightrag", text)
+      void runAnalysis(summary, "cargos", text, instructivos)
+      void runAnalysis(summary, "lightrag", text, instructivos)
     } catch {
       // fetchContent failed — jobs weren't created, nothing to update; loading resets in finally
     } finally {

@@ -36,6 +36,7 @@ model SigProcedimiento {
   analisisCoherencia   SigAnalisisCoherencia[]
   analisisMejoras      SigAnalisisMejoras[]
   analisisProcVsInst   SigAnalisisProcVsInst[]
+  analisisCargos       SigAnalisisCargos[]
 
   @@index([areaId])
   @@index([estado])
@@ -150,6 +151,27 @@ model SigAnalisisMejoras {
   proposals        Json   @default("[]")
   markdownMejorado String? @db.Text
   resumen          String  @db.Text
+
+  autorId      Int
+  autorNombre  String
+  tokensUsados Int?
+  modeloUsado  String @default("claude-sonnet-4-6")
+
+  createdAt DateTime @default(now())
+
+  @@index([procedimientoId])
+  @@index([createdAt])
+}
+
+// ── Análisis de Cargos y Funciones ───────────────────────────────────────────
+
+model SigAnalisisCargos {
+  id              Int              @id @default(autoincrement())
+  procedimientoId Int
+  procedimiento   SigProcedimiento @relation(fields: [procedimientoId], references: [id], onDelete: Cascade)
+
+  cargos  Json   @default("[]")
+  resumen String @db.Text
 
   autorId      Int
   autorNombre  String
