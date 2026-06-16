@@ -18,14 +18,20 @@ export interface AnalysisJob {
 }
 
 interface SigAnalisisStore {
-  jobs:            AnalysisJob[]
-  addJob:          (job: Omit<AnalysisJob, "id" | "startedAt" | "status">) => string
-  updateJob:       (id: string, updates: Partial<AnalysisJob>) => void
-  clearCompleted:  () => void
-  queueExpanded:   boolean
-  setQueueExpanded:(v: boolean) => void
-  queueVisible:    boolean
-  setQueueVisible: (v: boolean) => void
+  jobs:               AnalysisJob[]
+  addJob:             (job: Omit<AnalysisJob, "id" | "startedAt" | "status">) => string
+  updateJob:          (id: string, updates: Partial<AnalysisJob>) => void
+  clearCompleted:     () => void
+  queueExpanded:      boolean
+  setQueueExpanded:   (v: boolean) => void
+  queueVisible:       boolean
+  setQueueVisible:    (v: boolean) => void
+  // Inspector (ventana flotante de detalle de análisis)
+  inspectorProcId:    number | null
+  inspectorMinimized: boolean
+  openInspector:      (procId: number) => void
+  closeInspector:     () => void
+  setInspectorMinimized: (v: boolean) => void
 }
 
 export const useSigAnalisisStore = create<SigAnalisisStore>((set) => ({
@@ -51,4 +57,10 @@ export const useSigAnalisisStore = create<SigAnalisisStore>((set) => ({
   setQueueExpanded: (v) => set({ queueExpanded: v }),
   queueVisible:     false,
   setQueueVisible:  (v) => set({ queueVisible: v }),
+
+  inspectorProcId:    null,
+  inspectorMinimized: false,
+  openInspector:      (procId) => set({ inspectorProcId: procId, inspectorMinimized: false }),
+  closeInspector:     () => set({ inspectorProcId: null }),
+  setInspectorMinimized: (v) => set({ inspectorMinimized: v }),
 }))

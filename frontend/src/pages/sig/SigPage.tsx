@@ -18,6 +18,7 @@ import { SigAiEditorPanel } from "@/components/sig/SigAiEditorPanel"
 import { SigAnalisisPanel } from "@/components/sig/SigAnalisisPanel"
 import { SigAnalisisSyncView } from "@/components/sig/SigAnalisisSyncView"
 import { SigAnalisisQueue } from "@/components/sig/SigAnalisisQueue"
+import { SigAnalisisInspector } from "@/components/sig/SigAnalisisInspector"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -181,6 +182,9 @@ export function SigPage() {
 
       {/* Analysis job queue — Google Drive style overlay */}
       <SigAnalisisQueue />
+
+      {/* Floating inspector — bottom-left near sidebar */}
+      <SigAnalisisInspector />
     </div>
   )
 }
