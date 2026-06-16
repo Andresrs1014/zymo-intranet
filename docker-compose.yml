@@ -8,8 +8,8 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      # Poner en "true" después de migrar todos los datos a Tareas V2
-      - TASKS_V1_DISABLED=false
+      # Migración V1→V2 completada. V1 desactivado.
+      - TASKS_V1_DISABLED=true
       # SIG — URL interna del sig-backend para generación de PDF
       - SIG_BACKEND_URL=http://sig-backend:3003
       - SIG_PLATFORM_SLUG=${SIG_PLATFORM_SLUG:-logimat}
