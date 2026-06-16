@@ -19,7 +19,7 @@ export function DesarrolloInnovacionTab() {
         a la nueva herramienta transversal con mejores capacidades de seguimiento.
       </p>
       <Button
-        onClick={() => navigate("/herramientas/tareas")}
+        onClick={() => window.open("/tareas-v2", "_blank")}
         variant="default"
         className="bg-gray-950 hover:bg-gray-800"
       >

@@ -9,7 +9,6 @@ import {
   BarChart3,
   LineChart,
   Cpu,
-  CheckSquare,
   ListTodo,
   Layers,
 } from "lucide-react"
@@ -201,22 +200,16 @@ export function Sidebar() {
               <SidebarGroupLabel>Mis herramientas</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  <NavItem
-                    to="/herramientas/tareas"
-                    label="Gestión de Tareas"
-                    icon={<CheckSquare className="w-4 h-4" />}
-                    active={isActive(["/herramientas/tareas"])}
-                  />
                   <SidebarMenuItem>
-                    <SidebarMenuButton asChild tooltip="Tareas V2">
+                    <SidebarMenuButton asChild tooltip="Gestión de Tareas">
                       <a
                         href="/tareas-v2"
                         target="_blank"
                         rel="noopener noreferrer"
-                        aria-label="Tareas V2 (nueva pestaña)"
+                        aria-label="Gestión de Tareas (nueva pestaña)"
                       >
                         <ListTodo className="w-4 h-4" />
-                        <span>Tareas V2</span>
+                        <span>Gestión de Tareas</span>
                       </a>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

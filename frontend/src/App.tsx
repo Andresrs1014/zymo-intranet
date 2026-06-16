@@ -45,7 +45,6 @@ import { PrintFacturacionPage } from "@/pages/financiero/PrintFacturacionPage"
 import { AgentFloatingWindow } from "@/components/agent/AgentFloatingWindow"
 import { GerencialPage } from "@/pages/gerencial/GerencialPage"
 import { ExtraccionIAPage } from "@/pages/admin/ExtraccionIAPage"
-import { GestionTareasPage } from "@/pages/herramientas/tareas/GestionTareasPage"
 import { HelixPage } from "@/pages/planeacion/helix/HelixPage"
 import { TaskPage } from "@/pages/tareas/TaskPage"
 import { SigPage } from "@/pages/sig/SigPage"
@@ -169,13 +168,6 @@ function MantenimientoRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
-function HerramientasTareasRoute({ children }: { children: React.ReactNode }) {
-  const user = useAuthStore((s) => s.user)
-  if (!user) return <Navigate to="/login" replace />
-  const hasTool = canSubmitDevTasks(user.user_tools ?? []) || canManageDevTasks(user.user_tools ?? [])
-  if (!hasTool) return <Navigate to="/dashboard" replace />
-  return <>{children}</>
-}
 
 function AgentLayer() {
   const user = useAuthStore((s) => s.user)
@@ -429,16 +421,6 @@ export default function App() {
             <GerencialRoute>
               <GerencialPage />
             </GerencialRoute>
-          }
-        />
-
-        {/* Herramientas */}
-        <Route
-          path="/herramientas/tareas"
-          element={
-            <HerramientasTareasRoute>
-              <GestionTareasPage />
-            </HerramientasTareasRoute>
           }
         />
 

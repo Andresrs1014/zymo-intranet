@@ -15,7 +15,7 @@ import {
   type CreateUserPayload,
   type UpdateUserPayload,
 } from "@/hooks/useUsers"
-import { useUserTools, useAssignUserTool, useRevokeUserTool } from "@/hooks/useWorkTasks"
+import { useUserTools, useAssignUserTool, useRevokeUserTool } from "@/hooks/useUserTools"
 import {
   useAllTeams,
   useUserTeams,
