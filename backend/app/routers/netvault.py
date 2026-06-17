@@ -135,7 +135,7 @@ CORPUS_RULES = [
 
 class AnalyzeRequest(BaseModel):
     procedureCode: str = Field(..., min_length=1, max_length=200)
-    area: str = Field(..., min_length=1, max_length=100)
+    area: str = Field(default="", max_length=100)
     textContent: str = Field(..., min_length=10, max_length=200_000)
     existingFlowchartMmd: str | None = None
 
@@ -506,7 +506,7 @@ async def estado(
 class CoherenciaRequest(BaseModel):
     procedimientoId: int
     procedureCode: str = Field(..., min_length=1, max_length=200)
-    area: str = Field(..., min_length=1, max_length=100)
+    area: str = Field(default="", max_length=100)
     textContent: str = Field(..., min_length=10, max_length=200_000)
     existingFlowchartMmd: str | None = None
 
@@ -514,7 +514,7 @@ class CoherenciaRequest(BaseModel):
 class MejorasRequest(BaseModel):
     procedimientoId: int
     procedureCode: str = Field(..., min_length=1, max_length=200)
-    area: str = Field(..., min_length=1, max_length=100)
+    area: str = Field(default="", max_length=100)
     textContent: str = Field(..., min_length=10, max_length=200_000)
 
 
@@ -528,7 +528,7 @@ class InstructivoItem(BaseModel):
 class ProcVsInstRequest(BaseModel):
     procedimientoId: int
     procedureCode: str = Field(..., min_length=1, max_length=200)
-    area: str = Field(..., min_length=1, max_length=100)
+    area: str = Field(default="", max_length=100)
     textContent: str = Field(..., min_length=10, max_length=200_000)
     instructivos: list[InstructivoItem] = Field(..., min_length=1, max_length=10)
 
@@ -536,7 +536,7 @@ class ProcVsInstRequest(BaseModel):
 class IndexarLightRAGRequest(BaseModel):
     procedimientoId: int
     procedureCode: str = Field(..., min_length=1, max_length=200)
-    area: str = Field(..., min_length=1, max_length=100)
+    area: str = Field(default="", max_length=100)
     textContent: str = Field(..., min_length=10, max_length=200_000)
     instructivos: list[InstructivoItem] = Field(default_factory=list, max_length=10)
 
@@ -896,7 +896,7 @@ async def indexar_lightrag(
 class CargosRequest(BaseModel):
     procedimientoId: int
     procedureCode: str = Field(..., min_length=1, max_length=200)
-    area: str = Field(..., min_length=1, max_length=100)
+    area: str = Field(default="", max_length=100)
     textContent: str = Field(..., min_length=10, max_length=200_000)
     instructivos: list[InstructivoItem] = Field(default_factory=list, max_length=10)
 
@@ -1010,7 +1010,7 @@ async def analizar_cargos(
 class EditarConIARequest(BaseModel):
     procedimientoId: int
     procedureCode: str = Field(..., min_length=1, max_length=200)
-    area: str = Field(..., min_length=1, max_length=100)
+    area: str = Field(default="", max_length=100)
     contenidoActual: str = Field(..., min_length=10, max_length=40_000)
     instruccion: str = Field(..., min_length=5, max_length=2000)
 
