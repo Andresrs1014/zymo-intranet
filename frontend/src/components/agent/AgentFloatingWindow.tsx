@@ -151,6 +151,31 @@ export function AgentFloatingWindow({ agente, usuarioNombre }: Props) {
   const cotizacionesPendientes = bienvenida?.cotizaciones_pendientes ?? 0
   const badgeCount = alertas.length + (cotizacionesPendientes > 0 ? 1 : 0)
 
+  function smartExpand() {
+    const margin = 16
+    const pw = Math.min(400, Math.floor(window.innerWidth * 0.9))
+    const ph = Math.min(600, Math.floor(window.innerHeight * 0.85))
+
+    if (pos) {
+      const btnH = windowRef.current ? windowRef.current.offsetHeight : 56
+      let x = pos.x
+      let y = pos.y
+
+      // No sobresalir por la derecha
+      if (x + pw > window.innerWidth - margin) x = window.innerWidth - pw - margin
+      x = Math.max(margin, x)
+
+      // No sobresalir por abajo — anclar la base del panel a la base del botón
+      if (y + ph > window.innerHeight - margin) {
+        y = pos.y + btnH - ph
+        y = Math.max(margin, y)
+      }
+
+      setPos({ x, y })
+    }
+    setExpanded(true)
+  }
+
   function handleSend() {
     if (!input.trim() || isStreaming) return
     sendMessage(input.trim())
@@ -192,7 +217,7 @@ export function AgentFloatingWindow({ agente, usuarioNombre }: Props) {
             type="button"
             onClick={() => {
               if (!hasDragged.current) {
-                setExpanded(true)
+                smartExpand()
               }
             }}
             className="flex items-center gap-2.5 rounded-2xl bg-primary text-primary-foreground border-2 border-white/30 shadow-lg px-4 py-3 hover:shadow-xl hover:brightness-110 transition-all group cursor-pointer"
