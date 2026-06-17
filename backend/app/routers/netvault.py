@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.config import settings
 from app.core.deps import get_current_user
@@ -133,11 +133,21 @@ CORPUS_RULES = [
 
 # ── Schemas de request / response ─────────────────────────────────────────────
 
+def _strip_base64_blobs(text: str) -> str:
+    """Remove embedded base64 blobs (images/files) — keeps document text readable."""
+    return re.sub(r'[A-Za-z0-9+/]{200,}={0,2}', '[imagen]', text)
+
+
 class AnalyzeRequest(BaseModel):
     procedureCode: str = Field(..., min_length=1, max_length=200)
     area: str = Field(default="", max_length=100)
     textContent: str = Field(..., min_length=10, max_length=200_000)
     existingFlowchartMmd: str | None = None
+
+    @field_validator('textContent', mode='before')
+    @classmethod
+    def remove_base64(cls, v: str) -> str:
+        return _strip_base64_blobs(v) if isinstance(v, str) else v
 
 
 class ChatRequest(BaseModel):
@@ -510,12 +520,22 @@ class CoherenciaRequest(BaseModel):
     textContent: str = Field(..., min_length=10, max_length=200_000)
     existingFlowchartMmd: str | None = None
 
+    @field_validator('textContent', mode='before')
+    @classmethod
+    def remove_base64(cls, v: str) -> str:
+        return _strip_base64_blobs(v) if isinstance(v, str) else v
+
 
 class MejorasRequest(BaseModel):
     procedimientoId: int
     procedureCode: str = Field(..., min_length=1, max_length=200)
     area: str = Field(default="", max_length=100)
     textContent: str = Field(..., min_length=10, max_length=200_000)
+
+    @field_validator('textContent', mode='before')
+    @classmethod
+    def remove_base64(cls, v: str) -> str:
+        return _strip_base64_blobs(v) if isinstance(v, str) else v
 
 
 class InstructivoItem(BaseModel):
@@ -532,6 +552,11 @@ class ProcVsInstRequest(BaseModel):
     textContent: str = Field(..., min_length=10, max_length=200_000)
     instructivos: list[InstructivoItem] = Field(..., min_length=1, max_length=10)
 
+    @field_validator('textContent', mode='before')
+    @classmethod
+    def remove_base64(cls, v: str) -> str:
+        return _strip_base64_blobs(v) if isinstance(v, str) else v
+
 
 class IndexarLightRAGRequest(BaseModel):
     procedimientoId: int
@@ -539,6 +564,11 @@ class IndexarLightRAGRequest(BaseModel):
     area: str = Field(default="", max_length=100)
     textContent: str = Field(..., min_length=10, max_length=200_000)
     instructivos: list[InstructivoItem] = Field(default_factory=list, max_length=10)
+
+    @field_validator('textContent', mode='before')
+    @classmethod
+    def remove_base64(cls, v: str) -> str:
+        return _strip_base64_blobs(v) if isinstance(v, str) else v
 
 
 # ── Prompts coherencia ────────────────────────────────────────────────────────
@@ -899,6 +929,11 @@ class CargosRequest(BaseModel):
     area: str = Field(default="", max_length=100)
     textContent: str = Field(..., min_length=10, max_length=200_000)
     instructivos: list[InstructivoItem] = Field(default_factory=list, max_length=10)
+
+    @field_validator('textContent', mode='before')
+    @classmethod
+    def remove_base64(cls, v: str) -> str:
+        return _strip_base64_blobs(v) if isinstance(v, str) else v
 
 
 def _build_cargos_system() -> str:
