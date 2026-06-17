@@ -584,6 +584,16 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
                     : `El commit #${String(commitId).padStart(4, "0")} está pendiente de aprobación del gerente.`}
                 </p>
               </div>
+              {warnings.length > 0 && (
+                <div className="w-full text-left space-y-1">
+                  {warnings.map((w, i) => (
+                    <div key={i} className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-50 border border-amber-200">
+                      <AlertTriangle className="h-3.5 w-3.5 text-amber-500 mt-0.5 shrink-0" />
+                      <p className="text-[11px] text-amber-700 leading-relaxed">{w}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
               <button
                 onClick={onClose}
                 className="w-full py-2 text-xs font-medium text-white bg-helix-accent hover:opacity-90 rounded-lg transition-opacity font-mono"
