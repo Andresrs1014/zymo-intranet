@@ -27,7 +27,7 @@ interface SigArea {
 }
 
 interface ProcSyncData {
-  latestApproved: { contenidoAgente: string } | null
+  latestApproved: { contenidoAgente: string; flujogramaMmd?: string | null } | null
 }
 
 interface Instructivo {
@@ -269,8 +269,12 @@ function ProcAnalisisCard({ proc }: { proc: ProcListItem }) {
 
   async function fetchContent(): Promise<{ text: string; instructivos: Instructivo[] } | null> {
     const syncData: ProcSyncData = (await sigApi.get(`/api/procedimientos/${proc.id}/sync`)).data
-    const text = syncData.latestApproved?.contenidoAgente ?? null
-    if (!text) return null
+    const contenido = syncData.latestApproved?.contenidoAgente ?? null
+    if (!contenido) return null
+    const flujograma = syncData.latestApproved?.flujogramaMmd
+    const text = flujograma
+      ? `${contenido}\n\n## Flujograma del Proceso (Mermaid)\n\n\`\`\`mermaid\n${flujograma}\n\`\`\``
+      : contenido
     const instructivos: Instructivo[] = (await sigApi.get(`/api/instructivos?procedimientoId=${proc.id}&activo=true`)).data
     return { text, instructivos }
   }

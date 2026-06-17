@@ -32,7 +32,7 @@ interface AnalisisResult {
 }
 
 interface ProcSyncData {
-  latestApproved: { contenidoAgente: string } | null
+  latestApproved: { contenidoAgente: string; flujogramaMmd?: string | null } | null
 }
 
 interface Instructivo {
@@ -265,8 +265,12 @@ function AnalysisTabContent({
     setLoading(true)
     try {
       const syncData: ProcSyncData = (await sigApi.get(`/api/procedimientos/${procId}/sync`)).data
-      const text = syncData.latestApproved?.contenidoAgente
-      if (!text) return
+      const contenido = syncData.latestApproved?.contenidoAgente
+      if (!contenido) return
+      const flujograma = syncData.latestApproved?.flujogramaMmd
+      const text = flujograma
+        ? `${contenido}\n\n## Flujograma del Proceso (Mermaid)\n\n\`\`\`mermaid\n${flujograma}\n\`\`\``
+        : contenido
 
       const procMeta = (await sigApi.get(`/api/procedimientos/${procId}`)).data
       let instructivos: Instructivo[] = []
