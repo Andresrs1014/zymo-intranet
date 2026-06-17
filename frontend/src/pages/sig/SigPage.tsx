@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useAuthStore } from "@/store/authStore"
 import { cn } from "@/lib/utils"
@@ -12,7 +12,7 @@ import {
   FileText, GitCommit, Inbox, X,
   GitBranchPlus, Clock, ChevronRight, Check, Circle, Download,
   Pencil, Eye, Sparkles, Save, XCircle, Loader, AlertCircle,
-  FlaskConical, RefreshCw, UploadCloud, BookOpen,
+  FlaskConical, RefreshCw, UploadCloud, BookOpen, Paperclip,
 } from "lucide-react"
 import { SigAiEditorPanel } from "@/components/sig/SigAiEditorPanel"
 import { SigAnalisisPanel } from "@/components/sig/SigAnalisisPanel"
@@ -399,6 +399,9 @@ interface ProcDetail {
 interface CommitFull {
   id: number
   contenidoAgente: string
+  archivoOriginal: string | null
+  nombreArchivo:   string | null
+  tipoMime:        string | null
 }
 
 type EditorMode = "view" | "edit" | "ai"
@@ -431,7 +434,7 @@ function ProcedureFileView({
   const [commitMsg, setCommitMsg] = useState("")
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState("")
-  const [contentTab, setContentTab] = useState<"doc" | "soporte">("doc")
+  const [contentTab, setContentTab] = useState<"doc" | "archivo" | "soporte">("doc")
 
   const qc = useQueryClient()
 
@@ -637,37 +640,58 @@ function ProcedureFileView({
             )}
 
             {/* Content tabs */}
-            <div className="shrink-0 flex items-center border-b border-zinc-200 bg-zinc-50">
-              <button
-                onClick={() => setContentTab("doc")}
-                className={cn(
-                  "flex items-center gap-1.5 px-4 h-8 text-[11px] font-mono border-b-2 transition-colors",
-                  contentTab === "doc"
-                    ? "border-helix-accent text-zinc-800 bg-white"
-                    : "border-transparent text-zinc-400 hover:text-zinc-600",
-                )}
-              >
-                <FileText className="h-3 w-3" />
-                Documento
-              </button>
-              <button
-                onClick={() => setContentTab("soporte")}
-                className={cn(
-                  "flex items-center gap-1.5 px-4 h-8 text-[11px] font-mono border-b-2 transition-colors",
-                  contentTab === "soporte"
-                    ? "border-helix-accent text-zinc-800 bg-white"
-                    : "border-transparent text-zinc-400 hover:text-zinc-600",
-                )}
-              >
-                <BookOpen className="h-3 w-3" />
-                Soporte
-                {instructivosSnap.length > 0 && (
-                  <span className="ml-0.5 text-[9px] px-1.5 py-px rounded-full bg-helix-accent/10 text-helix-accent font-semibold tabular-nums">
-                    {instructivosSnap.length}
-                  </span>
-                )}
-              </button>
-            </div>
+            {(() => {
+              const hasFile = !!(content?.archivoOriginal)
+              const isMdTxt = content?.tipoMime?.startsWith("text/") ?? false
+              const showArchivoTab = hasFile && !isMdTxt
+              return (
+                <div className="shrink-0 flex items-center border-b border-zinc-200 bg-zinc-50">
+                  <button
+                    onClick={() => setContentTab("doc")}
+                    className={cn(
+                      "flex items-center gap-1.5 px-4 h-8 text-[11px] font-mono border-b-2 transition-colors",
+                      contentTab === "doc"
+                        ? "border-helix-accent text-zinc-800 bg-white"
+                        : "border-transparent text-zinc-400 hover:text-zinc-600",
+                    )}
+                  >
+                    <FileText className="h-3 w-3" />
+                    Documento
+                  </button>
+                  {showArchivoTab && (
+                    <button
+                      onClick={() => setContentTab("archivo")}
+                      className={cn(
+                        "flex items-center gap-1.5 px-4 h-8 text-[11px] font-mono border-b-2 transition-colors",
+                        contentTab === "archivo"
+                          ? "border-helix-accent text-zinc-800 bg-white"
+                          : "border-transparent text-zinc-400 hover:text-zinc-600",
+                      )}
+                    >
+                      <Paperclip className="h-3 w-3" />
+                      Archivo original
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setContentTab("soporte")}
+                    className={cn(
+                      "flex items-center gap-1.5 px-4 h-8 text-[11px] font-mono border-b-2 transition-colors",
+                      contentTab === "soporte"
+                        ? "border-helix-accent text-zinc-800 bg-white"
+                        : "border-transparent text-zinc-400 hover:text-zinc-600",
+                    )}
+                  >
+                    <BookOpen className="h-3 w-3" />
+                    Soporte
+                    {instructivosSnap.length > 0 && (
+                      <span className="ml-0.5 text-[9px] px-1.5 py-px rounded-full bg-helix-accent/10 text-helix-accent font-semibold tabular-nums">
+                        {instructivosSnap.length}
+                      </span>
+                    )}
+                  </button>
+                </div>
+              )
+            })()}
 
             {/* Doc tab */}
             {contentTab === "doc" && (
@@ -759,6 +783,11 @@ function ProcedureFileView({
               </div>
             )}
 
+            {/* Archivo original tab */}
+            {contentTab === "archivo" && content?.archivoOriginal && (
+              <ArchivoOriginalView commitId={content.id} tipoMime={content.tipoMime} nombreArchivo={content.nombreArchivo} />
+            )}
+
             {/* Soporte tab */}
             {contentTab === "soporte" && (
               <div className="flex-1 overflow-auto bg-white">
@@ -800,6 +829,115 @@ function ProcedureFileView({
           ))}
         </div>
       </div>
+    </div>
+  )
+}
+
+// ── Archivo original view ─────────────────────────────────────────────────────
+
+function ArchivoOriginalView({
+  commitId, tipoMime, nombreArchivo,
+}: { commitId: number; tipoMime: string | null; nombreArchivo: string | null }) {
+  const [objectUrl, setObjectUrl] = useState<string | null>(null)
+  const [arrayBuffer, setArrayBuffer] = useState<ArrayBuffer | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const docxRef = useRef<HTMLDivElement>(null)
+
+  const isPdf  = tipoMime === "application/pdf"
+  const isDocx = tipoMime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+  useEffect(() => {
+    let blobUrl: string | null = null
+    setLoading(true)
+    setError(null)
+    setObjectUrl(null)
+    setArrayBuffer(null)
+
+    sigApi.get(`/api/commits/${commitId}/archivo`, { responseType: "blob" })
+      .then(async (res) => {
+        const blob: Blob = res.data
+        blobUrl = URL.createObjectURL(blob)
+        setObjectUrl(blobUrl)
+        if (isDocx) {
+          const ab = await blob.arrayBuffer()
+          setArrayBuffer(ab)
+        }
+      })
+      .catch(() => setError("No se pudo cargar el archivo."))
+      .finally(() => setLoading(false))
+
+    return () => { if (blobUrl) URL.revokeObjectURL(blobUrl) }
+  }, [commitId, isDocx])
+
+  useEffect(() => {
+    if (!isDocx || !arrayBuffer || !docxRef.current) return
+    import("docx-preview").then(({ renderAsync }) => {
+      renderAsync(arrayBuffer, docxRef.current!, undefined, {
+        className: "docx-render",
+        inWrapper: false,
+      }).catch(() => setError("No se pudo renderizar el documento Word."))
+    })
+  }, [arrayBuffer, isDocx])
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center gap-2 text-zinc-400">
+        <div className="h-3 w-3 rounded-full border border-zinc-300 border-t-zinc-600 animate-spin" />
+        <span className="text-xs font-mono">Cargando archivo…</span>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center gap-3">
+        <AlertCircle className="h-6 w-6 text-zinc-300" />
+        <p className="text-sm text-zinc-400 font-mono">{error}</p>
+      </div>
+    )
+  }
+
+  if (isPdf && objectUrl) {
+    return (
+      <div className="flex-1 overflow-hidden bg-zinc-100">
+        <iframe
+          src={objectUrl}
+          className="w-full h-full border-0"
+          title={nombreArchivo ?? "Archivo PDF"}
+        />
+      </div>
+    )
+  }
+
+  if (isDocx) {
+    return (
+      <div className="flex-1 overflow-auto bg-white p-6">
+        <div ref={docxRef} className="max-w-3xl mx-auto" />
+      </div>
+    )
+  }
+
+  // .doc u otro — descarga
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center gap-4">
+      <Paperclip className="h-8 w-8 text-zinc-300" />
+      <div className="text-center">
+        <p className="text-sm font-mono text-zinc-600">{nombreArchivo ?? "Archivo"}</p>
+        <p className="text-[11px] text-zinc-400 mt-1">
+          Este formato no puede mostrarse en el navegador.
+        </p>
+      </div>
+      {objectUrl && (
+        <a
+          href={objectUrl}
+          download={nombreArchivo ?? "archivo"}
+          className="flex items-center gap-1.5 text-[11px] px-3 py-2 rounded border border-zinc-200 text-zinc-600 hover:border-zinc-400 hover:text-zinc-900 transition-colors font-mono"
+        >
+          <Download className="h-3.5 w-3.5" />
+          Descargar {nombreArchivo}
+        </a>
+      )}
     </div>
   )
 }

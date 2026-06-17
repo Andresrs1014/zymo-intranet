@@ -1,30 +1,61 @@
 import { Router, Request, Response } from "express"
 import { z } from "zod"
 import { createTwoFilesPatch } from "diff"
+import multer from "multer"
+import path from "path"
+import fs from "fs/promises"
+import fsSync from "fs"
 import prisma from "../config/prisma"
 import { getUserId, requireSigAccess, requireGerente } from "../middleware/auth"
 import { sendAprobacionEmail } from "../services/email"
+import { extractText } from "../services/textExtraction"
 
 const router = Router()
 
+// ── Multer — almacenamiento de archivos originales ────────────────────────────
+
+const UPLOADS_DIR = path.join(process.cwd(), "uploads", "sig")
+fsSync.mkdirSync(UPLOADS_DIR, { recursive: true })
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),
+  filename: (_req, file, cb) => {
+    const safe = file.originalname.replace(/[^a-z0-9.\-_]/gi, "_").toLowerCase()
+    cb(null, `${Date.now()}_${safe}`)
+  },
+})
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = [".md", ".markdown", ".txt", ".docx", ".pdf", ".doc"]
+    const ext = path.extname(file.originalname).toLowerCase()
+    cb(null, allowed.includes(ext))
+  },
+})
+
+// ── Schema JSON (net_file_manager) ────────────────────────────────────────────
+
 const CommitSchema = z.object({
   procedimientoId: z.number().int().positive(),
-  contenidoOriginal: z.string().default(""),   // vacío en commits de inicialización
-  contenidoAgente: z.string().default(""),     // vacío en commits de inicialización
+  contenidoOriginal: z.string().default(""),
+  contenidoAgente: z.string().default(""),
   flujogramaMmd: z.string().optional(),
   sinCambios: z.boolean().default(false),
   mensaje: z.string().min(1).max(500),
   versionDoc: z.string().max(20).optional(),
 })
 
-// GET /api/commits — lista commits con filtros (para la cola de revisión)
+// ── GET /api/commits ──────────────────────────────────────────────────────────
+
 router.get("/", async (req: Request, res: Response) => {
   const { procedimientoId, estado, limit } = req.query
 
   const commits = await prisma.sigCommit.findMany({
     where: {
       ...(procedimientoId ? { procedimientoId: parseInt(procedimientoId as string) } : {}),
-      ...(estado ? { estado: estado as any } : {}),
+      ...(estado ? { estado: estado as "PENDIENTE_REVISION" | "APROBADO" | "RECHAZADO" } : {}),
     },
     include: {
       procedimiento: {
@@ -37,7 +68,8 @@ router.get("/", async (req: Request, res: Response) => {
   res.json(commits)
 })
 
-// GET /api/commits/pendientes — commits pendientes de revisión (para badge del Gerente)
+// ── GET /api/commits/pendientes ───────────────────────────────────────────────
+
 router.get("/pendientes", requireGerente, async (_req: Request, res: Response) => {
   const commits = await prisma.sigCommit.findMany({
     where: { estado: "PENDIENTE_REVISION" },
@@ -54,7 +86,8 @@ router.get("/pendientes", requireGerente, async (_req: Request, res: Response) =
   res.json(commits)
 })
 
-// GET /api/commits/:id — detalle completo con contenidos para el diff viewer
+// ── GET /api/commits/:id — detalle con patch para diff viewer ─────────────────
+
 router.get("/:id", async (req: Request, res: Response) => {
   const id = parseInt(req.params.id)
   const commit = await prisma.sigCommit.findUnique({
@@ -70,7 +103,6 @@ router.get("/:id", async (req: Request, res: Response) => {
   })
   if (!commit) { res.status(404).json({ error: "Commit no encontrado" }); return }
 
-  // Calcular diff unificado en el servidor
   const patch = createTwoFilesPatch(
     "original.md",
     "agente.md",
@@ -78,13 +110,121 @@ router.get("/:id", async (req: Request, res: Response) => {
     commit.contenidoAgente,
     "Documento original",
     "Procesado por IA",
-    { context: 4 }
+    { context: 4 },
   )
 
   res.json({ ...commit, patch })
 })
 
-// POST /api/commits — NetVault (o web) envía un nuevo commit
+// ── GET /api/commits/:id/archivo — sirve el archivo original ─────────────────
+
+router.get("/:id/archivo", async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id)
+  const commit = await prisma.sigCommit.findUnique({
+    where: { id },
+    select: { archivoOriginal: true, nombreArchivo: true, tipoMime: true },
+  })
+
+  if (!commit?.archivoOriginal) {
+    res.status(404).json({ error: "Este commit no tiene archivo adjunto" })
+    return
+  }
+
+  const filePath = path.join(UPLOADS_DIR, commit.archivoOriginal)
+  try {
+    await fs.access(filePath)
+  } catch {
+    res.status(404).json({ error: "Archivo no encontrado en el servidor" })
+    return
+  }
+
+  res.setHeader("Content-Type", commit.tipoMime ?? "application/octet-stream")
+  res.setHeader("Content-Disposition", `inline; filename="${commit.nombreArchivo ?? "archivo"}"`)
+  const stream = fsSync.createReadStream(filePath)
+  stream.pipe(res)
+})
+
+// ── POST /api/commits/upload — upload desde web con archivo binario ──────────
+
+router.post(
+  "/upload",
+  requireSigAccess,
+  upload.single("file"),
+  async (req: Request, res: Response) => {
+    if (!req.file) {
+      res.status(400).json({ error: "Se requiere un archivo (.md, .txt, .docx, .pdf, .doc)" })
+      return
+    }
+
+    const procedimientoId = parseInt(req.body.procedimientoId)
+    const mensaje = (req.body.mensaje ?? "").trim()
+    const versionDoc: string | undefined = req.body.versionDoc?.trim() || undefined
+
+    if (!procedimientoId || !mensaje) {
+      await fs.unlink(req.file.path).catch(() => {})
+      res.status(422).json({ error: "procedimientoId y mensaje son requeridos" })
+      return
+    }
+
+    const proc = await prisma.sigProcedimiento.findUnique({ where: { id: procedimientoId } })
+    if (!proc) {
+      await fs.unlink(req.file.path).catch(() => {})
+      res.status(422).json({ error: "Procedimiento no encontrado. Crea el procedimiento primero." })
+      return
+    }
+
+    // Extracción de texto en el servidor (autoritativa)
+    const { text: extractedText, warnings } = await extractText(req.file.path, req.file.originalname)
+
+    // contenidoOriginal = última versión aprobada (o vacío si es el primer commit)
+    const prevCommit = await prisma.sigCommit.findFirst({
+      where: { procedimientoId, estado: "APROBADO" },
+      orderBy: { createdAt: "desc" },
+      select: { contenidoAgente: true },
+    })
+    const contenidoOriginal = prevCommit?.contenidoAgente ?? ""
+
+    const userId = getUserId(req.user!)
+    const userName = req.user!.full_name ?? req.user!.email ?? "Usuario"
+    const isGerente = req.user!.role === "gerente" || req.user!.role === "admin"
+    const estadoFinal = isGerente ? "APROBADO" : "PENDIENTE_REVISION"
+
+    const commit = await prisma.sigCommit.create({
+      data: {
+        procedimientoId,
+        contenidoOriginal,
+        contenidoAgente:  extractedText,
+        sinCambios:       false,
+        mensaje,
+        autorId:          userId,
+        autorNombre:      userName,
+        versionDoc,
+        archivoOriginal:  req.file.filename,
+        nombreArchivo:    req.file.originalname,
+        tipoMime:         req.file.mimetype,
+        estado:           estadoFinal,
+        ...(isGerente ? {
+          aprobadoPor:    userId,
+          aprobadoNombre: userName,
+          aprobadoEn:     new Date(),
+        } : {}),
+      },
+      include: { procedimiento: { select: { codigo: true, titulo: true } } },
+    })
+
+    if (isGerente) {
+      await prisma.sigProcedimiento.update({
+        where: { id: procedimientoId },
+        data:  { estado: "VIGENTE" },
+      })
+    }
+
+    res.status(201).json({ ...commit, warnings })
+  },
+)
+
+// ── POST /api/commits — JSON (net_file_manager / edición inline) ──────────────
+
 router.post("/", requireSigAccess, async (req: Request, res: Response) => {
   const parsed = CommitSchema.safeParse(req.body)
   if (!parsed.success) { res.status(422).json({ error: parsed.error.flatten() }); return }
@@ -92,7 +232,6 @@ router.post("/", requireSigAccess, async (req: Request, res: Response) => {
   const userId = getUserId(req.user!)
   const userName = req.user!.full_name ?? req.user!.email ?? "Usuario"
 
-  // Verificar que el procedimiento existe
   const proc = await prisma.sigProcedimiento.findUnique({
     where: { id: parsed.data.procedimientoId },
   })
@@ -127,7 +266,6 @@ router.post("/", requireSigAccess, async (req: Request, res: Response) => {
     },
   })
 
-  // Si el gerente aprueba directamente, el procedimiento pasa a VIGENTE
   if (isGerente && !parsed.data.sinCambios) {
     await prisma.sigProcedimiento.update({
       where: { id: parsed.data.procedimientoId },
@@ -138,7 +276,8 @@ router.post("/", requireSigAccess, async (req: Request, res: Response) => {
   res.status(201).json(commit)
 })
 
-// POST /api/commits/:id/aprobar — solo Gerente o Admin
+// ── POST /api/commits/:id/aprobar ─────────────────────────────────────────────
+
 router.post("/:id/aprobar", requireGerente, async (req: Request, res: Response) => {
   const id = parseInt(req.params.id)
   const userId = getUserId(req.user!)
@@ -163,14 +302,12 @@ router.post("/:id/aprobar", requireGerente, async (req: Request, res: Response) 
         aprobadoEn: new Date(),
       },
     }),
-    // El procedimiento pasa a VIGENTE automáticamente al aprobar
     prisma.sigProcedimiento.update({
       where: { id: commit.procedimientoId },
       data: { estado: "VIGENTE" },
     }),
   ])
 
-  // Notificación por email (no bloqueante)
   sendAprobacionEmail({
     codigo: commit.procedimiento.codigo,
     titulo: commit.procedimiento.titulo,
@@ -181,7 +318,8 @@ router.post("/:id/aprobar", requireGerente, async (req: Request, res: Response) 
   res.json({ ok: true })
 })
 
-// POST /api/commits/:id/rechazar — solo Gerente o Admin
+// ── POST /api/commits/:id/rechazar ────────────────────────────────────────────
+
 router.post("/:id/rechazar", requireGerente, async (req: Request, res: Response) => {
   const id = parseInt(req.params.id)
   const userId = getUserId(req.user!)

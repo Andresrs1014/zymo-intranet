@@ -142,6 +142,8 @@ services:
     depends_on:
       sig-db:
         condition: service_healthy
+    volumes:
+      - sig_uploads:/app/uploads/sig
     restart: unless-stopped
 
   sig-db:
@@ -168,3 +170,4 @@ volumes:
   task_db_data:
   task_uploads:
   sig_db_data:
+  sig_uploads:

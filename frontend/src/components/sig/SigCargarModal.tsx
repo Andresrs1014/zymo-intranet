@@ -3,11 +3,24 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { sigApi } from "@/lib/sigApi"
 import { useAuthStore } from "@/store/authStore"
 import { cn } from "@/lib/utils"
-import { extractTextFromFile, isAnalyzableFile, SUPPORTED_ACCEPT } from "@/lib/sigDocExtract"
+import { extractTextFromFile } from "@/lib/sigDocExtract"
 import {
   X, Plus, Layers, FileText, FolderOpen, Loader, AlertTriangle,
   CheckCircle, UploadCloud, Eye, EyeOff, ChevronLeft, GitCommit,
+  Info,
 } from "lucide-react"
+
+const UPLOAD_ACCEPT = ".md,.markdown,.txt,.docx,.pdf,.doc"
+
+function isUploadable(name: string): boolean {
+  const lower = name.toLowerCase()
+  return [".md", ".markdown", ".txt", ".docx", ".pdf", ".doc"].some((e) => lower.endsWith(e))
+}
+
+function needsServerExtraction(name: string): boolean {
+  const lower = name.toLowerCase()
+  return lower.endsWith(".pdf") || lower.endsWith(".doc")
+}
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -83,7 +96,10 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
 
   // ── File state ──────────────────────────────────────────────────────────────
   const [fileName, setFileName] = useState<string | null>(null)
+  const [file, setFile] = useState<File | null>(null)
   const [content, setContent] = useState("")
+  const [serverExtract, setServerExtract] = useState(false)
+  const [warnings, setWarnings] = useState<string[]>([])
   const [extracting, setExtracting] = useState(false)
   const [fileError, setFileError] = useState("")
   const [showPreview, setShowPreview] = useState(false)
@@ -162,45 +178,62 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
     }
   }
 
-  async function handleFile(file: File) {
-    if (!isAnalyzableFile(file.name)) {
-      setFileError("Formato no soportado. Usa MD, TXT, DOCX o PDF.")
+  async function handleFile(selectedFile: File) {
+    if (!isUploadable(selectedFile.name)) {
+      setFileError("Formato no soportado. Usa MD, TXT, DOCX, PDF o DOC.")
       return
     }
     setExtracting(true)
     setFileError("")
+    setContent("")
+    setWarnings([])
+    setServerExtract(false)
+    setFile(selectedFile)
+    setFileName(selectedFile.name)
+
+    if (needsServerExtraction(selectedFile.name)) {
+      // PDF y DOC: el servidor extrae el texto; aquí solo guardamos el archivo
+      setServerExtract(true)
+      setExtracting(false)
+      return
+    }
+
     try {
-      const text = await extractTextFromFile(file)
+      const text = await extractTextFromFile(selectedFile)
       setContent(text)
-      setFileName(file.name)
     } catch (e) {
       setFileError(e instanceof Error ? e.message : "Error al leer el archivo")
       setContent("")
       setFileName(null)
+      setFile(null)
     } finally {
       setExtracting(false)
     }
   }
 
   function onInputChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (file) void handleFile(file)
+    const f = e.target.files?.[0]
+    if (f) void handleFile(f)
     e.target.value = ""
   }
 
   async function handleSubmit() {
-    if (!proc || !mensaje.trim() || !content) return
+    if (!proc || !mensaje.trim() || !file) return
     setSubmitting(true)
     setError("")
     try {
-      const res = await sigApi.post("/api/commits", {
-        procedimientoId: proc.id,
-        contenidoOriginal: content,
-        contenidoAgente: content,
-        mensaje: mensaje.trim(),
-        versionDoc: versionDoc.trim() || undefined,
+      const fd = new FormData()
+      fd.append("file", file)
+      fd.append("procedimientoId", String(proc.id))
+      fd.append("mensaje", mensaje.trim())
+      if (versionDoc.trim()) fd.append("versionDoc", versionDoc.trim())
+
+      const res = await sigApi.post("/api/commits/upload", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
       })
-      // Refrescar todo lo que depende de este procedimiento / commits
+
+      if (res.data.warnings?.length) setWarnings(res.data.warnings)
+
       qc.invalidateQueries({ queryKey: ["sig", "procedimiento", proc.id] })
       qc.invalidateQueries({ queryKey: ["sig", "commits-by-proc", proc.id] })
       qc.invalidateQueries({ queryKey: ["sig", "procs-by-area", proc.areaId] })
@@ -399,13 +432,13 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
               <StepTitle
                 icon={<FileText className="h-3 w-3 text-helix-warning" />}
                 label="Cargar documento"
-                hint="MD · TXT · DOCX · PDF"
+                hint="MD · TXT · DOCX · PDF · DOC"
               />
 
               <input
                 ref={fileInputRef}
                 type="file"
-                accept={SUPPORTED_ACCEPT}
+                accept={UPLOAD_ACCEPT}
                 onChange={onInputChange}
                 className="hidden"
               />
@@ -423,14 +456,16 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
                 {extracting ? (
                   <>
                     <Loader className="h-5 w-5 text-helix-accent animate-spin" />
-                    <span className="text-xs text-zinc-500 font-mono">Extrayendo contenido…</span>
+                    <span className="text-xs text-zinc-500 font-mono">Leyendo archivo…</span>
                   </>
                 ) : fileName ? (
                   <>
                     <FileText className="h-5 w-5 text-helix-done" />
                     <span className="text-xs text-helix-done font-mono font-medium">{fileName}</span>
                     <span className="text-[10px] text-zinc-400 font-mono">
-                      {content.length.toLocaleString()} caracteres · click para cambiar
+                      {serverExtract
+                        ? "el texto se extraerá en el servidor · click para cambiar"
+                        : `${content.length.toLocaleString()} caracteres · click para cambiar`}
                     </span>
                   </>
                 ) : (
@@ -444,6 +479,15 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
               </button>
 
               {fileError && <ErrorBox msg={fileError} />}
+
+              {serverExtract && fileName && (
+                <div className="flex items-start gap-2 p-2.5 rounded-lg bg-blue-50 border border-blue-200">
+                  <Info className="h-3.5 w-3.5 text-blue-500 mt-0.5 shrink-0" />
+                  <p className="text-xs text-blue-700 leading-relaxed">
+                    El texto se extraerá en el servidor al cargar. El archivo original quedará guardado y disponible para visualización.
+                  </p>
+                </div>
+              )}
 
               {content && (
                 <div>
@@ -465,7 +509,7 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
               <FooterButtons
                 onBack={preselected ? undefined : () => setStep("select")}
                 primaryLabel="Continuar"
-                primaryDisabled={!content}
+                primaryDisabled={!file}
                 onPrimary={() => setStep("commit")}
               />
             </div>
@@ -516,7 +560,7 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
               <FooterButtons
                 onBack={() => setStep("load-file")}
                 primaryLabel={submitting ? "Cargando…" : isManager ? "Cargar y publicar" : "Enviar a revisión"}
-                primaryDisabled={submitting || !mensaje.trim() || !content}
+                primaryDisabled={submitting || !mensaje.trim() || !file}
                 primaryLoading={submitting}
                 primaryIcon={<GitCommit className="h-3 w-3" />}
                 onPrimary={handleSubmit}

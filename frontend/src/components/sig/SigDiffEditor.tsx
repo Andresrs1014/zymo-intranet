@@ -316,9 +316,11 @@ export function SigDiffEditor({ commitId, isGerente, onOpenProcedure }: Props) {
       {/* Content */}
       <div className="flex-1 overflow-hidden">
         {mode === "documento"
-          ? <DocumentoView content={commit.contenidoAgente} />
+          ? <DocumentoView content={commit.contenidoAgente || commit.contenidoOriginal} />
           : commit.sinCambios
-          ? <NoChangesView onViewDoc={() => setMode("documento")} />
+          ? <NoChangesView onViewDoc={() => setMode("documento")} firstVersion={false} />
+          : !hasDiff
+          ? <NoChangesView onViewDoc={() => setMode("documento")} firstVersion />
           : mode === "split"
           ? <SplitDiff rows={rows} />
           : <InlineDiff rows={flattenForInline(rows)} />
@@ -403,16 +405,20 @@ function DocumentoView({ content }: { content: string }) {
 
 // ── No changes ─────────────────────────────────────────────────────────────────
 
-function NoChangesView({ onViewDoc }: { onViewDoc: () => void }) {
+function NoChangesView({ onViewDoc, firstVersion }: { onViewDoc: () => void; firstVersion: boolean }) {
   return (
     <div className="flex flex-col items-center justify-center h-full gap-3 bg-white">
       <div className="h-10 w-10 rounded-full border border-emerald-400/30 flex items-center justify-center">
         <Check className="h-5 w-5 text-emerald-500" />
       </div>
       <div className="text-center">
-        <p className="text-sm text-zinc-700 font-mono font-medium">Sin cambios</p>
+        <p className="text-sm text-zinc-700 font-mono font-medium">
+          {firstVersion ? "Primera versión" : "Sin cambios"}
+        </p>
         <p className="text-[11px] text-zinc-400 mt-1 max-w-xs">
-          El agente revisó el procedimiento y lo encontró conforme. No se realizaron modificaciones.
+          {firstVersion
+            ? "Este es el primer documento cargado para este procedimiento. No hay versión anterior con la que comparar."
+            : "El agente revisó el procedimiento y lo encontró conforme. No se realizaron modificaciones."}
         </p>
       </div>
       <button

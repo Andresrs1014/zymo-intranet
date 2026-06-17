@@ -74,6 +74,11 @@ model SigCommit {
   aprobadoEn       DateTime?
   comentarioRevision String?          @db.Text
 
+  // Archivo original adjunto al commit (PDF, DOCX, DOC, MD)
+  archivoOriginal  String?            @db.VarChar(500)
+  nombreArchivo    String?            @db.VarChar(255)
+  tipoMime         String?            @db.VarChar(100)
+
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
 
