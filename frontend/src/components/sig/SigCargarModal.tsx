@@ -408,11 +408,12 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
                 />
               </Field>
               <Field label="Descripción (opcional)">
-                <input
+                <textarea
                   value={descripcion}
                   onChange={(e) => setDescripcion(e.target.value)}
-                  placeholder="Descripción breve"
-                  className="w-full bg-zinc-50 border border-zinc-200 rounded-lg px-3 py-1.5 text-xs text-zinc-700 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-helix-accent/40 transition-colors"
+                  placeholder="Descripción breve del procedimiento..."
+                  rows={4}
+                  className="w-full bg-zinc-50 border border-zinc-200 rounded-lg px-3 py-2 text-xs text-zinc-700 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-helix-accent/40 transition-colors resize-none leading-relaxed"
                 />
               </Field>
               {error && <ErrorBox msg={error} />}
