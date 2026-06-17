@@ -5,7 +5,7 @@ import { useAuthStore } from "@/store/authStore"
 import { cn } from "@/lib/utils"
 import {
   ChevronRight, ChevronDown, FolderOpen, Folder,
-  FileText, GitCommit, Inbox, Plus, Circle, Trash2, AlertTriangle, UploadCloud,
+  FileText, GitCommit, Inbox, Plus, Circle, Trash2, AlertTriangle, UploadCloud, Pencil,
 } from "lucide-react"
 import type { PreselectedProc } from "@/components/sig/SigCargarModal"
 
@@ -255,6 +255,22 @@ function AreaNode({
   onCargarVersion?: (proc: PreselectedProc) => void
   onDeleteProcedure?: (id: number) => void
 }) {
+  const qc = useQueryClient()
+  const [renaming, setRenaming] = useState(false)
+  const [renameValue, setRenameValue] = useState(area.nombre)
+
+  const renameMutation = useMutation({
+    mutationFn: (nombre: string) => sigApi.patch(`/api/areas/${area.id}`, { nombre }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["sig", "areas"] })
+      setRenaming(false)
+    },
+    onError: () => {
+      setRenameValue(area.nombre)
+      setRenaming(false)
+    },
+  })
+
   const { data: procs = [] } = useQuery<SigProcedimiento[]>({
     queryKey: ["sig", "procs-by-area", area.id],
     queryFn: async () => (await sigApi.get(`/api/procedimientos?areaId=${area.id}`)).data,
@@ -264,22 +280,53 @@ function AreaNode({
   return (
     <div>
       {/* Area row */}
-      <button
-        onClick={onToggleArea}
-        className="w-full flex items-center gap-1.5 px-2 py-1 text-left hover:bg-zinc-100 transition-colors group"
-      >
-        <span className="h-3.5 w-3.5 text-zinc-400 group-hover:text-zinc-600 transition-colors shrink-0">
-          {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-        </span>
-        {expanded
-          ? <FolderOpen className="h-3.5 w-3.5 shrink-0" style={{ color: area.color }} />
-          : <Folder className="h-3.5 w-3.5 shrink-0" style={{ color: area.color }} />
-        }
-        <span className="text-[12px] text-zinc-700 flex-1 truncate">{area.nombre}</span>
-        <span className="text-[10px] text-zinc-400 font-mono tabular-nums pr-1">
-          {area._count.procedimientos}
-        </span>
-      </button>
+      {renaming ? (
+        <div className="flex items-center gap-1.5 px-2 py-1 bg-zinc-100">
+          {expanded
+            ? <FolderOpen className="h-3.5 w-3.5 shrink-0" style={{ color: area.color }} />
+            : <Folder className="h-3.5 w-3.5 shrink-0" style={{ color: area.color }} />
+          }
+          <input
+            autoFocus
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && renameValue.trim()) renameMutation.mutate(renameValue.trim())
+              if (e.key === "Escape") { setRenaming(false); setRenameValue(area.nombre) }
+            }}
+            onBlur={() => { setRenaming(false); setRenameValue(area.nombre) }}
+            className="flex-1 bg-white border border-helix-accent/40 rounded px-1.5 py-0.5 text-[12px] text-zinc-800 focus:outline-none focus:ring-1 focus:ring-helix-accent/40"
+          />
+        </div>
+      ) : (
+        <div className="flex items-center group">
+          <button
+            onClick={onToggleArea}
+            className="flex items-center gap-1.5 px-2 py-1 text-left hover:bg-zinc-100 transition-colors flex-1 min-w-0"
+          >
+            <span className="h-3.5 w-3.5 text-zinc-400 group-hover:text-zinc-600 transition-colors shrink-0">
+              {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+            </span>
+            {expanded
+              ? <FolderOpen className="h-3.5 w-3.5 shrink-0" style={{ color: area.color }} />
+              : <Folder className="h-3.5 w-3.5 shrink-0" style={{ color: area.color }} />
+            }
+            <span className="text-[12px] text-zinc-700 flex-1 truncate">{area.nombre}</span>
+            <span className="text-[10px] text-zinc-400 font-mono tabular-nums pr-1">
+              {area._count.procedimientos}
+            </span>
+          </button>
+          {isManager && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setRenaming(true) }}
+              className="opacity-0 group-hover:opacity-50 hover:!opacity-100 pr-1.5 text-zinc-400 hover:text-helix-accent transition-all shrink-0"
+              title="Renombrar área"
+            >
+              <Pencil className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Procedures */}
       {expanded && (
