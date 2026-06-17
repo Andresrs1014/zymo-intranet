@@ -220,7 +220,6 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
   return (
     <div
       className="fixed inset-0 z-[200] flex items-center justify-center bg-zinc-900/50 backdrop-blur-[1px]"
-      onClick={onClose}
     >
       <div
         className="bg-white rounded-xl w-full max-w-md border border-zinc-200 shadow-xl overflow-hidden"

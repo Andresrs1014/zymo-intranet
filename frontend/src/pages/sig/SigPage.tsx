@@ -12,7 +12,7 @@ import {
   FileText, GitCommit, Inbox, X,
   GitBranchPlus, Clock, ChevronRight, Check, Circle, Download,
   Pencil, Eye, Sparkles, Save, XCircle, Loader, AlertCircle,
-  FlaskConical, RefreshCw, UploadCloud,
+  FlaskConical, RefreshCw, UploadCloud, BookOpen,
 } from "lucide-react"
 import { SigAiEditorPanel } from "@/components/sig/SigAiEditorPanel"
 import { SigAnalisisPanel } from "@/components/sig/SigAnalisisPanel"
@@ -431,8 +431,14 @@ function ProcedureFileView({
   const [commitMsg, setCommitMsg] = useState("")
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState("")
+  const [contentTab, setContentTab] = useState<"doc" | "soporte">("doc")
 
   const qc = useQueryClient()
+
+  const { data: instructivosSnap = [] } = useQuery<{ id: number }[]>({
+    queryKey: ["sig", "instructivos", id],
+    queryFn: () => sigApi.get(`/api/instructivos?procedimientoId=${id}&activo=true`).then((r) => r.data),
+  })
 
   const { data: proc, isLoading: procLoading } = useQuery<ProcDetail>({
     queryKey: ["sig", "procedimiento", id],
@@ -612,7 +618,7 @@ function ProcedureFileView({
         {/* View mode */}
         {editorMode === "view" && (
           <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Banner: preview de versión pendiente — solo cuando hay contenido que mostrar */}
+            {/* Banner: preview de versión pendiente */}
             {isPreview && !!currentContent && (
               <div className="shrink-0 flex items-center gap-2 px-4 py-1.5 border-b border-amber-200 bg-amber-50">
                 <Clock className="h-3 w-3 text-amber-500 shrink-0" />
@@ -629,98 +635,142 @@ function ProcedureFileView({
                 )}
               </div>
             )}
-          <div className="flex-1 overflow-auto bg-white">
-            <div className="max-w-3xl mx-auto px-8 py-8">
 
-              {/* Document header */}
-              <div className="mb-8 pb-6 border-b border-zinc-100">
-                <div className="h-0.5 w-10 rounded-full mb-5" style={{ backgroundColor: procArea.color }} />
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h1 className="text-lg font-bold text-zinc-900 font-mono tracking-tight">{proc.codigo}</h1>
-                    <p className="text-[14px] text-zinc-600 mt-1.5 leading-snug">{proc.titulo}</p>
-                  </div>
-                  <span className={cn("shrink-0 text-[10px] px-2 py-1 rounded border font-mono mt-0.5", ESTADO_PROC_BADGE[proc.estado])}>
-                    {proc.estado.toLowerCase()}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3 mt-4">
-                  <div className="flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: procArea.color }} />
-                    <span className="text-[11px] text-zinc-400 font-mono">{procArea.nombre}</span>
-                  </div>
-                  {contentCommit?.versionDoc && (
-                    <>
-                      <div className="h-3 w-px bg-zinc-200" />
-                      <span className="text-[11px] text-zinc-400 font-mono">v{contentCommit.versionDoc}</span>
-                    </>
-                  )}
-                  {contentCommit?.createdAt && (
-                    <>
-                      <div className="h-3 w-px bg-zinc-200" />
-                      <span className="text-[11px] text-zinc-400 font-mono">
-                        {new Date(contentCommit.createdAt).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" })}
-                      </span>
-                    </>
-                  )}
-                </div>
-                {proc.descripcion && (
-                  <p className="text-[11px] text-zinc-400 mt-3 leading-relaxed border-l-2 border-zinc-200 pl-3 italic">
-                    {proc.descripcion}
-                  </p>
+            {/* Content tabs */}
+            <div className="shrink-0 flex items-center border-b border-zinc-200 bg-zinc-50">
+              <button
+                onClick={() => setContentTab("doc")}
+                className={cn(
+                  "flex items-center gap-1.5 px-4 h-8 text-[11px] font-mono border-b-2 transition-colors",
+                  contentTab === "doc"
+                    ? "border-helix-accent text-zinc-800 bg-white"
+                    : "border-transparent text-zinc-400 hover:text-zinc-600",
                 )}
-              </div>
-
-              {/* Document content */}
-              {currentContent ? (
-                <div className="prose max-w-none
-                    prose-headings:font-mono prose-headings:text-zinc-800 prose-headings:font-bold prose-headings:tracking-tight
-                    prose-h1:text-base prose-h1:border-b prose-h1:border-zinc-200 prose-h1:pb-2 prose-h1:mb-4
-                    prose-h2:text-[14px] prose-h2:text-zinc-700 prose-h2:mt-8 prose-h2:mb-3
-                    prose-h3:text-[13px] prose-h3:text-zinc-600 prose-h3:mt-5
-                    prose-p:text-zinc-600 prose-p:leading-relaxed prose-p:text-[13px]
-                    prose-strong:text-zinc-800 prose-strong:font-semibold
-                    prose-li:text-zinc-600 prose-li:text-[13px] prose-li:leading-relaxed
-                    prose-ul:space-y-1.5 prose-ol:space-y-1.5
-                    prose-ul:my-3 prose-ol:my-3
-                    prose-code:text-helix-ai prose-code:bg-zinc-100 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-[11px] prose-code:font-mono
-                    prose-pre:bg-zinc-50 prose-pre:border prose-pre:border-zinc-200 prose-pre:rounded-lg prose-pre:text-[11px]
-                    prose-blockquote:border-l-2 prose-blockquote:border-amber-300 prose-blockquote:bg-amber-50/60 prose-blockquote:rounded-r prose-blockquote:text-amber-700 prose-blockquote:text-[11px] prose-blockquote:py-2 prose-blockquote:not-italic
-                    prose-table:text-[12px] prose-table:w-full prose-table:border-collapse
-                    prose-th:bg-zinc-50 prose-th:text-zinc-700 prose-th:font-mono prose-th:font-semibold prose-th:text-[11px] prose-th:px-3 prose-th:py-2 prose-th:border prose-th:border-zinc-200 prose-th:text-left
-                    prose-td:text-zinc-600 prose-td:text-[12px] prose-td:px-3 prose-td:py-2 prose-td:border prose-td:border-zinc-100
-                    prose-tr:even:bg-zinc-50/50
-                    prose-hr:border-zinc-200 prose-hr:my-6
-                    prose-a:text-helix-ai prose-a:no-underline hover:prose-a:underline"
-                >
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {cleanProcContent(currentContent)}
-                  </ReactMarkdown>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-16 gap-3">
-                  <div className="h-8 w-8 rounded border border-zinc-200 flex items-center justify-center">
-                    <FileText className="h-4 w-4 text-zinc-300" />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm text-zinc-500 font-mono">Sin contenido publicado</p>
-                    <p className="text-[11px] text-zinc-400 mt-1">
-                      {proc.commits.length === 0
-                        ? "Usa «Cargar procedimiento» para subir el primer documento."
-                        : "Hay commits en revisión. Aprueba uno para publicar el contenido."
-                      }
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              <SigInstructivosPanel
-                procedimientoId={id}
-                procCodigo={proc.codigo}
-                canEdit={canEditSig}
-              />
+              >
+                <FileText className="h-3 w-3" />
+                Documento
+              </button>
+              <button
+                onClick={() => setContentTab("soporte")}
+                className={cn(
+                  "flex items-center gap-1.5 px-4 h-8 text-[11px] font-mono border-b-2 transition-colors",
+                  contentTab === "soporte"
+                    ? "border-helix-accent text-zinc-800 bg-white"
+                    : "border-transparent text-zinc-400 hover:text-zinc-600",
+                )}
+              >
+                <BookOpen className="h-3 w-3" />
+                Soporte
+                {instructivosSnap.length > 0 && (
+                  <span className="ml-0.5 text-[9px] px-1.5 py-px rounded-full bg-helix-accent/10 text-helix-accent font-semibold tabular-nums">
+                    {instructivosSnap.length}
+                  </span>
+                )}
+              </button>
             </div>
-          </div>
+
+            {/* Doc tab */}
+            {contentTab === "doc" && (
+              <div className="flex-1 overflow-auto bg-white">
+                <div className="max-w-3xl mx-auto px-8 py-8">
+
+                  {/* Document header */}
+                  <div className="mb-8 pb-6 border-b border-zinc-100">
+                    <div className="h-0.5 w-10 rounded-full mb-5" style={{ backgroundColor: procArea.color }} />
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h1 className="text-lg font-bold text-zinc-900 font-mono tracking-tight">{proc.codigo}</h1>
+                        <p className="text-[14px] text-zinc-600 mt-1.5 leading-snug">{proc.titulo}</p>
+                      </div>
+                      <span className={cn("shrink-0 text-[10px] px-2 py-1 rounded border font-mono mt-0.5", ESTADO_PROC_BADGE[proc.estado])}>
+                        {proc.estado.toLowerCase()}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 mt-4">
+                      <div className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: procArea.color }} />
+                        <span className="text-[11px] text-zinc-400 font-mono">{procArea.nombre}</span>
+                      </div>
+                      {contentCommit?.versionDoc && (
+                        <>
+                          <div className="h-3 w-px bg-zinc-200" />
+                          <span className="text-[11px] text-zinc-400 font-mono">v{contentCommit.versionDoc}</span>
+                        </>
+                      )}
+                      {contentCommit?.createdAt && (
+                        <>
+                          <div className="h-3 w-px bg-zinc-200" />
+                          <span className="text-[11px] text-zinc-400 font-mono">
+                            {new Date(contentCommit.createdAt).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" })}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    {proc.descripcion && (
+                      <p className="text-[11px] text-zinc-400 mt-3 leading-relaxed border-l-2 border-zinc-200 pl-3 italic">
+                        {proc.descripcion}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Document content */}
+                  {currentContent ? (
+                    <div className="prose max-w-none
+                        prose-headings:font-mono prose-headings:text-zinc-800 prose-headings:font-bold prose-headings:tracking-tight
+                        prose-h1:text-base prose-h1:border-b prose-h1:border-zinc-200 prose-h1:pb-2 prose-h1:mb-4
+                        prose-h2:text-[14px] prose-h2:text-zinc-700 prose-h2:mt-8 prose-h2:mb-3
+                        prose-h3:text-[13px] prose-h3:text-zinc-600 prose-h3:mt-5
+                        prose-p:text-zinc-600 prose-p:leading-relaxed prose-p:text-[13px]
+                        prose-strong:text-zinc-800 prose-strong:font-semibold
+                        prose-li:text-zinc-600 prose-li:text-[13px] prose-li:leading-relaxed
+                        prose-ul:space-y-1.5 prose-ol:space-y-1.5
+                        prose-ul:my-3 prose-ol:my-3
+                        prose-code:text-helix-ai prose-code:bg-zinc-100 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-[11px] prose-code:font-mono
+                        prose-pre:bg-zinc-50 prose-pre:border prose-pre:border-zinc-200 prose-pre:rounded-lg prose-pre:text-[11px]
+                        prose-blockquote:border-l-2 prose-blockquote:border-amber-300 prose-blockquote:bg-amber-50/60 prose-blockquote:rounded-r prose-blockquote:text-amber-700 prose-blockquote:text-[11px] prose-blockquote:py-2 prose-blockquote:not-italic
+                        prose-table:text-[12px] prose-table:w-full prose-table:border-collapse
+                        prose-th:bg-zinc-50 prose-th:text-zinc-700 prose-th:font-mono prose-th:font-semibold prose-th:text-[11px] prose-th:px-3 prose-th:py-2 prose-th:border prose-th:border-zinc-200 prose-th:text-left
+                        prose-td:text-zinc-600 prose-td:text-[12px] prose-td:px-3 prose-td:py-2 prose-td:border prose-td:border-zinc-100
+                        prose-tr:even:bg-zinc-50/50
+                        prose-hr:border-zinc-200 prose-hr:my-6
+                        prose-a:text-helix-ai prose-a:no-underline hover:prose-a:underline"
+                    >
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {cleanProcContent(currentContent)}
+                      </ReactMarkdown>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-16 gap-3">
+                      <div className="h-8 w-8 rounded border border-zinc-200 flex items-center justify-center">
+                        <FileText className="h-4 w-4 text-zinc-300" />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm text-zinc-500 font-mono">Sin contenido publicado</p>
+                        <p className="text-[11px] text-zinc-400 mt-1">
+                          {proc.commits.length === 0
+                            ? "Usa «Cargar procedimiento» para subir el primer documento."
+                            : "Hay commits en revisión. Aprueba uno para publicar el contenido."
+                          }
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Soporte tab */}
+            {contentTab === "soporte" && (
+              <div className="flex-1 overflow-auto bg-white">
+                <div className="max-w-3xl mx-auto px-8 py-8">
+                  <SigInstructivosPanel
+                    procedimientoId={id}
+                    procCodigo={proc.codigo}
+                    canEdit={canEditSig}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
