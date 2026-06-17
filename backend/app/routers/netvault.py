@@ -770,11 +770,19 @@ Reglas:
 - Incluir el código del documento afectado en cada conflicto."""
 
 
-def _build_pvsi_user(req: ProcVsInstRequest) -> str:
-    inst_blocks = "\n\n".join(
-        f"### {i.codigo} — {i.titulo}\n{i.contenido[:3000]}"
-        for i in req.instructivos
+def _inst_block(i: "InstructivoItem") -> str:
+    if i.contenido.strip():
+        return f"### {i.codigo} — {i.titulo}\n{i.contenido[:3000]}"
+    return (
+        f"### {i.codigo} — {i.titulo}\n"
+        "[SIN CONTENIDO EXTRAÍBLE: El archivo fue adjuntado pero no tiene texto procesable "
+        "(posible .doc clásico o PDF escaneado). Reportar como conflicto de severidad 'alta': "
+        "no se puede verificar coherencia con el procedimiento principal.]"
     )
+
+
+def _build_pvsi_user(req: "ProcVsInstRequest") -> str:
+    inst_blocks = "\n\n".join(_inst_block(i) for i in req.instructivos)
     return f"""Verifica coherencia entre el procedimiento y sus documentos de soporte.
 
 PROCEDIMIENTO ({req.procedureCode} — {req.area}):
@@ -782,10 +790,11 @@ PROCEDIMIENTO ({req.procedureCode} — {req.area}):
 {req.textContent[:8000]}
 ---
 
-DOCUMENTOS DE SOPORTE:
+DOCUMENTOS DE SOPORTE ({len(req.instructivos)} documento{"s" if len(req.instructivos) != 1 else ""}):
 {inst_blocks}
 
 Detecta: contradicciones de pasos, roles definidos diferente, secuencias que difieren, referencias cruzadas rotas.
+Si el procedimiento referencia un código de instructivo que NO aparece en la lista de documentos de soporte, repórtalo como conflicto 'alta': referencia cruzada sin documento correspondiente.
 
 Responde ÚNICAMENTE con el JSON especificado."""
 

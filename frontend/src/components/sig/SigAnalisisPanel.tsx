@@ -6,7 +6,7 @@ import { api } from "@/lib/api"
 import { useSigAnalisisStore, type AnalysisType } from "@/store/sigAnalisisStore"
 import {
   Search, SlidersHorizontal, FileText,
-  Target, Lightbulb, GitCompare, Database, Users, Loader,
+  Target, Lightbulb, GitCompare, Database, Users, Loader, AlertTriangle,
 } from "lucide-react"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -267,6 +267,13 @@ function ProcAnalisisCard({ proc }: { proc: ProcListItem }) {
   const jobs         = useSigAnalisisStore((s) => s.jobs)
   const [loading, setLoading] = useState<AnalysisType | "all" | null>(null)
 
+  const { data: instructivosList = [] } = useQuery<Instructivo[]>({
+    queryKey: ["sig", "instructivos", proc.id],
+    queryFn: () => sigApi.get(`/api/instructivos?procedimientoId=${proc.id}&activo=true`).then((r) => r.data),
+  })
+  const emptyContentInst = instructivosList.filter((i) => !i.contenido.trim())
+  const hasInstWarning = emptyContentInst.length > 0
+
   async function fetchContent(): Promise<{ text: string; instructivos: Instructivo[] } | null> {
     const syncData: ProcSyncData = (await sigApi.get(`/api/procedimientos/${proc.id}/sync`)).data
     const contenido = syncData.latestApproved?.contenidoAgente ?? null
@@ -338,6 +345,15 @@ function ProcAnalisisCard({ proc }: { proc: ProcListItem }) {
             )}>{proc.estado.toLowerCase()}</span>
           </div>
           <p className="text-[12px] text-zinc-500 truncate mt-0.5">{proc.titulo}</p>
+          {hasInstWarning && (
+            <div className="flex items-center gap-1.5 mt-1.5 px-2 py-1 rounded bg-amber-50 border border-amber-200">
+              <AlertTriangle className="h-3 w-3 text-amber-500 shrink-0" />
+              <span className="text-[10px] text-amber-700 font-mono">
+                {emptyContentInst.length} instructivo{emptyContentInst.length !== 1 ? "s" : ""} sin texto extraíble
+                ({emptyContentInst.map((i) => i.codigo).join(", ")}) — el análisis Proc/Inst lo reportará como no verificable
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
