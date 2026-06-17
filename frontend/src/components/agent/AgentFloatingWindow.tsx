@@ -39,6 +39,7 @@ export function AgentFloatingWindow({ agente, usuarioNombre }: Props) {
   const showFloating = !docked || !lg
 
   const drag = useRef(false)
+  const hasDragged = useRef(false)
   const dragOffset = useRef({ x: 0, y: 0 })
   const windowRef = useRef<HTMLDivElement>(null)
 
@@ -85,6 +86,7 @@ export function AgentFloatingWindow({ agente, usuarioNombre }: Props) {
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (!windowRef.current) return
     drag.current = true
+    hasDragged.current = false
     const rect = windowRef.current.getBoundingClientRect()
     dragOffset.current = {
       x: e.clientX - rect.left,
@@ -107,6 +109,7 @@ export function AgentFloatingWindow({ agente, usuarioNombre }: Props) {
   useEffect(() => {
     function onMouseMove(e: MouseEvent) {
       if (!drag.current) return
+      hasDragged.current = true
       setPos({
         x: e.clientX - dragOffset.current.x,
         y: e.clientY - dragOffset.current.y,
@@ -118,6 +121,7 @@ export function AgentFloatingWindow({ agente, usuarioNombre }: Props) {
     function onTouchMove(e: TouchEvent) {
       if (!drag.current || e.touches.length !== 1) return
       e.preventDefault()
+      hasDragged.current = true
       const touch = e.touches[0]
       setPos({
         x: touch.clientX - dragOffset.current.x,
@@ -172,53 +176,68 @@ export function AgentFloatingWindow({ agente, usuarioNombre }: Props) {
 
   if (!expanded) {
     return (
-      <div ref={windowRef} className="fixed z-50 select-none" style={posStyle}>
-        <button
+      <div
+        ref={windowRef}
+        className="fixed z-50 select-none"
+        style={posStyle}
+      >
+        {/* Wrapper para drag - solo se arrastra */}
+        <div
           onMouseDown={handleMouseDown}
           onTouchStart={handleTouchStart}
-          onClick={() => setExpanded(true)}
-          type="button"
-          className="flex items-center gap-2.5 rounded-2xl bg-card border border-border shadow-lg px-4 py-3 hover:shadow-xl transition-shadow group cursor-pointer"
+          className="cursor-grab active:cursor-grabbing"
         >
-          <div className="relative">
-            <div className="w-8 h-8 rounded-full bg-brand-blue flex items-center justify-center text-white text-sm font-bold">
-              {agente === "zymo" ? "Z" : "A"}
-            </div>
-            {isStreaming && (
-              <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-400 border-2 border-white animate-pulse" />
-            )}
-            {!isStreaming && badgeCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center border border-white">
-                {badgeCount > 9 ? "9+" : badgeCount}
-              </span>
-            )}
-          </div>
-
-          <div className="text-left">
-            <p className="text-xs font-semibold text-foreground leading-none">
-              {agente === "zymo" ? "ZYMO" : "Agente Administrativo"}
-            </p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">
-              {isStreaming
-                ? "trabajando..."
-                : badgeCount > 0
-                  ? `${badgeCount} alerta${badgeCount > 1 ? "s" : ""}`
-                  : "disponible"}
-            </p>
-          </div>
-
-          <svg
-            className="w-3.5 h-3.5 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors ml-1"
-            viewBox="0 0 20 20"
-            fill="currentColor"
+          {/* Botón interno - solo para click */}
+          <button
+            type="button"
+            onClick={() => {
+              if (!hasDragged.current) {
+                setExpanded(true)
+              }
+            }}
+            className="flex items-center gap-2.5 rounded-2xl bg-primary text-primary-foreground border-2 border-white/30 shadow-lg px-4 py-3 hover:shadow-xl hover:brightness-110 transition-all group cursor-pointer"
           >
-            <path
-              fillRule="evenodd"
-              d="M10 3a.75.75 0 0 1 .75.75v10.638l3.96-4.158a.75.75 0 1 1 1.08 1.04l-5.25 5.5a.75.75 0 0 1-1.08 0l-5.25-5.5a.75.75 0 1 1 1.08-1.04l3.96 4.158V3.75A.75.75 0 0 1 10 3Z"
-              clipRule="evenodd"
-            />
-          </svg>
-        </button>
+            <div className="relative">
+              <div className="w-8 h-8 rounded-full bg-white text-primary flex items-center justify-center text-sm font-bold">
+                {agente === "zymo" ? "Z" : "A"}
+              </div>
+              {isStreaming && (
+                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-400 border-2 border-white animate-pulse" />
+              )}
+              {!isStreaming && badgeCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-white text-primary text-[10px] font-bold flex items-center justify-center border-2 border-primary">
+                  {badgeCount > 9 ? "9+" : badgeCount}
+                </span>
+              )}
+            </div>
+
+            <div className="text-left">
+              <p className="text-xs font-bold text-white leading-none tracking-wide">
+                {agente === "zymo" ? "ZYMO" : "Agente"}
+              </p>
+              <p className="text-[10px] text-white/70 mt-0.5">
+                {isStreaming
+                  ? "trabajando..."
+                  : badgeCount > 0
+                    ? `${badgeCount} alerta${badgeCount > 1 ? "s" : ""}`
+                    : "disponible"}
+              </p>
+            </div>
+
+            <svg
+              className="w-3.5 h-3.5 text-white/50 group-hover:text-white transition-colors ml-1"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path
+                fillRule="evenodd"
+                d="M10 3a.75.75 0 0 1 .75.75v10.638l3.96-4.158a.75.75 0 1 1 1.08 1.04l-5.25 5.5a.75.75 0 0 1-1.08 0l-5.25-5.5a.75.75 0 1 1 1.08-1.04l3.96 4.158V3.75A.75.75 0 0 1 10 3Z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </button>
+        </div>
       </div>
     )
   }
@@ -257,16 +276,16 @@ export function AgentFloatingWindow({ agente, usuarioNombre }: Props) {
           <div
             onMouseDown={handleMouseDown}
             onTouchStart={handleTouchStart}
-            className="flex items-center gap-3 px-4 py-3 border-b border-border rounded-t-2xl bg-brand-blue cursor-grab active:cursor-grabbing shrink-0"
+            className="flex items-center gap-3 px-4 py-3 border-b border-border rounded-t-2xl bg-primary cursor-grab active:cursor-grabbing shrink-0"
           >
-            <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-white text-sm font-bold shrink-0">
+            <div className="w-7 h-7 rounded-full bg-white text-primary flex items-center justify-center text-sm font-bold shrink-0">
               {agente === "zymo" ? "Z" : "A"}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-white leading-none">
+              <p className="text-sm font-bold text-white leading-none tracking-wide">
                 {agente === "zymo" ? "ZYMO" : "Agente Administrativo"}
               </p>
-              <p className="text-[10px] text-blue-100 mt-0.5 truncate">
+              <p className="text-[10px] text-white/70 mt-0.5 truncate">
                 {isStreaming ? "escribiendo..." : `Hola, ${usuarioNombre.split(" ")[0]}`}
               </p>
             </div>
@@ -274,7 +293,7 @@ export function AgentFloatingWindow({ agente, usuarioNombre }: Props) {
               <button
                 type="button"
                 onClick={cancelStream}
-                className="text-blue-200 hover:text-white transition-colors text-xs shrink-0"
+                className="text-white/70 hover:text-white transition-colors text-xs shrink-0"
               >
                 Detener
               </button>
@@ -282,7 +301,7 @@ export function AgentFloatingWindow({ agente, usuarioNombre }: Props) {
             <button
               type="button"
               onClick={() => setExpanded(false)}
-              className="text-blue-200 hover:text-white transition-colors shrink-0 ml-1"
+              className="text-white/70 hover:text-white transition-colors shrink-0 ml-1"
               aria-label="Minimizar"
             >
               <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">

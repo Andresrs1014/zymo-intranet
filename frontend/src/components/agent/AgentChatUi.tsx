@@ -90,7 +90,7 @@ export function AgentChatUi({
                   type="button"
                   disabled={isStreaming}
                   onClick={() => onSuggestedPrompt(p)}
-                  className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground hover:bg-muted hover:border-brand-blue/40 transition-colors disabled:opacity-50"
+                  className="rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs text-primary hover:bg-primary/10 hover:border-primary/50 transition-colors disabled:opacity-50"
                 >
                   {p}
                 </button>
@@ -123,14 +123,14 @@ export function AgentChatUi({
       <div className="px-3 pb-3 pt-2 border-t border-border shrink-0">
         {onNewChat && (
           <div className="flex justify-end mb-2">
-            <button
-              type="button"
-              onClick={onNewChat}
-              disabled={isStreaming}
-              className="text-[11px] font-medium text-brand-blue hover:underline disabled:opacity-40"
-            >
-              Nueva conversación
-            </button>
+          <button
+            type="button"
+            onClick={onNewChat}
+            disabled={isStreaming}
+            className="text-[11px] font-medium text-primary hover:underline disabled:opacity-40"
+          >
+            Nueva conversación
+          </button>
           </div>
         )}
         <div className="flex items-end gap-2">
@@ -141,16 +141,17 @@ export function AgentChatUi({
             onKeyDown={onInputKeyDown}
             disabled={isStreaming}
             placeholder={`Escribe tu pregunta… (${usuarioNombre.split(" ")[0]}, Enter envía)`}
-            className="flex-1 resize-none rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30 disabled:bg-muted disabled:text-muted-foreground min-h-[44px]"
+            aria-label="Mensaje para el agente"
+            className="flex-1 resize-none rounded-xl border border-primary/30 bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:bg-muted disabled:text-muted-foreground min-h-[44px]"
           />
           <button
             type="button"
             onClick={onSend}
             disabled={!input.trim() || isStreaming}
-            className="shrink-0 w-9 h-9 rounded-xl bg-brand-blue text-white flex items-center justify-center hover:brightness-105 disabled:opacity-40 transition-all"
-            aria-label="Enviar"
+            className="shrink-0 w-9 h-9 rounded-xl bg-primary text-primary-foreground flex items-center justify-center hover:brightness-110 disabled:opacity-40 transition-all shadow-sm"
+            aria-label="Enviar mensaje"
           >
-            <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+            <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
               <path d="M3.105 2.288a.75.75 0 0 0-.826.95l1.414 4.925A1.5 1.5 0 0 0 5.135 9.25h6.115a.75.75 0 0 1 0 1.5H5.135a1.5 1.5 0 0 0-1.442 1.087L2.28 16.761a.75.75 0 0 0 .826.95 28.896 28.896 0 0 0 15.293-7.154.75.75 0 0 0 0-1.115A28.897 28.897 0 0 0 3.105 2.288Z" />
             </svg>
           </button>
