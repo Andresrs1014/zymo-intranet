@@ -3,6 +3,10 @@ import mammoth from "mammoth"
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const pdfParse = require("pdf-parse") as (buffer: Buffer) => Promise<{ text: string; numpages: number }>
 import fs from "fs/promises"
+import { execFile } from "child_process"
+import { promisify } from "util"
+
+const execFileAsync = promisify(execFile)
 
 export interface ExtractionResult {
   text: string
@@ -68,12 +72,27 @@ export async function extractText(filePath: string, fileName: string): Promise<E
   }
 
   if (lower.endsWith(".doc")) {
-    return {
-      text: "",
-      warnings: [
-        "Los archivos .doc (Word clásico) no admiten extracción automática de texto. " +
-        "El archivo original está disponible en la pestaña Archivo para descarga o visualización.",
-      ],
+    try {
+      // antiword extrae texto plano de archivos .doc (Word 97-2003)
+      const { stdout } = await execFileAsync("antiword", ["-m", "UTF-8.txt", filePath], {
+        maxBuffer: 10 * 1024 * 1024,
+      })
+      const text = stdout.trim()
+      if (!text) {
+        return {
+          text: "",
+          warnings: ["El archivo .doc no contiene texto extraíble o está protegido."],
+        }
+      }
+      return { text, warnings: [] }
+    } catch {
+      return {
+        text: "",
+        warnings: [
+          "No se pudo extraer texto del archivo .doc. " +
+          "El archivo original está disponible para descarga.",
+        ],
+      }
     }
   }
 

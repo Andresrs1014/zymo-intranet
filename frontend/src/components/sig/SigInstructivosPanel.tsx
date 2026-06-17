@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query"
 import { sigApi } from "@/lib/sigApi"
 import { cn } from "@/lib/utils"
 import ReactMarkdown from "react-markdown"
@@ -7,7 +7,7 @@ import remarkGfm from "remark-gfm"
 import {
   BookOpen, Plus, FileText, Trash2, Loader, AlertCircle, AlertTriangle,
   ChevronDown, ChevronUp, X, FileCheck, Upload, FolderOpen, Paperclip,
-  Download, Eye,
+  Download, Eye, RefreshCw,
 } from "lucide-react"
 
 const MAX_INSTRUCTIVOS = 10
@@ -180,6 +180,11 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
       setForm((f) => ({ ...f, submitting: false, error: getErr(e, "No se pudo guardar.") }))
     }
   }
+
+  const reextractMutation = useMutation({
+    mutationFn: (id: number) => sigApi.post(`/api/instructivos/${id}/reextract`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["sig", "instructivos", procedimientoId] }),
+  })
 
   async function handleDelete(id: number) {
     setDeleting(id)
@@ -525,12 +530,24 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
                             </ReactMarkdown>
                           </div>
                         ) : (
-                          <div className="flex flex-col items-center gap-2 py-8">
+                          <div className="flex flex-col items-center gap-3 py-8">
                             <Paperclip className="h-6 w-6 text-zinc-300" />
                             <p className="text-[12px] text-zinc-400 font-mono text-center">
                               No se pudo extraer texto de este archivo.<br />
-                              Usa la pestaña «Archivo original» para verlo.
+                              {inst.archivoOriginal
+                                ? "Usa «Re-extraer» para intentarlo de nuevo o «Archivo original» para verlo."
+                                : "Usa la pestaña «Archivo original» para verlo."}
                             </p>
+                            {inst.archivoOriginal && (
+                              <button
+                                onClick={() => reextractMutation.mutate(inst.id)}
+                                disabled={reextractMutation.isPending}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-zinc-200 text-[11px] font-mono text-zinc-600 hover:border-zinc-400 hover:text-zinc-900 transition-colors disabled:opacity-50"
+                              >
+                                <RefreshCw className={cn("h-3 w-3", reextractMutation.isPending && "animate-spin")} />
+                                {reextractMutation.isPending ? "Re-extrayendo…" : "Re-extraer texto"}
+                              </button>
+                            )}
                           </div>
                         )}
                         {inst.contenido.trim() && (

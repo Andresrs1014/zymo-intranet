@@ -252,6 +252,38 @@ router.patch("/:id", requireSigAccess, async (req: Request, res: Response) => {
   }
 })
 
+// ── POST /api/instructivos/:id/reextract — re-procesar texto de archivo guardado
+
+router.post("/:id/reextract", requireSigAccess, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id)
+
+  const inst = await prisma.sigInstructivo.findUnique({ where: { id } })
+  if (!inst) {
+    res.status(404).json({ error: "Instructivo no encontrado" })
+    return
+  }
+  if (!inst.archivoOriginal || !inst.nombreArchivo) {
+    res.status(400).json({ error: "Este instructivo no tiene archivo almacenado para re-procesar" })
+    return
+  }
+
+  try {
+    await fs.access(inst.archivoOriginal)
+  } catch {
+    res.status(404).json({ error: "Archivo físico no encontrado en el servidor" })
+    return
+  }
+
+  const { text, warnings } = await extractText(inst.archivoOriginal, inst.nombreArchivo)
+
+  const updated = await prisma.sigInstructivo.update({
+    where: { id },
+    data: { contenido: text, contenidoOriginal: text },
+  })
+
+  res.json({ updated, warnings })
+})
+
 // ── DELETE /api/instructivos/:id ──────────────────────────────────────────────
 
 router.delete("/:id", requireSigAccess, async (req: Request, res: Response) => {
