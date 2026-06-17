@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
 import { useSigAnalisisStore, type AnalysisJob, type AnalysisType } from "@/store/sigAnalisisStore"
+import { cancelAnalysisJob } from "./SigAnalisisPanel"
 import { ChevronUp, X, CheckCircle2, AlertCircle, Loader, Target, Lightbulb, GitCompare, Database, Users } from "lucide-react"
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -53,6 +54,9 @@ function JobRow({ job }: { job: AnalysisJob }) {
         {job.status === "error" && (
           <AlertCircle className="h-3.5 w-3.5 text-red-500" />
         )}
+        {job.status === "cancelled" && (
+          <X className="h-3.5 w-3.5 text-zinc-400" />
+        )}
       </div>
 
       {/* Type chip */}
@@ -69,6 +73,17 @@ function JobRow({ job }: { job: AnalysisJob }) {
 
       {/* Elapsed */}
       <span className="text-[10px] font-mono text-zinc-400 shrink-0 tabular-nums">{elapsed}</span>
+
+      {/* Cancel button (running only) */}
+      {job.status === "running" && (
+        <button
+          onClick={() => cancelAnalysisJob(job.id)}
+          title="Cancelar análisis"
+          className="shrink-0 h-5 w-5 rounded flex items-center justify-center text-zinc-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      )}
 
       {/* Error tooltip */}
       {job.status === "error" && job.error && (

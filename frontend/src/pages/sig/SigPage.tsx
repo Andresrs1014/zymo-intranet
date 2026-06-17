@@ -10,7 +10,7 @@ import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import {
   FileText, GitCommit, Inbox, X,
-  GitBranchPlus, Clock, ChevronRight, Check, Circle, Download,
+  GitBranchPlus, Clock, ChevronRight, ChevronLeft, Check, Circle, Download,
   Pencil, Eye, Sparkles, Save, XCircle, Loader, AlertCircle,
   FlaskConical, RefreshCw, UploadCloud, BookOpen, Paperclip,
 } from "lucide-react"
@@ -20,7 +20,7 @@ import { SigAnalisisSyncView } from "@/components/sig/SigAnalisisSyncView"
 import { SigAnalisisQueue } from "@/components/sig/SigAnalisisQueue"
 import { SigAnalisisInspector } from "@/components/sig/SigAnalisisInspector"
 import { SigCargarModal, type PreselectedProc } from "@/components/sig/SigCargarModal"
-import { SigInstructivosPanel } from "@/components/sig/SigInstructivosPanel"
+import { SigInstructivosPanel, type SigInstructivo, InstructivoArchivoView, PROSE as INST_PROSE } from "@/components/sig/SigInstructivosPanel"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -435,6 +435,12 @@ function ProcedureFileView({
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState("")
   const [contentTab, setContentTab] = useState<"doc" | "archivo" | "soporte">("doc")
+  const [selectedInst, setSelectedInst] = useState<SigInstructivo | null>(null)
+
+  function switchTab(tab: "doc" | "archivo" | "soporte") {
+    setContentTab(tab)
+    if (tab !== "soporte") setSelectedInst(null)
+  }
 
   const qc = useQueryClient()
 
@@ -647,7 +653,7 @@ function ProcedureFileView({
               return (
                 <div className="shrink-0 flex items-center border-b border-zinc-200 bg-zinc-50">
                   <button
-                    onClick={() => setContentTab("doc")}
+                    onClick={() => switchTab("doc")}
                     className={cn(
                       "flex items-center gap-1.5 px-4 h-8 text-[11px] font-mono border-b-2 transition-colors",
                       contentTab === "doc"
@@ -660,7 +666,7 @@ function ProcedureFileView({
                   </button>
                   {showArchivoTab && (
                     <button
-                      onClick={() => setContentTab("archivo")}
+                      onClick={() => switchTab("archivo")}
                       className={cn(
                         "flex items-center gap-1.5 px-4 h-8 text-[11px] font-mono border-b-2 transition-colors",
                         contentTab === "archivo"
@@ -673,7 +679,7 @@ function ProcedureFileView({
                     </button>
                   )}
                   <button
-                    onClick={() => setContentTab("soporte")}
+                    onClick={() => switchTab("soporte")}
                     className={cn(
                       "flex items-center gap-1.5 px-4 h-8 text-[11px] font-mono border-b-2 transition-colors",
                       contentTab === "soporte"
@@ -788,17 +794,26 @@ function ProcedureFileView({
               <ArchivoOriginalView commitId={content.id} tipoMime={content.tipoMime} nombreArchivo={content.nombreArchivo} />
             )}
 
-            {/* Soporte tab */}
-            {contentTab === "soporte" && (
+            {/* Soporte tab — list */}
+            {contentTab === "soporte" && !selectedInst && (
               <div className="flex-1 overflow-auto bg-white">
                 <div className="max-w-3xl mx-auto px-8 py-8">
                   <SigInstructivosPanel
                     procedimientoId={id}
                     procCodigo={proc.codigo}
                     canEdit={canEditSig}
+                    onSelectInst={(inst) => setSelectedInst(inst)}
                   />
                 </div>
               </div>
+            )}
+
+            {/* Soporte tab — detail */}
+            {contentTab === "soporte" && selectedInst && (
+              <InstructivoDetailView
+                inst={selectedInst}
+                onBack={() => setSelectedInst(null)}
+              />
             )}
           </div>
         )}
@@ -829,6 +844,102 @@ function ProcedureFileView({
           ))}
         </div>
       </div>
+    </div>
+  )
+}
+
+// ── Instructivo detail view ───────────────────────────────────────────────────
+
+function InstructivoDetailView({ inst, onBack }: { inst: SigInstructivo; onBack: () => void }) {
+  const hasFile = !!inst.archivoOriginal && !inst.tipoMime?.startsWith("text/")
+  const defaultTab = !inst.contenido.trim() && hasFile ? "archivo" : "doc"
+  const [tab, setTab] = useState<"doc" | "archivo">(defaultTab)
+
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Back + breadcrumb bar */}
+      <div className="shrink-0 flex items-center gap-2 px-4 h-8 border-b border-zinc-200 bg-zinc-50">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-1 text-[11px] font-mono text-zinc-400 hover:text-zinc-700 transition-colors"
+        >
+          <ChevronLeft className="h-3 w-3" />
+          Soporte
+        </button>
+        <ChevronRight className="h-3 w-3 text-zinc-300" />
+        <Paperclip className="h-3 w-3 text-zinc-400" />
+        <span className="text-[11px] font-mono text-zinc-700">{inst.codigo}</span>
+      </div>
+
+      {/* Tabs */}
+      <div className="shrink-0 flex items-center border-b border-zinc-200 bg-zinc-50">
+        <button
+          onClick={() => setTab("doc")}
+          className={cn(
+            "flex items-center gap-1.5 px-4 h-8 text-[11px] font-mono border-b-2 transition-colors",
+            tab === "doc" ? "border-helix-accent text-zinc-800 bg-white" : "border-transparent text-zinc-400 hover:text-zinc-600",
+          )}
+        >
+          <FileText className="h-3 w-3" />
+          Documento
+        </button>
+        {hasFile && (
+          <button
+            onClick={() => setTab("archivo")}
+            className={cn(
+              "flex items-center gap-1.5 px-4 h-8 text-[11px] font-mono border-b-2 transition-colors",
+              tab === "archivo" ? "border-helix-accent text-zinc-800 bg-white" : "border-transparent text-zinc-400 hover:text-zinc-600",
+            )}
+          >
+            <Paperclip className="h-3 w-3" />
+            Archivo original
+          </button>
+        )}
+      </div>
+
+      {/* Doc tab */}
+      {tab === "doc" && (
+        <div className="flex-1 overflow-auto bg-white">
+          <div className="max-w-3xl mx-auto px-8 py-8">
+            {/* Header */}
+            <div className="mb-8 pb-6 border-b border-zinc-100">
+              <h1 className="text-lg font-bold text-zinc-900 font-mono tracking-tight">{inst.codigo}</h1>
+              <p className="text-[14px] text-zinc-600 mt-1.5 leading-snug">{inst.titulo}</p>
+              <div className="flex items-center gap-3 mt-4">
+                <span className="text-[11px] text-zinc-400 font-mono">v{inst.versionDoc}</span>
+                <div className="h-3 w-px bg-zinc-200" />
+                <span className="text-[11px] text-zinc-400 font-mono">{inst.autorNombre}</span>
+                <div className="h-3 w-px bg-zinc-200" />
+                <span className="text-[11px] text-zinc-400 font-mono">
+                  {new Date(inst.createdAt).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" })}
+                </span>
+              </div>
+              {inst.descripcion && (
+                <p className="text-[11px] text-zinc-400 mt-3 leading-relaxed border-l-2 border-zinc-200 pl-3 italic">{inst.descripcion}</p>
+              )}
+            </div>
+            {/* Content */}
+            {inst.contenido.trim() ? (
+              <div className={INST_PROSE}>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{inst.contenido}</ReactMarkdown>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-3 py-16">
+                <Paperclip className="h-8 w-8 text-zinc-200" />
+                <p className="text-[13px] text-zinc-400 font-mono text-center">
+                  No se pudo extraer texto de este archivo.<br />
+                  {hasFile ? "Cambia a la pestaña «Archivo original» para verlo." : ""}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Archivo tab */}
+      {tab === "archivo" && hasFile && (
+        <InstructivoArchivoView inst={inst} />
+      )}
     </div>
   )
 }

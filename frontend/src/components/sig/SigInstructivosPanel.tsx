@@ -2,12 +2,10 @@ import { useEffect, useRef, useState } from "react"
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query"
 import { sigApi } from "@/lib/sigApi"
 import { cn } from "@/lib/utils"
-import ReactMarkdown from "react-markdown"
-import remarkGfm from "remark-gfm"
 import {
   BookOpen, Plus, FileText, Trash2, Loader, AlertCircle, AlertTriangle,
-  ChevronDown, ChevronUp, X, FileCheck, Upload, FolderOpen, Paperclip,
-  Download, Eye, RefreshCw,
+  X, FileCheck, Upload, FolderOpen, Paperclip,
+  Download, RefreshCw, ChevronRight,
 } from "lucide-react"
 
 const MAX_INSTRUCTIVOS = 10
@@ -31,6 +29,7 @@ interface Props {
   procedimientoId: number
   procCodigo?: string
   canEdit?: boolean
+  onSelectInst?: (inst: SigInstructivo) => void
 }
 
 interface FormState {
@@ -53,29 +52,13 @@ const FORM_DEFAULT: FormState = {
 
 const SUPPORTED_ACCEPT = ".md,.markdown,.txt,.docx,.pdf,.doc"
 
-function cleanContent(raw: string): string {
-  let s = raw.replace(/^---[\s\S]*?---\s*\n?/, "").trimStart()
-  s = s.replace(/^>.*unrecogni[sz]ed[^\n]*\n?/gim, "")
-  s = s.replace(/\n{3,}/g, "\n\n")
-  return s.trim()
-}
-
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime()
-  const days = Math.floor(diff / 86_400_000)
-  if (days === 0) return "Hoy"
-  if (days === 1) return "Ayer"
-  if (days < 30) return `Hace ${days} días`
-  return new Date(iso).toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" })
-}
-
 function getErr(e: unknown, fallback: string): string {
   const data = (e as { response?: { data?: { error?: string | { message?: string } } } })?.response?.data
   if (typeof data?.error === "string") return data.error
   return fallback
 }
 
-const PROSE = `prose prose-sm max-w-none
+export const PROSE = `prose prose-sm max-w-none
   prose-headings:font-mono prose-headings:text-zinc-700 prose-headings:font-semibold prose-headings:text-[13px]
   prose-p:text-zinc-600 prose-p:text-[13px] prose-p:leading-relaxed
   prose-strong:text-zinc-800 prose-strong:font-semibold
@@ -86,17 +69,14 @@ const PROSE = `prose prose-sm max-w-none
   prose-td:text-zinc-600 prose-td:text-[12px] prose-td:border prose-td:border-zinc-100 prose-td:px-3 prose-td:py-1.5
   prose-hr:border-zinc-200`
 
-export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = false }: Props) {
+export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = false, onSelectInst }: Props) {
   const qc = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const formRef = useRef<HTMLDivElement>(null)
 
   const [form, setForm] = useState<FormState>(FORM_DEFAULT)
-  const [expanded, setExpanded] = useState<number | null>(null)
-  const [expandedTab, setExpandedTab] = useState<Record<number, "doc" | "archivo">>({})
   const [deleting, setDeleting] = useState<number | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
-  const [previewInst, setPreviewInst] = useState<SigInstructivo | null>(null)
 
   const { data: instructivos = [], isLoading } = useQuery<SigInstructivo[]>({
     queryKey: ["sig", "instructivos", procedimientoId],
@@ -192,7 +172,6 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
     try {
       await sigApi.delete(`/api/instructivos/${id}`)
       qc.invalidateQueries({ queryKey: ["sig", "instructivos", procedimientoId] })
-      if (expanded === id) setExpanded(null)
     } catch {
       // silent
     } finally {
@@ -396,173 +375,80 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
         </div>
       )}
 
-      {/* List */}
+      {/* Compact list */}
       {!isLoading && instructivos.length > 0 && (
         <div className="space-y-2">
-          {instructivos.map((inst) => {
-            const isExpanded = expanded === inst.id
-            const hasFile = !!inst.archivoOriginal
-            const isMdTxt = inst.tipoMime?.startsWith("text/") ?? false
-            const showArchivoTab = hasFile && !isMdTxt
-            const tab = expandedTab[inst.id] ?? "doc"
-
-            return (
-              <div
-                key={inst.id}
-                className="border border-zinc-200 rounded-lg overflow-hidden transition-all hover:border-zinc-300"
-              >
-                <div className="flex items-start gap-3 px-4 py-3 bg-zinc-50/80 group">
-                  <div className="shrink-0 w-8 h-8 rounded-lg bg-white border border-zinc-200 flex items-center justify-center mt-0.5">
-                    <FileText className="h-3.5 w-3.5 text-zinc-400" />
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-[11px] font-mono font-bold text-zinc-700">{inst.codigo}</span>
-                      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-400 font-mono">
-                        v{inst.versionDoc}
-                      </span>
-                      {hasFile && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-helix-accent/10 border border-helix-accent/20 text-helix-accent font-mono flex items-center gap-0.5">
-                          <Paperclip className="h-2 w-2" />
-                          archivo
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[12px] text-zinc-600 mt-0.5 leading-snug">{inst.titulo}</p>
-                    {inst.descripcion && (
-                      <p className="text-[11px] text-zinc-400 mt-0.5 line-clamp-1">{inst.descripcion}</p>
-                    )}
-                    <div className="flex items-center gap-2 mt-1 text-[10px] text-zinc-400 font-mono">
-                      <span>{timeAgo(inst.createdAt)}</span>
-                      <span>·</span>
-                      <span>{inst.autorNombre}</span>
-                      {inst.nombreArchivo && (
-                        <>
-                          <span>·</span>
-                          <span className="truncate max-w-[120px]">{inst.nombreArchivo}</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="shrink-0 flex items-center gap-0.5">
-                    <button
-                      onClick={() => setExpanded(isExpanded ? null : inst.id)}
-                      title={isExpanded ? "Contraer" : "Vista previa"}
-                      className="p-1.5 rounded text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors"
-                    >
-                      {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                    </button>
-
-                    {canEdit && (
-                      confirmDeleteId === inst.id ? (
-                        <div className="flex items-center gap-1">
-                          <AlertTriangle className="h-2.5 w-2.5 text-amber-500" />
-                          <button
-                            onClick={() => void handleDelete(inst.id)}
-                            disabled={deleting === inst.id}
-                            className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-500 border border-red-200 hover:bg-red-500/20 font-mono"
-                          >
-                            {deleting === inst.id ? "…" : "Sí"}
-                          </button>
-                          <button
-                            onClick={() => setConfirmDeleteId(null)}
-                            className="text-[9px] px-1 py-0.5 rounded text-zinc-400 hover:text-zinc-600 font-mono"
-                          >
-                            No
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => setConfirmDeleteId(inst.id)}
-                          disabled={deleting === inst.id}
-                          className="p-1.5 rounded text-zinc-400 opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:text-red-500 hover:bg-red-50 transition-all disabled:opacity-40"
-                          title="Eliminar documento"
-                        >
-                          {deleting === inst.id
-                            ? <Loader className="h-3.5 w-3.5 animate-spin" />
-                            : <Trash2 className="h-3.5 w-3.5" />
-                          }
-                        </button>
-                      )
-                    )}
-                  </div>
+          {instructivos.map((inst) => (
+            <div
+              key={inst.id}
+              onClick={() => onSelectInst?.(inst)}
+              className="group flex items-center gap-3 px-4 py-3 border border-zinc-200 rounded-lg bg-white hover:border-zinc-300 hover:shadow-sm cursor-pointer transition-all"
+            >
+              <FileText className="h-4 w-4 text-zinc-400 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-[12px] font-mono font-semibold text-zinc-700">{inst.codigo}</span>
+                  <span className="text-[10px] font-mono text-zinc-400">v{inst.versionDoc}</span>
+                  {inst.archivoOriginal && !inst.tipoMime?.startsWith("text/") && (
+                    <span className="text-[9px] font-mono px-1.5 py-px rounded bg-zinc-100 text-zinc-500">
+                      {inst.tipoMime === "application/pdf" ? "PDF" : inst.tipoMime?.includes("docx") ? "DOCX" : "DOC"}
+                    </span>
+                  )}
+                  {!inst.contenido.trim() && (
+                    <span className="text-[9px] font-mono px-1.5 py-px rounded bg-amber-100 text-amber-600">sin texto</span>
+                  )}
                 </div>
-
-                {isExpanded && (
-                  <div className="border-t border-zinc-100">
-                    {/* Sub-tabs */}
-                    {showArchivoTab && (
-                      <div className="flex items-center border-b border-zinc-100 bg-zinc-50/60">
-                        <button
-                          onClick={() => setExpandedTab((t) => ({ ...t, [inst.id]: "doc" }))}
-                          className={cn(
-                            "flex items-center gap-1.5 px-4 h-7 text-[11px] font-mono border-b-2 transition-colors",
-                            tab === "doc"
-                              ? "border-helix-accent text-zinc-700 bg-white"
-                              : "border-transparent text-zinc-400 hover:text-zinc-600",
-                          )}
-                        >
-                          <Eye className="h-3 w-3" />
-                          Documento
-                        </button>
-                        <button
-                          onClick={() => setPreviewInst(inst)}
-                          className="flex items-center gap-1.5 px-4 h-7 text-[11px] font-mono border-b-2 border-transparent text-zinc-400 hover:text-zinc-600 transition-colors"
-                        >
-                          <Paperclip className="h-3 w-3" />
-                          Archivo original
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Doc content */}
-                    {tab === "doc" && (
-                      <div className="bg-white px-6 py-5">
-                        {inst.descripcion && (
-                          <p className="text-[11px] text-zinc-400 italic mb-3 leading-relaxed">{inst.descripcion}</p>
-                        )}
-                        {inst.contenido.trim() ? (
-                          <div className={cn(PROSE)}>
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                              {cleanContent(inst.contenido)}
-                            </ReactMarkdown>
-                          </div>
-                        ) : (
-                          <div className="flex flex-col items-center gap-3 py-8">
-                            <Paperclip className="h-6 w-6 text-zinc-300" />
-                            <p className="text-[12px] text-zinc-400 font-mono text-center">
-                              No se pudo extraer texto de este archivo.<br />
-                              {inst.archivoOriginal
-                                ? "Usa «Re-extraer» para intentarlo de nuevo o «Archivo original» para verlo."
-                                : "Usa la pestaña «Archivo original» para verlo."}
-                            </p>
-                            {inst.archivoOriginal && (
-                              <button
-                                onClick={() => reextractMutation.mutate(inst.id)}
-                                disabled={reextractMutation.isPending}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-zinc-200 text-[11px] font-mono text-zinc-600 hover:border-zinc-400 hover:text-zinc-900 transition-colors disabled:opacity-50"
-                              >
-                                <RefreshCw className={cn("h-3 w-3", reextractMutation.isPending && "animate-spin")} />
-                                {reextractMutation.isPending ? "Re-extrayendo…" : "Re-extraer texto"}
-                              </button>
-                            )}
-                          </div>
-                        )}
-                        {inst.contenido.trim() && (
-                          <p className="text-[9px] text-zinc-400 mt-3 text-right font-mono tabular-nums">
-                            {inst.contenido.split("\n").length} líneas · {inst.contenido.length.toLocaleString()} caracteres
-                          </p>
-                        )}
-                      </div>
-                    )}
-
-                  </div>
-                )}
+                <p className="text-[12px] text-zinc-500 truncate mt-0.5">{inst.titulo}</p>
               </div>
-            )
-          })}
+
+              {/* Re-extract button for empty contenido */}
+              {!inst.contenido.trim() && inst.archivoOriginal && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); reextractMutation.mutate(inst.id) }}
+                  disabled={reextractMutation.isPending}
+                  title="Re-extraer texto"
+                  className="opacity-0 group-hover:opacity-100 shrink-0 p-1.5 rounded hover:bg-zinc-100 text-zinc-400 hover:text-zinc-700 transition-all"
+                >
+                  <RefreshCw className={cn("h-3.5 w-3.5", reextractMutation.isPending && "animate-spin")} />
+                </button>
+              )}
+
+              {/* Delete button */}
+              {canEdit && (
+                confirmDeleteId === inst.id ? (
+                  <div
+                    className="flex items-center gap-1 shrink-0"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <AlertTriangle className="h-2.5 w-2.5 text-amber-500" />
+                    <button
+                      onClick={() => void handleDelete(inst.id)}
+                      disabled={deleting === inst.id}
+                      className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-500 border border-red-200 hover:bg-red-500/20 font-mono"
+                    >
+                      {deleting === inst.id ? "…" : "Sí"}
+                    </button>
+                    <button
+                      onClick={() => setConfirmDeleteId(null)}
+                      className="text-[9px] px-1 py-0.5 rounded text-zinc-400 hover:text-zinc-600 font-mono"
+                    >
+                      No
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(inst.id) }}
+                    disabled={!!deleting}
+                    className="opacity-0 group-hover:opacity-100 shrink-0 p-1.5 rounded hover:bg-red-50 text-zinc-300 hover:text-red-400 transition-all"
+                  >
+                    {deleting === inst.id ? <Loader className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                  </button>
+                )
+              )}
+
+              <ChevronRight className="h-3.5 w-3.5 text-zinc-300 shrink-0" />
+            </div>
+          ))}
         </div>
       )}
 
@@ -580,51 +466,13 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
           Formatos: MD · TXT · DOCX · PDF · DOC
         </p>
       )}
-
-      {/* ── Modal de previsualización a pantalla completa ── */}
-      {previewInst && (
-        <div
-          className="fixed inset-0 z-[200] bg-black/70 flex items-center justify-center p-4"
-          onClick={() => setPreviewInst(null)}
-        >
-          <div
-            className="w-full max-w-5xl h-[90vh] bg-white rounded-xl overflow-hidden shadow-2xl flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="flex items-center gap-3 px-5 py-3 bg-zinc-900 shrink-0">
-              <FileText className="h-4 w-4 text-zinc-400 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] font-mono text-zinc-500 leading-none">{previewInst.codigo}</p>
-                <p className="text-sm font-semibold text-white truncate mt-0.5">{previewInst.titulo}</p>
-              </div>
-              {previewInst.nombreArchivo && (
-                <span className="text-[10px] font-mono text-zinc-500 shrink-0 hidden sm:block">
-                  {previewInst.nombreArchivo}
-                </span>
-              )}
-              <button
-                onClick={() => setPreviewInst(null)}
-                className="text-zinc-400 hover:text-white transition-colors shrink-0 ml-2 p-1 rounded hover:bg-white/10"
-                aria-label="Cerrar"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            {/* Content */}
-            <div className="flex flex-1 overflow-hidden">
-              <InstructivoArchivoView inst={previewInst} />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
 
-// ── Archivo original viewer (modal full-screen) ──────────────────────────────
+// ── Archivo original viewer ───────────────────────────────────────────────────
 
-function InstructivoArchivoView({ inst }: { inst: SigInstructivo }) {
+export function InstructivoArchivoView({ inst }: { inst: SigInstructivo }) {
   const [objectUrl, setObjectUrl] = useState<string | null>(null)
   const [arrayBuffer, setArrayBuffer] = useState<ArrayBuffer | null>(null)
   const [loading, setLoading] = useState(true)

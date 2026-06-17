@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query"
 import { cn } from "@/lib/utils"
 import { sigApi } from "@/lib/sigApi"
 import { useSigAnalisisStore, type AnalysisType } from "@/store/sigAnalisisStore"
-import { useRunAnalysis } from "./SigAnalisisPanel"
+import { useRunAnalysis, cancelAnalysisJob } from "./SigAnalisisPanel"
 import {
   X, Minus, Target, Lightbulb, GitCompare, Database, Users,
   Loader, CheckCircle2, AlertTriangle, ChevronDown,
@@ -98,7 +98,7 @@ export function SigAnalisisInspector() {
   return (
     <div
       className={cn(
-        "absolute bottom-6 z-40 w-[340px] rounded-xl border border-zinc-200 shadow-2xl shadow-zinc-900/20 overflow-hidden bg-white transition-all duration-200",
+        "absolute bottom-6 z-40 w-[520px] rounded-xl border border-zinc-200 shadow-2xl shadow-zinc-900/20 overflow-hidden bg-white transition-all duration-200",
         "left-[216px] xl:left-[264px]",
       )}
     >
@@ -234,7 +234,7 @@ function InspectorBody({
       </div>
 
       {/* Tab content */}
-      <div className="h-[300px] overflow-y-auto">
+      <div className="h-[460px] overflow-y-auto">
         <AnalysisTabContent
           procId={procId}
           type={activeTab}
@@ -259,6 +259,7 @@ function AnalysisTabContent({
   const [loading, setLoading] = useState(false)
 
   const isRunning = jobs.some((j) => j.procedimientoId === procId && j.type === type && j.status === "running")
+  const runningJob = jobs.find((j) => j.procedimientoId === procId && j.type === type && j.status === "running")
 
   async function handleAnalyze() {
     if (loading || isRunning) return
@@ -304,16 +305,26 @@ function AnalysisTabContent({
           {tab.label}
         </span>
         <button
-          onClick={handleAnalyze}
-          disabled={isRunning || loading}
+          onClick={() => {
+            if (isRunning && runningJob) {
+              cancelAnalysisJob(runningJob.id)
+            } else {
+              void handleAnalyze()
+            }
+          }}
+          disabled={!isRunning && loading}
           className={cn(
             "flex items-center gap-1 text-[10px] px-2.5 py-1 rounded border font-mono transition-colors",
-            isRunning || loading
+            isRunning
+              ? "border-red-200 text-red-500 hover:bg-red-50"
+              : loading
               ? "border-zinc-200 text-zinc-400 cursor-not-allowed"
               : "border-violet-200 text-violet-600 hover:bg-violet-50",
           )}
         >
-          {isRunning || loading
+          {isRunning
+            ? <><X className="h-2.5 w-2.5" /> Cancelar</>
+            : loading
             ? <><Loader className="h-2.5 w-2.5 animate-spin" /> Analizando…</>
             : "Analizar"
           }

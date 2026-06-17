@@ -6,8 +6,17 @@ import { api } from "@/lib/api"
 import { useSigAnalisisStore, type AnalysisType } from "@/store/sigAnalisisStore"
 import {
   Search, SlidersHorizontal, FileText,
-  Target, Lightbulb, GitCompare, Database, Users, Loader, AlertTriangle,
+  Target, Lightbulb, GitCompare, Database, Users, Loader, AlertTriangle, X,
 } from "lucide-react"
+
+// ── Module-level AbortController map ─────────────────────────────────────────
+
+const _jobControllers = new Map<string, AbortController>()
+
+export function cancelAnalysisJob(id: string) {
+  _jobControllers.get(id)?.abort()
+  _jobControllers.delete(id)
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -48,10 +57,12 @@ interface ProcSummary {
 
 const NETVAULT_TERMINAL = new Set(["done", "error", "cancelled", "failed", "aborted"])
 
-async function pollNetvaultJob(jobId: string): Promise<unknown> {
+async function pollNetvaultJob(jobId: string, signal: AbortSignal): Promise<unknown> {
   for (let i = 0; i < 120; i++) {
+    if (signal.aborted) throw new DOMException("Cancelled by user", "AbortError")
     await new Promise<void>((r) => setTimeout(r, 2500))
-    const { data } = await api.get(`/api/netvault/job/${jobId}`)
+    if (signal.aborted) throw new DOMException("Cancelled by user", "AbortError")
+    const { data } = await api.get(`/api/netvault/job/${jobId}`, { signal })
     if (data.status === "done") return data.data
     if (data.status === "error") throw new Error(data.error ?? "El análisis falló en netvault")
     if (NETVAULT_TERMINAL.has(data.status as string))
@@ -63,7 +74,7 @@ async function pollNetvaultJob(jobId: string): Promise<unknown> {
 // ── useRunAnalysis ────────────────────────────────────────────────────────────
 
 export function useRunAnalysis() {
-  const { addJob, updateJob } = useSigAnalisisStore()
+  const { addJob, updateJob, cancelJob } = useSigAnalisisStore()
   const qc = useQueryClient()
 
   const runAnalysis = useCallback(async (
@@ -72,12 +83,14 @@ export function useRunAnalysis() {
     textContent: string,
     instructivos?: Instructivo[],
   ) => {
+    const controller = new AbortController()
     const localId = addJob({
       procedimientoId: proc.id,
       procedureCodigo: proc.codigo,
       procedureTitulo: proc.titulo,
       type,
     })
+    _jobControllers.set(localId, controller)
 
     try {
       let netvaultRes: { job_id: string }
@@ -111,7 +124,7 @@ export function useRunAnalysis() {
       }
 
       updateJob(localId, { netvaultJobId: netvaultRes.job_id })
-      const result = await pollNetvaultJob(netvaultRes.job_id)
+      const result = await pollNetvaultJob(netvaultRes.job_id, controller.signal)
 
       if (type !== "lightrag") {
         const endpoint =
@@ -128,10 +141,17 @@ export function useRunAnalysis() {
       updateJob(localId, { status: "done", result, completedAt: Date.now() })
       qc.invalidateQueries({ queryKey: ["sig", "analisis", proc.id] })
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Error desconocido"
-      updateJob(localId, { status: "error", error: msg, completedAt: Date.now() })
+      const isAbort = err instanceof DOMException && err.name === "AbortError"
+      if (isAbort) {
+        cancelJob(localId)
+      } else {
+        const msg = err instanceof Error ? err.message : "Error desconocido"
+        updateJob(localId, { status: "error", error: msg, completedAt: Date.now() })
+      }
+    } finally {
+      _jobControllers.delete(localId)
     }
-  }, [addJob, updateJob, qc])
+  }, [addJob, updateJob, cancelJob, qc])
 
   return runAnalysis
 }
@@ -323,10 +343,6 @@ function ProcAnalisisCard({ proc }: { proc: ProcListItem }) {
     }
   }
 
-  function isTypeRunning(type: AnalysisType) {
-    return jobs.some((j) => j.procedimientoId === proc.id && j.type === type && j.status === "running")
-  }
-
   return (
     <div className="bg-white border border-zinc-200 rounded-lg hover:border-zinc-300 transition-all group">
 
@@ -362,24 +378,35 @@ function ProcAnalisisCard({ proc }: { proc: ProcListItem }) {
 
         {/* 4 individual analysis type chips */}
         {ANALYSIS_TYPES.map(({ type, label, icon, color }) => {
-          const running = isTypeRunning(type) || (loading === type)
+          const jobForType = jobs.find((j) => j.procedimientoId === proc.id && j.type === type && j.status === "running")
+          const running = !!jobForType || (loading === type)
           return (
             <button
               key={type}
-              onClick={() => handleRunType(type)}
-              disabled={!!loading}
-              title={`Ejecutar análisis de ${label}`}
+              onClick={() => {
+                if (jobForType) {
+                  cancelAnalysisJob(jobForType.id)
+                } else {
+                  void handleRunType(type)
+                }
+              }}
+              disabled={!jobForType && !!loading && loading !== type}
+              title={running ? `Cancelar análisis de ${label}` : `Ejecutar análisis de ${label}`}
               className={cn(
                 "flex items-center gap-1 px-2 py-1 rounded border text-[10px] font-mono transition-all",
-                color,
-                loading && !running ? "opacity-50 cursor-not-allowed" : "",
+                running ? "border-zinc-300 text-zinc-500 bg-zinc-50" : color,
+                !jobForType && !!loading && loading !== type ? "opacity-50 cursor-not-allowed" : "",
               )}
             >
-              {running
-                ? <Loader className="h-2.5 w-2.5 animate-spin" />
-                : icon
-              }
-              {label}
+              {running ? (
+                <>
+                  <Loader className="h-2.5 w-2.5 animate-spin" />
+                  {label}
+                  <X className="h-2.5 w-2.5 ml-0.5 text-zinc-400" />
+                </>
+              ) : (
+                <>{icon}{label}</>
+              )}
             </button>
           )
         })}

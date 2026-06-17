@@ -1,7 +1,7 @@
 import { create } from "zustand"
 
 export type AnalysisType = "coherencia" | "mejoras" | "proc-vs-inst" | "cargos" | "lightrag"
-export type JobStatus   = "running" | "done" | "error"
+export type JobStatus   = "running" | "done" | "error" | "cancelled"
 
 export interface AnalysisJob {
   id:               string
@@ -21,6 +21,7 @@ interface SigAnalisisStore {
   jobs:               AnalysisJob[]
   addJob:             (job: Omit<AnalysisJob, "id" | "startedAt" | "status">) => string
   updateJob:          (id: string, updates: Partial<AnalysisJob>) => void
+  cancelJob:          (id: string) => void
   clearCompleted:     () => void
   queueExpanded:      boolean
   setQueueExpanded:   (v: boolean) => void
@@ -49,6 +50,11 @@ export const useSigAnalisisStore = create<SigAnalisisStore>((set) => ({
 
   updateJob: (id, updates) =>
     set((s) => ({ jobs: s.jobs.map((j) => (j.id === id ? { ...j, ...updates } : j)) })),
+
+  cancelJob: (id) =>
+    set((s) => ({
+      jobs: s.jobs.map((j) => j.id === id ? { ...j, status: "cancelled" as const, completedAt: Date.now() } : j),
+    })),
 
   clearCompleted: () =>
     set((s) => ({ jobs: s.jobs.filter((j) => j.status === "running") })),
