@@ -1,19 +1,13 @@
-/**
- * SigInstructivosPanel — Documentos de soporte (instructivos) por procedimiento.
- *
- * Réplica web del flujo de net_file_manager: cargar MD/TXT/DOCX/PDF, vincular
- * al procedimiento vía POST /api/instructivos. Sin sistema de commits.
- */
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { sigApi } from "@/lib/sigApi"
 import { cn } from "@/lib/utils"
-import { extractTextFromFile, isAnalyzableFile, SUPPORTED_ACCEPT } from "@/lib/sigDocExtract"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import {
   BookOpen, Plus, FileText, Trash2, Loader, AlertCircle, AlertTriangle,
-  ChevronDown, ChevronUp, X, FileCheck, Upload, FolderOpen,
+  ChevronDown, ChevronUp, X, FileCheck, Upload, FolderOpen, Paperclip,
+  Download, Eye,
 } from "lucide-react"
 
 const MAX_INSTRUCTIVOS = 10
@@ -28,6 +22,9 @@ export interface SigInstructivo {
   versionDoc: string
   autorNombre: string
   createdAt: string
+  archivoOriginal: string | null
+  nombreArchivo: string | null
+  tipoMime: string | null
 }
 
 interface Props {
@@ -38,20 +35,23 @@ interface Props {
 
 interface FormState {
   visible: boolean
+  file: File | null
   fileName: string
-  contenido: string
   codigo: string
   titulo: string
   descripcion: string
   versionDoc: string
   error: string
   submitting: boolean
+  warnings: string[]
 }
 
 const FORM_DEFAULT: FormState = {
-  visible: false, fileName: "", contenido: "", codigo: "",
-  titulo: "", descripcion: "", versionDoc: "1.0", error: "", submitting: false,
+  visible: false, file: null, fileName: "", codigo: "",
+  titulo: "", descripcion: "", versionDoc: "1.0", error: "", submitting: false, warnings: [],
 }
+
+const SUPPORTED_ACCEPT = ".md,.markdown,.txt,.docx,.pdf,.doc"
 
 function cleanContent(raw: string): string {
   let s = raw.replace(/^---[\s\S]*?---\s*\n?/, "").trimStart()
@@ -93,9 +93,9 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
 
   const [form, setForm] = useState<FormState>(FORM_DEFAULT)
   const [expanded, setExpanded] = useState<number | null>(null)
+  const [expandedTab, setExpandedTab] = useState<Record<number, "doc" | "archivo">>({}  )
   const [deleting, setDeleting] = useState<number | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
-  const [extracting, setExtracting] = useState(false)
 
   const { data: instructivos = [], isLoading } = useQuery<SigInstructivo[]>({
     queryKey: ["sig", "instructivos", procedimientoId],
@@ -108,34 +108,25 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
 
   if (!showSection) return null
 
-  async function handleFile(file: File) {
-    if (!isAnalyzableFile(file.name)) {
-      setForm((f) => ({ ...f, error: "Formato no soportado. Usa MD, TXT, DOCX o PDF." }))
+  function handleFile(file: File) {
+    const lower = file.name.toLowerCase()
+    const allowed = [".md", ".markdown", ".txt", ".docx", ".pdf", ".doc"]
+    if (!allowed.some((ext) => lower.endsWith(ext))) {
+      setForm((f) => ({ ...f, error: "Formato no soportado. Usa MD, TXT, DOCX, PDF o DOC." }))
       return
     }
-    setExtracting(true)
-    setForm((f) => ({ ...f, error: "" }))
-    try {
-      const text = await extractTextFromFile(file)
-      const baseName = file.name.replace(/\.[^.]+$/, "").replace(/[-_]/g, " ")
-      setForm((f) => ({
-        ...f,
-        visible: true,
-        fileName: file.name,
-        contenido: text,
-        titulo: baseName,
-        codigo: "",
-        error: "",
-      }))
-      setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 100)
-    } catch (e) {
-      setForm((f) => ({
-        ...f,
-        error: e instanceof Error ? e.message : "No se pudo leer el archivo.",
-      }))
-    } finally {
-      setExtracting(false)
-    }
+    const baseName = file.name.replace(/\.[^.]+$/, "").replace(/[-_]/g, " ")
+    setForm((f) => ({
+      ...f,
+      visible: true,
+      file,
+      fileName: file.name,
+      titulo: baseName,
+      codigo: "",
+      error: "",
+      warnings: [],
+    }))
+    setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 100)
   }
 
   function openFilePicker() {
@@ -144,7 +135,11 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
   }
 
   async function handleSave() {
-    const { codigo, titulo, contenido, descripcion, versionDoc } = form
+    const { file, codigo, titulo, descripcion, versionDoc } = form
+    if (!file) {
+      setForm((f) => ({ ...f, error: "Selecciona un archivo primero." }))
+      return
+    }
     if (!codigo.trim()) {
       setForm((f) => ({ ...f, error: "El código es obligatorio (ej. INS-OP-001)." }))
       return
@@ -153,38 +148,33 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
       setForm((f) => ({ ...f, error: "El título es obligatorio." }))
       return
     }
-    if (!contenido.trim()) {
-      setForm((f) => ({ ...f, error: "El documento no tiene contenido." }))
-      return
-    }
     if (atLimit) {
       setForm((f) => ({ ...f, error: `Límite de ${MAX_INSTRUCTIVOS} documentos por procedimiento.` }))
       return
     }
 
     setForm((f) => ({ ...f, submitting: true, error: "" }))
+
     try {
-      const res = await sigApi.post("/api/instructivos", {
-        procedimientoId,
-        codigo: codigo.trim().toUpperCase(),
-        titulo: titulo.trim(),
-        descripcion: descripcion.trim() || undefined,
-        contenido,
-        contenidoOriginal: contenido,
-        versionDoc: versionDoc.trim() || "1.0",
+      const fd = new FormData()
+      fd.append("file", file)
+      fd.append("procedimientoId", String(procedimientoId))
+      fd.append("codigo", codigo.trim().toUpperCase())
+      fd.append("titulo", titulo.trim())
+      if (descripcion.trim()) fd.append("descripcion", descripcion.trim())
+      fd.append("versionDoc", versionDoc.trim() || "1.0")
+
+      const res = await sigApi.post("/api/instructivos/upload", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
       })
-      const created = res.data?.created?.[0] as SigInstructivo | undefined
-      if (!created) {
-        const errMsg = res.data?.errors?.[0]?.error
-        setForm((f) => ({
-          ...f,
-          submitting: false,
-          error: typeof errMsg === "string" ? errMsg : "No se pudo guardar. Intente de nuevo.",
-        }))
-        return
-      }
+
+      const warnings: string[] = res.data?.warnings ?? []
       qc.invalidateQueries({ queryKey: ["sig", "instructivos", procedimientoId] })
-      setForm(FORM_DEFAULT)
+      setForm({ ...FORM_DEFAULT, visible: false })
+
+      if (warnings.length > 0) {
+        setForm((f) => ({ ...f, warnings }))
+      }
     } catch (e) {
       setForm((f) => ({ ...f, submitting: false, error: getErr(e, "No se pudo guardar.") }))
     }
@@ -198,7 +188,7 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
       qc.invalidateQueries({ queryKey: ["sig", "instructivos", procedimientoId] })
       if (expanded === id) setExpanded(null)
     } catch {
-      // silent — user can retry
+      // silent
     } finally {
       setDeleting(null)
     }
@@ -213,7 +203,7 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0]
-          if (file) void handleFile(file)
+          if (file) handleFile(file)
           e.target.value = ""
         }}
       />
@@ -239,12 +229,12 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
         {canEdit && (
           <button
             onClick={openFilePicker}
-            disabled={extracting || form.visible || atLimit}
+            disabled={form.visible || atLimit}
             className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-mono font-semibold
                        border border-helix-accent/30 text-helix-accent hover:bg-helix-accent/5
                        transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {extracting ? <Loader className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+            <Plus className="h-3 w-3" />
             Agregar documento
           </button>
         )}
@@ -262,6 +252,18 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
           <span className="text-[10px] text-zinc-400 font-mono tabular-nums">
             {instructivos.length} / {MAX_INSTRUCTIVOS}
           </span>
+        </div>
+      )}
+
+      {/* Post-save warnings */}
+      {form.warnings.length > 0 && (
+        <div className="mb-4 space-y-1.5">
+          {form.warnings.map((w, i) => (
+            <div key={i} className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200">
+              <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+              <p className="text-[11px] text-amber-700">{w}</p>
+            </div>
+          ))}
         </div>
       )}
 
@@ -289,7 +291,7 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
               <FolderOpen className="h-3 w-3 text-zinc-400 shrink-0" />
               <span className="text-[11px] text-zinc-600 truncate font-mono">{form.fileName}</span>
               <span className="ml-auto text-[10px] text-zinc-400 font-mono tabular-nums">
-                {form.contenido.length.toLocaleString()} caracteres
+                {(form.file?.size ? (form.file.size / 1024).toFixed(0) : "?")} KB
               </span>
             </div>
           )}
@@ -351,7 +353,7 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
               className="flex-1 py-1.5 rounded-lg text-[11px] font-mono font-semibold bg-helix-accent text-white hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-1.5"
             >
               {form.submitting
-                ? <><Loader className="h-3 w-3 animate-spin" /> Guardando…</>
+                ? <><Loader className="h-3 w-3 animate-spin" /> Subiendo…</>
                 : <><FileCheck className="h-3 w-3" /> Guardar documento</>
               }
             </button>
@@ -379,7 +381,6 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
           </div>
           <button
             onClick={openFilePicker}
-            disabled={extracting}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-mono font-semibold
                        border border-helix-accent/30 text-helix-accent hover:bg-helix-accent/5 transition-colors"
           >
@@ -394,6 +395,11 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
         <div className="space-y-2">
           {instructivos.map((inst) => {
             const isExpanded = expanded === inst.id
+            const hasFile = !!inst.archivoOriginal
+            const isMdTxt = inst.tipoMime?.startsWith("text/") ?? false
+            const showArchivoTab = hasFile && !isMdTxt
+            const tab = expandedTab[inst.id] ?? "doc"
+
             return (
               <div
                 key={inst.id}
@@ -410,6 +416,12 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
                       <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-400 font-mono">
                         v{inst.versionDoc}
                       </span>
+                      {hasFile && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-helix-accent/10 border border-helix-accent/20 text-helix-accent font-mono flex items-center gap-0.5">
+                          <Paperclip className="h-2 w-2" />
+                          archivo
+                        </span>
+                      )}
                     </div>
                     <p className="text-[12px] text-zinc-600 mt-0.5 leading-snug">{inst.titulo}</p>
                     {inst.descripcion && (
@@ -419,6 +431,12 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
                       <span>{timeAgo(inst.createdAt)}</span>
                       <span>·</span>
                       <span>{inst.autorNombre}</span>
+                      {inst.nombreArchivo && (
+                        <>
+                          <span>·</span>
+                          <span className="truncate max-w-[120px]">{inst.nombreArchivo}</span>
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -467,18 +485,72 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
                 </div>
 
                 {isExpanded && (
-                  <div className="border-t border-zinc-100 bg-white px-6 py-5">
-                    {inst.descripcion && (
-                      <p className="text-[11px] text-zinc-400 italic mb-3 leading-relaxed">{inst.descripcion}</p>
+                  <div className="border-t border-zinc-100">
+                    {/* Sub-tabs */}
+                    {showArchivoTab && (
+                      <div className="flex items-center border-b border-zinc-100 bg-zinc-50/60">
+                        <button
+                          onClick={() => setExpandedTab((t) => ({ ...t, [inst.id]: "doc" }))}
+                          className={cn(
+                            "flex items-center gap-1.5 px-4 h-7 text-[11px] font-mono border-b-2 transition-colors",
+                            tab === "doc"
+                              ? "border-helix-accent text-zinc-700 bg-white"
+                              : "border-transparent text-zinc-400 hover:text-zinc-600",
+                          )}
+                        >
+                          <Eye className="h-3 w-3" />
+                          Documento
+                        </button>
+                        <button
+                          onClick={() => setExpandedTab((t) => ({ ...t, [inst.id]: "archivo" }))}
+                          className={cn(
+                            "flex items-center gap-1.5 px-4 h-7 text-[11px] font-mono border-b-2 transition-colors",
+                            tab === "archivo"
+                              ? "border-helix-accent text-zinc-700 bg-white"
+                              : "border-transparent text-zinc-400 hover:text-zinc-600",
+                          )}
+                        >
+                          <Paperclip className="h-3 w-3" />
+                          Archivo original
+                        </button>
+                      </div>
                     )}
-                    <div className={cn(PROSE)}>
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                        {cleanContent(inst.contenido)}
-                      </ReactMarkdown>
-                    </div>
-                    <p className="text-[9px] text-zinc-400 mt-3 text-right font-mono tabular-nums">
-                      {inst.contenido.split("\n").length} líneas · {inst.contenido.length.toLocaleString()} caracteres
-                    </p>
+
+                    {/* Doc content */}
+                    {tab === "doc" && (
+                      <div className="bg-white px-6 py-5">
+                        {inst.descripcion && (
+                          <p className="text-[11px] text-zinc-400 italic mb-3 leading-relaxed">{inst.descripcion}</p>
+                        )}
+                        {inst.contenido.trim() ? (
+                          <div className={cn(PROSE)}>
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                              {cleanContent(inst.contenido)}
+                            </ReactMarkdown>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center gap-2 py-8">
+                            <Paperclip className="h-6 w-6 text-zinc-300" />
+                            <p className="text-[12px] text-zinc-400 font-mono text-center">
+                              No se pudo extraer texto de este archivo.<br />
+                              Usa la pestaña «Archivo original» para verlo.
+                            </p>
+                          </div>
+                        )}
+                        {inst.contenido.trim() && (
+                          <p className="text-[9px] text-zinc-400 mt-3 text-right font-mono tabular-nums">
+                            {inst.contenido.split("\n").length} líneas · {inst.contenido.length.toLocaleString()} caracteres
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Archivo original */}
+                    {tab === "archivo" && showArchivoTab && (
+                      <div className="h-[480px]">
+                        <InstructivoArchivoView inst={inst} />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -498,8 +570,111 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
 
       {canEdit && (
         <p className="text-[10px] text-zinc-400 text-center mt-4 font-mono opacity-70">
-          Formatos: MD · TXT · DOCX · PDF
+          Formatos: MD · TXT · DOCX · PDF · DOC
         </p>
+      )}
+    </div>
+  )
+}
+
+// ── Archivo original viewer (inline, altura fija) ─────────────────────────────
+
+function InstructivoArchivoView({ inst }: { inst: SigInstructivo }) {
+  const [objectUrl, setObjectUrl] = useState<string | null>(null)
+  const [arrayBuffer, setArrayBuffer] = useState<ArrayBuffer | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const docxRef = useRef<HTMLDivElement>(null)
+
+  const isPdf  = inst.tipoMime === "application/pdf"
+  const isDocx = inst.tipoMime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+  useEffect(() => {
+    let blobUrl: string | null = null
+    setLoading(true)
+    setError(null)
+    setObjectUrl(null)
+    setArrayBuffer(null)
+
+    sigApi.get(`/api/instructivos/${inst.id}/archivo`, { responseType: "blob" })
+      .then(async (res) => {
+        const blob: Blob = res.data
+        blobUrl = URL.createObjectURL(blob)
+        setObjectUrl(blobUrl)
+        if (isDocx) {
+          const ab = await blob.arrayBuffer()
+          setArrayBuffer(ab)
+        }
+      })
+      .catch(() => setError("No se pudo cargar el archivo."))
+      .finally(() => setLoading(false))
+
+    return () => { if (blobUrl) URL.revokeObjectURL(blobUrl) }
+  }, [inst.id, isDocx])
+
+  useEffect(() => {
+    if (!isDocx || !arrayBuffer || !docxRef.current) return
+    import("docx-preview").then(({ renderAsync }) => {
+      renderAsync(arrayBuffer, docxRef.current!, undefined, {
+        className: "docx-render",
+        inWrapper: false,
+      }).catch(() => setError("No se pudo renderizar el documento Word."))
+    })
+  }, [arrayBuffer, isDocx])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full gap-2 text-zinc-400 bg-white">
+        <div className="h-3 w-3 rounded-full border border-zinc-300 border-t-zinc-600 animate-spin" />
+        <span className="text-xs font-mono">Cargando archivo…</span>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-3 bg-white">
+        <AlertCircle className="h-5 w-5 text-zinc-300" />
+        <p className="text-sm text-zinc-400 font-mono">{error}</p>
+      </div>
+    )
+  }
+
+  if (isPdf && objectUrl) {
+    return (
+      <iframe
+        src={objectUrl}
+        className="w-full h-full border-0 bg-zinc-100"
+        title={inst.nombreArchivo ?? "Archivo PDF"}
+      />
+    )
+  }
+
+  if (isDocx) {
+    return (
+      <div className="overflow-auto h-full bg-white p-6">
+        <div ref={docxRef} className="max-w-2xl mx-auto" />
+      </div>
+    )
+  }
+
+  // .doc u otro — descarga
+  return (
+    <div className="flex flex-col items-center justify-center h-full gap-4 bg-white">
+      <Paperclip className="h-8 w-8 text-zinc-300" />
+      <div className="text-center">
+        <p className="text-sm font-mono text-zinc-600">{inst.nombreArchivo ?? "Archivo"}</p>
+        <p className="text-[11px] text-zinc-400 mt-1">Este formato no puede mostrarse en el navegador.</p>
+      </div>
+      {objectUrl && (
+        <a
+          href={objectUrl}
+          download={inst.nombreArchivo ?? "archivo"}
+          className="flex items-center gap-1.5 text-[11px] px-3 py-2 rounded border border-zinc-200 text-zinc-600 hover:border-zinc-400 hover:text-zinc-900 transition-colors font-mono"
+        >
+          <Download className="h-3.5 w-3.5" />
+          Descargar {inst.nombreArchivo}
+        </a>
       )}
     </div>
   )

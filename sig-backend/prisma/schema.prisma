@@ -108,6 +108,10 @@ model SigInstructivo {
   contenidoOriginal String? @db.Text
   versionDoc        String  @default("1.0")
 
+  archivoOriginal   String? @db.VarChar(500)
+  nombreArchivo     String? @db.VarChar(255)
+  tipoMime          String? @db.VarChar(100)
+
   autorId     Int
   autorNombre String
 
