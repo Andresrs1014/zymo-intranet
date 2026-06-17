@@ -93,9 +93,10 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
 
   const [form, setForm] = useState<FormState>(FORM_DEFAULT)
   const [expanded, setExpanded] = useState<number | null>(null)
-  const [expandedTab, setExpandedTab] = useState<Record<number, "doc" | "archivo">>({}  )
+  const [expandedTab, setExpandedTab] = useState<Record<number, "doc" | "archivo">>({})
   const [deleting, setDeleting] = useState<number | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
+  const [previewInst, setPreviewInst] = useState<SigInstructivo | null>(null)
 
   const { data: instructivos = [], isLoading } = useQuery<SigInstructivo[]>({
     queryKey: ["sig", "instructivos", procedimientoId],
@@ -502,13 +503,8 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
                           Documento
                         </button>
                         <button
-                          onClick={() => setExpandedTab((t) => ({ ...t, [inst.id]: "archivo" }))}
-                          className={cn(
-                            "flex items-center gap-1.5 px-4 h-7 text-[11px] font-mono border-b-2 transition-colors",
-                            tab === "archivo"
-                              ? "border-helix-accent text-zinc-700 bg-white"
-                              : "border-transparent text-zinc-400 hover:text-zinc-600",
-                          )}
+                          onClick={() => setPreviewInst(inst)}
+                          className="flex items-center gap-1.5 px-4 h-7 text-[11px] font-mono border-b-2 border-transparent text-zinc-400 hover:text-zinc-600 transition-colors"
                         >
                           <Paperclip className="h-3 w-3" />
                           Archivo original
@@ -545,12 +541,6 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
                       </div>
                     )}
 
-                    {/* Archivo original */}
-                    {tab === "archivo" && showArchivoTab && (
-                      <div className="h-[480px]">
-                        <InstructivoArchivoView inst={inst} />
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
@@ -573,11 +563,49 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
           Formatos: MD · TXT · DOCX · PDF · DOC
         </p>
       )}
+
+      {/* ── Modal de previsualización a pantalla completa ── */}
+      {previewInst && (
+        <div
+          className="fixed inset-0 z-[200] bg-black/70 flex items-center justify-center p-4"
+          onClick={() => setPreviewInst(null)}
+        >
+          <div
+            className="w-full max-w-5xl h-[90vh] bg-white rounded-xl overflow-hidden shadow-2xl flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center gap-3 px-5 py-3 bg-zinc-900 shrink-0">
+              <FileText className="h-4 w-4 text-zinc-400 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-mono text-zinc-500 leading-none">{previewInst.codigo}</p>
+                <p className="text-sm font-semibold text-white truncate mt-0.5">{previewInst.titulo}</p>
+              </div>
+              {previewInst.nombreArchivo && (
+                <span className="text-[10px] font-mono text-zinc-500 shrink-0 hidden sm:block">
+                  {previewInst.nombreArchivo}
+                </span>
+              )}
+              <button
+                onClick={() => setPreviewInst(null)}
+                className="text-zinc-400 hover:text-white transition-colors shrink-0 ml-2 p-1 rounded hover:bg-white/10"
+                aria-label="Cerrar"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            {/* Content */}
+            <div className="flex flex-1 overflow-hidden">
+              <InstructivoArchivoView inst={previewInst} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
-// ── Archivo original viewer (inline, altura fija) ─────────────────────────────
+// ── Archivo original viewer (modal full-screen) ──────────────────────────────
 
 function InstructivoArchivoView({ inst }: { inst: SigInstructivo }) {
   const [objectUrl, setObjectUrl] = useState<string | null>(null)
@@ -624,7 +652,7 @@ function InstructivoArchivoView({ inst }: { inst: SigInstructivo }) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full gap-2 text-zinc-400 bg-white">
+      <div className="flex-1 flex items-center justify-center gap-2 text-zinc-400 bg-white">
         <div className="h-3 w-3 rounded-full border border-zinc-300 border-t-zinc-600 animate-spin" />
         <span className="text-xs font-mono">Cargando archivo…</span>
       </div>
@@ -633,7 +661,7 @@ function InstructivoArchivoView({ inst }: { inst: SigInstructivo }) {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-3 bg-white">
+      <div className="flex-1 flex flex-col items-center justify-center gap-3 bg-white">
         <AlertCircle className="h-5 w-5 text-zinc-300" />
         <p className="text-sm text-zinc-400 font-mono">{error}</p>
       </div>
@@ -642,25 +670,27 @@ function InstructivoArchivoView({ inst }: { inst: SigInstructivo }) {
 
   if (isPdf && objectUrl) {
     return (
-      <iframe
-        src={objectUrl}
-        className="w-full h-full border-0 bg-zinc-100"
-        title={inst.nombreArchivo ?? "Archivo PDF"}
-      />
+      <div className="flex-1 overflow-hidden bg-zinc-100">
+        <iframe
+          src={objectUrl}
+          className="w-full h-full border-0"
+          title={inst.nombreArchivo ?? "Archivo PDF"}
+        />
+      </div>
     )
   }
 
   if (isDocx) {
     return (
-      <div className="overflow-auto h-full bg-white p-6">
-        <div ref={docxRef} className="max-w-2xl mx-auto" />
+      <div className="flex-1 overflow-auto bg-white p-6">
+        <div ref={docxRef} className="max-w-3xl mx-auto" />
       </div>
     )
   }
 
   // .doc u otro — descarga
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-4 bg-white">
+    <div className="flex-1 flex flex-col items-center justify-center gap-4 bg-white">
       <Paperclip className="h-8 w-8 text-zinc-300" />
       <div className="text-center">
         <p className="text-sm font-mono text-zinc-600">{inst.nombreArchivo ?? "Archivo"}</p>
