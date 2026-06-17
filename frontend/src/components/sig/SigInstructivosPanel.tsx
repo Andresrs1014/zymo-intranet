@@ -8,7 +8,7 @@ import {
   Download, RefreshCw, ChevronRight,
 } from "lucide-react"
 
-const MAX_INSTRUCTIVOS = 10
+const MAX_INSTRUCTIVOS = 20
 
 export interface SigInstructivo {
   id: number
