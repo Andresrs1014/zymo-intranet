@@ -1,273 +1,270 @@
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { api } from "@/lib/api"
 import { useAuthStore } from "@/store/authStore"
-import { canEditTyC } from "@/lib/permissions"
+import { canEditTyC, canImportTyC, canSeeTyCsensible } from "@/lib/permissions"
 import { PageLayout } from "@/components/layout/PageLayout"
-import { PersonaFormModal } from "./components/PersonaFormModal"
-import { Search, Plus, RefreshCw } from "lucide-react"
+import {
+  Users,
+  GitBranch,
+  BookOpen,
+  ClipboardList,
+  ShieldAlert,
+  Upload,
+  ChevronRight,
+  UserPlus,
+  Building2,
+} from "lucide-react"
 
-interface Empresa {
-  id: number
-  nombre: string
-  codigo: string
-}
-
-interface Persona {
-  id: number
-  nombre: string
-  initials: string
-  documento: string
-  empresa_id: number
-  empresa_nombre: string
-  empresa_codigo: string
-  area_id: number | null
-  area_nombre: string
-  cargo_id: number | null
-  cargo_nombre: string
-  email: string
-  telefono: string
-  estado: string
-  tipo_contrato: string
-  fecha_ingreso: string | null
+interface Stats {
+  total: number
+  activos: number
+  inactivos: number
 }
 
 export function TyCPage() {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
-  const puedeEditar = user ? canEditTyC(user.role, user.app_permissions) : false
+  const puedeEditar  = user ? canEditTyC(user.role, user.app_permissions) : false
+  const puedeImport  = user ? canImportTyC(user.role, user.app_permissions) : false
+  const puedeSensible = user ? canSeeTyCsensible(user.role, user.app_permissions) : false
 
-  const [personas, setPersonas] = useState<Persona[]>([])
-  const [empresas, setEmpresas] = useState<Empresa[]>([])
-  const [total, setTotal] = useState(0)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
+  const [stats, setStats] = useState<Stats | null>(null)
 
-  const [busqueda, setBusqueda] = useState("")
-  const [empresaFiltro, setEmpresaFiltro] = useState<number | null>(null)
-  const [estadoFiltro, setEstadoFiltro] = useState<"Activo" | "Inactivo" | "">( "Activo")
-
-  const [modalAbierto, setModalAbierto] = useState(false)
-
-  const cargarEmpresas = useCallback(async () => {
-    const { data } = await api.get("/tc/empresas")
-    setEmpresas(data)
+  useEffect(() => {
+    Promise.all([
+      api.get("/tc/personas", { params: { limit: 1 } }),
+      api.get("/tc/personas", { params: { estado: "Activo", limit: 1 } }),
+      api.get("/tc/personas", { params: { estado: "Inactivo", limit: 1 } }),
+    ]).then(([total, activos, inactivos]) => {
+      setStats({
+        total: total.data.total,
+        activos: activos.data.total,
+        inactivos: inactivos.data.total,
+      })
+    }).catch(() => {})
   }, [])
 
-  const cargarPersonas = useCallback(async () => {
-    setLoading(true)
-    setError("")
-    try {
-      const params: Record<string, string> = {}
-      if (busqueda.trim()) params.q = busqueda.trim()
-      if (empresaFiltro !== null) params.empresa_id = String(empresaFiltro)
-      if (estadoFiltro) params.estado = estadoFiltro
-      const { data } = await api.get("/tc/personas", { params })
-      setPersonas(data.items)
-      setTotal(data.total)
-    } catch {
-      setError("No se pudieron cargar los colaboradores.")
-    } finally {
-      setLoading(false)
-    }
-  }, [busqueda, empresaFiltro, estadoFiltro])
-
-  useEffect(() => {
-    cargarEmpresas()
-  }, [cargarEmpresas])
-
-  useEffect(() => {
-    const timeout = setTimeout(cargarPersonas, 300)
-    return () => clearTimeout(timeout)
-  }, [cargarPersonas])
-
-  function handleCreada() {
-    setModalAbierto(false)
-    cargarPersonas()
-  }
-
-  const ESTADO_LABELS: Record<string, string> = { Activo: "Activo", Inactivo: "Inactivo" }
-
   return (
-    <PageLayout title="T&C — Talento y Cultura">
-      {/* ── Controles ─────────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-3 p-4 border-b border-border">
-        {/* Fila 1: búsqueda + botón */}
-        <div className="flex items-center gap-3">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Buscar por nombre o documento…"
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
+    <PageLayout title="T&C — Talento y Cultura" mainClassName="flex-1 overflow-y-auto">
+      {/* ── Hero / Stats ───────────────────────────────────────────── */}
+      <div className="px-6 pt-8 pb-6 border-b border-border">
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Talento y Cultura</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Gestión de colaboradores, estructura organizacional y desarrollo del talento.
+            </p>
+          </div>
+          <Building2 className="w-10 h-10 text-muted-foreground/20 shrink-0 mt-1" />
+        </div>
+
+        {/* Stats rápidos */}
+        <div className="flex items-center gap-6 mt-5">
+          <Stat label="Total colaboradores" value={stats?.total} />
+          <div className="w-px h-8 bg-border" />
+          <Stat label="Activos" value={stats?.activos} accent="emerald" />
+          <div className="w-px h-8 bg-border" />
+          <Stat label="Inactivos" value={stats?.inactivos} accent="muted" />
+        </div>
+      </div>
+
+      {/* ── Contenido ──────────────────────────────────────────────── */}
+      <div className="px-6 py-8 space-y-10 max-w-4xl">
+
+        {/* BLOQUE A — Personal */}
+        <Section title="Personal" description="Directorio de colaboradores y gestión de registros.">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <NavCard
+              icon={<Users className="w-5 h-5" />}
+              iconColor="blue"
+              title="Directorio"
+              description="Ver y buscar todos los colaboradores del grupo ZYMO."
+              onClick={() => navigate("/tc/directorio")}
+            />
+            {puedeEditar && (
+              <NavCard
+                icon={<UserPlus className="w-5 h-5" />}
+                iconColor="violet"
+                title="Nuevo colaborador"
+                description="Registrar un nuevo colaborador en el sistema."
+                onClick={() => navigate("/tc/directorio?nuevo=1")}
+              />
+            )}
+            {puedeImport && (
+              <NavCard
+                icon={<Upload className="w-5 h-5" />}
+                iconColor="amber"
+                title="Importar desde Excel"
+                description="Cargar múltiples colaboradores desde una plantilla Excel."
+                soon
+              />
+            )}
+          </div>
+        </Section>
+
+        {/* BLOQUE B — Estructura */}
+        <Section title="Estructura organizacional" description="Organigrama y asignación de personas a cargos.">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <NavCard
+              icon={<GitBranch className="w-5 h-5" />}
+              iconColor="teal"
+              title="Organigrama"
+              description="Árbol jerárquico del grupo: empresa → área → cargo → persona."
+              soon
+            />
+            <NavCard
+              icon={<ClipboardList className="w-5 h-5" />}
+              iconColor="teal"
+              title="Asignación a cargos"
+              description="Asignar colaboradores a posiciones del organigrama."
+              soon
             />
           </div>
-          <button
-            onClick={cargarPersonas}
-            className="p-2 rounded-md border border-input hover:bg-accent transition-colors"
-            title="Recargar"
-          >
-            <RefreshCw className="w-4 h-4 text-muted-foreground" />
-          </button>
-          {puedeEditar && (
-            <button
-              onClick={() => setModalAbierto(true)}
-              className="flex items-center gap-2 px-3 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              Nueva persona
-            </button>
-          )}
-        </div>
+        </Section>
 
-        {/* Fila 2: filtros */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Empresa */}
-          <FilterPill
-            active={empresaFiltro === null}
-            onClick={() => setEmpresaFiltro(null)}
-          >
-            Todas
-          </FilterPill>
-          {empresas.map((e) => (
-            <FilterPill
-              key={e.id}
-              active={empresaFiltro === e.id}
-              onClick={() => setEmpresaFiltro(e.id)}
-            >
-              {e.codigo}
-            </FilterPill>
-          ))}
+        {/* BLOQUE C — Desarrollo */}
+        <Section title="Desarrollo y talento" description="Formación, evaluaciones y registros de desarrollo.">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <NavCard
+              icon={<BookOpen className="w-5 h-5" />}
+              iconColor="indigo"
+              title="Capacitaciones"
+              description="Historial de formación, diplomas y calendario de actividades."
+              soon
+            />
+            {puedeSensible && (
+              <>
+                <NavCard
+                  icon={<ClipboardList className="w-5 h-5" />}
+                  iconColor="orange"
+                  title="Evaluaciones de desempeño"
+                  description="Calificaciones y metas individuales de cada colaborador."
+                  soon
+                />
+                <NavCard
+                  icon={<ShieldAlert className="w-5 h-5" />}
+                  iconColor="red"
+                  title="Sanciones"
+                  description="Registro de novedades disciplinarias y permisos."
+                  soon
+                />
+              </>
+            )}
+          </div>
+        </Section>
 
-          <span className="mx-1 text-border">|</span>
-
-          {/* Estado */}
-          {(["Activo", "Inactivo", ""] as const).map((s) => (
-            <FilterPill
-              key={s || "todos"}
-              active={estadoFiltro === s}
-              onClick={() => setEstadoFiltro(s)}
-            >
-              {s === "" ? "Todos" : ESTADO_LABELS[s]}
-            </FilterPill>
-          ))}
-        </div>
       </div>
-
-      {/* ── Tabla ─────────────────────────────────────────────────────── */}
-      <div className="flex-1 overflow-auto">
-        {error && (
-          <div className="m-4 p-3 text-sm text-destructive bg-destructive/10 rounded-md">
-            {error}
-          </div>
-        )}
-
-        {loading ? (
-          <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
-            Cargando colaboradores…
-          </div>
-        ) : personas.length === 0 ? (
-          <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
-            No se encontraron colaboradores con los filtros seleccionados.
-          </div>
-        ) : (
-          <>
-            <div className="px-4 py-2 text-xs text-muted-foreground">
-              {total} colaborador{total !== 1 ? "es" : ""}
-            </div>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-muted/30">
-                  <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Colaborador</th>
-                  <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Empresa</th>
-                  <th className="px-4 py-2.5 text-left font-medium text-muted-foreground hidden md:table-cell">Área</th>
-                  <th className="px-4 py-2.5 text-left font-medium text-muted-foreground hidden lg:table-cell">Cargo</th>
-                  <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {personas.map((p) => (
-                  <tr
-                    key={p.id}
-                    onClick={() => navigate(`/tc/persona/${p.id}`)}
-                    className="border-b border-border/50 hover:bg-muted/20 cursor-pointer transition-colors"
-                  >
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold">
-                          {p.initials || p.nombre.slice(0, 2).toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="font-medium leading-none">{p.nombre}</p>
-                          {p.documento && (
-                            <p className="text-xs text-muted-foreground mt-0.5">{p.documento}</p>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">
-                        {p.empresa_codigo}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">
-                      {p.area_nombre || "—"}
-                    </td>
-                    <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground">
-                      {p.cargo_nombre || "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                          p.estado === "Activo"
-                            ? "bg-emerald-500/10 text-emerald-600"
-                            : "bg-muted text-muted-foreground"
-                        }`}
-                      >
-                        {p.estado}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </>
-        )}
-      </div>
-
-      {/* ── Modal nueva persona ───────────────────────────────────────── */}
-      {modalAbierto && (
-        <PersonaFormModal
-          empresas={empresas}
-          onCreada={handleCreada}
-          onCerrar={() => setModalAbierto(false)}
-        />
-      )}
     </PageLayout>
   )
 }
 
-function FilterPill({
-  children,
-  active,
-  onClick,
+// ── Componentes internos ──────────────────────────────────────────────────────
+
+function Stat({
+  label,
+  value,
+  accent = "default",
 }: {
+  label: string
+  value: number | undefined
+  accent?: "emerald" | "muted" | "default"
+}) {
+  const valueClass =
+    accent === "emerald"
+      ? "text-emerald-500"
+      : accent === "muted"
+      ? "text-muted-foreground"
+      : ""
+
+  return (
+    <div>
+      <p className={`text-2xl font-semibold tabular-nums ${valueClass}`}>
+        {value === undefined ? <span className="opacity-30">—</span> : value}
+      </p>
+      <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
+    </div>
+  )
+}
+
+function Section({
+  title,
+  description,
+  children,
+}: {
+  title: string
+  description: string
   children: React.ReactNode
-  active: boolean
-  onClick: () => void
 }) {
   return (
-    <button
-      onClick={onClick}
-      className={`px-3 py-1 text-xs rounded-full border transition-colors ${
-        active
-          ? "bg-primary text-primary-foreground border-primary"
-          : "border-input text-muted-foreground hover:text-foreground hover:border-foreground/40"
-      }`}
-    >
+    <div>
+      <div className="mb-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+          {title}
+        </h2>
+        <p className="text-xs text-muted-foreground/70 mt-0.5">{description}</p>
+      </div>
       {children}
+    </div>
+  )
+}
+
+const ICON_COLORS: Record<string, string> = {
+  blue:   "bg-blue-500/10 text-blue-500",
+  violet: "bg-violet-500/10 text-violet-500",
+  amber:  "bg-amber-500/10 text-amber-500",
+  teal:   "bg-teal-500/10 text-teal-500",
+  indigo: "bg-indigo-500/10 text-indigo-500",
+  orange: "bg-orange-500/10 text-orange-500",
+  red:    "bg-red-500/10 text-red-500",
+}
+
+function NavCard({
+  icon,
+  iconColor,
+  title,
+  description,
+  onClick,
+  soon = false,
+}: {
+  icon: React.ReactNode
+  iconColor: string
+  title: string
+  description: string
+  onClick?: () => void
+  soon?: boolean
+}) {
+  const isClickable = !soon && onClick
+
+  return (
+    <button
+      onClick={isClickable ? onClick : undefined}
+      disabled={soon}
+      className={`
+        w-full text-left flex items-start gap-4 p-4 rounded-xl border transition-all
+        ${isClickable
+          ? "border-border hover:border-primary/40 hover:bg-muted/30 cursor-pointer group"
+          : "border-border/50 opacity-60 cursor-default"
+        }
+      `}
+    >
+      <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${ICON_COLORS[iconColor] ?? "bg-muted text-muted-foreground"}`}>
+        {icon}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">{title}</span>
+          {soon && (
+            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+              Próximamente
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{description}</p>
+      </div>
+      {isClickable && (
+        <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-muted-foreground mt-1 shrink-0 transition-colors" />
+      )}
     </button>
   )
 }

@@ -51,6 +51,7 @@ import MantenimientoPage from "@/pages/mantenimiento/MantenimientoPage"
 import NuevaMantenimientoPage from "@/pages/mantenimiento/NuevaMantenimientoPage"
 import MantenimientoDetallePage from "@/pages/mantenimiento/MantenimientoDetallePage"
 import { TyCPage } from "@/pages/tc/TyCPage"
+import { TyCDirectorioPage } from "@/pages/tc/TyCDirectorioPage"
 import { TyCPersonaPage } from "@/pages/tc/TyCPersonaPage"
 
 // Decodifica el claim `exp` del JWT sin verificar firma (solo para chequeo local de expiración)
@@ -494,6 +495,14 @@ export default function App() {
           element={
             <TyCRoute>
               <TyCPage />
+            </TyCRoute>
+          }
+        />
+        <Route
+          path="/tc/directorio"
+          element={
+            <TyCRoute>
+              <TyCDirectorioPage />
             </TyCRoute>
           }
         />
