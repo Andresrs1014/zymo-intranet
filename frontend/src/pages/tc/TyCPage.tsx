@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { api } from "@/lib/api"
 import { useAuthStore } from "@/store/authStore"
-import { canEditTyC, canImportTyC, canSeeTyCsensible } from "@/lib/permissions"
+import { canEditTyC, canImportTyC, canSeeTyCSensible } from "@/lib/permissions"
 import { PageLayout } from "@/components/layout/PageLayout"
 import {
   Users,
@@ -27,7 +27,7 @@ export function TyCPage() {
   const user = useAuthStore((s) => s.user)
   const puedeEditar  = user ? canEditTyC(user.role, user.app_permissions) : false
   const puedeImport  = user ? canImportTyC(user.role, user.app_permissions) : false
-  const puedeSensible = user ? canSeeTyCsensible(user.role, user.app_permissions) : false
+  const puedeSensible = user ? canSeeTyCSensible(user.role, user.app_permissions) : false
 
   const [stats, setStats] = useState<Stats | null>(null)
 
