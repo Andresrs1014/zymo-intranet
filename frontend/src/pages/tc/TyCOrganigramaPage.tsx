@@ -224,7 +224,6 @@ export function TyCOrganigramaPage() {
             {orgData.areas.map((area) => (
               <AreaCard
                 key={area.id}
-                areaKey={String(area.id)}
                 nombre={area.nombre}
                 cargos={area.cargos}
                 abierta={areasAbiertas.has(String(area.id))}
@@ -236,7 +235,6 @@ export function TyCOrganigramaPage() {
             ))}
             {orgData.sin_area.length > 0 && (
               <AreaCard
-                areaKey="sin_area"
                 nombre="Sin área asignada"
                 cargos={orgData.sin_area}
                 abierta={areasAbiertas.has("sin_area")}
@@ -320,7 +318,6 @@ export function TyCOrganigramaPage() {
 // ── AreaCard ──────────────────────────────────────────────────────────────────
 
 function AreaCard({
-  areaKey,
   nombre,
   cargos,
   abierta,
@@ -329,7 +326,6 @@ function AreaCard({
   onAsignar,
   onDesasignar,
 }: {
-  areaKey: string
   nombre: string
   cargos: CargoNode[]
   abierta: boolean
