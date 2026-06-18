@@ -12,6 +12,7 @@ import {
   canUseAgentePanel,
   canSeeExtraccionIA,
   canSeeHelix,
+  canSeeTyC,
 } from "@/lib/permissions"
 import { useAgentPanelStore } from "@/store/agentPanelStore"
 import { useMinWidth } from "@/hooks/useMinWidth"
@@ -49,6 +50,8 @@ import { SigPage } from "@/pages/sig/SigPage"
 import MantenimientoPage from "@/pages/mantenimiento/MantenimientoPage"
 import NuevaMantenimientoPage from "@/pages/mantenimiento/NuevaMantenimientoPage"
 import MantenimientoDetallePage from "@/pages/mantenimiento/MantenimientoDetallePage"
+import { TyCPage } from "@/pages/tc/TyCPage"
+import { TyCPersonaPage } from "@/pages/tc/TyCPersonaPage"
 
 // Decodifica el claim `exp` del JWT sin verificar firma (solo para chequeo local de expiración)
 function isTokenExpired(token: string): boolean {
@@ -163,6 +166,13 @@ function MantenimientoRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user)
   if (!user) return <Navigate to="/login" replace />
   if (!canSeeOC(user.role, user.area, user.app_permissions)) return <Navigate to="/dashboard" replace />
+  return <>{children}</>
+}
+
+function TyCRoute({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user)
+  if (!user) return <Navigate to="/login" replace />
+  if (!canSeeTyC(user.role, user.app_permissions)) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
 
@@ -475,6 +485,24 @@ export default function App() {
             <MantenimientoRoute>
               <MantenimientoDetallePage />
             </MantenimientoRoute>
+          }
+        />
+
+        {/* Módulo T&C — Talento y Cultura */}
+        <Route
+          path="/tc"
+          element={
+            <TyCRoute>
+              <TyCPage />
+            </TyCRoute>
+          }
+        />
+        <Route
+          path="/tc/persona/:id"
+          element={
+            <TyCRoute>
+              <TyCPersonaPage />
+            </TyCRoute>
           }
         />
 

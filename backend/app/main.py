@@ -35,6 +35,8 @@ from app.routers.agentes import router as agentes_router
 from app.routers.zymo import router as zymo_router
 from app.gerencial_database import create_gerencial_tables
 from app.routers.gerencial import router as gerencial_router
+from app.personal_database import create_personal_tables
+from app.routers.personal import router as personal_router
 from app.routers.borradores import router as borradores_router
 from app.routers.admin.extraccion import router as admin_extraccion_router
 from app.routers.user_tools import router as user_tools_router
@@ -62,7 +64,7 @@ _DEFAULT_ROLES = [
         "name": "talento_cultura",
         "label": "Talento y Cultura",
         "description": "Gestión de talento humano",
-        "app_permissions": ["matriz"],
+        "app_permissions": ["matriz", "mod_tc", "mod_tc_editar", "mod_tc_importar"],
     },
     {
         "name": "comercial",
@@ -356,6 +358,7 @@ async def lifespan(app: FastAPI):
     create_financiero_tables()
     create_agent_tables()
     create_gerencial_tables()
+    create_personal_tables()
 
     # ── Scheduler de limpieza de borradores ──────────────────────────────────
     scheduler = BackgroundScheduler(timezone="America/Bogota")
@@ -407,6 +410,7 @@ app.include_router(tasks_v2_router)
 app.include_router(netvault_router)
 app.include_router(mantenimiento_router)
 app.include_router(sig_pdf_router)
+app.include_router(personal_router)
 
 
 @app.exception_handler(RequestValidationError)

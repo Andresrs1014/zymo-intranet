@@ -81,6 +81,7 @@ require_gerencial = require_permission("mod_gerencial")
 require_sgc = require_permission("mod_sgc")
 require_extraccion_ia = require_permission("mod_extraccion_ia")
 require_mantenimiento = require_permission("mod_mantenimiento")
+require_tc = require_permission("mod_tc")
 
 
 def require_any_role(allowed_roles: list[str]):

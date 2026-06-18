@@ -116,6 +116,26 @@ export function canSeeHelix(role: string, appPerms?: string[]): boolean {
   return hasPerm(appPerms, "mod_helix")
 }
 
+export function canSeeTyC(role: string, appPerms?: string[]): boolean {
+  if (role === "admin") return true
+  return hasPerm(appPerms, "mod_tc")
+}
+
+export function canEditTyC(role: string, appPerms?: string[]): boolean {
+  if (role === "admin") return true
+  return hasPerm(appPerms, "mod_tc_editar")
+}
+
+export function canSeeTyCSensible(role: string, appPerms?: string[]): boolean {
+  if (role === "admin") return true
+  return hasPerm(appPerms, "mod_tc_sensible")
+}
+
+export function canImportTyC(role: string, appPerms?: string[]): boolean {
+  if (role === "admin") return true
+  return hasPerm(appPerms, "mod_tc_importar")
+}
+
 export function canSeeMantenimiento(
   role: string,
   appPerms?: string[]

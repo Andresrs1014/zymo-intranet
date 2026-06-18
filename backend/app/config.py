@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     # ── Módulo Gerencial (PostgreSQL — piloto migración) ──────────────────────
     gerencial_database_url: str = "sqlite:///./data/gerencial.db"  # Override con PostgreSQL en producción
 
+    # ── Módulo T&C — Talento y Cultura (Personal) ─────────────────────────────
+    personal_database_url: str = "sqlite:///./data/personal.db"
+
     # ── Anthropic / Claude (proxy NetVault — la API key nunca sale del servidor) ──
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-4-6"

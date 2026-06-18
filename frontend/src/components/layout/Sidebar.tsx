@@ -11,6 +11,7 @@ import {
   Cpu,
   ListTodo,
   Layers,
+  Users,
 } from "lucide-react"
 import { useAuthStore } from "@/store/authStore"
 import {
@@ -25,6 +26,7 @@ import {
   canSubmitDevTasks,
   canManageDevTasks,
   canSeeHelix,
+  canSeeTyC,
 } from "@/lib/permissions"
 import {
   Sidebar as ShadcnSidebar,
@@ -58,6 +60,7 @@ export function Sidebar() {
     ? canSubmitDevTasks(user.user_tools ?? []) || canManageDevTasks(user.user_tools ?? [])
     : false
   const showHelix          = user ? canSeeHelix(user.role, perms) : false
+  const showTyC            = user ? canSeeTyC(user.role, perms) : false
 
   // Derive user initials for the footer avatar
   const initials = user?.full_name
@@ -111,7 +114,7 @@ export function Sidebar() {
 
         {/* ── Section: Módulos ────────────────────────────────────────── */}
         {(showIT || showSGC || showSIG || showOperativo || showAdministrativo ||
-          showFinanciero || showGerencial || showExtraccionIA) && (
+          showFinanciero || showGerencial || showExtraccionIA || showTyC) && (
           <SidebarGroup>
             <SidebarGroupLabel>Módulos disponibles</SidebarGroupLabel>
             <SidebarGroupContent>
@@ -185,6 +188,14 @@ export function Sidebar() {
                     label="Motor IA"
                     icon={<Cpu className="w-4 h-4" />}
                     active={isActive(["/admin/extraccion-ia"])}
+                  />
+                )}
+                {showTyC && (
+                  <NavItem
+                    to="/tc"
+                    label="T&C"
+                    icon={<Users className="w-4 h-4" />}
+                    active={isActive(["/tc"])}
                   />
                 )}
               </SidebarMenu>
