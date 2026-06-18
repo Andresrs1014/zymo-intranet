@@ -142,6 +142,7 @@ export function TyCOrganigramaPage() {
     setResultados([])
   }
 
+  // Stats
   const totalAreas = orgData?.areas.length ?? 0
   const totalCargos =
     (orgData?.areas.flatMap((a) => a.cargos).length ?? 0) + (orgData?.sin_area.length ?? 0)
@@ -152,51 +153,59 @@ export function TyCOrganigramaPage() {
 
   return (
     <PageLayout title="T&C — Organigrama" mainClassName="flex-1 flex flex-col overflow-hidden">
+
       {/* ── Header ──────────────────────────────────────────────────── */}
-      <div className="px-6 pt-5 pb-4 border-b border-border space-y-4">
-        <div className="flex items-center gap-3">
+      <div className="px-6 pt-5 pb-4 border-b border-border">
+
+        {/* Breadcrumb */}
+        <div className="flex items-center gap-2 mb-4">
           <button
             onClick={() => navigate("/tc")}
             className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-3.5 h-3.5" />
             T&C
           </button>
-          <span className="text-muted-foreground/40">/</span>
+          <span className="text-muted-foreground/30 text-xs">/</span>
           <span className="text-sm font-medium">Organigrama</span>
         </div>
 
-        {/* Empresa tabs */}
-        <div className="flex gap-1.5">
-          {empresas.map((e) => (
-            <button
-              key={e.id}
-              onClick={() => setEmpresaActiva(e.id)}
-              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all border ${
-                empresaActiva === e.id
-                  ? "bg-teal-500/10 text-teal-500 border-teal-500/30"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground border-transparent"
-              }`}
-            >
-              {e.codigo}
-            </button>
-          ))}
-        </div>
-
-        {/* Stats */}
-        {orgData && !loading && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span>{totalAreas} área{totalAreas !== 1 ? "s" : ""}</span>
-            <span className="opacity-30">·</span>
-            <span>{totalCargos} cargo{totalCargos !== 1 ? "s" : ""}</span>
-            <span className="opacity-30">·</span>
-            <span>{totalPersonas} persona{totalPersonas !== 1 ? "s" : ""} activa{totalPersonas !== 1 ? "s" : ""}</span>
+        {/* Empresa tabs + stats en una sola fila */}
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-1 bg-muted/30 rounded-xl p-1">
+            {empresas.map((e) => (
+              <button
+                key={e.id}
+                onClick={() => setEmpresaActiva(e.id)}
+                className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  empresaActiva === e.id
+                    ? "bg-teal-500/15 text-teal-400 shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {e.codigo}
+              </button>
+            ))}
           </div>
-        )}
+
+          {orgData && !loading && (
+            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              <span className="tabular-nums">
+                <strong className="text-foreground font-semibold">{totalAreas}</strong> área{totalAreas !== 1 ? "s" : ""}
+              </span>
+              <span className="tabular-nums">
+                <strong className="text-foreground font-semibold">{totalCargos}</strong> cargo{totalCargos !== 1 ? "s" : ""}
+              </span>
+              <span className="tabular-nums">
+                <strong className="text-emerald-500 font-semibold">{totalPersonas}</strong> activo{totalPersonas !== 1 ? "s" : ""}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* ── Árbol ────────────────────────────────────────────────────── */}
-      <div className="flex-1 overflow-auto px-6 py-4 space-y-2.5">
+      {/* ── Árbol ─────────────────────────────────────────────────── */}
+      <div className="flex-1 overflow-auto px-6 py-4 space-y-2">
         {loading && (
           <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
             Cargando organigrama…
@@ -206,7 +215,7 @@ export function TyCOrganigramaPage() {
         {!loading && orgData && orgData.areas.length === 0 && orgData.sin_area.length === 0 && (
           <div className="flex flex-col items-center justify-center h-48 gap-2 text-muted-foreground">
             <Users className="w-8 h-8 opacity-20" />
-            <span className="text-sm">No hay áreas ni cargos para esta empresa.</span>
+            <span className="text-sm">Sin áreas ni cargos para esta empresa.</span>
           </div>
         )}
 
@@ -241,10 +250,10 @@ export function TyCOrganigramaPage() {
         )}
       </div>
 
-      {/* ── Modal asignación ─────────────────────────────────────────── */}
+      {/* ── Modal asignación ─────────────────────────────────────── */}
       {modalCargo && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="bg-background border border-border rounded-xl shadow-2xl w-full max-w-md">
+          <div className="bg-background border border-border rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
               <div>
                 <p className="font-semibold text-sm">Asignar colaborador</p>
@@ -252,9 +261,9 @@ export function TyCOrganigramaPage() {
               </div>
               <button
                 onClick={() => setModalCargo(null)}
-                className="text-muted-foreground hover:text-foreground transition-colors"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
             <div className="p-4 space-y-3">
@@ -266,13 +275,13 @@ export function TyCOrganigramaPage() {
                   value={busqueda}
                   onChange={(e) => setBusqueda(e.target.value)}
                   autoFocus
-                  className="w-full pl-9 pr-3 py-2 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
+                  className="w-full pl-9 pr-3 py-2 text-sm bg-muted/30 border border-input rounded-xl focus:outline-none focus:ring-1 focus:ring-teal-500/50 focus:border-teal-500/50"
                 />
               </div>
-              <div className="max-h-72 overflow-y-auto rounded-md border border-border/60 divide-y divide-border/40">
+              <div className="max-h-72 overflow-y-auto rounded-xl border border-border/50 divide-y divide-border/40 bg-muted/10">
                 {resultados.length === 0 ? (
                   <p className="py-8 text-center text-sm text-muted-foreground">
-                    {busqueda.trim() ? "Sin resultados para esa búsqueda" : "Cargando colaboradores…"}
+                    {busqueda.trim() ? "Sin resultados" : "Cargando…"}
                   </p>
                 ) : (
                   resultados.map((p) => (
@@ -280,20 +289,20 @@ export function TyCOrganigramaPage() {
                       key={p.id}
                       onClick={() => asignar(p)}
                       disabled={asignando === p.id}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-accent transition-colors text-left disabled:opacity-50"
+                      className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-muted/40 transition-colors text-left disabled:opacity-50"
                     >
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-500/10 text-teal-500 text-xs font-semibold">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-500/10 text-teal-400 text-xs font-bold">
                         {p.initials || p.nombre.slice(0, 2).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{p.nombre}</p>
                         {p.cargo_nombre && (
                           <p className="text-xs text-muted-foreground truncate">
-                            Cargo actual: {p.cargo_nombre}
+                            {p.cargo_nombre}
                           </p>
                         )}
                       </div>
-                      <span className="text-xs text-teal-500 shrink-0 font-medium">
+                      <span className="text-xs text-teal-500 shrink-0 font-semibold">
                         {asignando === p.id ? "…" : "Asignar"}
                       </span>
                     </button>
@@ -308,7 +317,7 @@ export function TyCOrganigramaPage() {
   )
 }
 
-// ── Sub-components ─────────────────────────────────────────────────────────────
+// ── AreaCard ──────────────────────────────────────────────────────────────────
 
 function AreaCard({
   areaKey,
@@ -332,44 +341,57 @@ function AreaCard({
   const totalPersonas = cargos.reduce((s, c) => s + c.personas.length, 0)
 
   return (
-    <div className="border border-border rounded-lg overflow-hidden" data-area={areaKey}>
+    <div className="rounded-xl overflow-hidden border border-border/70">
+      {/* Área header — borde izquierdo teal como acento de jerarquía */}
       <button
         onClick={onToggle}
-        className="w-full flex items-center gap-3 px-4 py-3 bg-muted/20 hover:bg-muted/40 transition-colors text-left"
+        className="w-full flex items-center gap-3 px-4 py-3 bg-muted/15 hover:bg-muted/30 transition-colors text-left border-l-[3px] border-teal-500/60"
       >
-        {abierta
-          ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
-          : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-        }
-        <span className="font-medium text-sm flex-1">{nombre}</span>
-        <span className="text-xs text-muted-foreground shrink-0">
-          {cargos.length} cargo{cargos.length !== 1 ? "s" : ""}
-          {" · "}
-          {totalPersonas} persona{totalPersonas !== 1 ? "s" : ""}
+        <span className="text-muted-foreground/60">
+          {abierta
+            ? <ChevronDown className="w-3.5 h-3.5" />
+            : <ChevronRight className="w-3.5 h-3.5" />
+          }
         </span>
+        <span className="font-semibold text-sm flex-1 tracking-tight">{nombre}</span>
+        <div className="flex items-center gap-3 text-xs text-muted-foreground shrink-0">
+          <span>{cargos.length} cargo{cargos.length !== 1 ? "s" : ""}</span>
+          <span className="h-3 w-px bg-border" />
+          <span className="text-emerald-500 font-medium">{totalPersonas} persona{totalPersonas !== 1 ? "s" : ""}</span>
+        </div>
       </button>
+
+      {/* Cargos — con línea vertical conectora izquierda */}
       {abierta && (
-        <div className="divide-y divide-border/40">
-          {cargos.length === 0 ? (
-            <p className="px-6 py-4 text-sm text-muted-foreground italic">
-              Sin cargos definidos.
-            </p>
-          ) : (
-            cargos.map((cargo) => (
-              <CargoRow
-                key={cargo.id}
-                cargo={cargo}
-                puedeEditar={puedeEditar}
-                onAsignar={onAsignar}
-                onDesasignar={onDesasignar}
-              />
-            ))
-          )}
+        <div className="relative">
+          {/* Línea vertical conectora */}
+          <div className="absolute left-[27px] top-3 bottom-3 w-px bg-teal-500/15" />
+
+          <div className="divide-y divide-border/30">
+            {cargos.length === 0 ? (
+              <p className="px-10 py-4 text-xs text-muted-foreground italic">
+                Sin cargos definidos.
+              </p>
+            ) : (
+              cargos.map((cargo, idx) => (
+                <CargoRow
+                  key={cargo.id}
+                  cargo={cargo}
+                  isLast={idx === cargos.length - 1}
+                  puedeEditar={puedeEditar}
+                  onAsignar={onAsignar}
+                  onDesasignar={onDesasignar}
+                />
+              ))
+            )}
+          </div>
         </div>
       )}
     </div>
   )
 }
+
+// ── CargoRow ──────────────────────────────────────────────────────────────────
 
 function CargoRow({
   cargo,
@@ -378,19 +400,28 @@ function CargoRow({
   onDesasignar,
 }: {
   cargo: CargoNode
+  isLast: boolean
   puedeEditar: boolean
   onAsignar: (c: CargoNode) => void
   onDesasignar: (id: number) => void
 }) {
   return (
-    <div className="flex items-start gap-4 px-4 py-3 pl-11">
-      <div className="w-44 shrink-0 pt-0.5">
-        <p className="text-sm font-medium leading-snug">{cargo.nombre}</p>
-        <p className="text-[11px] text-muted-foreground mt-0.5">
+    <div className="flex items-start gap-3 px-4 py-3 pl-10 group/row hover:bg-muted/10 transition-colors">
+      {/* Conector horizontal */}
+      <div className="flex items-center pt-2 shrink-0">
+        <div className="w-3 h-px bg-teal-500/20" />
+      </div>
+
+      {/* Cargo info */}
+      <div className="w-40 shrink-0 pt-0.5">
+        <p className="text-xs font-semibold text-foreground/80 leading-snug">{cargo.nombre}</p>
+        <p className="text-[10px] text-muted-foreground/60 mt-0.5 tabular-nums">
           {cargo.personas.length} asignado{cargo.personas.length !== 1 ? "s" : ""}
         </p>
       </div>
-      <div className="flex flex-wrap gap-2 flex-1 pt-0.5 min-h-[28px]">
+
+      {/* Chips de personas */}
+      <div className="flex flex-wrap gap-1.5 flex-1 min-h-[28px] pt-0.5">
         {cargo.personas.map((p) => (
           <Chip
             key={p.id}
@@ -402,9 +433,9 @@ function CargoRow({
         {puedeEditar && (
           <button
             onClick={() => onAsignar(cargo)}
-            className="flex items-center gap-1 px-2.5 py-1 text-xs border border-dashed border-border rounded-full text-muted-foreground hover:border-teal-500 hover:text-teal-500 transition-colors"
+            className="flex items-center gap-1 px-2 py-0.5 text-[11px] border border-dashed border-border/60 rounded-full text-muted-foreground/50 hover:border-teal-500/50 hover:text-teal-500 transition-all"
           >
-            <Plus className="w-3 h-3" />
+            <Plus className="w-2.5 h-2.5" />
             Asignar
           </button>
         )}
@@ -412,6 +443,8 @@ function CargoRow({
     </div>
   )
 }
+
+// ── Chip de persona ───────────────────────────────────────────────────────────
 
 function Chip({
   persona,
@@ -424,17 +457,17 @@ function Chip({
 }) {
   const display = persona.nombre.split(" ").slice(0, 2).join(" ")
   return (
-    <div className="group flex items-center gap-1.5 px-2.5 py-1 bg-muted/50 hover:bg-muted/80 rounded-full text-xs transition-colors">
-      <div className="w-4 h-4 rounded-full bg-teal-500/15 text-teal-500 flex items-center justify-center text-[9px] font-bold shrink-0">
+    <div className="group flex items-center gap-1.5 px-2 py-0.5 bg-muted/40 hover:bg-muted/70 border border-border/40 rounded-full text-[11px] transition-colors">
+      <div className="w-3.5 h-3.5 rounded-full bg-teal-500/20 text-teal-400 flex items-center justify-center text-[8px] font-bold shrink-0">
         {(persona.initials || persona.nombre)[0]}
       </div>
-      <span className="max-w-[130px] truncate">{display}</span>
+      <span className="max-w-[110px] truncate text-foreground/80">{display}</span>
       {puedeEditar && (
         <button
           onClick={(e) => { e.stopPropagation(); onDesasignar(persona.id) }}
-          className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+          className="opacity-0 group-hover:opacity-100 transition-opacity ml-0.5 text-muted-foreground hover:text-red-400"
         >
-          <X className="w-3 h-3" />
+          <X className="w-2.5 h-2.5" />
         </button>
       )}
     </div>

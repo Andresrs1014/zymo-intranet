@@ -11,9 +11,8 @@ import {
   ClipboardList,
   ShieldAlert,
   Upload,
-  ChevronRight,
   UserPlus,
-  Building2,
+  ArrowRight,
 } from "lucide-react"
 
 interface Stats {
@@ -25,8 +24,8 @@ interface Stats {
 export function TyCPage() {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
-  const puedeEditar  = user ? canEditTyC(user.role, user.app_permissions) : false
-  const puedeImport  = user ? canImportTyC(user.role, user.app_permissions) : false
+  const puedeEditar   = user ? canEditTyC(user.role, user.app_permissions) : false
+  const puedeImport   = user ? canImportTyC(user.role, user.app_permissions) : false
   const puedeSensible = user ? canSeeTyCSensible(user.role, user.app_permissions) : false
 
   const [stats, setStats] = useState<Stats | null>(null)
@@ -36,116 +35,130 @@ export function TyCPage() {
       api.get("/tc/personas", { params: { limit: 1 } }),
       api.get("/tc/personas", { params: { estado: "Activo", limit: 1 } }),
       api.get("/tc/personas", { params: { estado: "Inactivo", limit: 1 } }),
-    ]).then(([total, activos, inactivos]) => {
-      setStats({
-        total: total.data.total,
-        activos: activos.data.total,
-        inactivos: inactivos.data.total,
-      })
+    ]).then(([t, a, i]) => {
+      setStats({ total: t.data.total, activos: a.data.total, inactivos: i.data.total })
     }).catch(() => {})
   }, [])
 
+  const activePct = stats ? Math.round((stats.activos / Math.max(stats.total, 1)) * 100) : 0
+
   return (
     <PageLayout title="T&C — Talento y Cultura" mainClassName="flex-1 overflow-y-auto">
-      {/* ── Hero / Stats ───────────────────────────────────────────── */}
-      <div className="px-6 pt-8 pb-6 border-b border-border">
-        <div className="flex items-start justify-between">
+
+      {/* ── Header ─────────────────────────────────────────────────── */}
+      <div className="px-8 pt-8 pb-6 border-b border-border">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-500/10 text-teal-500">
+            <Users className="w-5 h-5" />
+          </div>
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Talento y Cultura</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Gestión de colaboradores, estructura organizacional y desarrollo del talento.
+            <h1 className="text-lg font-semibold leading-tight">Talento y Cultura</h1>
+            <p className="text-xs text-muted-foreground">
+              Colaboradores · Estructura · Desarrollo — Grupo ZYMO
             </p>
           </div>
-          <Building2 className="w-10 h-10 text-muted-foreground/20 shrink-0 mt-1" />
         </div>
 
-        {/* Stats rápidos */}
-        <div className="flex items-center gap-6 mt-5">
-          <Stat label="Total colaboradores" value={stats?.total} />
-          <div className="w-px h-8 bg-border" />
-          <Stat label="Activos" value={stats?.activos} accent="emerald" />
-          <div className="w-px h-8 bg-border" />
-          <Stat label="Inactivos" value={stats?.inactivos} accent="muted" />
+        {/* Stats cards */}
+        <div className="grid grid-cols-3 gap-3">
+          <StatCard
+            value={stats?.total}
+            label="Colaboradores"
+            barColor="bg-foreground/20"
+            barPct={100}
+          />
+          <StatCard
+            value={stats?.activos}
+            label="Activos"
+            valueColor="text-emerald-500"
+            barColor="bg-emerald-500"
+            barPct={activePct}
+          />
+          <StatCard
+            value={stats?.inactivos}
+            label="Inactivos"
+            barColor="bg-muted-foreground/30"
+            barPct={100 - activePct}
+          />
         </div>
       </div>
 
-      {/* ── Contenido ──────────────────────────────────────────────── */}
-      <div className="px-6 py-8 space-y-10 max-w-4xl">
+      {/* ── Módulos ───────────────────────────────────────────────── */}
+      <div className="px-8 py-7 max-w-2xl space-y-7">
 
-        {/* BLOQUE A — Personal */}
-        <Section title="Personal" description="Directorio de colaboradores y gestión de registros.">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <NavCard
-              icon={<Users className="w-5 h-5" />}
-              iconColor="blue"
-              title="Directorio"
-              description="Ver y buscar todos los colaboradores del grupo ZYMO."
-              onClick={() => navigate("/tc/directorio")}
+        {/* PERSONAL */}
+        <div>
+          <GroupHeader accent="bg-blue-500" label="Personal" />
+          <FeatureRow
+            icon={<Users className="w-4 h-4" />}
+            accent="text-blue-500 bg-blue-500/10"
+            title="Directorio de colaboradores"
+            sub="Buscar, filtrar y gestionar todos los empleados del grupo."
+            onClick={() => navigate("/tc/directorio")}
+          />
+          {puedeEditar && (
+            <FeatureRow
+              icon={<UserPlus className="w-4 h-4" />}
+              accent="text-blue-400 bg-blue-500/10"
+              title="Nuevo colaborador"
+              sub="Registrar un nuevo empleado en el sistema."
+              onClick={() => navigate("/tc/directorio?nuevo=1")}
             />
-            {puedeEditar && (
-              <NavCard
-                icon={<UserPlus className="w-5 h-5" />}
-                iconColor="violet"
-                title="Nuevo colaborador"
-                description="Registrar un nuevo colaborador en el sistema."
-                onClick={() => navigate("/tc/directorio?nuevo=1")}
-              />
-            )}
-            {puedeImport && (
-              <NavCard
-                icon={<Upload className="w-5 h-5" />}
-                iconColor="amber"
-                title="Importar desde Excel"
-                description="Cargar múltiples colaboradores desde una plantilla Excel."
-                soon
-              />
-            )}
-          </div>
-        </Section>
-
-        {/* BLOQUE B — Estructura */}
-        <Section title="Estructura organizacional" description="Organigrama y asignación de personas a cargos.">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <NavCard
-              icon={<GitBranch className="w-5 h-5" />}
-              iconColor="teal"
-              title="Organigrama"
-              description="Árbol jerárquico empresa → área → cargo → persona. Asigna colaboradores a posiciones."
-              onClick={() => navigate("/tc/organigrama")}
+          )}
+          {puedeImport && (
+            <FeatureRow
+              icon={<Upload className="w-4 h-4" />}
+              accent="text-amber-500 bg-amber-500/10"
+              title="Importar desde archivo"
+              sub="Cargar múltiples colaboradores desde Excel o JSON."
+              soon
             />
-          </div>
-        </Section>
+          )}
+        </div>
 
-        {/* BLOQUE C — Desarrollo */}
-        <Section title="Desarrollo y talento" description="Formación, evaluaciones y registros de desarrollo.">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <NavCard
-              icon={<BookOpen className="w-5 h-5" />}
-              iconColor="indigo"
+        {/* ESTRUCTURA */}
+        <div>
+          <GroupHeader accent="bg-teal-500" label="Estructura organizacional" />
+          <FeatureRow
+            icon={<GitBranch className="w-4 h-4" />}
+            accent="text-teal-500 bg-teal-500/10"
+            title="Organigrama"
+            sub="Árbol empresa → área → cargo → persona. Asignación de posiciones."
+            onClick={() => navigate("/tc/organigrama")}
+          />
+        </div>
+
+        {/* DESARROLLO — próximamente */}
+        <div>
+          <GroupHeader accent="bg-indigo-500" label="Desarrollo y talento" soon />
+          <div className="opacity-40 pointer-events-none">
+            <FeatureRow
+              icon={<BookOpen className="w-4 h-4" />}
+              accent="text-indigo-500 bg-indigo-500/10"
               title="Capacitaciones"
-              description="Historial de formación, diplomas y calendario de actividades."
+              sub="Historial de formación, diplomas y calendario de actividades."
               soon
             />
             {puedeSensible && (
               <>
-                <NavCard
-                  icon={<ClipboardList className="w-5 h-5" />}
-                  iconColor="orange"
+                <FeatureRow
+                  icon={<ClipboardList className="w-4 h-4" />}
+                  accent="text-orange-500 bg-orange-500/10"
                   title="Evaluaciones de desempeño"
-                  description="Calificaciones y metas individuales de cada colaborador."
+                  sub="Calificaciones y metas individuales por colaborador."
                   soon
                 />
-                <NavCard
-                  icon={<ShieldAlert className="w-5 h-5" />}
-                  iconColor="red"
-                  title="Sanciones"
-                  description="Registro de novedades disciplinarias y permisos."
+                <FeatureRow
+                  icon={<ShieldAlert className="w-4 h-4" />}
+                  accent="text-red-500 bg-red-500/10"
+                  title="Sanciones y novedades"
+                  sub="Registro de novedades disciplinarias y permisos."
                   soon
                 />
               </>
             )}
           </div>
-        </Section>
+        </div>
 
       </div>
     </PageLayout>
@@ -154,109 +167,95 @@ export function TyCPage() {
 
 // ── Componentes internos ──────────────────────────────────────────────────────
 
-function Stat({
-  label,
+function StatCard({
   value,
-  accent = "default",
+  label,
+  valueColor = "",
+  barColor,
+  barPct,
 }: {
-  label: string
   value: number | undefined
-  accent?: "emerald" | "muted" | "default"
+  label: string
+  valueColor?: string
+  barColor: string
+  barPct: number
 }) {
-  const valueClass =
-    accent === "emerald"
-      ? "text-emerald-500"
-      : accent === "muted"
-      ? "text-muted-foreground"
-      : ""
-
   return (
-    <div>
-      <p className={`text-2xl font-semibold tabular-nums ${valueClass}`}>
-        {value === undefined ? <span className="opacity-30">—</span> : value}
+    <div className="rounded-xl border border-border bg-muted/10 px-4 py-3.5">
+      <p className={`text-2xl font-bold tabular-nums tracking-tight ${valueColor}`}>
+        {value === undefined ? (
+          <span className="opacity-20">—</span>
+        ) : value}
       </p>
       <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
+      <div className="mt-3 h-[3px] bg-muted rounded-full overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all duration-1000 ${barColor}`}
+          style={{ width: `${Math.max(barPct, 2)}%` }}
+        />
+      </div>
     </div>
   )
 }
 
-function Section({
-  title,
-  description,
-  children,
+function GroupHeader({
+  accent,
+  label,
+  soon,
 }: {
-  title: string
-  description: string
-  children: React.ReactNode
+  accent: string
+  label: string
+  soon?: boolean
 }) {
   return (
-    <div>
-      <div className="mb-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          {title}
-        </h2>
-        <p className="text-xs text-muted-foreground/70 mt-0.5">{description}</p>
-      </div>
-      {children}
+    <div className="flex items-center gap-2.5 mb-1.5">
+      <div className={`h-3 w-[3px] rounded-full ${accent}`} />
+      <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+        {label}
+      </span>
+      {soon && (
+        <span className="text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+          Próximamente
+        </span>
+      )}
+      <div className="flex-1 h-px bg-border/60" />
     </div>
   )
 }
 
-const ICON_COLORS: Record<string, string> = {
-  blue:   "bg-blue-500/10 text-blue-500",
-  violet: "bg-violet-500/10 text-violet-500",
-  amber:  "bg-amber-500/10 text-amber-500",
-  teal:   "bg-teal-500/10 text-teal-500",
-  indigo: "bg-indigo-500/10 text-indigo-500",
-  orange: "bg-orange-500/10 text-orange-500",
-  red:    "bg-red-500/10 text-red-500",
-}
-
-function NavCard({
+function FeatureRow({
   icon,
-  iconColor,
+  accent,
   title,
-  description,
+  sub,
   onClick,
   soon = false,
 }: {
   icon: React.ReactNode
-  iconColor: string
+  accent: string
   title: string
-  description: string
+  sub: string
   onClick?: () => void
   soon?: boolean
 }) {
-  const isClickable = !soon && onClick
-
+  const clickable = !soon && !!onClick
   return (
     <button
-      onClick={isClickable ? onClick : undefined}
+      onClick={clickable ? onClick : undefined}
       disabled={soon}
-      className={`
-        w-full text-left flex items-start gap-4 p-4 rounded-xl border transition-all
-        ${isClickable
-          ? "border-border hover:border-primary/40 hover:bg-muted/30 cursor-pointer group"
-          : "border-border/50 opacity-60 cursor-default"
-        }
-      `}
+      className={`w-full group flex items-center gap-3.5 px-3 py-3 rounded-xl text-left transition-all ${
+        clickable ? "hover:bg-muted/25 cursor-pointer" : "cursor-default"
+      }`}
     >
-      <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${ICON_COLORS[iconColor] ?? "bg-muted text-muted-foreground"}`}>
+      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${accent}`}>
         {icon}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">{title}</span>
-          {soon && (
-            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
-              Próximamente
-            </span>
-          )}
-        </div>
-        <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{description}</p>
+        <p className="text-sm font-medium leading-tight">{title}</p>
+        <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{sub}</p>
       </div>
-      {isClickable && (
-        <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-muted-foreground mt-1 shrink-0 transition-colors" />
+      {clickable && (
+        <ArrowRight className="w-3.5 h-3.5 text-muted-foreground/25 group-hover:text-muted-foreground/60 group-hover:translate-x-0.5 transition-all shrink-0" />
       )}
     </button>
   )
