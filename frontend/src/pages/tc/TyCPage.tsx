@@ -110,15 +110,8 @@ export function TyCPage() {
               icon={<GitBranch className="w-5 h-5" />}
               iconColor="teal"
               title="Organigrama"
-              description="Árbol jerárquico del grupo: empresa → área → cargo → persona."
-              soon
-            />
-            <NavCard
-              icon={<ClipboardList className="w-5 h-5" />}
-              iconColor="teal"
-              title="Asignación a cargos"
-              description="Asignar colaboradores a posiciones del organigrama."
-              soon
+              description="Árbol jerárquico empresa → área → cargo → persona. Asigna colaboradores a posiciones."
+              onClick={() => navigate("/tc/organigrama")}
             />
           </div>
         </Section>

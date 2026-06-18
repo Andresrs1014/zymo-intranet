@@ -303,7 +303,7 @@ def actualizar_persona(
     if not persona:
         raise HTTPException(status_code=404, detail="Persona no encontrada.")
 
-    data = body.model_dump(exclude_none=True)
+    data = body.model_dump(exclude_unset=True)
     for field, value in data.items():
         if field == "fecha_ingreso":
             setattr(persona, field, _parse_date(value))
@@ -449,3 +449,59 @@ def import_personas_json(
 
     db.commit()
     return {"created": created, "skipped": skipped}
+
+
+# ── Organigrama ───────────────────────────────────────────────────────────────
+
+@router.get("/organigrama/{empresa_id}")
+def obtener_organigrama(
+    empresa_id: int,
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_tc),
+):
+    empresa = db.get(PtcEmpresa, empresa_id)
+    if not empresa:
+        raise HTTPException(status_code=404, detail="Empresa no encontrada")
+
+    areas = db.exec(
+        select(PtcArea).where(PtcArea.empresa_id == empresa_id).order_by(col(PtcArea.nombre))
+    ).all()
+
+    cargos_all = db.exec(
+        select(PtcCargo).where(PtcCargo.empresa_id == empresa_id).order_by(col(PtcCargo.nombre))
+    ).all()
+
+    personas_activas = db.exec(
+        select(PtcPersona).where(
+            PtcPersona.empresa_id == empresa_id,
+            PtcPersona.estado == "Activo",
+        )
+    ).all()
+
+    # cargo_id → personas list
+    por_cargo: dict = {}
+    for p in personas_activas:
+        if p.cargo_id is not None:
+            por_cargo.setdefault(p.cargo_id, []).append({
+                "id": p.id,
+                "nombre": p.nombre,
+                "initials": p.initials or (p.nombre[:2].upper() if p.nombre else "?"),
+            })
+
+    # area_id (or None) → cargo list
+    por_area: dict = {}
+    for c in cargos_all:
+        por_area.setdefault(c.area_id, []).append({
+            "id": c.id,
+            "nombre": c.nombre,
+            "personas": por_cargo.get(c.id, []),
+        })
+
+    return {
+        "empresa": {"id": empresa.id, "nombre": empresa.nombre, "codigo": empresa.codigo},
+        "areas": [
+            {"id": a.id, "nombre": a.nombre, "cargos": por_area.get(a.id, [])}
+            for a in areas
+        ],
+        "sin_area": por_area.get(None, []),
+    }
