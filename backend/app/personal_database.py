@@ -75,7 +75,7 @@ class PtcPersona(SQLModel, table=True):
 
     # Organización
     empresa_id: int = Field(foreign_key="ptc_empresa.id")
-    area_id: Optional[int] = Field(default=None, foreign_key="ptc_area.id")
+    area_id: Optional[int] = Field(default=None)  # referencia a Area principal (app.models.area)
     cargo_id: Optional[int] = Field(default=None, foreign_key="ptc_cargo.id")
 
     # Datos personales

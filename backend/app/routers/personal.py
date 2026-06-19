@@ -96,9 +96,9 @@ class CargoUpdate(BaseModel):
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _persona_dict(p: PtcPersona, db: Session) -> dict:
+def _persona_dict(p: PtcPersona, db: Session, main_db: Session) -> dict:
     empresa = db.get(PtcEmpresa, p.empresa_id)
-    area = db.get(PtcArea, p.area_id) if p.area_id else None
+    area = main_db.get(GlobalArea, p.area_id) if p.area_id else None
     cargo = db.get(PtcCargo, p.cargo_id) if p.cargo_id else None
     return {
         "id": p.id,
@@ -109,7 +109,7 @@ def _persona_dict(p: PtcPersona, db: Session) -> dict:
         "empresa_nombre": empresa.nombre if empresa else "",
         "empresa_codigo": empresa.codigo if empresa else "",
         "area_id": p.area_id,
-        "area_nombre": area.nombre if area else "",
+        "area_nombre": area.name if area else "",
         "cargo_id": p.cargo_id,
         "cargo_nombre": cargo.nombre if cargo else "",
         "genero": p.genero,
@@ -265,6 +265,7 @@ def listar_personas(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, le=500),
     db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
     _: User = Depends(require_tc),
 ):
     query = select(PtcPersona)
@@ -284,25 +285,27 @@ def listar_personas(
 
     total = len(db.exec(query).all())
     personas = db.exec(query.order_by(col(PtcPersona.nombre)).offset(skip).limit(limit)).all()
-    return {"total": total, "items": [_persona_dict(p, db) for p in personas]}
+    return {"total": total, "items": [_persona_dict(p, db, main_db) for p in personas]}
 
 
 @router.get("/personas/{persona_id}")
 def obtener_persona(
     persona_id: int,
     db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
     _: User = Depends(require_tc),
 ):
     persona = db.get(PtcPersona, persona_id)
     if not persona:
         raise HTTPException(status_code=404, detail="Persona no encontrada.")
-    return _persona_dict(persona, db)
+    return _persona_dict(persona, db, main_db)
 
 
 @router.post("/personas", status_code=status.HTTP_201_CREATED)
 def crear_persona(
     body: PersonaCreate,
     db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
     _: User = Depends(require_tc_editar),
 ):
     if not db.get(PtcEmpresa, body.empresa_id):
@@ -335,7 +338,7 @@ def crear_persona(
     db.add(persona)
     db.commit()
     db.refresh(persona)
-    return _persona_dict(persona, db)
+    return _persona_dict(persona, db, main_db)
 
 
 @router.put("/personas/{persona_id}")
@@ -343,6 +346,7 @@ def actualizar_persona(
     persona_id: int,
     body: PersonaUpdate,
     db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
     _: User = Depends(require_tc_editar),
 ):
     persona = db.get(PtcPersona, persona_id)
@@ -362,7 +366,7 @@ def actualizar_persona(
     db.add(persona)
     db.commit()
     db.refresh(persona)
-    return _persona_dict(persona, db)
+    return _persona_dict(persona, db, main_db)
 
 
 @router.delete("/personas/{persona_id}", status_code=status.HTTP_204_NO_CONTENT)

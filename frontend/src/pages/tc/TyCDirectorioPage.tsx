@@ -8,7 +8,7 @@ import { PersonaFormModal } from "./components/PersonaFormModal"
 import { Search, Plus, RefreshCw, ArrowLeft } from "lucide-react"
 
 interface Empresa { id: number; nombre: string; codigo: string }
-interface Area    { id: number; empresa_id: number; nombre: string }
+interface Area    { id: number; name: string }
 
 interface Persona {
   id: number
@@ -63,11 +63,13 @@ export function TyCDirectorioPage() {
   }, [])
 
   useEffect(() => {
-    setAreaFiltro("")
-    if (!empresaFiltro) { setAreas([]); return }
-    api.get("/tc/areas", { params: { empresa_id: empresaFiltro } })
+    api.get("/areas")
       .then((r) => setAreas(Array.isArray(r.data) ? r.data : []))
       .catch(() => setAreas([]))
+  }, [])
+
+  useEffect(() => {
+    setAreaFiltro("")
   }, [empresaFiltro])
 
   const cargarPersonas = useCallback(async () => {
@@ -145,7 +147,7 @@ export function TyCDirectorioPage() {
             ))}
           </select>
 
-          {empresaFiltro && areas.length > 0 && (
+          {areas.length > 0 && (
             <select
               value={areaFiltro}
               onChange={(e) => setAreaFiltro(e.target.value)}
@@ -153,7 +155,7 @@ export function TyCDirectorioPage() {
             >
               <option value="">Todas las áreas</option>
               {areas.map((a) => (
-                <option key={a.id} value={a.id}>{a.nombre}</option>
+                <option key={a.id} value={a.id}>{a.name}</option>
               ))}
             </select>
           )}

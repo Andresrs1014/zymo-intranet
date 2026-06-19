@@ -7,7 +7,7 @@ import { PageLayout } from "@/components/layout/PageLayout"
 import { ArrowLeft, Pencil, X, Check } from "lucide-react"
 
 interface Empresa { id: number; nombre: string; codigo: string }
-interface Area { id: number; empresa_id: number; nombre: string }
+interface Area { id: number; name: string }
 interface Cargo { id: number; empresa_id: number; area_id: number | null; nombre: string }
 
 interface Persona {
@@ -71,10 +71,10 @@ export function TyCPersonaPage() {
   }, [id])
 
   function cargarAreasCargos(empresaId: number) {
-    api.get("/tc/areas", { params: { empresa_id: empresaId } })
-      .then((r) => setAreas(r.data))
+    api.get("/areas")
+      .then((r) => setAreas(Array.isArray(r.data) ? r.data : []))
     api.get("/tc/cargos", { params: { empresa_id: empresaId } })
-      .then((r) => setCargos(r.data))
+      .then((r) => setCargos(Array.isArray(r.data) ? r.data : []))
   }
 
   function iniciarEdicion() {
@@ -227,7 +227,7 @@ export function TyCPersonaPage() {
               >
                 <option value="">Sin área</option>
                 {areas.map((a) => (
-                  <option key={a.id} value={a.id}>{a.nombre}</option>
+                  <option key={a.id} value={a.id}>{a.name}</option>
                 ))}
               </Select>
             ) : (datos.area_nombre || "—")}

@@ -3,7 +3,7 @@ import { api } from "@/lib/api"
 import { X } from "lucide-react"
 
 interface Empresa { id: number; nombre: string; codigo: string }
-interface Area { id: number; empresa_id: number; nombre: string }
+interface Area { id: number; name: string }
 interface Cargo { id: number; empresa_id: number; area_id: number | null; nombre: string }
 
 interface Props {
@@ -34,11 +34,14 @@ export function PersonaFormModal({ empresas, onCreada, onCerrar }: Props) {
   })
 
   useEffect(() => {
+    api.get("/areas")
+      .then((r) => setAreas(Array.isArray(r.data) ? r.data : []))
+  }, [])
+
+  useEffect(() => {
     if (!form.empresa_id) return
-    api.get("/tc/areas", { params: { empresa_id: form.empresa_id } })
-      .then((r) => setAreas(r.data))
     api.get("/tc/cargos", { params: { empresa_id: form.empresa_id } })
-      .then((r) => setCargos(r.data))
+      .then((r) => setCargos(Array.isArray(r.data) ? r.data : []))
   }, [form.empresa_id])
 
   function setField(key: string, value: string | number | null) {
@@ -123,7 +126,7 @@ export function PersonaFormModal({ empresas, onCreada, onCerrar }: Props) {
               >
                 <option value="">Sin área</option>
                 {areas.map((a) => (
-                  <option key={a.id} value={a.id}>{a.nombre}</option>
+                  <option key={a.id} value={a.id}>{a.name}</option>
                 ))}
               </select>
             </FormGroup>
