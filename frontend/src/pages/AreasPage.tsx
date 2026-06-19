@@ -1,5 +1,6 @@
-import { useState, type ReactNode } from "react"
+import { useState, useEffect, useCallback, type ReactNode } from "react"
 import { PageLayout } from "@/components/layout/PageLayout"
+import { api } from "@/lib/api"
 import {
   useAreas,
   useCreateArea,
@@ -31,6 +32,7 @@ export function AreasPage() {
             <AreasPanel />
             <SedesPanel />
           </div>
+          <CargosPanel />
     </PageLayout>
   )
 }
@@ -198,6 +200,247 @@ function SedesPanel() {
           )
         }}
       />
+    </div>
+  )
+}
+
+// ── Cargos Panel (T&C) ────────────────────────────────────────────────────────
+
+interface TcEmpresa { id: number; nombre: string; codigo: string }
+interface TcArea    { id: number; empresa_id: number; nombre: string }
+interface TcCargo   { id: number; empresa_id: number; area_id: number | null; nombre: string }
+
+function CargosPanel() {
+  const [empresas, setEmpresas]     = useState<TcEmpresa[]>([])
+  const [empresaId, setEmpresaId]   = useState<number | null>(null)
+  const [areas, setAreas]           = useState<TcArea[]>([])
+  const [cargos, setCargos]         = useState<TcCargo[]>([])
+  const [loading, setLoading]       = useState(false)
+  const [pending, setPending]       = useState(false)
+  const [error, setError]           = useState<string>()
+
+  const [showCreate, setShowCreate] = useState(false)
+  const [newNombre, setNewNombre]   = useState("")
+  const [newAreaId, setNewAreaId]   = useState<number | "">("")
+
+  const [editId, setEditId]         = useState<number | null>(null)
+  const [editNombre, setEditNombre] = useState("")
+  const [editAreaId, setEditAreaId] = useState<number | "">("")
+
+  const [deleteId, setDeleteId]     = useState<number | null>(null)
+
+  useEffect(() => {
+    api.get("/tc/empresas").then((r) => {
+      const lista: TcEmpresa[] = Array.isArray(r.data) ? r.data : []
+      setEmpresas(lista)
+      if (lista.length > 0) setEmpresaId(lista[0].id)
+    }).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    if (!empresaId) { setAreas([]); return }
+    api.get("/tc/areas", { params: { empresa_id: empresaId } })
+      .then((r) => setAreas(Array.isArray(r.data) ? r.data : []))
+      .catch(() => setAreas([]))
+  }, [empresaId])
+
+  const cargarCargos = useCallback(() => {
+    if (!empresaId) { setCargos([]); return }
+    setLoading(true)
+    api.get("/tc/cargos", { params: { empresa_id: empresaId } })
+      .then((r) => setCargos(Array.isArray(r.data) ? r.data : []))
+      .catch(() => setCargos([]))
+      .finally(() => setLoading(false))
+  }, [empresaId])
+
+  useEffect(() => { cargarCargos() }, [cargarCargos])
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault()
+    if (!newNombre.trim() || !empresaId) return
+    setError(undefined)
+    setPending(true)
+    try {
+      await api.post("/tc/cargos", { empresa_id: empresaId, area_id: newAreaId || null, nombre: newNombre.trim() })
+      setNewNombre(""); setNewAreaId(""); setShowCreate(false)
+      cargarCargos()
+    } catch { setError("No se pudo crear el cargo.") }
+    finally { setPending(false) }
+  }
+
+  async function handleUpdate(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editId || !editNombre.trim()) return
+    setError(undefined)
+    setPending(true)
+    try {
+      await api.put(`/tc/cargos/${editId}`, { nombre: editNombre.trim(), area_id: editAreaId || null })
+      setEditId(null)
+      cargarCargos()
+    } catch { setError("No se pudo actualizar el cargo.") }
+    finally { setPending(false) }
+  }
+
+  async function handleDelete() {
+    if (!deleteId) return
+    setError(undefined)
+    setPending(true)
+    try {
+      await api.delete(`/tc/cargos/${deleteId}`)
+      setDeleteId(null)
+      cargarCargos()
+    } catch (err) {
+      const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
+      setError(typeof detail === "string" ? detail : "No se pudo eliminar el cargo.")
+      setDeleteId(null)
+    }
+    finally { setPending(false) }
+  }
+
+  function openEdit(c: TcCargo) {
+    setEditId(c.id)
+    setEditNombre(c.nombre)
+    setEditAreaId(c.area_id ?? "")
+    setError(undefined)
+  }
+
+  const areaMap = new Map(areas.map((a) => [a.id, a.nombre]))
+
+  return (
+    <div className="bg-card rounded-xl border border-border overflow-hidden mt-6">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+        <div>
+          <h3 className="font-semibold text-foreground text-sm">Cargos</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Posiciones laborales por empresa del grupo ZYMO (módulo T&amp;C).
+          </p>
+        </div>
+        <Button
+          onClick={() => { setShowCreate(true); setEditId(null); setError(undefined) }}
+          variant="default" size="sm" className="text-xs px-3 py-1.5 h-auto"
+        >
+          + Nuevo
+        </Button>
+      </div>
+
+      {/* Empresa tabs */}
+      {empresas.length > 0 && (
+        <div className="flex gap-1 px-4 pt-3 pb-2 border-b border-border">
+          {empresas.map((e) => (
+            <button
+              key={e.id}
+              onClick={() => { setEmpresaId(e.id); setShowCreate(false); setEditId(null); setDeleteId(null) }}
+              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                empresaId === e.id
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-accent"
+              }`}
+            >
+              {e.codigo}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {error && (
+        <p className="mx-4 mt-3 text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">{error}</p>
+      )}
+
+      {/* Create form */}
+      {showCreate && (
+        <form onSubmit={handleCreate} className="flex flex-wrap gap-2 px-4 py-3 border-b border-border">
+          <Input
+            type="text" autoFocus required
+            value={newNombre} onChange={(e) => setNewNombre(e.target.value)}
+            placeholder="Nombre del cargo"
+            className="flex-1 h-8 text-sm min-w-[180px]"
+          />
+          <select
+            value={newAreaId}
+            onChange={(e) => setNewAreaId(e.target.value ? Number(e.target.value) : "")}
+            className="h-8 text-sm bg-background border border-input rounded-md px-2 min-w-[150px]"
+          >
+            <option value="">Sin área</option>
+            {areas.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+          </select>
+          <Button type="submit" variant="default" size="sm" disabled={pending}
+            className="text-xs px-3 py-1.5 h-auto whitespace-nowrap">
+            {pending ? "..." : "Agregar"}
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={() => setShowCreate(false)}
+            className="text-xs px-3 py-1.5 h-auto">
+            ✕
+          </Button>
+        </form>
+      )}
+
+      {/* List */}
+      {loading ? (
+        <p className="px-4 py-6 text-xs text-muted-foreground">Cargando...</p>
+      ) : cargos.length === 0 ? (
+        <p className="px-4 py-8 text-center text-xs text-muted-foreground">
+          No hay cargos registrados para esta empresa.
+        </p>
+      ) : (
+        <ul className="divide-y divide-border">
+          {cargos.map((c) => (
+            <li key={c.id} className="flex flex-wrap items-center gap-2 px-4 py-2.5 hover:bg-muted transition-colors">
+              {editId === c.id ? (
+                <form onSubmit={handleUpdate} className="flex flex-1 flex-wrap gap-2">
+                  <Input
+                    type="text" autoFocus required
+                    value={editNombre} onChange={(e) => setEditNombre(e.target.value)}
+                    className="flex-1 h-8 text-sm min-w-[180px]"
+                  />
+                  <select
+                    value={editAreaId}
+                    onChange={(e) => setEditAreaId(e.target.value ? Number(e.target.value) : "")}
+                    className="h-8 text-sm bg-background border border-input rounded-md px-2 min-w-[150px]"
+                  >
+                    <option value="">Sin área</option>
+                    {areas.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+                  </select>
+                  <Button type="submit" variant="ghost" size="sm" disabled={pending}
+                    className="text-xs px-2 py-1 h-auto text-primary hover:bg-primary/10">
+                    {pending ? "..." : "Guardar"}
+                  </Button>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setEditId(null)}
+                    className="text-xs px-2 py-1 h-auto">✕</Button>
+                </form>
+              ) : deleteId === c.id ? (
+                <div className="flex flex-1 items-center gap-2">
+                  <span className="flex-1 text-sm text-foreground">{c.nombre}</span>
+                  <span className="text-xs text-red-500">¿Eliminar?</span>
+                  <Button onClick={handleDelete} disabled={pending} variant="ghost" size="sm"
+                    className="text-xs px-2 py-1 h-auto text-red-500 hover:bg-red-50">
+                    {pending ? "..." : "Sí"}
+                  </Button>
+                  <Button onClick={() => setDeleteId(null)} variant="ghost" size="sm"
+                    className="text-xs px-2 py-1 h-auto">No</Button>
+                </div>
+              ) : (
+                <>
+                  <span className="flex-1 text-sm text-foreground min-w-0">{c.nombre}</span>
+                  {c.area_id && (
+                    <span className="text-[11px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full shrink-0">
+                      {areaMap.get(c.area_id) ?? "—"}
+                    </span>
+                  )}
+                  <Button onClick={() => openEdit(c)} variant="ghost" size="sm"
+                    className="text-xs px-2 py-1 h-auto text-primary hover:bg-primary/10">
+                    Editar
+                  </Button>
+                  <Button onClick={() => { setDeleteId(c.id); setError(undefined) }} variant="ghost" size="sm"
+                    className="text-xs px-2 py-1 h-auto text-red-500 hover:bg-red-50">
+                    Eliminar
+                  </Button>
+                </>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { api } from "@/lib/api"
 import { useAuthStore } from "@/store/authStore"
-import { canEditTyC, canImportTyC, canSeeTyCSensible } from "@/lib/permissions"
+import { canImportTyC, canSeeTyCSensible } from "@/lib/permissions"
 import { PageLayout } from "@/components/layout/PageLayout"
 import {
   Users,
@@ -11,7 +11,6 @@ import {
   ClipboardList,
   ShieldAlert,
   Upload,
-  UserPlus,
   ArrowRight,
 } from "lucide-react"
 
@@ -24,7 +23,6 @@ interface Stats {
 export function TyCPage() {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
-  const puedeEditar   = user ? canEditTyC(user.role, user.app_permissions) : false
   const puedeImport   = user ? canImportTyC(user.role, user.app_permissions) : false
   const puedeSensible = user ? canSeeTyCSensible(user.role, user.app_permissions) : false
 
@@ -96,15 +94,6 @@ export function TyCPage() {
             sub="Buscar, filtrar y gestionar todos los empleados del grupo."
             onClick={() => navigate("/tc/directorio")}
           />
-          {puedeEditar && (
-            <FeatureRow
-              icon={<UserPlus className="w-4 h-4" />}
-              accent="text-blue-400 bg-blue-500/10"
-              title="Nuevo colaborador"
-              sub="Registrar un nuevo empleado en el sistema."
-              onClick={() => navigate("/tc/directorio?nuevo=1")}
-            />
-          )}
           {puedeImport && (
             <FeatureRow
               icon={<Upload className="w-4 h-4" />}

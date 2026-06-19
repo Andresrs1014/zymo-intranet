@@ -87,6 +87,11 @@ class CargoCreate(BaseModel):
     nombre: str
 
 
+class CargoUpdate(BaseModel):
+    nombre: Optional[str] = None
+    area_id: Optional[int] = None
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _persona_dict(p: PtcPersona, db: Session) -> dict:
@@ -205,6 +210,45 @@ def crear_cargo(
     db.commit()
     db.refresh(cargo)
     return {"id": cargo.id, "empresa_id": cargo.empresa_id, "area_id": cargo.area_id, "nombre": cargo.nombre}
+
+
+@router.put("/cargos/{cargo_id}")
+def actualizar_cargo(
+    cargo_id: int,
+    body: CargoUpdate,
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_tc_editar),
+):
+    cargo = db.get(PtcCargo, cargo_id)
+    if not cargo:
+        raise HTTPException(status_code=404, detail="Cargo no encontrado.")
+    for field, value in body.model_dump(exclude_unset=True).items():
+        setattr(cargo, field, value)
+    db.add(cargo)
+    db.commit()
+    db.refresh(cargo)
+    return {"id": cargo.id, "empresa_id": cargo.empresa_id, "area_id": cargo.area_id, "nombre": cargo.nombre}
+
+
+@router.delete("/cargos/{cargo_id}", status_code=status.HTTP_204_NO_CONTENT)
+def eliminar_cargo(
+    cargo_id: int,
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_tc_editar),
+):
+    cargo = db.get(PtcCargo, cargo_id)
+    if not cargo:
+        raise HTTPException(status_code=404, detail="Cargo no encontrado.")
+    personas_con_cargo = db.exec(
+        select(PtcPersona).where(PtcPersona.cargo_id == cargo_id)
+    ).all()
+    if personas_con_cargo:
+        raise HTTPException(
+            status_code=400,
+            detail=f"El cargo tiene {len(personas_con_cargo)} colaborador(es) asignado(s). Reasigna antes de eliminar.",
+        )
+    db.delete(cargo)
+    db.commit()
 
 
 # ── Personas ──────────────────────────────────────────────────────────────────
