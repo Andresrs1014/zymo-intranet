@@ -59,7 +59,7 @@ class PtcCargo(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     empresa_id: int = Field(foreign_key="ptc_empresa.id")
-    area_id: Optional[int] = Field(default=None, foreign_key="ptc_area.id")
+    area_id: Optional[int] = Field(default=None)  # referencia a Area principal (app.models.area)
     nombre: str = Field(max_length=150)
 
 

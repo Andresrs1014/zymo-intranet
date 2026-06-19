@@ -207,7 +207,7 @@ function SedesPanel() {
 // ── Cargos Panel (T&C) ────────────────────────────────────────────────────────
 
 interface TcEmpresa { id: number; nombre: string; codigo: string }
-interface TcArea    { id: number; empresa_id: number; nombre: string }
+interface TcArea    { id: number; name: string }   // Area global (campo 'name', no 'nombre')
 interface TcCargo   { id: number; empresa_id: number; area_id: number | null; nombre: string }
 
 function CargosPanel() {
@@ -238,11 +238,10 @@ function CargosPanel() {
   }, [])
 
   useEffect(() => {
-    if (!empresaId) { setAreas([]); return }
-    api.get("/tc/areas", { params: { empresa_id: empresaId } })
+    api.get("/areas")
       .then((r) => setAreas(Array.isArray(r.data) ? r.data : []))
       .catch(() => setAreas([]))
-  }, [empresaId])
+  }, [])
 
   const cargarCargos = useCallback(() => {
     if (!empresaId) { setCargos([]); return }
@@ -304,7 +303,7 @@ function CargosPanel() {
     setError(undefined)
   }
 
-  const areaMap = new Map(areas.map((a) => [a.id, a.nombre]))
+  const areaMap = new Map(areas.map((a) => [a.id, a.name]))
 
   return (
     <div className="bg-card rounded-xl border border-border overflow-hidden mt-6">
@@ -362,7 +361,7 @@ function CargosPanel() {
             className="h-8 text-sm bg-background border border-input rounded-md px-2 min-w-[150px]"
           >
             <option value="">Sin área</option>
-            {areas.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+            {areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
           <Button type="submit" variant="default" size="sm" disabled={pending}
             className="text-xs px-3 py-1.5 h-auto whitespace-nowrap">
@@ -399,7 +398,7 @@ function CargosPanel() {
                     className="h-8 text-sm bg-background border border-input rounded-md px-2 min-w-[150px]"
                   >
                     <option value="">Sin área</option>
-                    {areas.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+                    {areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                   </select>
                   <Button type="submit" variant="ghost" size="sm" disabled={pending}
                     className="text-xs px-2 py-1 h-auto text-primary hover:bg-primary/10">

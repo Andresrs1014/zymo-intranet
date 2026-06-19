@@ -12,6 +12,8 @@ from pydantic import BaseModel
 from sqlmodel import Session, col, select
 
 from app.core.deps import get_current_user, require_permission
+from app.database import get_db
+from app.models.area import Area as GlobalArea
 from app.models.user import User
 from app.personal_database import (
     PtcArea,
@@ -501,15 +503,15 @@ def import_personas_json(
 def obtener_organigrama(
     empresa_id: int,
     db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
     _: User = Depends(require_tc),
 ):
     empresa = db.get(PtcEmpresa, empresa_id)
     if not empresa:
         raise HTTPException(status_code=404, detail="Empresa no encontrada")
 
-    areas = db.exec(
-        select(PtcArea).where(PtcArea.empresa_id == empresa_id).order_by(col(PtcArea.nombre))
-    ).all()
+    # Áreas globales (mismo catálogo que /areas en admin)
+    all_areas = main_db.exec(select(GlobalArea).order_by(GlobalArea.name)).all()
 
     cargos_all = db.exec(
         select(PtcCargo).where(PtcCargo.empresa_id == empresa_id).order_by(col(PtcCargo.nombre))
@@ -543,9 +545,10 @@ def obtener_organigrama(
 
     return {
         "empresa": {"id": empresa.id, "nombre": empresa.nombre, "codigo": empresa.codigo},
+        # Solo incluir áreas que tengan al menos un cargo en esta empresa
         "areas": [
-            {"id": a.id, "nombre": a.nombre, "cargos": por_area.get(a.id, [])}
-            for a in areas
+            {"id": a.id, "nombre": a.name, "cargos": por_area[a.id]}
+            for a in all_areas if a.id in por_area
         ],
         "sin_area": por_area.get(None, []),
     }
