@@ -50,6 +50,8 @@ import { SigPage } from "@/pages/sig/SigPage"
 import MantenimientoPage from "@/pages/mantenimiento/MantenimientoPage"
 import NuevaMantenimientoPage from "@/pages/mantenimiento/NuevaMantenimientoPage"
 import MantenimientoDetallePage from "@/pages/mantenimiento/MantenimientoDetallePage"
+import MantenimientoMobilePage from "@/pages/mantenimiento/MantenimientoMobilePage"
+import MantenimientoDashboard from "@/pages/mantenimiento/MantenimientoDashboard"
 import { TyCPage } from "@/pages/tc/TyCPage"
 import { TyCDirectorioPage } from "@/pages/tc/TyCDirectorioPage"
 import { TyCPersonaPage } from "@/pages/tc/TyCPersonaPage"
@@ -209,6 +211,8 @@ export default function App() {
       <AgentLayer />
       <Routes>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        {/* Ruta pública — vista móvil auxiliar de mantenimiento (sin login) */}
+        <Route path="/m/:token" element={<MantenimientoMobilePage />} />
         <Route
           path="/login"
           element={
@@ -478,6 +482,14 @@ export default function App() {
           element={
             <MantenimientoRoute>
               <NuevaMantenimientoPage />
+            </MantenimientoRoute>
+          }
+        />
+        <Route
+          path="/mantenimiento/tablero"
+          element={
+            <MantenimientoRoute>
+              <MantenimientoDashboard />
             </MantenimientoRoute>
           }
         />

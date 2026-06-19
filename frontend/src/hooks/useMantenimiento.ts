@@ -1,14 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { api } from "@/lib/api"
 import type {
+  Aprobacion,
+  AprobacionPayload,
   CambiarEstadoMantenimientoPayload,
   CrearMantenimientoPayload,
   CrearOCVinculadaPayload,
+  CrearRetroactivoPayload,
   HistorialMantenimientoEntrada,
+  KpisOut,
   MantenimientoFilters,
   OCVinculada,
   SolicitudMantenimiento,
   SolicitudesMantenimientoListResponse,
+  SubirEvidenciaPayload,
   TipoMantenimientoConfig,
 } from "@/types/mantenimiento"
 
@@ -226,5 +231,88 @@ export function useCrearOCVinculada() {
       qc.invalidateQueries({
         queryKey: ["mantenimiento", "ocs", vars.mantenimientoId],
       }),
+  })
+}
+
+// ── Hooks Fase 1 ─────────────────────────────────────────────────────────────
+
+export function useSubirEvidencia() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, payload }: { id: number; payload: SubirEvidenciaPayload }) => {
+      const { data } = await api.post<SolicitudMantenimiento>(
+        `${BASE}/solicitudes/${id}/evidencia`,
+        payload
+      )
+      return data
+    },
+    onSuccess: (_data, vars) =>
+      qc.invalidateQueries({ queryKey: ["mantenimiento", "detalle", vars.id] }),
+  })
+}
+
+export function useCrearRetroactivo() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: CrearRetroactivoPayload) => {
+      const { data } = await api.post<SolicitudMantenimiento>(
+        `${BASE}/solicitudes/retroactivo`,
+        payload
+      )
+      return data
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["mantenimiento", "lista"] }),
+  })
+}
+
+export function useAprobaciones(solicitudId: number | null) {
+  return useQuery({
+    queryKey: ["mantenimiento", "aprobaciones", solicitudId],
+    queryFn: async () => {
+      const { data } = await api.get<Aprobacion[]>(
+        `${BASE}/solicitudes/${solicitudId}/aprobaciones`
+      )
+      return data
+    },
+    enabled: solicitudId !== null,
+  })
+}
+
+export function useRegistrarAprobacion() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, payload }: { id: number; payload: AprobacionPayload }) => {
+      const { data } = await api.post<Aprobacion>(
+        `${BASE}/solicitudes/${id}/aprobacion`,
+        payload
+      )
+      return data
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["mantenimiento", "aprobaciones", vars.id] })
+      qc.invalidateQueries({ queryKey: ["mantenimiento", "detalle", vars.id] })
+    },
+  })
+}
+
+export function useMagicLink() {
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const { data } = await api.post<{ url: string; token: string }>(
+        `${BASE}/solicitudes/${id}/magic-link`
+      )
+      return data
+    },
+  })
+}
+
+export function useKpisMantenimiento() {
+  return useQuery({
+    queryKey: ["mantenimiento", "kpis"],
+    queryFn: async () => {
+      const { data } = await api.get<KpisOut>(`${BASE}/kpis`)
+      return data
+    },
+    staleTime: 2 * 60_000,
   })
 }

@@ -1,5 +1,6 @@
 import logging
 import math
+import os
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -14,6 +15,7 @@ from app.models.mantenimiento import (
     EstadoMantenimiento,
     HistorialMantenimiento,
     ModalidadMantenimiento,
+    MntAprobacion,
     SolicitudMantenimiento,
 )
 from app.models.user import User
@@ -30,7 +32,6 @@ _TRANSICIONES_MANT: dict[str, set[str]] = {
     EstadoMantenimiento.programado: {EstadoMantenimiento.ejecucion,  EstadoMantenimiento.cancelado},
     EstadoMantenimiento.ejecucion:  {EstadoMantenimiento.completado},
     EstadoMantenimiento.completado: {EstadoMantenimiento.cerrado},
-    # cancelado y cerrado son estados terminales — sin transiciones
 }
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -41,7 +42,11 @@ class SolicitudMantenimientoCreate(BaseModel):
     tipo_mantenimiento:          str
     clasificacion:               ClasificacionMantenimiento
     modalidad:                   ModalidadMantenimiento
-    fecha_proxima_mantenimiento: Optional[str] = None  # ISO date string "YYYY-MM-DD"
+    fecha_proxima_mantenimiento: Optional[str] = None
+    origen:                      str = "intranet"
+    prioridad:                   str = "media"
+    monto_estimado:              Optional[float] = None
+    activo_qr_id:                Optional[int] = None
 
     @field_validator("fecha_proxima_mantenimiento")
     @classmethod
@@ -50,8 +55,20 @@ class SolicitudMantenimientoCreate(BaseModel):
         if clasificacion == ClasificacionMantenimiento.preventivo and not v:
             raise ValueError("fecha_proxima_mantenimiento es requerida para mantenimiento preventivo.")
         if clasificacion == ClasificacionMantenimiento.correctivo:
-            return None  # ignorar fecha si es correctivo
+            return None
         return v
+
+
+class SolicitudRetroactivaCreate(BaseModel):
+    titulo:             str
+    descripcion:        str
+    tipo_mantenimiento: str
+    clasificacion:      ClasificacionMantenimiento
+    modalidad:          ModalidadMantenimiento
+    nota_cierre:        str
+    monto_real:         Optional[float] = None
+    evidencia_url:      Optional[str] = None
+    asignado_id:        Optional[int] = None
 
 
 class SolicitudMantenimientoOut(BaseModel):
@@ -71,6 +88,14 @@ class SolicitudMantenimientoOut(BaseModel):
     asignado_id:                 Optional[int]
     asignado_nombre:             Optional[str]
     empresa_nombre:              Optional[str]
+    origen:                      str
+    prioridad:                   str
+    monto_estimado:              Optional[float]
+    monto_real:                  Optional[float]
+    evidencia_url:               Optional[str]
+    activo_qr_id:                Optional[int]
+    requiere_aprobacion:         bool
+    aprobaciones_count:          int
     created_at:                  str
     updated_at:                  str
 
@@ -88,12 +113,18 @@ class CambiarEstadoBody(BaseModel):
 
 
 class AsignarBody(BaseModel):
-    asignado_id: Optional[int] = None  # None = desasignar
+    asignado_id: Optional[int] = None
 
 
 class ActualizarProgramadoBody(BaseModel):
-    fecha_programada:  Optional[str] = None
-    notas_evaluacion:  Optional[str] = None
+    fecha_programada: Optional[str] = None
+    notas_evaluacion: Optional[str] = None
+
+
+class SubirEvidenciaBody(BaseModel):
+    evidencia_url: str
+    monto_real:    Optional[float] = None
+    nota:          Optional[str] = None
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -109,9 +140,15 @@ def _generar_consecutivo(db: Session) -> str:
     return f"MNT-{anio}-{count + 1:03d}"
 
 
-def _enriquecer(sol: SolicitudMantenimiento, users_by_id: dict) -> SolicitudMantenimientoOut:
-    sol_user = users_by_id.get(sol.solicitante_id)
+def _enriquecer(
+    sol: SolicitudMantenimiento,
+    users_by_id: dict,
+    aprobaciones_count: int = 0,
+) -> SolicitudMantenimientoOut:
+    sol_user  = users_by_id.get(sol.solicitante_id)
     asig_user = users_by_id.get(sol.asignado_id) if sol.asignado_id else None
+    monto_est = float(sol.monto_estimado) if sol.monto_estimado is not None else None
+    requiere  = monto_est is not None and monto_est > 2_000_000
     return SolicitudMantenimientoOut(
         id=sol.id,
         consecutivo=sol.consecutivo,
@@ -129,6 +166,14 @@ def _enriquecer(sol: SolicitudMantenimiento, users_by_id: dict) -> SolicitudMant
         asignado_id=sol.asignado_id,
         asignado_nombre=asig_user.full_name if asig_user else None,
         empresa_nombre=sol.empresa_nombre,
+        origen=getattr(sol, "origen", "intranet") or "intranet",
+        prioridad=getattr(sol, "prioridad", "media") or "media",
+        monto_estimado=monto_est,
+        monto_real=float(sol.monto_real) if getattr(sol, "monto_real", None) is not None else None,
+        evidencia_url=getattr(sol, "evidencia_url", None),
+        activo_qr_id=getattr(sol, "activo_qr_id", None),
+        requiere_aprobacion=requiere,
+        aprobaciones_count=aprobaciones_count,
         created_at=sol.created_at.isoformat(),
         updated_at=sol.updated_at.isoformat(),
     )
@@ -160,12 +205,15 @@ def crear_solicitud(
         fecha_proxima_mantenimiento=fecha_proxima,
         solicitante_id=current_user.id,
         empresa_nombre=getattr(current_user, "empresa_nombre", None),
+        origen=body.origen,
+        prioridad=body.prioridad,
+        monto_estimado=body.monto_estimado,
+        activo_qr_id=body.activo_qr_id,
     )
     oc_db.add(sol)
     oc_db.commit()
     oc_db.refresh(sol)
 
-    # Registrar historial
     hist = HistorialMantenimiento(
         solicitud_id=sol.id,
         estado_anterior=None,
@@ -178,6 +226,51 @@ def crear_solicitud(
     oc_db.commit()
 
     log.info("Solicitud de mantenimiento creada: %s por usuario %s", consecutivo, current_user.email)
+    return _enriquecer(sol, {current_user.id: current_user})
+
+
+@router.post("/retroactivo", status_code=status.HTTP_201_CREATED, response_model=SolicitudMantenimientoOut)
+def registrar_retroactivo(
+    body: SolicitudRetroactivaCreate,
+    oc_db: Session = Depends(get_oc_db),
+    app_db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Registra un trabajo de mantenimiento que ya fue resuelto informalmente."""
+    consecutivo = _generar_consecutivo(oc_db)
+
+    sol = SolicitudMantenimiento(
+        consecutivo=consecutivo,
+        titulo=body.titulo.strip(),
+        descripcion=body.descripcion.strip(),
+        tipo_mantenimiento=body.tipo_mantenimiento,
+        clasificacion=body.clasificacion.value,
+        modalidad=body.modalidad.value,
+        solicitante_id=current_user.id,
+        asignado_id=body.asignado_id,
+        empresa_nombre=getattr(current_user, "empresa_nombre", None),
+        origen="telefonico_retroactivo",
+        prioridad="media",
+        monto_real=body.monto_real,
+        evidencia_url=body.evidencia_url,
+        estado=EstadoMantenimiento.completado,
+    )
+    oc_db.add(sol)
+    oc_db.commit()
+    oc_db.refresh(sol)
+
+    hist = HistorialMantenimiento(
+        solicitud_id=sol.id,
+        estado_anterior=None,
+        estado_nuevo=EstadoMantenimiento.completado,
+        nota=f"Registro retroactivo: {body.nota_cierre}",
+        usuario_id=current_user.id,
+        usuario_nombre=current_user.full_name or current_user.email,
+    )
+    oc_db.add(hist)
+    oc_db.commit()
+
+    log.info("Registro retroactivo creado: %s por %s", consecutivo, current_user.email)
     return _enriquecer(sol, {current_user.id: current_user})
 
 
@@ -197,7 +290,6 @@ def listar_solicitudes(
 
     stmt = select(SolicitudMantenimiento)
 
-    # Auxiliar solo ve sus propias solicitudes o las asignadas a él
     puede_ver_todos = (
         current_user.role in ("admin", "directivo")
         or user_has_permission(app_db, current_user, "mod_mantenimiento")
@@ -228,7 +320,6 @@ def listar_solicitudes(
         .limit(limit)
     ).all()
 
-    # Resolver nombres de usuarios
     user_ids = {s.solicitante_id for s in items} | {s.asignado_id for s in items if s.asignado_id}
     users = app_db.exec(select(User).where(User.id.in_(list(user_ids)))).all()
     users_by_id = {u.id: u for u in users}
@@ -252,7 +343,6 @@ def obtener_solicitud(
     if not sol:
         raise HTTPException(status_code=404, detail="Solicitud no encontrada.")
 
-    # Verificar acceso
     from app.core.permissions import user_has_permission
     puede_ver_todos = current_user.role in ("admin", "directivo") or user_has_permission(app_db, current_user, "mod_mantenimiento")
     if not puede_ver_todos and sol.solicitante_id != current_user.id and sol.asignado_id != current_user.id:
@@ -262,7 +352,15 @@ def obtener_solicitud(
     if sol.asignado_id:
         user_ids.add(sol.asignado_id)
     users = app_db.exec(select(User).where(User.id.in_(list(user_ids)))).all()
-    return _enriquecer(sol, {u.id: u for u in users})
+
+    aprobaciones_count = oc_db.exec(
+        select(func.count(MntAprobacion.id)).where(
+            MntAprobacion.solicitud_id == solicitud_id,
+            MntAprobacion.aprobado == True,
+        )
+    ).one()
+
+    return _enriquecer(sol, {u.id: u for u in users}, aprobaciones_count=aprobaciones_count)
 
 
 @router.patch("/{solicitud_id}/estado", response_model=SolicitudMantenimientoOut)
@@ -284,6 +382,31 @@ def cambiar_estado(
             detail=f"Transición inválida: {sol.estado} → {body.estado_nuevo}. "
                    f"Permitidas: {sorted(transiciones_validas)}",
         )
+
+    # Gate 1: evaluacion → programado con monto > $2M requiere 3 aprobaciones
+    if sol.estado == EstadoMantenimiento.evaluacion and body.estado_nuevo == EstadoMantenimiento.programado:
+        monto = float(getattr(sol, "monto_estimado", 0) or 0)
+        if monto > 2_000_000:
+            count = oc_db.exec(
+                select(func.count(MntAprobacion.id)).where(
+                    MntAprobacion.solicitud_id == sol.id,
+                    MntAprobacion.aprobado == True,
+                )
+            ).one()
+            if count < 3:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Este mantenimiento supera $2.000.000. Requiere 3 aprobaciones. "
+                           f"Actualmente tiene {count}/3.",
+                )
+
+    # Gate 2: ejecucion → completado requiere foto de evidencia
+    if sol.estado == EstadoMantenimiento.ejecucion and body.estado_nuevo == EstadoMantenimiento.completado:
+        if not getattr(sol, "evidencia_url", None):
+            raise HTTPException(
+                status_code=400,
+                detail="Para completar el mantenimiento debe subir una foto de evidencia del trabajo realizado.",
+            )
 
     estado_anterior = sol.estado
     sol.estado = body.estado_nuevo
@@ -363,6 +486,68 @@ def actualizar_programacion(
         user_ids.add(sol.asignado_id)
     users = app_db.exec(select(User).where(User.id.in_(list(user_ids)))).all()
     return _enriquecer(sol, {u.id: u for u in users})
+
+
+@router.post("/{solicitud_id}/evidencia", response_model=SolicitudMantenimientoOut)
+def subir_evidencia(
+    solicitud_id: int,
+    body: SubirEvidenciaBody,
+    oc_db: Session = Depends(get_oc_db),
+    app_db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Sube la URL de la foto de evidencia del trabajo completado."""
+    sol = oc_db.get(SolicitudMantenimiento, solicitud_id)
+    if not sol:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada.")
+
+    from app.core.permissions import user_has_permission
+    puede = (
+        current_user.role == "admin"
+        or sol.asignado_id == current_user.id
+        or user_has_permission(app_db, current_user, "mod_mantenimiento")
+    )
+    if not puede:
+        raise HTTPException(status_code=403, detail="Sin permiso para subir evidencia.")
+
+    sol.evidencia_url = body.evidencia_url
+    if body.monto_real is not None:
+        sol.monto_real = body.monto_real
+    sol.updated_at = datetime.now(timezone.utc)
+    oc_db.add(sol)
+
+    if body.nota:
+        hist = HistorialMantenimiento(
+            solicitud_id=sol.id,
+            estado_anterior=sol.estado,
+            estado_nuevo=sol.estado,
+            nota=f"Evidencia subida: {body.nota}",
+            usuario_id=current_user.id,
+            usuario_nombre=current_user.full_name or current_user.email,
+        )
+        oc_db.add(hist)
+    oc_db.commit()
+    oc_db.refresh(sol)
+
+    return _enriquecer(sol, {current_user.id: current_user})
+
+
+@router.post("/{solicitud_id}/magic-link")
+def generar_magic_link(
+    solicitud_id: int,
+    oc_db: Session = Depends(get_oc_db),
+    current_user: User = Depends(require_mantenimiento),
+):
+    """Genera un magic link JWT para que el auxiliar acceda desde su celular sin login."""
+    sol = oc_db.get(SolicitudMantenimiento, solicitud_id)
+    if not sol:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada.")
+
+    from app.routers.mantenimiento.mobile import generar_magic_token
+    base_url = os.environ.get("FRONTEND_URL", "https://zymointranet.com")
+    token = generar_magic_token(solicitud_id)
+    url = f"{base_url}/m/{token}"
+    return {"url": url, "token": token}
 
 
 @router.get("/{solicitud_id}/historial")

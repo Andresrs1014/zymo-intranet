@@ -26,12 +26,13 @@ def create_oc_tables() -> None:
     """Crea solo las tablas del módulo OC en oc.db."""
     # Importar modelos para registrarlos en SQLModel.metadata
     from app.models.oc import SolicitudOC, CotizacionProveedor, OrdenCompra, Proveedor, OcConfig, HistorialEstado, PaqueteSolicitud  # noqa: F401
-    from app.models.mantenimiento import SolicitudMantenimiento, TipoMantenimientoConfig, HistorialMantenimiento  # noqa: F401
+    from app.models.mantenimiento import SolicitudMantenimiento, TipoMantenimientoConfig, HistorialMantenimiento, MntAprobacion, MntActivoQR  # noqa: F401
 
     oc_table_names = {
         "oc_solicitudes", "oc_cotizaciones", "oc_ordenes", "oc_proveedores",
         "oc_config", "oc_historial_estados", "oc_paquetes",
         "mnt_solicitudes", "mnt_tipos_config", "mnt_historial",
+        "mnt_aprobaciones", "mnt_activos_qr",
     }
     tables = [
         SQLModel.metadata.tables[t]
@@ -117,6 +118,20 @@ def create_oc_tables() -> None:
             conn.execute(text("ALTER TABLE oc_solicitudes ADD COLUMN modalidad_mantenimiento VARCHAR(20)"))
         except Exception:
             pass  # columna ya existe
+
+        # Migración Fase 1: campos nuevos en mnt_solicitudes
+        for col_def in [
+            "ALTER TABLE mnt_solicitudes ADD COLUMN origen TEXT DEFAULT 'intranet'",
+            "ALTER TABLE mnt_solicitudes ADD COLUMN prioridad TEXT DEFAULT 'media'",
+            "ALTER TABLE mnt_solicitudes ADD COLUMN monto_estimado REAL",
+            "ALTER TABLE mnt_solicitudes ADD COLUMN monto_real REAL",
+            "ALTER TABLE mnt_solicitudes ADD COLUMN evidencia_url TEXT",
+            "ALTER TABLE mnt_solicitudes ADD COLUMN activo_qr_id INTEGER",
+        ]:
+            try:
+                conn.execute(text(col_def))
+            except Exception:
+                pass  # columna ya existe
 
         conn.commit()
 

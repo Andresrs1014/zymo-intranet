@@ -1,15 +1,12 @@
 // Enums
 export type EstadoMantenimiento =
-  | "solicitud"
-  | "evaluacion"
-  | "programado"
-  | "ejecucion"
-  | "completado"
-  | "cerrado"
-  | "cancelado"
+  | "solicitud" | "evaluacion" | "programado"
+  | "ejecucion" | "completado" | "cerrado" | "cancelado"
 
 export type ClasificacionMantenimiento = "preventivo" | "correctivo"
-export type ModalidadMantenimiento = "interno" | "externo"
+export type ModalidadMantenimiento     = "interno" | "externo"
+export type OrigenMantenimiento        = "intranet" | "qr" | "whatsapp" | "telefonico_retroactivo"
+export type PrioridadMantenimiento     = "baja" | "media" | "alta" | "urgente"
 
 // Modelo principal
 export interface SolicitudMantenimiento {
@@ -29,8 +26,17 @@ export interface SolicitudMantenimiento {
   asignado_id:                 number | null
   asignado_nombre:             string | null
   empresa_nombre:              string | null
-  created_at:                  string
-  updated_at:                  string
+  // Campos Fase 1
+  origen:              OrigenMantenimiento
+  prioridad:           PrioridadMantenimiento
+  monto_estimado:      number | null
+  monto_real:          number | null
+  evidencia_url:       string | null
+  activo_qr_id:        number | null
+  requiere_aprobacion: boolean
+  aprobaciones_count:  number
+  created_at:          string
+  updated_at:          string
 }
 
 export interface SolicitudesMantenimientoListResponse {
@@ -66,6 +72,45 @@ export interface OCVinculada {
   fecha_solicitud: string
 }
 
+export interface Aprobacion {
+  id:               number
+  solicitud_id:     number
+  aprobador_nombre: string
+  rol_aprobador:    "dir_administrativa" | "gerencia_operaciones" | "gerencia_general"
+  aprobado:         boolean
+  nota:             string | null
+  fecha:            string
+}
+
+export interface MobileOut {
+  solicitud_id:       number
+  consecutivo:        string
+  titulo:             string
+  descripcion:        string
+  estado:             string
+  asignado_nombre:    string | null
+  solicitante_nombre: string | null
+}
+
+export interface KpisMes {
+  total:            number
+  cerradas:         number
+  en_curso:         number
+  canceladas:       number
+  informales:       number
+  gasto_total:      number
+  gasto_preventivo: number
+  gasto_correctivo: number
+  gasto_interno:    number
+  gasto_externo:    number
+}
+
+export interface KpisOut {
+  mes_actual:            KpisMes
+  por_origen:            Record<string, number>
+  pendientes_aprobacion: number
+}
+
 // Payloads
 export interface CrearMantenimientoPayload {
   titulo:                      string
@@ -74,6 +119,33 @@ export interface CrearMantenimientoPayload {
   clasificacion:               ClasificacionMantenimiento
   modalidad:                   ModalidadMantenimiento
   fecha_proxima_mantenimiento: string | null
+  origen?:                     OrigenMantenimiento
+  prioridad?:                  PrioridadMantenimiento
+  monto_estimado?:             number | null
+  activo_qr_id?:               number | null
+}
+
+export interface CrearRetroactivoPayload {
+  titulo:             string
+  descripcion:        string
+  tipo_mantenimiento: string
+  clasificacion:      ClasificacionMantenimiento
+  modalidad:          ModalidadMantenimiento
+  nota_cierre:        string
+  monto_real?:        number | null
+  evidencia_url?:     string | null
+  asignado_id?:       number | null
+}
+
+export interface SubirEvidenciaPayload {
+  evidencia_url: string
+  monto_real?:   number | null
+  nota?:         string
+}
+
+export interface AprobacionPayload {
+  rol_aprobador: "dir_administrativa" | "gerencia_operaciones" | "gerencia_general"
+  nota?:         string
 }
 
 export interface CambiarEstadoMantenimientoPayload {
@@ -82,11 +154,11 @@ export interface CambiarEstadoMantenimientoPayload {
 }
 
 export interface CrearOCVinculadaPayload {
-  descripcion:               string
-  categoria?:                string
-  grupo_articulos?:          string
-  nivel_prioridad:           string
-  sede?:                     string
+  descripcion:                string
+  categoria?:                 string
+  grupo_articulos?:           string
+  nivel_prioridad:            string
+  sede?:                      string
   observaciones_solicitante?: string
 }
 
