@@ -102,7 +102,7 @@ export default function MantenimientoDashboard() {
                 tickFormatter={(v: number) => `$${(v / 1_000_000).toFixed(1)}M`}
               />
               <Tooltip
-                formatter={(v: number) => [COP(v), "Gasto"]}
+                formatter={(v) => [COP(Number(v ?? 0)), "Gasto"]}
                 contentStyle={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 8 }}
                 labelStyle={{ color: "#94a3b8" }}
               />
@@ -122,8 +122,8 @@ export default function MantenimientoDashboard() {
                   cx="50%"
                   cy="50%"
                   outerRadius={75}
-                  label={({ name, percent }: { name: string; percent: number }) =>
-                    `${name} ${(percent * 100).toFixed(0)}%`
+                  label={({ name, percent }: { name?: string; percent?: number }) =>
+                    `${name ?? ""} ${((percent ?? 0) * 100).toFixed(0)}%`
                   }
                   labelLine={false}
                 >
