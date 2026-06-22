@@ -148,6 +148,46 @@ def _parse_date(value: Optional[str]):
         return None
 
 
+# ── Stats ─────────────────────────────────────────────────────────────────────
+
+@router.get("/stats")
+def stats_globales(
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_tc),
+):
+    todas = db.exec(select(PtcPersona)).all()
+    activos   = [p for p in todas if p.estado == "Activo"]
+    inactivos = [p for p in todas if p.estado != "Activo"]
+    con_genero = [p for p in todas if p.genero in ("Masculino", "Femenino")]
+
+    empresas = db.exec(select(PtcEmpresa).order_by(PtcEmpresa.legacy_id)).all()
+    por_empresa = []
+    for e in empresas:
+        emp_personas = [p for p in todas if p.empresa_id == e.id]
+        por_empresa.append({
+            "id": e.id,
+            "codigo": e.codigo,
+            "nombre": e.nombre,
+            "total": len(emp_personas),
+            "activos": sum(1 for p in emp_personas if p.estado == "Activo"),
+        })
+
+    return {
+        "total":    len(todas),
+        "activos":  len(activos),
+        "inactivos": len(inactivos),
+        "masculino_pct": round(
+            sum(1 for p in con_genero if p.genero == "Masculino") / len(con_genero) * 100
+            if con_genero else 0
+        ),
+        "femenino_pct": round(
+            sum(1 for p in con_genero if p.genero == "Femenino") / len(con_genero) * 100
+            if con_genero else 0
+        ),
+        "por_empresa": por_empresa,
+    }
+
+
 # ── Empresas ──────────────────────────────────────────────────────────────────
 
 @router.get("/empresas")
