@@ -57,6 +57,7 @@ import { TyCPage } from "@/pages/tc/TyCPage"
 import { TyCDirectorioPage } from "@/pages/tc/TyCDirectorioPage"
 import { TyCPersonaPage } from "@/pages/tc/TyCPersonaPage"
 import { TyCOrganigramaPage } from "@/pages/tc/TyCOrganigramaPage"
+import { TyCImportPage } from "@/pages/tc/TyCImportPage"
 
 // Decodifica el claim `exp` del JWT sin verificar firma (solo para chequeo local de expiración)
 function isTokenExpired(token: string): boolean {
@@ -535,6 +536,14 @@ export default function App() {
           element={
             <TyCRoute>
               <TyCOrganigramaPage />
+            </TyCRoute>
+          }
+        />
+        <Route
+          path="/tc/import"
+          element={
+            <TyCRoute>
+              <TyCImportPage />
             </TyCRoute>
           }
         />

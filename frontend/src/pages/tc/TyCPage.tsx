@@ -99,8 +99,8 @@ export function TyCPage() {
               icon={<Upload className="w-4 h-4" />}
               accent="text-amber-500 bg-amber-500/10"
               title="Importar desde archivo"
-              sub="Cargar múltiples colaboradores desde Excel o JSON."
-              soon
+              sub="Carga el export JS del Directorio ZYMO (164 colaboradores)."
+              onClick={() => navigate("/tc/import")}
             />
           )}
         </div>
