@@ -52,6 +52,51 @@ def _generar_consecutivo_oc(db: Session) -> str:
     raise RuntimeError("No se pudo generar consecutivo OC único.")
 
 
+def crear_oc_vinculada_core(
+    oc_db: Session,
+    mnt: SolicitudMantenimiento,
+    body: CrearOCVinculadaBody,
+    solicitante_nombre: str,
+    solicitante_email: str,
+) -> SolicitudOC:
+    from datetime import datetime, timezone
+
+    consecutivo = _generar_consecutivo_oc(oc_db)
+    oc = SolicitudOC(
+        consecutivo_os=consecutivo,
+        descripcion=body.descripcion,
+        categoria=body.categoria,
+        grupo_articulos=body.grupo_articulos,
+        cantidad=1,
+        nivel_prioridad=body.nivel_prioridad,
+        solicitante_nombre=solicitante_nombre,
+        solicitante_email=solicitante_email,
+        sede=body.sede,
+        observaciones_solicitante=body.observaciones_solicitante,
+        estado=EstadoOC.nueva,
+        mantenimiento_id=mnt.id,
+        tipo_solicitud="compra",
+        fecha_solicitud=datetime.now(timezone.utc),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+    )
+    oc_db.add(oc)
+    oc_db.commit()
+    oc_db.refresh(oc)
+    return oc
+
+
+def oc_vinculada_out(oc: SolicitudOC) -> OCVinculadaOut:
+    return OCVinculadaOut(
+        id=str(oc.id),
+        consecutivo_os=oc.consecutivo_os,
+        descripcion=oc.descripcion,
+        estado=oc.estado,
+        nivel_prioridad=oc.nivel_prioridad,
+        fecha_solicitud=oc.fecha_solicitud.isoformat(),
+    )
+
+
 @router.post(
     "/solicitudes/{solicitud_id}/oc-vinculada",
     status_code=status.HTTP_201_CREATED,
@@ -69,41 +114,15 @@ def crear_oc_vinculada(
     if not mnt:
         raise HTTPException(status_code=404, detail="Solicitud de mantenimiento no encontrada.")
 
-    consecutivo = _generar_consecutivo_oc(oc_db)
-
-    from datetime import datetime, timezone
-    oc = SolicitudOC(
-        consecutivo_os=consecutivo,
-        descripcion=body.descripcion,
-        categoria=body.categoria,
-        grupo_articulos=body.grupo_articulos,
-        cantidad=1,
-        nivel_prioridad=body.nivel_prioridad,
-        solicitante_nombre=current_user.full_name or current_user.email,
-        solicitante_email=current_user.email,
-        sede=body.sede,
-        observaciones_solicitante=body.observaciones_solicitante,
-        estado=EstadoOC.nueva,
-        mantenimiento_id=solicitud_id,
-        tipo_solicitud="compra",
-        fecha_solicitud=datetime.now(timezone.utc),
-        created_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
+    oc = crear_oc_vinculada_core(
+        oc_db,
+        mnt,
+        body,
+        current_user.full_name or current_user.email,
+        current_user.email,
     )
-    oc_db.add(oc)
-    oc_db.commit()
-    oc_db.refresh(oc)
-
-    log.info("OC %s creada desde mantenimiento %s por %s", consecutivo, mnt.consecutivo, current_user.email)
-
-    return OCVinculadaOut(
-        id=str(oc.id),
-        consecutivo_os=oc.consecutivo_os,
-        descripcion=oc.descripcion,
-        estado=oc.estado,
-        nivel_prioridad=oc.nivel_prioridad,
-        fecha_solicitud=oc.fecha_solicitud.isoformat(),
-    )
+    log.info("OC %s creada desde mantenimiento %s por %s", oc.consecutivo_os, mnt.consecutivo, current_user.email)
+    return oc_vinculada_out(oc)
 
 
 @router.get("/solicitudes/{solicitud_id}/ocs", response_model=list[OCVinculadaOut])
@@ -118,14 +137,4 @@ def listar_ocs_vinculadas(
         .where(SolicitudOC.mantenimiento_id == solicitud_id)
         .order_by(SolicitudOC.fecha_solicitud.asc())
     ).all()
-    return [
-        OCVinculadaOut(
-            id=str(oc.id),
-            consecutivo_os=oc.consecutivo_os,
-            descripcion=oc.descripcion,
-            estado=oc.estado,
-            nivel_prioridad=oc.nivel_prioridad,
-            fecha_solicitud=oc.fecha_solicitud.isoformat(),
-        )
-        for oc in ocs
-    ]
+    return [oc_vinculada_out(oc) for oc in ocs]

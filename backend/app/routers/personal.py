@@ -88,7 +88,6 @@ class AreaCreate(BaseModel):
 
 
 class CargoCreate(BaseModel):
-    empresa_id: int
     area_id: Optional[int] = None
     nombre: str
 
@@ -238,11 +237,16 @@ def listar_cargos(
 ):
     q = select(PtcCargo)
     if empresa_id is not None:
-        q = q.where(PtcCargo.empresa_id == empresa_id)
+        # Cargos globales: filtrar por los que tienen personas en esta empresa
+        cargo_ids_empresa = select(PtcPersona.cargo_id).where(
+            PtcPersona.empresa_id == empresa_id,
+            PtcPersona.cargo_id.is_not(None),  # type: ignore[union-attr]
+        )
+        q = q.where(col(PtcCargo.id).in_(cargo_ids_empresa))
     if area_id is not None:
         q = q.where(PtcCargo.area_id == area_id)
     cargos = db.exec(q.order_by(col(PtcCargo.nombre))).all()
-    return [{"id": c.id, "empresa_id": c.empresa_id, "area_id": c.area_id, "nombre": c.nombre} for c in cargos]
+    return [{"id": c.id, "area_id": c.area_id, "nombre": c.nombre} for c in cargos]
 
 
 @router.post("/cargos", status_code=status.HTTP_201_CREATED)
@@ -251,11 +255,15 @@ def crear_cargo(
     db: Session = Depends(get_personal_db),
     _: User = Depends(require_tc_editar),
 ):
-    cargo = PtcCargo(empresa_id=body.empresa_id, area_id=body.area_id, nombre=body.nombre.strip())
+    nombre = body.nombre.strip()
+    existing = db.exec(select(PtcCargo).where(col(PtcCargo.nombre).ilike(nombre))).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Ya existe un cargo con ese nombre.")
+    cargo = PtcCargo(area_id=body.area_id, nombre=nombre)
     db.add(cargo)
     db.commit()
     db.refresh(cargo)
-    return {"id": cargo.id, "empresa_id": cargo.empresa_id, "area_id": cargo.area_id, "nombre": cargo.nombre}
+    return {"id": cargo.id, "area_id": cargo.area_id, "nombre": cargo.nombre}
 
 
 @router.put("/cargos/{cargo_id}")
@@ -273,7 +281,7 @@ def actualizar_cargo(
     db.add(cargo)
     db.commit()
     db.refresh(cargo)
-    return {"id": cargo.id, "empresa_id": cargo.empresa_id, "area_id": cargo.area_id, "nombre": cargo.nombre}
+    return {"id": cargo.id, "area_id": cargo.area_id, "nombre": cargo.nombre}
 
 
 @router.delete("/cargos/{cargo_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -494,21 +502,16 @@ def import_personas_json(
                 db.flush()
             area_id = area.id
 
-        # Autocreate cargo si viene
+        # Autocreate cargo global si viene (sin empresa_id)
         cargo_id = None
         if item.cargo_nombre.strip():
             cargo = db.exec(
                 select(PtcCargo).where(
-                    PtcCargo.empresa_id == empresa.id,
                     col(PtcCargo.nombre).ilike(item.cargo_nombre.strip()),
                 )
             ).first()
             if not cargo:
-                cargo = PtcCargo(
-                    empresa_id=empresa.id,
-                    area_id=area_id,
-                    nombre=item.cargo_nombre.strip(),
-                )
+                cargo = PtcCargo(area_id=area_id, nombre=item.cargo_nombre.strip())
                 db.add(cargo)
                 db.flush()
             cargo_id = cargo.id
@@ -558,13 +561,12 @@ def obtener_organigrama(
     if not empresa:
         raise HTTPException(status_code=404, detail="Empresa no encontrada")
 
-    # Áreas globales (mismo catálogo que /areas en admin)
     all_areas = main_db.exec(select(GlobalArea).order_by(GlobalArea.name)).all()
 
-    cargos_all = db.exec(
-        select(PtcCargo).where(PtcCargo.empresa_id == empresa_id).order_by(col(PtcCargo.nombre))
-    ).all()
+    # Todos los cargos globales (no filtrado por empresa)
+    cargos_all = db.exec(select(PtcCargo).order_by(col(PtcCargo.nombre))).all()
 
+    # Solo personas activas de esta empresa
     personas_activas = db.exec(
         select(PtcPersona).where(
             PtcPersona.empresa_id == empresa_id,
@@ -572,7 +574,7 @@ def obtener_organigrama(
         )
     ).all()
 
-    # cargo_id → personas list
+    # cargo_id → personas de ESTA empresa
     por_cargo: dict = {}
     for p in personas_activas:
         if p.cargo_id is not None:
@@ -582,7 +584,7 @@ def obtener_organigrama(
                 "initials": p.initials or (p.nombre[:2].upper() if p.nombre else "?"),
             })
 
-    # area_id (or None) → cargo list
+    # area_id → lista de cargos (todos, personas vacías si no hay asignados en esta empresa)
     por_area: dict = {}
     for c in cargos_all:
         por_area.setdefault(c.area_id, []).append({
@@ -593,7 +595,6 @@ def obtener_organigrama(
 
     return {
         "empresa": {"id": empresa.id, "nombre": empresa.nombre, "codigo": empresa.codigo},
-        # Solo incluir áreas que tengan al menos un cargo en esta empresa
         "areas": [
             {"id": a.id, "nombre": a.name, "cargos": por_area[a.id]}
             for a in all_areas if a.id in por_area

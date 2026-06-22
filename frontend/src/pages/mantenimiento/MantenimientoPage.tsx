@@ -1,6 +1,8 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { PageLayout } from "@/components/layout/PageLayout"
+import { MantenimientoMobileLayout } from "@/components/mantenimiento/MantenimientoMobileLayout"
+import { useMantenimientoPortal } from "@/context/MantenimientoPortalContext"
 import { useSolicitudesMantenimiento } from "@/hooks/useMantenimiento"
 import { useAuthStore } from "@/store/authStore"
 import { canManageMantenimiento, canSeeAllMantenimientos } from "@/lib/permissions"
@@ -12,22 +14,22 @@ const MNT_PAGE_SIZE = 20
 
 const ESTADO_LABELS: Record<EstadoMantenimiento, string> = {
   solicitud:  "Solicitud",
-  evaluacion: "En evaluación",
   programado: "Programado",
   ejecucion:  "En ejecución",
   completado: "Completado",
-  cerrado:    "Cerrado",
   cancelado:  "Cancelado",
+  evaluacion: "Programado",
+  cerrado:    "Completado",
 }
 
 const ESTADO_COLOR: Record<EstadoMantenimiento, string> = {
   solicitud:  "bg-sky-50 text-sky-700 border-sky-200",
-  evaluacion: "bg-yellow-50 text-yellow-700 border-yellow-200",
   programado: "bg-indigo-50 text-indigo-700 border-indigo-200",
   ejecucion:  "bg-orange-50 text-orange-700 border-orange-200",
   completado: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  cerrado:    "bg-muted text-muted-foreground border-border",
   cancelado:  "bg-red-50 text-red-700 border-red-200",
+  evaluacion: "bg-indigo-50 text-indigo-700 border-indigo-200",
+  cerrado:    "bg-emerald-50 text-emerald-700 border-emerald-200",
 }
 
 function EstadoBadge({ estado }: { estado: EstadoMantenimiento }) {
@@ -61,9 +63,20 @@ function ModalidadBadge({ value }: { value: string }) {
 
 export default function MantenimientoPage() {
   const navigate = useNavigate()
+  const portal = useMantenimientoPortal()
   const user = useAuthStore((s) => s.user)
-  const puedeGestionar = user ? canManageMantenimiento(user.role, user.app_permissions) : false
-  const puedeVerTablero = user ? canSeeAllMantenimientos(user.role) || puedeGestionar : false
+  const role = portal?.session.role ?? user?.role ?? ""
+  const appPerms = portal?.session.app_permissions ?? user?.app_permissions
+  const puedeGestionar = portal
+    ? portal.session.can_manage
+    : user
+      ? canManageMantenimiento(user.role, user.app_permissions)
+      : false
+  const puedeVerTablero = portal
+    ? portal.session.can_see_tablero
+    : user
+      ? canSeeAllMantenimientos(user.role) || puedeGestionar
+      : false
   const [page, setPage] = useState(1)
   const [filters, setFilters] = useState<MantenimientoFilters>({})
   const [search, setSearch] = useState("")
@@ -81,8 +94,11 @@ export default function MantenimientoPage() {
     setPage(1)
   }
 
-  return (
-    <PageLayout title="Mantenimiento">
+  function irDetalle(id: number) {
+    navigate(portal ? portal.detallePath(id) : `/mantenimiento/${id}`)
+  }
+
+  const contenido = (
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -146,11 +162,9 @@ export default function MantenimientoPage() {
           >
             <option value="">Todos los estados</option>
             <option value="solicitud">Solicitud</option>
-            <option value="evaluacion">En evaluación</option>
             <option value="programado">Programado</option>
             <option value="ejecucion">En ejecución</option>
             <option value="completado">Completado</option>
-            <option value="cerrado">Cerrado</option>
             <option value="cancelado">Cancelado</option>
           </select>
 
@@ -199,7 +213,7 @@ export default function MantenimientoPage() {
                   <tr
                     key={sol.id}
                     className="hover:bg-muted/50 transition-colors cursor-pointer"
-                    onClick={() => navigate(`/mantenimiento/${sol.id}`)}
+                    onClick={() => irDetalle(sol.id)}
                   >
                     <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
                       {sol.consecutivo}
@@ -253,6 +267,19 @@ export default function MantenimientoPage() {
           )}
         </div>
       </div>
+  )
+
+  if (portal) {
+    return (
+      <MantenimientoMobileLayout title="Mis solicitudes">
+        {contenido}
+      </MantenimientoMobileLayout>
+    )
+  }
+
+  return (
+    <PageLayout title="Mantenimiento">
+      {contenido}
     </PageLayout>
   )
 }

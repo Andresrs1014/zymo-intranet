@@ -1,7 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { api } from "@/lib/api"
+import { portalHttp } from "@/lib/portalApi"
+import { useMantenimientoPortal } from "@/context/MantenimientoPortalContext"
 import type {
   AccesoMovilOut,
+  AuxiliarPortalOut,
   Aprobacion,
   AprobacionPayload,
   CambiarEstadoMantenimientoPayload,
@@ -20,6 +23,15 @@ import type {
 } from "@/types/mantenimiento"
 
 const BASE = "/api/mantenimiento"
+
+function useMntApi() {
+  const portal = useMantenimientoPortal()
+  return {
+    http: portal ? portalHttp : api,
+    prefix: portal?.apiPrefix ?? BASE,
+    portalToken: portal?.portalToken ?? null,
+  }
+}
 
 // ── Config — tipos de mantenimiento ──────────────────────────────────────────
 
@@ -70,8 +82,9 @@ export function useSolicitudesMantenimiento(
   filters: MantenimientoFilters = {},
   page = 1
 ) {
+  const { http, prefix, portalToken } = useMntApi()
   return useQuery({
-    queryKey: ["mantenimiento", "solicitudes", filters, page],
+    queryKey: ["mantenimiento", "solicitudes", filters, page, portalToken],
     queryFn: async () => {
       const params = new URLSearchParams()
       params.set("page", String(page))
@@ -80,8 +93,8 @@ export function useSolicitudesMantenimiento(
       if (filters.clasificacion) params.set("clasificacion", filters.clasificacion)
       if (filters.modalidad)     params.set("modalidad", filters.modalidad)
       if (filters.q)             params.set("q", filters.q)
-      const { data } = await api.get<SolicitudesMantenimientoListResponse>(
-        `${BASE}/solicitudes/?${params}`
+      const { data } = await http.get<SolicitudesMantenimientoListResponse>(
+        `${prefix}/solicitudes/?${params}`
       )
       return data
     },
@@ -89,11 +102,12 @@ export function useSolicitudesMantenimiento(
 }
 
 export function useSolicitudMantenimiento(id: number | null) {
+  const { http, prefix, portalToken } = useMntApi()
   return useQuery({
-    queryKey: ["mantenimiento", "solicitud", id],
+    queryKey: ["mantenimiento", "solicitud", id, portalToken],
     queryFn: async () => {
-      const { data } = await api.get<SolicitudMantenimiento>(
-        `${BASE}/solicitudes/${id}`
+      const { data } = await http.get<SolicitudMantenimiento>(
+        `${prefix}/solicitudes/${id}`
       )
       return data
     },
@@ -118,6 +132,7 @@ export function useCrearMantenimiento() {
 
 export function useCambiarEstadoMantenimiento() {
   const qc = useQueryClient()
+  const { http, prefix } = useMntApi()
   return useMutation({
     mutationFn: async ({
       id,
@@ -126,8 +141,8 @@ export function useCambiarEstadoMantenimiento() {
       id: number
       payload: CambiarEstadoMantenimientoPayload
     }) => {
-      const { data } = await api.patch<SolicitudMantenimiento>(
-        `${BASE}/solicitudes/${id}/estado`,
+      const { data } = await http.patch<SolicitudMantenimiento>(
+        `${prefix}/solicitudes/${id}/estado`,
         payload
       )
       return data
@@ -141,6 +156,7 @@ export function useCambiarEstadoMantenimiento() {
 
 export function useAsignarMantenimiento() {
   const qc = useQueryClient()
+  const { http, prefix } = useMntApi()
   return useMutation({
     mutationFn: async ({
       id,
@@ -149,8 +165,8 @@ export function useAsignarMantenimiento() {
       id: number
       asignado_id: number | null
     }) => {
-      const { data } = await api.patch<SolicitudMantenimiento>(
-        `${BASE}/solicitudes/${id}/asignar`,
+      const { data } = await http.patch<SolicitudMantenimiento>(
+        `${prefix}/solicitudes/${id}/asignar`,
         { asignado_id }
       )
       return data
@@ -175,6 +191,7 @@ export function useAuxiliaresMantenimiento() {
 
 export function useProgramarMantenimiento() {
   const qc = useQueryClient()
+  const { http, prefix } = useMntApi()
   return useMutation({
     mutationFn: async ({
       id,
@@ -187,8 +204,8 @@ export function useProgramarMantenimiento() {
       notas_evaluacion?: string | null
       monto_estimado?: number | null
     }) => {
-      const { data } = await api.patch<SolicitudMantenimiento>(
-        `${BASE}/solicitudes/${id}/programar`,
+      const { data } = await http.patch<SolicitudMantenimiento>(
+        `${prefix}/solicitudes/${id}/programar`,
         { fecha_programada, notas_evaluacion, monto_estimado }
       )
       return data
@@ -201,11 +218,12 @@ export function useProgramarMantenimiento() {
 // ── Historial ─────────────────────────────────────────────────────────────────
 
 export function useHistorialMantenimiento(id: number | null) {
+  const { http, prefix, portalToken } = useMntApi()
   return useQuery({
-    queryKey: ["mantenimiento", "historial", id],
+    queryKey: ["mantenimiento", "historial", id, portalToken],
     queryFn: async () => {
-      const { data } = await api.get<HistorialMantenimientoEntrada[]>(
-        `${BASE}/solicitudes/${id}/historial`
+      const { data } = await http.get<HistorialMantenimientoEntrada[]>(
+        `${prefix}/solicitudes/${id}/historial`
       )
       return data
     },
@@ -216,11 +234,12 @@ export function useHistorialMantenimiento(id: number | null) {
 // ── OC vinculada ──────────────────────────────────────────────────────────────
 
 export function useOCsVinculadas(mantenimientoId: number | null) {
+  const { http, prefix, portalToken } = useMntApi()
   return useQuery({
-    queryKey: ["mantenimiento", "ocs", mantenimientoId],
+    queryKey: ["mantenimiento", "ocs", mantenimientoId, portalToken],
     queryFn: async () => {
-      const { data } = await api.get<OCVinculada[]>(
-        `${BASE}/solicitudes/${mantenimientoId}/ocs`
+      const { data } = await http.get<OCVinculada[]>(
+        `${prefix}/solicitudes/${mantenimientoId}/ocs`
       )
       return data
     },
@@ -230,6 +249,7 @@ export function useOCsVinculadas(mantenimientoId: number | null) {
 
 export function useCrearOCVinculada() {
   const qc = useQueryClient()
+  const { http, prefix } = useMntApi()
   return useMutation({
     mutationFn: async ({
       mantenimientoId,
@@ -238,8 +258,8 @@ export function useCrearOCVinculada() {
       mantenimientoId: number
       payload: CrearOCVinculadaPayload
     }) => {
-      const { data } = await api.post<OCVinculada>(
-        `${BASE}/solicitudes/${mantenimientoId}/oc-vinculada`,
+      const { data } = await http.post<OCVinculada>(
+        `${prefix}/solicitudes/${mantenimientoId}/oc-vinculada`,
         payload
       )
       return data
@@ -255,10 +275,11 @@ export function useCrearOCVinculada() {
 
 export function useSubirEvidencia() {
   const qc = useQueryClient()
+  const { http, prefix } = useMntApi()
   return useMutation({
     mutationFn: async ({ id, payload }: { id: number; payload: SubirEvidenciaPayload }) => {
-      const { data } = await api.post<SolicitudMantenimiento>(
-        `${BASE}/solicitudes/${id}/evidencia`,
+      const { data } = await http.post<SolicitudMantenimiento>(
+        `${prefix}/solicitudes/${id}/evidencia`,
         payload
       )
       return data
@@ -285,11 +306,12 @@ export function useCrearRetroactivo() {
 }
 
 export function useAprobaciones(solicitudId: number | null) {
+  const { http, prefix, portalToken } = useMntApi()
   return useQuery({
-    queryKey: ["mantenimiento", "aprobaciones", solicitudId],
+    queryKey: ["mantenimiento", "aprobaciones", solicitudId, portalToken],
     queryFn: async () => {
-      const { data } = await api.get<Aprobacion[]>(
-        `${BASE}/solicitudes/${solicitudId}/aprobaciones`
+      const { data } = await http.get<Aprobacion[]>(
+        `${prefix}/solicitudes/${solicitudId}/aprobaciones`
       )
       return data
     },
@@ -299,10 +321,11 @@ export function useAprobaciones(solicitudId: number | null) {
 
 export function useRegistrarAprobacion() {
   const qc = useQueryClient()
+  const { http, prefix } = useMntApi()
   return useMutation({
     mutationFn: async ({ id, payload }: { id: number; payload: AprobacionPayload }) => {
-      const { data } = await api.post<Aprobacion>(
-        `${BASE}/solicitudes/${id}/aprobacion`,
+      const { data } = await http.post<Aprobacion>(
+        `${prefix}/solicitudes/${id}/aprobacion`,
         payload
       )
       return data
@@ -310,6 +333,69 @@ export function useRegistrarAprobacion() {
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ["mantenimiento", "aprobaciones", vars.id] })
       qc.invalidateQueries({ queryKey: ["mantenimiento", "solicitud", vars.id] })
+    },
+  })
+}
+
+export function useAccionCampoMantenimiento() {
+  const qc = useQueryClient()
+  const { http, prefix } = useMntApi()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      accion,
+      evidencia_url,
+      monto_real,
+      nota,
+    }: {
+      id: number
+      accion: "en_camino" | "completado" | "necesita_repuesto"
+      evidencia_url?: string
+      monto_real?: number
+      nota?: string
+    }) => {
+      const path = prefix.includes("/portal/")
+        ? `${prefix}/solicitudes/${id}/accion-campo`
+        : `${BASE}/solicitudes/${id}/accion-campo`
+      const { data } = await http.post(path, {
+        accion,
+        evidencia_url,
+        monto_real,
+        nota,
+      })
+      return data
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["mantenimiento", "solicitud", vars.id] })
+      qc.invalidateQueries({ queryKey: ["mantenimiento", "solicitudes"] })
+    },
+  })
+}
+
+export function useAuxiliaresPortal() {
+  return useQuery({
+    queryKey: ["mantenimiento", "auxiliares-portal"],
+    queryFn: async () => {
+      const { data } = await api.get<AuxiliarPortalOut[]>(
+        `${BASE}/config/auxiliares-portal`
+      )
+      return data
+    },
+  })
+}
+
+export function useRegenerarPortalAuxiliar() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (userId: number) => {
+      const { data } = await api.post<AuxiliarPortalOut>(
+        `${BASE}/config/auxiliares/${userId}/portal/regenerar`
+      )
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["mantenimiento", "auxiliares-portal"] })
+      qc.invalidateQueries({ queryKey: ["mantenimiento", "acceso-movil"] })
     },
   })
 }

@@ -134,3 +134,13 @@ class MntConfig(SQLModel, table=True):
 
     key:   str = Field(primary_key=True, max_length=64)
     value: str = Field(default="")
+
+
+class MntAuxiliarPortal(SQLModel, table=True):
+    """Portal móvil permanente por auxiliar (sin expiración)."""
+    __tablename__ = "mnt_auxiliar_portal"
+
+    user_id:      int = Field(primary_key=True)
+    portal_token: str = Field(max_length=64, unique=True, index=True)
+    created_at:   datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at:   datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

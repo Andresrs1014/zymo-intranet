@@ -159,10 +159,19 @@ export function canManageMantenimiento(
   role: string,
   appPerms?: string[]
 ): boolean {
+  if (role === "auxiliar_mantenimiento") return false
   if (role === "admin") return true
-  if (role === "auxiliar_mantenimiento") return true
   if (hasPerm(appPerms, "mod_mantenimiento")) return true
   return false
+}
+
+/** Acciones de campo: en camino, evidencia, OC desde celular. */
+export function canOperateMantenimientoCampo(
+  role: string,
+  appPerms?: string[],
+): boolean {
+  if (role === "auxiliar_mantenimiento") return true
+  return canManageMantenimiento(role, appPerms)
 }
 
 /** Solo admin y directivo pueden ver todos — auxiliar ve los suyos */

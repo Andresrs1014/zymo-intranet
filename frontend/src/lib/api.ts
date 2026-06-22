@@ -35,8 +35,10 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      useAuthStore.getState().clearAuth()
-      window.location.href = "/login"
+      if (!window.location.pathname.startsWith("/m/portal")) {
+        useAuthStore.getState().clearAuth()
+        window.location.href = "/login"
+      }
     }
     return Promise.reject(error)
   }

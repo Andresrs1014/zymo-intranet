@@ -8,7 +8,7 @@ import {
 import type { EstadoMantenimiento } from "@/types/mantenimiento"
 
 const ESTADOS_ACCESO: EstadoMantenimiento[] = [
-  "solicitud", "evaluacion", "programado", "ejecucion",
+  "solicitud", "programado", "ejecucion",
 ]
 
 interface Props {
@@ -78,7 +78,7 @@ export function AccesoMovilPanel({ solicitudId, consecutivo, estado }: Props) {
   return (
     <div className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-4">
       <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-3">
-        Acceso móvil — escanea o envía por WhatsApp
+        Portal móvil del auxiliar — link permanente (no expira)
       </p>
 
       {isLoading && (
@@ -97,6 +97,16 @@ export function AccesoMovilPanel({ solicitudId, consecutivo, estado }: Props) {
           <div className="flex-1 space-y-3 min-w-0">
             <p className="font-mono text-sm text-foreground">{consecutivo}</p>
             <p className="text-xs text-muted-foreground break-all">{data.url_qr}</p>
+            {data.url_portal && (
+              <p className="text-xs text-emerald-700">
+                Portal personal del auxiliar — válido indefinidamente
+              </p>
+            )}
+            {data.expira && (
+              <p className="text-xs text-amber-700">
+                Asigna un auxiliar para obtener portal permanente
+              </p>
+            )}
 
             <div className="flex flex-wrap gap-2">
               <Button type="button" size="sm" variant="outline" onClick={() => void handleCopiar()}>
@@ -122,7 +132,7 @@ export function AccesoMovilPanel({ solicitudId, consecutivo, estado }: Props) {
                 disabled={regenerando}
                 onClick={() => void handleRegenerar()}
               >
-                {regenerando ? "…" : "Regenerar QR"}
+                {regenerando ? "…" : "Regenerar link solicitud"}
               </Button>
             </div>
 

@@ -13,6 +13,8 @@ import {
   useToggleTipoMantenimiento,
   useMntNotificacionesConfig,
   useActualizarMntNotificaciones,
+  useAuxiliaresPortal,
+  useRegenerarPortalAuxiliar,
 } from "@/hooks/useMantenimiento"
 
 async function descargarExcelPrueba(): Promise<string> {
@@ -770,6 +772,16 @@ export function OcConfigPage() {
                   <WhatsAppMantenimientoConfig />
                 </section>
 
+                <section className="bg-card rounded-xl border border-border p-6 space-y-5">
+                  <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
+                    Portales móviles — Auxiliares
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    Cada auxiliar tiene un link permanente (no expira). Regenerar invalida el anterior.
+                  </p>
+                  <PortalesAuxiliaresConfig />
+                </section>
+
                 {/* Feedback guardado */}
                 {error && (
                   <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
@@ -919,6 +931,66 @@ function WhatsAppMantenimientoConfig() {
         {ok && <span className="text-xs text-emerald-600">Guardado</span>}
       </div>
       {err && <p className="text-xs text-destructive">{err}</p>}
+    </div>
+  )
+}
+
+function PortalesAuxiliaresConfig() {
+  const { data: portales = [], isLoading } = useAuxiliaresPortal()
+  const { mutateAsync: regenerar, isPending } = useRegenerarPortalAuxiliar()
+  const [msg, setMsg] = useState<string | null>(null)
+
+  async function handleRegenerar(userId: number) {
+    await regenerar(userId)
+    setMsg("Portal regenerado")
+    setTimeout(() => setMsg(null), 3000)
+  }
+
+  if (isLoading) {
+    return <p className="text-sm text-muted-foreground">Cargando…</p>
+  }
+
+  if (portales.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        No hay usuarios con rol auxiliar_mantenimiento.
+      </p>
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      {portales.map((p) => (
+        <div
+          key={p.user_id}
+          className="rounded-lg border border-border px-3 py-3 flex flex-col sm:flex-row sm:items-center gap-3"
+        >
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium">{p.full_name}</p>
+            <p className="text-xs text-muted-foreground font-mono truncate">{p.url_portal}</p>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => void navigator.clipboard.writeText(p.url_portal)}
+            >
+              Copiar
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              disabled={isPending}
+              onClick={() => void handleRegenerar(p.user_id)}
+            >
+              Regenerar
+            </Button>
+          </div>
+        </div>
+      ))}
+      {msg && <p className="text-xs text-emerald-600">{msg}</p>}
     </div>
   )
 }

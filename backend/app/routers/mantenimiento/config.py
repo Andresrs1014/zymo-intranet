@@ -106,6 +106,66 @@ def listar_auxiliares(
     ]
 
 
+class AuxiliarPortalOut(BaseModel):
+    user_id:      int
+    full_name:    str
+    email:        str
+    url_portal:   str
+    portal_token: str
+
+
+@router.get("/auxiliares-portal", response_model=list[AuxiliarPortalOut])
+def listar_auxiliares_portal(
+    oc_db: Session = Depends(get_oc_db),
+    app_db: Session = Depends(get_db),
+    _: User = Depends(require_mantenimiento),
+):
+    """Portales permanentes de auxiliares (para configuración / WhatsApp)."""
+    from app.routers.mantenimiento.portal_tokens import ensure_portal_token, portal_url
+
+    users = app_db.exec(
+        select(User)
+        .where(
+            User.is_active == True,  # noqa: E712
+            User.role == "auxiliar_mantenimiento",
+        )
+        .order_by(User.full_name)
+    ).all()
+    out = []
+    for u in users:
+        pt = ensure_portal_token(oc_db, u.id)
+        out.append(AuxiliarPortalOut(
+            user_id=u.id,
+            full_name=u.full_name or u.email,
+            email=u.email,
+            url_portal=portal_url(pt),
+            portal_token=pt,
+        ))
+    return out
+
+
+@router.post("/auxiliares/{user_id}/portal/regenerar", response_model=AuxiliarPortalOut)
+def regenerar_portal_auxiliar(
+    user_id: int,
+    oc_db: Session = Depends(get_oc_db),
+    app_db: Session = Depends(get_db),
+    _: User = Depends(require_mantenimiento),
+):
+    from app.routers.mantenimiento.portal_tokens import portal_url, regenerate_portal_token
+
+    user = app_db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+    pt = regenerate_portal_token(oc_db, user_id)
+    return AuxiliarPortalOut(
+        user_id=user.id,
+        full_name=user.full_name or user.email,
+        email=user.email,
+        url_portal=portal_url(pt),
+        portal_token=pt,
+    )
+
+
 @router.get("/tipos", response_model=list[TipoMantenimientoOut])
 def listar_tipos(
     solo_activos: bool = True,

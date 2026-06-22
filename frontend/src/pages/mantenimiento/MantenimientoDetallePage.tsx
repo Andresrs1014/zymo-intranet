@@ -10,6 +10,9 @@ import {
 } from "@/components/mantenimiento/EstadoMantenimientoBadge"
 import { CrearOCVinculadaModal } from "@/components/mantenimiento/CrearOCVinculadaModal"
 import { AccesoMovilPanel } from "@/components/mantenimiento/AccesoMovilPanel"
+import { MantenimientoCampoAcciones } from "@/components/mantenimiento/MantenimientoCampoAcciones"
+import { MantenimientoMobileLayout } from "@/components/mantenimiento/MantenimientoMobileLayout"
+import { useMantenimientoPortal } from "@/context/MantenimientoPortalContext"
 import {
   useSolicitudMantenimiento,
   useHistorialMantenimiento,
@@ -23,18 +26,16 @@ import {
   useAuxiliaresMantenimiento,
 } from "@/hooks/useMantenimiento"
 import { useAuthStore } from "@/store/authStore"
-import { canManageMantenimiento, canSeeAllMantenimientos } from "@/lib/permissions"
+import { canManageMantenimiento, canOperateMantenimientoCampo, canSeeAllMantenimientos } from "@/lib/permissions"
 import type { AprobacionPayload, EstadoMantenimiento } from "@/types/mantenimiento"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 
 // Mapa de transiciones para mostrar botones de acción
 const SIGUIENTE_ESTADO: Record<string, { label: string; estado: EstadoMantenimiento }> = {
-  solicitud:  { label: "Iniciar evaluación",     estado: "evaluacion" },
-  evaluacion: { label: "Marcar como programado", estado: "programado" },
+  solicitud:  { label: "Marcar como programado", estado: "programado" },
   programado: { label: "Iniciar ejecución",      estado: "ejecucion"  },
   ejecucion:  { label: "Marcar como completado", estado: "completado" },
-  completado: { label: "Cerrar solicitud",       estado: "cerrado"    },
 }
 
 const TABS = ["Info", "Timeline", "Compras"] as const
@@ -50,7 +51,6 @@ export default function MantenimientoDetallePage() {
   const { id } = useParams<{ id: string }>()
   const solicitudId = id ? parseInt(id) : null
   const navigate    = useNavigate()
-  const { user }    = useAuthStore()
 
   const [activeTab, setActiveTab]   = useState<Tab>("Info")
   const [showCrearOC, setShowCrearOC] = useState(false)
@@ -74,8 +74,22 @@ export default function MantenimientoDetallePage() {
   const { mutateAsync: programar, isPending: programando } = useProgramarMantenimiento()
   const { mutateAsync: registrarAprobacion, isPending: aprobando } = useRegistrarAprobacion()
 
-  const puedeGestionar = canManageMantenimiento(user?.role ?? "", user?.app_permissions)
-  const puedeAprobar   = user ? canSeeAllMantenimientos(user.role) : false
+  const portal = useMantenimientoPortal()
+  const authUser = useAuthStore((s) => s.user)
+  const role = portal?.session.role ?? authUser?.role ?? ""
+  const appPerms = portal?.session.app_permissions ?? authUser?.app_permissions
+
+  const puedeGestionar = portal
+    ? portal.session.can_manage
+    : canManageMantenimiento(role, appPerms)
+  const puedeOperarCampo = portal
+    ? portal.session.can_operate
+    : canOperateMantenimientoCampo(role, appPerms)
+  const puedeAprobar = portal
+    ? portal.session.can_approve
+    : authUser
+      ? canSeeAllMantenimientos(authUser.role)
+      : false
   const guardandoGestion = asignando || programando
 
   useEffect(() => {
@@ -91,23 +105,35 @@ export default function MantenimientoDetallePage() {
   }, [sol])
 
   if (isLoading) {
-    return (
-      <PageLayout title="Mantenimiento">
-        <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">
-          Cargando...
-        </div>
-      </PageLayout>
+    const loading = (
+      <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">
+        Cargando...
+      </div>
     )
+    if (portal) {
+      return (
+        <MantenimientoMobileLayout title="Detalle" showBack backTo={portal.listaPath}>
+          {loading}
+        </MantenimientoMobileLayout>
+      )
+    }
+    return <PageLayout title="Mantenimiento">{loading}</PageLayout>
   }
 
   if (!sol) {
-    return (
-      <PageLayout title="Mantenimiento">
-        <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">
-          Solicitud no encontrada.
-        </div>
-      </PageLayout>
+    const missing = (
+      <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">
+        Solicitud no encontrada.
+      </div>
     )
+    if (portal) {
+      return (
+        <MantenimientoMobileLayout title="Detalle" showBack backTo={portal.listaPath}>
+          {missing}
+        </MantenimientoMobileLayout>
+      )
+    }
+    return <PageLayout title="Mantenimiento">{missing}</PageLayout>
   }
 
   const siguienteAccion = SIGUIENTE_ESTADO[sol.estado]
@@ -162,25 +188,27 @@ export default function MantenimientoDetallePage() {
   const faltaEvidencia = sol.estado === "ejecucion" && !sol.evidencia_url
   const puedeCompletar = !faltaEvidencia
   const bloqueadoPorAprobaciones =
-    sol.estado === "evaluacion" &&
+    sol.estado === "solicitud" &&
     (sol.monto_estimado ?? 0) > 2_000_000 &&
     sol.aprobaciones_count < 3
   const showGestion =
     puedeGestionar &&
-    ["solicitud", "evaluacion", "programado"].includes(sol.estado)
+    ["solicitud", "programado"].includes(sol.estado)
 
-  // Pasos del progress bar
   const PASOS: EstadoMantenimiento[] = [
-    "solicitud", "evaluacion", "programado", "ejecucion", "completado", "cerrado",
+    "solicitud", "programado", "ejecucion", "completado",
   ]
-  const pasoActualIdx = PASOS.indexOf(sol.estado as EstadoMantenimiento)
+  const estadoBarra = (["evaluacion", "cerrado"] as string[]).includes(sol.estado)
+    ? (sol.estado === "evaluacion" ? "programado" : "completado")
+    : sol.estado
+  const pasoActualIdx = PASOS.indexOf(estadoBarra as EstadoMantenimiento)
 
-  return (
-    <PageLayout title={sol.consecutivo}>
+  const detalleInner = (
+    <>
       {/* Top bar con breadcrumb */}
       <div className="flex items-center gap-3 mb-4">
         <button
-          onClick={() => navigate("/mantenimiento")}
+          onClick={() => navigate(portal ? portal.listaPath : "/mantenimiento")}
           className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -397,11 +425,11 @@ export default function MantenimientoDetallePage() {
             </div>
           )}
 
-          {/* Evaluación y programación */}
+          {/* Programación */}
           {showGestion && (
             <div className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-4 space-y-4">
               <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide">
-                Evaluación y programación
+                Programación
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -466,7 +494,7 @@ export default function MantenimientoDetallePage() {
                   disabled={guardandoGestion}
                   className="bg-amber-500 hover:bg-amber-600 text-white"
                 >
-                  {guardandoGestion ? "Guardando…" : "Guardar evaluación"}
+                  {guardandoGestion ? "Guardando…" : "Guardar programación"}
                 </Button>
                 {gestionMsg && (
                   <span className="text-xs text-emerald-600">{gestionMsg}</span>
@@ -475,7 +503,18 @@ export default function MantenimientoDetallePage() {
             </div>
           )}
 
-          {puedeGestionar && solicitudId && (
+          {puedeOperarCampo && solicitudId && (
+            <MantenimientoCampoAcciones
+              solicitudId={solicitudId}
+              estado={sol.estado as EstadoMantenimiento}
+              onCrearOC={() => setShowCrearOC(true)}
+              onDone={() => {
+                /* queries se invalidan en el hook */
+              }}
+            />
+          )}
+
+          {puedeGestionar && !portal && solicitudId && (
             <AccesoMovilPanel
               solicitudId={solicitudId}
               consecutivo={sol.consecutivo}
@@ -493,7 +532,7 @@ export default function MantenimientoDetallePage() {
             </div>
           )}
 
-          {(necesitaAprobaciones || (sol.monto_estimado ?? 0) > 2_000_000) && (
+          {(necesitaAprobaciones || (sol.monto_estimado ?? 0) > 2_000_000) && puedeAprobar && (
             <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
               <p className="text-xs font-medium text-amber-800 uppercase tracking-wide mb-2">
                 Aprobaciones requeridas ({sol.aprobaciones_count}/3)
@@ -593,7 +632,7 @@ export default function MantenimientoDetallePage() {
                   Sube una foto de evidencia antes de marcar como completado.
                 </p>
               )}
-              {["solicitud", "evaluacion", "programado"].includes(sol.estado) && (
+              {["solicitud", "programado"].includes(sol.estado) && (
                 <Button
                   variant="outline"
                   onClick={handleCancelar}
@@ -616,6 +655,24 @@ export default function MantenimientoDetallePage() {
           mantenimiento={sol}
         />
       )}
+    </>
+  )
+
+  if (portal) {
+    return (
+      <MantenimientoMobileLayout
+        title={sol.consecutivo}
+        showBack
+        backTo={portal.listaPath}
+      >
+        {detalleInner}
+      </MantenimientoMobileLayout>
+    )
+  }
+
+  return (
+    <PageLayout title={sol.consecutivo}>
+      {detalleInner}
     </PageLayout>
   )
 }

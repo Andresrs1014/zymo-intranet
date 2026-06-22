@@ -51,7 +51,8 @@ import { SigPage } from "@/pages/sig/SigPage"
 import MantenimientoPage from "@/pages/mantenimiento/MantenimientoPage"
 import NuevaMantenimientoPage from "@/pages/mantenimiento/NuevaMantenimientoPage"
 import MantenimientoDetallePage from "@/pages/mantenimiento/MantenimientoDetallePage"
-import MantenimientoMobilePage from "@/pages/mantenimiento/MantenimientoMobilePage"
+import MantenimientoPortalShell from "@/pages/mantenimiento/MantenimientoPortalShell"
+import MantenimientoLegacyRedirect from "@/pages/mantenimiento/MantenimientoLegacyRedirect"
 import MantenimientoDashboard from "@/pages/mantenimiento/MantenimientoDashboard"
 import { TyCPage } from "@/pages/tc/TyCPage"
 import { TyCDirectorioPage } from "@/pages/tc/TyCDirectorioPage"
@@ -215,9 +216,13 @@ export default function App() {
       <AgentLayer />
       <Routes>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        {/* Ruta pública — vista móvil auxiliar de mantenimiento (sin login) */}
-        <Route path="/m/q/:accessToken" element={<MantenimientoMobilePage mode="stable" />} />
-        <Route path="/m/:token" element={<MantenimientoMobilePage mode="jwt" />} />
+        {/* Portal móvil permanente — auxiliar sin login */}
+        <Route path="/m/portal/:portalToken" element={<MantenimientoPortalShell />}>
+          <Route index element={<MantenimientoPage />} />
+          <Route path=":id" element={<MantenimientoDetallePage />} />
+        </Route>
+        <Route path="/m/q/:accessToken" element={<MantenimientoLegacyRedirect mode="stable" />} />
+        <Route path="/m/:token" element={<MantenimientoLegacyRedirect mode="jwt" />} />
         <Route
           path="/login"
           element={

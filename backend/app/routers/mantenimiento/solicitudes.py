@@ -29,11 +29,12 @@ router = APIRouter(prefix="/solicitudes", tags=["Mantenimiento - Solicitudes"])
 # ── FSM ───────────────────────────────────────────────────────────────────────
 
 _TRANSICIONES_MANT: dict[str, set[str]] = {
-    EstadoMantenimiento.solicitud:  {EstadoMantenimiento.evaluacion, EstadoMantenimiento.cancelado},
-    EstadoMantenimiento.evaluacion: {EstadoMantenimiento.programado, EstadoMantenimiento.cancelado},
+    EstadoMantenimiento.solicitud:  {EstadoMantenimiento.programado, EstadoMantenimiento.cancelado},
     EstadoMantenimiento.programado: {EstadoMantenimiento.ejecucion,  EstadoMantenimiento.cancelado},
     EstadoMantenimiento.ejecucion:  {EstadoMantenimiento.completado},
-    EstadoMantenimiento.completado: {EstadoMantenimiento.cerrado},
+    # Legacy — migrados al arrancar; sin transiciones salientes
+    EstadoMantenimiento.evaluacion: {EstadoMantenimiento.programado, EstadoMantenimiento.cancelado},
+    EstadoMantenimiento.cerrado:    set(),
 }
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -131,10 +132,12 @@ class SubirEvidenciaBody(BaseModel):
 
 
 class AccesoMovilOut(BaseModel):
+    url_portal:        Optional[str]
     url_qr:            str
-    url_jwt:           str
+    url_jwt:           Optional[str] = None
     whatsapp_numero:   Optional[str]
     mensaje_whatsapp:  str
+    expira:            bool = False
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -304,9 +307,14 @@ def listar_solicitudes(
 
     puede_ver_todos = (
         current_user.role in ("admin", "directivo")
-        or user_has_permission(app_db, current_user, "mod_mantenimiento")
+        or (
+            user_has_permission(app_db, current_user, "mod_mantenimiento")
+            and current_user.role != "auxiliar_mantenimiento"
+        )
     )
-    if not puede_ver_todos:
+    if current_user.role == "auxiliar_mantenimiento":
+        stmt = stmt.where(SolicitudMantenimiento.asignado_id == current_user.id)
+    elif not puede_ver_todos:
         stmt = stmt.where(
             (SolicitudMantenimiento.solicitante_id == current_user.id)
             | (SolicitudMantenimiento.asignado_id == current_user.id)
@@ -395,8 +403,8 @@ def cambiar_estado(
                    f"Permitidas: {sorted(transiciones_validas)}",
         )
 
-    # Gate 1: evaluacion → programado con monto > $2M requiere 3 aprobaciones
-    if sol.estado == EstadoMantenimiento.evaluacion and body.estado_nuevo == EstadoMantenimiento.programado:
+    # Gate 1: solicitud → programado con monto > $2M requiere 3 aprobaciones
+    if sol.estado == EstadoMantenimiento.solicitud and body.estado_nuevo == EstadoMantenimiento.programado:
         monto = float(getattr(sol, "monto_estimado", 0) or 0)
         if monto > 2_000_000:
             count = oc_db.exec(
@@ -547,30 +555,67 @@ def subir_evidencia(
 
 
 def _acceso_movil_out(sol: SolicitudMantenimiento, oc_db: Session) -> AccesoMovilOut:
-    from app.routers.mantenimiento.mobile import (
-        ensure_mobile_access_token,
-        frontend_base_url,
-        generar_magic_token,
-        url_acceso_qr,
-    )
+    from app.routers.mantenimiento.mobile import frontend_base_url
+    from app.routers.mantenimiento.portal_tokens import ensure_portal_token, portal_url
 
-    access = ensure_mobile_access_token(oc_db, sol)
-    url_qr = url_acceso_qr(access)
-    jwt = generar_magic_token(sol.id)
-    url_jwt = f"{frontend_base_url()}/m/{jwt}"
     cfg = oc_db.get(MntConfig, "whatsapp_numero_default")
     whatsapp = cfg.value if cfg and cfg.value else None
-    mensaje = (
-        f"Mantenimiento {sol.consecutivo}\n"
-        f"{sol.titulo}\n\n"
-        f"Gestiona desde el celular (sin login):\n{url_qr}"
-    )
+
+    url_portal = None
+    url_qr = None
+    if sol.asignado_id:
+        pt = ensure_portal_token(oc_db, sol.asignado_id)
+        url_portal = portal_url(pt)
+        url_qr = portal_url(pt, sol.id)
+        mensaje = (
+            f"Portal de mantenimiento ZYMO (sin expiración)\n"
+            f"{url_qr}\n\n"
+            f"Solicitud {sol.consecutivo}: {sol.titulo}"
+        )
+    else:
+        from app.routers.mantenimiento.mobile import ensure_mobile_access_token, url_acceso_qr
+        access = ensure_mobile_access_token(oc_db, sol)
+        url_qr = url_acceso_qr(access)
+        mensaje = (
+            f"Asigna un auxiliar para obtener portal permanente.\n"
+            f"Link temporal:\n{url_qr}\n\n"
+            f"{sol.consecutivo}: {sol.titulo}"
+        )
+
     return AccesoMovilOut(
+        url_portal=url_portal,
         url_qr=url_qr,
-        url_jwt=url_jwt,
+        url_jwt=None,
         whatsapp_numero=whatsapp,
         mensaje_whatsapp=mensaje,
+        expira=url_portal is None,
     )
+
+
+@router.post("/{solicitud_id}/accion-campo")
+def accion_campo_solicitud(
+    solicitud_id: int,
+    body: dict,
+    oc_db: Session = Depends(get_oc_db),
+    app_db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Acciones de campo para auxiliar autenticado (intranet móvil)."""
+    from app.routers.mantenimiento.mobile import AccionMobileBody, _ejecutar_accion
+
+    parsed = AccionMobileBody(**body)
+    sol = oc_db.get(SolicitudMantenimiento, solicitud_id)
+    if not sol:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada.")
+    from app.core.permissions import user_has_permission
+    puede = (
+        current_user.role == "admin"
+        or sol.asignado_id == current_user.id
+        or user_has_permission(app_db, current_user, "mod_mantenimiento")
+    )
+    if not puede:
+        raise HTTPException(status_code=403, detail="Sin permiso.")
+    return _ejecutar_accion(sol, parsed, oc_db)
 
 
 @router.get("/{solicitud_id}/acceso-movil", response_model=AccesoMovilOut)
@@ -583,7 +628,11 @@ def obtener_acceso_movil(
     sol = oc_db.get(SolicitudMantenimiento, solicitud_id)
     if not sol:
         raise HTTPException(status_code=404, detail="Solicitud no encontrada.")
-    if sol.estado in (EstadoMantenimiento.cerrado, EstadoMantenimiento.cancelado):
+    if sol.estado in (
+        EstadoMantenimiento.completado,
+        EstadoMantenimiento.cancelado,
+        EstadoMantenimiento.cerrado,
+    ):
         raise HTTPException(status_code=400, detail="La solicitud está cerrada o cancelada.")
     return _acceso_movil_out(sol, oc_db)
 

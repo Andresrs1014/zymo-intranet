@@ -11,8 +11,8 @@ from app.oc_database import get_oc_db
 
 router = APIRouter(tags=["Mantenimiento - KPIs"])
 
-_ESTADOS_ACTIVOS  = {EstadoMantenimiento.solicitud, EstadoMantenimiento.evaluacion, EstadoMantenimiento.programado, EstadoMantenimiento.ejecucion}
-_ESTADOS_CERRADOS = {EstadoMantenimiento.completado, EstadoMantenimiento.cerrado}
+_ESTADOS_ACTIVOS  = {EstadoMantenimiento.solicitud, EstadoMantenimiento.programado, EstadoMantenimiento.ejecucion}
+_ESTADOS_CERRADOS = {EstadoMantenimiento.completado}
 
 
 class KpisMes(BaseModel):
@@ -61,7 +61,7 @@ def obtener_kpis(
 
     pendientes = sum(
         1 for s in todos
-        if s.estado == EstadoMantenimiento.evaluacion
+        if s.estado == EstadoMantenimiento.solicitud
         and float(getattr(s, "monto_estimado", 0) or 0) > 2_000_000
     )
 

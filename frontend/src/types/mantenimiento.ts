@@ -1,7 +1,7 @@
 // Enums
 export type EstadoMantenimiento =
-  | "solicitud" | "evaluacion" | "programado"
-  | "ejecucion" | "completado" | "cerrado" | "cancelado"
+  | "solicitud" | "programado" | "ejecucion" | "completado" | "cancelado"
+  | "evaluacion" | "cerrado"  // legacy — migrados en BD
 
 export type ClasificacionMantenimiento = "preventivo" | "correctivo"
 export type ModalidadMantenimiento     = "interno" | "externo"
@@ -92,6 +92,38 @@ export interface MobileOut {
   solicitante_nombre: string | null
 }
 
+export interface MobileSolicitudResumen {
+  solicitud_id:     number
+  consecutivo:      string
+  titulo:           string
+  estado:           string
+  prioridad:        string
+  fecha_programada: string | null
+}
+
+export interface MobileHubOut {
+  auxiliar_nombre: string | null
+  ancla_id:        number
+  activas:         MobileSolicitudResumen[]
+  recientes:       MobileSolicitudResumen[]
+}
+
+export interface MobileDetalleOut extends MobileOut {
+  prioridad:          string
+  tipo_mantenimiento: string
+  fecha_programada:   string | null
+  monto_estimado:     number | null
+  evidencia_url:      string | null
+  ocs:                OCVinculada[]
+}
+
+export interface CrearOCMobilePayload {
+  descripcion:               string
+  categoria?:                string
+  nivel_prioridad:           string
+  observaciones_solicitante?: string
+}
+
 export interface KpisMes {
   total:            number
   cerradas:         number
@@ -112,10 +144,34 @@ export interface KpisOut {
 }
 
 export interface AccesoMovilOut {
-  url_qr:           string
-  url_jwt:          string
-  whatsapp_numero:  string | null
-  mensaje_whatsapp: string
+  url_portal:          string | null
+  url_qr:              string
+  url_jwt?:            string | null
+  whatsapp_numero:     string | null
+  mensaje_whatsapp:    string
+  expira?:             boolean
+}
+
+export interface PortalSession {
+  user_id:           number
+  full_name:         string
+  email:             string
+  role:              string
+  app_permissions:   string[]
+  url_portal:        string
+  can_manage:        boolean
+  can_operate:       boolean
+  can_approve:       boolean
+  can_see_tablero:   boolean
+  is_auxiliar:       boolean
+}
+
+export interface AuxiliarPortalOut {
+  user_id:      number
+  full_name:    string
+  email:        string
+  url_portal:   string
+  portal_token: string
 }
 
 export interface MntNotificacionesConfig {

@@ -5,11 +5,11 @@ const ESTADO_CONFIG: Record<
   { label: string; className: string }
 > = {
   solicitud:  { label: "Solicitud",    className: "bg-blue-100 text-blue-700" },
-  evaluacion: { label: "Evaluación",   className: "bg-yellow-100 text-yellow-700" },
+  evaluacion: { label: "Programado",   className: "bg-indigo-100 text-indigo-700" },
   programado: { label: "Programado",   className: "bg-indigo-100 text-indigo-700" },
   ejecucion:  { label: "En Ejecución", className: "bg-orange-100 text-orange-700" },
   completado: { label: "Completado",   className: "bg-green-100 text-green-700" },
-  cerrado:    { label: "Cerrado",      className: "bg-muted text-muted-foreground" },
+  cerrado:    { label: "Completado",   className: "bg-green-100 text-green-700" },
   cancelado:  { label: "Cancelado",    className: "bg-red-100 text-red-700" },
 }
 
