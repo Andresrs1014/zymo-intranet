@@ -85,7 +85,7 @@ export default function MantenimientoMobilePage({ mode }: Props) {
   useEffect(() => {
     if (!selectedId || vista !== "detalle") return
     cargarDetalle(selectedId)
-      .then(setDetalle)
+      .then((d) => setDetalle(d ?? null))
       .catch((e: Error) => setError(e.message))
   }, [selectedId, vista, cargarDetalle])
 

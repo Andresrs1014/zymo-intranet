@@ -65,8 +65,6 @@ export default function MantenimientoPage() {
   const navigate = useNavigate()
   const portal = useMantenimientoPortal()
   const user = useAuthStore((s) => s.user)
-  const role = portal?.session.role ?? user?.role ?? ""
-  const appPerms = portal?.session.app_permissions ?? user?.app_permissions
   const puedeGestionar = portal
     ? portal.session.can_manage
     : user
