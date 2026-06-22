@@ -119,6 +119,7 @@ class AsignarBody(BaseModel):
 class ActualizarProgramadoBody(BaseModel):
     fecha_programada: Optional[str] = None
     notas_evaluacion: Optional[str] = None
+    monto_estimado: Optional[float] = None
 
 
 class SubirEvidenciaBody(BaseModel):
@@ -476,6 +477,8 @@ def actualizar_programacion(
         sol.fecha_programada = datetime.fromisoformat(body.fecha_programada) if body.fecha_programada else None
     if body.notas_evaluacion is not None:
         sol.notas_evaluacion = body.notas_evaluacion
+    if body.monto_estimado is not None:
+        sol.monto_estimado = body.monto_estimado
     sol.updated_at = datetime.now(timezone.utc)
     oc_db.add(sol)
     oc_db.commit()

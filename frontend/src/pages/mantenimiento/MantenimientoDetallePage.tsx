@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { ArrowLeft, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -17,10 +17,14 @@ import {
   useSubirEvidencia,
   useMagicLink,
   useAprobaciones,
+  useAsignarMantenimiento,
+  useProgramarMantenimiento,
+  useRegistrarAprobacion,
+  useAuxiliaresMantenimiento,
 } from "@/hooks/useMantenimiento"
 import { useAuthStore } from "@/store/authStore"
-import { canManageMantenimiento } from "@/lib/permissions"
-import type { EstadoMantenimiento } from "@/types/mantenimiento"
+import { canManageMantenimiento, canSeeAllMantenimientos } from "@/lib/permissions"
+import type { AprobacionPayload, EstadoMantenimiento } from "@/types/mantenimiento"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 
@@ -51,18 +55,42 @@ export default function MantenimientoDetallePage() {
   const [activeTab, setActiveTab]   = useState<Tab>("Info")
   const [showCrearOC, setShowCrearOC] = useState(false)
   const [linkMsg, setLinkMsg]       = useState<string | null>(null)
+  const [gestionMsg, setGestionMsg] = useState<string | null>(null)
+  const [monto, setMonto]           = useState("")
+  const [fechaProg, setFechaProg]   = useState("")
+  const [notas, setNotas]           = useState("")
+  const [asignadoId, setAsignadoId] = useState("")
 
   const { data: sol, isLoading } = useSolicitudMantenimiento(solicitudId)
+  const { data: auxiliares = [] } = useAuxiliaresMantenimiento()
   const { data: historial = [] } = useHistorialMantenimiento(activeTab === "Timeline" ? solicitudId : null)
   const { data: ocs = [] }       = useOCsVinculadas(activeTab === "Compras" ? solicitudId : null)
+  const necesitaAprobaciones = (sol?.monto_estimado ?? 0) > 2_000_000 || sol?.requiere_aprobacion
   const { data: aprobaciones = [] } = useAprobaciones(
-    sol?.requiere_aprobacion ? solicitudId : null
+    necesitaAprobaciones ? solicitudId : null
   )
   const { mutateAsync: cambiarEstado, isPending: cambiandoEstado } = useCambiarEstadoMantenimiento()
   const { mutateAsync: subirEvidencia, isPending: subiendoEvidencia } = useSubirEvidencia()
   const { mutateAsync: generarMagicLink, isPending: generandoLink } = useMagicLink()
+  const { mutateAsync: asignar, isPending: asignando } = useAsignarMantenimiento()
+  const { mutateAsync: programar, isPending: programando } = useProgramarMantenimiento()
+  const { mutateAsync: registrarAprobacion, isPending: aprobando } = useRegistrarAprobacion()
 
   const puedeGestionar = canManageMantenimiento(user?.role ?? "", user?.app_permissions)
+  const puedeAprobar   = user ? canSeeAllMantenimientos(user.role) : false
+  const guardandoGestion = asignando || programando
+
+  useEffect(() => {
+    if (!sol) return
+    setMonto(sol.monto_estimado != null ? String(sol.monto_estimado) : "")
+    setFechaProg(
+      sol.fecha_programada
+        ? format(new Date(sol.fecha_programada), "yyyy-MM-dd'T'HH:mm")
+        : ""
+    )
+    setNotas(sol.notas_evaluacion ?? "")
+    setAsignadoId(sol.asignado_id != null ? String(sol.asignado_id) : "")
+  }, [sol])
 
   if (isLoading) {
     return (
@@ -118,8 +146,38 @@ export default function MantenimientoDetallePage() {
     setTimeout(() => setLinkMsg(null), 4000)
   }
 
+  async function handleGuardarGestion() {
+    if (!solicitudId) return
+    setGestionMsg(null)
+    const montoNum = monto.trim() ? Number(monto.replace(/\./g, "").replace(",", ".")) : null
+    await programar({
+      id: solicitudId,
+      fecha_programada: fechaProg || null,
+      notas_evaluacion: notas.trim() || null,
+      monto_estimado: montoNum,
+    })
+    await asignar({
+      id: solicitudId,
+      asignado_id: asignadoId ? Number(asignadoId) : null,
+    })
+    setGestionMsg("Datos guardados")
+    setTimeout(() => setGestionMsg(null), 3000)
+  }
+
+  async function handleAprobar(rol: AprobacionPayload["rol_aprobador"]) {
+    if (!solicitudId) return
+    await registrarAprobacion({ id: solicitudId, payload: { rol_aprobador: rol } })
+  }
+
   const faltaEvidencia = sol.estado === "ejecucion" && !sol.evidencia_url
   const puedeCompletar = !faltaEvidencia
+  const bloqueadoPorAprobaciones =
+    sol.estado === "evaluacion" &&
+    (sol.monto_estimado ?? 0) > 2_000_000 &&
+    sol.aprobaciones_count < 3
+  const showGestion =
+    puedeGestionar &&
+    ["solicitud", "evaluacion", "programado"].includes(sol.estado)
 
   // Pasos del progress bar
   const PASOS: EstadoMantenimiento[] = [
@@ -204,6 +262,21 @@ export default function MantenimientoDetallePage() {
                   <Field
                     label="Programado para"
                     value={format(new Date(sol.fecha_programada), "dd/MM/yyyy HH:mm", { locale: es })}
+                  />
+                )}
+                {sol.prioridad && (
+                  <Field label="Prioridad" value={sol.prioridad} />
+                )}
+                {sol.monto_estimado != null && (
+                  <Field
+                    label="Monto estimado"
+                    value={`$${sol.monto_estimado.toLocaleString("es-CO")}`}
+                  />
+                )}
+                {sol.monto_real != null && (
+                  <Field
+                    label="Monto real"
+                    value={`$${sol.monto_real.toLocaleString("es-CO")}`}
                   />
                 )}
               </div>
@@ -334,8 +407,86 @@ export default function MantenimientoDetallePage() {
             </div>
           )}
 
-          {/* Notas de evaluación */}
-          {sol.notas_evaluacion && (
+          {/* Evaluación y programación */}
+          {showGestion && (
+            <div className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-4 space-y-4">
+              <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide">
+                Evaluación y programación
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1">
+                    Monto estimado (COP)
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={monto}
+                    onChange={(e) => setMonto(e.target.value)}
+                    placeholder="0"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-amber-500/50 transition-shadow"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1">
+                    Fecha programada
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={fechaProg}
+                    onChange={(e) => setFechaProg(e.target.value)}
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500/50 transition-shadow"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs text-muted-foreground mb-1">
+                    Asignar auxiliar
+                  </label>
+                  <select
+                    value={asignadoId}
+                    onChange={(e) => setAsignadoId(e.target.value)}
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500/50"
+                  >
+                    <option value="">Sin asignar</option>
+                    {auxiliares.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.full_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs text-muted-foreground mb-1">
+                    Notas de evaluación
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={notas}
+                    onChange={(e) => setNotas(e.target.value)}
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-amber-500/50"
+                    placeholder="Observaciones técnicas, materiales necesarios..."
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-3 flex-wrap">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => void handleGuardarGestion()}
+                  disabled={guardandoGestion}
+                  className="bg-amber-500 hover:bg-amber-600 text-white"
+                >
+                  {guardandoGestion ? "Guardando…" : "Guardar evaluación"}
+                </Button>
+                {gestionMsg && (
+                  <span className="text-xs text-emerald-600">{gestionMsg}</span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Notas de evaluación (solo lectura si ya guardadas) */}
+          {sol.notas_evaluacion && !showGestion && (
             <div className="mb-6 bg-muted rounded-lg px-4 py-3">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
                 Notas de evaluación
@@ -344,12 +495,12 @@ export default function MantenimientoDetallePage() {
             </div>
           )}
 
-          {sol.requiere_aprobacion && (
+          {(necesitaAprobaciones || (sol.monto_estimado ?? 0) > 2_000_000) && (
             <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
               <p className="text-xs font-medium text-amber-800 uppercase tracking-wide mb-2">
                 Aprobaciones requeridas ({sol.aprobaciones_count}/3)
               </p>
-              <ul className="space-y-1 text-sm text-amber-900">
+              <ul className="space-y-1 text-sm text-amber-900 mb-3">
                 {ROLES_APROBACION.map(({ id, label }) => {
                   const ok = aprobaciones.some((a) => a.rol_aprobador === id)
                   return (
@@ -360,6 +511,30 @@ export default function MantenimientoDetallePage() {
                   )
                 })}
               </ul>
+              {puedeAprobar && (
+                <div className="flex flex-wrap gap-2">
+                  {ROLES_APROBACION.filter(
+                    ({ id }) => !aprobaciones.some((a) => a.rol_aprobador === id)
+                  ).map(({ id, label }) => (
+                    <Button
+                      key={id}
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={aprobando}
+                      className="text-xs border-amber-300 text-amber-900 hover:bg-amber-100"
+                      onClick={() => void handleAprobar(id)}
+                    >
+                      Aprobar — {label}
+                    </Button>
+                  ))}
+                </div>
+              )}
+              {bloqueadoPorAprobaciones && (
+                <p className="text-xs text-amber-800 mt-2">
+                  Se requieren 3 aprobaciones antes de marcar como programado.
+                </p>
+              )}
             </div>
           )}
 
@@ -413,10 +588,19 @@ export default function MantenimientoDetallePage() {
               {siguienteAccion && sol.estado !== "cancelado" && (
                 <Button
                   onClick={handleAvanzarEstado}
-                  disabled={cambiandoEstado || (siguienteAccion.estado === "completado" && !puedeCompletar)}
+                  disabled={
+                    cambiandoEstado ||
+                    (siguienteAccion.estado === "completado" && !puedeCompletar) ||
+                    (siguienteAccion.estado === "programado" && bloqueadoPorAprobaciones)
+                  }
                 >
                   {cambiandoEstado ? "Guardando…" : siguienteAccion.label}
                 </Button>
+              )}
+              {bloqueadoPorAprobaciones && (
+                <p className="text-xs text-amber-700 w-full">
+                  Completa las 3 aprobaciones para avanzar a programado.
+                </p>
               )}
               {faltaEvidencia && (
                 <p className="text-xs text-amber-700 w-full">

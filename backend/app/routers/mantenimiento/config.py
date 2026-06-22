@@ -5,7 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from app.core.deps import get_current_user, require_oc_config_access
+from app.core.deps import get_current_user, require_mantenimiento, require_oc_config_access
+from app.core.permissions import role_names_with_permission
+from app.database import get_db
 from app.models.mantenimiento import TipoMantenimientoConfig
 from app.models.user import User
 from app.oc_database import get_oc_db
@@ -30,6 +32,34 @@ class TipoMantenimientoUpdate(BaseModel):
     nombre: Optional[str] = None
     activo: Optional[bool] = None
     orden: Optional[int] = None
+
+
+class AuxiliarOut(BaseModel):
+    id: int
+    full_name: str
+    email: str
+
+
+@router.get("/auxiliares", response_model=list[AuxiliarOut])
+def listar_auxiliares(
+    app_db: Session = Depends(get_db),
+    _: User = Depends(require_mantenimiento),
+):
+    """Usuarios asignables: rol auxiliar_mantenimiento o permiso mod_mantenimiento."""
+    role_names = set(role_names_with_permission(app_db, "mod_mantenimiento"))
+    role_names.add("auxiliar_mantenimiento")
+    users = app_db.exec(
+        select(User)
+        .where(
+            User.is_active == True,  # noqa: E712
+            User.role.in_(list(role_names)),
+        )
+        .order_by(User.full_name)
+    ).all()
+    return [
+        AuxiliarOut(id=u.id, full_name=u.full_name or u.email, email=u.email)
+        for u in users
+    ]
 
 
 @router.get("/tipos", response_model=list[TipoMantenimientoOut])

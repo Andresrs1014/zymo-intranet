@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Combobox } from "@/components/ui/Combobox"
 import { useCrearMantenimiento, useTiposMantenimiento } from "@/hooks/useMantenimiento"
 import { useAuthStore } from "@/store/authStore"
-import type { ClasificacionMantenimiento, ModalidadMantenimiento } from "@/types/mantenimiento"
+import type { ClasificacionMantenimiento, ModalidadMantenimiento, PrioridadMantenimiento } from "@/types/mantenimiento"
 import { format } from "date-fns"
 
 export default function NuevaMantenimientoPage() {
@@ -19,6 +19,8 @@ export default function NuevaMantenimientoPage() {
   const [tipoMantenimiento, setTipoMantenimiento] = useState("")
   const [clasificacion, setClasificacion]         = useState<ClasificacionMantenimiento>("correctivo")
   const [modalidad, setModalidad]                 = useState<ModalidadMantenimiento>("interno")
+  const [prioridad, setPrioridad]                 = useState<PrioridadMantenimiento>("media")
+  const [montoEstimado, setMontoEstimado]         = useState("")
   const [fechaProxima, setFechaProxima]           = useState("")
   const [error, setError]                         = useState<string | null>(null)
 
@@ -36,6 +38,9 @@ export default function NuevaMantenimientoPage() {
     }
 
     try {
+      const monto = montoEstimado.trim()
+        ? Number(montoEstimado.replace(/\./g, "").replace(",", "."))
+        : null
       const sol = await mutateAsync({
         titulo:                      titulo.trim(),
         descripcion:                 descripcion.trim(),
@@ -43,6 +48,8 @@ export default function NuevaMantenimientoPage() {
         clasificacion,
         modalidad,
         fecha_proxima_mantenimiento: clasificacion === "preventivo" ? fechaProxima : null,
+        prioridad,
+        monto_estimado:              monto,
       })
       navigate(`/mantenimiento/${sol.id}`)
     } catch (err: any) {
@@ -183,6 +190,37 @@ export default function NuevaMantenimientoPage() {
                   {m === "interno" ? "🏭 Interno" : "🌐 Externo"}
                 </button>
               ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">
+                Prioridad
+              </label>
+              <select
+                value={prioridad}
+                onChange={(e) => setPrioridad(e.target.value as PrioridadMantenimiento)}
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              >
+                <option value="baja">Baja</option>
+                <option value="media">Media</option>
+                <option value="alta">Alta</option>
+                <option value="urgente">Urgente</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">
+                Monto estimado (COP)
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={montoEstimado}
+                onChange={(e) => setMontoEstimado(e.target.value)}
+                placeholder="Opcional"
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-ring"
+              />
             </div>
           </div>
         </section>

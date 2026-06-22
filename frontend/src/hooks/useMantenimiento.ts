@@ -158,6 +158,19 @@ export function useAsignarMantenimiento() {
   })
 }
 
+export function useAuxiliaresMantenimiento() {
+  return useQuery({
+    queryKey: ["mantenimiento", "auxiliares"],
+    queryFn: async () => {
+      const { data } = await api.get<{ id: number; full_name: string; email: string }[]>(
+        `${BASE}/config/auxiliares`
+      )
+      return data
+    },
+    staleTime: 5 * 60_000,
+  })
+}
+
 export function useProgramarMantenimiento() {
   const qc = useQueryClient()
   return useMutation({
@@ -165,14 +178,16 @@ export function useProgramarMantenimiento() {
       id,
       fecha_programada,
       notas_evaluacion,
+      monto_estimado,
     }: {
       id: number
       fecha_programada?: string | null
       notas_evaluacion?: string | null
+      monto_estimado?: number | null
     }) => {
       const { data } = await api.patch<SolicitudMantenimiento>(
         `${BASE}/solicitudes/${id}/programar`,
-        { fecha_programada, notas_evaluacion }
+        { fecha_programada, notas_evaluacion, monto_estimado }
       )
       return data
     },
