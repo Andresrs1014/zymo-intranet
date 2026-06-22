@@ -542,7 +542,7 @@ class InstructivoItem(BaseModel):
     id: int
     codigo: str
     titulo: str
-    contenido: str = Field(..., max_length=20_000)
+    contenido: str  # truncado a 3000 chars en el prompt builder, no aquí
 
 
 class ProcVsInstRequest(BaseModel):

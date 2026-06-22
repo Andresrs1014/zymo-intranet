@@ -77,6 +77,7 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
   const [form, setForm] = useState<FormState>(FORM_DEFAULT)
   const [deleting, setDeleting] = useState<number | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
+  const [reextractError, setReextractError] = useState<string | null>(null)
 
   const { data: instructivos = [], isLoading } = useQuery<SigInstructivo[]>({
     queryKey: ["sig", "instructivos", procedimientoId],
@@ -163,7 +164,15 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
 
   const reextractMutation = useMutation({
     mutationFn: (id: number) => sigApi.post(`/api/instructivos/${id}/reextract`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["sig", "instructivos", procedimientoId] }),
+    onSuccess: () => {
+      setReextractError(null)
+      qc.invalidateQueries({ queryKey: ["sig", "instructivos", procedimientoId] })
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+        ?? "No se pudo re-extraer el texto."
+      setReextractError(msg)
+    },
   })
 
   async function handleDelete(id: number) {
@@ -237,6 +246,17 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
           <span className="text-[10px] text-zinc-400 font-mono tabular-nums">
             {instructivos.length} / {MAX_INSTRUCTIVOS}
           </span>
+        </div>
+      )}
+
+      {/* Re-extract error */}
+      {reextractError && (
+        <div className="mb-4 flex items-start gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-200">
+          <AlertCircle className="h-3.5 w-3.5 text-red-500 shrink-0 mt-0.5" />
+          <p className="text-[11px] text-red-600 flex-1">{reextractError}</p>
+          <button onClick={() => setReextractError(null)} className="text-red-400 hover:text-red-600">
+            <X className="h-3 w-3" />
+          </button>
         </div>
       )}
 
@@ -406,10 +426,11 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
                 <button
                   onClick={(e) => { e.stopPropagation(); reextractMutation.mutate(inst.id) }}
                   disabled={reextractMutation.isPending}
-                  title="Re-extraer texto"
-                  className="opacity-0 group-hover:opacity-100 shrink-0 p-1.5 rounded hover:bg-zinc-100 text-zinc-400 hover:text-zinc-700 transition-all"
+                  title="Re-extraer texto del archivo"
+                  className="shrink-0 flex items-center gap-1 px-2 py-1 rounded border border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100 text-[10px] font-mono transition-colors"
                 >
-                  <RefreshCw className={cn("h-3.5 w-3.5", reextractMutation.isPending && "animate-spin")} />
+                  <RefreshCw className={cn("h-3 w-3", reextractMutation.isPending && "animate-spin")} />
+                  Re-extraer
                 </button>
               )}
 
