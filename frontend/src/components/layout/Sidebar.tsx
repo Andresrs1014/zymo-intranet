@@ -6,6 +6,7 @@ import {
   Database,
   Truck,
   Building2,
+  Wrench,
   BarChart3,
   LineChart,
   Cpu,
@@ -15,6 +16,7 @@ import {
 } from "lucide-react"
 import { useAuthStore } from "@/store/authStore"
 import {
+  canSeeMantenimiento,
   canSeeOC,
   canSeeSGC,
   canSeeOperativo,
@@ -49,6 +51,9 @@ export function Sidebar() {
   const location = useLocation()
 
   const showAdministrativo = user ? canSeeOC(user.role, user.area, perms) : false
+  const showMantenimiento  = user
+    ? canSeeMantenimiento(user.role, perms) && !showAdministrativo
+    : false
   const showSGC            = user ? canSeeSGC(user.role, user.area, perms) : false
   const showOperativo      = user ? canSeeOperativo(user.role, user.area, perms) : false
   const showFinanciero     = user ? canSeeFinanciero(user.role, user.area, perms) : false
@@ -114,7 +119,7 @@ export function Sidebar() {
 
         {/* ── Section: Módulos ────────────────────────────────────────── */}
         {(showIT || showSGC || showSIG || showOperativo || showAdministrativo ||
-          showFinanciero || showGerencial || showExtraccionIA || showTyC) && (
+          showMantenimiento || showFinanciero || showGerencial || showExtraccionIA || showTyC) && (
           <SidebarGroup>
             <SidebarGroupLabel>Módulos disponibles</SidebarGroupLabel>
             <SidebarGroupContent>
@@ -164,6 +169,14 @@ export function Sidebar() {
                     label="Administrativo"
                     icon={<Building2 className="w-4 h-4" />}
                     active={isActive(["/administrativo", "/oc", "/mantenimiento"])}
+                  />
+                )}
+                {showMantenimiento && (
+                  <NavItem
+                    to="/mantenimiento"
+                    label="Mantenimiento"
+                    icon={<Wrench className="w-4 h-4" />}
+                    active={isActive(["/mantenimiento"])}
                   />
                 )}
                 {showFinanciero && (

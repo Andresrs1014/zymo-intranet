@@ -3,6 +3,7 @@ import { useEffect } from "react"
 import { useAuthStore } from "@/store/authStore"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
 import {
+  canAccessMantenimiento,
   canSeeOC,
   canSeeSGC,
   canSeeOperativo,
@@ -169,7 +170,9 @@ function HelixRoute({ children }: { children: React.ReactNode }) {
 function MantenimientoRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user)
   if (!user) return <Navigate to="/login" replace />
-  if (!canSeeOC(user.role, user.area, user.app_permissions)) return <Navigate to="/dashboard" replace />
+  if (!canAccessMantenimiento(user.role, user.area, user.app_permissions)) {
+    return <Navigate to="/dashboard" replace />
+  }
   return <>{children}</>
 }
 

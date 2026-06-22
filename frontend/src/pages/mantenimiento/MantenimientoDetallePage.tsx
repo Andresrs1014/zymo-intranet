@@ -14,6 +14,9 @@ import {
   useHistorialMantenimiento,
   useOCsVinculadas,
   useCambiarEstadoMantenimiento,
+  useSubirEvidencia,
+  useMagicLink,
+  useAprobaciones,
 } from "@/hooks/useMantenimiento"
 import { useAuthStore } from "@/store/authStore"
 import { canManageMantenimiento } from "@/lib/permissions"
@@ -33,6 +36,12 @@ const SIGUIENTE_ESTADO: Record<string, { label: string; estado: EstadoMantenimie
 const TABS = ["Info", "Timeline", "Compras"] as const
 type Tab = (typeof TABS)[number]
 
+const ROLES_APROBACION = [
+  { id: "dir_administrativa", label: "Dir. Administrativa" },
+  { id: "gerencia_operaciones", label: "Gerencia Operaciones" },
+  { id: "gerencia_general", label: "Gerencia General" },
+] as const
+
 export default function MantenimientoDetallePage() {
   const { id } = useParams<{ id: string }>()
   const solicitudId = id ? parseInt(id) : null
@@ -41,11 +50,17 @@ export default function MantenimientoDetallePage() {
 
   const [activeTab, setActiveTab]   = useState<Tab>("Info")
   const [showCrearOC, setShowCrearOC] = useState(false)
+  const [linkMsg, setLinkMsg]       = useState<string | null>(null)
 
   const { data: sol, isLoading } = useSolicitudMantenimiento(solicitudId)
   const { data: historial = [] } = useHistorialMantenimiento(activeTab === "Timeline" ? solicitudId : null)
   const { data: ocs = [] }       = useOCsVinculadas(activeTab === "Compras" ? solicitudId : null)
+  const { data: aprobaciones = [] } = useAprobaciones(
+    sol?.requiere_aprobacion ? solicitudId : null
+  )
   const { mutateAsync: cambiarEstado, isPending: cambiandoEstado } = useCambiarEstadoMantenimiento()
+  const { mutateAsync: subirEvidencia, isPending: subiendoEvidencia } = useSubirEvidencia()
+  const { mutateAsync: generarMagicLink, isPending: generandoLink } = useMagicLink()
 
   const puedeGestionar = canManageMantenimiento(user?.role ?? "", user?.app_permissions)
 
@@ -83,6 +98,28 @@ export default function MantenimientoDetallePage() {
       payload: { estado_nuevo: "cancelado", nota: "Cancelado manualmente." },
     })
   }
+
+  async function handleSubirEvidencia(file: File) {
+    if (!solicitudId) return
+    const evidencia_url = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = () => reject(new Error("No se pudo leer la imagen"))
+      reader.readAsDataURL(file)
+    })
+    await subirEvidencia({ id: solicitudId, payload: { evidencia_url } })
+  }
+
+  async function handleMagicLink() {
+    if (!solicitudId) return
+    const { url } = await generarMagicLink(solicitudId)
+    await navigator.clipboard.writeText(url)
+    setLinkMsg("Enlace copiado — válido 24 h")
+    setTimeout(() => setLinkMsg(null), 4000)
+  }
+
+  const faltaEvidencia = sol.estado === "ejecucion" && !sol.evidencia_url
+  const puedeCompletar = !faltaEvidencia
 
   // Pasos del progress bar
   const PASOS: EstadoMantenimiento[] = [
@@ -307,13 +344,84 @@ export default function MantenimientoDetallePage() {
             </div>
           )}
 
+          {sol.requiere_aprobacion && (
+            <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <p className="text-xs font-medium text-amber-800 uppercase tracking-wide mb-2">
+                Aprobaciones requeridas ({sol.aprobaciones_count}/3)
+              </p>
+              <ul className="space-y-1 text-sm text-amber-900">
+                {ROLES_APROBACION.map(({ id, label }) => {
+                  const ok = aprobaciones.some((a) => a.rol_aprobador === id)
+                  return (
+                    <li key={id} className="flex items-center gap-2">
+                      <span>{ok ? "✓" : "○"}</span>
+                      <span>{label}</span>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          )}
+
+          {sol.evidencia_url && (
+            <div className="mb-6">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                Evidencia
+              </p>
+              <img
+                src={sol.evidencia_url}
+                alt="Evidencia del trabajo"
+                className="max-h-48 rounded-lg border border-border object-cover"
+              />
+            </div>
+          )}
+
+          {puedeGestionar && !sol.evidencia_url && sol.estado === "ejecucion" && (
+            <div className="mb-6">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                Subir evidencia
+              </p>
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                disabled={subiendoEvidencia}
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) void handleSubirEvidencia(file)
+                }}
+                className="text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-amber-500 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white"
+              />
+            </div>
+          )}
+
           {/* Acciones */}
           {puedeGestionar && (
-            <div className="flex gap-3 flex-wrap">
+            <div className="flex gap-3 flex-wrap items-center">
+              {["programado", "ejecucion"].includes(sol.estado) && (
+                <Button
+                  variant="outline"
+                  onClick={() => void handleMagicLink()}
+                  disabled={generandoLink}
+                >
+                  {generandoLink ? "Generando…" : "Copiar enlace móvil"}
+                </Button>
+              )}
+              {linkMsg && (
+                <span className="text-xs text-emerald-600">{linkMsg}</span>
+              )}
               {siguienteAccion && sol.estado !== "cancelado" && (
-                <Button onClick={handleAvanzarEstado} disabled={cambiandoEstado}>
+                <Button
+                  onClick={handleAvanzarEstado}
+                  disabled={cambiandoEstado || (siguienteAccion.estado === "completado" && !puedeCompletar)}
+                >
                   {cambiandoEstado ? "Guardando…" : siguienteAccion.label}
                 </Button>
+              )}
+              {faltaEvidencia && (
+                <p className="text-xs text-amber-700 w-full">
+                  Sube una foto de evidencia antes de marcar como completado.
+                </p>
               )}
               {["solicitud", "evaluacion", "programado"].includes(sol.estado) && (
                 <Button

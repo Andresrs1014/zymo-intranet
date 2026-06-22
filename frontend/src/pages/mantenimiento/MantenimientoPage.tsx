@@ -2,6 +2,8 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { useSolicitudesMantenimiento } from "@/hooks/useMantenimiento"
+import { useAuthStore } from "@/store/authStore"
+import { canManageMantenimiento, canSeeAllMantenimientos } from "@/lib/permissions"
 import type { MantenimientoFilters, SolicitudMantenimiento, EstadoMantenimiento } from "@/types/mantenimiento"
 import { formatDistanceToNow } from "date-fns"
 import { es } from "date-fns/locale"
@@ -59,6 +61,9 @@ function ModalidadBadge({ value }: { value: string }) {
 
 export default function MantenimientoPage() {
   const navigate = useNavigate()
+  const user = useAuthStore((s) => s.user)
+  const puedeGestionar = user ? canManageMantenimiento(user.role, user.app_permissions) : false
+  const puedeVerTablero = user ? canSeeAllMantenimientos(user.role) || puedeGestionar : false
   const [page, setPage] = useState(1)
   const [filters, setFilters] = useState<MantenimientoFilters>({})
   const [search, setSearch] = useState("")
@@ -87,21 +92,39 @@ export default function MantenimientoPage() {
               {data?.total ?? 0} solicitudes en total
             </p>
           </div>
-          <button
-            onClick={() => navigate("/operativo/nueva-solicitud")}
-            className="flex items-center gap-2 rounded-lg bg-amber-500 hover:brightness-105 px-4 py-2 text-sm font-semibold text-white transition-all"
-          >
+          <div className="flex items-center gap-2 flex-wrap">
+            {puedeVerTablero && (
+              <button
+                onClick={() => navigate("/mantenimiento/tablero")}
+                className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+              >
+                Tablero KPIs
+              </button>
+            )}
+            <button
+              onClick={() => navigate(
+                puedeGestionar
+                  ? "/mantenimiento/nueva"
+                  : "/operativo/nueva-solicitud?tipo=mantenimiento"
+              )}
+              className="flex items-center gap-2 rounded-lg bg-amber-500 hover:brightness-105 px-4 py-2 text-sm font-semibold text-white transition-all"
+            >
             <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
               <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
             </svg>
             Nueva solicitud
           </button>
+          </div>
         </div>
 
         {/* Filtros */}
         <div className="flex gap-3 flex-wrap">
           <form
-            onSubmit={(e) => { e.preventDefault(); setPage(1) }}
+            onSubmit={(e) => {
+              e.preventDefault()
+              setFilters((f) => ({ ...f, q: search.trim() || undefined }))
+              setPage(1)
+            }}
             className="relative flex-1 min-w-[200px] max-w-xs"
           >
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -172,13 +195,7 @@ export default function MantenimientoPage() {
                   </td>
                 </tr>
               )}
-              {(data?.items ?? [])
-                .filter((sol: SolicitudMantenimiento) =>
-                  !search ||
-                  sol.titulo.toLowerCase().includes(search.toLowerCase()) ||
-                  sol.consecutivo.toLowerCase().includes(search.toLowerCase())
-                )
-                .map((sol: SolicitudMantenimiento) => (
+              {(data?.items ?? []).map((sol: SolicitudMantenimiento) => (
                   <tr
                     key={sol.id}
                     className="hover:bg-muted/50 transition-colors cursor-pointer"

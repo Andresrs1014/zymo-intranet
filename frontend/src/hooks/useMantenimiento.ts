@@ -246,8 +246,10 @@ export function useSubirEvidencia() {
       )
       return data
     },
-    onSuccess: (_data, vars) =>
-      qc.invalidateQueries({ queryKey: ["mantenimiento", "detalle", vars.id] }),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["mantenimiento", "solicitud", vars.id] })
+      qc.invalidateQueries({ queryKey: ["mantenimiento", "solicitudes"] })
+    },
   })
 }
 
@@ -261,7 +263,7 @@ export function useCrearRetroactivo() {
       )
       return data
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["mantenimiento", "lista"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["mantenimiento", "solicitudes"] }),
   })
 }
 
@@ -290,7 +292,7 @@ export function useRegistrarAprobacion() {
     },
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ["mantenimiento", "aprobaciones", vars.id] })
-      qc.invalidateQueries({ queryKey: ["mantenimiento", "detalle", vars.id] })
+      qc.invalidateQueries({ queryKey: ["mantenimiento", "solicitud", vars.id] })
     },
   })
 }

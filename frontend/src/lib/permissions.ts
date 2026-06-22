@@ -146,6 +146,15 @@ export function canSeeMantenimiento(
   return hasPerm(appPerms, "mod_mantenimiento")
 }
 
+/** Rutas /mantenimiento/* — equipo de mantenimiento o hub administrativo (OC). */
+export function canAccessMantenimiento(
+  role: string,
+  area?: string | null,
+  appPerms?: string[],
+): boolean {
+  return canSeeMantenimiento(role, appPerms) || canSeeOC(role, area, appPerms)
+}
+
 export function canManageMantenimiento(
   role: string,
   appPerms?: string[]
