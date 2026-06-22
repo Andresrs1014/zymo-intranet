@@ -70,6 +70,7 @@ class SolicitudMantenimiento(SQLModel, table=True):
     monto_real:     Optional[Decimal] = Field(default=None)
     evidencia_url:  Optional[str] = Field(default=None, max_length=500)
     activo_qr_id:   Optional[int] = Field(default=None)
+    mobile_access_token: Optional[str] = Field(default=None, max_length=64, unique=True)
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -125,3 +126,11 @@ class MntActivoQR(SQLModel, table=True):
     qr_token:    str = Field(max_length=64, unique=True)
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class MntConfig(SQLModel, table=True):
+    """Config key-value del módulo mantenimiento (SQLite oc.db)."""
+    __tablename__ = "mnt_config"
+
+    key:   str = Field(primary_key=True, max_length=64)
+    value: str = Field(default="")

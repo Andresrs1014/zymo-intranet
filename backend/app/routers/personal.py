@@ -17,9 +17,12 @@ from app.models.area import Area as GlobalArea
 from app.models.user import User
 from app.personal_database import (
     PtcArea,
+    PtcCapacitacion,
     PtcCargo,
     PtcEmpresa,
+    PtcEvaluacion,
     PtcPersona,
+    PtcSancion,
     get_personal_db,
 )
 
@@ -27,6 +30,7 @@ router = APIRouter(prefix="/tc", tags=["T&C Personal"])
 
 require_tc = require_permission("mod_tc")
 require_tc_editar = require_permission("mod_tc_editar")
+require_tc_sensible = require_permission("mod_tc_sensible")
 require_tc_importar = require_permission("mod_tc_importar")
 
 
@@ -556,3 +560,212 @@ def obtener_organigrama(
         ],
         "sin_area": por_area.get(None, []),
     }
+
+
+# ── Capacitaciones ────────────────────────────────────────────────────────────
+
+class CapacitacionCreate(BaseModel):
+    titulo: str
+    fecha: Optional[str] = None
+    horas: Optional[float] = None
+    estado: str = "Completado"
+    diploma_url: str = ""
+    observaciones: str = ""
+
+
+@router.get("/personas/{persona_id}/capacitaciones")
+def listar_capacitaciones(
+    persona_id: int,
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_tc),
+):
+    if not db.get(PtcPersona, persona_id):
+        raise HTTPException(status_code=404, detail="Persona no encontrada")
+    rows = db.exec(
+        select(PtcCapacitacion)
+        .where(PtcCapacitacion.persona_id == persona_id)
+        .order_by(col(PtcCapacitacion.fecha).desc())
+    ).all()
+    return [
+        {
+            "id": r.id, "titulo": r.titulo, "fecha": r.fecha.isoformat() if r.fecha else None,
+            "horas": r.horas, "estado": r.estado, "diploma_url": r.diploma_url,
+            "observaciones": r.observaciones,
+        }
+        for r in rows
+    ]
+
+
+@router.post("/personas/{persona_id}/capacitaciones", status_code=201)
+def crear_capacitacion(
+    persona_id: int,
+    body: CapacitacionCreate,
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_tc_editar),
+):
+    if not db.get(PtcPersona, persona_id):
+        raise HTTPException(status_code=404, detail="Persona no encontrada")
+    cap = PtcCapacitacion(
+        persona_id=persona_id,
+        titulo=body.titulo.strip(),
+        fecha=_parse_date(body.fecha),
+        horas=body.horas,
+        estado=body.estado,
+        diploma_url=body.diploma_url.strip(),
+        observaciones=body.observaciones.strip(),
+    )
+    db.add(cap)
+    db.commit()
+    db.refresh(cap)
+    return {"id": cap.id, "titulo": cap.titulo, "fecha": cap.fecha.isoformat() if cap.fecha else None,
+            "horas": cap.horas, "estado": cap.estado, "diploma_url": cap.diploma_url,
+            "observaciones": cap.observaciones}
+
+
+@router.delete("/capacitaciones/{cap_id}", status_code=204)
+def eliminar_capacitacion(
+    cap_id: int,
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_tc_editar),
+):
+    cap = db.get(PtcCapacitacion, cap_id)
+    if not cap:
+        raise HTTPException(status_code=404, detail="Capacitación no encontrada")
+    db.delete(cap)
+    db.commit()
+
+
+# ── Evaluaciones (sensible) ───────────────────────────────────────────────────
+
+class EvaluacionCreate(BaseModel):
+    titulo: str
+    puntaje: Optional[float] = None
+    cumple_meta: bool = False
+    fecha: Optional[str] = None
+    observaciones: str = ""
+
+
+@router.get("/personas/{persona_id}/evaluaciones")
+def listar_evaluaciones(
+    persona_id: int,
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_tc_sensible),
+):
+    if not db.get(PtcPersona, persona_id):
+        raise HTTPException(status_code=404, detail="Persona no encontrada")
+    rows = db.exec(
+        select(PtcEvaluacion)
+        .where(PtcEvaluacion.persona_id == persona_id)
+        .order_by(col(PtcEvaluacion.fecha).desc())
+    ).all()
+    return [
+        {
+            "id": r.id, "titulo": r.titulo, "puntaje": r.puntaje,
+            "cumple_meta": r.cumple_meta, "fecha": r.fecha.isoformat() if r.fecha else None,
+            "observaciones": r.observaciones,
+        }
+        for r in rows
+    ]
+
+
+@router.post("/personas/{persona_id}/evaluaciones", status_code=201)
+def crear_evaluacion(
+    persona_id: int,
+    body: EvaluacionCreate,
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_tc_sensible),
+):
+    if not db.get(PtcPersona, persona_id):
+        raise HTTPException(status_code=404, detail="Persona no encontrada")
+    ev = PtcEvaluacion(
+        persona_id=persona_id,
+        titulo=body.titulo.strip(),
+        puntaje=body.puntaje,
+        cumple_meta=body.cumple_meta,
+        fecha=_parse_date(body.fecha),
+        observaciones=body.observaciones.strip(),
+    )
+    db.add(ev)
+    db.commit()
+    db.refresh(ev)
+    return {"id": ev.id, "titulo": ev.titulo, "puntaje": ev.puntaje,
+            "cumple_meta": ev.cumple_meta, "fecha": ev.fecha.isoformat() if ev.fecha else None,
+            "observaciones": ev.observaciones}
+
+
+@router.delete("/evaluaciones/{ev_id}", status_code=204)
+def eliminar_evaluacion(
+    ev_id: int,
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_tc_sensible),
+):
+    ev = db.get(PtcEvaluacion, ev_id)
+    if not ev:
+        raise HTTPException(status_code=404, detail="Evaluación no encontrada")
+    db.delete(ev)
+    db.commit()
+
+
+# ── Sanciones (sensible) ──────────────────────────────────────────────────────
+
+class SancionCreate(BaseModel):
+    tipo: str = "Llamado de atención"
+    descripcion: str = ""
+    fecha: Optional[str] = None
+
+
+@router.get("/personas/{persona_id}/sanciones")
+def listar_sanciones(
+    persona_id: int,
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_tc_sensible),
+):
+    if not db.get(PtcPersona, persona_id):
+        raise HTTPException(status_code=404, detail="Persona no encontrada")
+    rows = db.exec(
+        select(PtcSancion)
+        .where(PtcSancion.persona_id == persona_id)
+        .order_by(col(PtcSancion.fecha).desc())
+    ).all()
+    return [
+        {
+            "id": r.id, "tipo": r.tipo, "descripcion": r.descripcion,
+            "fecha": r.fecha.isoformat() if r.fecha else None,
+        }
+        for r in rows
+    ]
+
+
+@router.post("/personas/{persona_id}/sanciones", status_code=201)
+def crear_sancion(
+    persona_id: int,
+    body: SancionCreate,
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_tc_sensible),
+):
+    if not db.get(PtcPersona, persona_id):
+        raise HTTPException(status_code=404, detail="Persona no encontrada")
+    san = PtcSancion(
+        persona_id=persona_id,
+        tipo=body.tipo.strip(),
+        descripcion=body.descripcion.strip(),
+        fecha=_parse_date(body.fecha),
+    )
+    db.add(san)
+    db.commit()
+    db.refresh(san)
+    return {"id": san.id, "tipo": san.tipo, "descripcion": san.descripcion,
+            "fecha": san.fecha.isoformat() if san.fecha else None}
+
+
+@router.delete("/sanciones/{san_id}", status_code=204)
+def eliminar_sancion(
+    san_id: int,
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_tc_sensible),
+):
+    san = db.get(PtcSancion, san_id)
+    if not san:
+        raise HTTPException(status_code=404, detail="Sanción no encontrada")
+    db.delete(san)
+    db.commit()

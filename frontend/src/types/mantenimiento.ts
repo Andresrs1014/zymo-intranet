@@ -111,6 +111,17 @@ export interface KpisOut {
   pendientes_aprobacion: number
 }
 
+export interface AccesoMovilOut {
+  url_qr:           string
+  url_jwt:          string
+  whatsapp_numero:  string | null
+  mensaje_whatsapp: string
+}
+
+export interface MntNotificacionesConfig {
+  whatsapp_numero_default: string
+}
+
 // Payloads
 export interface CrearMantenimientoPayload {
   titulo:                      string

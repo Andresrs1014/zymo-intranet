@@ -9,13 +9,13 @@ import {
   ModalidadBadge,
 } from "@/components/mantenimiento/EstadoMantenimientoBadge"
 import { CrearOCVinculadaModal } from "@/components/mantenimiento/CrearOCVinculadaModal"
+import { AccesoMovilPanel } from "@/components/mantenimiento/AccesoMovilPanel"
 import {
   useSolicitudMantenimiento,
   useHistorialMantenimiento,
   useOCsVinculadas,
   useCambiarEstadoMantenimiento,
   useSubirEvidencia,
-  useMagicLink,
   useAprobaciones,
   useAsignarMantenimiento,
   useProgramarMantenimiento,
@@ -54,7 +54,6 @@ export default function MantenimientoDetallePage() {
 
   const [activeTab, setActiveTab]   = useState<Tab>("Info")
   const [showCrearOC, setShowCrearOC] = useState(false)
-  const [linkMsg, setLinkMsg]       = useState<string | null>(null)
   const [gestionMsg, setGestionMsg] = useState<string | null>(null)
   const [monto, setMonto]           = useState("")
   const [fechaProg, setFechaProg]   = useState("")
@@ -71,7 +70,6 @@ export default function MantenimientoDetallePage() {
   )
   const { mutateAsync: cambiarEstado, isPending: cambiandoEstado } = useCambiarEstadoMantenimiento()
   const { mutateAsync: subirEvidencia, isPending: subiendoEvidencia } = useSubirEvidencia()
-  const { mutateAsync: generarMagicLink, isPending: generandoLink } = useMagicLink()
   const { mutateAsync: asignar, isPending: asignando } = useAsignarMantenimiento()
   const { mutateAsync: programar, isPending: programando } = useProgramarMantenimiento()
   const { mutateAsync: registrarAprobacion, isPending: aprobando } = useRegistrarAprobacion()
@@ -136,14 +134,6 @@ export default function MantenimientoDetallePage() {
       reader.readAsDataURL(file)
     })
     await subirEvidencia({ id: solicitudId, payload: { evidencia_url } })
-  }
-
-  async function handleMagicLink() {
-    if (!solicitudId) return
-    const { url } = await generarMagicLink(solicitudId)
-    await navigator.clipboard.writeText(url)
-    setLinkMsg("Enlace copiado — válido 24 h")
-    setTimeout(() => setLinkMsg(null), 4000)
   }
 
   async function handleGuardarGestion() {
@@ -485,6 +475,14 @@ export default function MantenimientoDetallePage() {
             </div>
           )}
 
+          {puedeGestionar && solicitudId && (
+            <AccesoMovilPanel
+              solicitudId={solicitudId}
+              consecutivo={sol.consecutivo}
+              estado={sol.estado as EstadoMantenimiento}
+            />
+          )}
+
           {/* Notas de evaluación (solo lectura si ya guardadas) */}
           {sol.notas_evaluacion && !showGestion && (
             <div className="mb-6 bg-muted rounded-lg px-4 py-3">
@@ -573,18 +571,6 @@ export default function MantenimientoDetallePage() {
           {/* Acciones */}
           {puedeGestionar && (
             <div className="flex gap-3 flex-wrap items-center">
-              {["programado", "ejecucion"].includes(sol.estado) && (
-                <Button
-                  variant="outline"
-                  onClick={() => void handleMagicLink()}
-                  disabled={generandoLink}
-                >
-                  {generandoLink ? "Generando…" : "Copiar enlace móvil"}
-                </Button>
-              )}
-              {linkMsg && (
-                <span className="text-xs text-emerald-600">{linkMsg}</span>
-              )}
               {siguienteAccion && sol.estado !== "cancelado" && (
                 <Button
                   onClick={handleAvanzarEstado}

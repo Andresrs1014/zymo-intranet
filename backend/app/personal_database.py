@@ -2,7 +2,8 @@
 Base de datos del módulo T&C (Talento y Cultura) — Personal.
 
 Dominio: registro de colaboradores de las 3 empresas del grupo ZYMO.
-Tablas: ptc_empresa, ptc_area, ptc_cargo, ptc_persona
+Tablas: ptc_empresa, ptc_area, ptc_cargo, ptc_persona,
+        ptc_capacitacion, ptc_evaluacion, ptc_sancion
 
 Sigue el mismo patrón que gerencial_database.py.
 """
@@ -108,13 +109,57 @@ class PtcPersona(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class PtcCapacitacion(SQLModel, table=True):
+    __tablename__ = "ptc_capacitacion"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    persona_id: int = Field(foreign_key="ptc_persona.id")
+    titulo: str = Field(max_length=200)
+    fecha: Optional[date] = None
+    horas: Optional[float] = None
+    estado: str = Field(max_length=30, default="Completado")  # Completado/Pendiente/Cancelado
+    diploma_url: str = Field(max_length=500, default="")
+    observaciones: str = Field(max_length=500, default="")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class PtcEvaluacion(SQLModel, table=True):
+    __tablename__ = "ptc_evaluacion"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    persona_id: int = Field(foreign_key="ptc_persona.id")
+    titulo: str = Field(max_length=200)
+    puntaje: Optional[float] = None  # 0–5
+    cumple_meta: bool = False
+    fecha: Optional[date] = None
+    observaciones: str = Field(max_length=500, default="")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class PtcSancion(SQLModel, table=True):
+    __tablename__ = "ptc_sancion"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    persona_id: int = Field(foreign_key="ptc_persona.id")
+    tipo: str = Field(max_length=80, default="Llamado de atención")
+    descripcion: str = Field(max_length=1000, default="")
+    fecha: Optional[date] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 # ── Creación de tablas ─────────────────────────────────────────────────────────
 
-_PERSONAL_TABLES = {"ptc_empresa", "ptc_area", "ptc_cargo", "ptc_persona"}
+_PERSONAL_TABLES = {
+    "ptc_empresa", "ptc_area", "ptc_cargo", "ptc_persona",
+    "ptc_capacitacion", "ptc_evaluacion", "ptc_sancion",
+}
 
 
 def create_personal_tables() -> None:
-    from app.personal_database import PtcEmpresa, PtcArea, PtcCargo, PtcPersona  # noqa: F401
+    from app.personal_database import (  # noqa: F401
+        PtcEmpresa, PtcArea, PtcCargo, PtcPersona,
+        PtcCapacitacion, PtcEvaluacion, PtcSancion,
+    )
     tables = [
         SQLModel.metadata.tables[t]
         for t in _PERSONAL_TABLES

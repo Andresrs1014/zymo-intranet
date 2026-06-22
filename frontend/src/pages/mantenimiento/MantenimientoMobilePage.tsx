@@ -6,8 +6,13 @@ const API = "/api/mantenimiento"
 
 type Accion = "en_camino" | "completado" | "necesita_repuesto"
 
-export default function MantenimientoMobilePage() {
-  const { token } = useParams<{ token: string }>()
+interface Props {
+  mode: "jwt" | "stable"
+}
+
+export default function MantenimientoMobilePage({ mode }: Props) {
+  const { token, accessToken } = useParams<{ token?: string; accessToken?: string }>()
+  const mobileToken = mode === "stable" ? accessToken : token
   const [sol, setSol]       = useState<MobileOut | null>(null)
   const [error, setError]   = useState<string | null>(null)
   const [accion, setAccion] = useState<Accion | null>(null)
@@ -15,21 +20,21 @@ export default function MantenimientoMobilePage() {
   const [busy, setBusy]     = useState(false)
 
   useEffect(() => {
-    if (!token) return
-    fetch(`${API}/m/${token}`)
+    if (!mobileToken) return
+    fetch(`${API}/m/${mobileToken}`)
       .then(r => {
         if (!r.ok) throw new Error("Enlace inválido o expirado")
         return r.json()
       })
       .then(setSol)
       .catch((e: Error) => setError(e.message))
-  }, [token])
+  }, [mobileToken])
 
   async function ejecutar(acc: Accion, extra?: { evidencia_url?: string; monto_real?: number }) {
-    if (!token) return
+    if (!mobileToken) return
     setBusy(true)
     try {
-      const res = await fetch(`${API}/m/${token}/accion`, {
+      const res = await fetch(`${API}/m/${mobileToken}/accion`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ accion: acc, ...extra }),
@@ -68,7 +73,7 @@ export default function MantenimientoMobilePage() {
         <div style={{ textAlign: "center", padding: 32 }}>
           <p style={{ color: "#ef4444", fontSize: 18, marginBottom: 8 }}>⚠ {error}</p>
           <p style={{ color: "#64748b", fontSize: 14 }}>
-            El enlace puede haber expirado. Solicita uno nuevo al equipo administrativo.
+            El enlace puede haber expirado o la solicitud está cerrada. Solicita uno nuevo al equipo administrativo.
           </p>
         </div>
       </div>
@@ -104,7 +109,6 @@ export default function MantenimientoMobilePage() {
 
   return (
     <div style={styles.container}>
-      {/* Cabecera */}
       <div style={styles.card}>
         <p style={{ color: "#64748b", fontSize: 12, margin: 0, fontFamily: "'DM Mono', monospace" }}>
           {sol.consecutivo}
@@ -120,7 +124,6 @@ export default function MantenimientoMobilePage() {
         )}
       </div>
 
-      {/* Botones de acción */}
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <button
           onClick={() => ejecutar("en_camino")}

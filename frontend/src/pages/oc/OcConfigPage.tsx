@@ -11,6 +11,8 @@ import {
   useTiposMantenimiento,
   useCrearTipoMantenimiento,
   useToggleTipoMantenimiento,
+  useMntNotificacionesConfig,
+  useActualizarMntNotificaciones,
 } from "@/hooks/useMantenimiento"
 
 async function descargarExcelPrueba(): Promise<string> {
@@ -758,6 +760,16 @@ export function OcConfigPage() {
                   <TiposMantenimientoConfig />
                 </section>
 
+                <section className="bg-card rounded-xl border border-border p-6 space-y-5">
+                  <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
+                    WhatsApp — Mantenimiento
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    Número por defecto para enviar el link móvil al auxiliar (formato: 573001234567, sin +).
+                  </p>
+                  <WhatsAppMantenimientoConfig />
+                </section>
+
                 {/* Feedback guardado */}
                 {error && (
                   <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
@@ -847,6 +859,66 @@ function TiposMantenimientoConfig() {
           <p className="text-sm text-muted-foreground">No hay tipos configurados aún.</p>
         )}
       </div>
+    </div>
+  )
+}
+
+function WhatsAppMantenimientoConfig() {
+  const { data, isLoading } = useMntNotificacionesConfig()
+  const { mutateAsync: guardar, isPending: guardando } = useActualizarMntNotificaciones()
+  const [numero, setNumero] = useState("")
+  const [err, setErr] = useState<string | null>(null)
+  const [ok, setOk] = useState(false)
+
+  useEffect(() => {
+    if (data?.whatsapp_numero_default != null) {
+      setNumero(data.whatsapp_numero_default)
+    }
+  }, [data?.whatsapp_numero_default])
+
+  async function handleGuardar() {
+    setErr(null)
+    setOk(false)
+    const limpio = numero.replace(/\D/g, "")
+    if (limpio && limpio.length < 10) {
+      setErr("Número inválido — usa formato internacional, ej. 573001234567")
+      return
+    }
+    try {
+      await guardar({ whatsapp_numero_default: limpio })
+      setOk(true)
+      setTimeout(() => setOk(false), 3000)
+    } catch {
+      setErr("Error al guardar.")
+    }
+  }
+
+  if (isLoading) {
+    return <p className="text-sm text-muted-foreground">Cargando…</p>
+  }
+
+  return (
+    <div className="space-y-3 max-w-md">
+      <div>
+        <label className="block text-xs text-muted-foreground mb-1">
+          Número WhatsApp (E.164 sin +)
+        </label>
+        <input
+          type="text"
+          inputMode="numeric"
+          className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-ring"
+          placeholder="573001234567"
+          value={numero}
+          onChange={(e) => setNumero(e.target.value)}
+        />
+      </div>
+      <div className="flex items-center gap-3">
+        <Button type="button" size="sm" disabled={guardando} onClick={() => void handleGuardar()}>
+          {guardando ? "Guardando…" : "Guardar número"}
+        </Button>
+        {ok && <span className="text-xs text-emerald-600">Guardado</span>}
+      </div>
+      {err && <p className="text-xs text-destructive">{err}</p>}
     </div>
   )
 }

@@ -8,12 +8,56 @@ from sqlmodel import Session, select
 from app.core.deps import get_current_user, require_mantenimiento, require_oc_config_access
 from app.core.permissions import role_names_with_permission
 from app.database import get_db
-from app.models.mantenimiento import TipoMantenimientoConfig
+from app.models.mantenimiento import MntConfig, TipoMantenimientoConfig
 from app.models.user import User
 from app.oc_database import get_oc_db
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/config", tags=["Mantenimiento - Config"])
+
+KEY_WHATSAPP = "whatsapp_numero_default"
+
+
+def _get_config(db: Session, key: str, default: str = "") -> str:
+    row = db.get(MntConfig, key)
+    return row.value if row else default
+
+
+def _set_config(db: Session, key: str, value: str) -> None:
+    row = db.get(MntConfig, key)
+    if row:
+        row.value = value
+    else:
+        row = MntConfig(key=key, value=value)
+    db.add(row)
+    db.commit()
+
+
+class NotificacionesOut(BaseModel):
+    whatsapp_numero_default: str
+
+
+class NotificacionesUpdate(BaseModel):
+    whatsapp_numero_default: str
+
+
+@router.get("/notificaciones", response_model=NotificacionesOut)
+def obtener_notificaciones(
+    db: Session = Depends(get_oc_db),
+    _: User = Depends(require_mantenimiento),
+):
+    return NotificacionesOut(whatsapp_numero_default=_get_config(db, KEY_WHATSAPP))
+
+
+@router.patch("/notificaciones", response_model=NotificacionesOut)
+def actualizar_notificaciones(
+    body: NotificacionesUpdate,
+    db: Session = Depends(get_oc_db),
+    _: User = Depends(require_oc_config_access),
+):
+    numero = "".join(c for c in body.whatsapp_numero_default if c.isdigit())
+    _set_config(db, KEY_WHATSAPP, numero)
+    return NotificacionesOut(whatsapp_numero_default=numero)
 
 
 class TipoMantenimientoOut(BaseModel):

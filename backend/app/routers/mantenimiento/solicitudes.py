@@ -1,6 +1,7 @@
 import logging
 import math
 import os
+import secrets
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -16,6 +17,7 @@ from app.models.mantenimiento import (
     HistorialMantenimiento,
     ModalidadMantenimiento,
     MntAprobacion,
+    MntConfig,
     SolicitudMantenimiento,
 )
 from app.models.user import User
@@ -128,6 +130,13 @@ class SubirEvidenciaBody(BaseModel):
     nota:          Optional[str] = None
 
 
+class AccesoMovilOut(BaseModel):
+    url_qr:            str
+    url_jwt:           str
+    whatsapp_numero:   Optional[str]
+    mensaje_whatsapp:  str
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _generar_consecutivo(db: Session) -> str:
@@ -210,6 +219,7 @@ def crear_solicitud(
         prioridad=body.prioridad,
         monto_estimado=body.monto_estimado,
         activo_qr_id=body.activo_qr_id,
+        mobile_access_token=secrets.token_urlsafe(32),
     )
     oc_db.add(sol)
     oc_db.commit()
@@ -255,6 +265,7 @@ def registrar_retroactivo(
         monto_real=body.monto_real,
         evidencia_url=body.evidencia_url,
         estado=EstadoMantenimiento.completado,
+        mobile_access_token=secrets.token_urlsafe(32),
     )
     oc_db.add(sol)
     oc_db.commit()
@@ -535,6 +546,67 @@ def subir_evidencia(
     return _enriquecer(sol, {current_user.id: current_user})
 
 
+def _acceso_movil_out(sol: SolicitudMantenimiento, oc_db: Session) -> AccesoMovilOut:
+    from app.routers.mantenimiento.mobile import (
+        ensure_mobile_access_token,
+        frontend_base_url,
+        generar_magic_token,
+        url_acceso_qr,
+    )
+
+    access = ensure_mobile_access_token(oc_db, sol)
+    url_qr = url_acceso_qr(access)
+    jwt = generar_magic_token(sol.id)
+    url_jwt = f"{frontend_base_url()}/m/{jwt}"
+    cfg = oc_db.get(MntConfig, "whatsapp_numero_default")
+    whatsapp = cfg.value if cfg and cfg.value else None
+    mensaje = (
+        f"Mantenimiento {sol.consecutivo}\n"
+        f"{sol.titulo}\n\n"
+        f"Gestiona desde el celular (sin login):\n{url_qr}"
+    )
+    return AccesoMovilOut(
+        url_qr=url_qr,
+        url_jwt=url_jwt,
+        whatsapp_numero=whatsapp,
+        mensaje_whatsapp=mensaje,
+    )
+
+
+@router.get("/{solicitud_id}/acceso-movil", response_model=AccesoMovilOut)
+def obtener_acceso_movil(
+    solicitud_id: int,
+    oc_db: Session = Depends(get_oc_db),
+    _: User = Depends(require_mantenimiento),
+):
+    """URL estable para QR + JWT temporal + datos para WhatsApp."""
+    sol = oc_db.get(SolicitudMantenimiento, solicitud_id)
+    if not sol:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada.")
+    if sol.estado in (EstadoMantenimiento.cerrado, EstadoMantenimiento.cancelado):
+        raise HTTPException(status_code=400, detail="La solicitud está cerrada o cancelada.")
+    return _acceso_movil_out(sol, oc_db)
+
+
+@router.post("/{solicitud_id}/regenerar-acceso", response_model=AccesoMovilOut)
+def regenerar_acceso_movil(
+    solicitud_id: int,
+    oc_db: Session = Depends(get_oc_db),
+    _: User = Depends(require_mantenimiento),
+):
+    """Invalida el QR anterior y genera un token nuevo."""
+    sol = oc_db.get(SolicitudMantenimiento, solicitud_id)
+    if not sol:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada.")
+
+    sol.mobile_access_token = secrets.token_urlsafe(32)
+    sol.updated_at = datetime.now(timezone.utc)
+    oc_db.add(sol)
+    oc_db.commit()
+    oc_db.refresh(sol)
+    return _acceso_movil_out(sol, oc_db)
+
+
 @router.post("/{solicitud_id}/magic-link")
 def generar_magic_link(
     solicitud_id: int,
@@ -546,10 +618,10 @@ def generar_magic_link(
     if not sol:
         raise HTTPException(status_code=404, detail="Solicitud no encontrada.")
 
-    from app.routers.mantenimiento.mobile import generar_magic_token
-    base_url = os.environ.get("FRONTEND_URL", "https://zymointranet.com")
+    from app.routers.mantenimiento.mobile import frontend_base_url, generar_magic_token
+
     token = generar_magic_token(solicitud_id)
-    url = f"{base_url}/m/{token}"
+    url = f"{frontend_base_url()}/m/{token}"
     return {"url": url, "token": token}
 
 

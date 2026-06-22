@@ -216,7 +216,8 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         {/* Ruta pública — vista móvil auxiliar de mantenimiento (sin login) */}
-        <Route path="/m/:token" element={<MantenimientoMobilePage />} />
+        <Route path="/m/q/:accessToken" element={<MantenimientoMobilePage mode="stable" />} />
+        <Route path="/m/:token" element={<MantenimientoMobilePage mode="jwt" />} />
         <Route
           path="/login"
           element={

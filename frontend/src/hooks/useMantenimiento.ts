@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { api } from "@/lib/api"
 import type {
+  AccesoMovilOut,
   Aprobacion,
   AprobacionPayload,
   CambiarEstadoMantenimientoPayload,
@@ -10,6 +11,7 @@ import type {
   HistorialMantenimientoEntrada,
   KpisOut,
   MantenimientoFilters,
+  MntNotificacionesConfig,
   OCVinculada,
   SolicitudMantenimiento,
   SolicitudesMantenimientoListResponse,
@@ -319,6 +321,64 @@ export function useMagicLink() {
         `${BASE}/solicitudes/${id}/magic-link`
       )
       return data
+    },
+  })
+}
+
+export function useAccesoMovil(solicitudId: number | null) {
+  return useQuery({
+    queryKey: ["mantenimiento", "acceso-movil", solicitudId],
+    queryFn: async () => {
+      const { data } = await api.get<AccesoMovilOut>(
+        `${BASE}/solicitudes/${solicitudId}/acceso-movil`
+      )
+      return data
+    },
+    enabled: solicitudId !== null,
+    staleTime: 60_000,
+  })
+}
+
+export function useRegenerarAccesoMovil() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const { data } = await api.post<AccesoMovilOut>(
+        `${BASE}/solicitudes/${id}/regenerar-acceso`
+      )
+      return data
+    },
+    onSuccess: (_data, id) => {
+      qc.invalidateQueries({ queryKey: ["mantenimiento", "acceso-movil", id] })
+    },
+  })
+}
+
+export function useMntNotificacionesConfig() {
+  return useQuery({
+    queryKey: ["mantenimiento", "notificaciones"],
+    queryFn: async () => {
+      const { data } = await api.get<MntNotificacionesConfig>(
+        `${BASE}/config/notificaciones`
+      )
+      return data
+    },
+  })
+}
+
+export function useActualizarMntNotificaciones() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: MntNotificacionesConfig) => {
+      const { data } = await api.patch<MntNotificacionesConfig>(
+        `${BASE}/config/notificaciones`,
+        payload
+      )
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["mantenimiento", "notificaciones"] })
+      qc.invalidateQueries({ queryKey: ["mantenimiento", "acceso-movil"] })
     },
   })
 }
