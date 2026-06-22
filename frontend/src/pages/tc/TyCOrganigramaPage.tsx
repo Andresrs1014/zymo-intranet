@@ -140,7 +140,7 @@ export function TyCOrganigramaPage() {
   function toggleArea(key: string) {
     setAreasAbiertas((prev) => {
       const next = new Set(prev)
-      if (next.has(key)) next.delete(key) else next.add(key)
+      next.has(key) ? next.delete(key) : next.add(key)
       return next
     })
   }
