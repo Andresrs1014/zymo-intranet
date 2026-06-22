@@ -45,28 +45,29 @@ const EMPRESA_COLORS: Record<string, string> = {
   ZYMOIMDE: "bg-amber-500/10 text-amber-500",
 }
 
-export function TyCDirectorioPage() {
-  const navigate     = useNavigate()
-  const [searchParams] = useSearchParams()
-  const user         = useAuthStore((s) => s.user)
-  const puedeEditar  = user ? canEditTyC(user.role, user.app_permissions) : false
+const EMPRESA_TEXT_COLOR: Record<string, string> = {
+  ZYMOLOGI: "text-blue-400",
+  ZYMOIMCC: "text-violet-400",
+  ZYMOIMDE: "text-amber-500",
+}
 
-  // ── Catálogos ──
+export function TyCDirectorioPage() {
+  const navigate       = useNavigate()
+  const [searchParams] = useSearchParams()
+  const user           = useAuthStore((s) => s.user)
+  const puedeEditar    = user ? canEditTyC(user.role, user.app_permissions) : false
+
   const [empresas, setEmpresas] = useState<Empresa[]>([])
   const [areas, setAreas]       = useState<Area[]>([])
   const [cargos, setCargos]     = useState<Cargo[]>([])
+  const [stats, setStats]       = useState<Stats | null>(null)
 
-  // ── Stats ──
-  const [stats, setStats] = useState<Stats | null>(null)
-
-  // ── Filtros ──
-  const [busqueda, setBusqueda]         = useState("")
+  const [busqueda, setBusqueda]           = useState("")
   const [empresaFiltro, setEmpresaFiltro] = useState("")
-  const [areaFiltro, setAreaFiltro]     = useState("")
-  const [cargoFiltro, setCargoFiltro]   = useState("")
-  const [estadoFiltro, setEstadoFiltro] = useState("Activo")
+  const [areaFiltro, setAreaFiltro]       = useState("")
+  const [cargoFiltro, setCargoFiltro]     = useState("")
+  const [estadoFiltro, setEstadoFiltro]   = useState("Activo")
 
-  // ── Lista ──
   const [personas, setPersonas] = useState<Persona[]>([])
   const [total, setTotal]       = useState(0)
   const [loading, setLoading]   = useState(true)
@@ -74,14 +75,12 @@ export function TyCDirectorioPage() {
 
   const [modalAbierto, setModalAbierto] = useState(searchParams.get("nuevo") === "1")
 
-  // Cargar catálogos + stats en mount
   useEffect(() => {
     api.get("/tc/empresas").then((r) => setEmpresas(Array.isArray(r.data) ? r.data : [])).catch(() => {})
     api.get("/areas").then((r) => setAreas(Array.isArray(r.data) ? r.data : [])).catch(() => setAreas([]))
     api.get("/tc/stats").then((r) => setStats(r.data)).catch(() => {})
   }, [])
 
-  // Recargar cargos cuando cambia la empresa
   useEffect(() => {
     const params = empresaFiltro ? { empresa_id: empresaFiltro } : {}
     api.get("/tc/cargos", { params })
@@ -96,11 +95,11 @@ export function TyCDirectorioPage() {
     setError("")
     try {
       const params: Record<string, string> = {}
-      if (busqueda.trim())  params.q          = busqueda.trim()
-      if (empresaFiltro)    params.empresa_id  = empresaFiltro
-      if (areaFiltro)       params.area_id     = areaFiltro
-      if (cargoFiltro)      params.cargo_id    = cargoFiltro
-      if (estadoFiltro)     params.estado      = estadoFiltro
+      if (busqueda.trim()) params.q         = busqueda.trim()
+      if (empresaFiltro)   params.empresa_id = empresaFiltro
+      if (areaFiltro)      params.area_id    = areaFiltro
+      if (cargoFiltro)     params.cargo_id   = cargoFiltro
+      if (estadoFiltro)    params.estado     = estadoFiltro
       const { data } = await api.get("/tc/personas", { params })
       setPersonas(Array.isArray(data.items) ? data.items : [])
       setTotal(data.total ?? 0)
@@ -119,21 +118,17 @@ export function TyCDirectorioPage() {
   function handleCreada() {
     setModalAbierto(false)
     cargarPersonas()
-    // Refrescar stats
     api.get("/tc/stats").then((r) => setStats(r.data)).catch(() => {})
   }
 
-  // Cargos filtrados: si hay empresa, los del select ya vienen de esa empresa.
-  // Si NO hay empresa, mostrar todos (sin repetir nombre).
-  const cargosUnicos = cargos
+  const empresasConPersonas = stats?.por_empresa.filter((e) => e.total > 0) ?? []
+  const cargoActual = cargos.find((c) => String(c.id) === cargoFiltro)
 
   return (
     <PageLayout title="T&C — Directorio" mainClassName="flex-1 flex flex-col overflow-hidden">
 
-      {/* ── Header ─────────────────────────────────────────────────── */}
       <div className="px-6 pt-5 pb-0 border-b border-border">
 
-        {/* Breadcrumb */}
         <div className="flex items-center gap-2 mb-4">
           <button
             onClick={() => navigate("/tc")}
@@ -146,7 +141,6 @@ export function TyCDirectorioPage() {
           <span className="text-sm font-medium">Directorio</span>
         </div>
 
-        {/* ── KPI strip ────────────────────────────────────────────── */}
         <div className="grid grid-cols-5 gap-2 mb-4">
           <KpiCard
             icon={<Users className="w-3.5 h-3.5" />}
@@ -188,10 +182,9 @@ export function TyCDirectorioPage() {
           />
         </div>
 
-        {/* ── Distribución por empresa ─────────────────────────────── */}
-        {stats && stats.por_empresa.some((e) => e.total > 0) && (
+        {empresasConPersonas.length > 0 && (
           <div className="flex gap-3 mb-4">
-            {stats.por_empresa.filter((e) => e.total > 0).map((e) => {
+            {empresasConPersonas.map((e) => {
               const pct = Math.round((e.activos / Math.max(e.total, 1)) * 100)
               return (
                 <button
@@ -203,7 +196,7 @@ export function TyCDirectorioPage() {
                       : "border-border/60 hover:border-border text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  <span className={`font-bold ${EMPRESA_COLORS[e.codigo]?.split(" ")[1] ?? ""}`}>
+                  <span className={`font-bold ${EMPRESA_TEXT_COLOR[e.codigo] ?? ""}`}>
                     {e.codigo}
                   </span>
                   <span className="tabular-nums font-mono">{e.total}</span>
@@ -228,10 +221,8 @@ export function TyCDirectorioPage() {
           </div>
         )}
 
-        {/* ── Toolbar ──────────────────────────────────────────────── */}
         <div className="flex items-center gap-2 pb-3 flex-wrap">
 
-          {/* Search */}
           <div className="relative flex-1 min-w-[180px] max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
             <input
@@ -243,7 +234,6 @@ export function TyCDirectorioPage() {
             />
           </div>
 
-          {/* Área */}
           {areas.length > 0 && (
             <select
               value={areaFiltro}
@@ -257,21 +247,19 @@ export function TyCDirectorioPage() {
             </select>
           )}
 
-          {/* Cargo */}
-          {cargosUnicos.length > 0 && (
+          {cargos.length > 0 && (
             <select
               value={cargoFiltro}
               onChange={(e) => setCargoFiltro(e.target.value)}
               className="combo"
             >
               <option value="">Todos los cargos</option>
-              {cargosUnicos.map((c) => (
+              {cargos.map((c) => (
                 <option key={c.id} value={c.id}>{c.nombre}</option>
               ))}
             </select>
           )}
 
-          {/* Estado */}
           <select
             value={estadoFiltro}
             onChange={(e) => setEstadoFiltro(e.target.value)}
@@ -303,21 +291,17 @@ export function TyCDirectorioPage() {
           )}
         </div>
 
-        {/* Contador */}
         {!loading && !error && (
           <div className="text-[11px] text-muted-foreground pb-2">
             {total} colaborador{total !== 1 ? "es" : ""}
             {estadoFiltro && <span className="ml-1 opacity-60">· {estadoFiltro.toLowerCase()}s</span>}
-            {cargoFiltro && cargosUnicos.find((c) => String(c.id) === cargoFiltro) && (
-              <span className="ml-1 opacity-60">
-                · {cargosUnicos.find((c) => String(c.id) === cargoFiltro)?.nombre}
-              </span>
+            {cargoActual && (
+              <span className="ml-1 opacity-60">· {cargoActual.nombre}</span>
             )}
           </div>
         )}
       </div>
 
-      {/* ── Tabla ─────────────────────────────────────────────────── */}
       <div className="flex-1 overflow-auto">
         {error && (
           <div className="m-4 p-3 text-sm text-destructive bg-destructive/10 rounded-lg">{error}</div>
@@ -358,7 +342,6 @@ export function TyCDirectorioPage() {
                     i % 2 === 0 ? "" : "bg-muted/5"
                   }`}
                 >
-                  {/* Colaborador */}
                   <td className="px-6 py-2.5">
                     <div className="flex items-center gap-3">
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-500/10 text-teal-500 text-xs font-bold">
@@ -373,7 +356,6 @@ export function TyCDirectorioPage() {
                     </div>
                   </td>
 
-                  {/* Empresa */}
                   <td className="px-4 py-2.5">
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold tracking-wide ${
                       EMPRESA_COLORS[p.empresa_codigo] ?? "bg-muted text-muted-foreground"
@@ -382,7 +364,6 @@ export function TyCDirectorioPage() {
                     </span>
                   </td>
 
-                  {/* Área / Cargo */}
                   <td className="px-4 py-2.5 hidden md:table-cell">
                     <div>
                       {p.area_nombre
@@ -396,7 +377,6 @@ export function TyCDirectorioPage() {
                     </div>
                   </td>
 
-                  {/* Estado */}
                   <td className="px-4 py-2.5">
                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
                       p.estado === "Activo"
@@ -416,7 +396,6 @@ export function TyCDirectorioPage() {
         )}
       </div>
 
-      {/* ── Modal nueva persona ─────────────────────────────────────── */}
       {modalAbierto && (
         <PersonaFormModal
           empresas={empresas}
@@ -446,8 +425,6 @@ export function TyCDirectorioPage() {
     </PageLayout>
   )
 }
-
-// ── KPI Card ──────────────────────────────────────────────────────────────────
 
 function KpiCard({
   icon, label, value, color = "text-foreground", barColor, barPct,
