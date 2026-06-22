@@ -76,6 +76,7 @@ class SolicitudRead(BaseModel):
     proforma_path: Optional[str] = None
     estado: str
     auxiliar_id: Optional[int]
+    mantenimiento_id: Optional[int] = None
     evidencia_url: Optional[str] = None
     plataforma: Optional[str] = None
     numero_remision: Optional[str] = None
@@ -381,6 +382,45 @@ def get_compras_vinculadas(
     return compras
 
 
+class MantenimientoVinculadoRead(BaseModel):
+    id:          int
+    consecutivo: str
+    titulo:      str
+    estado:      str
+    modalidad:   str
+
+
+@router.get("/{solicitud_id}/mantenimiento-vinculado", response_model=MantenimientoVinculadoRead)
+def get_mantenimiento_vinculado(
+    solicitud_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    oc_db: Session = Depends(get_oc_db),
+):
+    """Retorna el mantenimiento vinculado a una OC (par externo)."""
+    from app.models.mantenimiento import SolicitudMantenimiento
+
+    solicitud = oc_db.get(SolicitudOC, solicitud_id)
+    if not solicitud:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
+    is_compras = user_has_permission(db, current_user, "mod_oc_ver")
+    is_solicitante = current_user.email == solicitud.solicitante_email
+    if not is_compras and not is_solicitante:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Sin acceso a esta solicitud.")
+    if not solicitud.mantenimiento_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sin mantenimiento vinculado.")
+    mnt = oc_db.get(SolicitudMantenimiento, solicitud.mantenimiento_id)
+    if not mnt:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Mantenimiento no encontrado.")
+    return MantenimientoVinculadoRead(
+        id=mnt.id,
+        consecutivo=mnt.consecutivo,
+        titulo=mnt.titulo,
+        estado=mnt.estado,
+        modalidad=mnt.modalidad,
+    )
+
+
 @router.patch("/{solicitud_id}/asignar", response_model=SolicitudRead)
 def asignar_auxiliar(
     solicitud_id: uuid.UUID,
@@ -416,6 +456,11 @@ def asignar_auxiliar(
             usuario_nombre=current_user.full_name,
         )
 
+    oc_db.commit()
+    oc_db.refresh(sol)
+
+    from app.services.mnt_pares_externos import sincronizar_desde_oc_asignar
+    sincronizar_desde_oc_asignar(oc_db, solicitud, payload.auxiliar_id, current_user)
     oc_db.commit()
     oc_db.refresh(solicitud)
 

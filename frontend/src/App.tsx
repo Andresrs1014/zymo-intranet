@@ -26,6 +26,7 @@ import { AreasPage } from "@/pages/AreasPage"
 import { AdministrativoPage } from "@/pages/AdministrativoPage"
 import { SolicitudesPage } from "@/pages/oc/SolicitudesPage"
 import { SolicitudDetallePage } from "@/pages/oc/SolicitudDetallePage"
+import ParesExternosPage from "@/pages/oc/ParesExternosPage"
 import { CotizacionFormPage } from "@/pages/oc/CotizacionFormPage"
 import { AprobacionPage } from "@/pages/oc/AprobacionPage"
 import { KPIPage } from "@/pages/oc/KPIPage"
@@ -290,6 +291,14 @@ export default function App() {
           element={
             <OCRoute>
               <SolicitudesPage />
+            </OCRoute>
+          }
+        />
+        <Route
+          path="/oc/externos-mantenimiento"
+          element={
+            <OCRoute>
+              <ParesExternosPage />
             </OCRoute>
           }
         />

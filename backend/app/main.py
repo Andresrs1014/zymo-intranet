@@ -1,4 +1,5 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
@@ -7,6 +8,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlmodel import Session, select
 
@@ -411,6 +413,10 @@ app.include_router(netvault_router)
 app.include_router(mantenimiento_router)
 app.include_router(sig_pdf_router)
 app.include_router(personal_router)
+
+_TC_FOTOS_DIR = "/app/data/tc_fotos"
+os.makedirs(_TC_FOTOS_DIR, exist_ok=True)
+app.mount("/tc-fotos", StaticFiles(directory=_TC_FOTOS_DIR), name="tc_fotos")
 
 
 @app.exception_handler(RequestValidationError)

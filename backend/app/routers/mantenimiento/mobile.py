@@ -223,7 +223,16 @@ def _ejecutar_accion(sol, body: AccionMobileBody, oc_db: Session) -> dict:
                 status_code=400,
                 detail="Se requiere foto de evidencia para completar.",
             )
-        sol.evidencia_url = body.evidencia_url
+        if sol.modalidad == "externo":
+            from app.services.mnt_evidencia import evidencia_antes_de, registrar_evidencia_externa
+            if not evidencia_antes_de(sol):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Falta evidencia inicial (antes) del mantenimiento externo.",
+                )
+            registrar_evidencia_externa(sol, "despues", body.evidencia_url)
+        else:
+            sol.evidencia_url = body.evidencia_url
         if body.monto_real is not None:
             sol.monto_real = body.monto_real
         sol.estado = EstadoMantenimiento.completado

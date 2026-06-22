@@ -25,6 +25,11 @@ export interface SolicitudMantenimiento {
   solicitante_nombre:          string | null
   asignado_id:                 number | null
   asignado_nombre:             string | null
+  coordinador_compras_id:      number | null
+  coordinador_compras_nombre:  string | null
+  oc_par_id:                   string | null
+  oc_par_consecutivo:          string | null
+  tipo_asignacion:             string | null
   empresa_nombre:              string | null
   // Campos Fase 1
   origen:              OrigenMantenimiento
@@ -32,6 +37,9 @@ export interface SolicitudMantenimiento {
   monto_estimado:      number | null
   monto_real:          number | null
   evidencia_url:       string | null
+  evidencia_antes_url: string | null
+  evidencia_despues_url: string | null
+  fase_externo:        string | null
   activo_qr_id:        number | null
   requiere_aprobacion: boolean
   aprobaciones_count:  number
@@ -190,6 +198,7 @@ export interface CrearMantenimientoPayload {
   prioridad?:                  PrioridadMantenimiento
   monto_estimado?:             number | null
   activo_qr_id?:               number | null
+  evidencia_antes_url?:        string | null
 }
 
 export interface CrearRetroactivoPayload {
@@ -207,6 +216,13 @@ export interface CrearRetroactivoPayload {
 export interface SubirEvidenciaPayload {
   evidencia_url: string
   monto_real?:   number | null
+  nota?:         string
+  tipo?:         "despues"
+}
+
+export interface EvidenciaExternaPayload {
+  tipo:          "antes" | "despues"
+  evidencia_url: string
   nota?:         string
 }
 
@@ -227,6 +243,48 @@ export interface CrearOCVinculadaPayload {
   nivel_prioridad:            string
   sede?:                      string
   observaciones_solicitante?: string
+}
+
+export interface OCParResumen {
+  id:             string
+  consecutivo_os: string
+  estado:         string
+  auxiliar_id:    number | null
+}
+
+export interface ParExterno {
+  mantenimiento_id:          number
+  consecutivo_mnt:           string
+  titulo:                    string
+  estado_mnt:                string
+  modalidad:                 string
+  coordinador_compras_id:    number | null
+  asignado_mantenimiento_id: number | null
+  oc:                        OCParResumen | null
+}
+
+export interface MantenimientoVinculado {
+  id:          number
+  consecutivo: string
+  titulo:      string
+  estado:      string
+  modalidad:   string
+}
+
+export interface AsignarParExternoPayload {
+  coordinador_compras_id?:    number
+  asignado_mantenimiento_id?: number
+}
+
+export interface EscalarExternoPayload {
+  motivo:         string
+  evidencia_url?: string
+  evidencia_urls?: string[]
+}
+
+export interface EscalarExternoResponse {
+  mantenimiento: SolicitudMantenimiento
+  par:           ParExterno
 }
 
 export interface MantenimientoFilters {

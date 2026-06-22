@@ -147,6 +147,23 @@ def create_oc_tables() -> None:
             "UPDATE mnt_solicitudes SET estado='completado' WHERE estado='cerrado'"
         ))
 
+        for col_def in [
+            "ALTER TABLE mnt_solicitudes ADD COLUMN coordinador_compras_id INTEGER",
+            "ALTER TABLE mnt_solicitudes ADD COLUMN tipo_asignacion TEXT",
+            "ALTER TABLE mnt_solicitudes ADD COLUMN oc_par_id TEXT",
+            "ALTER TABLE mnt_solicitudes ADD COLUMN evidencia_antes_url TEXT",
+            "ALTER TABLE mnt_solicitudes ADD COLUMN evidencia_despues_url TEXT",
+        ]:
+            try:
+                conn.execute(text(col_def))
+            except Exception:
+                pass
+
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_mnt_solicitudes_coordinador_compras_id "
+            "ON mnt_solicitudes(coordinador_compras_id)"
+        ))
+
         conn.commit()
 
     log.info("[oc] Tablas OC verificadas en oc.db.")

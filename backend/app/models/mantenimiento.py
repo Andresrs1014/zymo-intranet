@@ -61,6 +61,9 @@ class SolicitudMantenimiento(SQLModel, table=True):
 
     solicitante_id: int
     asignado_id:    Optional[int] = Field(default=None)
+    coordinador_compras_id: Optional[int] = Field(default=None, index=True)
+    tipo_asignacion:        Optional[str] = Field(default=None, max_length=30)
+    oc_par_id:              Optional[str] = Field(default=None, max_length=36)
     empresa_nombre: Optional[str] = Field(default=None, max_length=100)
 
     # ── Campos Fase 1 ─────────────────────────────────────────────────────────
@@ -69,6 +72,8 @@ class SolicitudMantenimiento(SQLModel, table=True):
     monto_estimado: Optional[Decimal] = Field(default=None)
     monto_real:     Optional[Decimal] = Field(default=None)
     evidencia_url:  Optional[str] = Field(default=None, max_length=500)
+    evidencia_antes_url:  Optional[str] = Field(default=None)
+    evidencia_despues_url: Optional[str] = Field(default=None)
     activo_qr_id:   Optional[int] = Field(default=None)
     mobile_access_token: Optional[str] = Field(default=None, max_length=64, unique=True)
 

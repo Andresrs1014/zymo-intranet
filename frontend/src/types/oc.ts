@@ -27,7 +27,7 @@ export interface SolicitudOC {
   condicion: string | null
   observaciones_solicitante: string | null
   placa_ficha: string | null
-  tipo_solicitud: "compra" | "mantenimiento"
+  tipo_solicitud: "compra" | "mantenimiento" | "servicio"
   tipo_mantenimiento: string | null
   clasificacion_mantenimiento: string | null
   modalidad_mantenimiento: string | null
@@ -38,6 +38,7 @@ export interface SolicitudOC {
   proforma_path: string | null
   estado: EstadoOC
   auxiliar_id: number | null
+  mantenimiento_id: number | null
   evidencia_url: string | null
   plataforma: string | null
   numero_remision: string | null

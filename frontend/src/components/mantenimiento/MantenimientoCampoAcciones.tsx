@@ -6,14 +6,18 @@ import type { EstadoMantenimiento } from "@/types/mantenimiento"
 interface Props {
   solicitudId: number
   estado: EstadoMantenimiento
+  modalidad: string
   onCrearOC: () => void
+  onEscalarExterno?: () => void
   onDone?: () => void
 }
 
 export function MantenimientoCampoAcciones({
   solicitudId,
   estado,
+  modalidad,
   onCrearOC,
+  onEscalarExterno,
   onDone,
 }: Props) {
   const [msg, setMsg] = useState<string | null>(null)
@@ -72,7 +76,9 @@ export function MantenimientoCampoAcciones({
             className="w-full bg-emerald-600 hover:bg-emerald-700"
             onClick={completarConFoto}
           >
-            Terminé — subir foto
+            {modalidad === "externo"
+              ? "Terminé — foto después del servicio"
+              : "Terminé — subir foto"}
           </Button>
         )}
         <Button
@@ -84,6 +90,17 @@ export function MantenimientoCampoAcciones({
         >
           Solicitar compra / repuesto
         </Button>
+        {modalidad === "interno" && onEscalarExterno && (
+          <Button
+            type="button"
+            variant="outline"
+            disabled={isPending}
+            className="w-full border-orange-500/60 text-orange-700 bg-orange-500/5"
+            onClick={onEscalarExterno}
+          >
+            Escalar a externo (proveedor)
+          </Button>
+        )}
       </div>
       {msg && <p className="text-xs text-emerald-600">{msg}</p>}
     </div>

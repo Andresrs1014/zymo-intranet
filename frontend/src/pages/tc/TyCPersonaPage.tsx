@@ -5,7 +5,7 @@ import { useAuthStore } from "@/store/authStore"
 import { canEditTyC, canSeeTyCSensible } from "@/lib/permissions"
 import { PageLayout } from "@/components/layout/PageLayout"
 import {
-  ArrowLeft, Pencil, X, Check, Plus, Trash2, Loader2,
+  ArrowLeft, Camera, Pencil, X, Check, Plus, Trash2, Loader2,
   BookOpen, ClipboardList, ShieldAlert,
 } from "lucide-react"
 
@@ -33,6 +33,7 @@ interface Persona {
   email_corporativo: string
   telefono: string
   telefono_corporativo: string
+  foto_url: string
   tipo_contrato: string
   fecha_ingreso: string | null
   antiguedad_label: string
@@ -114,6 +115,20 @@ export function TyCPersonaPage() {
     finally { setGuardando(false) }
   }
 
+  async function handleFotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !persona) return
+    const fd = new FormData()
+    fd.append("file", file)
+    try {
+      const { data } = await api.post(`/tc/personas/${persona.id}/foto`, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      })
+      setPersona(data)
+    } catch { /* ignore */ }
+    e.target.value = ""
+  }
+
   function setField(key: keyof Persona, value: string | number | boolean | null) {
     setForm((prev) => ({ ...prev, [key]: value }))
     if (key === "empresa_id" && typeof value === "number") {
@@ -163,8 +178,19 @@ export function TyCPersonaPage() {
         {/* Hero */}
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-teal-500/10 text-teal-500 text-xl font-semibold">
-              {persona.initials || persona.nombre.slice(0, 2).toUpperCase()}
+            <div className="relative group/avatar shrink-0 h-14 w-14">
+              <div className="w-full h-full rounded-full bg-teal-500/10 text-teal-500 text-xl font-semibold overflow-hidden flex items-center justify-center">
+                {persona.foto_url
+                  ? <img src={persona.foto_url} alt={persona.nombre} className="w-full h-full object-cover" />
+                  : (persona.initials || persona.nombre.slice(0, 2).toUpperCase())
+                }
+              </div>
+              {puedeEditar && (
+                <label className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity cursor-pointer">
+                  <Camera className="w-4 h-4 text-white" />
+                  <input type="file" accept="image/*" className="hidden" onChange={handleFotoUpload} />
+                </label>
+              )}
             </div>
             <div>
               <h2 className="text-xl font-semibold leading-tight">{persona.nombre}</h2>

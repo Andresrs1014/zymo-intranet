@@ -4,6 +4,7 @@ import { PageLayout } from "@/components/layout/PageLayout"
 import { Button } from "@/components/ui/button"
 import { Combobox } from "@/components/ui/Combobox"
 import { useCrearMantenimiento, useTiposMantenimiento } from "@/hooks/useMantenimiento"
+import { FotoEvidenciaField } from "@/components/mantenimiento/FotoEvidenciaField"
 import { useAuthStore } from "@/store/authStore"
 import type { ClasificacionMantenimiento, ModalidadMantenimiento, PrioridadMantenimiento } from "@/types/mantenimiento"
 import { format } from "date-fns"
@@ -22,6 +23,7 @@ export default function NuevaMantenimientoPage() {
   const [prioridad, setPrioridad]                 = useState<PrioridadMantenimiento>("media")
   const [montoEstimado, setMontoEstimado]         = useState("")
   const [fechaProxima, setFechaProxima]           = useState("")
+  const [evidenciaAntes, setEvidenciaAntes]       = useState<string | null>(null)
   const [error, setError]                         = useState<string | null>(null)
 
   const tiposOptions = tipos.map((t) => ({ value: t.nombre, label: t.nombre }))
@@ -35,6 +37,9 @@ export default function NuevaMantenimientoPage() {
     if (!tipoMantenimiento.trim()) return setError("Selecciona el tipo de mantenimiento.")
     if (clasificacion === "preventivo" && !fechaProxima) {
       return setError("La fecha de próximo mantenimiento es requerida para mantenimiento preventivo.")
+    }
+    if (modalidad === "externo" && !evidenciaAntes) {
+      return setError("El mantenimiento externo requiere foto de evidencia inicial (antes del servicio).")
     }
 
     try {
@@ -50,6 +55,7 @@ export default function NuevaMantenimientoPage() {
         fecha_proxima_mantenimiento: clasificacion === "preventivo" ? fechaProxima : null,
         prioridad,
         monto_estimado:              monto,
+        evidencia_antes_url:         modalidad === "externo" ? evidenciaAntes : null,
       })
       navigate(`/mantenimiento/${sol.id}`)
     } catch (err: any) {
@@ -223,6 +229,16 @@ export default function NuevaMantenimientoPage() {
               />
             </div>
           </div>
+
+          {modalidad === "externo" && (
+            <FotoEvidenciaField
+              label="Foto evidencia inicial (antes del servicio)"
+              hint="Requerida para mantenimiento externo — estado previo al proveedor."
+              required
+              valuePreview={evidenciaAntes}
+              onChange={setEvidenciaAntes}
+            />
+          )}
         </section>
 
         {error && (

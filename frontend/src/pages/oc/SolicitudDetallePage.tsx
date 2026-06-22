@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useRef, useState } from "react"
-import { useNavigate, useParams } from "react-router-dom"
+import { Link, useNavigate, useParams } from "react-router-dom"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { api } from "@/lib/api"
 import {
@@ -12,6 +12,7 @@ import { formatCOP } from "@/lib/formatters"
 import { formatFechaHora, formatFechaRelativa } from "@/lib/dates"
 import {
   useSolicitud,
+  useMantenimientoVinculado,
   useAsignarAuxiliar,
   useCotizaciones,
   useAprobarCotizacion,
@@ -109,6 +110,9 @@ export function SolicitudDetallePage() {
   const token = useAuthStore((s) => s.token)
 
   const { data: solicitud, isLoading } = useSolicitud(id)
+  const { data: mntVinculado } = useMantenimientoVinculado(
+    solicitud?.mantenimiento_id ? id : undefined,
+  )
   const { data: cotizaciones = [], isLoading: cotizacionesLoading } = useCotizaciones(id)
   const { data: orden } = useOrden(id)
   const { data: auxiliar } = useUsuario(solicitud?.auxiliar_id)
@@ -1114,6 +1118,27 @@ export function SolicitudDetallePage() {
             ← Volver
           </button>
 
+          {mntVinculado && (
+            <div className="mb-6 rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-500/10 to-transparent px-5 py-4 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-foreground">
+                  Par externo — proceso de mantenimiento vinculado
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {mntVinculado.consecutivo} · {mntVinculado.titulo}
+                  {" · "}
+                  <span className="capitalize">{mntVinculado.estado}</span>
+                </p>
+              </div>
+              <Link
+                to={`/mantenimiento/${mntVinculado.id}`}
+                className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-500 transition-colors"
+              >
+                Dirigirse al proceso de mantenimiento
+              </Link>
+            </div>
+          )}
+
           {/* Header */}
           <div className="flex items-start justify-between mb-6">
             <div>
@@ -1130,6 +1155,11 @@ export function SolicitudDetallePage() {
                 {solicitud.tipo_solicitud === "mantenimiento" && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
                     Mantenimiento
+                  </span>
+                )}
+                {solicitud.tipo_solicitud === "servicio" && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
+                    Servicio externo
                   </span>
                 )}
               </div>

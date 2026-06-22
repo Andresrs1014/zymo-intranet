@@ -11,6 +11,7 @@ import type {
   UsuarioBasico,
   HistorialEntrada,
 } from "@/types/oc"
+import type { MantenimientoVinculado } from "@/types/mantenimiento"
 export type { ItemCotizacion }
 
 // ── Solicitudes ───────────────────────────────────────────────────────────────
@@ -73,6 +74,20 @@ export function useSolicitud(id: string | undefined) {
       return data
     },
     enabled: !!id,
+  })
+}
+
+export function useMantenimientoVinculado(ocId: string | undefined) {
+  return useQuery({
+    queryKey: ["oc", "mantenimiento-vinculado", ocId],
+    queryFn: async () => {
+      const { data } = await api.get<MantenimientoVinculado>(
+        `/api/oc/solicitudes/${ocId}/mantenimiento-vinculado`
+      )
+      return data
+    },
+    enabled: !!ocId,
+    retry: false,
   })
 }
 

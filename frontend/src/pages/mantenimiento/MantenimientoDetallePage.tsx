@@ -9,10 +9,13 @@ import {
   ModalidadBadge,
 } from "@/components/mantenimiento/EstadoMantenimientoBadge"
 import { CrearOCVinculadaModal } from "@/components/mantenimiento/CrearOCVinculadaModal"
+import { ParExternoPanel } from "@/components/mantenimiento/ParExternoPanel"
+import { ExternoEvidenciasPanel } from "@/components/mantenimiento/ExternoEvidenciasPanel"
 import { AccesoMovilPanel } from "@/components/mantenimiento/AccesoMovilPanel"
 import { MantenimientoCampoAcciones } from "@/components/mantenimiento/MantenimientoCampoAcciones"
 import { MantenimientoMobileLayout } from "@/components/mantenimiento/MantenimientoMobileLayout"
 import { useMantenimientoPortal } from "@/context/MantenimientoPortalContext"
+import { EscalarExternoModal } from "@/components/mantenimiento/EscalarExternoModal"
 import {
   useSolicitudMantenimiento,
   useHistorialMantenimiento,
@@ -20,13 +23,12 @@ import {
   useCambiarEstadoMantenimiento,
   useSubirEvidencia,
   useAprobaciones,
-  useAsignarMantenimiento,
   useProgramarMantenimiento,
   useRegistrarAprobacion,
-  useAuxiliaresMantenimiento,
+  useEscalarExterno,
 } from "@/hooks/useMantenimiento"
 import { useAuthStore } from "@/store/authStore"
-import { canManageMantenimiento, canOperateMantenimientoCampo, canSeeAllMantenimientos } from "@/lib/permissions"
+import { canManageMantenimiento, canOperateMantenimientoCampo, canSeeAllMantenimientos, canSeeOC } from "@/lib/permissions"
 import type { AprobacionPayload, EstadoMantenimiento } from "@/types/mantenimiento"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
@@ -54,14 +56,13 @@ export default function MantenimientoDetallePage() {
 
   const [activeTab, setActiveTab]   = useState<Tab>("Info")
   const [showCrearOC, setShowCrearOC] = useState(false)
+  const [showEscalar, setShowEscalar] = useState(false)
   const [gestionMsg, setGestionMsg] = useState<string | null>(null)
   const [monto, setMonto]           = useState("")
   const [fechaProg, setFechaProg]   = useState("")
   const [notas, setNotas]           = useState("")
-  const [asignadoId, setAsignadoId] = useState("")
 
   const { data: sol, isLoading } = useSolicitudMantenimiento(solicitudId)
-  const { data: auxiliares = [] } = useAuxiliaresMantenimiento()
   const { data: historial = [] } = useHistorialMantenimiento(activeTab === "Timeline" ? solicitudId : null)
   const { data: ocs = [] }       = useOCsVinculadas(activeTab === "Compras" ? solicitudId : null)
   const necesitaAprobaciones = (sol?.monto_estimado ?? 0) > 2_000_000 || sol?.requiere_aprobacion
@@ -70,9 +71,9 @@ export default function MantenimientoDetallePage() {
   )
   const { mutateAsync: cambiarEstado, isPending: cambiandoEstado } = useCambiarEstadoMantenimiento()
   const { mutateAsync: subirEvidencia, isPending: subiendoEvidencia } = useSubirEvidencia()
-  const { mutateAsync: asignar, isPending: asignando } = useAsignarMantenimiento()
   const { mutateAsync: programar, isPending: programando } = useProgramarMantenimiento()
   const { mutateAsync: registrarAprobacion, isPending: aprobando } = useRegistrarAprobacion()
+  const { mutateAsync: escalarExterno, isPending: escalando } = useEscalarExterno()
 
   const portal = useMantenimientoPortal()
   const authUser = useAuthStore((s) => s.user)
@@ -90,7 +91,10 @@ export default function MantenimientoDetallePage() {
     : authUser
       ? canSeeAllMantenimientos(authUser.role)
       : false
-  const guardandoGestion = asignando || programando
+  const esCompras = authUser ? canSeeOC(authUser.role, authUser.area, appPerms) : false
+  const puedeSubirEvidenciaExterna =
+    puedeOperarCampo || puedeGestionar || esCompras
+  const guardandoGestion = programando
 
   useEffect(() => {
     if (!sol) return
@@ -101,7 +105,6 @@ export default function MantenimientoDetallePage() {
         : ""
     )
     setNotas(sol.notas_evaluacion ?? "")
-    setAsignadoId(sol.asignado_id != null ? String(sol.asignado_id) : "")
   }, [sol])
 
   if (isLoading) {
@@ -172,10 +175,6 @@ export default function MantenimientoDetallePage() {
       notas_evaluacion: notas.trim() || null,
       monto_estimado: montoNum,
     })
-    await asignar({
-      id: solicitudId,
-      asignado_id: asignadoId ? Number(asignadoId) : null,
-    })
     setGestionMsg("Datos guardados")
     setTimeout(() => setGestionMsg(null), 3000)
   }
@@ -185,7 +184,11 @@ export default function MantenimientoDetallePage() {
     await registrarAprobacion({ id: solicitudId, payload: { rol_aprobador: rol } })
   }
 
-  const faltaEvidencia = sol.estado === "ejecucion" && !sol.evidencia_url
+  const faltaEvidencia =
+    sol.estado === "ejecucion" &&
+    (sol.modalidad === "externo"
+      ? !sol.evidencia_despues_url
+      : !sol.evidencia_url)
   const puedeCompletar = !faltaEvidencia
   const bloqueadoPorAprobaciones =
     sol.estado === "solicitud" &&
@@ -193,7 +196,8 @@ export default function MantenimientoDetallePage() {
     sol.aprobaciones_count < 3
   const showGestion =
     puedeGestionar &&
-    ["solicitud", "programado"].includes(sol.estado)
+    ["solicitud", "programado"].includes(sol.estado) &&
+    sol.modalidad !== "externo"
 
   const PASOS: EstadoMantenimiento[] = [
     "solicitud", "programado", "ejecucion", "completado",
@@ -218,6 +222,16 @@ export default function MantenimientoDetallePage() {
         <span className="text-sm font-semibold text-foreground font-mono">{sol.consecutivo}</span>
         <EstadoMantenimientoBadge estado={sol.estado as EstadoMantenimiento} />
       </div>
+
+      {sol.modalidad === "externo" && !portal && (
+        <div className="mb-4">
+          <ParExternoPanel sol={sol} />
+        </div>
+      )}
+
+      {sol.modalidad === "externo" && !portal && (
+        <ExternoEvidenciasPanel sol={sol} puedeSubir={puedeSubirEvidenciaExterna} />
+      )}
 
       {/* Layout principal: sidebar + contenido */}
       <div className="flex gap-0 rounded-xl border border-border bg-card overflow-hidden min-h-[500px]">
@@ -329,7 +343,16 @@ export default function MantenimientoDetallePage() {
 
             {activeTab === "Compras" && (
               <div className="space-y-3">
-                {puedeGestionar && (
+                {sol.modalidad === "externo" && sol.oc_par_id && sol.oc_par_consecutivo && (
+                  <a
+                    href={`/oc/solicitudes/${sol.oc_par_id}`}
+                    className="block rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2.5 text-xs hover:border-amber-500/50 transition-colors"
+                  >
+                    <p className="font-semibold text-foreground">OC servicio (par externo)</p>
+                    <p className="font-mono text-muted-foreground mt-0.5">{sol.oc_par_consecutivo}</p>
+                  </a>
+                )}
+                {puedeGestionar && sol.modalidad !== "externo" && (
                   <Button
                     size="sm"
                     variant="outline"
@@ -458,23 +481,6 @@ export default function MantenimientoDetallePage() {
                 </div>
                 <div className="sm:col-span-2">
                   <label className="block text-xs text-muted-foreground mb-1">
-                    Asignar auxiliar
-                  </label>
-                  <select
-                    value={asignadoId}
-                    onChange={(e) => setAsignadoId(e.target.value)}
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500/50"
-                  >
-                    <option value="">Sin asignar</option>
-                    {auxiliares.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.full_name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-xs text-muted-foreground mb-1">
                     Notas de evaluación
                   </label>
                   <textarea
@@ -507,12 +513,26 @@ export default function MantenimientoDetallePage() {
             <MantenimientoCampoAcciones
               solicitudId={solicitudId}
               estado={sol.estado as EstadoMantenimiento}
+              modalidad={sol.modalidad}
               onCrearOC={() => setShowCrearOC(true)}
+              onEscalarExterno={
+                sol.modalidad === "interno" ? () => setShowEscalar(true) : undefined
+              }
               onDone={() => {
                 /* queries se invalidan en el hook */
               }}
             />
           )}
+
+          <EscalarExternoModal
+            open={showEscalar}
+            onClose={() => setShowEscalar(false)}
+            loading={escalando}
+            onConfirm={async (payload) => {
+              if (!solicitudId) return
+              await escalarExterno({ id: solicitudId, payload })
+            }}
+          />
 
           {puedeGestionar && !portal && solicitudId && (
             <AccesoMovilPanel
@@ -629,7 +649,9 @@ export default function MantenimientoDetallePage() {
               )}
               {faltaEvidencia && (
                 <p className="text-xs text-amber-700 w-full">
-                  Sube una foto de evidencia antes de marcar como completado.
+                  {sol.modalidad === "externo"
+                    ? "Sube la foto después del servicio del proveedor antes de completar."
+                    : "Sube una foto de evidencia antes de marcar como completado."}
                 </p>
               )}
               {["solicitud", "programado"].includes(sol.estado) && (

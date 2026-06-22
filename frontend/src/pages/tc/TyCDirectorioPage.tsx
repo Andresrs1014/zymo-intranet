@@ -23,6 +23,7 @@ interface Persona {
   area_nombre: string
   cargo_id: number | null
   cargo_nombre: string
+  foto_url: string
   email: string
   telefono: string
   estado: string
@@ -344,8 +345,11 @@ export function TyCDirectorioPage() {
                 >
                   <td className="px-6 py-2.5">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-500/10 text-teal-500 text-xs font-bold">
-                        {p.initials || p.nombre.slice(0, 2).toUpperCase()}
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-500/10 text-teal-500 text-xs font-bold overflow-hidden">
+                        {p.foto_url
+                          ? <img src={p.foto_url} alt={p.nombre} className="w-full h-full object-cover" />
+                          : (p.initials || p.nombre.slice(0, 2).toUpperCase())
+                        }
                       </div>
                       <div>
                         <p className="font-medium text-sm leading-tight">{p.nombre}</p>

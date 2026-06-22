@@ -14,11 +14,16 @@ import type {
   HistorialMantenimientoEntrada,
   KpisOut,
   MantenimientoFilters,
+  AsignarParExternoPayload,
+  EscalarExternoPayload,
+  EscalarExternoResponse,
+  ParExterno,
   MntNotificacionesConfig,
   OCVinculada,
   SolicitudMantenimiento,
   SolicitudesMantenimientoListResponse,
   SubirEvidenciaPayload,
+  EvidenciaExternaPayload,
   TipoMantenimientoConfig,
 } from "@/types/mantenimiento"
 
@@ -477,5 +482,165 @@ export function useKpisMantenimiento() {
       return data
     },
     staleTime: 2 * 60_000,
+  })
+}
+
+// ── Pares externos MNT ↔ OC ───────────────────────────────────────────────────
+
+export function useParesExternos(soloPendientes = true, enabled = true) {
+  return useQuery({
+    queryKey: ["mantenimiento", "pares-externos", soloPendientes],
+    queryFn: async () => {
+      const { data } = await api.get<ParExterno[]>(
+        `${BASE}/pares-externos?solo_pendientes=${soloPendientes}`
+      )
+      return data
+    },
+    enabled,
+    refetchInterval: enabled ? 30_000 : false,
+  })
+}
+
+export function useMisParesExternos() {
+  return useQuery({
+    queryKey: ["mantenimiento", "pares-externos", "mios"],
+    queryFn: async () => {
+      const { data } = await api.get<ParExterno[]>(`${BASE}/pares-externos/mios`)
+      return data
+    },
+    refetchInterval: 30_000,
+  })
+}
+
+export function useParExterno(mantenimientoId: number | null) {
+  return useQuery({
+    queryKey: ["mantenimiento", "par-externo", mantenimientoId],
+    queryFn: async () => {
+      const { data } = await api.get<ParExterno>(
+        `${BASE}/solicitudes/${mantenimientoId}/par-externo`
+      )
+      return data
+    },
+    enabled: mantenimientoId !== null,
+  })
+}
+
+export function useAsignarParExterno() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      mantenimientoId,
+      payload,
+    }: {
+      mantenimientoId: number
+      payload: AsignarParExternoPayload
+    }) => {
+      const { data } = await api.post<ParExterno>(
+        `${BASE}/solicitudes/${mantenimientoId}/asignar-par`,
+        payload
+      )
+      return data
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["mantenimiento", "par-externo", vars.mantenimientoId] })
+      qc.invalidateQueries({ queryKey: ["mantenimiento", "solicitud", vars.mantenimientoId] })
+      qc.invalidateQueries({ queryKey: ["mantenimiento", "pares-externos"] })
+      qc.invalidateQueries({ queryKey: ["oc"] })
+    },
+  })
+}
+
+export function useSubirEvidenciaExterna() {
+  const qc = useQueryClient()
+  const { http, prefix } = useMntApi()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      tipo,
+      evidencia_url,
+      nota,
+    }: {
+      id: number
+      tipo: "antes" | "despues"
+      evidencia_url: string
+      nota?: string
+    }) => {
+      const path = prefix.includes("/portal/")
+        ? `${prefix}/solicitudes/${id}/evidencia-externa`
+        : `${BASE}/solicitudes/${id}/evidencia-externa`
+      const { data } = await http.post<SolicitudMantenimiento>(path, {
+        tipo,
+        evidencia_url,
+        nota,
+      } satisfies EvidenciaExternaPayload)
+      return data
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["mantenimiento", "solicitud", vars.id] })
+    },
+  })
+}
+
+// ── Pool + escalamiento ───────────────────────────────────────────────────────
+
+export function usePoolDisponibles(enabled = true) {
+  const { http, prefix, portalToken } = useMntApi()
+  return useQuery({
+    queryKey: ["mantenimiento", "pool", portalToken],
+    queryFn: async () => {
+      const path = prefix.includes("/portal/")
+        ? `${prefix}/pool/disponibles`
+        : `${BASE}/pool/disponibles`
+      const { data } = await http.get<SolicitudMantenimiento[]>(path)
+      return data
+    },
+    enabled,
+    refetchInterval: enabled ? 30_000 : false,
+  })
+}
+
+export function useAutoAsignarMantenimiento() {
+  const qc = useQueryClient()
+  const { http, prefix } = useMntApi()
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const path = prefix.includes("/portal/")
+        ? `${prefix}/solicitudes/${id}/auto-asignar`
+        : `${BASE}/pool/solicitudes/${id}/auto-asignar`
+      const { data } = await http.post<SolicitudMantenimiento>(path)
+      return data
+    },
+    onSuccess: (_data, id) => {
+      qc.invalidateQueries({ queryKey: ["mantenimiento", "pool"] })
+      qc.invalidateQueries({ queryKey: ["mantenimiento", "solicitudes"] })
+      qc.invalidateQueries({ queryKey: ["mantenimiento", "solicitud", id] })
+    },
+  })
+}
+
+export function useEscalarExterno() {
+  const qc = useQueryClient()
+  const { http, prefix } = useMntApi()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      payload,
+    }: {
+      id: number
+      payload: EscalarExternoPayload
+    }) => {
+      const path = prefix.includes("/portal/")
+        ? `${prefix}/solicitudes/${id}/escalar-externo`
+        : `${BASE}/solicitudes/${id}/escalar-externo`
+      const { data } = await http.post<EscalarExternoResponse>(path, payload)
+      return data
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["mantenimiento", "solicitud", vars.id] })
+      qc.invalidateQueries({ queryKey: ["mantenimiento", "solicitudes"] })
+      qc.invalidateQueries({ queryKey: ["mantenimiento", "pares-externos"] })
+      qc.invalidateQueries({ queryKey: ["mantenimiento", "par-externo", vars.id] })
+      qc.invalidateQueries({ queryKey: ["oc"] })
+    },
   })
 }

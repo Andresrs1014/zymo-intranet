@@ -7,7 +7,9 @@ Acceso: admin, talento_cultura (mod_tc)
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+import os
+
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel
 from sqlmodel import Session, col, select
 
@@ -414,6 +416,38 @@ def actualizar_persona(
         else:
             setattr(persona, field, value)
 
+    persona.updated_at = datetime.utcnow()
+    db.add(persona)
+    db.commit()
+    db.refresh(persona)
+    return _persona_dict(persona, db, main_db)
+
+
+@router.post("/personas/{persona_id}/foto")
+async def subir_foto_persona(
+    persona_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
+    _: User = Depends(require_tc_editar),
+):
+    persona = db.get(PtcPersona, persona_id)
+    if not persona:
+        raise HTTPException(status_code=404, detail="Persona no encontrada.")
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Solo se permiten imágenes.")
+
+    content = await file.read()
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="La imagen no puede superar los 5 MB.")
+
+    ext = {"image/png": "png", "image/webp": "webp"}.get(file.content_type, "jpg")
+    fotos_dir = "/app/data/tc_fotos"
+    os.makedirs(fotos_dir, exist_ok=True)
+    with open(os.path.join(fotos_dir, f"{persona_id}.{ext}"), "wb") as f:
+        f.write(content)
+
+    persona.foto_url = f"/tc-fotos/{persona_id}.{ext}"
     persona.updated_at = datetime.utcnow()
     db.add(persona)
     db.commit()

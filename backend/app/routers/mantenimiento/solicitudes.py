@@ -50,6 +50,7 @@ class SolicitudMantenimientoCreate(BaseModel):
     prioridad:                   str = "media"
     monto_estimado:              Optional[float] = None
     activo_qr_id:                Optional[int] = None
+    evidencia_antes_url:         Optional[str] = None
 
     @field_validator("fecha_proxima_mantenimiento")
     @classmethod
@@ -90,12 +91,20 @@ class SolicitudMantenimientoOut(BaseModel):
     solicitante_nombre:          Optional[str]
     asignado_id:                 Optional[int]
     asignado_nombre:             Optional[str]
+    coordinador_compras_id:      Optional[int] = None
+    coordinador_compras_nombre:  Optional[str] = None
+    oc_par_id:                   Optional[str] = None
+    oc_par_consecutivo:          Optional[str] = None
+    tipo_asignacion:             Optional[str] = None
     empresa_nombre:              Optional[str]
     origen:                      str
     prioridad:                   str
     monto_estimado:              Optional[float]
     monto_real:                  Optional[float]
     evidencia_url:               Optional[str]
+    evidencia_antes_url:         Optional[str] = None
+    evidencia_despues_url:       Optional[str] = None
+    fase_externo:                Optional[str] = None
     activo_qr_id:                Optional[int]
     requiere_aprobacion:         bool
     aprobaciones_count:          int
@@ -129,6 +138,13 @@ class SubirEvidenciaBody(BaseModel):
     evidencia_url: str
     monto_real:    Optional[float] = None
     nota:          Optional[str] = None
+    tipo:          Optional[str] = None  # "despues" en mantenimiento externo
+
+
+class EvidenciaExternaBody(BaseModel):
+    tipo:          str  # "antes" | "despues"
+    evidencia_url: str
+    nota:          Optional[str] = None
 
 
 class AccesoMovilOut(BaseModel):
@@ -157,11 +173,24 @@ def _enriquecer(
     sol: SolicitudMantenimiento,
     users_by_id: dict,
     aprobaciones_count: int = 0,
+    oc_db: Optional[Session] = None,
 ) -> SolicitudMantenimientoOut:
+    from app.services.mnt_evidencia import fase_externo
+    from app.services.mnt_pares_externos import oc_par_de_mnt
+
     sol_user  = users_by_id.get(sol.solicitante_id)
     asig_user = users_by_id.get(sol.asignado_id) if sol.asignado_id else None
+    coord_id = getattr(sol, "coordinador_compras_id", None)
+    coord_user = users_by_id.get(coord_id) if coord_id else None
     monto_est = float(sol.monto_estimado) if sol.monto_estimado is not None else None
     requiere  = monto_est is not None and monto_est > 2_000_000
+
+    oc_par_consec = None
+    if oc_db:
+        oc = oc_par_de_mnt(oc_db, sol)
+        if oc:
+            oc_par_consec = oc.consecutivo_os
+
     return SolicitudMantenimientoOut(
         id=sol.id,
         consecutivo=sol.consecutivo,
@@ -178,12 +207,20 @@ def _enriquecer(
         solicitante_nombre=sol_user.full_name if sol_user else None,
         asignado_id=sol.asignado_id,
         asignado_nombre=asig_user.full_name if asig_user else None,
+        coordinador_compras_id=coord_id,
+        coordinador_compras_nombre=coord_user.full_name if coord_user else None,
+        oc_par_id=getattr(sol, "oc_par_id", None),
+        oc_par_consecutivo=oc_par_consec,
+        tipo_asignacion=getattr(sol, "tipo_asignacion", None),
         empresa_nombre=sol.empresa_nombre,
         origen=getattr(sol, "origen", "intranet") or "intranet",
         prioridad=getattr(sol, "prioridad", "media") or "media",
         monto_estimado=monto_est,
         monto_real=float(sol.monto_real) if getattr(sol, "monto_real", None) is not None else None,
         evidencia_url=getattr(sol, "evidencia_url", None),
+        evidencia_antes_url=getattr(sol, "evidencia_antes_url", None),
+        evidencia_despues_url=getattr(sol, "evidencia_despues_url", None),
+        fase_externo=fase_externo(sol),
         activo_qr_id=getattr(sol, "activo_qr_id", None),
         requiere_aprobacion=requiere,
         aprobaciones_count=aprobaciones_count,
@@ -202,6 +239,13 @@ def crear_solicitud(
     current_user: User = Depends(get_current_user),
 ):
     from datetime import date as date_type
+
+    if body.modalidad.value == "externo" and not body.evidencia_antes_url:
+        raise HTTPException(
+            status_code=400,
+            detail="El mantenimiento externo requiere foto de evidencia inicial (antes del servicio).",
+        )
+
     consecutivo = _generar_consecutivo(oc_db)
 
     fecha_proxima = None
@@ -222,6 +266,8 @@ def crear_solicitud(
         prioridad=body.prioridad,
         monto_estimado=body.monto_estimado,
         activo_qr_id=body.activo_qr_id,
+        evidencia_antes_url=body.evidencia_antes_url if body.modalidad.value == "externo" else None,
+        evidencia_url=body.evidencia_antes_url if body.modalidad.value == "externo" else None,
         mobile_access_token=secrets.token_urlsafe(32),
     )
     oc_db.add(sol)
@@ -239,8 +285,29 @@ def crear_solicitud(
     oc_db.add(hist)
     oc_db.commit()
 
+    if body.modalidad.value == "externo":
+        from app.services.mnt_pares_externos import crear_oc_servicio_externo
+        crear_oc_servicio_externo(
+            oc_db,
+            sol,
+            current_user.full_name or current_user.email,
+            current_user.email,
+            observaciones=f"Solicitud externa creada — {sol.descripcion[:500]}",
+        )
+        oc_db.refresh(sol)
+        hist2 = HistorialMantenimiento(
+            solicitud_id=sol.id,
+            estado_anterior=sol.estado,
+            estado_nuevo=sol.estado,
+            nota="Par externo creado — OC servicio vinculada",
+            usuario_id=current_user.id,
+            usuario_nombre=current_user.full_name or current_user.email,
+        )
+        oc_db.add(hist2)
+        oc_db.commit()
+
     log.info("Solicitud de mantenimiento creada: %s por usuario %s", consecutivo, current_user.email)
-    return _enriquecer(sol, {current_user.id: current_user})
+    return _enriquecer(sol, {current_user.id: current_user}, oc_db=oc_db)
 
 
 @router.post("/retroactivo", status_code=status.HTTP_201_CREATED, response_model=SolicitudMantenimientoOut)
@@ -286,7 +353,7 @@ def registrar_retroactivo(
     oc_db.commit()
 
     log.info("Registro retroactivo creado: %s por %s", consecutivo, current_user.email)
-    return _enriquecer(sol, {current_user.id: current_user})
+    return _enriquecer(sol, {current_user.id: current_user}, oc_db=oc_db)
 
 
 @router.get("/", response_model=SolicitudesMantenimientoListResponse)
@@ -312,13 +379,23 @@ def listar_solicitudes(
             and current_user.role != "auxiliar_mantenimiento"
         )
     )
+    es_compras = user_has_permission(app_db, current_user, "mod_oc_ver")
     if current_user.role == "auxiliar_mantenimiento":
         stmt = stmt.where(SolicitudMantenimiento.asignado_id == current_user.id)
     elif not puede_ver_todos:
-        stmt = stmt.where(
+        filtros_propios = (
             (SolicitudMantenimiento.solicitante_id == current_user.id)
             | (SolicitudMantenimiento.asignado_id == current_user.id)
         )
+        if es_compras:
+            filtros_propios = filtros_propios | (
+                (SolicitudMantenimiento.modalidad == "externo")
+                & (
+                    (SolicitudMantenimiento.coordinador_compras_id == None)  # noqa: E711
+                    | (SolicitudMantenimiento.coordinador_compras_id == current_user.id)
+                )
+            )
+        stmt = stmt.where(filtros_propios)
 
     if estado:
         stmt = stmt.where(SolicitudMantenimiento.estado == estado)
@@ -341,11 +418,15 @@ def listar_solicitudes(
     ).all()
 
     user_ids = {s.solicitante_id for s in items} | {s.asignado_id for s in items if s.asignado_id}
+    for s in items:
+        cid = getattr(s, "coordinador_compras_id", None)
+        if cid:
+            user_ids.add(cid)
     users = app_db.exec(select(User).where(User.id.in_(list(user_ids)))).all()
     users_by_id = {u.id: u for u in users}
 
     return SolicitudesMantenimientoListResponse(
-        items=[_enriquecer(s, users_by_id) for s in items],
+        items=[_enriquecer(s, users_by_id, oc_db=oc_db) for s in items],
         total=total,
         page=page,
         pages=math.ceil(total / limit) if total else 1,
@@ -365,12 +446,25 @@ def obtener_solicitud(
 
     from app.core.permissions import user_has_permission
     puede_ver_todos = current_user.role in ("admin", "directivo") or user_has_permission(app_db, current_user, "mod_mantenimiento")
-    if not puede_ver_todos and sol.solicitante_id != current_user.id and sol.asignado_id != current_user.id:
+    es_propio = sol.solicitante_id == current_user.id or sol.asignado_id == current_user.id
+    es_compras_externo = (
+        sol.modalidad == "externo"
+        and user_has_permission(app_db, current_user, "mod_oc_ver")
+        and (
+            getattr(sol, "coordinador_compras_id", None) is None
+            or getattr(sol, "coordinador_compras_id", None) == current_user.id
+            or current_user.role == "admin"
+        )
+    )
+    if not puede_ver_todos and not es_propio and not es_compras_externo:
         raise HTTPException(status_code=403, detail="Acceso denegado.")
 
     user_ids = {sol.solicitante_id}
     if sol.asignado_id:
         user_ids.add(sol.asignado_id)
+    cid = getattr(sol, "coordinador_compras_id", None)
+    if cid:
+        user_ids.add(cid)
     users = app_db.exec(select(User).where(User.id.in_(list(user_ids)))).all()
 
     aprobaciones_count = oc_db.exec(
@@ -380,7 +474,12 @@ def obtener_solicitud(
         )
     ).one()
 
-    return _enriquecer(sol, {u.id: u for u in users}, aprobaciones_count=aprobaciones_count)
+    return _enriquecer(
+        sol,
+        {u.id: u for u in users},
+        aprobaciones_count=aprobaciones_count,
+        oc_db=oc_db,
+    )
 
 
 @router.patch("/{solicitud_id}/estado", response_model=SolicitudMantenimientoOut)
@@ -422,11 +521,10 @@ def cambiar_estado(
 
     # Gate 2: ejecucion → completado requiere foto de evidencia
     if sol.estado == EstadoMantenimiento.ejecucion and body.estado_nuevo == EstadoMantenimiento.completado:
-        if not getattr(sol, "evidencia_url", None):
-            raise HTTPException(
-                status_code=400,
-                detail="Para completar el mantenimiento debe subir una foto de evidencia del trabajo realizado.",
-            )
+        from app.services.mnt_evidencia import puede_completar
+        ok, msg = puede_completar(sol)
+        if not ok:
+            raise HTTPException(status_code=400, detail=msg)
 
     estado_anterior = sol.estado
     sol.estado = body.estado_nuevo
@@ -452,7 +550,7 @@ def cambiar_estado(
         asig = app_db.get(User, sol.asignado_id)
         if asig:
             users_by_id[asig.id] = asig
-    return _enriquecer(sol, users_by_id)
+    return _enriquecer(sol, users_by_id, oc_db=oc_db)
 
 
 @router.patch("/{solicitud_id}/asignar", response_model=SolicitudMantenimientoOut)
@@ -463,12 +561,20 @@ def asignar_auxiliar(
     app_db: Session = Depends(get_db),
     current_user: User = Depends(require_mantenimiento),
 ):
+    """Asignación manual — solo admin/directivo. Internos: pool. Externos: compras vía asignar-par."""
+    if current_user.role not in ("admin", "directivo"):
+        raise HTTPException(
+            status_code=403,
+            detail="La asignación manual está restringida. Internos: pool del auxiliar. Externos: bandeja de compras.",
+        )
     sol = oc_db.get(SolicitudMantenimiento, solicitud_id)
     if not sol:
         raise HTTPException(status_code=404, detail="Solicitud no encontrada.")
 
     sol.asignado_id = body.asignado_id
     sol.updated_at = datetime.now(timezone.utc)
+    from app.services.mnt_pares_externos import sincronizar_desde_mnt_asignar
+    sincronizar_desde_mnt_asignar(oc_db, sol, body.asignado_id, current_user)
     oc_db.add(sol)
     oc_db.commit()
     oc_db.refresh(sol)
@@ -477,7 +583,7 @@ def asignar_auxiliar(
     if sol.asignado_id:
         user_ids.add(sol.asignado_id)
     users = app_db.exec(select(User).where(User.id.in_(list(user_ids)))).all()
-    return _enriquecer(sol, {u.id: u for u in users})
+    return _enriquecer(sol, {u.id: u for u in users}, oc_db=oc_db)
 
 
 @router.patch("/{solicitud_id}/programar", response_model=SolicitudMantenimientoOut)
@@ -507,7 +613,7 @@ def actualizar_programacion(
     if sol.asignado_id:
         user_ids.add(sol.asignado_id)
     users = app_db.exec(select(User).where(User.id.in_(list(user_ids)))).all()
-    return _enriquecer(sol, {u.id: u for u in users})
+    return _enriquecer(sol, {u.id: u for u in users}, oc_db=oc_db)
 
 
 @router.post("/{solicitud_id}/evidencia", response_model=SolicitudMantenimientoOut)
@@ -532,18 +638,26 @@ def subir_evidencia(
     if not puede:
         raise HTTPException(status_code=403, detail="Sin permiso para subir evidencia.")
 
-    sol.evidencia_url = body.evidencia_url
+    from app.services.mnt_evidencia import registrar_evidencia_externa
+
+    nota_evidencia = "Evidencia subida"
+    if sol.modalidad == "externo":
+        registrar_evidencia_externa(sol, "despues", body.evidencia_url)
+        nota_evidencia = "Evidencia después del servicio externo"
+    else:
+        sol.evidencia_url = body.evidencia_url
     if body.monto_real is not None:
         sol.monto_real = body.monto_real
     sol.updated_at = datetime.now(timezone.utc)
     oc_db.add(sol)
 
-    if body.nota:
+    nota_hist = body.nota or nota_evidencia
+    if nota_hist:
         hist = HistorialMantenimiento(
             solicitud_id=sol.id,
             estado_anterior=sol.estado,
             estado_nuevo=sol.estado,
-            nota=f"Evidencia subida: {body.nota}",
+            nota=f"Evidencia: {nota_hist}",
             usuario_id=current_user.id,
             usuario_nombre=current_user.full_name or current_user.email,
         )
@@ -551,7 +665,54 @@ def subir_evidencia(
     oc_db.commit()
     oc_db.refresh(sol)
 
-    return _enriquecer(sol, {current_user.id: current_user})
+    return _enriquecer(sol, {current_user.id: current_user}, oc_db=oc_db)
+
+
+@router.post("/{solicitud_id}/evidencia-externa", response_model=SolicitudMantenimientoOut)
+def subir_evidencia_externa(
+    solicitud_id: int,
+    body: EvidenciaExternaBody,
+    oc_db: Session = Depends(get_oc_db),
+    app_db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Sube evidencia antes/después en mantenimiento externo."""
+    if body.tipo not in ("antes", "despues"):
+        raise HTTPException(status_code=400, detail="tipo debe ser 'antes' o 'despues'.")
+
+    sol = oc_db.get(SolicitudMantenimiento, solicitud_id)
+    if not sol:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada.")
+    if sol.modalidad != "externo":
+        raise HTTPException(status_code=400, detail="Solo aplica a mantenimiento externo.")
+
+    from app.core.permissions import user_has_permission
+    from app.services.mnt_evidencia import registrar_evidencia_externa
+
+    puede = (
+        current_user.role == "admin"
+        or sol.asignado_id == current_user.id
+        or user_has_permission(app_db, current_user, "mod_mantenimiento")
+        or user_has_permission(app_db, current_user, "mod_oc_ver")
+    )
+    if not puede:
+        raise HTTPException(status_code=403, detail="Sin permiso.")
+
+    registrar_evidencia_externa(sol, body.tipo, body.evidencia_url)
+    sol.updated_at = datetime.now(timezone.utc)
+    oc_db.add(sol)
+    hist = HistorialMantenimiento(
+        solicitud_id=sol.id,
+        estado_anterior=sol.estado,
+        estado_nuevo=sol.estado,
+        nota=f"Evidencia externa ({body.tipo}): {body.nota or 'foto registrada'}",
+        usuario_id=current_user.id,
+        usuario_nombre=current_user.full_name or current_user.email,
+    )
+    oc_db.add(hist)
+    oc_db.commit()
+    oc_db.refresh(sol)
+    return _enriquecer(sol, {current_user.id: current_user}, oc_db=oc_db)
 
 
 def _acceso_movil_out(sol: SolicitudMantenimiento, oc_db: Session) -> AccesoMovilOut:

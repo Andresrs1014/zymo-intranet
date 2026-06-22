@@ -166,7 +166,7 @@ def portal_listar_solicitudes(
         users_by_id = {u.id: u for u in users}
 
         return SolicitudesMantenimientoListResponse(
-            items=[_enriquecer(s, users_by_id) for s in items],
+            items=[_enriquecer(s, users_by_id, oc_db=oc_db) for s in items],
             total=total,
             page=page,
             pages=math.ceil(total / limit) if total else 1,
@@ -193,7 +193,12 @@ def portal_obtener_solicitud(portal_token: str, solicitud_id: int):
                 MntAprobacion.aprobado == True,
             )
         ).one()
-        return _enriquecer(sol, {u.id: u for u in users}, aprobaciones_count=aprobaciones_count)
+        return _enriquecer(
+            sol,
+            {u.id: u for u in users},
+            aprobaciones_count=aprobaciones_count,
+            oc_db=oc_db,
+        )
 
 
 @router.patch("/solicitudes/{solicitud_id}/estado", response_model=SolicitudMantenimientoOut)
@@ -223,8 +228,10 @@ def portal_cambiar_estado(portal_token: str, solicitud_id: int, body: CambiarEst
                     raise HTTPException(status_code=400, detail=f"Requiere 3 aprobaciones. Tiene {count}/3.")
 
         if sol.estado == EstadoMantenimiento.ejecucion and body.estado_nuevo == EstadoMantenimiento.completado:
-            if not getattr(sol, "evidencia_url", None):
-                raise HTTPException(status_code=400, detail="Se requiere evidencia fotográfica.")
+            from app.services.mnt_evidencia import puede_completar
+            ok, msg = puede_completar(sol)
+            if not ok:
+                raise HTTPException(status_code=400, detail=msg)
 
         estado_anterior = sol.estado
         sol.estado = body.estado_nuevo
@@ -241,7 +248,7 @@ def portal_cambiar_estado(portal_token: str, solicitud_id: int, body: CambiarEst
         oc_db.add(hist)
         oc_db.commit()
         oc_db.refresh(sol)
-        return _enriquecer(sol, {user.id: user})
+        return _enriquecer(sol, {user.id: user}, oc_db=oc_db)
 
 
 @router.patch("/solicitudes/{solicitud_id}/asignar", response_model=SolicitudMantenimientoOut)
@@ -250,6 +257,11 @@ def portal_asignar(portal_token: str, solicitud_id: int, body: AsignarBody):
         user, _ = resolve_portal_user(portal_token, oc_db, app_db)
         caps = _caps(user, app_db)
         _require_manage(caps)
+        if user.role not in ("admin", "directivo"):
+            raise HTTPException(
+                status_code=403,
+                detail="Asignación manual restringida. Use pool (internos) o bandeja compras (externos).",
+            )
         sol = oc_db.get(SolicitudMantenimiento, solicitud_id)
         if not sol:
             raise HTTPException(status_code=404, detail="Solicitud no encontrada.")
@@ -262,7 +274,7 @@ def portal_asignar(portal_token: str, solicitud_id: int, body: AsignarBody):
         if sol.asignado_id:
             user_ids.add(sol.asignado_id)
         users = app_db.exec(select(User).where(User.id.in_(list(user_ids)))).all()
-        return _enriquecer(sol, {u.id: u for u in users})
+        return _enriquecer(sol, {u.id: u for u in users}, oc_db=oc_db)
 
 
 @router.patch("/solicitudes/{solicitud_id}/programar", response_model=SolicitudMantenimientoOut)
@@ -288,7 +300,7 @@ def portal_programar(portal_token: str, solicitud_id: int, body: ActualizarProgr
         if sol.asignado_id:
             user_ids.add(sol.asignado_id)
         users = app_db.exec(select(User).where(User.id.in_(list(user_ids)))).all()
-        return _enriquecer(sol, {u.id: u for u in users})
+        return _enriquecer(sol, {u.id: u for u in users}, oc_db=oc_db)
 
 
 @router.post("/solicitudes/{solicitud_id}/evidencia", response_model=SolicitudMantenimientoOut)
@@ -303,7 +315,11 @@ def portal_evidencia(portal_token: str, solicitud_id: int, body: SubirEvidenciaB
         if not caps["can_operate"]:
             raise HTTPException(status_code=403, detail="Sin permiso.")
 
-        sol.evidencia_url = body.evidencia_url
+        if sol.modalidad == "externo":
+            from app.services.mnt_evidencia import registrar_evidencia_externa
+            registrar_evidencia_externa(sol, "despues", body.evidencia_url)
+        else:
+            sol.evidencia_url = body.evidencia_url
         if body.monto_real is not None:
             sol.monto_real = body.monto_real
         sol.updated_at = datetime.now(timezone.utc)
@@ -320,7 +336,41 @@ def portal_evidencia(portal_token: str, solicitud_id: int, body: SubirEvidenciaB
             oc_db.add(hist)
         oc_db.commit()
         oc_db.refresh(sol)
-        return _enriquecer(sol, {user.id: user})
+        return _enriquecer(sol, {user.id: user}, oc_db=oc_db)
+
+
+@router.post("/solicitudes/{solicitud_id}/evidencia-externa", response_model=SolicitudMantenimientoOut)
+def portal_evidencia_externa(portal_token: str, solicitud_id: int, body: dict):
+    from app.routers.mantenimiento.solicitudes import EvidenciaExternaBody
+
+    parsed = EvidenciaExternaBody(**body)
+    with Session(get_oc_engine()) as oc_db, Session(get_engine()) as app_db:
+        user, _ = resolve_portal_user(portal_token, oc_db, app_db)
+        caps = _caps(user, app_db)
+        sol = oc_db.get(SolicitudMantenimiento, solicitud_id)
+        if not sol:
+            raise HTTPException(status_code=404, detail="Solicitud no encontrada.")
+        _assert_access(user, sol, caps)
+        if not caps["can_operate"]:
+            raise HTTPException(status_code=403, detail="Sin permiso.")
+        if sol.modalidad != "externo":
+            raise HTTPException(status_code=400, detail="Solo aplica a externo.")
+        from app.services.mnt_evidencia import registrar_evidencia_externa
+        registrar_evidencia_externa(sol, parsed.tipo, parsed.evidencia_url)
+        sol.updated_at = datetime.now(timezone.utc)
+        oc_db.add(sol)
+        hist = HistorialMantenimiento(
+            solicitud_id=sol.id,
+            estado_anterior=sol.estado,
+            estado_nuevo=sol.estado,
+            nota=f"Evidencia externa ({parsed.tipo})",
+            usuario_id=user.id,
+            usuario_nombre=user.full_name or user.email,
+        )
+        oc_db.add(hist)
+        oc_db.commit()
+        oc_db.refresh(sol)
+        return _enriquecer(sol, {user.id: user}, oc_db=oc_db)
 
 
 @router.post("/solicitudes/{solicitud_id}/accion-campo")
@@ -484,4 +534,61 @@ def portal_aprobar(portal_token: str, solicitud_id: int, body: dict):
             aprobado=aprobacion.aprobado,
             nota=aprobacion.nota,
             fecha=aprobacion.fecha.isoformat(),
+        )
+
+
+@router.get("/pool/disponibles", response_model=list[SolicitudMantenimientoOut])
+def portal_pool_disponibles(portal_token: str):
+    from app.services.mnt_pool import query_pool_disponibles
+
+    with Session(get_oc_engine()) as oc_db, Session(get_engine()) as app_db:
+        user, _ = resolve_portal_user(portal_token, oc_db, app_db)
+        if user.role != "auxiliar_mantenimiento":
+            raise HTTPException(status_code=403, detail="Solo auxiliar de mantenimiento.")
+        items = oc_db.exec(query_pool_disponibles()).all()
+        user_ids = {s.solicitante_id for s in items}
+        users = app_db.exec(select(User).where(User.id.in_(list(user_ids)))).all()
+        users_by_id = {u.id: u for u in users}
+        return [_enriquecer(s, users_by_id, oc_db=oc_db) for s in items]
+
+
+@router.post("/solicitudes/{solicitud_id}/auto-asignar", response_model=SolicitudMantenimientoOut)
+def portal_auto_asignar(portal_token: str, solicitud_id: int):
+    from app.services.mnt_pool import auto_asignar_desde_pool
+
+    with Session(get_oc_engine()) as oc_db, Session(get_engine()) as app_db:
+        user, _ = resolve_portal_user(portal_token, oc_db, app_db)
+        sol = auto_asignar_desde_pool(oc_db, solicitud_id, user)
+        user_ids = {sol.solicitante_id, user.id}
+        users = app_db.exec(select(User).where(User.id.in_(list(user_ids)))).all()
+        return _enriquecer(sol, {u.id: u for u in users}, oc_db=oc_db)
+
+
+@router.post("/solicitudes/{solicitud_id}/escalar-externo")
+def portal_escalar_externo(portal_token: str, solicitud_id: int, body: dict):
+    from app.routers.mantenimiento.escalamiento import EscalarExternoBody, EscalarExternoOut
+    from app.routers.mantenimiento.pares_externos import _par_out
+    from app.services.mnt_escalamiento import escalar_interno_a_externo
+
+    parsed = EscalarExternoBody(**body)
+    with Session(get_oc_engine()) as oc_db, Session(get_engine()) as app_db:
+        user, _ = resolve_portal_user(portal_token, oc_db, app_db)
+        caps = _caps(user, app_db)
+        sol = oc_db.get(SolicitudMantenimiento, solicitud_id)
+        if not sol:
+            raise HTTPException(status_code=404, detail="Solicitud no encontrada.")
+        _assert_access(user, sol, caps)
+        if not caps["can_operate"]:
+            raise HTTPException(status_code=403, detail="Sin permiso.")
+        mnt, oc = escalar_interno_a_externo(
+            oc_db, sol, user, parsed.motivo, parsed.evidencia_url, parsed.evidencia_urls,
+        )
+        user_ids = {mnt.solicitante_id, user.id}
+        if mnt.asignado_id:
+            user_ids.add(mnt.asignado_id)
+        users = app_db.exec(select(User).where(User.id.in_(list(user_ids)))).all()
+        users_by_id = {u.id: u for u in users}
+        return EscalarExternoOut(
+            mantenimiento=_enriquecer(mnt, users_by_id, oc_db=oc_db),
+            par=_par_out(mnt, oc),
         )

@@ -5,6 +5,7 @@ import { Combobox } from "@/components/ui/Combobox"
 import { useAuthStore } from "@/store/authStore"
 import { useListasFormulario, useCrearSolicitudInterna, usePaquetes, useSubirFotoSolicitud } from "@/hooks/useOC"
 import { useTiposMantenimiento, useCrearMantenimiento } from "@/hooks/useMantenimiento"
+import { FotoEvidenciaField } from "@/components/mantenimiento/FotoEvidenciaField"
 import type { SolicitudInternaCreate } from "@/hooks/useOC"
 import type { CrearMantenimientoPayload } from "@/types/mantenimiento"
 import { useDraft, useAutosaveDraft, useDeleteDraft } from "@/hooks/useDraft"
@@ -38,6 +39,7 @@ interface FormMant {
   modalidad: "interno" | "externo"
   fecha_proxima: string
   descripcion: string
+  evidencia_antes: string | null
 }
 
 const FORM_MANT_VACIO: FormMant = {
@@ -47,6 +49,7 @@ const FORM_MANT_VACIO: FormMant = {
   modalidad: "interno",
   fecha_proxima: "",
   descripcion: "",
+  evidencia_antes: null,
 }
 
 export function NuevaSolicitudPage() {
@@ -254,6 +257,9 @@ export function NuevaSolicitudPage() {
         return "Indica la fecha del próximo mantenimiento."
       }
       if (!formMant.descripcion.trim()) return "Ingresa la descripción del trabajo a realizar."
+      if (formMant.modalidad === "externo" && !formMant.evidencia_antes) {
+        return "El mantenimiento externo requiere foto de evidencia inicial (antes)."
+      }
     }
 
     return null
@@ -297,6 +303,7 @@ export function NuevaSolicitudPage() {
           clasificacion: formMant.clasificacion,
           modalidad: formMant.modalidad,
           fecha_proxima_mantenimiento: formMant.clasificacion === "preventivo" ? (formMant.fecha_proxima || null) : null,
+          evidencia_antes_url: formMant.modalidad === "externo" ? formMant.evidencia_antes : null,
         }
         await crearMant.mutateAsync(mantPayload)
         navigate("/mantenimiento")
@@ -616,6 +623,15 @@ export function NuevaSolicitudPage() {
                       onChange={(v) => setFormMant((p) => ({ ...p, modalidad: v as "interno" | "externo" }))}
                     />
                   </div>
+
+                  {formMant.modalidad === "externo" && (
+                    <FotoEvidenciaField
+                      label="Foto evidencia inicial (antes)"
+                      required
+                      valuePreview={formMant.evidencia_antes}
+                      onChange={(url) => setFormMant((p) => ({ ...p, evidencia_antes: url }))}
+                    />
+                  )}
 
                   {/* Fecha próximo mantenimiento — solo si preventivo */}
                   <div className={`overflow-hidden transition-all duration-200 ${

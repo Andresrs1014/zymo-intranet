@@ -3,9 +3,9 @@ import { useNavigate } from "react-router-dom"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { MantenimientoMobileLayout } from "@/components/mantenimiento/MantenimientoMobileLayout"
 import { useMantenimientoPortal } from "@/context/MantenimientoPortalContext"
-import { useSolicitudesMantenimiento } from "@/hooks/useMantenimiento"
+import { useSolicitudesMantenimiento, usePoolDisponibles, useAutoAsignarMantenimiento } from "@/hooks/useMantenimiento"
 import { useAuthStore } from "@/store/authStore"
-import { canManageMantenimiento, canSeeAllMantenimientos } from "@/lib/permissions"
+import { canManageMantenimiento, canOperateMantenimientoCampo, canSeeAllMantenimientos } from "@/lib/permissions"
 import type { MantenimientoFilters, SolicitudMantenimiento, EstadoMantenimiento } from "@/types/mantenimiento"
 import { formatDistanceToNow } from "date-fns"
 import { es } from "date-fns/locale"
@@ -70,17 +70,30 @@ export default function MantenimientoPage() {
     : user
       ? canManageMantenimiento(user.role, user.app_permissions)
       : false
+  const puedeOperarCampo = portal
+    ? portal.session.can_operate && portal.session.is_auxiliar
+    : user
+      ? canOperateMantenimientoCampo(user.role, user.app_permissions) &&
+        user.role === "auxiliar_mantenimiento"
+      : false
   const puedeVerTablero = portal
     ? portal.session.can_see_tablero
     : user
       ? canSeeAllMantenimientos(user.role) || puedeGestionar
       : false
+  const [vista, setVista] = useState<"mis" | "disponibles">("mis")
   const [page, setPage] = useState(1)
   const [filters, setFilters] = useState<MantenimientoFilters>({})
   const [search, setSearch] = useState("")
 
   const { data, isLoading } = useSolicitudesMantenimiento(filters, page)
+  const { data: pool = [], isLoading: loadingPool } = usePoolDisponibles(
+    puedeOperarCampo && vista === "disponibles",
+  )
+  const autoAsignar = useAutoAsignarMantenimiento()
   const totalPages = data ? Math.ceil(data.total / MNT_PAGE_SIZE) : 1
+  const listaItems = vista === "disponibles" ? pool : (data?.items ?? [])
+  const listaLoading = vista === "disponibles" ? loadingPool : isLoading
 
   function handleEstadoChange(estado: string) {
     setFilters((f) => ({ ...f, estado: (estado || undefined) as MantenimientoFilters["estado"] }))
@@ -103,7 +116,9 @@ export default function MantenimientoPage() {
           <div>
             <h1 className="text-xl font-bold text-foreground">Solicitudes de Mantenimiento</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {data?.total ?? 0} solicitudes en total
+              {vista === "disponibles"
+                ? `${pool.length} disponibles en pool`
+                : `${data?.total ?? 0} solicitudes en total`}
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
@@ -131,7 +146,35 @@ export default function MantenimientoPage() {
           </div>
         </div>
 
+        {puedeOperarCampo && (
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => { setVista("mis"); setPage(1) }}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                vista === "mis"
+                  ? "bg-sky-500/15 text-sky-700 border border-sky-500/40"
+                  : "text-muted-foreground border border-transparent hover:text-foreground"
+              }`}
+            >
+              Mis asignadas
+            </button>
+            <button
+              type="button"
+              onClick={() => setVista("disponibles")}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                vista === "disponibles"
+                  ? "bg-emerald-500/15 text-emerald-700 border border-emerald-500/40"
+                  : "text-muted-foreground border border-transparent hover:text-foreground"
+              }`}
+            >
+              Disponibles ({pool.length})
+            </button>
+          </div>
+        )}
+
         {/* Filtros */}
+        {vista === "mis" && (
         <div className="flex gap-3 flex-wrap">
           <form
             onSubmit={(e) => {
@@ -176,6 +219,7 @@ export default function MantenimientoPage() {
             <option value="correctivo">Correctivo</option>
           </select>
         </div>
+        )}
 
         {/* Tabla */}
         <div className="bg-card rounded-xl border border-border shadow-sm overflow-x-auto">
@@ -190,59 +234,87 @@ export default function MantenimientoPage() {
                 <th className="px-4 py-3 font-medium text-muted-foreground">Estado</th>
                 <th className="px-4 py-3 font-medium text-muted-foreground">Solicitante</th>
                 <th className="px-4 py-3 font-medium text-muted-foreground">Fecha</th>
+                {vista === "disponibles" && (
+                  <th className="px-4 py-3 font-medium text-muted-foreground">Acción</th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-muted/50">
-              {isLoading && (
+              {listaLoading && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-10 text-center text-muted-foreground text-sm">
+                  <td colSpan={vista === "disponibles" ? 9 : 8} className="px-4 py-10 text-center text-muted-foreground text-sm">
                     Cargando...
                   </td>
                 </tr>
               )}
-              {!isLoading && (data?.items ?? []).length === 0 && (
+              {!listaLoading && listaItems.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-10 text-center text-muted-foreground text-sm">
-                    No se encontraron solicitudes.
+                  <td colSpan={vista === "disponibles" ? 9 : 8} className="px-4 py-10 text-center text-muted-foreground text-sm">
+                    {vista === "disponibles"
+                      ? "No hay solicitudes internas disponibles en el pool."
+                      : "No se encontraron solicitudes."}
                   </td>
                 </tr>
               )}
-              {(data?.items ?? []).map((sol: SolicitudMantenimiento) => (
+              {listaItems.map((sol: SolicitudMantenimiento) => (
                   <tr
                     key={sol.id}
-                    className="hover:bg-muted/50 transition-colors cursor-pointer"
-                    onClick={() => irDetalle(sol.id)}
+                    className="hover:bg-muted/50 transition-colors"
                   >
-                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                    <td
+                      className="px-4 py-3 font-mono text-xs text-muted-foreground cursor-pointer"
+                      onClick={() => irDetalle(sol.id)}
+                    >
                       {sol.consecutivo}
                     </td>
-                    <td className="px-4 py-3 font-medium text-foreground max-w-[200px] truncate">
+                    <td
+                      className="px-4 py-3 font-medium text-foreground max-w-[200px] truncate cursor-pointer"
+                      onClick={() => irDetalle(sol.id)}
+                    >
                       {sol.titulo}
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground text-xs">
+                    <td className="px-4 py-3 text-muted-foreground text-xs" onClick={() => irDetalle(sol.id)}>
                       {sol.tipo_mantenimiento}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 cursor-pointer" onClick={() => irDetalle(sol.id)}>
                       <ClasifBadge value={sol.clasificacion} />
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 cursor-pointer" onClick={() => irDetalle(sol.id)}>
                       <ModalidadBadge value={sol.modalidad} />
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 cursor-pointer" onClick={() => irDetalle(sol.id)}>
                       <EstadoBadge estado={sol.estado} />
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground text-xs">
+                    <td className="px-4 py-3 text-muted-foreground text-xs cursor-pointer" onClick={() => irDetalle(sol.id)}>
                       {sol.solicitante_nombre ?? "—"}
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground text-xs">
+                    <td className="px-4 py-3 text-muted-foreground text-xs cursor-pointer" onClick={() => irDetalle(sol.id)}>
                       {formatDistanceToNow(new Date(sol.created_at), { addSuffix: true, locale: es })}
                     </td>
+                    {vista === "disponibles" && (
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          disabled={autoAsignar.isPending}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            void autoAsignar.mutateAsync(sol.id).then(() => {
+                              setVista("mis")
+                              irDetalle(sol.id)
+                            })
+                          }}
+                          className="rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3 py-1.5 transition-colors disabled:opacity-50"
+                        >
+                          Tomar
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
             </tbody>
           </table>
 
-          {totalPages > 1 && (
+          {vista === "mis" && totalPages > 1 && (
             <div className="px-4 py-3 border-t border-border flex items-center justify-end gap-2">
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}

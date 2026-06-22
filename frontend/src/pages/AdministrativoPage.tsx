@@ -2,7 +2,8 @@ import { NavLink } from "react-router-dom"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { useAuthStore } from "@/store/authStore"
 import { useSolicitudes } from "@/hooks/useOC"
-import { canApproveOC, canConfigureOC, canManageMantenimiento } from "@/lib/permissions"
+import { useParesExternos } from "@/hooks/useMantenimiento"
+import { canApproveOC, canConfigureOC, canManageMantenimiento, canSeeOC } from "@/lib/permissions"
 
 export function AdministrativoPage() {
   const user = useAuthStore((s) => s.user)
@@ -10,12 +11,14 @@ export function AdministrativoPage() {
   const canApprove    = user ? canApproveOC(user.role, perms) : false
   const canConfigure  = user ? canConfigureOC(user.role, perms) : false
   const canManageMant = user ? canManageMantenimiento(user.role, perms) : false
+  const canCompras    = user ? canSeeOC(user.role, user.area, perms) : false
 
   const { data } = useSolicitudes(
     canApprove ? { estado: "pendiente_aprobacion" } : {},
     1,
   )
   const pendientesCount = canApprove ? (data?.total ?? 0) : 0
+  const { data: paresPendientes = [] } = useParesExternos(true, canCompras)
 
   return (
     <PageLayout title="Administrativo">
@@ -37,6 +40,18 @@ export function AdministrativoPage() {
             label="Solicitudes de Compra"
             description="Crea y gestiona solicitudes de compra. Adjunta cotizaciones, sube archivos y da seguimiento a cada orden en tiempo real."
           />
+
+          {canCompras && (
+            <div className="mt-4">
+              <SecondaryCard
+                to="/oc/externos-mantenimiento"
+                icon={<IconMantenimiento />}
+                label="Externos de mantenimiento"
+                description="Bandeja de pares MNT ↔ OC. Toma coordinación y asigna auxiliar de mantenimiento."
+                badge={paresPendientes.length || undefined}
+              />
+            </div>
+          )}
 
           {/* Secondary actions */}
           {(canApprove || canConfigure) && (
