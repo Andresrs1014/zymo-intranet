@@ -1,0 +1,53 @@
+---
+description: Reglas de código, DoD y checklist pre-commit
+alwaysApply: true
+---
+
+# Reglas de código
+
+## Mandatorios
+
+- **Nunca hardcodear** secretos, tokens, credenciales ni datos sensibles.
+- **Docker-ready** — todo cambio debe poder desplegarse en contenedor.
+- **No romper flujos existentes** sin justificación documentada.
+- Un cambio **no está listo** hasta pasar la Definición de Done completa.
+
+## Filosofía YAGNI (ponytail)
+
+Antes de implementar cualquier feature, recorrer la escalera:
+1. ¿Necesita existir? → Si es especulativo, no lo construyas.
+2. ¿Lo hace stdlib? → Usarlo.
+3. ¿Feature nativa de la plataforma? → Usarla (CSS > JS, DB constraint > app code).
+4. ¿Dependencia ya instalada lo resuelve? → Usarla. Nunca agregar dependencia nueva para lo que hacen 5 líneas.
+5. ¿Puede ser una línea? → Una línea.
+6. Solo entonces: el mínimo código que funciona.
+
+No agregar: abstracciones no pedidas, interfaces con una sola implementación, factories para un solo producto, scaffolding "para después".
+
+## Estilo
+
+- Sin comentarios obvios — solo cuando el WHY no es evidente.
+- Sin docstrings de múltiples párrafos.
+- Sin `console.log` ni statements de debug en commits.
+- Funciones < 50 líneas. Archivos < 800 líneas.
+- Sin anidamiento > 4 niveles (usar early returns).
+
+## Checklist pre-commit (código de servidor)
+
+```
+1. npx tsc --noEmit         — sin errores TS (TS6133 rompe Docker build)
+2. Sin imports no usados    — TS6133 revienta Docker aunque el IDE no lo muestre
+3. Sin variables sin usar   — mismo caso
+4. docker compose up --build -d   — build limpio sin errores
+```
+
+## Definición de Done
+
+Un cambio está listo **solo si**:
+- `npx tsc --noEmit` sin errores en todos los módulos tocados
+- `docker compose up --build -d` pasa sin errores
+- No rompe endpoints existentes sin documentación
+- Desplegable en Docker sin pasos ocultos
+- UI auditada contra estética ZYMO
+- Flujos críticos probados manualmente
+- `docs/` actualizado si cambió comportamiento o seguridad

@@ -1,0 +1,51 @@
+---
+description: Stack técnico y arquitectura de servicios zymo-intranet
+alwaysApply: true
+---
+
+# Stack zymo-intranet
+
+## Servicios y puertos
+
+| Servicio | Puerto externo | BD |
+|---|---|---|
+| `backend` Python/FastAPI | 8001 | SQLite + PostgreSQL |
+| `frontend` React 19 + Vite / Nginx | 81 | — |
+| `helix-backend` Node/TS | 3001 | helix-db (5433) |
+| `task-backend` Node/TS | 3002 | task-db (5434) |
+| `sig-backend` Node/TS | 3004 | sig-db (5436) |
+
+## JWT compartido
+El backend Python emite JWT HS256 con claims `{id, role, sede, area, email}`.
+Todos los backends Node validan ese mismo token con `SECRET_KEY` de `./backend/.env`.
+`app_permissions` NO está en el JWT — se resuelve vía `GET /auth/me` post-login.
+
+## Base de datos dual (Python)
+- `SessionLocal` → PostgreSQL principal (usuarios, roles, OC)
+- `get_oc_engine()` → SQLite (`oc_database.py`) — OC + tablas de mantenimiento
+
+## Patrón migración inline SQLite
+Columnas nuevas se agregan al final de `create_oc_tables()` con `try/except pass`:
+```python
+try:
+    conn.execute(text("ALTER TABLE mnt_solicitudes ADD COLUMN origen TEXT DEFAULT 'intranet'"))
+except Exception:
+    pass  # columna ya existe
+```
+
+## Módulos del frontend
+
+| Ruta | Guard | Permiso |
+|---|---|---|
+| `/dashboard` | PrivateRoute | — |
+| `/oc/*` | OCRoute | `mod_oc_ver` |
+| `/operativo/*` | OperativoRoute | `mod_operativo` |
+| `/sgc/*` | SGCRoute | `mod_sgc` |
+| `/sig/*` | SigRoute | `mod_sig` |
+| `/planeacion/helix` | HelixRoute | `mod_helix` |
+| `/mantenimiento/*` | MantenimientoRoute | — |
+| `/tc/*` | TyCRoute | `mod_tyc` |
+| `/admin/*` | AdminRoute | role=admin |
+| `/m/:token` | **sin auth** | JWT scope=mnt_mobile |
+
+La ruta `/m/:token` es la única pública — va antes de `<PrivateRoute>` en `App.tsx`.

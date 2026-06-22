@@ -1,0 +1,60 @@
+---
+description: Frontend Design — interfaces production-grade distintivas, anti-AI-slop aesthetics
+alwaysApply: true
+---
+
+# Frontend Design — Skill obligatoria antes de cualquier componente UI
+
+Guía para crear interfaces frontend distintivas, production-grade, que evitan la estética genérica de IA.
+
+## Antes de codificar — Design Thinking
+
+Comprometer una dirección estética BOLD antes de escribir código:
+
+- **Propósito**: ¿Qué problema resuelve esta interfaz? ¿Quién la usa?
+- **Tono**: Elegir un extremo: brutalmente minimal, maximalista, retro-futurista, orgánico/natural, lujo/refinado, editorial/magazine, brutalista/raw, art deco/geométrico, industrial/utilitario, etc. Ejecutar uno que sea fiel a la dirección estética del proyecto.
+- **Diferenciación**: ¿Qué hace esto INOLVIDABLE? ¿Qué recordará alguien?
+
+**CRÍTICO**: Elegir una dirección conceptual clara y ejecutarla con precisión. El maximalismo bold y el minimalismo refinado ambos funcionan — la clave es intencionalidad, no intensidad.
+
+## Tipografía
+
+- Elegir fuentes hermosas, únicas e interesantes.
+- **Prohibido**: Arial, Inter, Roboto, system fonts.
+- Opciones: fuentes de display distintivas + fuente de cuerpo refinada.
+- Para ZYMO: **DM Sans** (cuerpo) + **DM Mono** (datos numéricos/código).
+
+## Color y Tema
+
+- Comprometerse con una estética cohesiva. CSS variables para consistencia.
+- Colores dominantes con acentos agudos > paletas tímidas distribuidas uniformemente.
+- Para ZYMO: base oscura dominante, acentos de acción saturados. Sin gradientes púrpura.
+
+## Motion y Micro-animaciones
+
+- Animaciones para efectos e interacciones clave. Preferir CSS-only para HTML.
+- Un page load bien orquestado con staggered reveals crea más deleite que micro-interacciones dispersas.
+- Hover states que sorprenden. Scroll-triggering.
+- **Para ZYMO**: obligatorias en carga de datos, transición de estado, feedback de acción.
+
+## Composición Espacial
+
+- Layouts inesperados. Asimetría. Overlap. Flujo diagonal. Elementos que rompen el grid.
+- Espacio negativo generoso O densidad controlada — elegir uno y comprometerse.
+
+## Fondos y Detalles Visuales
+
+- Crear atmósfera y profundidad en vez de colores sólidos por defecto.
+- Efectos contextuales: gradient meshes, noise textures, geometric patterns, layered transparencies, dramatic shadows, grain overlays.
+
+## Prohibiciones absolutas
+
+- Esquemas de color clichés (gradientes púrpura sobre fondo blanco).
+- Layouts predecibles y patrones de componentes cookie-cutter.
+- Diseño que carece de carácter específico al contexto.
+- Space Grotesk como fuente por defecto.
+- Copiar el layout de otro módulo del mismo proyecto.
+
+## Cada módulo = identidad visual propia
+
+No copiar el layout de otro módulo. Cada módulo tiene carácter visual propio.

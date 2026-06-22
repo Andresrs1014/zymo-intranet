@@ -1,0 +1,75 @@
+---
+description: Code Review Standards — checklist obligatorio antes de cada commit
+alwaysApply: true
+---
+
+# Code Review Standards
+
+## Triggers OBLIGATORIOS de revisión
+
+- Después de escribir o modificar código
+- Antes de cualquier commit a ramas compartidas
+- Cuando se cambia código sensible de seguridad (auth, pagos, datos de usuario)
+- Cuando se hacen cambios arquitecturales
+- Antes de mergear pull requests
+
+## Checklist pre-commit
+
+- [ ] Código legible y bien nombrado
+- [ ] Funciones enfocadas (< 50 líneas)
+- [ ] Archivos cohesivos (< 800 líneas)
+- [ ] Sin anidamiento profundo (> 4 niveles) — usar early returns
+- [ ] Errores manejados explícitamente
+- [ ] Sin secretos ni credenciales hardcodeadas
+- [ ] Sin `console.log` ni statements de debug
+- [ ] Tests existen para nueva funcionalidad
+- [ ] Cobertura de tests ≥ 80%
+
+## Triggers de revisión de SEGURIDAD — DETENER y revisar cuando:
+
+- Código de autenticación o autorización
+- Manejo de input de usuario
+- Queries a base de datos
+- Operaciones de filesystem
+- Llamadas a APIs externas
+- Operaciones criptográficas
+- Código de pagos o financiero
+
+## Severidad
+
+| Nivel | Significado | Acción |
+|---|---|---|
+| CRITICAL | Vulnerabilidad de seguridad o riesgo de pérdida de datos | **BLOQUEAR** — fix antes de merge |
+| HIGH | Bug o problema de calidad significativo | **ADVERTIR** — fix antes de merge |
+| MEDIUM | Preocupación de mantenibilidad | **INFO** — considerar fix |
+| LOW | Estilo o sugerencia menor | **NOTA** — opcional |
+
+## Problemas comunes a detectar
+
+### Seguridad
+- Credenciales hardcodeadas (API keys, passwords, tokens)
+- SQL injection (concatenación de strings en queries)
+- XSS (input de usuario sin escapar)
+- Path traversal (rutas de archivos sin sanitizar)
+- CSRF protection faltante
+- Bypasses de autenticación
+
+### Calidad de código
+- Funciones grandes (> 50 líneas) → dividir
+- Archivos grandes (> 800 líneas) → extraer módulos
+- Anidamiento profundo (> 4 niveles) → early returns
+- Error handling faltante
+- Mutación donde se prefiere inmutabilidad
+- Tests faltantes
+
+### Performance
+- Queries N+1 → usar JOINs o batching
+- Paginación faltante → agregar LIMIT
+- Queries sin límite → agregar constraints
+- Cache faltante para operaciones costosas
+
+## Criterios de aprobación
+
+- **Aprobar**: Sin problemas CRITICAL ni HIGH
+- **Warning**: Solo problemas HIGH (merge con precaución)
+- **Bloquear**: Problemas CRITICAL encontrados

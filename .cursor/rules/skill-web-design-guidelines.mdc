@@ -1,0 +1,39 @@
+---
+description: Web Design Guidelines — auditoría de UI antes de cada commit con cambios visuales
+alwaysApply: true
+---
+
+# Web Design Guidelines — Auditoría obligatoria pre-commit UI
+
+Antes de cualquier commit con cambios de UI, auditar los archivos modificados contra estas reglas.
+
+## Proceso de auditoría
+
+1. Revisar el source actualizado de guidelines desde:
+   `https://raw.githubusercontent.com/vercel-labs/web-interface-guidelines/main/command.md`
+2. Leer los archivos especificados del módulo.
+3. Verificar contra todas las reglas.
+4. Reportar hallazgos en formato `archivo:linea`.
+
+## Cuándo ejecutar
+
+- Antes de **cada commit** que toque archivos `.tsx`, `.css`, `.scss`, o cualquier componente visual.
+- Comando: revisar `src/components/[modulo]/` contra las guidelines.
+- Reporte de hallazgos: `archivo:linea — descripción del problema`.
+
+## Niveles de severidad en hallazgos
+
+| Nivel | Acción |
+|---|---|
+| CRITICAL | Bloquear commit. Fix obligatorio. |
+| HIGH | Advertencia. Fix recomendado antes de merge. |
+| MEDIUM | Info. Considerar fix. |
+| LOW | Sugerencia opcional. |
+
+## Integración con estética ZYMO
+
+Después de la auditoría general, verificar adicionalmente:
+- Tipografía: ¿usa DM Sans y/o DM Mono? ¿Sin Inter/Roboto/Arial?
+- Color: ¿base oscura dominante? ¿Sin gradientes púrpura?
+- Motion: ¿hay micro-animaciones en carga, transición de estado, feedback?
+- Layout: ¿carácter visual propio o copia de otro módulo?

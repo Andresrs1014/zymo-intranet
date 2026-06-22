@@ -1,0 +1,45 @@
+---
+description: Seguridad — reglas obligatorias, nunca hardcodear secretos, OWASP top 10
+alwaysApply: true
+---
+
+# Seguridad — Reglas obligatorias
+
+## Nunca hacer
+
+- **Nunca hardcodear** secretos, tokens, credenciales, API keys ni datos sensibles en código.
+- Nunca loggear datos de usuario, tokens JWT, passwords o PII.
+- Nunca confiar en input de usuario sin validar en el boundary de entrada.
+- Nunca usar concatenación de strings para queries SQL.
+- Nunca exponer stack traces o mensajes de error internos al cliente.
+
+## OWASP Top 10 — verificar siempre en código que toca:
+
+1. **Injection** — usar queries parametrizadas, nunca concatenar strings en SQL/ORM.
+2. **Broken Authentication** — JWT HS256 firmado con `SECRET_KEY`, TTL adecuado, validar `scope`.
+3. **Sensitive Data Exposure** — HTTPS, no loggear datos sensibles, env vars para secretos.
+4. **XXE** — no usar parsers XML inseguros.
+5. **Broken Access Control** — verificar permisos en backend, nunca solo en frontend.
+6. **Security Misconfiguration** — no exponer puertos innecesarios, headers de seguridad en nginx.
+7. **XSS** — escapar output, nunca `dangerouslySetInnerHTML` sin sanitizar.
+8. **Insecure Deserialization** — validar y sanitizar datos deserializados.
+9. **Known Vulnerabilities** — mantener dependencias actualizadas.
+10. **Insufficient Logging** — loggear eventos de seguridad (logins fallidos, accesos denegados).
+
+## Patrón zymo-intranet para secretos
+
+- Secretos en `./backend/.env` (no commitear).
+- `SECRET_KEY` compartido entre Python backend y todos los Node backends.
+- Tokens JWT con `scope` específico para endpoints públicos (ej. `scope=mnt_mobile`).
+- Magic links con TTL 24h — validar solo el scope, no el usuario.
+
+## Modelo de permisos
+
+- `Role.app_permissions: list[str]` en PostgreSQL.
+- Patrón: `mod_<modulo>_<accion>`.
+- `admin` bypasa permisos vía `if role === "admin" return true`.
+- Verificar permisos **en el backend**, no solo en el frontend guard.
+
+## Antes de commit con cambios de seguridad
+
+Revisar contra este checklist antes de hacer commit de cualquier cambio que toque auth, permisos, input handling, o datos de usuario.

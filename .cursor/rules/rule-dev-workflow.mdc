@@ -1,0 +1,72 @@
+---
+description: Development Workflow — orden investigar → planificar → TDD → review → commit
+alwaysApply: true
+---
+
+# Development Workflow
+
+## Orden obligatorio de implementación
+
+### 0. Research & Reuse (OBLIGATORIO antes de cualquier implementación nueva)
+
+- **GitHub code search primero:** `gh search repos` y `gh search code` para encontrar implementaciones existentes.
+- **Docs de la librería segundo:** Context7 o docs del vendor para confirmar comportamiento de API antes de implementar.
+- **Buscar en registros de paquetes:** npm, PyPI — preferir librerías battle-tested sobre código escrito a mano.
+- Preferir adaptar/portar un enfoque probado sobre escribir código neto nuevo.
+
+### 1. Planificar primero
+
+- Para features complejas: definir fases y dependencias antes de codificar.
+- Generar docs de planning antes de codear: PRD, arquitectura, task_list.
+- Identificar riesgos.
+
+### 2. TDD
+
+- Escribir tests primero (RED).
+- Implementar para pasar tests (GREEN).
+- Refactorizar (IMPROVE).
+- Verificar ≥ 80% de cobertura.
+
+### 3. Code Review
+
+- Revisar inmediatamente después de escribir código.
+- Resolver issues CRITICAL y HIGH.
+- Fijar issues MEDIUM cuando sea posible.
+
+### 4. Commit & Push
+
+- Mensajes de commit detallados.
+- Formato conventional commits: `<type>: <descripción>`.
+- Types: `feat` `fix` `refactor` `docs` `test` `chore` `perf` `ci`.
+
+### 5. Pre-Review Checks
+
+- Verificar que CI/CD pasa.
+- Resolver merge conflicts.
+- Branch actualizado con rama target.
+- Solo solicitar review después de estos checks.
+
+## Git workflow
+
+```
+<type>: <descripción>
+
+<cuerpo opcional>
+```
+
+Types: feat, fix, refactor, docs, test, chore, perf, ci
+
+## Ejecución paralela de tareas independientes
+
+**SIEMPRE** ejecutar en paralelo operaciones independientes:
+
+```
+# BIEN: Paralelo
+Lanzar 3 agentes en paralelo:
+1. Análisis de seguridad del módulo auth
+2. Review de performance del cache
+3. Type checking de utilities
+
+# MAL: Secuencial cuando no es necesario
+Primero agente 1, luego agente 2, luego agente 3
+```

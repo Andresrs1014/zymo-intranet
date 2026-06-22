@@ -1,0 +1,81 @@
+---
+description: Workflow de desarrollo — investigación, planning, commits, PRs
+alwaysApply: true
+---
+
+# Workflow de desarrollo
+
+## Orden obligatorio antes de implementar
+
+1. **Investigar primero** — buscar implementaciones existentes antes de escribir código nuevo.
+   - GitHub search, docs de la librería, npm/PyPI.
+   - Preferir adaptar sobre escribir desde cero.
+2. **Planificar** — para features complejas, definir fases y dependencias antes de codificar.
+3. **Mínimo viable** — implementar la solución más simple que funcione.
+4. **Revisar** — antes de commit: checklist pre-commit + DoD.
+
+## Commits
+
+Formato:
+```
+<type>: <descripción>
+
+<cuerpo opcional>
+```
+Types: `feat` `fix` `refactor` `docs` `test` `chore` `perf` `ci`
+
+## Seguridad — triggers de revisión obligatoria
+
+Detener e inspeccionar si el cambio toca:
+- Autenticación / autorización
+- Input de usuario
+- Queries a base de datos
+- Operaciones de filesystem
+- Llamadas a APIs externas
+- Operaciones criptográficas
+- Código financiero o de pagos
+
+## Despliegue
+
+```bash
+docker compose up --build -d          # Build completo
+docker compose logs -f <servicio>     # Logs de un servicio
+docker compose restart <servicio>     # Reinicio sin rebuild
+```
+
+Frontend dev:
+```bash
+cd frontend && npm run dev            # Puerto 5173
+```
+
+Backend Python dev:
+```bash
+cd backend && uvicorn app.main:app --reload --port 8001
+```
+
+Backend Node dev:
+```bash
+cd sig-backend && npm run dev         # (o helix-backend / task-backend)
+```
+
+Prisma:
+```bash
+npx prisma migrate dev --name <nombre>   # Nueva migración (solo dev)
+npx prisma migrate deploy               # Aplicar en producción
+npx prisma generate                     # Regenerar cliente
+```
+
+## Modelo de permisos
+
+`Role.app_permissions: list[str]` en PostgreSQL.
+Patrón: `mod_<modulo>_<accion>` (ej. `mod_oc_aprobar`, `mod_sig`, `mod_gh_admin`).
+`admin` siempre bypasa permisos.
+
+## Middleware Node (plantilla)
+
+`sig-backend/src/middleware/auth.ts` es la plantilla canónica:
+- `authenticate` — valida JWT HS256
+- `requireSigAccess` — verifica role o `app_permissions.includes('mod_sig')`
+- `getUserId(user)` — extrae id numérico del claim `id` o `sub`
+
+Clonar y adaptar para cada nuevo backend Node.

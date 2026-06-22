@@ -1,0 +1,34 @@
+---
+description: Estética ZYMO — obligatorio en todos los componentes UI
+alwaysApply: true
+---
+
+# Estética ZYMO
+
+Aplicar **antes de escribir cualquier componente UI**. No sustituir por defaults genéricos.
+
+## Tipografía
+- **Cuerpo:** DM Sans
+- **Datos numéricos / código:** DM Mono
+- Prohibido: Inter, Roboto, Arial, o cualquier fuente no definida por el proyecto.
+
+## Paleta
+- Base oscura dominante.
+- Acentos de acción saturados.
+- Sin gradientes púrpura.
+- Sin gradientes sin intención de diseño.
+
+## Micro-animaciones
+Obligatorias en momentos clave:
+- Carga de datos
+- Transición de estado
+- Feedback de acción del usuario (submit, error, éxito)
+
+## Layout
+- Prohibido: layouts SaaS genéricos (sidebar + content card estándar sin carácter).
+- Cada módulo debe tener identidad visual propia — no copiar el layout de otro módulo.
+- Componentes con densidad de información: usar DM Mono para números/métricas.
+
+## Auditoría pre-commit
+Antes de cualquier commit con cambios UI, revisar el módulo contra estas reglas.
+Reporte en formato `archivo:linea`.

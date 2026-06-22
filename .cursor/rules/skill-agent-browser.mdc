@@ -1,0 +1,60 @@
+---
+description: Agent Browser — automatización de browser para pruebas E2E de flujos críticos
+alwaysApply: false
+globs: ["**/*.test.*", "**/*.e2e.*", "**/e2e/**"]
+---
+
+# Agent Browser — E2E Testing Tool
+
+CLI de automatización de browser rápido para agentes IA. Chrome/Chromium vía CDP con snapshots de árbol de accesibilidad.
+
+## Instalación
+
+```bash
+npm i -g agent-browser && agent-browser install
+```
+
+## Cargar workflow antes de ejecutar cualquier comando
+
+```bash
+agent-browser skills get core             # workflows, patrones comunes, troubleshooting
+agent-browser skills get core --full      # referencia completa de comandos y templates
+```
+
+## Skills especializados
+
+```bash
+agent-browser skills get electron          # Electron desktop apps
+agent-browser skills get slack             # Slack workspace automation
+agent-browser skills get dogfood           # Exploratory testing / QA / bug hunts
+agent-browser skills get vercel-sandbox    # agent-browser dentro de Vercel Sandbox
+```
+
+## Cuándo usar en zymo-intranet
+
+Flujos críticos a probar **antes de despliegue**:
+
+```bash
+agent-browser open http://localhost:81 --session admin
+```
+
+Flujos obligatorios:
+1. Login / logout
+2. Flujo OC completo (crear → aprobar → cerrar)
+3. Análisis SIG (subir documento → analizar)
+4. Flujo mantenimiento (solicitud → evidencia → cierre)
+5. Navegación entre módulos con diferentes roles
+
+Aislar por rol:
+```bash
+agent-browser open [url] --session admin
+agent-browser open [url] --session operativo
+agent-browser open [url] --session auxiliar
+```
+
+## Por qué usarlo
+
+- CLI nativo Rust, no wrapper de Node.js
+- Works con cualquier agente IA (Cursor, Claude Code, etc.)
+- Snapshots de árbol de accesibilidad con element refs para interacción confiable
+- Sessions, auth vault, state persistence, video recording

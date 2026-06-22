@@ -1,0 +1,75 @@
+---
+description: Arquitectura de módulos clave — Mantenimiento, SIG, T&C
+alwaysApply: false
+globs: ["**/mantenimiento/**", "**/sig*/**", "**/tc/**", "**/tyc/**"]
+---
+
+# Módulos clave
+
+## Mantenimiento — FSM
+
+### Estados
+```
+solicitud → evaluacion → programado → ejecucion → completado → cerrado
+                                                              ↘ cancelado
+```
+
+### Gates bloqueantes
+| Transición | Condición |
+|---|---|
+| `evaluacion → programado` | `monto_estimado > 2_000_000` y < 3 aprobaciones en `mnt_aprobaciones` |
+| `ejecucion → completado` | `evidencia_url` es NULL |
+
+### Magic link (móvil sin login)
+`POST /api/mantenimiento/solicitudes/{id}/magic-link` → JWT HS256, `scope=mnt_mobile`, TTL 24h.
+La URL `/m/{token}` es pública. Backend valida solo el scope, no el usuario.
+
+### Endpoints clave
+- `POST /solicitudes/retroactivo` — trabajo ya realizado, crea directo en `completado`
+- `POST /solicitudes/{id}/evidencia` — sube URL de foto, actualiza `monto_real`
+- `POST /solicitudes/{id}/aprobacion` — aprueba rol (`dir_administrativa|gerencia_operaciones|gerencia_general`), sin duplicados por rol
+- `GET /kpis` — tablero mensual: gasto/tipo/modalidad, informales, pendientes
+
+### Nota endpoints públicos
+`mobile.py` y cualquier endpoint sin `Depends(get_current_user)` usan `Session(get_oc_engine())` directamente (context manager manual), **no** `Depends(get_oc_db)`.
+
+---
+
+## SIG — sig-backend
+
+### Routers
+- `procedimientos.ts` — CRUD, versionado, commit de documentos, flujogramas MMD
+- `instructivos.ts` — extracción de texto servidor-side; `POST /:id/reextract` para `.doc`
+- `analisis.ts` — análisis IA (NetVault/LightRAG); jobs con estados `running|done|error|cancelled`
+- `commits.ts` — historial de versiones de archivos adjuntos
+
+### Extracción de texto
+| Formato | Herramienta |
+|---|---|
+| `.docx` | `mammoth` |
+| `.pdf` | `pdf-parse` |
+| `.doc` | `antiword -m UTF-8.txt` (requiere `apk add antiword` en Alpine) |
+| `.md`, `.txt` | `fs.readFile` |
+
+### Cancelación de jobs
+`AbortController` guardados en `_jobControllers` (Map a nivel módulo en `SigAnalisisPanel.tsx`).
+`cancelAnalysisJob(id)` cancela sin pasar por el store (que no acepta objetos no serializables).
+
+---
+
+## T&C — Talento y Cultura
+
+- 164 personas → dominio Python, sin backend Node propio.
+- `_persona_dict` se carga desde `main_db` (PostgreSQL).
+- Área proviene de áreas globales, no de `PtcArea` propia.
+- `personal.py` maneja el directorio; sin base de datos separada.
+
+---
+
+## Patrón módulo nuevo
+
+1. `lib/permissions.ts` — `canSeeXX(role, perms)` siguiendo patrón `hasPerm()`
+2. `App.tsx` — `XXRoute` component + rutas `/xx/*`
+3. `Sidebar.tsx` — entrada condicionada a `canSeeXX()`
+4. Backend Node — clonar estructura de `sig-backend` (middleware/auth.ts tiene patrón JWT)
+5. `docker-compose.yml` — nuevo servicio + BD siguiendo bloque sig-backend/sig-db

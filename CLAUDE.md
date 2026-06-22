@@ -100,8 +100,12 @@ Clonar y adaptar para cada nuevo backend Node.
 | `/sig/*` | SIG (procedimientos + análisis IA) | `SigRoute` (`mod_sig`) |
 | `/planeacion/helix` | Helix (sprints/tareas) | `HelixRoute` (`mod_helix`) |
 | `/tareas-v2` | Gestión de tareas dev | `PrivateRoute` + `user_tools` |
-| `/mantenimiento/*` | Mantenimiento | `MantenimientoRoute` |
+| `/mantenimiento/*`, `/mantenimiento/tablero` | Mantenimiento | `MantenimientoRoute` |
+| `/tc/*` | Talento y Cultura (directorio, organigrama) | `TyCRoute` (`mod_tyc`) |
 | `/admin/*` | Administración | `AdminRoute` (role=admin) |
+| `/m/:token` | Vista móvil auxiliar mantenimiento | **Sin auth** — JWT de scope corto |
+
+> La ruta `/m/:token` es la única completamente pública (sin `PrivateRoute`). Va antes de `<PrivateRoute>` en `App.tsx`.
 
 ### Agente flotante (`AgentLayer`)
 `AgentFloatingWindow` se renderiza globalmente sobre todas las rutas. Muestra el agente `"zymo"` (gerencial) o `"administrativo"` (OC) según permisos. El store `agentPanelStore` controla si está flotante o docked.
@@ -139,11 +143,57 @@ Los `AbortController` se guardan en el Map `_jobControllers` a nivel de módulo 
 - `roles.py` — gestión de roles con `app_permissions: list[str]` editable
 - `netvault.py` — proxy hacia LightRAG/NetVault para indexación y análisis IA. Punto de inyección de contexto organizacional futuro (~línea 561)
 - `oc/` — flujo completo de órdenes de compra
+- `mantenimiento/` — FSM de mantenimiento (ver sección abajo)
+- `personal.py` — directorio T&C (164 personas), sin base de datos propia: lee `_persona_dict` desde `main_db`
 - `agentes.py` — endpoints del agente ZYMO conversacional
 - `zymo.py` — workers y orquestación de agentes
 
 ### Modelo de permisos
 `Role.app_permissions: list[str]` en PostgreSQL. Los permisos siguen el patrón `mod_<modulo>_<accion>` (ej. `mod_oc_aprobar`, `mod_sig`, `mod_gh_admin`). El admin siempre bypasa los permisos vía `if role === "admin" return true`.
+
+### Base de datos dual en Python
+- `get_engine()` / `SessionLocal` → PostgreSQL principal (usuarios, roles, OC, etc.)
+- `get_oc_engine()` → SQLite secundario (`oc_database.py`) — aloja OC + **tablas de mantenimiento** (`mnt_solicitudes`, `mnt_aprobaciones`, `mnt_activos_qr`)
+
+### Patrón de migración inline (SQLite)
+Las tablas SQLite ya existentes en producción no admiten `DROP`/`CREATE`. Nuevas columnas se agregan al final de `create_oc_tables()` con `try/except pass`:
+```python
+for col_def in [
+    "ALTER TABLE mnt_solicitudes ADD COLUMN origen TEXT DEFAULT 'intranet'",
+]:
+    try:
+        conn.execute(text(col_def))
+    except Exception:
+        pass  # columna ya existe
+```
+
+---
+
+## Mantenimiento — arquitectura FSM
+
+### Estados y transiciones
+```
+solicitud → evaluacion → programado → ejecucion → completado → cerrado
+                                                              ↘ cancelado
+```
+
+### Gates que bloquean transiciones
+| Transición | Condición bloqueante |
+|---|---|
+| `evaluacion → programado` | `monto_estimado > 2_000_000` y menos de 3 aprobaciones en `mnt_aprobaciones` |
+| `ejecucion → completado` | `evidencia_url` es NULL |
+
+### Magic link (auxiliar sin laptop)
+`POST /api/mantenimiento/solicitudes/{id}/magic-link` genera un JWT HS256 con `scope=mnt_mobile`, TTL 24h. La URL resultante (`/m/{token}`) es pública — el auxiliar abre desde el celular sin login. El backend valida solo el scope, no el usuario.
+
+### Endpoints clave
+- `POST /solicitudes/retroactivo` — registra trabajo ya realizado (origen=`telefonico_retroactivo`), crea directamente en estado `completado`
+- `POST /solicitudes/{id}/evidencia` — sube URL de foto, opcionalmente actualiza `monto_real`
+- `POST /solicitudes/{id}/aprobacion` — registra aprobación de rol `dir_administrativa | gerencia_operaciones | gerencia_general` (sin duplicados por rol)
+- `GET /kpis` — tablero mensual: gasto total/tipo/modalidad, informales, pendientes aprobación
+
+### Nota sobre `Session` en endpoints públicos
+Los routers `mobile.py` y cualquier endpoint sin `Depends(get_current_user)` deben usar `Session(get_oc_engine())` directamente (context manager manual), no `Depends(get_oc_db)`.
 
 ---
 
