@@ -71,7 +71,15 @@ function mapPerson(p: any): ImportItem {
 }
 
 function parseFile(text: string): ImportItem[] {
-  // Strip JS comment block and assignment wrapper
+  // Si ya es el formato ImportItem[] (JSON directo del script de migración)
+  const trimmed = text.trim()
+  if (trimmed.startsWith("[")) {
+    const arr = JSON.parse(trimmed)
+    // Detectar si ya tiene el campo legacy_id → ya está mapeado
+    if (arr.length > 0 && "legacy_id" in arr[0]) return arr as ImportItem[]
+    return arr.map(mapPerson)
+  }
+  // Formato JS del Directorio ZYMO (window.ZYMO_PERSONAL_EXPORT = {...})
   let raw = text.replace(/^\/\*[\s\S]*?\*\/\s*/m, "")
   raw = raw.replace(/^window\.\w+\s*=\s*/, "").trim()
   raw = raw.replace(/;\s*window\.[\s\S]*$/, "").trim()
