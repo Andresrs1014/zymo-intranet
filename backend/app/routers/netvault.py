@@ -1292,3 +1292,97 @@ async def consultar_rag(
 
     resultado = await buscar_conocimiento(body.query, modo=body.modo, rag_id=body.rag_id)
     return {"ok": True, "rag_id": body.rag_id, "modo": body.modo, "resultado": resultado}
+
+
+@router.get("/rag-status")
+async def rag_status(
+    rag_id: str = "rag1",
+    _user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """
+    Inspect the LightRAG knowledge graph: counts documents, chunks, entities, relations.
+    Also lists the first ~30 document sources so you know what's indexed.
+
+    rag_id: 'rag1' (Jarvis) | 'rag2' (Ultron)
+    """
+    import json as _json
+    import xml.etree.ElementTree as ET
+    from pathlib import Path as _Path
+    from app.config import settings
+
+    if rag_id not in ("rag1", "rag2"):
+        raise HTTPException(status_code=422, detail="rag_id must be 'rag1' or 'rag2'")
+
+    base = settings.lightrag_working_dir
+    working_dir = _Path(base) if rag_id == "rag1" else _Path(f"{base}_{rag_id}")
+
+    if not working_dir.exists():
+        return {"ok": True, "rag_id": rag_id, "exists": False, "message": "RAG directory not found — nothing indexed yet."}
+
+    def _count_json_keys(fname: str) -> int:
+        p = working_dir / fname
+        if not p.exists():
+            return 0
+        try:
+            data = _json.loads(p.read_text(encoding="utf-8"))
+            return len(data)
+        except Exception:
+            return -1
+
+    def _list_doc_sources(fname: str, limit: int = 30) -> list[str]:
+        p = working_dir / fname
+        if not p.exists():
+            return []
+        try:
+            data = _json.loads(p.read_text(encoding="utf-8"))
+            sources: list[str] = []
+            for v in data.values():
+                if isinstance(v, dict):
+                    src = v.get("file_path") or v.get("source") or v.get("content", "")[:80]
+                else:
+                    src = str(v)[:80]
+                if src:
+                    sources.append(src)
+            return sources[:limit]
+        except Exception:
+            return []
+
+    def _count_graph(fname: str) -> tuple[int, int]:
+        """Returns (node_count, edge_count) from a graphml file."""
+        p = working_dir / fname
+        if not p.exists():
+            return 0, 0
+        try:
+            tree = ET.parse(str(p))
+            root = tree.getroot()
+            ns = {"g": "http://graphml.graphdrawing.org/graphml"}
+            graph = root.find("g:graph", ns) or root.find("graph")
+            if graph is None:
+                return 0, 0
+            nodes = len(graph.findall("{http://graphml.graphdrawing.org/graphml}node"))
+            edges = len(graph.findall("{http://graphml.graphdrawing.org/graphml}edge"))
+            return nodes, edges
+        except Exception:
+            return -1, -1
+
+    docs      = _count_json_keys("kv_store_full_docs.json")
+    chunks    = _count_json_keys("kv_store_text_chunks.json")
+    nodes, edges = _count_graph("graph_chunk_entity_relation.graphml")
+    sources   = _list_doc_sources("kv_store_full_docs.json")
+
+    files = [f.name for f in working_dir.iterdir() if f.is_file()]
+
+    return {
+        "ok": True,
+        "rag_id": rag_id,
+        "exists": True,
+        "working_dir": str(working_dir),
+        "stats": {
+            "documentos_indexados": docs,
+            "chunks": chunks,
+            "entidades_grafo": nodes,
+            "relaciones_grafo": edges,
+        },
+        "fuentes": sources,
+        "archivos_en_directorio": sorted(files),
+    }
