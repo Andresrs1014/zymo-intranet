@@ -19,7 +19,8 @@ from tenacity import AsyncRetrying, retry_if_exception, stop_after_attempt, wait
 
 logger = logging.getLogger(__name__)
 
-_rag: Optional[object] = None
+# ponytail: dict soporta rag1 y rag2 sin duplicar código
+_rags: dict[str, object] = {}
 _rag_lock: Optional[asyncio.Lock] = None
 
 # Pausa entre llamadas LLM (LightRAG ya serializa con max_async=1)
@@ -98,27 +99,29 @@ async def _embed_func(texts: list[str]) -> "np.ndarray":
 
 # ── Singleton ──────────────────────────────────────────────────────────────────
 
-async def get_rag():
-    """Retorna el singleton de LightRAG, inicializándolo si es necesario."""
-    global _rag
+async def get_rag(rag_id: str = "rag1"):
+    """
+    Retorna la instancia LightRAG para rag_id ('rag1' o 'rag2'), inicializándola si es necesario.
+    rag1 = empresa actual (Jarvis).
+    rag2 = empresa mejorada/depurada (Ultron).
+    """
+    global _rags
 
     async with _get_lock():
-        if _rag is not None:
-            return _rag
+        if rag_id in _rags:
+            return _rags[rag_id]
 
         try:
             from lightrag import LightRAG
             from lightrag.utils import EmbeddingFunc
         except ImportError:
-            logger.error(
-                "lightrag-hku no está instalado. "
-                "Ejecutar: pip install lightrag-hku>=1.3.0"
-            )
+            logger.error("lightrag-hku no está instalado. Ejecutar: pip install lightrag-hku>=1.3.0")
             return None
 
         from app.config import settings
 
-        working_dir = settings.lightrag_working_dir
+        base_dir = settings.lightrag_working_dir
+        working_dir = base_dir if rag_id == "rag1" else f"{base_dir}_{rag_id}"
         Path(working_dir).mkdir(parents=True, exist_ok=True)
 
         try:
@@ -127,38 +130,38 @@ async def get_rag():
                 llm_model_func=_llm_func,
                 llm_model_max_async=1,
                 embedding_func=EmbeddingFunc(
-                    embedding_dim=768,       # nomic-embed-text
+                    embedding_dim=768,
                     max_token_size=8192,
                     func=_embed_func,
                 ),
                 embedding_func_max_async=1,
             )
             await instancia.initialize_storages()
-            _rag = instancia
-            logger.info("LightRAG inicializado en %s (embeddings: Ollama %s)", working_dir, settings.ollama_embed_model)
+            _rags[rag_id] = instancia
+            logger.info("LightRAG [%s] inicializado en %s", rag_id, working_dir)
         except Exception as e:
-            logger.error("Error inicializando LightRAG: %s", e)
+            logger.error("Error inicializando LightRAG [%s]: %s", rag_id, e)
             return None
 
-    return _rag
+    return _rags[rag_id]
 
 
 # ── API pública ────────────────────────────────────────────────────────────────
 
-async def indexar_texto(texto: str) -> bool:
-    """Inserta un texto en el grafo de conocimiento."""
-    rag = await get_rag()
+async def indexar_texto(texto: str, rag_id: str = "rag1") -> bool:
+    """Inserta un texto en el grafo de conocimiento (rag_id: 'rag1' o 'rag2')."""
+    rag = await get_rag(rag_id)
     if not rag:
         return False
     try:
         await rag.ainsert(texto)
         return True
     except Exception as e:
-        logger.error("Error indexando en LightRAG: %s", e)
+        logger.error("Error indexando en LightRAG [%s]: %s", rag_id, e)
         return False
 
 
-async def buscar_conocimiento(query: str, modo: str = "mix") -> str:
+async def buscar_conocimiento(query: str, modo: str = "mix", rag_id: str = "rag1") -> str:
     """
     Consulta el grafo de conocimiento.
 
@@ -166,14 +169,16 @@ async def buscar_conocimiento(query: str, modo: str = "mix") -> str:
     - "local"  → nodos directamente relacionados (preciso, rápido)
     - "global" → patrones en todo el grafo (vista amplia)
     - "mix"    → combina ambos (recomendado)
+
+    rag_id: 'rag1' (empresa actual) o 'rag2' (empresa mejorada)
     """
-    rag = await get_rag()
+    rag = await get_rag(rag_id)
     if not rag:
-        return "Sistema RAG no disponible — verificar instalación de lightrag-hku."
+        return f"RAG [{rag_id}] no disponible — verificar instalación de lightrag-hku."
     try:
         from lightrag import QueryParam
         resultado = await rag.aquery(query, param=QueryParam(mode=modo))
         return resultado if isinstance(resultado, str) else str(resultado)
     except Exception as e:
-        logger.error("Error consultando LightRAG: %s", e)
+        logger.error("Error consultando LightRAG [%s]: %s", rag_id, e)
         return f"Error en búsqueda: {e}"

@@ -589,11 +589,18 @@ class IndexarLightRAGRequest(BaseModel):
     area: str = Field(default="", max_length=100)
     textContent: str = Field(..., min_length=10, max_length=200_000)
     instructivos: list[InstructivoItem] = Field(default_factory=list, max_length=10)
+    rag_id: str = Field(default="rag1", pattern=r"^rag[12]$")
 
     @field_validator('textContent', mode='before')
     @classmethod
     def remove_base64(cls, v: str) -> str:
         return _strip_base64_blobs(v) if isinstance(v, str) else v
+
+
+class ConsultarRAGRequest(BaseModel):
+    query: str = Field(..., min_length=3, max_length=2000)
+    modo: str = Field(default="mix", pattern=r"^(local|global|mix)$")
+    rag_id: str = Field(default="rag1", pattern=r"^rag[12]$")
 
 
 # ── Prompts coherencia ────────────────────────────────────────────────────────
@@ -879,7 +886,7 @@ async def _run_indexar_job(job_id: str, body: IndexarLightRAGRequest) -> None:
 
         indexados = 0
         for chunk in chunks:
-            ok = await indexar_texto(chunk)
+            ok = await indexar_texto(chunk, rag_id=body.rag_id)
             if ok:
                 indexados += 1
 
@@ -890,7 +897,8 @@ async def _run_indexar_job(job_id: str, body: IndexarLightRAGRequest) -> None:
                 "procedimientoId": body.procedimientoId,
                 "procedureCode":   body.procedureCode,
                 "chunksIndexados": indexados,
-                "mensaje":         f"Indexados {indexados} de {len(chunks)} documentos en LightRAG.",
+                "rag_id":          body.rag_id,
+                "mensaje":         f"Indexados {indexados} de {len(chunks)} documentos en LightRAG [{body.rag_id}].",
             },
         }
     except Exception as exc:
@@ -977,16 +985,7 @@ class CargosRequest(BaseModel):
     @field_validator('cargo_ids', mode='before')
     @classmethod
     def dedupe_cargo_ids(cls, v: list[int] | None) -> list[int]:
-        if not v:
-            return []
-        seen: set[int] = set()
-        out: list[int] = []
-        for raw in v:
-            cid = int(raw)
-            if cid not in seen:
-                seen.add(cid)
-                out.append(cid)
-        return out
+        return list(dict.fromkeys(int(x) for x in (v or [])))
 
 
 def _build_cargos_system() -> str:
@@ -1276,3 +1275,20 @@ async def editar_con_ia(
     _jobs[job_id] = {"status": "pending", "tipo": "editar_con_ia"}
     background_tasks.add_task(_run_editar_job, job_id, body)
     return {"ok": True, "job_id": job_id}
+
+
+@router.post("/consultar-rag")
+async def consultar_rag(
+    body: ConsultarRAGRequest,
+    _user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """
+    Consulta el grafo de conocimiento LightRAG.
+
+    rag_id: 'rag1' (empresa actual — Jarvis) | 'rag2' (empresa mejorada — Ultron)
+    modo:   'local' (preciso) | 'global' (amplio) | 'mix' (recomendado)
+    """
+    from app.agents.lightrag_service import buscar_conocimiento  # type: ignore[import]
+
+    resultado = await buscar_conocimiento(body.query, modo=body.modo, rag_id=body.rag_id)
+    return {"ok": True, "rag_id": body.rag_id, "modo": body.modo, "resultado": resultado}
