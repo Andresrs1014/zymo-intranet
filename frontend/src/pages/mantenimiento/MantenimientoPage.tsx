@@ -7,6 +7,7 @@ import { useSolicitudesMantenimiento, usePoolDisponibles, useAutoAsignarMantenim
 import { useAuthStore } from "@/store/authStore"
 import { canManageMantenimiento, canOperateMantenimientoCampo, canSeeAllMantenimientos } from "@/lib/permissions"
 import type { MantenimientoFilters, SolicitudMantenimiento, EstadoMantenimiento } from "@/types/mantenimiento"
+import { mntSearch, mntSelect } from "@/components/mantenimiento/mntFormClasses"
 import { formatDistanceToNow } from "date-fns"
 import { es } from "date-fns/locale"
 
@@ -124,21 +125,23 @@ export default function MantenimientoPage() {
           <div className="flex items-center gap-2 flex-wrap">
             {puedeVerTablero && (
               <button
+                type="button"
                 onClick={() => navigate("/mantenimiento/tablero")}
-                className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+                className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
               >
                 Tablero KPIs
               </button>
             )}
             <button
+              type="button"
               onClick={() => navigate(
                 puedeGestionar
                   ? "/mantenimiento/nueva"
                   : "/operativo/nueva-solicitud?tipo=mantenimiento"
               )}
-              className="flex items-center gap-2 rounded-lg bg-amber-500 hover:brightness-105 px-4 py-2 text-sm font-semibold text-white transition-all"
+              className="flex items-center gap-2 rounded-lg bg-amber-500 hover:brightness-105 px-4 py-2 text-sm font-semibold text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
             >
-            <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+            <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
               <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
             </svg>
             Nueva solicitud
@@ -147,11 +150,13 @@ export default function MantenimientoPage() {
         </div>
 
         {puedeOperarCampo && (
-          <div className="flex gap-2">
+          <div className="flex gap-2" role="tablist" aria-label="Vista de solicitudes">
             <button
               type="button"
+              role="tab"
+              aria-selected={vista === "mis"}
               onClick={() => { setVista("mis"); setPage(1) }}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${
                 vista === "mis"
                   ? "bg-sky-500/15 text-sky-700 border border-sky-500/40"
                   : "text-muted-foreground border border-transparent hover:text-foreground"
@@ -161,8 +166,10 @@ export default function MantenimientoPage() {
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={vista === "disponibles"}
               onClick={() => setVista("disponibles")}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${
                 vista === "disponibles"
                   ? "bg-emerald-500/15 text-emerald-700 border border-emerald-500/40"
                   : "text-muted-foreground border border-transparent hover:text-foreground"
@@ -184,20 +191,23 @@ export default function MantenimientoPage() {
             }}
             className="relative flex-1 min-w-[200px] max-w-xs"
           >
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0Z" />
             </svg>
             <input
-              type="text"
-              placeholder="Buscar por título o #..."
-              className="w-full pl-9 pr-3 h-9 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              type="search"
+              name="q"
+              aria-label="Buscar solicitudes"
+              placeholder="Buscar por título o #…"
+              className={mntSearch}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </form>
 
           <select
-            className="h-9 rounded-md border border-border bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            aria-label="Filtrar por estado"
+            className={mntSelect}
             value={filters.estado ?? ""}
             onChange={(e) => handleEstadoChange(e.target.value)}
           >
@@ -210,7 +220,8 @@ export default function MantenimientoPage() {
           </select>
 
           <select
-            className="h-9 rounded-md border border-border bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            aria-label="Filtrar por clasificación"
+            className={mntSelect}
             value={filters.clasificacion ?? ""}
             onChange={(e) => handleClasifChange(e.target.value)}
           >
@@ -243,7 +254,7 @@ export default function MantenimientoPage() {
               {listaLoading && (
                 <tr>
                   <td colSpan={vista === "disponibles" ? 9 : 8} className="px-4 py-10 text-center text-muted-foreground text-sm">
-                    Cargando...
+                    Cargando…
                   </td>
                 </tr>
               )}
@@ -268,7 +279,7 @@ export default function MantenimientoPage() {
                       {sol.consecutivo}
                     </td>
                     <td
-                      className="px-4 py-3 font-medium text-foreground max-w-[200px] truncate cursor-pointer"
+                      className="px-4 py-3 font-medium text-foreground max-w-[200px] min-w-0 truncate cursor-pointer"
                       onClick={() => irDetalle(sol.id)}
                     >
                       {sol.titulo}
@@ -303,7 +314,7 @@ export default function MantenimientoPage() {
                               irDetalle(sol.id)
                             })
                           }}
-                          className="rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3 py-1.5 transition-colors disabled:opacity-50"
+                          className="rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3 py-1.5 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
                         >
                           Tomar
                         </button>
@@ -319,7 +330,7 @@ export default function MantenimientoPage() {
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="px-3 py-1 text-sm rounded-md border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 transition-colors"
+                className="px-3 py-1 text-sm rounded-md border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
               >
                 Anterior
               </button>
@@ -329,7 +340,7 @@ export default function MantenimientoPage() {
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="px-3 py-1 text-sm rounded-md border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 transition-colors"
+                className="px-3 py-1 text-sm rounded-md border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
               >
                 Siguiente
               </button>

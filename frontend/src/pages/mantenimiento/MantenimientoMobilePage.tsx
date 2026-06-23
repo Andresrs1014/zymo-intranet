@@ -190,7 +190,7 @@ export default function MantenimientoMobilePage({ mode }: Props) {
   if (error && vista === "hub" && !hub) {
     return (
       <Shell>
-        <CenterMsg color="#ef4444" title={`⚠ ${error}`} subtitle="Solicita un enlace nuevo al equipo administrativo." />
+        <CenterMsg variant="error" title={error} subtitle="Solicita un enlace nuevo al equipo administrativo." />
       </Shell>
     )
   }
@@ -212,8 +212,8 @@ export default function MantenimientoMobilePage({ mode }: Props) {
     return (
       <Shell>
         <CenterMsg
-          emoji="✅"
-          title={accionOk ? mensajes[accionOk] : msgOk ?? "¡Registrado!"}
+          variant="success"
+          title={accionOk ? mensajes[accionOk] : msgOk ?? "Registrado"}
           subtitle="El sistema actualizó la solicitud."
         />
         <button type="button" onClick={volverAlHub} style={btnOutline}>
@@ -302,16 +302,16 @@ export default function MantenimientoMobilePage({ mode }: Props) {
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {puedeEnCamino && (
               <button type="button" disabled={busy} onClick={() => void ejecutarAccion("en_camino")} style={btnStyle("#2563eb")}>
-                ▶ VOY EN CAMINO
+                VOY EN CAMINO
               </button>
             )}
             {puedeCompletar && (
               <button type="button" disabled={busy} onClick={completarConFoto} style={btnStyle("#16a34a")}>
-                ✓ TERMINÉ — SUBIR FOTO
+                TERMINÉ — SUBIR FOTO
               </button>
             )}
             <button type="button" disabled={busy} onClick={abrirOC} style={btnStyle("#d97706")}>
-              🛒 SOLICITAR COMPRA / REPUESTO
+              SOLICITAR COMPRA / REPUESTO
             </button>
           </div>
         )}
@@ -340,7 +340,6 @@ export default function MantenimientoMobilePage({ mode }: Props) {
 
       {hub.activas.length === 0 ? (
         <CenterMsg
-          emoji="📋"
           title="Sin tareas activas"
           subtitle="Cuando te asignen mantenimientos aparecerán aquí."
         />
@@ -459,11 +458,40 @@ function Shell({ children }: { children: React.ReactNode }) {
   )
 }
 
-function CenterMsg({ emoji, title, subtitle, color }: { emoji?: string; title: string; subtitle?: string; color?: string }) {
+function CenterMsg({
+  variant,
+  title,
+  subtitle,
+  color,
+}: {
+  variant?: "success" | "error"
+  title: string
+  subtitle?: string
+  color?: string
+}) {
+  const accent =
+    variant === "success" ? "#16a34a" : variant === "error" ? "#ef4444" : undefined
   return (
-    <div style={{ textAlign: "center", padding: "32px 0" }}>
-      {emoji && <div style={{ fontSize: 56, marginBottom: 12 }}>{emoji}</div>}
-      <p style={{ color: color ?? "#f1f5f9", fontSize: 18, fontWeight: 600, margin: "0 0 8px" }}>{title}</p>
+    <div
+      style={{ textAlign: "center", padding: "32px 0" }}
+      role={variant === "error" ? "alert" : undefined}
+    >
+      {accent && (
+        <div
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: "50%",
+            border: `2px solid ${accent}`,
+            background: `${accent}22`,
+            margin: "0 auto 12px",
+          }}
+          aria-hidden
+        />
+      )}
+      <p style={{ color: color ?? accent ?? "#f1f5f9", fontSize: 18, fontWeight: 600, margin: "0 0 8px" }}>
+        {title}
+      </p>
       {subtitle && <p style={{ color: "#64748b", fontSize: 14, margin: 0 }}>{subtitle}</p>}
     </div>
   )

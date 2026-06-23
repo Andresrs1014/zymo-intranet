@@ -61,8 +61,8 @@ function loadPositions(empresaId: number): Record<string, { x: number; y: number
   catch { return {} }
 }
 
-function buildNodes(orgData: OrgData, savedPos: Record<string, { x: number; y: number }>): Node[] {
-  const nodes: Node[] = []
+function buildNodes(orgData: OrgData, savedPos: Record<string, { x: number; y: number }>): Node<CargoNodeData>[] {
+  const nodes: Node<CargoNodeData>[] = []
 
   orgData.areas.forEach((area, aIdx) => {
     const color = AREA_COLORS[aIdx % AREA_COLORS.length]
@@ -138,7 +138,7 @@ export function TyCOrganigramaCanvasPage() {
     setNodes(buildNodes(orgData, {}))
   }, [orgData, empresaActiva, setNodes])
 
-  function handleNodeDragStop(_: React.MouseEvent, __: Node, allNodes: Node[]) {
+  function handleNodeDragStop(_evt: MouseEvent | TouchEvent, _node: Node<CargoNodeData>, allNodes: Node<CargoNodeData>[]) {
     if (!empresaActiva) return
     const pos: Record<string, { x: number; y: number }> = {}
     allNodes.forEach((n) => { pos[n.id] = n.position })

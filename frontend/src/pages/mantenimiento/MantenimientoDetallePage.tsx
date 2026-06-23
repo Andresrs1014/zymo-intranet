@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { useNavigate, useParams } from "react-router-dom"
-import { ArrowLeft, Plus } from "lucide-react"
+import { ArrowLeft, Plus, Check, ArrowRight, Circle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { PageLayout } from "@/components/layout/PageLayout"
 import {
@@ -11,6 +11,8 @@ import {
 import { CrearOCVinculadaModal } from "@/components/mantenimiento/CrearOCVinculadaModal"
 import { ParExternoPanel } from "@/components/mantenimiento/ParExternoPanel"
 import { ExternoEvidenciasPanel } from "@/components/mantenimiento/ExternoEvidenciasPanel"
+import { FotoEvidenciaField } from "@/components/mantenimiento/FotoEvidenciaField"
+import { mntFieldAmber, mntFieldMono, mntImgPreview } from "@/components/mantenimiento/mntFormClasses"
 import { AccesoMovilPanel } from "@/components/mantenimiento/AccesoMovilPanel"
 import { MantenimientoCampoAcciones } from "@/components/mantenimiento/MantenimientoCampoAcciones"
 import { MantenimientoMobileLayout } from "@/components/mantenimiento/MantenimientoMobileLayout"
@@ -110,7 +112,7 @@ export default function MantenimientoDetallePage() {
   if (isLoading) {
     const loading = (
       <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">
-        Cargando...
+        Cargando…
       </div>
     )
     if (portal) {
@@ -154,14 +156,8 @@ export default function MantenimientoDetallePage() {
     })
   }
 
-  async function handleSubirEvidencia(file: File) {
+  async function handleSubirEvidenciaDataUrl(evidencia_url: string) {
     if (!solicitudId) return
-    const evidencia_url = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(reader.result as string)
-      reader.onerror = () => reject(new Error("No se pudo leer la imagen"))
-      reader.readAsDataURL(file)
-    })
     await subirEvidencia({ id: solicitudId, payload: { evidencia_url } })
   }
 
@@ -327,7 +323,7 @@ export default function MantenimientoDetallePage() {
                     </div>
                     <p className="text-muted-foreground pl-3">
                       {h.estado_anterior
-                        ? `${h.estado_anterior} → ${h.estado_nuevo}`
+                        ? `${h.estado_anterior} · ${h.estado_nuevo}`
                         : `Creó la solicitud (${h.estado_nuevo})`}
                     </p>
                     {h.nota && (
@@ -418,7 +414,13 @@ export default function MantenimientoDetallePage() {
                               : "bg-muted border border-border text-muted-foreground"
                           }`}
                         >
-                          {isPast ? "✓" : isCurrent ? "→" : idx + 1}
+                          {isPast ? (
+                            <Check className="w-3.5 h-3.5" aria-hidden />
+                          ) : isCurrent ? (
+                            <ArrowRight className="w-3.5 h-3.5" aria-hidden />
+                          ) : (
+                            idx + 1
+                          )}
                         </div>
                         <span
                           className={`text-[9px] font-medium capitalize ${
@@ -562,7 +564,13 @@ export default function MantenimientoDetallePage() {
                   const ok = aprobaciones.some((a) => a.rol_aprobador === id)
                   return (
                     <li key={id} className="flex items-center gap-2">
-                      <span>{ok ? "✓" : "○"}</span>
+                      <span className="inline-flex shrink-0">
+                        {ok ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-600" aria-hidden />
+                        ) : (
+                          <Circle className="w-3 h-3 text-muted-foreground" aria-hidden />
+                        )}
+                      </span>
                       <span>{label}</span>
                     </li>
                   )

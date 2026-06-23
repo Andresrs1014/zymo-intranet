@@ -182,7 +182,7 @@ function Alerta({ color, texto }: { color: string; texto: string }) {
         fontFamily: "'DM Sans', sans-serif",
       }}
     >
-      ⚠ {texto}
+      Alerta: {texto}
     </div>
   )
 }

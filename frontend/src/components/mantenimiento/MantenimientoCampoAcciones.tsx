@@ -102,7 +102,7 @@ export function MantenimientoCampoAcciones({
           </Button>
         )}
       </div>
-      {msg && <p className="text-xs text-emerald-600">{msg}</p>}
+      {msg && <p className="text-xs text-emerald-600" aria-live="polite">{msg}</p>}
     </div>
   )
 }

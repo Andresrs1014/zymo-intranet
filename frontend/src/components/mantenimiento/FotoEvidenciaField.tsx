@@ -15,24 +15,29 @@ export function FotoEvidenciaField({
   required,
   valuePreview,
   onChange,
+  id: idProp,
 }: {
   label: string
   hint?: string
   required?: boolean
   valuePreview?: string | null
   onChange: (dataUrl: string | null) => void
+  id?: string
 }) {
+  const inputId = idProp ?? `foto-evidencia-${label.replace(/\s+/g, "-").toLowerCase()}`
   return (
     <div>
-      <label className="block text-sm font-medium text-foreground mb-1">
+      <label htmlFor={inputId} className="block text-sm font-medium text-foreground mb-1">
         {label}
         {required && " *"}
       </label>
       {hint && <p className="text-xs text-muted-foreground mb-2">{hint}</p>}
       <input
+        id={inputId}
         type="file"
         accept="image/*"
         capture="environment"
+        aria-required={required || undefined}
         onChange={(e) => {
           const file = e.target.files?.[0]
           if (!file) {
@@ -46,7 +51,9 @@ export function FotoEvidenciaField({
       {valuePreview && (
         <img
           src={valuePreview}
-          alt="Vista previa"
+          alt="Vista previa de evidencia"
+          width={320}
+          height={128}
           className="mt-2 max-h-32 rounded-lg border border-border object-cover"
         />
       )}

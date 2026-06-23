@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Combobox } from "@/components/ui/Combobox"
 import { useCrearMantenimiento, useTiposMantenimiento } from "@/hooks/useMantenimiento"
 import { FotoEvidenciaField } from "@/components/mantenimiento/FotoEvidenciaField"
+import { MntSegmentedControl } from "@/components/mantenimiento/MntSegmentedControl"
+import { mntField, mntFieldMono } from "@/components/mantenimiento/mntFormClasses"
 import { useAuthStore } from "@/store/authStore"
 import type { ClasificacionMantenimiento, ModalidadMantenimiento, PrioridadMantenimiento } from "@/types/mantenimiento"
 import { format } from "date-fns"
@@ -97,10 +99,13 @@ export default function NuevaMantenimientoPage() {
           </h2>
 
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">Título *</label>
+            <label htmlFor="mnt-titulo" className="block text-sm font-medium text-foreground mb-1">Título *</label>
             <input
+              id="mnt-titulo"
+              name="titulo"
               type="text"
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              autoComplete="off"
+              className={mntField}
               value={titulo}
               onChange={(e) => setTitulo(e.target.value)}
               placeholder="Ej: Falla en panel eléctrico galpón 2"
@@ -108,13 +113,15 @@ export default function NuevaMantenimientoPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">Descripción *</label>
+            <label htmlFor="mnt-descripcion" className="block text-sm font-medium text-foreground mb-1">Descripción *</label>
             <textarea
+              id="mnt-descripcion"
+              name="descripcion"
               rows={4}
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
+              className={`${mntField} resize-none`}
               value={descripcion}
               onChange={(e) => setDescripcion(e.target.value)}
-              placeholder="Describe el problema o el mantenimiento requerido con el mayor detalle posible..."
+              placeholder="Describe el problema o el mantenimiento requerido con el mayor detalle posible…"
             />
           </div>
 
@@ -130,84 +137,70 @@ export default function NuevaMantenimientoPage() {
             />
           </div>
 
-          {/* Preventivo / Correctivo */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
+            <span className="block text-sm font-medium text-foreground mb-2" id="mnt-clasificacion-label">
               Clasificación *
-            </label>
-            <div className="flex gap-3">
-              {(["correctivo", "preventivo"] as ClasificacionMantenimiento[]).map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => {
-                    setClasificacion(c)
-                    if (c === "correctivo") setFechaProxima("")
-                  }}
-                  className={`flex items-center gap-2 rounded-xl border-2 px-5 py-3 text-sm font-semibold transition-all ${
-                    clasificacion === c
-                      ? c === "correctivo"
-                        ? "border-red-500 bg-red-50 text-red-700"
-                        : "border-emerald-500 bg-emerald-50 text-emerald-700"
-                      : "border-border bg-card text-muted-foreground hover:border-muted-foreground/40"
-                  }`}
-                >
-                  {c === "correctivo" ? "🔴 Correctivo" : "🟢 Preventivo"}
-                </button>
-              ))}
-            </div>
+            </span>
+            <MntSegmentedControl
+              name="Clasificación"
+              value={clasificacion}
+              onChange={(c) => {
+                setClasificacion(c)
+                if (c === "correctivo") setFechaProxima("")
+              }}
+              options={[
+                { value: "correctivo", label: "Correctivo", activeClass: "border-red-500 bg-red-50 text-red-700" },
+                { value: "preventivo", label: "Preventivo", activeClass: "border-emerald-500 bg-emerald-50 text-emerald-700" },
+              ]}
+            />
           </div>
 
           {/* Fecha próxima — solo visible si preventivo */}
           <div
-            className={`overflow-hidden transition-all duration-200 ${
+            className={`overflow-hidden transition-[max-height,opacity] duration-200 motion-reduce:transition-none ${
               clasificacion === "preventivo" ? "max-h-24 opacity-100" : "max-h-0 opacity-0"
             }`}
           >
-            <label className="block text-sm font-medium text-foreground mb-1">
+            <label htmlFor="mnt-fecha-proxima" className="block text-sm font-medium text-foreground mb-1">
               Fecha próximo mantenimiento preventivo *
             </label>
             <input
+              id="mnt-fecha-proxima"
+              name="fecha_proxima"
               type="date"
-              className="w-full max-w-xs rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              className={`${mntField} max-w-xs`}
               value={fechaProxima}
               onChange={(e) => setFechaProxima(e.target.value)}
               min={format(new Date(), "yyyy-MM-dd")}
             />
           </div>
 
-          {/* Interno / Externo */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
+            <span className="block text-sm font-medium text-foreground mb-2" id="mnt-modalidad-label">
               Modalidad *
-            </label>
-            <div className="flex gap-3">
-              {(["interno", "externo"] as ModalidadMantenimiento[]).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setModalidad(m)}
-                  className={`flex items-center gap-2 rounded-xl border-2 px-5 py-3 text-sm font-semibold transition-all ${
-                    modalidad === m
-                      ? "border-primary bg-primary/5 text-primary"
-                      : "border-border bg-card text-muted-foreground hover:border-muted-foreground/40"
-                  }`}
-                >
-                  {m === "interno" ? "🏭 Interno" : "🌐 Externo"}
-                </button>
-              ))}
-            </div>
+            </span>
+            <MntSegmentedControl
+              name="Modalidad"
+              value={modalidad}
+              onChange={setModalidad}
+              options={[
+                { value: "interno", label: "Interno" },
+                { value: "externo", label: "Externo", activeClass: "border-amber-500 bg-amber-500/10 text-amber-700" },
+              ]}
+            />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
+              <label htmlFor="mnt-prioridad" className="block text-sm font-medium text-foreground mb-1">
                 Prioridad
               </label>
               <select
+                id="mnt-prioridad"
+                name="prioridad"
                 value={prioridad}
                 onChange={(e) => setPrioridad(e.target.value as PrioridadMantenimiento)}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                className={mntField}
               >
                 <option value="baja">Baja</option>
                 <option value="media">Media</option>
@@ -216,16 +209,19 @@ export default function NuevaMantenimientoPage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
+              <label htmlFor="mnt-monto" className="block text-sm font-medium text-foreground mb-1">
                 Monto estimado (COP)
               </label>
               <input
+                id="mnt-monto"
+                name="monto_estimado"
                 type="text"
                 inputMode="numeric"
+                autoComplete="off"
                 value={montoEstimado}
                 onChange={(e) => setMontoEstimado(e.target.value)}
                 placeholder="Opcional"
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-ring"
+                className={mntFieldMono}
               />
             </div>
           </div>
@@ -242,7 +238,7 @@ export default function NuevaMantenimientoPage() {
         </section>
 
         {error && (
-          <p className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">
+          <p className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2" role="alert">
             {error}
           </p>
         )}
