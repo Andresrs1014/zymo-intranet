@@ -37,13 +37,9 @@ const upload = multer({
 
 router.get("/", async (req: Request, res: Response) => {
   const { procedimientoId, activo } = req.query
-  if (!procedimientoId) {
-    res.status(400).json({ error: "procedimientoId es requerido" })
-    return
-  }
   const instructivos = await prisma.sigInstructivo.findMany({
     where: {
-      procedimientoId: parseInt(procedimientoId as string),
+      ...(procedimientoId ? { procedimientoId: parseInt(procedimientoId as string) } : {}),
       ...(activo !== undefined ? { activo: activo === "true" } : {}),
     },
     orderBy: { createdAt: "asc" },
