@@ -38,8 +38,8 @@ export function SigProcedimientoCargosPanel({ procedimientoId, canEdit }: Props)
   })
 
   const { data: tcCargos = [], isLoading: loadingTc } = useQuery<TcCargo[]>({
-    queryKey: ["tc", "cargos"],
-    queryFn: () => api.get("/tc/cargos").then((r) => r.data),
+    queryKey: ["tc", "cargos-sig"],
+    queryFn: () => api.get("/tc/cargos-sig").then((r) => r.data),
     staleTime: 60_000,
   })
 

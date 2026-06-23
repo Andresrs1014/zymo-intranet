@@ -34,6 +34,7 @@ require_tc = require_permission("mod_tc")
 require_tc_editar = require_permission("mod_tc_editar")
 require_tc_sensible = require_permission("mod_tc_sensible")
 require_tc_importar = require_permission("mod_tc_importar")
+require_tc_or_sig = require_permission("mod_tc", "mod_sig")
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -257,6 +258,19 @@ def listar_cargos(
             "manual_filename": c.manual_filename,
             "tiene_manual": bool((c.manual_text or "").strip()),
         }
+        for c in cargos
+    ]
+
+
+@router.get("/cargos-sig")
+def listar_cargos_sig(
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_tc_or_sig),
+):
+    """Lectura mínima de cargos para asignación en SIG — no requiere mod_tc."""
+    cargos = db.exec(select(PtcCargo).order_by(col(PtcCargo.nombre))).all()
+    return [
+        {"id": c.id, "nombre": c.nombre, "tiene_manual": bool((c.manual_text or "").strip())}
         for c in cargos
     ]
 
