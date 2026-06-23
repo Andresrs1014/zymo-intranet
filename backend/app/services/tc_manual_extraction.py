@@ -6,13 +6,16 @@ import logging
 import os
 import subprocess
 import tempfile
-from typing import Optional
+from datetime import date, datetime, time
+from typing import Any, Optional
 
 log = logging.getLogger(__name__)
 
 MAX_TEXT = 50_000
 MIN_USEFUL = 50
 MANUALES_DIR = "/app/data/tc_manuales"
+
+_OLE_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
 
 
 def manual_disk_path(cargo_id: int, manual_url: str) -> Optional[str]:
@@ -28,6 +31,109 @@ def manual_disk_path(cargo_id: int, manual_url: str) -> Optional[str]:
     if os.path.isfile(legacy):
         return legacy
     return None
+
+
+def _sniff_excel_ext(content: bytes, declared: str) -> str:
+    """Corrige extensión cuando MIME/nombre no coincide con el binario real."""
+    declared = declared.lower().lstrip(".")
+    if content[:2] == b"PK":
+        return "xlsx"
+    if content[: len(_OLE_MAGIC)] == _OLE_MAGIC:
+        return "xls"
+    return declared
+
+
+def _cell_str(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d %H:%M") if value.time() != time.min else value.strftime("%Y-%m-%d")
+    if isinstance(value, date):
+        return value.strftime("%Y-%m-%d")
+    if isinstance(value, float) and value == int(value):
+        return str(int(value))
+    text = str(value).strip()
+    if text.startswith("=") and len(text) > 1:
+        return text[1:].strip()
+    return text
+
+
+def _extraer_xlsx(content: bytes) -> str:
+    import openpyxl
+
+    best = ""
+    for data_only in (True, False):
+        try:
+            wb = openpyxl.load_workbook(io.BytesIO(content), data_only=data_only, read_only=False)
+            lines: list[str] = []
+            for ws in wb.worksheets:
+                lines.append(f"## {ws.title}")
+                max_row = ws.max_row or 0
+                max_col = ws.max_column or 0
+                if max_row == 0 or max_col == 0:
+                    continue
+                for row in ws.iter_rows(
+                    min_row=1,
+                    max_row=max_row,
+                    max_col=max_col,
+                    values_only=True,
+                ):
+                    parts = [_cell_str(c) for c in row]
+                    if any(parts):
+                        lines.append("\t".join(parts))
+            wb.close()
+            text = "\n".join(lines).strip()
+            if len(text) > len(best):
+                best = text
+            if len(text) >= MIN_USEFUL:
+                return text[:MAX_TEXT]
+        except Exception as exc:
+            log.warning("[tc_manual] openpyxl data_only=%s: %s", data_only, exc)
+    return best[:MAX_TEXT]
+
+
+def _extraer_xls(content: bytes) -> str:
+    try:
+        import xlrd
+    except ImportError:
+        log.warning("[tc_manual] xlrd no instalado — .xls sin texto extraído")
+        return ""
+
+    lines: list[str] = []
+    try:
+        wb = xlrd.open_workbook(file_contents=content)
+        for sheet in wb.sheets():
+            lines.append(f"## {sheet.name}")
+            for row_idx in range(sheet.nrows):
+                parts = [_cell_str(sheet.cell_value(row_idx, col_idx)) for col_idx in range(sheet.ncols)]
+                if any(parts):
+                    lines.append("\t".join(parts))
+    except Exception as exc:
+        log.warning("[tc_manual] xlrd falló: %s", exc)
+        return ""
+    return "\n".join(lines).strip()[:MAX_TEXT]
+
+
+def _extraer_excel(content: bytes, ext: str) -> str:
+    ext = _sniff_excel_ext(content, ext)
+    if ext == "xlsx":
+        text = _extraer_xlsx(content)
+        if len(text.strip()) >= MIN_USEFUL:
+            return text
+        # Archivo .xls renombrado como .xlsx
+        if content[: len(_OLE_MAGIC)] == _OLE_MAGIC:
+            log.info("[tc_manual] .xlsx declarado pero binario OLE — probando xlrd")
+            return _extraer_xls(content)
+        return text
+    if ext == "xls":
+        text = _extraer_xls(content)
+        if len(text.strip()) >= MIN_USEFUL:
+            return text
+        if content[:2] == b"PK":
+            log.info("[tc_manual] .xls declarado pero binario ZIP — probando openpyxl")
+            return _extraer_xlsx(content)
+        return text
+    return ""
 
 
 def extraer_texto_manual(content: bytes, ext: str) -> str:
@@ -51,17 +157,8 @@ def extraer_texto_manual(content: bytes, ext: str) -> str:
         if ext == "doc":
             return _extraer_doc_antiword(content)[:MAX_TEXT]
 
-        if ext in ("xlsx", "xls"):
-            import openpyxl
-
-            wb = openpyxl.load_workbook(io.BytesIO(content), read_only=True, data_only=True)
-            lines: list[str] = []
-            for ws in wb.worksheets:
-                for row in ws.iter_rows(values_only=True):
-                    line = "\t".join("" if c is None else str(c) for c in row)
-                    if line.strip():
-                        lines.append(line)
-            return "\n".join(lines)[:MAX_TEXT]
+        if ext in ("xlsx", "xls", "xlsm"):
+            return _extraer_excel(content, ext)
     except Exception as exc:
         log.warning("[tc_manual] Error extrayendo .%s: %s", ext, exc)
     return ""
@@ -98,7 +195,10 @@ def _extraer_doc_antiword(content: bytes) -> str:
 def extraer_desde_archivo(path: str) -> str:
     ext = path.rsplit(".", 1)[-1].lower()
     with open(path, "rb") as f:
-        return extraer_texto_manual(f.read(), ext)
+        content = f.read()
+    if ext in ("xlsx", "xls", "xlsm"):
+        return _extraer_excel(content, ext)
+    return extraer_texto_manual(content, ext)
 
 
 def cargo_manual_flags(manual_url: str, manual_text: str) -> dict[str, bool | int]:

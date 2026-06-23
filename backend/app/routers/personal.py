@@ -32,6 +32,7 @@ from app.services.tc_manual_extraction import (
     extraer_desde_archivo,
     extraer_texto_manual,
     manual_disk_path,
+    _sniff_excel_ext,
 )
 
 router = APIRouter(prefix="/tc", tags=["T&C Personal"])
@@ -307,8 +308,28 @@ _MANUAL_MIME: dict[str, str] = {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
     "application/msword": "doc",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+    "application/vnd.ms-excel.sheet.macroEnabled.12": "xlsx",
     "application/vnd.ms-excel": "xls",
 }
+
+_MANUAL_FILENAME_EXT: dict[str, str] = {
+    ".pdf": "pdf",
+    ".docx": "docx",
+    ".doc": "doc",
+    ".xlsx": "xlsx",
+    ".xlsm": "xlsx",
+    ".xls": "xls",
+}
+
+
+def _resolve_manual_ext(content_type: str | None, filename: str | None) -> str | None:
+    if content_type and content_type in _MANUAL_MIME:
+        return _MANUAL_MIME[content_type]
+    if filename:
+        ext = os.path.splitext(filename)[1].lower()
+        if ext in _MANUAL_FILENAME_EXT:
+            return _MANUAL_FILENAME_EXT[ext]
+    return None
 
 
 def _reextract_cargo(cargo: PtcCargo) -> dict:
@@ -396,13 +417,15 @@ async def subir_manual(
     cargo = db.get(PtcCargo, cargo_id)
     if not cargo:
         raise HTTPException(status_code=404, detail="Cargo no encontrado.")
-    if file.content_type not in _MANUAL_MIME:
+    ext = _resolve_manual_ext(file.content_type, file.filename)
+    if not ext:
         raise HTTPException(status_code=400, detail="Solo se permiten PDF, Word (.docx/.doc) y Excel (.xlsx/.xls).")
     content = await file.read()
     if len(content) > 20 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="El archivo no puede superar los 20 MB.")
 
-    ext = _MANUAL_MIME[file.content_type]
+    if ext in ("xlsx", "xls", "xlsm"):
+        ext = _sniff_excel_ext(content, ext)
     manuales_dir = "/app/data/tc_manuales"
     os.makedirs(manuales_dir, exist_ok=True)
     with open(os.path.join(manuales_dir, f"{cargo_id}.{ext}"), "wb") as f:
@@ -423,7 +446,8 @@ async def subir_manual(
         "advertencia": (
             None if flags["tiene_manual"]
             else "Archivo guardado pero no se extrajo texto suficiente para análisis IA. "
-                 "Prueba re-subir como PDF/DOCX o use Re-extraer texto."
+                 "En Excel verifique que el contenido esté en celdas (no solo imágenes) "
+                 "o use Re-extraer texto."
         ),
     }
 
