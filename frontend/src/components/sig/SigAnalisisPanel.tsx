@@ -8,7 +8,7 @@ import {
   Search, SlidersHorizontal, FileText,
   Target, Lightbulb, GitCompare, Database, Users, Loader, AlertTriangle, X,
 } from "lucide-react"
-import { fetchProcCargoIds } from "@/components/sig/SigProcedimientoCargosPanel"
+import { fetchProcCargoIds, ProcCargoAsignado } from "@/components/sig/SigProcedimientoCargosPanel"
 
 // ── Module-level AbortController map ─────────────────────────────────────────
 
@@ -343,9 +343,10 @@ function ProcAnalisisCard({ proc }: { proc: ProcListItem }) {
     queryFn: () => sigApi.get(`/api/instructivos?procedimientoId=${proc.id}&activo=true`).then((r) => r.data),
   })
 
-  const { data: cargoIds = [], isLoading: loadingCargos } = useQuery<number[]>({
-    queryKey: ["sig", "proc-cargo-ids", proc.id],
-    queryFn: () => fetchProcCargoIds(proc.id),
+  const { data: cargoIds = [], isLoading: loadingCargos } = useQuery({
+    queryKey: ["sig", "proc-cargos", proc.id],
+    queryFn: () => sigApi.get(`/api/procedimientos/${proc.id}/cargos`).then((r) => r.data as ProcCargoAsignado[]),
+    select: (data: ProcCargoAsignado[]) => data.map((c) => c.cargoId),
   })
 
   const emptyContentInst = instructivosList.filter((i) => !i.contenido.trim())

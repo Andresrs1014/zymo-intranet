@@ -32,7 +32,7 @@ from app.services.tc_manual_extraction import (
     extraer_desde_archivo,
     extraer_texto_manual,
     manual_disk_path,
-    _sniff_excel_ext,
+    sniff_excel_ext,
 )
 
 router = APIRouter(prefix="/tc", tags=["T&C Personal"])
@@ -438,7 +438,7 @@ async def subir_manual(
         raise HTTPException(status_code=400, detail="El archivo no puede superar los 20 MB.")
 
     if ext in ("xlsx", "xls", "xlsm"):
-        ext = _sniff_excel_ext(content, ext)
+        ext = sniff_excel_ext(content, ext)
     manuales_dir = "/app/data/tc_manuales"
     os.makedirs(manuales_dir, exist_ok=True)
     with open(os.path.join(manuales_dir, f"{cargo_id}.{ext}"), "wb") as f:

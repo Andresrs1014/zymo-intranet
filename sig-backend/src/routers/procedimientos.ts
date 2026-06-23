@@ -70,9 +70,6 @@ const CargosInvolucradosSchema = z.object({
 // GET /api/procedimientos/:id/cargos — cargos T&C asignados al procedimiento
 router.get("/:id/cargos", async (req: Request, res: Response) => {
   const id = parseInt(req.params.id)
-  const proc = await prisma.sigProcedimiento.findUnique({ where: { id }, select: { id: true } })
-  if (!proc) { res.status(404).json({ error: "Procedimiento no encontrado" }); return }
-
   const cargos = await prisma.sigProcedimientoCargo.findMany({
     where: { procedimientoId: id },
     orderBy: { cargoNombre: "asc" },

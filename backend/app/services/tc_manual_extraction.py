@@ -33,7 +33,7 @@ def manual_disk_path(cargo_id: int, manual_url: str) -> Optional[str]:
     return None
 
 
-def _sniff_excel_ext(content: bytes, declared: str) -> str:
+def sniff_excel_ext(content: bytes, declared: str) -> str:
     """Corrige extensión cuando MIME/nombre no coincide con el binario real."""
     declared = declared.lower().lstrip(".")
     if content[:2] == b"PK":
@@ -115,7 +115,7 @@ def _extraer_xls(content: bytes) -> str:
 
 
 def _extraer_excel(content: bytes, ext: str) -> str:
-    ext = _sniff_excel_ext(content, ext)
+    ext = sniff_excel_ext(content, ext)
     if ext == "xlsx":
         text = _extraer_xlsx(content)
         if len(text.strip()) >= MIN_USEFUL:
