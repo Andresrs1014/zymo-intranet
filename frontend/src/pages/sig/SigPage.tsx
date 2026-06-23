@@ -444,7 +444,7 @@ function ProcedureFileView({
   }
 
   const { data: procCargosCount = 0 } = useQuery<number>({
-    queryKey: ["sig", "proc-cargos", id],
+    queryKey: ["sig", "proc-cargos-count", id],
     queryFn: async () => {
       const res = await sigApi.get(`/api/procedimientos/${id}/cargos`)
       return (res.data as unknown[]).length
