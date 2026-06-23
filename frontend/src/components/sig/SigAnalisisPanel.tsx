@@ -8,7 +8,7 @@ import {
   Search, SlidersHorizontal, FileText,
   Target, Lightbulb, GitCompare, Database, Users, Loader, AlertTriangle, X,
 } from "lucide-react"
-import { fetchProcCargoIds, ProcCargoAsignado } from "@/components/sig/SigProcedimientoCargosPanel"
+import { fetchProcCargoIds, type ProcCargoAsignado } from "@/components/sig/SigProcedimientoCargosPanel"
 
 // ── Module-level AbortController map ─────────────────────────────────────────
 
