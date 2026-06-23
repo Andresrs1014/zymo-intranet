@@ -447,7 +447,7 @@ function ProcedureFileView({
     queryKey: ["sig", "proc-cargos-count", id],
     queryFn: async () => {
       const res = await sigApi.get(`/api/procedimientos/${id}/cargos`)
-      return (res.data as unknown[]).length
+      return Array.isArray(res.data) ? res.data.length : 0
     },
   })
 

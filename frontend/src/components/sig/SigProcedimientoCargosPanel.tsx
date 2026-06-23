@@ -26,22 +26,28 @@ interface Props {
   canEdit: boolean
 }
 
+function asArray<T>(value: unknown): T[] {
+  return Array.isArray(value) ? value : []
+}
+
 export function SigProcedimientoCargosPanel({ procedimientoId, canEdit }: Props) {
   const qc = useQueryClient()
   const [search, setSearch] = useState("")
   const [draft, setDraft] = useState<Set<number> | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
 
-  const { data: asignados = [], isLoading: loadingAsignados } = useQuery<ProcCargoAsignado[]>({
+  const { data: asignadosRaw, isLoading: loadingAsignados, isError: errorAsignados } = useQuery<unknown>({
     queryKey: ["sig", "proc-cargos", procedimientoId],
     queryFn: () => sigApi.get(`/api/procedimientos/${procedimientoId}/cargos`).then((r) => r.data),
   })
+  const asignados = asArray<ProcCargoAsignado>(asignadosRaw)
 
-  const { data: tcCargos = [], isLoading: loadingTc } = useQuery<TcCargo[]>({
+  const { data: tcCargosRaw, isLoading: loadingTc, isError: errorTc } = useQuery<unknown>({
     queryKey: ["tc", "cargos-sig"],
     queryFn: () => api.get("/tc/cargos-sig").then((r) => r.data),
     staleTime: 60_000,
   })
+  const tcCargos = asArray<TcCargo>(tcCargosRaw)
 
   const selected = draft ?? new Set(asignados.map((a) => a.cargoId))
   const dirty = draft !== null
@@ -95,6 +101,7 @@ export function SigProcedimientoCargosPanel({ procedimientoId, canEdit }: Props)
 
   const sinManualAsignados = asignados.filter((a) => !tcById.get(a.cargoId)?.tiene_manual)
   const loading = loadingAsignados || loadingTc
+  const loadError = errorAsignados || errorTc || (!loading && tcCargosRaw != null && !Array.isArray(tcCargosRaw))
 
   return (
     <div className="space-y-4">
@@ -108,6 +115,15 @@ export function SigProcedimientoCargosPanel({ procedimientoId, canEdit }: Props)
           comparará estos roles contra sus manuales de funciones.
         </p>
       </div>
+
+      {loadError && (
+        <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+          <AlertTriangle className="h-3.5 w-3.5 text-red-600 shrink-0 mt-0.5" />
+          <p className="text-[11px] text-red-800 font-mono">
+            No se pudo cargar el listado de cargos T&amp;C. Verifica que el backend esté desplegado y recarga la página.
+          </p>
+        </div>
+      )}
 
       {!loading && asignados.length === 0 && (
         <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
@@ -225,6 +241,6 @@ export function SigProcedimientoCargosPanel({ procedimientoId, canEdit }: Props)
 
 /** IDs de cargos T&C asignados al procedimiento (para análisis IA). */
 export async function fetchProcCargoIds(procedimientoId: number): Promise<number[]> {
-  const { data } = await sigApi.get<ProcCargoAsignado[]>(`/api/procedimientos/${procedimientoId}/cargos`)
-  return data.map((c) => c.cargoId)
+  const { data } = await sigApi.get(`/api/procedimientos/${procedimientoId}/cargos`)
+  return asArray<ProcCargoAsignado>(data).map((c) => c.cargoId)
 }
