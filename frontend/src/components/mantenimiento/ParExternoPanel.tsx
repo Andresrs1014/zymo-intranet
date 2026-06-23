@@ -58,9 +58,9 @@ export function ParExternoPanel({ sol }: Props) {
   }
 
   return (
-    <div className="rounded-lg border border-amber-500/40 bg-gradient-to-r from-amber-500/10 to-transparent px-4 py-4 space-y-3">
+    <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-4 space-y-3">
       <div className="flex items-start gap-3">
-        <Link2 className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+        <Link2 className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" aria-hidden />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-foreground">Par externo MNT ↔ OC</p>
           <p className="text-xs text-muted-foreground mt-0.5">
@@ -100,7 +100,7 @@ export function ParExternoPanel({ sol }: Props) {
           onClick={handleTomarPar}
           disabled={asignarPar.isPending}
         >
-          <UserPlus className="w-4 h-4" />
+          <UserPlus className="w-4 h-4" aria-hidden />
           Tomar par (asignarme como coordinador)
         </Button>
       )}
@@ -114,7 +114,8 @@ export function ParExternoPanel({ sol }: Props) {
             <select
               value={auxMntId || (sol.asignado_id != null ? String(sol.asignado_id) : "")}
               onChange={(e) => setAuxMntId(e.target.value)}
-              className="text-xs border border-border rounded-md px-2 py-1.5 bg-background min-w-[180px]"
+              aria-label="Auxiliar de mantenimiento"
+              className="text-xs border border-border rounded-md px-2 py-1.5 bg-background min-w-[180px] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
             >
               <option value="">Sin asignar</option>
               {auxiliares.map((a) => (
@@ -135,7 +136,7 @@ export function ParExternoPanel({ sol }: Props) {
         </div>
       )}
 
-      {msg && <p className="text-xs text-emerald-600">{msg}</p>}
+      {msg && <p className="text-xs text-emerald-600" aria-live="polite">{msg}</p>}
     </div>
   )
 }

@@ -133,7 +133,7 @@ export default function NuevaMantenimientoPage() {
               options={tiposOptions}
               value={tipoMantenimiento}
               onChange={(v) => setTipoMantenimiento(v != null ? String(v) : "")}
-              placeholder="Seleccionar tipo..."
+              placeholder="Seleccionar tipo…"
             />
           </div>
 

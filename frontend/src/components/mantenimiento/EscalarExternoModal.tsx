@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { mntFieldAmber } from "@/components/mantenimiento/mntFormClasses"
 
 interface Props {
   open: boolean
@@ -53,28 +54,32 @@ export function EscalarExternoModal({ open, onClose, onConfirm, loading }: Props
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-4 overscroll-contain">
       <form
         onSubmit={(e) => void handleSubmit(e)}
-        className="w-full max-w-md rounded-xl bg-card border border-border shadow-xl p-5 space-y-4"
+        className="w-full max-w-md rounded-xl bg-card border border-border shadow-xl p-5 space-y-4 overscroll-contain"
+        role="dialog"
+        aria-labelledby="escalar-externo-title"
       >
         <div>
-          <h3 className="text-base font-semibold text-foreground">Escalar a mantenimiento externo</h3>
+          <h3 id="escalar-externo-title" className="text-base font-semibold text-foreground">Escalar a mantenimiento externo</h3>
           <p className="text-xs text-muted-foreground mt-1">
             Se creará el par MNT ↔ OC servicio y compras tomará la coordinación.
           </p>
         </div>
         <div>
-          <label className="text-xs text-muted-foreground block mb-1">Motivo *</label>
+          <label htmlFor="escalar-motivo" className="text-xs text-muted-foreground block mb-1">Motivo *</label>
           <textarea
+            id="escalar-motivo"
+            name="motivo"
             value={motivo}
             onChange={(e) => setMotivo(e.target.value)}
             rows={4}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-amber-500/50"
-            placeholder="Ej. Requiere proveedor especializado / repuesto no disponible en bodega..."
+            className={`${mntFieldAmber} resize-none`}
+            placeholder="Ej. Requiere proveedor especializado / repuesto no disponible en bodega…"
           />
         </div>
-        {error && <p className="text-xs text-red-600">{error}</p>}
+        {error && <p className="text-xs text-red-600" role="alert">{error}</p>}
         <div className="flex gap-2">
           <Button type="submit" disabled={loading} className="flex-1 bg-amber-600 hover:bg-amber-500">
             {loading ? "Escalando…" : "Confirmar escalamiento"}

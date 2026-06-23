@@ -33,7 +33,7 @@ export default function MantenimientoDashboard() {
   if (isLoading) {
     return (
       <div style={styles.page}>
-        <p style={{ color: "#94a3b8" }}>Cargando tablero...</p>
+        <p style={{ color: "#94a3b8" }}>Cargando tablero…</p>
       </div>
     )
   }
@@ -191,9 +191,12 @@ const styles = {
   page: {
     fontFamily: "'DM Sans', sans-serif",
     padding: "24px 32px",
+    paddingTop: "max(24px, env(safe-area-inset-top))",
+    paddingBottom: "max(24px, env(safe-area-inset-bottom))",
     background: "#0f172a",
     minHeight: "100vh",
     color: "#f1f5f9",
+    colorScheme: "dark",
   } as React.CSSProperties,
   titulo: {
     fontSize: 22,

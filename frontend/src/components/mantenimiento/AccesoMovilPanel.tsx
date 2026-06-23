@@ -89,7 +89,7 @@ export function AccesoMovilPanel({ solicitudId, consecutivo, estado }: Props) {
         <div className="flex flex-col sm:flex-row gap-4 items-start">
           <div
             ref={qrRef}
-            className="rounded-lg bg-white p-3 shadow-sm shrink-0 transition-transform hover:scale-[1.02]"
+            className="rounded-lg bg-white p-3 shadow-sm shrink-0 motion-safe:transition-transform motion-safe:hover:scale-[1.02]"
           >
             <QRCodeSVG value={data.url_qr} size={160} level="M" />
           </div>
@@ -141,7 +141,7 @@ export function AccesoMovilPanel({ solicitudId, consecutivo, estado }: Props) {
                 Sin número WhatsApp configurado — ve a OC Configuración → Mantenimiento.
               </p>
             )}
-            {msg && <p className="text-xs text-emerald-600">{msg}</p>}
+            {msg && <p className="text-xs text-emerald-600" aria-live="polite">{msg}</p>}
           </div>
         </div>
       )}

@@ -20,16 +20,16 @@ export function MantenimientoMobileLayout({
   const portal = useMantenimientoPortal()
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col font-[family-name:var(--font-dm-sans)]">
-      <header className="sticky top-0 z-20 bg-white border-b border-border px-4 py-3 flex items-center gap-3">
+    <div className="min-h-screen bg-background flex flex-col font-[family-name:var(--font-dm-sans)] [color-scheme:light]">
+      <header className="sticky top-0 z-20 bg-card border-b border-border px-4 pb-3 pt-[max(12px,env(safe-area-inset-top))] flex items-center gap-3">
         {showBack && (
           <button
             type="button"
             onClick={() => navigate(backTo ?? portal?.listaPath ?? "/")}
-            className="p-1 -ml-1 text-muted-foreground hover:text-foreground"
+            className="p-2 -ml-1 text-muted-foreground hover:text-foreground rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
             aria-label="Volver"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-5 h-5" aria-hidden />
           </button>
         )}
         <div className="min-w-0 flex-1">
@@ -44,7 +44,9 @@ export function MantenimientoMobileLayout({
           </span>
         )}
       </header>
-      <main className="flex-1 px-4 py-5 max-w-lg mx-auto w-full">{children}</main>
+      <main className="flex-1 px-4 py-5 pb-[max(20px,env(safe-area-inset-bottom))] max-w-lg mx-auto w-full min-w-0">
+        {children}
+      </main>
     </div>
   )
 }

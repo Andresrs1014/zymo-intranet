@@ -235,12 +235,15 @@ export default function MantenimientoDetallePage() {
         {/* SIDEBAR IZQUIERDO */}
         <div className="w-56 shrink-0 border-r border-border bg-background flex flex-col">
           {/* Tabs */}
-          <div className="flex border-b border-border">
+          <div className="flex border-b border-border" role="tablist" aria-label="Secciones del detalle">
             {TABS.map((tab) => (
               <button
                 key={tab}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === tab}
                 onClick={() => setActiveTab(tab)}
-                className={`flex-1 py-2.5 text-xs font-semibold transition-colors relative ${
+                className={`flex-1 py-2.5 text-xs font-semibold transition-colors relative focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${
                   activeTab === tab
                     ? "text-primary"
                     : "text-muted-foreground hover:text-foreground"
@@ -458,39 +461,46 @@ export default function MantenimientoDetallePage() {
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1">
+                  <label htmlFor="mnt-det-monto" className="block text-xs text-muted-foreground mb-1">
                     Monto estimado (COP)
                   </label>
                   <input
+                    id="mnt-det-monto"
+                    name="monto_estimado"
                     type="text"
                     inputMode="numeric"
+                    autoComplete="off"
                     value={monto}
                     onChange={(e) => setMonto(e.target.value)}
                     placeholder="0"
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-amber-500/50 transition-shadow"
+                    className={mntFieldMono}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1">
+                  <label htmlFor="mnt-det-fecha" className="block text-xs text-muted-foreground mb-1">
                     Fecha programada
                   </label>
                   <input
+                    id="mnt-det-fecha"
+                    name="fecha_programada"
                     type="datetime-local"
                     value={fechaProg}
                     onChange={(e) => setFechaProg(e.target.value)}
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500/50 transition-shadow"
+                    className={mntFieldAmber}
                   />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="block text-xs text-muted-foreground mb-1">
+                  <label htmlFor="mnt-det-notas" className="block text-xs text-muted-foreground mb-1">
                     Notas de evaluación
                   </label>
                   <textarea
+                    id="mnt-det-notas"
+                    name="notas_evaluacion"
                     rows={2}
                     value={notas}
                     onChange={(e) => setNotas(e.target.value)}
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-amber-500/50"
-                    placeholder="Observaciones técnicas, materiales necesarios..."
+                    className={`${mntFieldAmber} resize-none`}
+                    placeholder="Observaciones técnicas, materiales necesarios…"
                   />
                 </div>
               </div>
@@ -611,27 +621,28 @@ export default function MantenimientoDetallePage() {
               <img
                 src={sol.evidencia_url}
                 alt="Evidencia del trabajo"
-                className="max-h-48 rounded-lg border border-border object-cover"
+                width={320}
+                height={192}
+                loading="lazy"
+                className={mntImgPreview}
               />
             </div>
           )}
 
           {puedeGestionar && !sol.evidencia_url && sol.estado === "ejecucion" && (
             <div className="mb-6">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
-                Subir evidencia
-              </p>
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                disabled={subiendoEvidencia}
-                onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (file) void handleSubirEvidencia(file)
+              <FotoEvidenciaField
+                label="Subir evidencia"
+                required
+                onChange={(url) => {
+                  if (url && !subiendoEvidencia) void handleSubirEvidenciaDataUrl(url)
                 }}
-                className="text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-amber-500 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white"
               />
+              {subiendoEvidencia && (
+                <p className="text-xs text-muted-foreground mt-2" aria-live="polite">
+                  Subiendo evidencia…
+                </p>
+              )}
             </div>
           )}
 

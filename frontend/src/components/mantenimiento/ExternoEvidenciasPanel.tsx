@@ -1,4 +1,5 @@
 import { FotoEvidenciaField } from "@/components/mantenimiento/FotoEvidenciaField"
+import { mntImgPreview } from "@/components/mantenimiento/mntFormClasses"
 import { useSubirEvidenciaExterna } from "@/hooks/useMantenimiento"
 import type { SolicitudMantenimiento } from "@/types/mantenimiento"
 
@@ -36,8 +37,11 @@ export function ExternoEvidenciasPanel({ sol, puedeSubir }: Props) {
           {sol.evidencia_antes_url ? (
             <img
               src={sol.evidencia_antes_url}
-              alt="Antes"
-              className="max-h-36 rounded-lg border border-border object-cover w-full"
+              alt="Evidencia antes del servicio"
+              width={320}
+              height={144}
+              loading="lazy"
+              className={`${mntImgPreview} max-h-36 w-full`}
             />
           ) : (
             <p className="text-xs text-muted-foreground">Sin foto inicial</p>
@@ -64,8 +68,11 @@ export function ExternoEvidenciasPanel({ sol, puedeSubir }: Props) {
           {sol.evidencia_despues_url ? (
             <img
               src={sol.evidencia_despues_url}
-              alt="Después"
-              className="max-h-36 rounded-lg border border-border object-cover w-full"
+              alt="Evidencia después del servicio"
+              width={320}
+              height={144}
+              loading="lazy"
+              className={`${mntImgPreview} max-h-36 w-full`}
             />
           ) : (
             <p className="text-xs text-muted-foreground">Pendiente — auxiliar o compras tras el proveedor</p>
@@ -90,7 +97,9 @@ export function ExternoEvidenciasPanel({ sol, puedeSubir }: Props) {
       </div>
 
       {subir.isPending && (
-        <p className="text-xs text-muted-foreground">Subiendo evidencia…</p>
+        <p className="text-xs text-muted-foreground" aria-live="polite">
+          Subiendo evidencia…
+        </p>
       )}
     </div>
   )

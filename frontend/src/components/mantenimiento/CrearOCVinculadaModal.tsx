@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { mntField, mntFieldAmber } from "@/components/mantenimiento/mntFormClasses"
 import { useCrearOCVinculada } from "@/hooks/useMantenimiento"
 import type { SolicitudMantenimiento } from "@/types/mantenimiento"
 
@@ -46,7 +47,7 @@ export function CrearOCVinculadaModal({ open, onClose, mantenimiento }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="w-full max-w-lg">
+      <DialogContent className="w-full max-w-lg overscroll-contain">
         <DialogHeader>
           <DialogTitle className="text-base font-semibold">
             Nueva solicitud de compra
@@ -58,12 +59,14 @@ export function CrearOCVinculadaModal({ open, onClose, mantenimiento }: Props) {
 
         <form onSubmit={handleSubmit} className="space-y-4 py-1">
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
+            <label htmlFor="oc-vinc-desc" className="block text-sm font-medium text-foreground mb-1">
               Descripción *
             </label>
             <textarea
+              id="oc-vinc-desc"
+              name="descripcion"
               rows={3}
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
+              className={`${mntField} resize-none`}
               value={descripcion}
               onChange={(e) => setDescripcion(e.target.value)}
               required
@@ -72,12 +75,15 @@ export function CrearOCVinculadaModal({ open, onClose, mantenimiento }: Props) {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
+              <label htmlFor="oc-vinc-categoria" className="block text-sm font-medium text-foreground mb-1">
                 Categoría
               </label>
               <input
+                id="oc-vinc-categoria"
+                name="categoria"
                 type="text"
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                autoComplete="off"
+                className={mntField}
                 value={categoria}
                 onChange={(e) => setCategoria(e.target.value)}
                 placeholder="Ej: Repuestos"
@@ -85,11 +91,13 @@ export function CrearOCVinculadaModal({ open, onClose, mantenimiento }: Props) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
+              <label htmlFor="oc-vinc-prioridad" className="block text-sm font-medium text-foreground mb-1">
                 Prioridad
               </label>
               <select
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                id="oc-vinc-prioridad"
+                name="prioridad"
+                className={mntField}
                 value={prioridad}
                 onChange={(e) => setPrioridad(e.target.value)}
               >
@@ -101,20 +109,22 @@ export function CrearOCVinculadaModal({ open, onClose, mantenimiento }: Props) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
+            <label htmlFor="oc-vinc-obs" className="block text-sm font-medium text-foreground mb-1">
               Observaciones
             </label>
             <textarea
+              id="oc-vinc-obs"
+              name="observaciones"
               rows={2}
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
+              className={`${mntField} resize-none`}
               value={obs}
               onChange={(e) => setObs(e.target.value)}
-              placeholder="Contexto adicional para el área de compras..."
+              placeholder="Contexto adicional para el área de compras…"
             />
           </div>
 
           {error && (
-            <p className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">
+            <p className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2" role="alert">
               {error}
             </p>
           )}

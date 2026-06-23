@@ -296,7 +296,11 @@ export default function MantenimientoMobilePage({ mode }: Props) {
           </section>
         )}
 
-        {error && <p style={{ color: "#ef4444", fontSize: 13, marginBottom: 12 }}>{error}</p>}
+        {error && (
+          <p style={{ color: "#ef4444", fontSize: 13, marginBottom: 12 }} role="alert">
+            {error}
+          </p>
+        )}
 
         {activa && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -443,16 +447,9 @@ function EstadoPill({ estado }: { estado: string }) {
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{
-      fontFamily: "'DM Sans', sans-serif",
-      maxWidth: 480,
-      margin: "0 auto",
-      padding: 24,
-      background: "#0f172a",
-      minHeight: "100vh",
-      color: "#f1f5f9",
-      boxSizing: "border-box",
-    }}>
+    <div
+      className="mx-auto box-border min-h-screen max-w-[480px] bg-[#0f172a] px-6 font-[family-name:var(--font-dm-sans)] text-slate-100 [color-scheme:dark] touch-manipulation pt-[max(24px,env(safe-area-inset-top))] pb-[max(24px,env(safe-area-inset-bottom))] pl-[max(24px,env(safe-area-inset-left))] pr-[max(24px,env(safe-area-inset-right))] [&_button:focus-visible]:outline [&_button:focus-visible]:outline-2 [&_button:focus-visible]:outline-sky-400 [&_button:focus-visible]:outline-offset-2"
+    >
       {children}
     </div>
   )
@@ -499,11 +496,15 @@ function CenterMsg({
 
 function BackBtn({ onClick, label }: { onClick: () => void; label: string }) {
   return (
-    <button type="button" onClick={onClick} style={{
-      background: "none", border: "none", color: "#94a3b8", fontSize: 13,
-      padding: 0, marginBottom: 16, cursor: "pointer",
-    }}>
-      ← {label}
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        background: "none", border: "none", color: "#94a3b8", fontSize: 13,
+        padding: 0, marginBottom: 16, cursor: "pointer",
+      }}
+    >
+      Volver — {label}
     </button>
   )
 }
