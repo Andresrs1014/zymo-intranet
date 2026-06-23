@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { mntField, mntFieldAmber } from "@/components/mantenimiento/mntFormClasses"
+import { mntField } from "@/components/mantenimiento/mntFormClasses"
 import { useCrearOCVinculada } from "@/hooks/useMantenimiento"
 import type { SolicitudMantenimiento } from "@/types/mantenimiento"
 
