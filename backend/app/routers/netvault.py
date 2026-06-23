@@ -519,6 +519,7 @@ class CoherenciaRequest(BaseModel):
     area: str = Field(default="", max_length=100)
     textContent: str = Field(..., min_length=10, max_length=200_000)
     existingFlowchartMmd: str | None = None
+    contexto_previo: list[ContextoAnalisis] = Field(default_factory=list)
 
     @field_validator('textContent', mode='before')
     @classmethod
@@ -531,6 +532,7 @@ class MejorasRequest(BaseModel):
     procedureCode: str = Field(..., min_length=1, max_length=200)
     area: str = Field(default="", max_length=100)
     textContent: str = Field(..., min_length=10, max_length=200_000)
+    contexto_previo: list[ContextoAnalisis] = Field(default_factory=list)
 
     @field_validator('textContent', mode='before')
     @classmethod
@@ -545,12 +547,34 @@ class InstructivoItem(BaseModel):
     contenido: str  # truncado a 3000 chars en el prompt builder, no aquí
 
 
+class ContextoAnalisis(BaseModel):
+    tipo: str   # coherencia | mejoras | proc-vs-inst | cargos
+    resumen: str
+    fecha: str = ""
+
+
+def _formato_contexto(contexto: list[ContextoAnalisis]) -> str:
+    if not contexto:
+        return ""
+    lineas = []
+    for c in contexto:
+        encabezado = f"[{c.tipo.upper()}{' — ' + c.fecha if c.fecha else ''}]"
+        lineas.append(f"{encabezado}\n{c.resumen.strip()[:500]}")
+    return (
+        "\n\nANÁLISIS PREVIOS DE ESTE PROCEDIMIENTO (tener en cuenta al elaborar tu respuesta):\n"
+        "---\n"
+        + "\n\n".join(lineas)
+        + "\n---"
+    )
+
+
 class ProcVsInstRequest(BaseModel):
     procedimientoId: int
     procedureCode: str = Field(..., min_length=1, max_length=200)
     area: str = Field(default="", max_length=100)
     textContent: str = Field(..., min_length=10, max_length=200_000)
     instructivos: list[InstructivoItem] = Field(..., min_length=1, max_length=10)
+    contexto_previo: list[ContextoAnalisis] = Field(default_factory=list)
 
     @field_validator('textContent', mode='before')
     @classmethod
@@ -603,8 +627,9 @@ def _build_coherencia_user(req: CoherenciaRequest) -> str:
     chart = ""
     if req.existingFlowchartMmd:
         chart = f"\nFLUJOGRAMA EXISTENTE:\n```\n{req.existingFlowchartMmd}\n```\n"
+    ctx = _formato_contexto(req.contexto_previo)
     return f"""Analiza la coherencia interna del procedimiento **{req.procedureCode}** (área: {req.area}).
-
+{ctx}
 DOCUMENTO:
 ---
 {req.textContent[:15000]}
@@ -691,8 +716,9 @@ Reglas:
 
 
 def _build_mejoras_user(req: MejorasRequest) -> str:
+    ctx = _formato_contexto(req.contexto_previo)
     return f"""Analiza las oportunidades de mejora de **{req.procedureCode}** (área: {req.area}).
-
+{ctx}
 DOCUMENTO:
 ---
 {req.textContent[:15000]}
@@ -783,8 +809,9 @@ def _inst_block(i: "InstructivoItem") -> str:
 
 def _build_pvsi_user(req: "ProcVsInstRequest") -> str:
     inst_blocks = "\n\n".join(_inst_block(i) for i in req.instructivos)
+    ctx = _formato_contexto(req.contexto_previo)
     return f"""Verifica coherencia entre el procedimiento y sus documentos de soporte.
-
+{ctx}
 PROCEDIMIENTO ({req.procedureCode} — {req.area}):
 ---
 {req.textContent[:8000]}
@@ -938,75 +965,164 @@ class CargosRequest(BaseModel):
     area: str = Field(default="", max_length=100)
     textContent: str = Field(..., min_length=10, max_length=200_000)
     instructivos: list[InstructivoItem] = Field(default_factory=list, max_length=10)
+    contexto_previo: list[ContextoAnalisis] = Field(default_factory=list)
+    cargo_ids: list[int] = Field(default_factory=list, max_length=50)
 
     @field_validator('textContent', mode='before')
     @classmethod
     def remove_base64(cls, v: str) -> str:
         return _strip_base64_blobs(v) if isinstance(v, str) else v
 
+    @field_validator('cargo_ids', mode='before')
+    @classmethod
+    def dedupe_cargo_ids(cls, v: list[int] | None) -> list[int]:
+        if not v:
+            return []
+        seen: set[int] = set()
+        out: list[int] = []
+        for raw in v:
+            cid = int(raw)
+            if cid not in seen:
+                seen.add(cid)
+                out.append(cid)
+        return out
+
 
 def _build_cargos_system() -> str:
     return """Eres el agente de análisis de cargos y funciones de ZYMO.
-Analiza el procedimiento y sus documentos de soporte para identificar todos los cargos/roles mencionados y las funciones que se les atribuyen.
+
+Tu tarea es comparar cómo el procedimiento utiliza cada cargo/rol contra su Manual de Funciones oficial registrado en T&C (si existe), y evaluar si las responsabilidades están claramente explicitadas.
+
+ESTADOS de comparación:
+- ACORDE: Las funciones asignadas en el procedimiento son consistentes con el manual oficial.
+- INCOMPLETO: El procedimiento menciona el cargo pero no cubre funciones importantes definidas en el manual.
+- DISCREPANCIA: El procedimiento asigna al cargo funciones que contradicen o se alejan del manual.
+- NO_DEFINIDO: El cargo aparece en el procedimiento pero no tiene manual registrado en T&C.
 
 Responde ÚNICAMENTE con JSON válido (sin markdown fence):
 {
-  "resumen": "Párrafo de 2-4 oraciones describiendo los actores clave del proceso.",
-  "cargos": [
+  "resumen": "Párrafo de 2-4 oraciones sobre la alineación general entre el procedimiento y los manuales.",
+  "comparaciones": [
     {
-      "cargo": "Nombre exacto del cargo o rol como aparece en el documento",
-      "funciones": [
-        "Función o responsabilidad 1 que se menciona para este cargo",
-        "Función o responsabilidad 2"
-      ],
-      "mencionadoEn": ["PROC-001", "INS-OP-001"]
+      "cargo": "Nombre exacto del cargo como aparece en el procedimiento",
+      "tiene_manual": true,
+      "estado": "ACORDE",
+      "funciones_en_procedimiento": ["Función que el procedimiento le asigna"],
+      "funciones_en_manual": ["Función definida en el manual oficial"],
+      "brechas": ["El manual define X pero el procedimiento no la menciona"],
+      "observaciones": "Observación concisa sobre este cargo en el procedimiento."
     }
-  ]
+  ],
+  "cargos_sin_manual": ["Nombre del cargo sin manual registrado en T&C"]
 }
 
 Reglas:
-- Extraer TODOS los cargos mencionados (Gerente, Operador, Jefe de X, etc.).
-- funciones: máximo 6 por cargo; solo las que están explícitamente en el documento.
-- mencionadoEn: listar el código del procedimiento o instructivo donde aparece.
-- No inventar cargos ni funciones que no estén en los documentos.
-- Si el mismo cargo aparece en múltiples documentos, consolidar en una sola entrada."""
+- funciones_en_procedimiento: solo lo explícitamente mencionado en el documento analizado.
+- funciones_en_manual: solo lo que aparece en el texto del manual proporcionado.
+- Si tiene_manual es false: omitir funciones_en_manual y brechas; estado = "NO_DEFINIDO".
+- brechas: diferencias concretas y accionables.
+- Máximo 10 items en comparaciones, priorizar cargos con mayor responsabilidad.
+- No inventar funciones que no estén en los documentos.
+- Analiza ÚNICAMENTE los cargos listados en «CARGOS ASIGNADOS AL PROCEDIMIENTO»; no infieras otros roles."""
 
 
-def _build_cargos_user(req: CargosRequest) -> str:
+def _build_cargos_user(
+    req: CargosRequest,
+    manuales_tc: list[dict[str, str]],
+    cargos_asignados: list[dict[str, str | bool]],
+) -> str:
+    if cargos_asignados:
+        lines = []
+        for c in cargos_asignados:
+            flag = "con manual" if c.get("tiene_manual") else "sin manual en T&C"
+            lines.append(f"- {c['nombre']} ({flag})")
+        asignados_block = "\n\nCARGOS ASIGNADOS AL PROCEDIMIENTO (analizar solo estos):\n" + "\n".join(lines)
+    else:
+        asignados_block = ""
+
+    if manuales_tc:
+        manuales_block = "\n\nMANUALES DE FUNCIONES (T&C — solo cargos asignados):\n" + "\n\n".join(
+            f"### {m['nombre']}\n{m['manual_text'][:8000]}"
+            for m in manuales_tc
+        )
+    else:
+        manuales_block = (
+            "\n\n[Los cargos asignados no tienen texto de manual en T&C. "
+            "Marca estado NO_DEFINIDO para cada uno.]"
+            if cargos_asignados
+            else "\n\n[No hay cargos asignados al procedimiento.]"
+        )
+
     inst_blocks = ""
     if req.instructivos:
-        inst_blocks = "\n\nDOCUMENTOS DE SOPORTE:\n" + "\n\n".join(
+        inst_blocks = "\n\nDOCUMENTOS DE SOPORTE (INSTRUCTIVOS):\n" + "\n\n".join(
             f"### {i.codigo} — {i.titulo}\n{i.contenido[:3000]}"
             for i in req.instructivos
         )
-    return f"""Analiza los cargos y funciones del procedimiento **{req.procedureCode}** (área: {req.area}).
 
-PROCEDIMIENTO:
+    ctx = _formato_contexto(req.contexto_previo)
+    return f"""Analiza los cargos del procedimiento **{req.procedureCode}** (área: {req.area}) comparando con los manuales oficiales de T&C.
+{ctx}{asignados_block}{manuales_block}
+
+PROCEDIMIENTO A ANALIZAR:
 ---
 {req.textContent[:12000]}
 ---
 {inst_blocks}
 
-Identifica todos los cargos/roles y las funciones que cada uno desempeña según los documentos.
+Compara cómo el procedimiento usa cada cargo asignado contra su manual oficial (si existe). Identifica brechas y alineaciones.
 
 Responde ÚNICAMENTE con el JSON especificado."""
 
 
 def _run_cargos_job(job_id: str, body: CargosRequest) -> None:
     try:
+        from sqlmodel import Session, select, col
+        from app.personal_database import PtcCargo, get_personal_engine
+
+        if not body.cargo_ids:
+            _jobs[job_id] = {
+                "status": "error",
+                "error": "Asigna al menos un cargo T&C al procedimiento antes de analizar.",
+            }
+            return
+
+        with Session(get_personal_engine()) as session:
+            rows = session.exec(
+                select(PtcCargo).where(col(PtcCargo.id).in_(body.cargo_ids))
+            ).all()
+
+        if not rows:
+            _jobs[job_id] = {
+                "status": "error",
+                "error": "Ninguno de los cargos asignados existe en el directorio T&C.",
+            }
+            return
+
+        by_id = {r.id: r for r in rows}
+        ordered = [by_id[cid] for cid in body.cargo_ids if cid in by_id]
+
+        cargos_asignados: list[dict[str, str | bool]] = []
+        manuales_tc: list[dict[str, str]] = []
+        for r in ordered:
+            tiene = bool((r.manual_text or "").strip())
+            cargos_asignados.append({"nombre": r.nombre, "tiene_manual": tiene})
+            if tiene:
+                manuales_tc.append({"nombre": r.nombre, "manual_text": r.manual_text})
+
         import anthropic
         client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
         response = client.messages.create(
             model=settings.anthropic_model,
-            max_tokens=4000,
+            max_tokens=6000,
             system=_build_cargos_system(),
-            messages=[{"role": "user", "content": _build_cargos_user(body)}],
+            messages=[{"role": "user", "content": _build_cargos_user(body, manuales_tc, cargos_asignados)}],
         )
         tokens_in  = response.usage.input_tokens
         tokens_out = response.usage.output_tokens
         logger.info(
-            "[netvault/cargos/job:%s] %s — in=%d out=%d",
-            job_id[:8], body.procedureCode, tokens_in, tokens_out,
+            "[netvault/cargos/job:%s] %s — in=%d out=%d cargos_asignados=%d manuales=%d",
+            job_id[:8], body.procedureCode, tokens_in, tokens_out, len(cargos_asignados), len(manuales_tc),
         )
 
         raw = response.content[0].text.strip()
@@ -1014,13 +1130,14 @@ def _run_cargos_job(job_id: str, body: CargosRequest) -> None:
             import json as _json
             parsed = _json.loads(raw)
         except Exception:
-            parsed = {"resumen": raw, "cargos": []}
+            parsed = {"resumen": raw, "comparaciones": [], "cargos_sin_manual": []}
 
         _jobs[job_id] = {
             "status": "done",
             "tipo": "cargos",
             "data": {
                 **parsed,
+                "cargos": parsed.get("comparaciones", []),  # backward compat
                 "procedimientoId": body.procedimientoId,
                 "procedureCode":   body.procedureCode,
                 "tokensUsados":    tokens_in + tokens_out,
@@ -1038,7 +1155,12 @@ async def analizar_cargos(
     background_tasks: BackgroundTasks,
     _user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
-    """Identifica cargos/roles y sus funciones en el procedimiento e instructivos."""
+    """Compara cargos asignados al procedimiento contra manuales T&C."""
+    if not body.cargo_ids:
+        raise HTTPException(
+            status_code=422,
+            detail="Asigna al menos un cargo T&C al procedimiento antes de analizar.",
+        )
     if not settings.anthropic_api_key:
         raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY no configurada en el servidor.")
     job_id = str(uuid.uuid4())

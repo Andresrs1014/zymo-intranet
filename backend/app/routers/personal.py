@@ -255,6 +255,7 @@ def listar_cargos(
             "nombre": c.nombre,
             "manual_url": c.manual_url,
             "manual_filename": c.manual_filename,
+            "tiene_manual": bool((c.manual_text or "").strip()),
         }
         for c in cargos
     ]
@@ -285,6 +286,35 @@ _MANUAL_MIME: dict[str, str] = {
     "application/vnd.ms-excel": "xls",
 }
 
+_MAX_TEXT = 50_000
+
+
+def _extraer_texto_manual(content: bytes, ext: str) -> str:
+    """Extract plain text from manual file bytes. Returns '' on failure."""
+    try:
+        import io
+        if ext == "pdf":
+            import pdfplumber
+            with pdfplumber.open(io.BytesIO(content)) as pdf:
+                return "\n".join(p.extract_text() or "" for p in pdf.pages)[:_MAX_TEXT]
+        if ext == "docx":
+            from docx import Document
+            doc = Document(io.BytesIO(content))
+            return "\n".join(p.text for p in doc.paragraphs)[:_MAX_TEXT]
+        if ext in ("xlsx", "xls"):
+            import openpyxl
+            wb = openpyxl.load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+            lines = []
+            for ws in wb.worksheets:
+                for row in ws.iter_rows(values_only=True):
+                    line = "\t".join("" if c is None else str(c) for c in row)
+                    if line.strip():
+                        lines.append(line)
+            return "\n".join(lines)[:_MAX_TEXT]
+    except Exception:
+        pass
+    return ""
+
 
 @router.post("/cargos/{cargo_id}/manual")
 async def subir_manual(
@@ -310,6 +340,7 @@ async def subir_manual(
 
     cargo.manual_url = f"/tc-manuales/{cargo_id}.{ext}"
     cargo.manual_filename = file.filename or f"manual_{cargo_id}.{ext}"
+    cargo.manual_text = _extraer_texto_manual(content, ext)
     db.add(cargo)
     db.commit()
     db.refresh(cargo)
@@ -331,6 +362,7 @@ def eliminar_manual(
             os.remove(path)
     cargo.manual_url = ""
     cargo.manual_filename = ""
+    cargo.manual_text = ""
     db.add(cargo)
     db.commit()
 

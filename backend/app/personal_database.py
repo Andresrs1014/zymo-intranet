@@ -64,6 +64,7 @@ class PtcCargo(SQLModel, table=True):
     nombre: str = Field(max_length=150)
     manual_url: str = Field(default="", max_length=500)
     manual_filename: str = Field(default="", max_length=300)
+    manual_text: str = Field(default="", sa_column_kwargs={"server_default": ""})
 
 
 class PtcPersona(SQLModel, table=True):
@@ -178,6 +179,7 @@ def _migrate_personal() -> None:
         for sql in [
             "ALTER TABLE ptc_cargo ADD COLUMN manual_url TEXT DEFAULT ''",
             "ALTER TABLE ptc_cargo ADD COLUMN manual_filename TEXT DEFAULT ''",
+            "ALTER TABLE ptc_cargo ADD COLUMN manual_text TEXT DEFAULT ''",
         ]:
             try:
                 conn.execute(text(sql))

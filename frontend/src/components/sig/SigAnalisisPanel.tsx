@@ -8,6 +8,7 @@ import {
   Search, SlidersHorizontal, FileText,
   Target, Lightbulb, GitCompare, Database, Users, Loader, AlertTriangle, X,
 } from "lucide-react"
+import { fetchProcCargoIds } from "@/components/sig/SigProcedimientoCargosPanel"
 
 // ── Module-level AbortController map ─────────────────────────────────────────
 
@@ -71,6 +72,49 @@ async function pollNetvaultJob(jobId: string, signal: AbortSignal): Promise<unkn
   throw new Error("Tiempo de espera agotado (5 min)")
 }
 
+// ── Context builder (compact summaries of prior analyses) ─────────────────────
+
+interface ContextoItem { tipo: string; resumen: string; fecha: string }
+
+function _buildContextoResumen(r: {
+  tipo: string; resumen?: string; puntaje?: number | null
+  issues?: Array<{ severidad: string; descripcion: string }>
+  proposals?: Array<{ descripcion: string }>
+  conflictos?: Array<{ severidad: string; descripcion: string }>
+}): string {
+  const parts: string[] = []
+  if (r.tipo === "coherencia" && r.puntaje != null)
+    parts.push(`Puntaje: ${Math.round(r.puntaje * 100)}/100.`)
+  if (r.resumen) parts.push(r.resumen.slice(0, 300))
+  const issues = (r.issues ?? []).slice(0, 3).map((i) => `[${i.severidad}] ${i.descripcion}`)
+  if (issues.length) parts.push(`Hallazgos: ${issues.join("; ")}`)
+  const props = (r.proposals ?? []).slice(0, 3).map((p) => p.descripcion)
+  if (props.length) parts.push(`Propuestas: ${props.join("; ")}`)
+  const conf = (r.conflictos ?? []).slice(0, 3).map((c) => `[${c.severidad}] ${c.descripcion}`)
+  if (conf.length) parts.push(`Conflictos: ${conf.join("; ")}`)
+  return parts.join(" ").slice(0, 600)
+}
+
+async function _fetchContextoPrevio(procId: number, currentType: AnalysisType): Promise<ContextoItem[]> {
+  try {
+    const { data } = await sigApi.get("/api/analisis/historial", {
+      params: { procedimientoId: procId, limit: 10 },
+    })
+    const byType = new Map<string, ContextoItem>()
+    for (const r of (data as Array<{ tipo: string; resumen?: string; createdAt: string; puntaje?: number | null; issues?: unknown[]; proposals?: unknown[]; conflictos?: unknown[] }>)) {
+      if (r.tipo === currentType || byType.has(r.tipo)) continue
+      byType.set(r.tipo, {
+        tipo:   r.tipo,
+        fecha:  r.createdAt.split("T")[0],
+        resumen: _buildContextoResumen(r as Parameters<typeof _buildContextoResumen>[0]),
+      })
+    }
+    return Array.from(byType.values())
+  } catch {
+    return []
+  }
+}
+
 // ── useRunAnalysis ────────────────────────────────────────────────────────────
 
 export function useRunAnalysis() {
@@ -95,11 +139,14 @@ export function useRunAnalysis() {
     try {
       let netvaultRes: { job_id: string }
 
+      const contextoPrevio = await _fetchContextoPrevio(proc.id, type)
+
       const base = {
         procedimientoId: proc.id,
         procedureCode:   proc.codigo,
         area:            proc.areaNombre,
         textContent,
+        contexto_previo: contextoPrevio,
       }
       const instList = (instructivos ?? []).map((i) => ({
         id: i.id, codigo: i.codigo, titulo: i.titulo, contenido: i.contenido,
@@ -114,8 +161,12 @@ export function useRunAnalysis() {
           ...base, instructivos: instList,
         })).data
       } else if (type === "cargos") {
+        const cargoIds = await fetchProcCargoIds(proc.id)
+        if (cargoIds.length === 0) {
+          throw new Error("Asigna al menos un cargo T&C al procedimiento antes de analizar.")
+        }
         netvaultRes = (await api.post("/api/netvault/analizar-cargos", {
-          ...base, instructivos: instList,
+          ...base, instructivos: instList, cargo_ids: cargoIds,
         })).data
       } else {
         netvaultRes = (await api.post("/api/netvault/indexar-lightrag", {
@@ -291,8 +342,15 @@ function ProcAnalisisCard({ proc }: { proc: ProcListItem }) {
     queryKey: ["sig", "instructivos", proc.id],
     queryFn: () => sigApi.get(`/api/instructivos?procedimientoId=${proc.id}&activo=true`).then((r) => r.data),
   })
+
+  const { data: cargoIds = [], isLoading: loadingCargos } = useQuery<number[]>({
+    queryKey: ["sig", "proc-cargo-ids", proc.id],
+    queryFn: () => fetchProcCargoIds(proc.id),
+  })
+
   const emptyContentInst = instructivosList.filter((i) => !i.contenido.trim())
   const hasInstWarning = emptyContentInst.length > 0
+  const sinCargosAsignados = !loadingCargos && cargoIds.length === 0
 
   async function fetchContent(): Promise<{ text: string; instructivos: Instructivo[] } | null> {
     const syncData: ProcSyncData = (await sigApi.get(`/api/procedimientos/${proc.id}/sync`)).data
@@ -308,6 +366,7 @@ function ProcAnalisisCard({ proc }: { proc: ProcListItem }) {
 
   async function handleRunType(type: AnalysisType) {
     if (loading) return
+    if (type === "cargos" && sinCargosAsignados) return
     setLoading(type)
     try {
       const content = await fetchContent()
@@ -334,7 +393,7 @@ function ProcAnalisisCard({ proc }: { proc: ProcListItem }) {
       void runAnalysis(summary, "coherencia", text)
       void runAnalysis(summary, "mejoras", text)
       if (instructivos.length > 0) void runAnalysis(summary, "proc-vs-inst", text, instructivos)
-      void runAnalysis(summary, "cargos", text, instructivos)
+      if (cargoIds.length > 0) void runAnalysis(summary, "cargos", text, instructivos)
       void runAnalysis(summary, "lightrag", text, instructivos)
     } catch {
       // fetchContent failed — jobs weren't created, nothing to update; loading resets in finally
@@ -370,6 +429,14 @@ function ProcAnalisisCard({ proc }: { proc: ProcListItem }) {
               </span>
             </div>
           )}
+          {sinCargosAsignados && (
+            <div className="flex items-center gap-1.5 mt-1.5 px-2 py-1 rounded bg-rose-50 border border-rose-200">
+              <AlertTriangle className="h-3 w-3 text-rose-500 shrink-0" />
+              <span className="text-[10px] text-rose-700 font-mono">
+                Sin cargos T&amp;C asignados — abre el procedimiento → pestaña Cargos y selecciona los roles involucrados.
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -380,22 +447,31 @@ function ProcAnalisisCard({ proc }: { proc: ProcListItem }) {
         {ANALYSIS_TYPES.map(({ type, label, icon, color }) => {
           const jobForType = jobs.find((j) => j.procedimientoId === proc.id && j.type === type && j.status === "running")
           const running = !!jobForType || (loading === type)
+          const blocked = type === "cargos" && sinCargosAsignados
           return (
             <button
               key={type}
               onClick={() => {
+                if (blocked) return
                 if (jobForType) {
                   cancelAnalysisJob(jobForType.id)
                 } else {
                   void handleRunType(type)
                 }
               }}
-              disabled={!jobForType && !!loading && loading !== type}
-              title={running ? `Cancelar análisis de ${label}` : `Ejecutar análisis de ${label}`}
+              disabled={blocked || (!jobForType && !!loading && loading !== type)}
+              title={
+                blocked
+                  ? "Asigna cargos T&C al procedimiento primero"
+                  : running
+                    ? `Cancelar análisis de ${label}`
+                    : `Ejecutar análisis de ${label}`
+              }
               className={cn(
                 "flex items-center gap-1 px-2 py-1 rounded border text-[10px] font-mono transition-all",
+                blocked ? "opacity-40 cursor-not-allowed border-zinc-200 text-zinc-400 bg-zinc-50" :
                 running ? "border-zinc-300 text-zinc-500 bg-zinc-50" : color,
-                !jobForType && !!loading && loading !== type ? "opacity-50 cursor-not-allowed" : "",
+                !blocked && !jobForType && !!loading && loading !== type ? "opacity-50 cursor-not-allowed" : "",
               )}
             >
               {running ? (

@@ -37,6 +37,7 @@ model SigProcedimiento {
   analisisMejoras      SigAnalisisMejoras[]
   analisisProcVsInst   SigAnalisisProcVsInst[]
   analisisCargos       SigAnalisisCargos[]
+  cargosInvolucrados   SigProcedimientoCargo[]
 
   @@index([areaId])
   @@index([estado])
@@ -179,7 +180,9 @@ model SigAnalisisCargos {
   procedimientoId Int
   procedimiento   SigProcedimiento @relation(fields: [procedimientoId], references: [id], onDelete: Cascade)
 
-  cargos  Json   @default("[]")
+  cargos           Json   @default("[]")
+  comparaciones    Json   @default("[]")
+  cargos_sin_manual Json  @default("[]")
   resumen String @db.Text
 
   autorId      Int
@@ -191,6 +194,21 @@ model SigAnalisisCargos {
 
   @@index([procedimientoId])
   @@index([createdAt])
+}
+
+// ── Cargos T&C asignados a un procedimiento (para análisis IA) ───────────────
+
+model SigProcedimientoCargo {
+  id              Int              @id @default(autoincrement())
+  procedimientoId Int
+  procedimiento   SigProcedimiento @relation(fields: [procedimientoId], references: [id], onDelete: Cascade)
+  cargoId         Int              // ID en ptc_cargo (BD personal / T&C)
+  cargoNombre     String           @db.VarChar(150)
+  createdAt       DateTime         @default(now())
+
+  @@unique([procedimientoId, cargoId])
+  @@index([procedimientoId])
+  @@index([cargoId])
 }
 
 // ── Análisis Procedimiento vs Instructivos ────────────────────────────────────

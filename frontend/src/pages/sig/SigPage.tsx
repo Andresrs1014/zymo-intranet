@@ -12,7 +12,7 @@ import {
   FileText, GitCommit, Inbox, X,
   GitBranchPlus, Clock, ChevronRight, ChevronLeft, Check, Circle, Download,
   Pencil, Eye, Sparkles, Save, XCircle, Loader, AlertCircle,
-  FlaskConical, RefreshCw, UploadCloud, BookOpen, Paperclip,
+  FlaskConical, RefreshCw, UploadCloud, BookOpen, Paperclip, Users,
 } from "lucide-react"
 import { SigAiEditorPanel } from "@/components/sig/SigAiEditorPanel"
 import { SigAnalisisPanel } from "@/components/sig/SigAnalisisPanel"
@@ -21,6 +21,7 @@ import { SigAnalisisQueue } from "@/components/sig/SigAnalisisQueue"
 import { SigAnalisisInspector } from "@/components/sig/SigAnalisisInspector"
 import { SigCargarModal, type PreselectedProc } from "@/components/sig/SigCargarModal"
 import { SigInstructivosPanel, type SigInstructivo, InstructivoArchivoView, PROSE as INST_PROSE } from "@/components/sig/SigInstructivosPanel"
+import { SigProcedimientoCargosPanel } from "@/components/sig/SigProcedimientoCargosPanel"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -434,13 +435,21 @@ function ProcedureFileView({
   const [commitMsg, setCommitMsg] = useState("")
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState("")
-  const [contentTab, setContentTab] = useState<"doc" | "archivo" | "soporte">("doc")
+  const [contentTab, setContentTab] = useState<"doc" | "archivo" | "soporte" | "cargos">("doc")
   const [selectedInst, setSelectedInst] = useState<SigInstructivo | null>(null)
 
-  function switchTab(tab: "doc" | "archivo" | "soporte") {
+  function switchTab(tab: "doc" | "archivo" | "soporte" | "cargos") {
     setContentTab(tab)
     if (tab !== "soporte") setSelectedInst(null)
   }
+
+  const { data: procCargosCount = 0 } = useQuery<number>({
+    queryKey: ["sig", "proc-cargos", id],
+    queryFn: async () => {
+      const res = await sigApi.get(`/api/procedimientos/${id}/cargos`)
+      return (res.data as unknown[]).length
+    },
+  })
 
   const qc = useQueryClient()
 
@@ -695,6 +704,26 @@ function ProcedureFileView({
                       </span>
                     )}
                   </button>
+                  <button
+                    onClick={() => switchTab("cargos")}
+                    className={cn(
+                      "flex items-center gap-1.5 px-4 h-8 text-[11px] font-mono border-b-2 transition-colors",
+                      contentTab === "cargos"
+                        ? "border-rose-500 text-zinc-800 bg-white"
+                        : "border-transparent text-zinc-400 hover:text-zinc-600",
+                    )}
+                  >
+                    <Users className="h-3 w-3" />
+                    Cargos
+                    <span className={cn(
+                      "ml-0.5 text-[9px] px-1.5 py-px rounded-full font-semibold tabular-nums",
+                      procCargosCount > 0
+                        ? "bg-rose-100 text-rose-600"
+                        : "bg-amber-100 text-amber-700",
+                    )}>
+                      {procCargosCount}
+                    </span>
+                  </button>
                 </div>
               )
             })()}
@@ -792,6 +821,15 @@ function ProcedureFileView({
             {/* Archivo original tab */}
             {contentTab === "archivo" && content?.archivoOriginal && (
               <ArchivoOriginalView commitId={content.id} tipoMime={content.tipoMime} nombreArchivo={content.nombreArchivo} />
+            )}
+
+            {/* Cargos tab */}
+            {contentTab === "cargos" && (
+              <div className="flex-1 overflow-auto bg-white">
+                <div className="max-w-3xl mx-auto px-8 py-8">
+                  <SigProcedimientoCargosPanel procedimientoId={id} canEdit={canEditSig} />
+                </div>
+              </div>
             )}
 
             {/* Soporte tab — list */}

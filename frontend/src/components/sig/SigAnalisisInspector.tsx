@@ -18,17 +18,29 @@ interface ProcMeta {
   areaNombre: string
 }
 
+interface CargoComparacion {
+  cargo:                     string
+  tiene_manual:              boolean
+  estado:                    "ACORDE" | "INCOMPLETO" | "DISCREPANCIA" | "NO_DEFINIDO"
+  funciones_en_procedimiento: string[]
+  funciones_en_manual:       string[]
+  brechas:                   string[]
+  observaciones:             string
+}
+
 interface AnalisisResult {
-  id:          number
-  tipo:        string
-  createdAt:   string
-  resumen:     string
-  coherente?:  boolean
-  puntaje?:    number | null
-  issues?:     Array<{ tipo: string; descripcion: string; severidad: string }>
-  proposals?:  Array<{ descripcion: string; categoria?: string }>
-  conflictos?: Array<{ instructivoCodigo: string; descripcion: string; severidad: string }>
-  cargos?:     Array<{ cargo: string; funciones: string[]; mencionadoEn: string[] }>
+  id:                number
+  tipo:              string
+  createdAt:         string
+  resumen:           string
+  coherente?:        boolean
+  puntaje?:          number | null
+  issues?:           Array<{ tipo: string; descripcion: string; severidad: string }>
+  proposals?:        Array<{ descripcion: string; categoria?: string }>
+  conflictos?:       Array<{ instructivoCodigo: string; descripcion: string; severidad: string }>
+  cargos?:           Array<{ cargo: string; funciones: string[]; mencionadoEn: string[] }>
+  comparaciones?:    CargoComparacion[]
+  cargos_sin_manual?: string[]
 }
 
 interface ProcSyncData {
@@ -533,44 +545,127 @@ function ProcVsInstResult({ result }: { result: AnalisisResult }) {
   )
 }
 
-function CargosResult({ result }: { result: AnalisisResult }) {
-  const cargos = result.cargos ?? []
+const ESTADO_CFG: Record<CargoComparacion["estado"], { label: string; bg: string; text: string; border: string }> = {
+  ACORDE:       { label: "Acorde",       bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
+  INCOMPLETO:   { label: "Incompleto",   bg: "bg-amber-50",   text: "text-amber-700",   border: "border-amber-200"   },
+  DISCREPANCIA: { label: "Discrepancia", bg: "bg-red-50",     text: "text-red-700",     border: "border-red-200"     },
+  NO_DEFINIDO:  { label: "Sin manual",   bg: "bg-zinc-50",    text: "text-zinc-500",    border: "border-zinc-200"    },
+}
 
+function CargosResult({ result }: { result: AnalisisResult }) {
+  const comparaciones = result.comparaciones ?? []
+  const sinManual     = result.cargos_sin_manual ?? []
+
+  // Fallback: old format (cargos simple array)
+  const legacyCargos  = comparaciones.length === 0 ? (result.cargos ?? []) : []
+
+  if (comparaciones.length === 0 && legacyCargos.length === 0) {
+    return <p className="text-[10px] text-zinc-400 font-mono">Sin cargos identificados.</p>
+  }
+
+  // ── New format ────────────────────────────────────────────────────────────
+  if (comparaciones.length > 0) {
+    const acorde       = comparaciones.filter((c) => c.estado === "ACORDE").length
+    const incompleto   = comparaciones.filter((c) => c.estado === "INCOMPLETO").length
+    const discrepancia = comparaciones.filter((c) => c.estado === "DISCREPANCIA").length
+
+    return (
+      <div className="space-y-2.5">
+        {/* Summary pills */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[10px] font-mono text-zinc-500">{comparaciones.length} cargos analizados</span>
+          {acorde > 0       && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">{acorde} acorde{acorde !== 1 ? "s" : ""}</span>}
+          {incompleto > 0   && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">{incompleto} incompleto{incompleto !== 1 ? "s" : ""}</span>}
+          {discrepancia > 0 && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">{discrepancia} discrepancia{discrepancia !== 1 ? "s" : ""}</span>}
+        </div>
+
+        {/* Comparison cards */}
+        <div className="space-y-2">
+          {comparaciones.map((c, i) => {
+            const cfg = ESTADO_CFG[c.estado]
+            return (
+              <div key={i} className={`rounded-lg border p-2.5 ${cfg.bg} ${cfg.border}`}>
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <p className={`text-[11px] font-mono font-semibold ${cfg.text}`}>{c.cargo}</p>
+                  <span className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded-full border ${cfg.border} ${cfg.text}`}>
+                    {cfg.label}
+                  </span>
+                </div>
+
+                {/* Funciones en procedimiento */}
+                {c.funciones_en_procedimiento?.length > 0 && (
+                  <div className="mt-1">
+                    <p className="text-[9px] font-mono text-zinc-400 uppercase tracking-wide mb-0.5">En procedimiento</p>
+                    <ul className="space-y-0.5">
+                      {c.funciones_en_procedimiento.slice(0, 3).map((f, j) => (
+                        <li key={j} className="flex items-start gap-1 text-[10px] text-zinc-600">
+                          <span className="shrink-0 text-zinc-300 mt-0.5">→</span>{f}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Brechas */}
+                {c.brechas?.length > 0 && (
+                  <div className="mt-1.5">
+                    <p className="text-[9px] font-mono text-amber-600 uppercase tracking-wide mb-0.5">Brechas</p>
+                    <ul className="space-y-0.5">
+                      {c.brechas.slice(0, 3).map((b, j) => (
+                        <li key={j} className="flex items-start gap-1 text-[10px] text-amber-700">
+                          <span className="shrink-0 mt-0.5">⚠</span>{b}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Observaciones */}
+                {c.observaciones && (
+                  <p className="mt-1.5 text-[10px] text-zinc-500 italic leading-snug">{c.observaciones}</p>
+                )}
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Cargos sin manual */}
+        {sinManual.length > 0 && (
+          <div className="mt-1">
+            <p className="text-[9px] font-mono text-zinc-400 uppercase tracking-wide mb-1">Sin manual en T&C</p>
+            <div className="flex flex-wrap gap-1">
+              {sinManual.map((nombre, i) => (
+                <span key={i} className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-500 border border-zinc-200">
+                  {nombre}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ── Legacy format (fallback) ──────────────────────────────────────────────
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-1.5 text-[11px] font-mono text-zinc-600">
         <Users className="h-3.5 w-3.5 text-rose-500" />
-        <span className="font-semibold">{cargos.length}</span>
-        <span>cargo{cargos.length !== 1 ? "s" : ""} identificado{cargos.length !== 1 ? "s" : ""}</span>
+        <span className="font-semibold">{legacyCargos.length}</span>
+        <span>cargo{legacyCargos.length !== 1 ? "s" : ""} identificado{legacyCargos.length !== 1 ? "s" : ""}</span>
       </div>
-      {cargos.length === 0 && (
-        <p className="text-[10px] text-zinc-400 font-mono">Sin cargos identificados.</p>
-      )}
       <div className="space-y-2">
-        {cargos.map((c, i) => (
+        {legacyCargos.map((c, i) => (
           <div key={i} className="rounded-lg border border-rose-100 bg-rose-50/50 p-2.5">
             <p className="text-[11px] font-mono font-semibold text-rose-700">{c.cargo}</p>
             {c.funciones.length > 0 && (
               <ul className="mt-1.5 space-y-0.5">
                 {c.funciones.slice(0, 4).map((f, j) => (
                   <li key={j} className="flex items-start gap-1 text-[10px] text-zinc-600">
-                    <span className="shrink-0 text-rose-400 mt-0.5">•</span>
-                    {f}
+                    <span className="shrink-0 text-rose-400 mt-0.5">•</span>{f}
                   </li>
                 ))}
-                {c.funciones.length > 4 && (
-                  <li className="text-[9px] text-zinc-400 font-mono">+{c.funciones.length - 4} más…</li>
-                )}
               </ul>
-            )}
-            {c.mencionadoEn.length > 0 && (
-              <div className="mt-1.5 flex flex-wrap gap-1">
-                {c.mencionadoEn.map((doc, k) => (
-                  <span key={k} className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-500">
-                    {doc}
-                  </span>
-                ))}
-              </div>
             )}
           </div>
         ))}

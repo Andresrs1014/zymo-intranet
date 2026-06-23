@@ -134,15 +134,13 @@ router.get("/proc-vs-inst", async (req: Request, res: Response) => {
 // ── POST /api/analisis/cargos ─────────────────────────────────────────────────
 router.post("/cargos", requireSigAccess, async (req: Request, res: Response) => {
   const Schema = z.object({
-    procedimientoId: z.number().int().positive(),
-    cargos:          z.array(z.object({
-      cargo:       z.string(),
-      funciones:   z.array(z.string()).default([]),
-      mencionadoEn: z.array(z.string()).default([]),
-    })).default([]),
-    resumen:         z.string(),
-    tokensUsados:    z.number().optional(),
-    modeloUsado:     z.string().optional(),
+    procedimientoId:   z.number().int().positive(),
+    cargos:            z.array(z.any()).default([]),
+    comparaciones:     z.array(z.any()).default([]),
+    cargos_sin_manual: z.array(z.string()).default([]),
+    resumen:           z.string(),
+    tokensUsados:      z.number().optional(),
+    modeloUsado:       z.string().optional(),
   })
 
   const parsed = Schema.safeParse(req.body)

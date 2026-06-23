@@ -45,6 +45,7 @@ router.get("/:id", async (req: Request, res: Response) => {
     where: { id },
     include: {
       area: true,
+      cargosInvolucrados: { orderBy: { cargoNombre: "asc" } },
       commits: {
         orderBy: { createdAt: "desc" },
         take: 10,
@@ -57,6 +58,63 @@ router.get("/:id", async (req: Request, res: Response) => {
   })
   if (!proc) { res.status(404).json({ error: "Procedimiento no encontrado" }); return }
   res.json(proc)
+})
+
+const CargosInvolucradosSchema = z.object({
+  cargos: z.array(z.object({
+    cargoId:     z.number().int().positive(),
+    cargoNombre: z.string().min(1).max(150),
+  })).max(50),
+})
+
+// GET /api/procedimientos/:id/cargos — cargos T&C asignados al procedimiento
+router.get("/:id/cargos", async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id)
+  const proc = await prisma.sigProcedimiento.findUnique({ where: { id }, select: { id: true } })
+  if (!proc) { res.status(404).json({ error: "Procedimiento no encontrado" }); return }
+
+  const cargos = await prisma.sigProcedimientoCargo.findMany({
+    where: { procedimientoId: id },
+    orderBy: { cargoNombre: "asc" },
+  })
+  res.json(cargos)
+})
+
+// PUT /api/procedimientos/:id/cargos — reemplaza la lista de cargos asignados
+router.put("/:id/cargos", requireSigAccess, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id)
+  const parsed = CargosInvolucradosSchema.safeParse(req.body)
+  if (!parsed.success) { res.status(422).json({ error: parsed.error.flatten() }); return }
+
+  const proc = await prisma.sigProcedimiento.findUnique({ where: { id }, select: { id: true } })
+  if (!proc) { res.status(404).json({ error: "Procedimiento no encontrado" }); return }
+
+  const seen = new Set<number>()
+  for (const c of parsed.data.cargos) {
+    if (seen.has(c.cargoId)) {
+      res.status(422).json({ error: `Cargo duplicado: ${c.cargoNombre}` })
+      return
+    }
+    seen.add(c.cargoId)
+  }
+
+  const cargos = await prisma.$transaction(async (tx) => {
+    await tx.sigProcedimientoCargo.deleteMany({ where: { procedimientoId: id } })
+    if (parsed.data.cargos.length === 0) return []
+    await tx.sigProcedimientoCargo.createMany({
+      data: parsed.data.cargos.map((c) => ({
+        procedimientoId: id,
+        cargoId: c.cargoId,
+        cargoNombre: c.cargoNombre.trim(),
+      })),
+    })
+    return tx.sigProcedimientoCargo.findMany({
+      where: { procedimientoId: id },
+      orderBy: { cargoNombre: "asc" },
+    })
+  })
+
+  res.json(cargos)
 })
 
 // POST /api/procedimientos — SIG, admin, gerente
