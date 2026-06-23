@@ -370,23 +370,35 @@ def reextract_manual_cargo(
 
 @router.post("/cargos/reextract-manuales")
 def reextract_manuales_bulk(
+    force: bool = Query(False, description="Si true, re-extrae todos los manuales con archivo"),
     db: Session = Depends(get_personal_db),
     _: User = Depends(require_tc_editar),
 ):
-    """Re-extrae texto de todos los cargos con archivo pero sin manual_text útil."""
+    """Re-extrae manual_text desde archivos guardados (consumido por SIG análisis IA)."""
     cargos = db.exec(
         select(PtcCargo).where(PtcCargo.manual_url != "")
     ).all()
-    ok, fail, skip = 0, 0, 0
+    ok, fail, skip, actualizados = 0, 0, 0, 0
     detalle_fallos: list[dict] = []
     for cargo in cargos:
         flags = cargo_manual_flags(cargo.manual_url, cargo.manual_text)
-        if flags["tiene_manual"]:
+        if flags["tiene_manual"] and not force:
             skip += 1
             continue
         result = _reextract_cargo(cargo)
-        if result.get("ok") and result.get("tiene_manual"):
-            db.add(cargo)
+        if not result.get("ok"):
+            fail += 1
+            if len(detalle_fallos) < 15:
+                detalle_fallos.append({
+                    "id": cargo.id,
+                    "nombre": cargo.nombre,
+                    "error": result.get("error") or "No se pudo leer el archivo",
+                    "texto_chars": result.get("texto_chars", 0),
+                })
+            continue
+        db.add(cargo)
+        actualizados += 1
+        if result.get("tiene_manual"):
             ok += 1
         else:
             fail += 1
@@ -394,7 +406,7 @@ def reextract_manuales_bulk(
                 detalle_fallos.append({
                     "id": cargo.id,
                     "nombre": cargo.nombre,
-                    "error": result.get("error") or "Texto vacío tras extracción",
+                    "error": "Texto vacío tras extracción",
                     "texto_chars": result.get("texto_chars", 0),
                 })
     db.commit()
@@ -403,6 +415,7 @@ def reextract_manuales_bulk(
         "extraidos_ok": ok,
         "sin_texto": fail,
         "ya_tenian_texto": skip,
+        "actualizados": actualizados,
         "fallos_muestra": detalle_fallos,
     }
 

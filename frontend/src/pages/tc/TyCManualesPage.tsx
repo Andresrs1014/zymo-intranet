@@ -83,25 +83,30 @@ export function TyCManualesPage() {
       await api.post(`/tc/cargos/${cargoId}/manual/reextract`)
       cargarCargos()
     } catch {
-      alert("No se pudo extraer texto del archivo. Verifica el formato o sube PDF/DOCX.")
+      alert("No se pudo extraer texto del archivo. Verifica el formato del Excel o PDF.")
     } finally {
       setReextrayendo(null)
     }
   }
 
-  async function reextractTodos() {
-    if (!confirm("¿Re-extraer texto de todos los manuales que aún no tienen texto para IA?")) return
+  async function reextractTodos(force = false) {
+    const msg = force
+      ? "¿Re-extraer texto de TODOS los manuales subidos? SIG usará el texto actualizado en el próximo análisis."
+      : "¿Re-extraer texto de los manuales que aún no tienen texto para SIG?"
+    if (!confirm(msg)) return
     setReextractBulk(true)
     setBulkResult(null)
     try {
-      const res = await api.post("/tc/cargos/reextract-manuales")
+      const res = await api.post("/tc/cargos/reextract-manuales", null, {
+        params: force ? { force: true } : {},
+      })
       const d = res.data
       setBulkResult(
-        `${d.extraidos_ok} extraídos · ${d.sin_texto} sin texto · ${d.ya_tenian_texto} ya tenían texto`,
+        `${d.extraidos_ok} listos para SIG · ${d.sin_texto} sin texto · ${d.ya_tenian_texto} omitidos`,
       )
       cargarCargos()
     } catch {
-      setBulkResult("Error en re-extracción masiva")
+      setBulkResult("Error al re-extraer texto para SIG")
     } finally {
       setReextractBulk(false)
     }
@@ -206,22 +211,7 @@ export function TyCManualesPage() {
             </div>
           </div>
 
-          <div className="flex flex-col items-end gap-2">
-            {pendientesTexto > 0 && puedeEditar && (
-              <button
-                type="button"
-                onClick={() => void reextractTodos()}
-                disabled={reextractBulk}
-                className="flex items-center gap-1.5 h-8 px-3 text-[11px] font-medium rounded-lg border border-amber-500/40 text-amber-600 hover:bg-amber-500/10 disabled:opacity-50"
-              >
-                <RefreshCw className={cn("w-3 h-3", reextractBulk && "motion-safe:animate-spin")} />
-                {reextractBulk ? "Extrayendo…" : `Re-extraer texto (${pendientesTexto})`}
-              </button>
-            )}
-            {bulkResult && (
-              <span className="text-[10px] text-muted-foreground font-mono">{bulkResult}</span>
-            )}
-            <div className="relative flex-1 max-w-xs w-full min-w-[200px]">
+          <div className="relative flex-1 max-w-xs w-full min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
             <input
               type="text"
@@ -231,9 +221,50 @@ export function TyCManualesPage() {
               onChange={(e) => setBusqueda(e.target.value)}
               className="w-full pl-8 pr-3 py-2 text-sm bg-muted/20 border border-input rounded-xl focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-teal-500/50 focus-visible:border-teal-500/50"
             />
-            </div>
           </div>
         </div>
+
+        {puedeEditar && totalConArchivo > 0 && (
+          <div
+            className="flex flex-wrap items-center justify-between gap-3 mb-4 p-3 rounded-xl border"
+            style={{ borderColor: "rgba(99,102,241,0.35)", background: "rgba(99,102,241,0.06)" }}
+          >
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-foreground">Texto para SIG</p>
+              <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
+                SIG lee el texto extraído de cada manual, no el archivo Excel. Use este botón tras subir o
+                actualizar manuales.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              {pendientesTexto > 0 && (
+                <button
+                  type="button"
+                  onClick={() => void reextractTodos(false)}
+                  disabled={reextractBulk}
+                  className="flex items-center gap-1.5 h-9 px-4 text-xs font-semibold rounded-lg text-white disabled:opacity-50"
+                  style={{ background: "#6366f1" }}
+                >
+                  <RefreshCw className={cn("w-3.5 h-3.5", reextractBulk && "motion-safe:animate-spin")} />
+                  {reextractBulk ? "Extrayendo…" : `Re-extraer pendientes (${pendientesTexto})`}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => void reextractTodos(true)}
+                disabled={reextractBulk}
+                className="flex items-center gap-1.5 h-9 px-4 text-xs font-medium rounded-lg border border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/10 disabled:opacity-50"
+              >
+                <RefreshCw className={cn("w-3.5 h-3.5", reextractBulk && "motion-safe:animate-spin")} />
+                Re-extraer todos para SIG
+              </button>
+            </div>
+          </div>
+        )}
+
+        {bulkResult && (
+          <p className="text-[11px] text-muted-foreground font-mono mb-3">{bulkResult}</p>
+        )}
       </div>
 
       {/* ── Input oculto ─────────────────────────────────────────────────────── */}
@@ -375,15 +406,21 @@ export function TyCManualesPage() {
                           </a>
                         )}
 
-                        {puedeEditar && sinTexto && (
+                        {puedeEditar && tieneArchivo && (
                           <button
                             type="button"
                             onClick={() => void reextract(cargo.id)}
                             disabled={isReextrayendo}
-                            className="flex items-center gap-1 h-7 px-2.5 text-[11px] font-medium rounded-lg border border-amber-500/35 text-amber-600 hover:bg-amber-500/10 disabled:opacity-40"
+                            title="Re-extraer texto para SIG"
+                            className={cn(
+                              "flex items-center gap-1 h-7 px-2.5 text-[11px] font-medium rounded-lg border disabled:opacity-40",
+                              sinTexto
+                                ? "border-amber-500/35 text-amber-600 hover:bg-amber-500/10"
+                                : "border-border/60 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100",
+                            )}
                           >
                             <RefreshCw className={cn("w-2.5 h-2.5", isReextrayendo && "motion-safe:animate-spin")} />
-                            {isReextrayendo ? "…" : "Extraer"}
+                            {isReextrayendo ? "…" : "Re-extraer"}
                           </button>
                         )}
 
