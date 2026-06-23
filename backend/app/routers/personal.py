@@ -248,7 +248,16 @@ def listar_cargos(
     if area_id is not None:
         q = q.where(PtcCargo.area_id == area_id)
     cargos = db.exec(q.order_by(col(PtcCargo.nombre))).all()
-    return [{"id": c.id, "area_id": c.area_id, "nombre": c.nombre} for c in cargos]
+    return [
+        {
+            "id": c.id,
+            "area_id": c.area_id,
+            "nombre": c.nombre,
+            "manual_url": c.manual_url,
+            "manual_filename": c.manual_filename,
+        }
+        for c in cargos
+    ]
 
 
 @router.post("/cargos", status_code=status.HTTP_201_CREATED)
@@ -266,6 +275,64 @@ def crear_cargo(
     db.commit()
     db.refresh(cargo)
     return {"id": cargo.id, "area_id": cargo.area_id, "nombre": cargo.nombre}
+
+
+_MANUAL_MIME: dict[str, str] = {
+    "application/pdf": "pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+    "application/msword": "doc",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+    "application/vnd.ms-excel": "xls",
+}
+
+
+@router.post("/cargos/{cargo_id}/manual")
+async def subir_manual(
+    cargo_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_tc_editar),
+):
+    cargo = db.get(PtcCargo, cargo_id)
+    if not cargo:
+        raise HTTPException(status_code=404, detail="Cargo no encontrado.")
+    if file.content_type not in _MANUAL_MIME:
+        raise HTTPException(status_code=400, detail="Solo se permiten PDF, Word (.docx/.doc) y Excel (.xlsx/.xls).")
+    content = await file.read()
+    if len(content) > 20 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="El archivo no puede superar los 20 MB.")
+
+    ext = _MANUAL_MIME[file.content_type]
+    manuales_dir = "/app/data/tc_manuales"
+    os.makedirs(manuales_dir, exist_ok=True)
+    with open(os.path.join(manuales_dir, f"{cargo_id}.{ext}"), "wb") as f:
+        f.write(content)
+
+    cargo.manual_url = f"/tc-manuales/{cargo_id}.{ext}"
+    cargo.manual_filename = file.filename or f"manual_{cargo_id}.{ext}"
+    db.add(cargo)
+    db.commit()
+    db.refresh(cargo)
+    return {"id": cargo.id, "manual_url": cargo.manual_url, "manual_filename": cargo.manual_filename}
+
+
+@router.delete("/cargos/{cargo_id}/manual", status_code=status.HTTP_204_NO_CONTENT)
+def eliminar_manual(
+    cargo_id: int,
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_tc_editar),
+):
+    cargo = db.get(PtcCargo, cargo_id)
+    if not cargo:
+        raise HTTPException(status_code=404, detail="Cargo no encontrado.")
+    if cargo.manual_url:
+        path = os.path.join("/app/data", cargo.manual_url.lstrip("/").replace("/", os.sep))
+        if os.path.isfile(path):
+            os.remove(path)
+    cargo.manual_url = ""
+    cargo.manual_filename = ""
+    db.add(cargo)
+    db.commit()
 
 
 @router.put("/cargos/{cargo_id}")

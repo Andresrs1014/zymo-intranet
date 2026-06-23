@@ -62,6 +62,8 @@ class PtcCargo(SQLModel, table=True):
     empresa_id: Optional[int] = Field(default=None, foreign_key="ptc_empresa.id")  # deprecated — cargos son globales
     area_id: Optional[int] = Field(default=None)  # referencia a Area principal (app.models.area)
     nombre: str = Field(max_length=150)
+    manual_url: str = Field(default="", max_length=500)
+    manual_filename: str = Field(default="", max_length=300)
 
 
 class PtcPersona(SQLModel, table=True):
@@ -167,6 +169,21 @@ def create_personal_tables() -> None:
     ]
     SQLModel.metadata.create_all(get_personal_engine(), tables=tables)
     _seed_empresas()
+    _migrate_personal()
+
+
+def _migrate_personal() -> None:
+    from sqlalchemy import text
+    with get_personal_engine().connect() as conn:
+        for sql in [
+            "ALTER TABLE ptc_cargo ADD COLUMN manual_url TEXT DEFAULT ''",
+            "ALTER TABLE ptc_cargo ADD COLUMN manual_filename TEXT DEFAULT ''",
+        ]:
+            try:
+                conn.execute(text(sql))
+                conn.commit()
+            except Exception:
+                pass
 
 
 _EMPRESAS_SEED = [

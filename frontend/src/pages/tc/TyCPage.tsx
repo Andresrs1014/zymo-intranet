@@ -11,6 +11,7 @@ import {
   ClipboardList,
   ShieldAlert,
   Upload,
+  FileText,
   ArrowRight,
 } from "lucide-react"
 
@@ -114,6 +115,13 @@ export function TyCPage() {
             title="Organigrama"
             sub="Árbol empresa → área → cargo → persona. Asignación de posiciones."
             onClick={() => navigate("/tc/organigrama")}
+          />
+          <FeatureRow
+            icon={<FileText className="w-4 h-4" />}
+            accent="text-indigo-400 bg-indigo-500/10"
+            title="Manuales de funciones"
+            sub="Sube PDF, Word o Excel por cargo. Acceso centralizado para toda la organización."
+            onClick={() => navigate("/tc/manuales")}
           />
         </div>
 

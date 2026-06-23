@@ -4,7 +4,7 @@ import { api } from "@/lib/api"
 import { useAuthStore } from "@/store/authStore"
 import { canEditTyC } from "@/lib/permissions"
 import { PageLayout } from "@/components/layout/PageLayout"
-import { ArrowLeft, ChevronDown, ChevronRight, Plus, X, Search, Users, Briefcase } from "lucide-react"
+import { ArrowLeft, ChevronDown, ChevronRight, Plus, X, Search, Users, Briefcase, LayoutGrid } from "lucide-react"
 
 interface PersonaChip { id: number; nombre: string; initials: string }
 interface CargoNode   { id: number; nombre: string; personas: PersonaChip[] }
@@ -202,6 +202,13 @@ export function TyCOrganigramaPage() {
                 </span>
               </div>
             )}
+            <button
+              onClick={() => navigate("/tc/organigrama/canvas")}
+              className="flex items-center gap-1.5 h-7 px-2.5 text-xs border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
+            >
+              <LayoutGrid className="w-3 h-3" />
+              Vista canvas
+            </button>
             {puedeEditar && (
               <button
                 onClick={() => abrirModalCargo(null)}
