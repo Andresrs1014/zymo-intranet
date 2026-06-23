@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr \
     tesseract-ocr-spa \
     poppler-utils \
+    antiword \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

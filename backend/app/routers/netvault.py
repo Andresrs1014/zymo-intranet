@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field, field_validator
 from app.config import settings
 from app.core.deps import get_current_user
 from app.models.user import User
+from app.services.tc_manual_extraction import cargo_manual_flags
 
 logger = logging.getLogger(__name__)
 
@@ -1105,7 +1106,8 @@ def _run_cargos_job(job_id: str, body: CargosRequest) -> None:
         cargos_asignados: list[dict[str, str | bool]] = []
         manuales_tc: list[dict[str, str]] = []
         for r in ordered:
-            tiene = bool((r.manual_text or "").strip())
+            flags = cargo_manual_flags(r.manual_url or "", r.manual_text or "")
+            tiene = flags["tiene_manual"]
             cargos_asignados.append({"nombre": r.nombre, "tiene_manual": tiene})
             if tiene:
                 manuales_tc.append({"nombre": r.nombre, "manual_text": r.manual_text})

@@ -18,7 +18,9 @@ interface TcCargo {
   area_id: number | null
   manual_url?: string
   manual_filename?: string
+  tiene_archivo?: boolean
   tiene_manual?: boolean
+  texto_chars?: number
 }
 
 interface Props {
@@ -100,6 +102,10 @@ export function SigProcedimientoCargosPanel({ procedimientoId, canEdit }: Props)
   }
 
   const sinManualAsignados = asignados.filter((a) => !tcById.get(a.cargoId)?.tiene_manual)
+  const archivoSinTexto = asignados.filter((a) => {
+    const tc = tcById.get(a.cargoId)
+    return tc && (tc.tiene_archivo ?? !!tc.manual_url) && !tc.tiene_manual
+  })
   const loading = loadingAsignados || loadingTc
   const loadError = errorAsignados || errorTc || (!loading && tcCargosRaw != null && !Array.isArray(tcCargosRaw))
 
@@ -134,7 +140,17 @@ export function SigProcedimientoCargosPanel({ procedimientoId, canEdit }: Props)
         </div>
       )}
 
-      {!loading && sinManualAsignados.length > 0 && (
+      {!loading && archivoSinTexto.length > 0 && (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+          <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
+          <p className="text-[11px] text-amber-800 font-mono">
+            {archivoSinTexto.length} cargo(s) tienen archivo en T&amp;C pero sin texto extraído para IA:{" "}
+            {archivoSinTexto.map((a) => a.cargoNombre).join(", ")} — en T&amp;C use «Re-extraer texto».
+          </p>
+        </div>
+      )}
+
+      {!loading && sinManualAsignados.length > 0 && archivoSinTexto.length === 0 && (
         <div className="flex items-start gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2">
           <BookOpen className="h-3.5 w-3.5 text-zinc-400 shrink-0 mt-0.5" />
           <p className="text-[11px] text-zinc-600 font-mono">
@@ -170,7 +186,12 @@ export function SigProcedimientoCargosPanel({ procedimientoId, canEdit }: Props)
           )}
           {filtered.map((cargo) => {
             const checked = selected.has(cargo.id)
-            const tieneManual = cargo.tiene_manual ?? !!cargo.manual_url
+            const tieneArchivo = cargo.tiene_archivo ?? !!cargo.manual_url
+            const tieneManual = !!cargo.tiene_manual
+            const badge =
+              tieneManual ? "manual IA"
+              : tieneArchivo ? "archivo sin texto"
+              : "sin manual"
             return (
               <label
                 key={cargo.id}
@@ -190,13 +211,16 @@ export function SigProcedimientoCargosPanel({ procedimientoId, canEdit }: Props)
                 <span className="flex-1 min-w-0 text-[12px] text-zinc-700 truncate">{cargo.nombre}</span>
                 <span
                   className={cn(
-                    "shrink-0 text-[9px] px-1.5 py-0.5 rounded border font-mono",
+                    "shrink-0 text-[9px] px-1.5 py-0.5 rounded border font-mono max-w-[100px] truncate",
                     tieneManual
                       ? "text-emerald-700 border-emerald-200 bg-emerald-50"
-                      : "text-zinc-400 border-zinc-200 bg-zinc-50",
+                      : tieneArchivo
+                        ? "text-amber-700 border-amber-200 bg-amber-50"
+                        : "text-zinc-400 border-zinc-200 bg-zinc-50",
                   )}
+                  title={badge}
                 >
-                  {tieneManual ? "manual" : "sin manual"}
+                  {badge}
                 </span>
               </label>
             )

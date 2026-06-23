@@ -27,6 +27,12 @@ from app.personal_database import (
     PtcSancion,
     get_personal_db,
 )
+from app.services.tc_manual_extraction import (
+    cargo_manual_flags,
+    extraer_desde_archivo,
+    extraer_texto_manual,
+    manual_disk_path,
+)
 
 router = APIRouter(prefix="/tc", tags=["T&C Personal"])
 
@@ -256,7 +262,7 @@ def listar_cargos(
             "nombre": c.nombre,
             "manual_url": c.manual_url,
             "manual_filename": c.manual_filename,
-            "tiene_manual": bool((c.manual_text or "").strip()),
+            **cargo_manual_flags(c.manual_url, c.manual_text),
         }
         for c in cargos
     ]
@@ -270,7 +276,11 @@ def listar_cargos_sig(
     """Lectura mínima de cargos para asignación en SIG — no requiere mod_tc."""
     cargos = db.exec(select(PtcCargo).order_by(col(PtcCargo.nombre))).all()
     return [
-        {"id": c.id, "nombre": c.nombre, "tiene_manual": bool((c.manual_text or "").strip())}
+        {
+            "id": c.id,
+            "nombre": c.nombre,
+            **cargo_manual_flags(c.manual_url, c.manual_text),
+        }
         for c in cargos
     ]
 
@@ -300,34 +310,80 @@ _MANUAL_MIME: dict[str, str] = {
     "application/vnd.ms-excel": "xls",
 }
 
-_MAX_TEXT = 50_000
+
+def _reextract_cargo(cargo: PtcCargo) -> dict:
+    if not cargo.manual_url:
+        return {"ok": False, "error": "Sin archivo de manual"}
+    path = manual_disk_path(cargo.id, cargo.manual_url)
+    if not path:
+        return {"ok": False, "error": "Archivo no encontrado en disco"}
+    texto = extraer_desde_archivo(path)
+    cargo.manual_text = texto
+    flags = cargo_manual_flags(cargo.manual_url, texto)
+    return {
+        "ok": True,
+        "id": cargo.id,
+        "nombre": cargo.nombre,
+        **flags,
+    }
 
 
-def _extraer_texto_manual(content: bytes, ext: str) -> str:
-    """Extract plain text from manual file bytes. Returns '' on failure."""
-    try:
-        import io
-        if ext == "pdf":
-            import pdfplumber
-            with pdfplumber.open(io.BytesIO(content)) as pdf:
-                return "\n".join(p.extract_text() or "" for p in pdf.pages)[:_MAX_TEXT]
-        if ext == "docx":
-            from docx import Document
-            doc = Document(io.BytesIO(content))
-            return "\n".join(p.text for p in doc.paragraphs)[:_MAX_TEXT]
-        if ext in ("xlsx", "xls"):
-            import openpyxl
-            wb = openpyxl.load_workbook(io.BytesIO(content), read_only=True, data_only=True)
-            lines = []
-            for ws in wb.worksheets:
-                for row in ws.iter_rows(values_only=True):
-                    line = "\t".join("" if c is None else str(c) for c in row)
-                    if line.strip():
-                        lines.append(line)
-            return "\n".join(lines)[:_MAX_TEXT]
-    except Exception:
-        pass
-    return ""
+@router.post("/cargos/{cargo_id}/manual/reextract")
+def reextract_manual_cargo(
+    cargo_id: int,
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_tc_editar),
+):
+    """Re-extrae manual_text desde el archivo ya guardado (útil tras migración o .doc legacy)."""
+    cargo = db.get(PtcCargo, cargo_id)
+    if not cargo:
+        raise HTTPException(status_code=404, detail="Cargo no encontrado.")
+    result = _reextract_cargo(cargo)
+    if not result.get("ok"):
+        raise HTTPException(status_code=422, detail=result.get("error", "No se pudo extraer texto"))
+    db.add(cargo)
+    db.commit()
+    db.refresh(cargo)
+    return result
+
+
+@router.post("/cargos/reextract-manuales")
+def reextract_manuales_bulk(
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_tc_editar),
+):
+    """Re-extrae texto de todos los cargos con archivo pero sin manual_text útil."""
+    cargos = db.exec(
+        select(PtcCargo).where(PtcCargo.manual_url != "")
+    ).all()
+    ok, fail, skip = 0, 0, 0
+    detalle_fallos: list[dict] = []
+    for cargo in cargos:
+        flags = cargo_manual_flags(cargo.manual_url, cargo.manual_text)
+        if flags["tiene_manual"]:
+            skip += 1
+            continue
+        result = _reextract_cargo(cargo)
+        if result.get("ok") and result.get("tiene_manual"):
+            db.add(cargo)
+            ok += 1
+        else:
+            fail += 1
+            if len(detalle_fallos) < 15:
+                detalle_fallos.append({
+                    "id": cargo.id,
+                    "nombre": cargo.nombre,
+                    "error": result.get("error") or "Texto vacío tras extracción",
+                    "texto_chars": result.get("texto_chars", 0),
+                })
+    db.commit()
+    return {
+        "procesados": len(cargos),
+        "extraidos_ok": ok,
+        "sin_texto": fail,
+        "ya_tenian_texto": skip,
+        "fallos_muestra": detalle_fallos,
+    }
 
 
 @router.post("/cargos/{cargo_id}/manual")
@@ -354,11 +410,22 @@ async def subir_manual(
 
     cargo.manual_url = f"/tc-manuales/{cargo_id}.{ext}"
     cargo.manual_filename = file.filename or f"manual_{cargo_id}.{ext}"
-    cargo.manual_text = _extraer_texto_manual(content, ext)
+    cargo.manual_text = extraer_texto_manual(content, ext)
     db.add(cargo)
     db.commit()
     db.refresh(cargo)
-    return {"id": cargo.id, "manual_url": cargo.manual_url, "manual_filename": cargo.manual_filename}
+    flags = cargo_manual_flags(cargo.manual_url, cargo.manual_text)
+    return {
+        "id": cargo.id,
+        "manual_url": cargo.manual_url,
+        "manual_filename": cargo.manual_filename,
+        **flags,
+        "advertencia": (
+            None if flags["tiene_manual"]
+            else "Archivo guardado pero no se extrajo texto suficiente para análisis IA. "
+                 "Prueba re-subir como PDF/DOCX o use Re-extraer texto."
+        ),
+    }
 
 
 @router.delete("/cargos/{cargo_id}/manual", status_code=status.HTTP_204_NO_CONTENT)
@@ -371,8 +438,8 @@ def eliminar_manual(
     if not cargo:
         raise HTTPException(status_code=404, detail="Cargo no encontrado.")
     if cargo.manual_url:
-        path = os.path.join("/app/data", cargo.manual_url.lstrip("/").replace("/", os.sep))
-        if os.path.isfile(path):
+        path = manual_disk_path(cargo_id, cargo.manual_url)
+        if path and os.path.isfile(path):
             os.remove(path)
     cargo.manual_url = ""
     cargo.manual_filename = ""

@@ -1,10 +1,11 @@
 import { useEffect, useState, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { api } from "@/lib/api"
+import { cn } from "@/lib/utils"
 import { useAuthStore } from "@/store/authStore"
 import { canEditTyC } from "@/lib/permissions"
 import { PageLayout } from "@/components/layout/PageLayout"
-import { ArrowLeft, Upload, Download, Trash2, Search, BookOpen } from "lucide-react"
+import { ArrowLeft, Upload, Download, Trash2, Search, BookOpen, RefreshCw, AlertTriangle } from "lucide-react"
 
 interface Area  { id: number; name: string }
 interface Cargo {
@@ -13,6 +14,9 @@ interface Cargo {
   nombre: string
   manual_url: string
   manual_filename: string
+  tiene_archivo?: boolean
+  tiene_manual?: boolean
+  texto_chars?: number
 }
 
 const EXT_META: Record<string, { label: string; color: string; bg: string }> = {
@@ -33,6 +37,9 @@ export function TyCManualesPage() {
   const [busqueda, setBusqueda] = useState("")
   const [subiendo,   setSubiendo]   = useState<number | null>(null)
   const [eliminando, setEliminando] = useState<number | null>(null)
+  const [reextrayendo, setReextrayendo] = useState<number | null>(null)
+  const [reextractBulk, setReextractBulk] = useState(false)
+  const [bulkResult, setBulkResult] = useState<string | null>(null)
 
   const inputRef   = useRef<HTMLInputElement>(null)
   const inputCargo = useRef<number | null>(null)
@@ -59,12 +66,45 @@ export function TyCManualesPage() {
     const fd = new FormData()
     fd.append("file", file)
     try {
-      await api.post(`/tc/cargos/${id}/manual`, fd, {
+      const res = await api.post(`/tc/cargos/${id}/manual`, fd, {
         headers: { "Content-Type": "multipart/form-data" },
       })
+      if (res.data?.advertencia) {
+        alert(res.data.advertencia)
+      }
       cargarCargos()
     } catch { /* ignore */ }
     finally { setSubiendo(null); inputCargo.current = null; e.target.value = "" }
+  }
+
+  async function reextract(cargoId: number) {
+    setReextrayendo(cargoId)
+    try {
+      await api.post(`/tc/cargos/${cargoId}/manual/reextract`)
+      cargarCargos()
+    } catch {
+      alert("No se pudo extraer texto del archivo. Verifica el formato o sube PDF/DOCX.")
+    } finally {
+      setReextrayendo(null)
+    }
+  }
+
+  async function reextractTodos() {
+    if (!confirm("¿Re-extraer texto de todos los manuales que aún no tienen texto para IA?")) return
+    setReextractBulk(true)
+    setBulkResult(null)
+    try {
+      const res = await api.post("/tc/cargos/reextract-manuales")
+      const d = res.data
+      setBulkResult(
+        `${d.extraidos_ok} extraídos · ${d.sin_texto} sin texto · ${d.ya_tenian_texto} ya tenían texto`,
+      )
+      cargarCargos()
+    } catch {
+      setBulkResult("Error en re-extracción masiva")
+    } finally {
+      setReextractBulk(false)
+    }
   }
 
   async function eliminar(cargoId: number) {
@@ -100,8 +140,13 @@ export function TyCManualesPage() {
     ...(porArea.has(null) ? [{ id: null, nombre: "Sin área", cargos: porArea.get(null)! }] : []),
   ]
 
-  const totalCon = cargos.filter((c) => c.manual_url).length
-  const pctTotal = cargos.length ? Math.round((totalCon / cargos.length) * 100) : 0
+  const totalConArchivo = cargos.filter((c) => c.tiene_archivo ?? !!c.manual_url).length
+  const totalConTexto = cargos.filter((c) => c.tiene_manual).length
+  const pctArchivo = cargos.length ? Math.round((totalConArchivo / cargos.length) * 100) : 0
+  const pctTexto = cargos.length ? Math.round((totalConTexto / cargos.length) * 100) : 0
+  const pendientesTexto = cargos.filter(
+    (c) => (c.tiene_archivo ?? !!c.manual_url) && !c.tiene_manual,
+  ).length
 
   return (
     <PageLayout title="T&C — Manuales de funciones" mainClassName="flex-1 flex flex-col overflow-hidden">
@@ -121,29 +166,62 @@ export function TyCManualesPage() {
         </div>
 
         {/* Stat global */}
-        <div className="flex items-end justify-between gap-4 mb-4">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1">
-              Cobertura global
-            </p>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold tabular-nums font-mono" style={{ color: "#14b8a6" }}>
-                {totalCon}
-              </span>
-              <span className="text-sm text-muted-foreground">
-                / {cargos.length} cargos
-              </span>
-              <span className="text-xs text-muted-foreground opacity-50">({pctTotal}%)</span>
+        <div className="flex items-end justify-between gap-4 mb-4 flex-wrap">
+          <div className="flex gap-8 flex-wrap">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1">
+                Archivos subidos
+              </p>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-bold tabular-nums font-mono" style={{ color: "#14b8a6" }}>
+                  {totalConArchivo}
+                </span>
+                <span className="text-sm text-muted-foreground">/ {cargos.length} cargos</span>
+                <span className="text-xs text-muted-foreground opacity-50">({pctArchivo}%)</span>
+              </div>
+              <div className="mt-2 h-[3px] w-48 bg-muted/30 rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-[width] duration-700"
+                  style={{ width: `${Math.max(pctArchivo, 2)}%`, background: "#14b8a6" }}
+                />
+              </div>
             </div>
-            <div className="mt-2 h-[3px] w-48 bg-muted/30 rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full transition-[width] duration-700"
-                style={{ width: `${Math.max(pctTotal, 2)}%`, background: "#14b8a6" }}
-              />
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1">
+                Texto para IA (SIG)
+              </p>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-bold tabular-nums font-mono" style={{ color: "#6366f1" }}>
+                  {totalConTexto}
+                </span>
+                <span className="text-sm text-muted-foreground">/ {cargos.length} cargos</span>
+                <span className="text-xs text-muted-foreground opacity-50">({pctTexto}%)</span>
+              </div>
+              <div className="mt-2 h-[3px] w-48 bg-muted/30 rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-[width] duration-700"
+                  style={{ width: `${Math.max(pctTexto, 2)}%`, background: "#6366f1" }}
+                />
+              </div>
             </div>
           </div>
 
-          <div className="relative flex-1 max-w-xs">
+          <div className="flex flex-col items-end gap-2">
+            {pendientesTexto > 0 && puedeEditar && (
+              <button
+                type="button"
+                onClick={() => void reextractTodos()}
+                disabled={reextractBulk}
+                className="flex items-center gap-1.5 h-8 px-3 text-[11px] font-medium rounded-lg border border-amber-500/40 text-amber-600 hover:bg-amber-500/10 disabled:opacity-50"
+              >
+                <RefreshCw className={cn("w-3 h-3", reextractBulk && "motion-safe:animate-spin")} />
+                {reextractBulk ? "Extrayendo…" : `Re-extraer texto (${pendientesTexto})`}
+              </button>
+            )}
+            {bulkResult && (
+              <span className="text-[10px] text-muted-foreground font-mono">{bulkResult}</span>
+            )}
+            <div className="relative flex-1 max-w-xs w-full min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
             <input
               type="text"
@@ -153,6 +231,7 @@ export function TyCManualesPage() {
               onChange={(e) => setBusqueda(e.target.value)}
               className="w-full pl-8 pr-3 py-2 text-sm bg-muted/20 border border-input rounded-xl focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-teal-500/50 focus-visible:border-teal-500/50"
             />
+            </div>
           </div>
         </div>
       </div>
@@ -180,7 +259,8 @@ export function TyCManualesPage() {
         )}
 
         {grupos.map((grupo, gIdx) => {
-          const con  = grupo.cargos.filter((c) => c.manual_url).length
+          const con  = grupo.cargos.filter((c) => c.tiene_archivo ?? !!c.manual_url).length
+          const conTexto = grupo.cargos.filter((c) => c.tiene_manual).length
           const pct  = grupo.cargos.length ? Math.round((con / grupo.cargos.length) * 100) : 0
           const full = con === grupo.cargos.length && grupo.cargos.length > 0
 
@@ -198,7 +278,7 @@ export function TyCManualesPage() {
                 <div className="flex items-center gap-3">
                   <span className="text-xs font-bold tracking-tight">{grupo.nombre}</span>
                   <span className="text-[10px] text-muted-foreground tabular-nums">
-                    {con}/{grupo.cargos.length}
+                    {con}/{grupo.cargos.length} arch · {conTexto} IA
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -222,8 +302,11 @@ export function TyCManualesPage() {
                 {grupo.cargos.map((cargo, cIdx) => {
                   const ext   = cargo.manual_filename.split(".").pop()?.toLowerCase() ?? ""
                   const meta  = EXT_META[ext]
-                  const tiene = !!cargo.manual_url
+                  const tieneArchivo = cargo.tiene_archivo ?? !!cargo.manual_url
+                  const tieneTexto = !!cargo.tiene_manual
+                  const sinTexto = tieneArchivo && !tieneTexto
                   const isSubiendo = subiendo === cargo.id
+                  const isReextrayendo = reextrayendo === cargo.id
 
                   return (
                     <div
@@ -231,7 +314,11 @@ export function TyCManualesPage() {
                       className="flex items-center gap-4 px-5 py-3 hover:bg-white/[0.02] transition-colors group"
                       style={{
                         animationDelay: `${gIdx * 60 + cIdx * 30}ms`,
-                        borderLeft: tiene ? "2px solid rgba(20,184,166,0.4)" : "2px solid transparent",
+                        borderLeft: tieneTexto
+                          ? "2px solid rgba(20,184,166,0.4)"
+                          : sinTexto
+                            ? "2px solid rgba(245,158,11,0.45)"
+                            : "2px solid transparent",
                       }}
                     >
                       {/* Nombre */}
@@ -239,9 +326,9 @@ export function TyCManualesPage() {
                         {cargo.nombre}
                       </span>
 
-                      {/* Estado del archivo */}
-                      {tiene ? (
-                        <div className="flex items-center gap-2 shrink-0">
+                      {/* Estado archivo + texto IA */}
+                      {tieneArchivo ? (
+                        <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
                           {meta && (
                             <span
                               className="px-2 py-0.5 rounded-md text-[10px] font-bold tracking-wide"
@@ -250,8 +337,18 @@ export function TyCManualesPage() {
                               {meta.label}
                             </span>
                           )}
+                          {tieneTexto ? (
+                            <span className="text-[10px] font-mono text-emerald-500/90 tabular-nums">
+                              IA {cargo.texto_chars ?? "ok"}
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1 text-[10px] text-amber-500/90">
+                              <AlertTriangle className="w-3 h-3" />
+                              sin texto IA
+                            </span>
+                          )}
                           <span
-                            className="text-[11px] text-muted-foreground truncate max-w-[180px] font-mono"
+                            className="text-[11px] text-muted-foreground truncate max-w-[140px] font-mono hidden sm:inline"
                             title={cargo.manual_filename}
                           >
                             {cargo.manual_filename}
@@ -265,7 +362,7 @@ export function TyCManualesPage() {
 
                       {/* Acciones */}
                       <div className="flex items-center gap-1 shrink-0">
-                        {tiene && (
+                        {tieneArchivo && (
                           <a
                             href={cargo.manual_url}
                             download={cargo.manual_filename}
@@ -278,13 +375,25 @@ export function TyCManualesPage() {
                           </a>
                         )}
 
+                        {puedeEditar && sinTexto && (
+                          <button
+                            type="button"
+                            onClick={() => void reextract(cargo.id)}
+                            disabled={isReextrayendo}
+                            className="flex items-center gap-1 h-7 px-2.5 text-[11px] font-medium rounded-lg border border-amber-500/35 text-amber-600 hover:bg-amber-500/10 disabled:opacity-40"
+                          >
+                            <RefreshCw className={cn("w-2.5 h-2.5", isReextrayendo && "motion-safe:animate-spin")} />
+                            {isReextrayendo ? "…" : "Extraer"}
+                          </button>
+                        )}
+
                         {puedeEditar && (
                           <button
                             onClick={() => abrirSelector(cargo.id)}
                             disabled={isSubiendo}
                             className="flex items-center gap-1 h-7 px-2.5 text-[11px] font-medium rounded-lg transition-colors disabled:opacity-40"
                             style={
-                              tiene
+                              tieneArchivo
                                 ? { border: "1px solid rgba(255,255,255,0.08)", color: "#94a3b8" }
                                 : {
                                     border: "1px dashed rgba(20,184,166,0.5)",
@@ -301,13 +410,13 @@ export function TyCManualesPage() {
                             ) : (
                               <>
                                 <Upload className="w-2.5 h-2.5" />
-                                {tiene ? "Reemplazar" : "Subir manual"}
+                                {tieneArchivo ? "Reemplazar" : "Subir manual"}
                               </>
                             )}
                           </button>
                         )}
 
-                        {puedeEditar && tiene && (
+                        {puedeEditar && tieneArchivo && (
                           <button
                             onClick={() => eliminar(cargo.id)}
                             disabled={eliminando === cargo.id}
