@@ -5,8 +5,7 @@ import { useAuthStore } from "@/store/authStore"
 import { canImportTyC, canSeeTyCSensible } from "@/lib/permissions"
 import { PageLayout } from "@/components/layout/PageLayout"
 import {
-  Users, GitBranch, BookOpen, ClipboardList,
-  ShieldAlert, Upload, FileText, TrendingUp, ArrowUpRight,
+  Users, GitBranch, Upload, FileText, TrendingUp, ArrowUpRight,
 } from "lucide-react"
 
 interface Stats { total: number; activos: number; inactivos: number }
@@ -107,69 +106,32 @@ export function TyCPage() {
         </section>
 
         {/* Fila 2: Desarrollo */}
-        <section>
-          <SectionLabel>Desarrollo y talento</SectionLabel>
-          <div className="grid grid-cols-3 gap-3">
-
-            {/* KPIs — solo sensible */}
-            {puedeSensible && (
-              <ModuleCard
-                icon={<TrendingUp className="w-4 h-4" />}
-                color="teal"
-                title="Indicadores KPI"
-                description="Rotación, capacitación, desempeño e IDP calculados en tiempo real."
-                onClick={() => navigate("/tc/indicadores")}
-              />
-            )}
-
-            {/* Tabs del perfil agrupados */}
-            <div className={`rounded-2xl border border-border bg-muted/5 p-4 space-y-3 ${puedeSensible ? "col-span-2" : "col-span-3"}`}>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                Desde el perfil del colaborador
-              </p>
-              <div className={`grid gap-1 ${puedeSensible ? "grid-cols-2" : "grid-cols-4"}`}>
-                {[
-                  { icon: <BookOpen className="w-3.5 h-3.5" />, label: "Capacitaciones", desc: "Historial de formación y diplomas", color: "text-indigo-400", bg: "bg-indigo-500/8" },
-                  { icon: <ClipboardList className="w-3.5 h-3.5" />, label: "Evaluaciones", desc: "Puntajes y cumplimiento de metas", color: "text-orange-400", bg: "bg-orange-500/8" },
-                  { icon: <ShieldAlert className="w-3.5 h-3.5" />, label: "Sanciones", desc: "Registro disciplinario", color: "text-red-400", bg: "bg-red-500/8", sensible: true },
-                  { icon: <FileText className="w-3.5 h-3.5" />, label: "Novedades", desc: "Incapacidades y permisos", color: "text-violet-400", bg: "bg-violet-500/8", sensible: true },
-                ]
-                  .filter((i) => !i.sensible || puedeSensible)
-                  .map((item) => (
-                    <button
-                      key={item.label}
-                      onClick={() => navigate("/tc/directorio")}
-                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-muted/20 transition-colors text-left group"
-                    >
-                      <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${item.bg} ${item.color}`}>
-                        {item.icon}
-                      </span>
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold leading-tight">{item.label}</p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">{item.desc}</p>
-                      </div>
-                      <ArrowUpRight className="w-3 h-3 text-muted-foreground/20 opacity-0 group-hover:opacity-100 transition-opacity ml-auto shrink-0" />
-                    </button>
-                  ))}
-              </div>
-              <p className="text-[10px] text-muted-foreground/60">
-                Abre el perfil de cualquier colaborador en el directorio para acceder.
-              </p>
+        {(puedeSensible || puedeImport) && (
+          <section>
+            <SectionLabel>Desarrollo y talento</SectionLabel>
+            <div className="grid grid-cols-3 gap-3">
+              {puedeSensible && (
+                <ModuleCard
+                  icon={<TrendingUp className="w-4 h-4" />}
+                  color="teal"
+                  title="Indicadores KPI"
+                  description="Rotación, capacitación, desempeño e IDP calculados en tiempo real."
+                  onClick={() => navigate("/tc/indicadores")}
+                />
+              )}
+              {puedeImport && (
+                <ModuleCard
+                  icon={<Upload className="w-4 h-4" />}
+                  color="amber"
+                  title="Importar"
+                  description="Carga el export JS del Directorio ZYMO."
+                  onClick={() => navigate("/tc/import")}
+                  compact
+                />
+              )}
             </div>
-
-            {/* Import — si tiene permiso */}
-            {puedeImport && (
-              <ModuleCard
-                icon={<Upload className="w-4 h-4" />}
-                color="amber"
-                title="Importar"
-                description="Carga el export JS del Directorio ZYMO."
-                onClick={() => navigate("/tc/import")}
-                compact
-              />
-            )}
-          </div>
-        </section>
+          </section>
+        )}
 
       </div>
     </PageLayout>
