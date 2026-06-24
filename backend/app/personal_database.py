@@ -155,7 +155,7 @@ class PtcNovedad(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     persona_id: int = Field(foreign_key="ptc_persona.id")
-    tipo: str = Field(max_length=80, default="Permiso")
+    tipo: str = Field(max_length=80, default="Permiso remunerado")
     descripcion: str = Field(max_length=1000, default="")
     fecha_inicio: Optional[date] = None
     fecha_fin: Optional[date] = None

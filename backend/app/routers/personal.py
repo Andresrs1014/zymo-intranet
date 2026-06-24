@@ -677,6 +677,9 @@ def actualizar_persona(
         raise HTTPException(status_code=404, detail="Persona no encontrada.")
 
     data = body.model_dump(exclude_unset=True)
+    # empresa_id es el alias público de sede_id (cross-DB, sin FK)
+    if "empresa_id" in data:
+        data["sede_id"] = data.pop("empresa_id")
     for field, value in data.items():
         if field == "fecha_ingreso":
             setattr(persona, field, _parse_date(value))
@@ -1160,11 +1163,19 @@ def eliminar_sancion(
 # ── Novedades (sensible) ──────────────────────────────────────────────────────
 
 class NovedadCreate(BaseModel):
-    tipo: str = "Permiso"
+    tipo: str = "Permiso remunerado"
     descripcion: str = ""
     fecha_inicio: Optional[str] = None
     fecha_fin: Optional[str] = None
     estado: str = "Pendiente"
+
+
+class NovedadUpdate(BaseModel):
+    tipo: Optional[str] = None
+    descripcion: Optional[str] = None
+    fecha_inicio: Optional[str] = None
+    fecha_fin: Optional[str] = None
+    estado: Optional[str] = None
 
 
 @router.get("/personas/{persona_id}/novedades")
@@ -1219,6 +1230,33 @@ def crear_novedad(
     }
 
 
+@router.put("/novedades/{nov_id}")
+def actualizar_novedad(
+    nov_id: int,
+    body: NovedadUpdate,
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_tc_sensible),
+):
+    nov = db.get(PtcNovedad, nov_id)
+    if not nov:
+        raise HTTPException(status_code=404, detail="Novedad no encontrada")
+    upd = body.model_dump(exclude_unset=True)
+    for field, value in upd.items():
+        if field in ("fecha_inicio", "fecha_fin"):
+            setattr(nov, field, _parse_date(value))
+        else:
+            setattr(nov, field, value)
+    db.add(nov)
+    db.commit()
+    db.refresh(nov)
+    return {
+        "id": nov.id, "tipo": nov.tipo, "descripcion": nov.descripcion,
+        "fecha_inicio": nov.fecha_inicio.isoformat() if nov.fecha_inicio else None,
+        "fecha_fin": nov.fecha_fin.isoformat() if nov.fecha_fin else None,
+        "estado": nov.estado,
+    }
+
+
 @router.delete("/novedades/{nov_id}", status_code=204)
 def eliminar_novedad(
     nov_id: int,
@@ -1230,6 +1268,38 @@ def eliminar_novedad(
         raise HTTPException(status_code=404, detail="Novedad no encontrada")
     db.delete(nov)
     db.commit()
+
+
+@router.get("/novedades")
+def listar_todas_novedades(
+    estado: Optional[str] = Query(default=None),
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_tc_sensible),
+):
+    """Lista todas las novedades del módulo, opcionalmente filtradas por estado."""
+    q = select(PtcNovedad).order_by(col(PtcNovedad.fecha_inicio).desc())
+    if estado:
+        q = q.where(PtcNovedad.estado == estado)
+    rows = db.exec(q).all()
+    # Resuelve nombres de personas para mostrar en el listado global
+    persona_ids = {r.persona_id for r in rows}
+    personas = {
+        p.id: p.nombre
+        for p in db.exec(select(PtcPersona).where(col(PtcPersona.id).in_(list(persona_ids)))).all()
+    } if persona_ids else {}
+    return [
+        {
+            "id": r.id,
+            "persona_id": r.persona_id,
+            "persona_nombre": personas.get(r.persona_id, ""),
+            "tipo": r.tipo,
+            "descripcion": r.descripcion,
+            "fecha_inicio": r.fecha_inicio.isoformat() if r.fecha_inicio else None,
+            "fecha_fin": r.fecha_fin.isoformat() if r.fecha_fin else None,
+            "estado": r.estado,
+        }
+        for r in rows
+    ]
 
 
 # ── KPIs ──────────────────────────────────────────────────────────────────────
@@ -1264,7 +1334,7 @@ def kpis(
         select(sqlfunc.count(PtcCapacitacion.id)).where(PtcCapacitacion.estado == "Completado")
     ).one()
     horas_total = db.exec(
-        select(sqlfunc.sum(PtcCapacitacion.horas)).where(PtcCapacitacion.horas.isnot(None))
+        select(sqlfunc.sum(PtcCapacitacion.horas)).where(col(PtcCapacitacion.horas).isnot(None))
     ).one() or 0
     personas_con_cap = db.exec(
         select(sqlfunc.count(sqlfunc.distinct(PtcCapacitacion.persona_id)))
@@ -1276,7 +1346,7 @@ def kpis(
     # Evaluaciones
     total_evals = db.exec(select(sqlfunc.count(PtcEvaluacion.id))).one()
     puntaje_avg = db.exec(
-        select(sqlfunc.avg(PtcEvaluacion.puntaje)).where(PtcEvaluacion.puntaje.isnot(None))
+        select(sqlfunc.avg(PtcEvaluacion.puntaje)).where(col(PtcEvaluacion.puntaje).isnot(None))
     ).one()
     metas_cumplidas = db.exec(
         select(sqlfunc.count(PtcEvaluacion.id)).where(PtcEvaluacion.cumple_meta == True)  # noqa: E712

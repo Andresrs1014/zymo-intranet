@@ -13,7 +13,6 @@ log = logging.getLogger(__name__)
 
 MAX_TEXT = 50_000
 MIN_USEFUL = 50
-MANUALES_DIR = "/app/data/tc_manuales"
 
 _OLE_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
 
@@ -22,9 +21,11 @@ def manual_disk_path(cargo_id: int, manual_url: str) -> Optional[str]:
     """Resuelve ruta en disco (tc_manuales) a partir de la URL pública (/tc-manuales/)."""
     if not manual_url:
         return None
+    from app.config import settings
+    manuales_dir = settings.tc_manuales_dir
     ext = manual_url.rsplit(".", 1)[-1].lower() if "." in manual_url else ""
     if ext:
-        primary = os.path.join(MANUALES_DIR, f"{cargo_id}.{ext}")
+        primary = os.path.join(manuales_dir, f"{cargo_id}.{ext}")
         if os.path.isfile(primary):
             return primary
     legacy = os.path.join("/app/data", manual_url.lstrip("/").replace("/", os.sep))

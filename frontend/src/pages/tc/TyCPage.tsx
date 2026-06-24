@@ -31,13 +31,9 @@ export function TyCPage() {
   const [stats, setStats] = useState<Stats | null>(null)
 
   useEffect(() => {
-    Promise.all([
-      api.get("/tc/personas", { params: { limit: 1 } }),
-      api.get("/tc/personas", { params: { estado: "Activo", limit: 1 } }),
-      api.get("/tc/personas", { params: { estado: "Inactivo", limit: 1 } }),
-    ]).then(([t, a, i]) => {
-      setStats({ total: t.data.total, activos: a.data.total, inactivos: i.data.total })
-    }).catch(() => {})
+    api.get("/tc/stats")
+      .then((r) => setStats({ total: r.data.total, activos: r.data.activos, inactivos: r.data.inactivos }))
+      .catch(() => {})
   }, [])
 
   const activePct = stats ? Math.round((stats.activos / Math.max(stats.total, 1)) * 100) : 0
