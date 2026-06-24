@@ -2,7 +2,7 @@
 Base de datos del módulo T&C (Talento y Cultura) — Personal.
 
 Tablas: ptc_area, ptc_cargo, ptc_cargo_sede, ptc_persona,
-        ptc_capacitacion, ptc_evaluacion, ptc_sancion
+        ptc_capacitacion, ptc_evaluacion, ptc_sancion, ptc_novedad
 
 Las empresas/compañías ya NO están en este módulo. Se leen de la tabla
 Sede del backend principal. ptc_persona.sede_id referencia Sede.id sin FK
@@ -101,6 +101,7 @@ class PtcPersona(SQLModel, table=True):
     # Desarrollo
     idp_active: bool = False
     idp_eligible: bool = True
+    score: int = Field(default=0)  # 0-100 potencial de ascenso
 
     # Vínculo con intranet (nullable — no todos tienen login)
     user_id: Optional[int] = None
@@ -149,18 +150,31 @@ class PtcSancion(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class PtcNovedad(SQLModel, table=True):
+    __tablename__ = "ptc_novedad"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    persona_id: int = Field(foreign_key="ptc_persona.id")
+    tipo: str = Field(max_length=80, default="Permiso")
+    descripcion: str = Field(max_length=1000, default="")
+    fecha_inicio: Optional[date] = None
+    fecha_fin: Optional[date] = None
+    estado: str = Field(max_length=30, default="Pendiente")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 # ── Creación de tablas ─────────────────────────────────────────────────────────
 
 _PERSONAL_TABLES = {
     "ptc_area", "ptc_cargo", "ptc_cargo_sede", "ptc_persona",
-    "ptc_capacitacion", "ptc_evaluacion", "ptc_sancion",
+    "ptc_capacitacion", "ptc_evaluacion", "ptc_sancion", "ptc_novedad",
 }
 
 
 def create_personal_tables() -> None:
     from app.personal_database import (  # noqa: F401
         PtcArea, PtcCargo, PtcCargoSede, PtcPersona,
-        PtcCapacitacion, PtcEvaluacion, PtcSancion,
+        PtcCapacitacion, PtcEvaluacion, PtcSancion, PtcNovedad,
     )
     tables = [
         SQLModel.metadata.tables[t]
@@ -184,6 +198,8 @@ def _migrate_personal() -> None:
             "ALTER TABLE ptc_cargo DROP COLUMN empresa_id",
             # renombrar empresa_id → sede_id en ptc_persona (empresas vienen de Sede)
             "ALTER TABLE ptc_persona RENAME COLUMN empresa_id TO sede_id",
+            # score de ascenso
+            "ALTER TABLE ptc_persona ADD COLUMN score INTEGER DEFAULT 0",
         ]:
             try:
                 conn.execute(text(sql))

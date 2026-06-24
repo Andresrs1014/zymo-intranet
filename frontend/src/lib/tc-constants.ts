@@ -25,6 +25,20 @@ export const TC_SANCION_TIPOS  = [
   "Suspensión",
 ] as const
 
+export const TC_NOVEDAD_TIPOS  = [
+  "Incapacidad médica",
+  "Incapacidad laboral",
+  "Permiso remunerado",
+  "Permiso no remunerado",
+  "Licencia de maternidad",
+  "Licencia de paternidad",
+  "Ausencia injustificada",
+  "Calamidad doméstica",
+  "Otro",
+] as const
+
+export const TC_NOVEDAD_ESTADOS = ["Pendiente", "Aprobado", "Rechazado"] as const
+
 // Paleta de colores para empresas/sedes — se asigna por índice de llegada.
 // Agrega entradas si el grupo ZYMO crece más de 5 sedes.
 export const TC_EMPRESA_PALETTE = [

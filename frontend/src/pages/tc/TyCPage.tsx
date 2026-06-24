@@ -12,6 +12,7 @@ import {
   ShieldAlert,
   Upload,
   FileText,
+  TrendingUp,
   ArrowRight,
 } from "lucide-react"
 
@@ -125,36 +126,44 @@ export function TyCPage() {
           />
         </div>
 
-        {/* DESARROLLO — próximamente */}
+        {/* DESARROLLO */}
         <div>
-          <GroupHeader accent="bg-indigo-500" label="Desarrollo y talento" soon />
-          <div className="opacity-40 pointer-events-none">
-            <FeatureRow
-              icon={<BookOpen className="w-4 h-4" />}
-              accent="text-indigo-500 bg-indigo-500/10"
-              title="Capacitaciones"
-              sub="Historial de formación, diplomas y calendario de actividades."
-              soon
-            />
-            {puedeSensible && (
-              <>
-                <FeatureRow
-                  icon={<ClipboardList className="w-4 h-4" />}
-                  accent="text-orange-500 bg-orange-500/10"
-                  title="Evaluaciones de desempeño"
-                  sub="Calificaciones y metas individuales por colaborador."
-                  soon
-                />
-                <FeatureRow
-                  icon={<ShieldAlert className="w-4 h-4" />}
-                  accent="text-red-500 bg-red-500/10"
-                  title="Sanciones y novedades"
-                  sub="Registro de novedades disciplinarias y permisos."
-                  soon
-                />
-              </>
-            )}
-          </div>
+          <GroupHeader accent="bg-indigo-500" label="Desarrollo y talento" />
+          <FeatureRow
+            icon={<BookOpen className="w-4 h-4" />}
+            accent="text-indigo-500 bg-indigo-500/10"
+            title="Capacitaciones"
+            sub="Historial de formación por colaborador — desde el perfil de cada persona."
+          />
+          {puedeSensible && (
+            <>
+              <FeatureRow
+                icon={<ClipboardList className="w-4 h-4" />}
+                accent="text-orange-500 bg-orange-500/10"
+                title="Evaluaciones de desempeño"
+                sub="Calificaciones y metas individuales — desde el perfil de cada persona."
+              />
+              <FeatureRow
+                icon={<ShieldAlert className="w-4 h-4" />}
+                accent="text-red-500 bg-red-500/10"
+                title="Sanciones y novedades"
+                sub="Registro disciplinario y permisos — desde el perfil de cada persona."
+              />
+              <FeatureRow
+                icon={<TrendingUp className="w-4 h-4" />}
+                accent="text-teal-500 bg-teal-500/10"
+                title="Indicadores de talento"
+                sub="KPIs: rotación, capacitación, desempeño, IDP — métricas en tiempo real."
+                onClick={() => navigate("/tc/indicadores")}
+              />
+            </>
+          )}
+          <FeatureRow
+            icon={<FileText className="w-4 h-4" />}
+            accent="text-violet-400 bg-violet-500/10"
+            title="Novedades y permisos"
+            sub="Incapacidades, permisos y ausencias — desde el perfil de cada persona."
+          />
         </div>
 
       </div>

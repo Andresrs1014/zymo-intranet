@@ -24,6 +24,7 @@ from app.personal_database import (
     PtcCargo,
     PtcCargoSede,
     PtcEvaluacion,
+    PtcNovedad,
     PtcPersona,
     PtcSancion,
     get_personal_db,
@@ -97,6 +98,7 @@ class PersonaUpdate(BaseModel):
     fecha_salida: Optional[str] = None
     idp_active: Optional[bool] = None
     idp_eligible: Optional[bool] = None
+    score: Optional[int] = None
     user_id: Optional[int] = None
 
 
@@ -154,6 +156,7 @@ def _persona_dict(p: PtcPersona, db: Session, main_db: Session) -> dict:
         "fecha_salida": p.fecha_salida.isoformat() if p.fecha_salida else None,
         "idp_active": p.idp_active,
         "idp_eligible": p.idp_eligible,
+        "score": p.score,
         "user_id": p.user_id,
         "legacy_id": p.legacy_id,
         "created_at": p.created_at.isoformat(),
@@ -1152,3 +1155,172 @@ def eliminar_sancion(
         raise HTTPException(status_code=404, detail="Sanción no encontrada")
     db.delete(san)
     db.commit()
+
+
+# ── Novedades (sensible) ──────────────────────────────────────────────────────
+
+class NovedadCreate(BaseModel):
+    tipo: str = "Permiso"
+    descripcion: str = ""
+    fecha_inicio: Optional[str] = None
+    fecha_fin: Optional[str] = None
+    estado: str = "Pendiente"
+
+
+@router.get("/personas/{persona_id}/novedades")
+def listar_novedades(
+    persona_id: int,
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_tc_sensible),
+):
+    if not db.get(PtcPersona, persona_id):
+        raise HTTPException(status_code=404, detail="Persona no encontrada")
+    rows = db.exec(
+        select(PtcNovedad)
+        .where(PtcNovedad.persona_id == persona_id)
+        .order_by(col(PtcNovedad.fecha_inicio).desc())
+    ).all()
+    return [
+        {
+            "id": r.id, "tipo": r.tipo, "descripcion": r.descripcion,
+            "fecha_inicio": r.fecha_inicio.isoformat() if r.fecha_inicio else None,
+            "fecha_fin": r.fecha_fin.isoformat() if r.fecha_fin else None,
+            "estado": r.estado,
+        }
+        for r in rows
+    ]
+
+
+@router.post("/personas/{persona_id}/novedades", status_code=201)
+def crear_novedad(
+    persona_id: int,
+    body: NovedadCreate,
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_tc_sensible),
+):
+    if not db.get(PtcPersona, persona_id):
+        raise HTTPException(status_code=404, detail="Persona no encontrada")
+    nov = PtcNovedad(
+        persona_id=persona_id,
+        tipo=body.tipo.strip(),
+        descripcion=body.descripcion.strip(),
+        fecha_inicio=_parse_date(body.fecha_inicio),
+        fecha_fin=_parse_date(body.fecha_fin),
+        estado=body.estado,
+    )
+    db.add(nov)
+    db.commit()
+    db.refresh(nov)
+    return {
+        "id": nov.id, "tipo": nov.tipo, "descripcion": nov.descripcion,
+        "fecha_inicio": nov.fecha_inicio.isoformat() if nov.fecha_inicio else None,
+        "fecha_fin": nov.fecha_fin.isoformat() if nov.fecha_fin else None,
+        "estado": nov.estado,
+    }
+
+
+@router.delete("/novedades/{nov_id}", status_code=204)
+def eliminar_novedad(
+    nov_id: int,
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_tc_sensible),
+):
+    nov = db.get(PtcNovedad, nov_id)
+    if not nov:
+        raise HTTPException(status_code=404, detail="Novedad no encontrada")
+    db.delete(nov)
+    db.commit()
+
+
+# ── KPIs ──────────────────────────────────────────────────────────────────────
+
+@router.get("/kpis")
+def kpis(
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_tc_sensible),
+):
+    from sqlalchemy import func as sqlfunc
+
+    total = db.exec(select(sqlfunc.count(PtcPersona.id))).one()
+    activos = db.exec(
+        select(sqlfunc.count(PtcPersona.id)).where(PtcPersona.estado == _ACTIVO)
+    ).one()
+    inactivos = total - activos
+
+    # Rotación: personas con fecha_salida en los últimos 12 meses / promedio activos
+    from datetime import date as _date, timedelta
+    hace_12m = _date.today() - timedelta(days=365)
+    salidas_12m = db.exec(
+        select(sqlfunc.count(PtcPersona.id)).where(
+            PtcPersona.fecha_salida >= hace_12m,
+            PtcPersona.estado == _INACTIVO,
+        )
+    ).one()
+    rotacion_pct = round((salidas_12m / max(activos, 1)) * 100, 1)
+
+    # Capacitación
+    total_caps = db.exec(select(sqlfunc.count(PtcCapacitacion.id))).one()
+    completadas = db.exec(
+        select(sqlfunc.count(PtcCapacitacion.id)).where(PtcCapacitacion.estado == "Completado")
+    ).one()
+    horas_total = db.exec(
+        select(sqlfunc.sum(PtcCapacitacion.horas)).where(PtcCapacitacion.horas.isnot(None))
+    ).one() or 0
+    personas_con_cap = db.exec(
+        select(sqlfunc.count(sqlfunc.distinct(PtcCapacitacion.persona_id)))
+    ).one()
+    horas_pp = round(float(horas_total) / max(activos, 1), 1)
+    cobertura_pct = round((personas_con_cap / max(activos, 1)) * 100, 1)
+    completacion_pct = round((completadas / max(total_caps, 1)) * 100, 1)
+
+    # Evaluaciones
+    total_evals = db.exec(select(sqlfunc.count(PtcEvaluacion.id))).one()
+    puntaje_avg = db.exec(
+        select(sqlfunc.avg(PtcEvaluacion.puntaje)).where(PtcEvaluacion.puntaje.isnot(None))
+    ).one()
+    metas_cumplidas = db.exec(
+        select(sqlfunc.count(PtcEvaluacion.id)).where(PtcEvaluacion.cumple_meta == True)  # noqa: E712
+    ).one()
+    cumplimiento_pct = round((metas_cumplidas / max(total_evals, 1)) * 100, 1)
+
+    # IDP
+    idp_activos = db.exec(
+        select(sqlfunc.count(PtcPersona.id)).where(
+            PtcPersona.idp_active == True,  # noqa: E712
+            PtcPersona.estado == _ACTIVO,
+        )
+    ).one()
+    idp_pct = round((idp_activos / max(activos, 1)) * 100, 1)
+
+    # Sanciones
+    total_sanciones = db.exec(select(sqlfunc.count(PtcSancion.id))).one()
+    personas_con_sancion = db.exec(
+        select(sqlfunc.count(sqlfunc.distinct(PtcSancion.persona_id)))
+    ).one()
+
+    # Novedades
+    total_novedades = db.exec(select(sqlfunc.count(PtcNovedad.id))).one()
+    pendientes_novedades = db.exec(
+        select(sqlfunc.count(PtcNovedad.id)).where(PtcNovedad.estado == "Pendiente")
+    ).one()
+
+    return {
+        "headcount": {"total": total, "activos": activos, "inactivos": inactivos},
+        "rotacion": {"salidas_12m": salidas_12m, "tasa_pct": rotacion_pct},
+        "capacitacion": {
+            "total_registros": total_caps,
+            "completadas": completadas,
+            "completacion_pct": completacion_pct,
+            "horas_por_persona": horas_pp,
+            "cobertura_pct": cobertura_pct,
+            "personas_capacitadas": personas_con_cap,
+        },
+        "evaluaciones": {
+            "total": total_evals,
+            "puntaje_promedio": round(float(puntaje_avg or 0), 2),
+            "cumplimiento_metas_pct": cumplimiento_pct,
+        },
+        "idp": {"activos": idp_activos, "cobertura_pct": idp_pct},
+        "sanciones": {"total": total_sanciones, "personas_afectadas": personas_con_sancion},
+        "novedades": {"total": total_novedades, "pendientes": pendientes_novedades},
+    }

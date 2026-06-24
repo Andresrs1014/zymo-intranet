@@ -6,11 +6,11 @@ import { canEditTyC, canSeeTyCSensible } from "@/lib/permissions"
 import { PageLayout } from "@/components/layout/PageLayout"
 import {
   ArrowLeft, Camera, Pencil, X, Check, Plus, Trash2, Loader2,
-  BookOpen, ClipboardList, ShieldAlert,
+  BookOpen, ClipboardList, ShieldAlert, FileText,
 } from "lucide-react"
 import {
   TC_ESTADOS, TC_GENEROS, TC_CONTRATOS, TC_SALIDAS,
-  TC_CAP_ESTADOS, TC_SANCION_TIPOS,
+  TC_CAP_ESTADOS, TC_SANCION_TIPOS, TC_NOVEDAD_TIPOS, TC_NOVEDAD_ESTADOS,
 } from "@/lib/tc-constants"
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
@@ -46,7 +46,13 @@ interface Persona {
   fecha_salida: string | null
   idp_active: boolean
   idp_eligible: boolean
+  score: number
   user_id: number | null
+}
+
+interface Novedad {
+  id: number; tipo: string; descripcion: string
+  fecha_inicio: string | null; fecha_fin: string | null; estado: string
 }
 
 interface Capacitacion {
@@ -61,7 +67,7 @@ interface Sancion {
   id: number; tipo: string; descripcion: string; fecha: string | null
 }
 
-type Tab = "info" | "capacitaciones" | "evaluaciones" | "sanciones"
+type Tab = "info" | "capacitaciones" | "evaluaciones" | "sanciones" | "novedades"
 
 // ── Componente principal ──────────────────────────────────────────────────────
 
@@ -163,6 +169,7 @@ export function TyCPersonaPage() {
     ...(puedeSensible ? [
       { key: "evaluaciones" as Tab, label: "Evaluaciones", icon: <ClipboardList className="w-3.5 h-3.5" />, sensible: true },
       { key: "sanciones"   as Tab, label: "Sanciones",    icon: <ShieldAlert className="w-3.5 h-3.5" />, sensible: true },
+      { key: "novedades"   as Tab, label: "Novedades",    icon: <FileText className="w-3.5 h-3.5" />, sensible: true },
     ] : []),
   ]
 
@@ -209,6 +216,19 @@ export function TyCPersonaPage() {
                 <span className={`w-1.5 h-1.5 rounded-full ${persona.estado === TC_ESTADOS[0] ? "bg-emerald-500" : "bg-muted-foreground"}`} />
                 {persona.estado}
               </span>
+              {persona.score > 0 && (
+                <div className="mt-2 flex items-center gap-2">
+                  <div className="w-24 h-1.5 bg-muted/40 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${
+                        persona.score >= 75 ? "bg-emerald-500" : persona.score >= 55 ? "bg-amber-500" : "bg-rose-500"
+                      }`}
+                      style={{ width: `${persona.score}%` }}
+                    />
+                  </div>
+                  <span className="text-[11px] text-muted-foreground tabular-nums">{persona.score}/100</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -359,6 +379,10 @@ export function TyCPersonaPage() {
 
         {tab === "sanciones" && puedeSensible && (
           <SancionesTab personaId={persona.id} />
+        )}
+
+        {tab === "novedades" && puedeSensible && (
+          <NovedadesTab personaId={persona.id} />
         )}
 
       </div>
@@ -661,6 +685,121 @@ function SancionesTab({ personaId }: { personaId: number }) {
               value={form.descripcion}
               onChange={(e) => setForm((p) => ({ ...p, descripcion: e.target.value }))}
               rows={3}
+              className="w-full px-2.5 py-1.5 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-ring resize-none"
+            />
+          </div>
+        </AddForm>
+      )}
+    </TabShell>
+  )
+}
+
+// ── Tab Novedades ─────────────────────────────────────────────────────────────
+
+function NovedadesTab({ personaId }: { personaId: number }) {
+  const [items, setItems]     = useState<Novedad[]>([])
+  const [loading, setLoading] = useState(true)
+  const [adding, setAdding]   = useState(false)
+  const [saving, setSaving]   = useState(false)
+  const [form, setForm]       = useState({
+    tipo: TC_NOVEDAD_TIPOS[0] as string,
+    descripcion: "",
+    fecha_inicio: "",
+    fecha_fin: "",
+    estado: TC_NOVEDAD_ESTADOS[0] as string,
+  })
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const { data } = await api.get(`/tc/personas/${personaId}/novedades`)
+      setItems(Array.isArray(data) ? data : [])
+    } finally { setLoading(false) }
+  }, [personaId])
+
+  useEffect(() => { load() }, [load])
+
+  async function guardar() {
+    setSaving(true)
+    try {
+      await api.post(`/tc/personas/${personaId}/novedades`, {
+        tipo: form.tipo,
+        descripcion: form.descripcion,
+        fecha_inicio: form.fecha_inicio || null,
+        fecha_fin: form.fecha_fin || null,
+        estado: form.estado,
+      })
+      setForm({ tipo: TC_NOVEDAD_TIPOS[0], descripcion: "", fecha_inicio: "", fecha_fin: "", estado: TC_NOVEDAD_ESTADOS[0] })
+      setAdding(false)
+      load()
+    } finally { setSaving(false) }
+  }
+
+  async function eliminar(novId: number) {
+    if (!confirm("¿Eliminar esta novedad?")) return
+    await api.delete(`/tc/novedades/${novId}`)
+    load()
+  }
+
+  const ESTADO_COLOR: Record<string, string> = {
+    "Pendiente":  "bg-amber-500/10 text-amber-500",
+    "Aprobado":   "bg-emerald-500/10 text-emerald-500",
+    "Rechazado":  "bg-red-500/10 text-red-500",
+  }
+
+  return (
+    <TabShell
+      icon={<FileText className="w-4 h-4 text-violet-500" />}
+      title="Novedades y permisos"
+      count={items.length}
+      onAdd={() => setAdding(true)}
+    >
+      {loading ? <TabLoading /> : items.length === 0 && !adding ? (
+        <TabEmpty label="Sin novedades registradas." />
+      ) : (
+        <div className="space-y-2">
+          {items.map((n) => (
+            <div key={n.id} className="flex items-start gap-3 p-3 rounded-lg border border-border/60 hover:border-border transition-colors group">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-medium">{n.tipo}</span>
+                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${ESTADO_COLOR[n.estado] ?? "bg-muted text-muted-foreground"}`}>
+                    {n.estado}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  {n.fecha_inicio && <span className="text-xs text-muted-foreground">Desde: {n.fecha_inicio}</span>}
+                  {n.fecha_fin && <span className="text-xs text-muted-foreground">Hasta: {n.fecha_fin}</span>}
+                </div>
+                {n.descripcion && <p className="text-xs text-muted-foreground mt-1 italic">{n.descripcion}</p>}
+              </div>
+              <button onClick={() => eliminar(n.id)}
+                className="opacity-0 group-hover:opacity-100 p-1 hover:text-destructive transition-all">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {adding && (
+        <AddForm onCancel={() => setAdding(false)} onSave={guardar} saving={saving}>
+          <SelectField label="Tipo" value={form.tipo} onChange={(v) => setForm((p) => ({ ...p, tipo: v }))}>
+            {TC_NOVEDAD_TIPOS.map((t) => <option key={t} value={t}>{t}</option>)}
+          </SelectField>
+          <div className="grid grid-cols-2 gap-3">
+            <InputField label="Fecha inicio" type="date" value={form.fecha_inicio} onChange={(v) => setForm((p) => ({ ...p, fecha_inicio: v }))} />
+            <InputField label="Fecha fin" type="date" value={form.fecha_fin} onChange={(v) => setForm((p) => ({ ...p, fecha_fin: v }))} />
+          </div>
+          <SelectField label="Estado" value={form.estado} onChange={(v) => setForm((p) => ({ ...p, estado: v }))}>
+            {TC_NOVEDAD_ESTADOS.map((e) => <option key={e} value={e}>{e}</option>)}
+          </SelectField>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Descripción</label>
+            <textarea
+              value={form.descripcion}
+              onChange={(e) => setForm((p) => ({ ...p, descripcion: e.target.value }))}
+              rows={2}
               className="w-full px-2.5 py-1.5 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-ring resize-none"
             />
           </div>
