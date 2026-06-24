@@ -49,6 +49,14 @@ npx prisma studio                        # UI para inspeccionar la BD en dev
 3. Ningún import no usado, ninguna variable declarada sin uso
 ```
 
+**Gotcha `verbatimModuleSyntax`:** el frontend usa `verbatimModuleSyntax: true` en `tsconfig.json`. Importar un tipo como valor rompe el build en Docker aunque funcione en dev. Siempre usar `import type` para tipos:
+```ts
+// MAL — rompe Docker build con TS1484
+import { fetchProcCargoIds, ProcCargoAsignado } from "@/components/sig/..."
+// BIEN
+import { fetchProcCargoIds, type ProcCargoAsignado } from "@/components/sig/..."
+```
+
 ---
 
 ## Arquitectura de servicios
@@ -134,6 +142,42 @@ Clonar y adaptar para cada nuevo backend Node.
 ### Análisis IA — cancelación de jobs
 Los `AbortController` se guardan en el Map `_jobControllers` a nivel de módulo en `SigAnalisisPanel.tsx`. La función exportada `cancelAnalysisJob(id)` permite que cualquier componente cancele un job sin pasar por el store (que no puede guardar objetos no serializables).
 
+### `GET /sig-api/api/instructivos` — `procedimientoId` opcional
+El query param `procedimientoId` es opcional. Sin él retorna todos los instructivos del SIG. Con él filtra por procedimiento. Antes requería el param (400 si faltaba) — ese comportamiento fue eliminado.
+
+---
+
+## LightRAG — Grafo de conocimiento dual
+
+`backend/app/agents/lightrag_service.py` gestiona dos instancias independientes:
+
+| ID | Nombre | Directorio en servidor | Propósito |
+|---|---|---|---|
+| `rag1` | Jarvis | `/app/data/lightrag` | Empresa tal como opera hoy |
+| `rag2` | Ultron | `/app/data/lightrag_rag2` | Empresa con procedimientos corregidos |
+
+- LLM de extracción: **Gemini 2.0 Flash** (`settings.gemini_api_key`)
+- Embeddings: **Ollama `nomic-embed-text`** (768 dims, local en servidor, sin cuota)
+- `get_rag(rag_id)` — singleton lazy por instancia, con lock asyncio para evitar init concurrente
+- `indexar_texto(texto, rag_id)` y `buscar_conocimiento(query, modo, rag_id)` son la API pública
+
+Endpoints en `netvault.py`:
+- `POST /api/netvault/indexar-lightrag` — job async, indexa procedimiento + instructivos
+- `POST /api/netvault/consultar-rag` — consulta síncrona con modos `local|global|mix`
+- `GET /api/netvault/rag-status?rag_id=rag1` — inspecciona archivos del working dir: cuenta docs, chunks, entidades y relaciones del `.graphml`
+
+---
+
+## MCP externo — `mcp001-intranet`
+
+Servidor MCP en `C:\Gestion_documental\mcps\mcp001-intranet` que expone 15 herramientas del SIG a Codex, Claude Code y cualquier cliente MCP. Permite que agentes externos (Codex/GPT) lean y analicen procedimientos usando su propia licencia de LLM, sin consumir la API key del servidor.
+
+- Paquete Python instalable: `pip install git+https://github.com/Andresrs1014/mcp001-intranet.git`
+- Comando: `mcp001-intranet` (entry point del paquete)
+- Transporte: stdio (default) o HTTP (`ZYMO_MCP_TRANSPORT=http`)
+- Credenciales: `~/.config/mcp001-intranet/.env`
+- Ver `C:\Gestion_documental\mcps\mcp001-intranet\GUIA.md` para documentación completa
+
 ---
 
 ## Backend Python (`backend/`)
@@ -141,7 +185,7 @@ Los `AbortController` se guardan en el Map `_jobControllers` a nivel de módulo 
 ### Routers clave
 - `auth.py` — JWT, registro, `/auth/me` (devuelve `app_permissions` + `user_tools`)
 - `roles.py` — gestión de roles con `app_permissions: list[str]` editable
-- `netvault.py` — proxy hacia LightRAG/NetVault para indexación y análisis IA. Punto de inyección de contexto organizacional futuro (~línea 561)
+- `netvault.py` — proxy hacia LightRAG/NetVault. Endpoints: `/analizar`, `/analizar-coherencia`, `/analizar-mejoras`, `/analizar-proc-vs-inst`, `/analizar-cargos`, `/editar-con-ia`, `/chat`, `/indexar-lightrag`, `/consultar-rag`, `/rag-status`, `/job/:id`
 - `oc/` — flujo completo de órdenes de compra
 - `mantenimiento/` — FSM de mantenimiento (ver sección abajo)
 - `personal.py` — directorio T&C (164 personas), sin base de datos propia: lee `_persona_dict` desde `main_db`
