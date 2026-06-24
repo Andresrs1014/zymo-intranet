@@ -65,11 +65,12 @@ function OrgNodo({
   onClickPersonas: (nodo: ArbolNodo) => void
 }) {
   const [abierto, setAbierto] = useState(depth < 2)
-  const tieneHijos = nodo.hijos.length > 0
-  const count = nodo.personas.length
-  // Avatares visibles: máximo 4, el resto como "+N"
-  const visibles = nodo.personas.slice(0, 4)
-  const extra = count - visibles.length
+  const hijos    = nodo.hijos   ?? []
+  const personas = nodo.personas ?? []
+  const tieneHijos = hijos.length > 0
+  const count      = personas.length
+  const visibles   = personas.slice(0, 4)
+  const extra      = count - visibles.length
 
   return (
     <div className="relative">
@@ -141,7 +142,7 @@ function OrgNodo({
       {/* Hijos */}
       {tieneHijos && abierto && (
         <div className="mt-1.5 ml-6 pl-4 border-l border-teal-500/10 space-y-1.5">
-          {nodo.hijos.map((hijo) => (
+          {hijos.map((hijo) => (
             <OrgNodo key={hijo.id} nodo={hijo} depth={depth + 1} onClickPersonas={onClickPersonas} />
           ))}
         </div>
@@ -168,7 +169,7 @@ function PersonasDrawer({ nodo, onClose }: { nodo: ArbolNodo; onClose: () => voi
           <div>
             <p className="font-semibold text-sm">{nodo.nombre}</p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {nodo.personas.length} colaborador{nodo.personas.length !== 1 ? "es" : ""}
+              {(nodo.personas ?? []).length} colaborador{(nodo.personas ?? []).length !== 1 ? "es" : ""}
             </p>
           </div>
           <button
@@ -180,10 +181,10 @@ function PersonasDrawer({ nodo, onClose }: { nodo: ArbolNodo; onClose: () => voi
         </div>
 
         <div className="p-4 space-y-2">
-          {nodo.personas.length === 0 ? (
+          {(nodo.personas ?? []).length === 0 ? (
             <p className="text-xs text-muted-foreground italic text-center py-8">Sin colaboradores activos</p>
           ) : (
-            nodo.personas.map((p) => (
+            (nodo.personas ?? []).map((p) => (
               <div key={p.id} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-muted/30 transition-colors">
                 <Avatar p={p} size={36} />
                 <p className="text-sm font-medium text-foreground/90">{p.nombre}</p>
@@ -321,7 +322,7 @@ export function TyCOrganigramaPage() {
 
   useEffect(() => { cargarArbol(sedeActiva) }, [sedeActiva])
 
-  const totalRaices   = arbol?.raices.length ?? 0
+  const totalRaices   = arbol?.raices?.length ?? 0
   const totalCargos   = contarCargos(arbol?.raices ?? [])
   const totalPersonas = contarPersonas(arbol?.raices ?? [])
 

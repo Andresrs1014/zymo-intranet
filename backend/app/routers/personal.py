@@ -268,6 +268,7 @@ def listar_cargos(
         {
             "id": c.id,
             "area_id": c.area_id,
+            "parent_id": c.parent_id,
             "nombre": c.nombre,
             "manual_url": c.manual_url,
             "manual_filename": c.manual_filename,
