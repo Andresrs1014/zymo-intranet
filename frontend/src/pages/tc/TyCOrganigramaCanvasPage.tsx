@@ -192,52 +192,84 @@ function ModalColocarCargo({
   }
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
       <div
         className="relative w-full max-w-sm rounded-2xl overflow-hidden"
         style={{
-          background: "linear-gradient(135deg, #111116 0%, #0d0d12 100%)",
-          border: "1px solid rgba(20,184,166,0.2)",
-          boxShadow: "0 0 0 1px rgba(20,184,166,0.08), 0 24px 64px rgba(0,0,0,0.8)",
+          background: "linear-gradient(160deg, #1e1e2e 0%, #191928 100%)",
+          border: "1px solid rgba(20,184,166,0.35)",
+          boxShadow: "0 0 0 1px rgba(20,184,166,0.12), 0 24px 64px rgba(0,0,0,0.7), 0 0 60px rgba(20,184,166,0.06)",
         }}
         onClick={e => e.stopPropagation()}
       >
-        <div className="h-px w-full bg-gradient-to-r from-teal-500/60 via-teal-400/20 to-transparent" />
+        <div className="h-[2px] w-full bg-gradient-to-r from-teal-400/90 via-teal-500/40 to-transparent" />
 
-        <div className="px-5 py-4 border-b border-white/5 flex items-start justify-between gap-3">
+        <div className="px-5 py-4 flex items-start justify-between gap-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
           <div>
-            <p className="text-xs font-semibold text-teal-400 uppercase tracking-widest mb-1">Colocar en organigrama</p>
-            <p className="text-sm font-semibold text-white/90 leading-snug" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+            <p className="text-[10px] font-bold text-teal-400 uppercase tracking-widest mb-1" style={{ fontFamily: "'DM Mono', monospace" }}>
+              Colocar en organigrama
+            </p>
+            <p className="text-[15px] font-semibold text-white leading-snug" style={{ fontFamily: "'DM Sans', sans-serif" }}>
               {cargo.nombre}
             </p>
           </div>
-          <button onClick={onClose} className="mt-0.5 h-6 w-6 flex items-center justify-center rounded-lg text-white/30 hover:text-white/70 hover:bg-white/5 transition-colors shrink-0">
+          <button
+            onClick={onClose}
+            className="mt-0.5 h-7 w-7 flex items-center justify-center rounded-lg transition-colors shrink-0"
+            style={{ color: "rgba(255,255,255,0.4)", background: "rgba(255,255,255,0.05)" }}
+          >
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
 
         <div className="p-5 space-y-4">
           <div>
-            <label className="text-[10px] font-semibold text-white/40 uppercase tracking-widest mb-2 block">
-              Cargo padre
+            <label className="text-[10px] font-bold text-white/50 uppercase tracking-widest mb-2 block" style={{ fontFamily: "'DM Mono', monospace" }}>
+              Cargo padre (opcional)
             </label>
-            <select
-              value={parentId}
-              onChange={e => setParentId(e.target.value ? Number(e.target.value) : "")}
-              className="w-full px-3 py-2.5 text-sm rounded-xl appearance-none focus:outline-none focus:ring-1 focus:ring-teal-500/40 transition-all"
+            {/* Lista scrollable custom — evita estilos nativos del OS que rompen contraste */}
+            <div
+              className="rounded-xl overflow-y-auto"
               style={{
+                maxHeight: 196,
+                border: "1px solid rgba(255,255,255,0.1)",
                 background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.08)",
-                color: "rgba(255,255,255,0.85)",
-                fontFamily: "'DM Sans', sans-serif",
               }}
             >
-              <option value="" style={{ background: "#111116" }}>— Sin padre (nivel superior) —</option>
-              {opciones.map(c => (
-                <option key={c.id} value={c.id} style={{ background: "#111116" }}>{c.nombre}</option>
+              <button
+                onClick={() => setParentId("")}
+                className="w-full text-left px-3.5 py-2.5 text-[12px] flex items-center gap-2 transition-colors"
+                style={{
+                  fontFamily: "'DM Sans', sans-serif",
+                  color: parentId === "" ? "#2dd4bf" : "rgba(255,255,255,0.5)",
+                  background: parentId === "" ? "rgba(20,184,166,0.12)" : "transparent",
+                  borderBottom: "1px solid rgba(255,255,255,0.05)",
+                  fontWeight: parentId === "" ? 600 : 400,
+                }}
+              >
+                <span className="text-[10px] text-white/20 font-mono">—</span>
+                Sin padre (raíz del árbol)
+              </button>
+              {opciones.map((c, i) => (
+                <button
+                  key={c.id}
+                  onClick={() => setParentId(c.id)}
+                  className="w-full text-left px-3.5 py-2 text-[12px] transition-colors"
+                  style={{
+                    fontFamily: "'DM Sans', sans-serif",
+                    color: parentId === c.id ? "#2dd4bf" : "rgba(255,255,255,0.75)",
+                    background: parentId === c.id ? "rgba(20,184,166,0.12)" : "transparent",
+                    borderBottom: i < opciones.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
+                    fontWeight: parentId === c.id ? 600 : 400,
+                  }}
+                >
+                  {c.nombre}
+                </button>
               ))}
-            </select>
-            <p className="text-[10px] text-white/25 mt-1.5 px-1">Vacío = aparece como raíz del organigrama</p>
+            </div>
+            <p className="text-[10px] mt-1.5 px-1" style={{ color: "rgba(255,255,255,0.3)" }}>
+              Sin selección = aparece como raíz del organigrama
+            </p>
           </div>
 
           {error && <p className="text-xs text-red-400 px-1">{error}</p>}
@@ -247,10 +279,11 @@ function ModalColocarCargo({
             disabled={pending}
             className="w-full h-10 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
             style={{
-              background: pending ? "rgba(20,184,166,0.3)" : "linear-gradient(135deg, #14b8a6, #0d9488)",
+              background: pending ? "rgba(20,184,166,0.3)" : "linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)",
               color: "white",
-              boxShadow: pending ? "none" : "0 4px 16px rgba(20,184,166,0.3)",
+              boxShadow: pending ? "none" : "0 4px 20px rgba(20,184,166,0.35)",
               fontFamily: "'DM Sans', sans-serif",
+              letterSpacing: "0.01em",
             }}
           >
             {pending ? "Guardando…" : "Colocar en organigrama"}
