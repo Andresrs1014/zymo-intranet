@@ -101,6 +101,7 @@ class AreaCreate(BaseModel):
 class CargoCreate(BaseModel):
     area_id: Optional[int] = None
     parent_id: Optional[int] = None
+    en_organigrama: bool = False
     nombre: str
     sede_ids: list[int] = []
 
@@ -109,6 +110,7 @@ class CargoUpdate(BaseModel):
     nombre: Optional[str] = None
     area_id: Optional[int] = None
     parent_id: Optional[int] = None
+    en_organigrama: Optional[bool] = None
     sede_ids: Optional[list[int]] = None
 
 
@@ -269,6 +271,7 @@ def listar_cargos(
             "id": c.id,
             "area_id": c.area_id,
             "parent_id": c.parent_id,
+            "en_organigrama": bool(c.en_organigrama),
             "nombre": c.nombre,
             "manual_url": c.manual_url,
             "manual_filename": c.manual_filename,
@@ -871,14 +874,22 @@ def obtener_organigrama_arbol(
     db: Session = Depends(get_personal_db),
     _: User = Depends(require_tc),
 ):
-    """Árbol jerárquico de cargos con personas y fotos. Nodos raíz = sin parent_id (o padre fuera del filtro)."""
-    # 1. Cargos filtrados por sede
-    q = select(PtcCargo)
+    """Árbol jerárquico de cargos con personas y fotos. Solo cargos con en_organigrama=True."""
+    # 1. Cargos colocados en el organigrama, filtrados opcionalmente por sede
+    q = select(PtcCargo).where(PtcCargo.en_organigrama == True)  # noqa: E712
     if sede_id is not None:
         cargo_ids_sede = select(PtcCargoSede.cargo_id).where(PtcCargoSede.sede_id == sede_id)
         q = q.where(col(PtcCargo.id).in_(cargo_ids_sede))
     cargos = db.exec(q.order_by(col(PtcCargo.nombre))).all()
     cargo_ids_en_set = {c.id for c in cargos}
+
+    # 1b. Cargos sin colocar (para el panel lateral del frontend)
+    q_pending = select(PtcCargo).where(PtcCargo.en_organigrama == False)  # noqa: E712
+    if sede_id is not None:
+        q_pending = q_pending.where(col(PtcCargo.id).in_(
+            select(PtcCargoSede.cargo_id).where(PtcCargoSede.sede_id == sede_id)
+        ))
+    pending = db.exec(q_pending.order_by(col(PtcCargo.nombre))).all()
 
     # 2. Personas activas agrupadas por cargo_id
     personas_rows = db.exec(
@@ -936,7 +947,8 @@ def obtener_organigrama_arbol(
             n["parent_id"] = None
             raices.append(n)
 
-    return {"raices": raices}
+    sin_colocar = [{"id": c.id, "nombre": c.nombre, "area_id": c.area_id} for c in pending]
+    return {"raices": raices, "sin_colocar": sin_colocar}
 
 
 # ── Capacitaciones ────────────────────────────────────────────────────────────

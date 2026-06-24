@@ -63,6 +63,7 @@ class PtcCargo(SQLModel, table=True):
     area_id: Optional[int] = Field(default=None)  # referencia a Area principal (app.models.area)
     nombre: str = Field(max_length=150)
     parent_id: Optional[int] = Field(default=None)   # cargo padre en el árbol jerárquico
+    en_organigrama: bool = Field(default=False)       # True = colocado explícitamente en el árbol
     manual_url: str = Field(default="", max_length=500)
     manual_filename: str = Field(default="", max_length=300)
     manual_text: str = Field(default="", sa_column_kwargs={"server_default": ""})
@@ -189,6 +190,7 @@ def _migrate_personal() -> None:
             "ALTER TABLE ptc_cargo ADD COLUMN manual_filename TEXT DEFAULT ''",
             "ALTER TABLE ptc_cargo ADD COLUMN manual_text TEXT DEFAULT ''",
             "ALTER TABLE ptc_cargo ADD COLUMN parent_id INTEGER DEFAULT NULL",
+            "ALTER TABLE ptc_cargo ADD COLUMN en_organigrama INTEGER DEFAULT 0",
         ]:
             try:
                 conn.execute(text(sql))
@@ -199,7 +201,18 @@ def _migrate_personal() -> None:
             "CREATE TABLE IF NOT EXISTS ptc_cargo_sede "
             "(cargo_id INTEGER NOT NULL, sede_id INTEGER NOT NULL, PRIMARY KEY (cargo_id, sede_id))"
         ))
+        conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS ptc_config "
+            "(key TEXT PRIMARY KEY, value TEXT)"
+        ))
         conn.commit()
+
+        # Reset one-time: limpia el árbol para que todos queden "por colocar"
+        row = conn.execute(text("SELECT value FROM ptc_config WHERE key='organigrama_reset_v1'")).first()
+        if not row:
+            conn.execute(text("UPDATE ptc_cargo SET parent_id = NULL, en_organigrama = 0"))
+            conn.execute(text("INSERT INTO ptc_config (key, value) VALUES ('organigrama_reset_v1', 'done')"))
+            conn.commit()
 
 
 _EMPRESAS_SEED = [

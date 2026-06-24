@@ -5,7 +5,7 @@ import { useAuthStore } from "@/store/authStore"
 import { canEditTyC } from "@/lib/permissions"
 import { useSedes, type SedeItem } from "@/hooks/useSedes"
 import { PageLayout } from "@/components/layout/PageLayout"
-import { ArrowLeft, LayoutGrid, Plus, X, ChevronRight, ChevronDown, Users } from "lucide-react"
+import { ArrowLeft, LayoutGrid, Plus, X, ChevronRight, ChevronDown, Users, Inbox } from "lucide-react"
 
 interface PersonaMini {
   id: number
@@ -23,7 +23,9 @@ interface ArbolNodo {
   hijos: ArbolNodo[]
 }
 
-interface ArbolData { raices: ArbolNodo[] }
+interface CargoPendiente { id: number; nombre: string; area_id: number | null }
+
+interface ArbolData { raices: ArbolNodo[]; sin_colocar: CargoPendiente[] }
 
 // ── Avatar ────────────────────────────────────────────────────────────────────
 
@@ -300,6 +302,88 @@ function ModalNuevoCargo({
   )
 }
 
+// ── Modal colocar cargo en organigrama ───────────────────────────────────────
+
+function ModalColocarCargo({
+  cargo,
+  cargosColocados,
+  onClose,
+  onGuardado,
+}: {
+  cargo: CargoPendiente
+  cargosColocados: ArbolNodo[]
+  onClose: () => void
+  onGuardado: () => void
+}) {
+  const [parentId, setParentId] = useState<number | "">("")
+  const [pending, setPending]   = useState(false)
+  const [error, setError]       = useState("")
+
+  // Aplana el árbol para mostrar todos los cargos colocados como opciones de padre
+  function aplanar(nodos: ArbolNodo[]): ArbolNodo[] {
+    return nodos.flatMap(n => [n, ...aplanar(n.hijos)])
+  }
+  const opciones = aplanar(cargosColocados).filter(n => n.id !== cargo.id)
+
+  async function guardar() {
+    setPending(true); setError("")
+    try {
+      await api.put(`/tc/cargos/${cargo.id}`, {
+        parent_id: parentId || null,
+        en_organigrama: true,
+      })
+      onGuardado()
+      onClose()
+    } catch { setError("No se pudo guardar.") }
+    finally { setPending(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div
+        className="bg-background border border-border rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div>
+            <p className="font-semibold text-sm">Colocar en organigrama</p>
+            <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-[220px]">{cargo.nombre}</p>
+          </div>
+          <button onClick={onClose} className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="p-4 space-y-3">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
+              Cargo padre <span className="text-muted-foreground/50 normal-case font-normal">(opcional — vacío = raíz)</span>
+            </label>
+            <select
+              value={parentId}
+              onChange={e => setParentId(e.target.value ? Number(e.target.value) : "")}
+              className="w-full px-3 py-2 text-sm bg-muted/30 border border-input rounded-xl focus:outline-none focus:ring-1 focus:ring-teal-500/50 appearance-none"
+            >
+              <option value="">— Sin padre (nivel superior) —</option>
+              {opciones.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+            </select>
+          </div>
+
+          {error && <p className="text-xs text-destructive px-1">{error}</p>}
+
+          <button
+            onClick={guardar}
+            disabled={pending}
+            className="w-full h-9 text-sm font-medium bg-teal-500 text-white rounded-xl hover:bg-teal-600 disabled:opacity-50 transition-colors"
+          >
+            {pending ? "Guardando…" : "Colocar en organigrama"}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Página principal ──────────────────────────────────────────────────────────
 
 export function TyCOrganigramaPage() {
@@ -314,6 +398,7 @@ export function TyCOrganigramaPage() {
   const [apiError, setApiError]               = useState<string | null>(null)
   const [nodoSeleccionado, setNodoSeleccionado] = useState<ArbolNodo | null>(null)
   const [modalNuevoCargo, setModalNuevoCargo] = useState(false)
+  const [cargoAColocar, setCargoAColocar]     = useState<CargoPendiente | null>(null)
 
   function cargarArbol(sid: number | null) {
     setLoading(true)
@@ -410,39 +495,77 @@ export function TyCOrganigramaPage() {
         </div>
       </div>
 
-      {/* Árbol */}
-      <div className="flex-1 overflow-auto px-6 py-4">
-        {loading && (
-          <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
-            Cargando organigrama…
-          </div>
-        )}
+      {/* Contenido principal: árbol + panel lateral */}
+      <div className="flex-1 flex overflow-hidden">
 
-        {!loading && apiError && (
-          <div className="flex flex-col items-center justify-center h-48 gap-2">
-            <span className="text-sm text-destructive">{apiError}</span>
-          </div>
-        )}
+        {/* Árbol */}
+        <div className="flex-1 overflow-auto px-6 py-4">
+          {loading && (
+            <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
+              Cargando organigrama…
+            </div>
+          )}
 
-        {!loading && !apiError && (!arbol || totalRaices === 0) && (
-          <div className="flex flex-col items-center justify-center h-48 gap-2 text-muted-foreground">
-            <Users className="w-8 h-8 opacity-20" />
-            <span className="text-sm">
-              {sedeActiva ? "Sin cargos en esta sede." : "Sin cargos definidos aún."}
-            </span>
-            {puedeEditar && (
-              <button onClick={() => setModalNuevoCargo(true)} className="mt-1 text-xs text-teal-500 hover:underline">
-                + Crear primer cargo
-              </button>
-            )}
-          </div>
-        )}
+          {!loading && apiError && (
+            <div className="flex flex-col items-center justify-center h-48 gap-2">
+              <span className="text-sm text-destructive">{apiError}</span>
+            </div>
+          )}
 
-        {!loading && arbol && totalRaices > 0 && (
-          <div className="space-y-2 max-w-3xl">
-            {arbol.raices.map((nodo) => (
-              <OrgNodo key={nodo.id} nodo={nodo} depth={0} onClickPersonas={setNodoSeleccionado} />
-            ))}
+          {!loading && !apiError && (!arbol || totalRaices === 0) && (arbol?.sin_colocar ?? []).length === 0 && (
+            <div className="flex flex-col items-center justify-center h-48 gap-2 text-muted-foreground">
+              <Users className="w-8 h-8 opacity-20" />
+              <span className="text-sm">
+                {sedeActiva ? "Sin cargos en esta sede." : "Sin cargos definidos aún."}
+              </span>
+              {puedeEditar && (
+                <button onClick={() => setModalNuevoCargo(true)} className="mt-1 text-xs text-teal-500 hover:underline">
+                  + Crear primer cargo
+                </button>
+              )}
+            </div>
+          )}
+
+          {!loading && !apiError && (!arbol || totalRaices === 0) && (arbol?.sin_colocar ?? []).length > 0 && (
+            <div className="flex flex-col items-center justify-center h-48 gap-2 text-muted-foreground">
+              <Inbox className="w-8 h-8 opacity-20" />
+              <span className="text-sm">El árbol está vacío — coloca cargos desde el panel de la derecha.</span>
+            </div>
+          )}
+
+          {!loading && arbol && totalRaices > 0 && (
+            <div className="space-y-2 max-w-3xl">
+              {arbol.raices.map((nodo) => (
+                <OrgNodo key={nodo.id} nodo={nodo} depth={0} onClickPersonas={setNodoSeleccionado} />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Panel "Por colocar" */}
+        {puedeEditar && !loading && (arbol?.sin_colocar ?? []).length > 0 && (
+          <div className="w-64 shrink-0 border-l border-border overflow-y-auto bg-zinc-950/50">
+            <div className="sticky top-0 bg-zinc-950/90 backdrop-blur px-4 py-3 border-b border-border">
+              <div className="flex items-center gap-2">
+                <Inbox className="w-3.5 h-3.5 text-amber-400" />
+                <p className="text-xs font-semibold text-amber-400">Por colocar</p>
+                <span className="ml-auto text-[11px] bg-amber-500/15 text-amber-400 px-1.5 py-0.5 rounded-full font-semibold">
+                  {(arbol?.sin_colocar ?? []).length}
+                </span>
+              </div>
+              <p className="text-[11px] text-muted-foreground/60 mt-1">Haz clic para asignar posición</p>
+            </div>
+            <div className="p-2 space-y-1">
+              {(arbol?.sin_colocar ?? []).map(c => (
+                <button
+                  key={c.id}
+                  onClick={() => setCargoAColocar(c)}
+                  className="w-full text-left px-3 py-2.5 rounded-xl text-xs font-medium text-foreground/80 hover:bg-teal-500/10 hover:text-teal-300 border border-transparent hover:border-teal-500/20 transition-all"
+                >
+                  {c.nombre}
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -459,6 +582,16 @@ export function TyCOrganigramaPage() {
           sedeActiva={sedeActiva}
           onClose={() => setModalNuevoCargo(false)}
           onCreado={() => cargarArbol(sedeActiva)}
+        />
+      )}
+
+      {/* Modal colocar cargo pendiente */}
+      {cargoAColocar && (
+        <ModalColocarCargo
+          cargo={cargoAColocar}
+          cargosColocados={arbol?.raices ?? []}
+          onClose={() => setCargoAColocar(null)}
+          onGuardado={() => { setCargoAColocar(null); cargarArbol(sedeActiva) }}
         />
       )}
     </PageLayout>
