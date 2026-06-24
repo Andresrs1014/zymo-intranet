@@ -16,13 +16,13 @@ from sqlmodel import Session, col, select
 from app.core.deps import get_current_user, require_permission
 from app.database import get_db
 from app.models.area import Area as GlobalArea
+from app.models.sede import Sede
 from app.models.user import User
 from app.personal_database import (
     PtcArea,
     PtcCapacitacion,
     PtcCargo,
     PtcCargoSede,
-    PtcEmpresa,
     PtcEvaluacion,
     PtcPersona,
     PtcSancion,
@@ -38,11 +38,18 @@ from app.services.tc_manual_extraction import (
 
 router = APIRouter(prefix="/tc", tags=["T&C Personal"])
 
-require_tc = require_permission("mod_tc")
-require_tc_editar = require_permission("mod_tc_editar")
+require_tc          = require_permission("mod_tc")
+require_tc_editar   = require_permission("mod_tc_editar")
 require_tc_sensible = require_permission("mod_tc_sensible")
 require_tc_importar = require_permission("mod_tc_importar")
-require_tc_or_sig = require_permission("mod_tc", "mod_sig")
+require_tc_or_sig   = require_permission("mod_tc", "mod_sig")
+
+# ── Constantes de dominio ─────────────────────────────────────────────────────
+_ACTIVO         = "Activo"
+_INACTIVO       = "Inactivo"
+_GENEROS_STATS  = ("Masculino", "Femenino")
+_MAX_MANUAL_MB  = 20
+_MAX_FOTO_MB    = 5
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -117,17 +124,17 @@ class CargoUpdate(BaseModel):
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _persona_dict(p: PtcPersona, db: Session, main_db: Session) -> dict:
-    empresa = db.get(PtcEmpresa, p.empresa_id)
-    area = main_db.get(GlobalArea, p.area_id) if p.area_id else None
+    sede  = main_db.get(Sede, p.sede_id) if p.sede_id else None
+    area  = main_db.get(GlobalArea, p.area_id) if p.area_id else None
     cargo = db.get(PtcCargo, p.cargo_id) if p.cargo_id else None
     return {
         "id": p.id,
         "nombre": p.nombre,
         "initials": p.initials,
         "documento": p.documento,
-        "empresa_id": p.empresa_id,
-        "empresa_nombre": empresa.nombre if empresa else "",
-        "empresa_codigo": empresa.codigo if empresa else "",
+        "empresa_id": p.sede_id,
+        "empresa_nombre": sede.name if sede else "",
+        "empresa_codigo": sede.name if sede else "",
         "area_id": p.area_id,
         "area_nombre": area.name if area else "",
         "cargo_id": p.cargo_id,
@@ -169,35 +176,37 @@ def _parse_date(value: Optional[str]):
 @router.get("/stats")
 def stats_globales(
     db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
     _: User = Depends(require_tc),
 ):
     todas = db.exec(select(PtcPersona)).all()
-    activos   = [p for p in todas if p.estado == "Activo"]
-    inactivos = [p for p in todas if p.estado != "Activo"]
-    con_genero = [p for p in todas if p.genero in ("Masculino", "Femenino")]
+    activos    = [p for p in todas if p.estado == _ACTIVO]
+    inactivos  = [p for p in todas if p.estado != _ACTIVO]
+    con_genero = [p for p in todas if p.genero in _GENEROS_STATS]
 
-    empresas = db.exec(select(PtcEmpresa).order_by(PtcEmpresa.legacy_id)).all()
+    sedes = main_db.exec(select(Sede)).all()
     por_empresa = []
-    for e in empresas:
-        emp_personas = [p for p in todas if p.empresa_id == e.id]
-        por_empresa.append({
-            "id": e.id,
-            "codigo": e.codigo,
-            "nombre": e.nombre,
-            "total": len(emp_personas),
-            "activos": sum(1 for p in emp_personas if p.estado == "Activo"),
-        })
+    for s in sedes:
+        emp_personas = [p for p in todas if p.sede_id == s.id]
+        if emp_personas:
+            por_empresa.append({
+                "id": s.id,
+                "codigo": s.name,
+                "nombre": s.name,
+                "total": len(emp_personas),
+                "activos": sum(1 for p in emp_personas if p.estado == _ACTIVO),
+            })
 
     return {
         "total":    len(todas),
         "activos":  len(activos),
         "inactivos": len(inactivos),
         "masculino_pct": round(
-            sum(1 for p in con_genero if p.genero == "Masculino") / len(con_genero) * 100
+            sum(1 for p in con_genero if p.genero == _GENEROS_STATS[0]) / len(con_genero) * 100
             if con_genero else 0
         ),
         "femenino_pct": round(
-            sum(1 for p in con_genero if p.genero == "Femenino") / len(con_genero) * 100
+            sum(1 for p in con_genero if p.genero == _GENEROS_STATS[1]) / len(con_genero) * 100
             if con_genero else 0
         ),
         "por_empresa": por_empresa,
@@ -208,11 +217,12 @@ def stats_globales(
 
 @router.get("/empresas")
 def listar_empresas(
-    db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
     _: User = Depends(require_tc),
 ):
-    empresas = db.exec(select(PtcEmpresa)).all()
-    return [{"id": e.id, "nombre": e.nombre, "codigo": e.codigo, "sede_ref": e.sede_ref} for e in empresas]
+    """Devuelve las sedes del sistema como lista de empresas (fuente única de verdad)."""
+    sedes = main_db.exec(select(Sede)).all()
+    return [{"id": s.id, "nombre": s.name, "codigo": s.name} for s in sedes]
 
 
 # ── Áreas ─────────────────────────────────────────────────────────────────────
@@ -455,12 +465,12 @@ async def subir_manual(
     if not ext:
         raise HTTPException(status_code=400, detail="Solo se permiten PDF, Word (.docx/.doc) y Excel (.xlsx/.xls).")
     content = await file.read()
-    if len(content) > 20 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="El archivo no puede superar los 20 MB.")
+    if len(content) > _MAX_MANUAL_MB * 1024 * 1024:
+        raise HTTPException(status_code=400, detail=f"El archivo no puede superar los {_MAX_MANUAL_MB} MB.")
 
     if ext in ("xlsx", "xls", "xlsm"):
         ext = sniff_excel_ext(content, ext)
-    manuales_dir = "/app/data/tc_manuales"
+    manuales_dir = settings.tc_manuales_dir
     os.makedirs(manuales_dir, exist_ok=True)
     with open(os.path.join(manuales_dir, f"{cargo_id}.{ext}"), "wb") as f:
         f.write(content)
@@ -585,7 +595,7 @@ def listar_personas(
             col(PtcPersona.nombre).ilike(term) | col(PtcPersona.documento).ilike(term)
         )
     if empresa_id is not None:
-        query = query.where(PtcPersona.empresa_id == empresa_id)
+        query = query.where(PtcPersona.sede_id == empresa_id)
     if area_id is not None:
         query = query.where(PtcPersona.area_id == area_id)
     if cargo_id is not None:
@@ -618,8 +628,8 @@ def crear_persona(
     main_db: Session = Depends(get_db),
     _: User = Depends(require_tc_editar),
 ):
-    if not db.get(PtcEmpresa, body.empresa_id):
-        raise HTTPException(status_code=400, detail="Empresa no encontrada.")
+    if not main_db.get(Sede, body.empresa_id):
+        raise HTTPException(status_code=400, detail="Sede (empresa) no encontrada.")
 
     initials = body.initials or "".join(
         w[0].upper() for w in body.nombre.split()[:2] if w
@@ -628,7 +638,7 @@ def crear_persona(
         nombre=body.nombre.strip(),
         initials=initials,
         documento=body.documento,
-        empresa_id=body.empresa_id,
+        sede_id=body.empresa_id,
         area_id=body.area_id,
         cargo_id=body.cargo_id,
         genero=body.genero,
@@ -694,11 +704,11 @@ async def subir_foto_persona(
         raise HTTPException(status_code=400, detail="Solo se permiten imágenes.")
 
     content = await file.read()
-    if len(content) > 5 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="La imagen no puede superar los 5 MB.")
+    if len(content) > _MAX_FOTO_MB * 1024 * 1024:
+        raise HTTPException(status_code=400, detail=f"La imagen no puede superar los {_MAX_FOTO_MB} MB.")
 
     ext = {"image/png": "png", "image/webp": "webp"}.get(file.content_type, "jpg")
-    fotos_dir = "/app/data/tc_fotos"
+    fotos_dir = settings.tc_fotos_dir
     os.makedirs(fotos_dir, exist_ok=True)
     with open(os.path.join(fotos_dir, f"{persona_id}.{ext}"), "wb") as f:
         f.write(content)
@@ -720,7 +730,7 @@ def desactivar_persona(
     persona = db.get(PtcPersona, persona_id)
     if not persona:
         raise HTTPException(status_code=404, detail="Persona no encontrada.")
-    persona.estado = "Inactivo"
+    persona.estado = _INACTIVO
     persona.updated_at = datetime.utcnow()
     db.add(persona)
     db.commit()
@@ -733,7 +743,7 @@ class ImportPersonaItem(BaseModel):
     nombre: str
     initials: str = ""
     documento: str = ""
-    company_legacy_id: int          # 0, 1 o 2
+    company_legacy_id: int          # clave de mapeo → sede_id via sede_map
     area_nombre: str = ""
     cargo_nombre: str = ""
     genero: str = ""
@@ -751,17 +761,21 @@ class ImportPersonaItem(BaseModel):
     idp_eligible: bool = True
 
 
+class ImportBody(BaseModel):
+    items: list[ImportPersonaItem]
+    sede_map: dict[int, int]  # {company_legacy_id → Sede.id}
+
+
 @router.post("/import/json", status_code=status.HTTP_200_OK)
 def import_personas_json(
-    items: list[ImportPersonaItem],
+    body: ImportBody,
     db: Session = Depends(get_personal_db),
     _: User = Depends(require_tc_importar),
 ):
     created = 0
     skipped = 0
 
-    for item in items:
-        # Skip si ya existe el legacy_id
+    for item in body.items:
         existing = db.exec(
             select(PtcPersona).where(PtcPersona.legacy_id == item.legacy_id)
         ).first()
@@ -769,30 +783,11 @@ def import_personas_json(
             skipped += 1
             continue
 
-        # Resolver empresa por legacy_id
-        empresa = db.exec(
-            select(PtcEmpresa).where(PtcEmpresa.legacy_id == item.company_legacy_id)
-        ).first()
-        if not empresa:
+        sede_id = body.sede_map.get(item.company_legacy_id)
+        if not sede_id:
             skipped += 1
             continue
 
-        # Autocreate área si viene
-        area_id = None
-        if item.area_nombre.strip():
-            area = db.exec(
-                select(PtcArea).where(
-                    PtcArea.empresa_id == empresa.id,
-                    col(PtcArea.nombre).ilike(item.area_nombre.strip()),
-                )
-            ).first()
-            if not area:
-                area = PtcArea(empresa_id=empresa.id, nombre=item.area_nombre.strip())
-                db.add(area)
-                db.flush()
-            area_id = area.id
-
-        # Autocreate cargo global si viene (sin empresa_id)
         cargo_id = None
         if item.cargo_nombre.strip():
             cargo = db.exec(
@@ -801,7 +796,7 @@ def import_personas_json(
                 )
             ).first()
             if not cargo:
-                cargo = PtcCargo(area_id=area_id, nombre=item.cargo_nombre.strip())
+                cargo = PtcCargo(nombre=item.cargo_nombre.strip())
                 db.add(cargo)
                 db.flush()
             cargo_id = cargo.id
@@ -814,8 +809,7 @@ def import_personas_json(
             nombre=item.nombre.strip(),
             initials=initials,
             documento=item.documento,
-            empresa_id=empresa.id,
-            area_id=area_id,
+            sede_id=sede_id,
             cargo_id=cargo_id,
             genero=item.genero,
             rh=item.rh,

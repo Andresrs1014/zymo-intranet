@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { api } from "@/lib/api"
 import { X } from "lucide-react"
+import { TC_GENEROS, TC_CONTRATOS } from "@/lib/tc-constants"
 
 interface Empresa { id: number; nombre: string; codigo: string }
 interface Area { id: number; name: string }
@@ -28,9 +29,9 @@ export function PersonaFormModal({ empresas, onCreada, onCerrar }: Props) {
     rh: "",
     email: "",
     telefono: "",
-    tipo_contrato: "Término indefinido",
+    tipo_contrato: TC_CONTRATOS[0],
     fecha_ingreso: "",
-    estado: "Activo",
+    estado: "Activo",   // ponytail: valor inicial fijo, no hay selector en este modal
   })
 
   useEffect(() => {
@@ -39,10 +40,10 @@ export function PersonaFormModal({ empresas, onCreada, onCerrar }: Props) {
   }, [])
 
   useEffect(() => {
-    if (!form.empresa_id) return
-    api.get("/tc/cargos", { params: { empresa_id: form.empresa_id } })
+    // Cargos son globales — no se filtran por empresa
+    api.get("/tc/cargos")
       .then((r) => setCargos(Array.isArray(r.data) ? r.data : []))
-  }, [form.empresa_id])
+  }, [])
 
   function setField(key: string, value: string | number | null) {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -149,9 +150,7 @@ export function PersonaFormModal({ empresas, onCreada, onCerrar }: Props) {
             <FormGroup label="Género">
               <select value={form.genero} onChange={(e) => setField("genero", e.target.value)} className="form-select">
                 <option value="">Sin especificar</option>
-                <option value="Masculino">Masculino</option>
-                <option value="Femenino">Femenino</option>
-                <option value="Otro">Otro</option>
+                {TC_GENEROS.map((g) => <option key={g} value={g}>{g}</option>)}
               </select>
             </FormGroup>
 
@@ -171,11 +170,7 @@ export function PersonaFormModal({ empresas, onCreada, onCerrar }: Props) {
           <div className="grid grid-cols-2 gap-3">
             <FormGroup label="Tipo de contrato">
               <select value={form.tipo_contrato} onChange={(e) => setField("tipo_contrato", e.target.value)} className="form-select">
-                <option value="Término indefinido">Término indefinido</option>
-                <option value="Término fijo">Término fijo</option>
-                <option value="Obra o labor">Obra o labor</option>
-                <option value="Aprendizaje SENA">Aprendizaje SENA</option>
-                <option value="Prestación de servicios">Prestación de servicios</option>
+                {TC_CONTRATOS.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </FormGroup>
 

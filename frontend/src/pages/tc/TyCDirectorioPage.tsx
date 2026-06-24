@@ -1,10 +1,11 @@
-import { useEffect, useState, useCallback, type ReactNode } from "react"
+import { useEffect, useState, useCallback, useMemo, type ReactNode } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { api } from "@/lib/api"
 import { useAuthStore } from "@/store/authStore"
 import { canEditTyC } from "@/lib/permissions"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { PersonaFormModal } from "./components/PersonaFormModal"
+import { TC_ESTADOS, TC_EMPRESA_PALETTE } from "@/lib/tc-constants"
 import { Search, Plus, RefreshCw, ArrowLeft, Users, UserCheck, UserX, Venus, Mars } from "lucide-react"
 
 interface Empresa { id: number; nombre: string; codigo: string }
@@ -40,18 +41,6 @@ interface Stats {
   por_empresa: { id: number; codigo: string; nombre: string; total: number; activos: number }[]
 }
 
-const EMPRESA_COLORS: Record<string, string> = {
-  ZYMOLOGI: "bg-blue-500/10 text-blue-400",
-  ZYMOIMCC: "bg-violet-500/10 text-violet-400",
-  ZYMOIMDE: "bg-amber-500/10 text-amber-500",
-}
-
-const EMPRESA_TEXT_COLOR: Record<string, string> = {
-  ZYMOLOGI: "text-blue-400",
-  ZYMOIMCC: "text-violet-400",
-  ZYMOIMDE: "text-amber-500",
-}
-
 export function TyCDirectorioPage() {
   const navigate       = useNavigate()
   const [searchParams] = useSearchParams()
@@ -67,7 +56,7 @@ export function TyCDirectorioPage() {
   const [empresaFiltro, setEmpresaFiltro] = useState("")
   const [areaFiltro, setAreaFiltro]       = useState("")
   const [cargoFiltro, setCargoFiltro]     = useState("")
-  const [estadoFiltro, setEstadoFiltro]   = useState("Activo")
+  const [estadoFiltro, setEstadoFiltro]   = useState(TC_ESTADOS[0])
 
   const [personas, setPersonas] = useState<Persona[]>([])
   const [total, setTotal]       = useState(0)
@@ -121,6 +110,12 @@ export function TyCDirectorioPage() {
     cargarPersonas()
     api.get("/tc/stats").then((r) => setStats(r.data)).catch(() => {})
   }
+
+  // Paleta dinámica: índice de la empresa en la lista → color. Nunca hardcodeado por código de empresa.
+  const empresaColorMap = useMemo(
+    () => new Map(empresas.map((e, i) => [e.id, TC_EMPRESA_PALETTE[i % TC_EMPRESA_PALETTE.length]])),
+    [empresas],
+  )
 
   const empresasConPersonas = stats?.por_empresa.filter((e) => e.total > 0) ?? []
   const cargoActual = cargos.find((c) => String(c.id) === cargoFiltro)
@@ -185,7 +180,8 @@ export function TyCDirectorioPage() {
 
         {empresasConPersonas.length > 0 && (
           <div className="flex gap-3 mb-4">
-            {empresasConPersonas.map((e) => {
+            {empresasConPersonas.map((e, idx) => {
+              const palette = TC_EMPRESA_PALETTE[idx % TC_EMPRESA_PALETTE.length]
               const pct = Math.round((e.activos / Math.max(e.total, 1)) * 100)
               return (
                 <button
@@ -197,7 +193,7 @@ export function TyCDirectorioPage() {
                       : "border-border/60 hover:border-border text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  <span className={`font-bold ${EMPRESA_TEXT_COLOR[e.codigo] ?? ""}`}>
+                  <span className={`font-bold ${palette.text}`}>
                     {e.codigo}
                   </span>
                   <span className="tabular-nums font-mono">{e.total}</span>
@@ -267,8 +263,7 @@ export function TyCDirectorioPage() {
             className="combo"
           >
             <option value="">Todos</option>
-            <option value="Activo">Activos</option>
-            <option value="Inactivo">Inactivos</option>
+            {TC_ESTADOS.map((e) => <option key={e} value={e}>{e}s</option>)}
           </select>
 
           <div className="hidden sm:block w-px h-5 bg-border/60" />
@@ -362,9 +357,9 @@ export function TyCDirectorioPage() {
 
                   <td className="px-4 py-2.5">
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold tracking-wide ${
-                      EMPRESA_COLORS[p.empresa_codigo] ?? "bg-muted text-muted-foreground"
+                      empresaColorMap.get(p.empresa_id)?.badge ?? "bg-muted/10 text-muted-foreground"
                     }`}>
-                      {p.empresa_codigo}
+                      {p.empresa_nombre}
                     </span>
                   </td>
 
@@ -383,12 +378,12 @@ export function TyCDirectorioPage() {
 
                   <td className="px-4 py-2.5">
                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                      p.estado === "Activo"
+                      p.estado === TC_ESTADOS[0]
                         ? "bg-emerald-500/10 text-emerald-500"
                         : "bg-muted text-muted-foreground"
                     }`}>
                       <span className={`w-1 h-1 rounded-full ${
-                        p.estado === "Activo" ? "bg-emerald-500" : "bg-muted-foreground"
+                        p.estado === TC_ESTADOS[0] ? "bg-emerald-500" : "bg-muted-foreground"
                       }`} />
                       {p.estado}
                     </span>

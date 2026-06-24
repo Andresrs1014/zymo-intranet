@@ -1,11 +1,12 @@
 """
 Base de datos del módulo T&C (Talento y Cultura) — Personal.
 
-Dominio: registro de colaboradores de las 3 empresas del grupo ZYMO.
-Tablas: ptc_empresa, ptc_area, ptc_cargo, ptc_persona,
+Tablas: ptc_area, ptc_cargo, ptc_cargo_sede, ptc_persona,
         ptc_capacitacion, ptc_evaluacion, ptc_sancion
 
-Sigue el mismo patrón que gerencial_database.py.
+Las empresas/compañías ya NO están en este módulo. Se leen de la tabla
+Sede del backend principal. ptc_persona.sede_id referencia Sede.id sin FK
+(cross-DB, SQLite → PostgreSQL).
 """
 from datetime import date, datetime
 from typing import Optional
@@ -37,21 +38,11 @@ def get_personal_db():
 
 # ── Modelos ────────────────────────────────────────────────────────────────────
 
-class PtcEmpresa(SQLModel, table=True):
-    __tablename__ = "ptc_empresa"
-
-    id: Optional[int] = Field(default=None, primary_key=True)
-    nombre: str = Field(max_length=100)
-    codigo: str = Field(max_length=20, unique=True)  # "ZYMOLOGI" | "ZYMOIMCC" | "ZYMOIMDE"
-    sede_ref: str = Field(max_length=50, default="")  # referencia al claim 'sede' del JWT
-    legacy_id: int = Field(default=0)                 # 0,1,2 del Directorio original
-
-
 class PtcArea(SQLModel, table=True):
     __tablename__ = "ptc_area"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    empresa_id: int = Field(foreign_key="ptc_empresa.id")
+    empresa_id: int = Field(default=0)  # deprecated — referenciaba ptc_empresa (eliminado)
     nombre: str = Field(max_length=100)
 
 
@@ -59,11 +50,10 @@ class PtcCargo(SQLModel, table=True):
     __tablename__ = "ptc_cargo"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    empresa_id: Optional[int] = Field(default=None, foreign_key="ptc_empresa.id")  # deprecated — cargos son globales
     area_id: Optional[int] = Field(default=None)  # referencia a Area principal (app.models.area)
     nombre: str = Field(max_length=150)
-    parent_id: Optional[int] = Field(default=None)   # cargo padre en el árbol jerárquico
-    en_organigrama: bool = Field(default=False)       # True = colocado explícitamente en el árbol
+    parent_id: Optional[int] = Field(default=None)
+    en_organigrama: bool = Field(default=False)
     manual_url: str = Field(default="", max_length=500)
     manual_filename: str = Field(default="", max_length=300)
     manual_text: str = Field(default="", sa_column_kwargs={"server_default": ""})
@@ -86,9 +76,9 @@ class PtcPersona(SQLModel, table=True):
     initials: str = Field(max_length=5, default="")
     documento: str = Field(max_length=30, default="")
 
-    # Organización
-    empresa_id: int = Field(foreign_key="ptc_empresa.id")
-    area_id: Optional[int] = Field(default=None)  # referencia a Area principal (app.models.area)
+    # Organización — sede_id referencia Sede.id del backend principal (sin FK, cross-DB)
+    sede_id: int = Field(default=0)
+    area_id: Optional[int] = Field(default=None)
     cargo_id: Optional[int] = Field(default=None, foreign_key="ptc_cargo.id")
 
     # Datos personales
@@ -104,7 +94,7 @@ class PtcPersona(SQLModel, table=True):
     tipo_contrato: str = Field(max_length=80, default="Término indefinido")
     fecha_ingreso: Optional[date] = None
     antiguedad_label: str = Field(max_length=50, default="")
-    estado: str = Field(max_length=20, default="Activo")   # "Activo" | "Inactivo"
+    estado: str = Field(max_length=20, default="Activo")
     tipo_salida: str = Field(max_length=80, default="")
     fecha_salida: Optional[date] = None
 
@@ -129,7 +119,7 @@ class PtcCapacitacion(SQLModel, table=True):
     titulo: str = Field(max_length=200)
     fecha: Optional[date] = None
     horas: Optional[float] = None
-    estado: str = Field(max_length=30, default="Completado")  # Completado/Pendiente/Cancelado
+    estado: str = Field(max_length=30, default="Completado")
     diploma_url: str = Field(max_length=500, default="")
     observaciones: str = Field(max_length=500, default="")
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -162,14 +152,14 @@ class PtcSancion(SQLModel, table=True):
 # ── Creación de tablas ─────────────────────────────────────────────────────────
 
 _PERSONAL_TABLES = {
-    "ptc_empresa", "ptc_area", "ptc_cargo", "ptc_cargo_sede", "ptc_persona",
+    "ptc_area", "ptc_cargo", "ptc_cargo_sede", "ptc_persona",
     "ptc_capacitacion", "ptc_evaluacion", "ptc_sancion",
 }
 
 
 def create_personal_tables() -> None:
     from app.personal_database import (  # noqa: F401
-        PtcEmpresa, PtcArea, PtcCargo, PtcCargoSede, PtcPersona,
+        PtcArea, PtcCargo, PtcCargoSede, PtcPersona,
         PtcCapacitacion, PtcEvaluacion, PtcSancion,
     )
     tables = [
@@ -178,7 +168,6 @@ def create_personal_tables() -> None:
         if t in SQLModel.metadata.tables
     ]
     SQLModel.metadata.create_all(get_personal_engine(), tables=tables)
-    _seed_empresas()
     _migrate_personal()
 
 
@@ -191,6 +180,10 @@ def _migrate_personal() -> None:
             "ALTER TABLE ptc_cargo ADD COLUMN manual_text TEXT DEFAULT ''",
             "ALTER TABLE ptc_cargo ADD COLUMN parent_id INTEGER DEFAULT NULL",
             "ALTER TABLE ptc_cargo ADD COLUMN en_organigrama INTEGER DEFAULT 0",
+            # empresa_id en ptc_cargo era campo deprecado — eliminar
+            "ALTER TABLE ptc_cargo DROP COLUMN empresa_id",
+            # renombrar empresa_id → sede_id en ptc_persona (empresas vienen de Sede)
+            "ALTER TABLE ptc_persona RENAME COLUMN empresa_id TO sede_id",
         ]:
             try:
                 conn.execute(text(sql))
@@ -207,28 +200,8 @@ def _migrate_personal() -> None:
         ))
         conn.commit()
 
-        # Reset one-time: limpia el árbol para que todos queden "por colocar"
         row = conn.execute(text("SELECT value FROM ptc_config WHERE key='organigrama_reset_v1'")).first()
         if not row:
             conn.execute(text("UPDATE ptc_cargo SET parent_id = NULL, en_organigrama = 0"))
             conn.execute(text("INSERT INTO ptc_config (key, value) VALUES ('organigrama_reset_v1', 'done')"))
             conn.commit()
-
-
-_EMPRESAS_SEED = [
-    {"nombre": "Zymologística S.A.S", "codigo": "ZYMOLOGI", "sede_ref": "LOGIMAT", "legacy_id": 0},
-    {"nombre": "IMC Cargo International", "codigo": "ZYMOIMCC", "sede_ref": "IMCCARGO", "legacy_id": 1},
-    {"nombre": "IMC Depósito", "codigo": "ZYMOIMDE", "sede_ref": "IMC Depósito", "legacy_id": 2},
-]
-
-
-def _seed_empresas() -> None:
-    from sqlmodel import select
-    with Session(get_personal_engine()) as session:
-        for data in _EMPRESAS_SEED:
-            existing = session.exec(
-                select(PtcEmpresa).where(PtcEmpresa.codigo == data["codigo"])
-            ).first()
-            if not existing:
-                session.add(PtcEmpresa(**data))
-        session.commit()

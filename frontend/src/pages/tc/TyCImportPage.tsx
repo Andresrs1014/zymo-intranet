@@ -1,8 +1,10 @@
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { api } from "@/lib/api"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { ArrowLeft, Upload, CheckCircle, AlertTriangle, Loader2, FileJson } from "lucide-react"
+
+interface Sede { id: number; nombre: string }
 
 interface ImportItem {
   legacy_id: string
@@ -52,7 +54,7 @@ function mapPerson(p: any): ImportItem {
     initials: (p.initials || "").trim(),
     documento: String(p.document || "").trim(),
     company_legacy_id: typeof p.companyId === "number" ? p.companyId : 0,
-    area_nombre: "",  // todas vacías en el export
+    area_nombre: "",
     cargo_nombre: (p.role || "").trim(),
     genero: (p.gender || "").trim(),
     rh: (p.rh || "").trim(),
@@ -71,15 +73,12 @@ function mapPerson(p: any): ImportItem {
 }
 
 function parseFile(text: string): ImportItem[] {
-  // Si ya es el formato ImportItem[] (JSON directo del script de migración)
   const trimmed = text.trim()
   if (trimmed.startsWith("[")) {
     const arr = JSON.parse(trimmed)
-    // Detectar si ya tiene el campo legacy_id → ya está mapeado
     if (arr.length > 0 && "legacy_id" in arr[0]) return arr as ImportItem[]
     return arr.map(mapPerson)
   }
-  // Formato JS del Directorio ZYMO (window.ZYMO_PERSONAL_EXPORT = {...})
   let raw = text.replace(/^\/\*[\s\S]*?\*\/\s*/m, "")
   raw = raw.replace(/^window\.\w+\s*=\s*/, "").trim()
   raw = raw.replace(/;\s*window\.[\s\S]*$/, "").trim()
@@ -88,23 +87,32 @@ function parseFile(text: string): ImportItem[] {
   return people.map(mapPerson)
 }
 
-const EMPRESA_LABEL: Record<number, string> = { 0: "ZYMOLOGI", 1: "ZYMOIMCC", 2: "ZYMOIMDE" }
-
 export function TyCImportPage() {
   const navigate = useNavigate()
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const [items, setItems]       = useState<ImportItem[] | null>(null)
-  const [parseErr, setParseErr] = useState<string | null>(null)
-  const [loading, setLoading]   = useState(false)
-  const [result, setResult]     = useState<ImportResult | null>(null)
-  const [apiErr, setApiErr]     = useState<string | null>(null)
+  const [sedes, setSedes]         = useState<Sede[]>([])
+  const [items, setItems]         = useState<ImportItem[] | null>(null)
+  const [parseErr, setParseErr]   = useState<string | null>(null)
+  const [loading, setLoading]     = useState(false)
+  const [result, setResult]       = useState<ImportResult | null>(null)
+  const [apiErr, setApiErr]       = useState<string | null>(null)
+
+  // sede_map: { company_legacy_id → sede.id }
+  const [sedeMap, setSedeMap]     = useState<Record<number, number>>({})
+
+  useEffect(() => {
+    api.get("/tc/empresas")
+      .then((r) => setSedes(Array.isArray(r.data) ? r.data : []))
+      .catch(() => {})
+  }, [])
 
   function handleFile(file: File) {
     setItems(null)
     setParseErr(null)
     setResult(null)
     setApiErr(null)
+    setSedeMap({})
 
     const reader = new FileReader()
     reader.onload = (e) => {
@@ -112,6 +120,10 @@ export function TyCImportPage() {
         const parsed = parseFile(e.target!.result as string)
         if (parsed.length === 0) throw new Error("El archivo no contiene personas.")
         setItems(parsed)
+        // Inicializar sedeMap con la primera sede disponible para cada company_legacy_id
+        const uniqueIds = [...new Set(parsed.map((p) => p.company_legacy_id))].sort()
+        const firstSede = sedes[0]?.id ?? 0
+        setSedeMap(Object.fromEntries(uniqueIds.map((id) => [id, firstSede])))
       } catch (err) {
         setParseErr(err instanceof Error ? err.message : "Error al parsear el archivo.")
       }
@@ -119,12 +131,21 @@ export function TyCImportPage() {
     reader.readAsText(file, "utf-8")
   }
 
+  const uniqueCompanyIds = items
+    ? [...new Set(items.map((p) => p.company_legacy_id))].sort()
+    : []
+
+  const mapeoCompleto = uniqueCompanyIds.every((id) => sedeMap[id])
+
   async function handleImport() {
-    if (!items) return
+    if (!items || !mapeoCompleto) return
     setLoading(true)
     setApiErr(null)
     try {
-      const { data } = await api.post<ImportResult>("/tc/import/json", items)
+      const { data } = await api.post<ImportResult>("/tc/import/json", {
+        items,
+        sede_map: sedeMap,
+      })
       setResult(data)
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
@@ -158,9 +179,9 @@ export function TyCImportPage() {
           <span className="text-sm font-medium">Importar colaboradores</span>
         </div>
         <p className="text-xs text-muted-foreground max-w-lg">
-          Carga el archivo JS exportado desde el Directorio ZYMO. El sistema detecta
-          automáticamente el formato y mapea las empresas (companyId 0/1/2).
-          Los colaboradores ya existentes (mismo legacy_id) se omiten.
+          Carga el archivo JS o JSON exportado desde el Directorio ZYMO. Mapea cada empresa
+          del archivo a la sede correspondiente en el sistema. Los colaboradores ya existentes
+          (mismo legacy_id) se omiten.
         </p>
       </div>
 
@@ -197,7 +218,6 @@ export function TyCImportPage() {
           </div>
         )}
 
-        {/* Error de parseo */}
         {parseErr && (
           <div className="flex items-start gap-2.5 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
             <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -205,39 +225,65 @@ export function TyCImportPage() {
           </div>
         )}
 
-        {/* Preview */}
+        {/* Preview + mapeo de sedes */}
         {items && !result && (
           <div className="rounded-xl border border-border overflow-hidden">
             <div className="px-4 py-3 bg-muted/10 border-b border-border flex items-center justify-between">
               <p className="text-sm font-medium">{items.length} colaboradores listos para importar</p>
             </div>
 
-            {/* Por empresa */}
+            {/* Distribución por empresa del archivo */}
             <div className="px-4 py-3 space-y-2">
               {byCompany && Object.entries(byCompany).map(([cId, count]) => {
                 const pct = Math.round((count / items.length) * 100)
                 return (
                   <div key={cId} className="flex items-center gap-3">
-                    <span className="text-[11px] font-mono text-muted-foreground w-20">
-                      {EMPRESA_LABEL[Number(cId)] ?? `ID ${cId}`}
+                    <span className="text-[11px] font-mono text-muted-foreground w-16">
+                      ID {cId}
                     </span>
                     <div className="flex-1 h-1.5 bg-muted/30 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-teal-500/70 rounded-full"
-                        style={{ width: `${pct}%` }}
-                      />
+                      <div className="h-full bg-teal-500/70 rounded-full" style={{ width: `${pct}%` }} />
                     </div>
-                    <span className="text-[11px] tabular-nums text-muted-foreground w-8 text-right">
-                      {count}
-                    </span>
+                    <span className="text-[11px] tabular-nums text-muted-foreground w-8 text-right">{count}</span>
                   </div>
                 )
               })}
             </div>
 
-            {/* Sample */}
-            <div className="px-4 pb-3">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Muestra</p>
+            {/* Mapeo empresa → sede */}
+            <div className="px-4 pb-4 pt-2 border-t border-border/60">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
+                Mapear empresas del archivo → Sedes del sistema
+              </p>
+              <div className="space-y-2">
+                {uniqueCompanyIds.map((cId) => (
+                  <div key={cId} className="flex items-center gap-3">
+                    <span className="text-xs text-muted-foreground w-24 shrink-0">
+                      Empresa ID {cId}
+                    </span>
+                    <select
+                      value={sedeMap[cId] ?? ""}
+                      onChange={(e) => setSedeMap((prev) => ({ ...prev, [cId]: Number(e.target.value) }))}
+                      className="flex-1 h-8 px-2 text-xs bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
+                    >
+                      <option value="">— Seleccionar sede —</option>
+                      {sedes.map((s) => (
+                        <option key={s.id} value={s.id}>{s.nombre}</option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+              {!mapeoCompleto && (
+                <p className="text-[11px] text-amber-500 mt-2">
+                  Asigna una sede a cada empresa para continuar.
+                </p>
+              )}
+            </div>
+
+            {/* Muestra */}
+            <div className="px-4 pb-3 border-t border-border/40">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2 mt-2">Muestra</p>
               <div className="space-y-1">
                 {items.slice(0, 3).map((p) => (
                   <div key={p.legacy_id} className="flex items-center gap-2 text-xs">
@@ -245,7 +291,7 @@ export function TyCImportPage() {
                       {p.initials}
                     </span>
                     <span className="font-medium truncate flex-1">{p.nombre}</span>
-                    <span className="text-muted-foreground shrink-0">{EMPRESA_LABEL[p.company_legacy_id]}</span>
+                    <span className="text-muted-foreground shrink-0">ID {p.company_legacy_id}</span>
                   </div>
                 ))}
               </div>
@@ -253,7 +299,6 @@ export function TyCImportPage() {
           </div>
         )}
 
-        {/* Error de API */}
         {apiErr && (
           <div className="flex items-start gap-2.5 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
             <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -261,7 +306,6 @@ export function TyCImportPage() {
           </div>
         )}
 
-        {/* Resultado */}
         {result && (
           <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-5 space-y-3">
             <div className="flex items-center gap-2.5">
@@ -287,11 +331,10 @@ export function TyCImportPage() {
           </div>
         )}
 
-        {/* Botón de acción */}
         {items && !result && (
           <button
             onClick={handleImport}
-            disabled={loading}
+            disabled={loading || !mapeoCompleto}
             className="flex items-center justify-center gap-2 w-full h-9 px-4 text-sm font-medium bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors disabled:opacity-60"
           >
             {loading ? (

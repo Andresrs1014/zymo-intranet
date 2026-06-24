@@ -8,6 +8,10 @@ import {
   ArrowLeft, Camera, Pencil, X, Check, Plus, Trash2, Loader2,
   BookOpen, ClipboardList, ShieldAlert,
 } from "lucide-react"
+import {
+  TC_ESTADOS, TC_GENEROS, TC_CONTRATOS, TC_SALIDAS,
+  TC_CAP_ESTADOS, TC_SANCION_TIPOS,
+} from "@/lib/tc-constants"
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 
@@ -198,11 +202,11 @@ export function TyCPersonaPage() {
                 {persona.cargo_nombre || "Sin cargo"} · {persona.empresa_codigo}
               </p>
               <span className={`inline-flex mt-1 items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                persona.estado === "Activo"
+                persona.estado === TC_ESTADOS[0]
                   ? "bg-emerald-500/10 text-emerald-500"
                   : "bg-muted text-muted-foreground"
               }`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${persona.estado === "Activo" ? "bg-emerald-500" : "bg-muted-foreground"}`} />
+                <span className={`w-1.5 h-1.5 rounded-full ${persona.estado === TC_ESTADOS[0] ? "bg-emerald-500" : "bg-muted-foreground"}`} />
                 {persona.estado}
               </span>
             </div>
@@ -290,9 +294,7 @@ export function TyCPersonaPage() {
                 {editando ? (
                   <Select value={datos.genero} onChange={(v) => setField("genero", v)}>
                     <option value="">Sin especificar</option>
-                    <option value="Masculino">Masculino</option>
-                    <option value="Femenino">Femenino</option>
-                    <option value="Otro">Otro</option>
+                    {TC_GENEROS.map((g) => <option key={g} value={g}>{g}</option>)}
                   </Select>
                 ) : (datos.genero || "—")}
               </FieldRow>
@@ -317,11 +319,7 @@ export function TyCPersonaPage() {
               <FieldRow label="Tipo de contrato">
                 {editando ? (
                   <Select value={datos.tipo_contrato} onChange={(v) => setField("tipo_contrato", v)}>
-                    <option value="Término indefinido">Término indefinido</option>
-                    <option value="Término fijo">Término fijo</option>
-                    <option value="Obra o labor">Obra o labor</option>
-                    <option value="Aprendizaje SENA">Aprendizaje SENA</option>
-                    <option value="Prestación de servicios">Prestación de servicios</option>
+                    {TC_CONTRATOS.map((c) => <option key={c} value={c}>{c}</option>)}
                   </Select>
                 ) : (datos.tipo_contrato || "—")}
               </FieldRow>
@@ -333,8 +331,7 @@ export function TyCPersonaPage() {
               <FieldRow label="Estado">
                 {editando ? (
                   <Select value={datos.estado} onChange={(v) => setField("estado", v)}>
-                    <option value="Activo">Activo</option>
-                    <option value="Inactivo">Inactivo</option>
+                    {TC_ESTADOS.map((e) => <option key={e} value={e}>{e}</option>)}
                   </Select>
                 ) : datos.estado}
               </FieldRow>
@@ -343,11 +340,7 @@ export function TyCPersonaPage() {
                   {editando ? (
                     <Select value={datos.tipo_salida} onChange={(v) => setField("tipo_salida", v)}>
                       <option value="">Sin especificar</option>
-                      <option value="Renuncia voluntaria">Renuncia voluntaria</option>
-                      <option value="Terminación con justa causa">Terminación con justa causa</option>
-                      <option value="Terminación sin justa causa">Terminación sin justa causa</option>
-                      <option value="Vencimiento de contrato">Vencimiento de contrato</option>
-                      <option value="Mutuo acuerdo">Mutuo acuerdo</option>
+                      {TC_SALIDAS.map((s) => <option key={s} value={s}>{s}</option>)}
                     </Select>
                   ) : (datos.tipo_salida || "—")}
                 </FieldRow>
@@ -380,7 +373,7 @@ function CapacitacionesTab({ personaId, puedeEditar }: { personaId: number; pued
   const [loading, setLoading] = useState(true)
   const [adding, setAdding]   = useState(false)
   const [saving, setSaving]   = useState(false)
-  const [form, setForm]       = useState({ titulo: "", fecha: "", horas: "", estado: "Completado", observaciones: "" })
+  const [form, setForm]       = useState({ titulo: "", fecha: "", horas: "", estado: TC_CAP_ESTADOS[0], observaciones: "" })
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -403,7 +396,7 @@ function CapacitacionesTab({ personaId, puedeEditar }: { personaId: number; pued
         estado: form.estado,
         observaciones: form.observaciones,
       })
-      setForm({ titulo: "", fecha: "", horas: "", estado: "Completado", observaciones: "" })
+      setForm({ titulo: "", fecha: "", horas: "", estado: TC_CAP_ESTADOS[0], observaciones: "" })
       setAdding(false)
       load()
     } finally { setSaving(false) }
@@ -464,9 +457,7 @@ function CapacitacionesTab({ personaId, puedeEditar }: { personaId: number; pued
             <InputField label="Horas" type="number" value={form.horas} onChange={(v) => setForm((p) => ({ ...p, horas: v }))} placeholder="Ej: 8" />
           </div>
           <SelectField label="Estado" value={form.estado} onChange={(v) => setForm((p) => ({ ...p, estado: v }))}>
-            <option value="Completado">Completado</option>
-            <option value="Pendiente">Pendiente</option>
-            <option value="Cancelado">Cancelado</option>
+            {TC_CAP_ESTADOS.map((e) => <option key={e} value={e}>{e}</option>)}
           </SelectField>
           <InputField label="Observaciones" value={form.observaciones} onChange={(v) => setForm((p) => ({ ...p, observaciones: v }))} />
         </AddForm>
@@ -588,7 +579,7 @@ function SancionesTab({ personaId }: { personaId: number }) {
   const [loading, setLoading] = useState(true)
   const [adding, setAdding]   = useState(false)
   const [saving, setSaving]   = useState(false)
-  const [form, setForm]       = useState({ tipo: "Llamado de atención", descripcion: "", fecha: "" })
+  const [form, setForm]       = useState({ tipo: TC_SANCION_TIPOS[0], descripcion: "", fecha: "" })
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -608,7 +599,7 @@ function SancionesTab({ personaId }: { personaId: number }) {
         descripcion: form.descripcion,
         fecha: form.fecha || null,
       })
-      setForm({ tipo: "Llamado de atención", descripcion: "", fecha: "" })
+      setForm({ tipo: TC_SANCION_TIPOS[0], descripcion: "", fecha: "" })
       setAdding(false)
       load()
     } finally { setSaving(false) }
@@ -621,9 +612,10 @@ function SancionesTab({ personaId }: { personaId: number }) {
   }
 
   const TIPO_COLOR: Record<string, string> = {
-    "Llamado de atención":      "bg-amber-500/10 text-amber-500",
-    "Sanción disciplinaria":    "bg-orange-500/10 text-orange-500",
-    "Suspensión":               "bg-red-500/10 text-red-500",
+    [TC_SANCION_TIPOS[0]]: "bg-amber-500/10 text-amber-500",
+    [TC_SANCION_TIPOS[1]]: "bg-orange-500/10 text-orange-500",
+    [TC_SANCION_TIPOS[2]]: "bg-orange-600/10 text-orange-600",
+    [TC_SANCION_TIPOS[3]]: "bg-red-500/10 text-red-500",
   }
 
   return (
@@ -660,9 +652,7 @@ function SancionesTab({ personaId }: { personaId: number }) {
       {adding && (
         <AddForm onCancel={() => setAdding(false)} onSave={guardar} saving={saving}>
           <SelectField label="Tipo" value={form.tipo} onChange={(v) => setForm((p) => ({ ...p, tipo: v }))}>
-            <option value="Llamado de atención">Llamado de atención</option>
-            <option value="Sanción disciplinaria">Sanción disciplinaria</option>
-            <option value="Suspensión">Suspensión</option>
+            {TC_SANCION_TIPOS.map((t) => <option key={t} value={t}>{t}</option>)}
           </SelectField>
           <InputField label="Fecha" type="date" value={form.fecha} onChange={(v) => setForm((p) => ({ ...p, fecha: v }))} />
           <div className="space-y-1">

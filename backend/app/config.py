@@ -57,6 +57,8 @@ class Settings(BaseSettings):
 
     # ── Módulo T&C — Talento y Cultura (Personal) ─────────────────────────────
     personal_database_url: str = "sqlite:///./data/personal.db"
+    tc_manuales_dir: str = "/app/data/tc_manuales"
+    tc_fotos_dir: str = "/app/data/tc_fotos"
 
     # ── Anthropic / Claude (proxy NetVault — la API key nunca sale del servidor) ──
     anthropic_api_key: str = ""
