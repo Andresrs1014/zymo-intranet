@@ -917,19 +917,24 @@ def obtener_organigrama_arbol(
         else:
             raices.append(nodo)
 
-    # 5. Detecta ciclos (nodos que quedaron fuera de cualquier raíz) y los eleva a raíz
+    # 5. Detecta ciclos: nodos no alcanzables desde ninguna raíz
     def _reachable(nodes: list[dict], visited: set[int]) -> None:
         for n in nodes:
-            visited.add(n["id"])
-            _reachable(n["hijos"], visited)
+            if n["id"] not in visited:
+                visited.add(n["id"])
+                _reachable(n["hijos"], visited)
 
     reachable: set[int] = set()
     _reachable(raices, reachable)
-    for nodo in nodos.values():
-        if nodo["id"] not in reachable:
-            # ponytail: ciclo detectado, se eleva a raíz rompiendo la referencia
-            nodo["parent_id"] = None
-            raices.append(nodo)
+    orphans = [n for n in nodos.values() if n["id"] not in reachable]
+    if orphans:
+        # ponytail: elimina back-references para evitar recursión infinita en el frontend
+        for n in orphans:
+            if n["parent_id"] is not None and n["parent_id"] in nodos:
+                parent = nodos[n["parent_id"]]
+                parent["hijos"] = [h for h in parent["hijos"] if h["id"] != n["id"]]
+            n["parent_id"] = None
+            raices.append(n)
 
     return {"raices": raices}
 

@@ -59,13 +59,16 @@ function OrgNodo({
   nodo,
   depth,
   onClickPersonas,
+  _seen = new Set<number>(),
 }: {
   nodo: ArbolNodo
   depth: number
   onClickPersonas: (nodo: ArbolNodo) => void
+  _seen?: Set<number>
 }) {
   const [abierto, setAbierto] = useState(depth < 2)
-  const hijos    = nodo.hijos   ?? []
+  const seen = new Set(_seen).add(nodo.id)
+  const hijos    = (nodo.hijos ?? []).filter(h => !_seen.has(h.id))
   const personas = nodo.personas ?? []
   const tieneHijos = hijos.length > 0
   const count      = personas.length
@@ -143,7 +146,7 @@ function OrgNodo({
       {tieneHijos && abierto && (
         <div className="mt-1.5 ml-6 pl-4 border-l border-teal-500/10 space-y-1.5">
           {hijos.map((hijo) => (
-            <OrgNodo key={hijo.id} nodo={hijo} depth={depth + 1} onClickPersonas={onClickPersonas} />
+            <OrgNodo key={hijo.id} nodo={hijo} depth={depth + 1} onClickPersonas={onClickPersonas} _seen={seen} />
           ))}
         </div>
       )}
