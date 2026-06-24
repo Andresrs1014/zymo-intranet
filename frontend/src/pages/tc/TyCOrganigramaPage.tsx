@@ -308,15 +308,23 @@ export function TyCOrganigramaPage() {
   const [sedeActiva, setSedeActiva]           = useState<number | null>(null)
   const [arbol, setArbol]                     = useState<ArbolData | null>(null)
   const [loading, setLoading]                 = useState(false)
+  const [apiError, setApiError]               = useState<string | null>(null)
   const [nodoSeleccionado, setNodoSeleccionado] = useState<ArbolNodo | null>(null)
   const [modalNuevoCargo, setModalNuevoCargo] = useState(false)
 
   function cargarArbol(sid: number | null) {
     setLoading(true)
+    setApiError(null)
     const params = sid ? { sede_id: sid } : {}
     api.get("/tc/organigrama-arbol", { params })
       .then((r) => setArbol(r.data))
-      .catch(() => setArbol(null))
+      .catch((e: { response?: { status?: number } }) => {
+        setArbol(null)
+        const status = e?.response?.status
+        setApiError(status === 404
+          ? "Endpoint no encontrado (¿falta rebuild de Docker?)"
+          : `Error ${status ?? "de red"} al cargar el organigrama`)
+      })
       .finally(() => setLoading(false))
   }
 
@@ -407,7 +415,13 @@ export function TyCOrganigramaPage() {
           </div>
         )}
 
-        {!loading && (!arbol || totalRaices === 0) && (
+        {!loading && apiError && (
+          <div className="flex flex-col items-center justify-center h-48 gap-2">
+            <span className="text-sm text-destructive">{apiError}</span>
+          </div>
+        )}
+
+        {!loading && !apiError && (!arbol || totalRaices === 0) && (
           <div className="flex flex-col items-center justify-center h-48 gap-2 text-muted-foreground">
             <Users className="w-8 h-8 opacity-20" />
             <span className="text-sm">
