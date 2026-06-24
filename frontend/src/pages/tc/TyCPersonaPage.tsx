@@ -373,7 +373,7 @@ function CapacitacionesTab({ personaId, puedeEditar }: { personaId: number; pued
   const [loading, setLoading] = useState(true)
   const [adding, setAdding]   = useState(false)
   const [saving, setSaving]   = useState(false)
-  const [form, setForm]       = useState({ titulo: "", fecha: "", horas: "", estado: TC_CAP_ESTADOS[0], observaciones: "" })
+  const [form, setForm]       = useState({ titulo: "", fecha: "", horas: "", estado: TC_CAP_ESTADOS[0] as string, observaciones: "" })
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -579,7 +579,7 @@ function SancionesTab({ personaId }: { personaId: number }) {
   const [loading, setLoading] = useState(true)
   const [adding, setAdding]   = useState(false)
   const [saving, setSaving]   = useState(false)
-  const [form, setForm]       = useState({ tipo: TC_SANCION_TIPOS[0], descripcion: "", fecha: "" })
+  const [form, setForm]       = useState({ tipo: TC_SANCION_TIPOS[0] as string, descripcion: "", fecha: "" })
 
   const load = useCallback(async () => {
     setLoading(true)

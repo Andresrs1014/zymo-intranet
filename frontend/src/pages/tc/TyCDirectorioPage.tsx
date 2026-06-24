@@ -56,7 +56,7 @@ export function TyCDirectorioPage() {
   const [empresaFiltro, setEmpresaFiltro] = useState("")
   const [areaFiltro, setAreaFiltro]       = useState("")
   const [cargoFiltro, setCargoFiltro]     = useState("")
-  const [estadoFiltro, setEstadoFiltro]   = useState(TC_ESTADOS[0])
+  const [estadoFiltro, setEstadoFiltro]   = useState<string>(TC_ESTADOS[0])
 
   const [personas, setPersonas] = useState<Persona[]>([])
   const [total, setTotal]       = useState(0)
