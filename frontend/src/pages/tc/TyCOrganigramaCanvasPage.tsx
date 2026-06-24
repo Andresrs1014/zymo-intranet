@@ -315,23 +315,7 @@ function PanelPorColocar({
             <button
               key={c.id}
               onClick={() => onSelect(c)}
-              className="w-full text-left px-3 py-2 rounded-xl text-[11px] font-medium transition-all group"
-              style={{
-                color: "rgba(255,255,255,0.6)",
-                fontFamily: "'DM Sans', sans-serif",
-              }}
-              onMouseEnter={e => {
-                const el = e.currentTarget
-                el.style.background = "rgba(245,158,11,0.08)"
-                el.style.color = "rgba(245,158,11,0.9)"
-                el.style.border = "1px solid rgba(245,158,11,0.15)"
-              }}
-              onMouseLeave={e => {
-                const el = e.currentTarget
-                el.style.background = ""
-                el.style.color = "rgba(255,255,255,0.6)"
-                el.style.border = "1px solid transparent"
-              }}
+              className="w-full text-left px-3 py-2 rounded-xl text-[11px] font-medium transition-all"
               style={{
                 background: "transparent",
                 border: "1px solid transparent",
