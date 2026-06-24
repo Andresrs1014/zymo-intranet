@@ -31,89 +31,69 @@ export function TyCPage() {
     <PageLayout title="T&C — Talento y Cultura" mainClassName="flex-1 overflow-y-auto">
 
       {/* ── Hero ─────────────────────────────────────────────────────── */}
-      <div className="relative overflow-hidden border-b border-border px-8 pt-10 pb-8">
-        {/* dot-grid texture */}
+      <div className="relative overflow-hidden border-b border-border px-10 pt-10 pb-8">
         <div
-          className="pointer-events-none absolute inset-0 opacity-[0.04]"
+          className="pointer-events-none absolute inset-0 opacity-[0.035]"
           style={{
             backgroundImage: "radial-gradient(circle, currentColor 1px, transparent 1px)",
             backgroundSize: "24px 24px",
           }}
         />
-        {/* teal glow */}
-        <div className="pointer-events-none absolute -top-20 -right-20 w-72 h-72 rounded-full bg-teal-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute -top-24 right-0 w-96 h-96 rounded-full bg-teal-500/8 blur-3xl" />
 
-        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-teal-500 mb-2">
-          Talento y Cultura · Grupo ZYMO
-        </p>
-
-        <div className="flex items-end gap-6 mb-6">
+        <div className="max-w-5xl mx-auto flex items-end justify-between gap-8">
           <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-teal-500 mb-3">
+              Talento y Cultura · Grupo ZYMO
+            </p>
             <p
-              className="text-[72px] font-bold leading-none tabular-nums tracking-tighter"
+              className="text-[80px] font-bold leading-none tabular-nums tracking-tighter"
               style={{ fontFamily: "'DM Mono', monospace" }}
             >
               {stats?.total ?? <span className="opacity-20">—</span>}
             </p>
-            <p className="text-sm text-muted-foreground mt-1">colaboradores en el grupo</p>
+            <p className="text-sm text-muted-foreground mt-2">colaboradores en el grupo</p>
+            {stats && (
+              <div className="mt-4 w-56 h-[3px] bg-border rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-teal-500 rounded-full transition-all duration-1000"
+                  style={{ width: `${activePct}%` }}
+                />
+              </div>
+            )}
           </div>
 
           {stats && (
-            <div className="mb-2 space-y-1.5">
-              <Pill color="emerald" value={stats.activos} label="activos" pct={activePct} />
-              <Pill color="muted" value={stats.inactivos} label="inactivos" pct={100 - activePct} />
+            <div className="flex gap-8 mb-3">
+              <BigStat value={stats.activos} label="activos" pct={activePct} color="text-emerald-400" />
+              <BigStat value={stats.inactivos} label="inactivos" pct={100 - activePct} color="text-muted-foreground" />
             </div>
           )}
         </div>
-
-        {/* barra activos */}
-        {stats && (
-          <div className="w-full max-w-xs h-[3px] bg-border rounded-full overflow-hidden">
-            <div
-              className="h-full bg-teal-500 rounded-full transition-all duration-1000"
-              style={{ width: `${activePct}%` }}
-            />
-          </div>
-        )}
       </div>
 
       {/* ── Módulos ───────────────────────────────────────────────────── */}
-      <div className="px-8 py-8 max-w-3xl space-y-8">
+      <div className="px-10 py-8 max-w-5xl mx-auto space-y-8">
 
-        {/* PERSONAL */}
+        {/* Fila 1: Directorio (ancho) + Organigrama + Manuales */}
         <section>
-          <SectionLabel>Personal</SectionLabel>
-          <div className="grid grid-cols-1 gap-3">
-            <ModuleCard
-              icon={<Users className="w-5 h-5" />}
-              color="teal"
-              title="Directorio de colaboradores"
-              description="Busca, filtra y gestiona todos los empleados del grupo. Acceso completo al perfil individual."
-              onClick={() => navigate("/tc/directorio")}
-              primary
-            />
-            {puedeImport && (
+          <SectionLabel>Personal y estructura</SectionLabel>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-1">
               <ModuleCard
-                icon={<Upload className="w-4 h-4" />}
-                color="amber"
-                title="Importar desde archivo"
-                description="Carga el export JS del Directorio ZYMO."
-                onClick={() => navigate("/tc/import")}
-                compact
+                icon={<Users className="w-5 h-5" />}
+                color="teal"
+                title="Directorio"
+                description="Busca, filtra y gestiona todos los colaboradores. Perfil individual con historial completo."
+                onClick={() => navigate("/tc/directorio")}
+                primary
               />
-            )}
-          </div>
-        </section>
-
-        {/* ESTRUCTURA */}
-        <section>
-          <SectionLabel>Estructura organizacional</SectionLabel>
-          <div className="grid grid-cols-2 gap-3">
+            </div>
             <ModuleCard
               icon={<GitBranch className="w-4 h-4" />}
               color="teal"
               title="Organigrama"
-              description="Árbol jerárquico empresa → área → cargo → persona."
+              description="Árbol jerárquico empresa → área → cargo → persona. Vista canvas y lista."
               onClick={() => navigate("/tc/organigrama")}
             />
             <ModuleCard
@@ -126,49 +106,70 @@ export function TyCPage() {
           </div>
         </section>
 
-        {/* DESARROLLO */}
-        {puedeSensible && (
-          <section>
-            <SectionLabel>Desarrollo y talento</SectionLabel>
-            <div className="grid grid-cols-2 gap-3">
+        {/* Fila 2: Desarrollo */}
+        <section>
+          <SectionLabel>Desarrollo y talento</SectionLabel>
+          <div className="grid grid-cols-3 gap-3">
+
+            {/* KPIs — solo sensible */}
+            {puedeSensible && (
               <ModuleCard
                 icon={<TrendingUp className="w-4 h-4" />}
                 color="teal"
                 title="Indicadores KPI"
-                description="Rotación, capacitación, desempeño, IDP — métricas en tiempo real."
+                description="Rotación, capacitación, desempeño e IDP calculados en tiempo real."
                 onClick={() => navigate("/tc/indicadores")}
               />
+            )}
 
-              {/* Card agrupada: perfil del colaborador */}
-              <div className="rounded-2xl border border-border bg-muted/5 p-4 space-y-3">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                  Desde el perfil del colaborador
-                </p>
-                <div className="space-y-1">
-                  {[
-                    { icon: <BookOpen className="w-3 h-3" />, label: "Capacitaciones", color: "text-indigo-400" },
-                    { icon: <ClipboardList className="w-3 h-3" />, label: "Evaluaciones", color: "text-orange-400" },
-                    { icon: <ShieldAlert className="w-3 h-3" />, label: "Sanciones", color: "text-red-400" },
-                    { icon: <FileText className="w-3 h-3" />, label: "Novedades", color: "text-violet-400" },
-                  ].map((item) => (
+            {/* Tabs del perfil agrupados */}
+            <div className={`rounded-2xl border border-border bg-muted/5 p-4 space-y-3 ${puedeSensible ? "col-span-2" : "col-span-3"}`}>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                Desde el perfil del colaborador
+              </p>
+              <div className={`grid gap-1 ${puedeSensible ? "grid-cols-2" : "grid-cols-4"}`}>
+                {[
+                  { icon: <BookOpen className="w-3.5 h-3.5" />, label: "Capacitaciones", desc: "Historial de formación y diplomas", color: "text-indigo-400", bg: "bg-indigo-500/8" },
+                  { icon: <ClipboardList className="w-3.5 h-3.5" />, label: "Evaluaciones", desc: "Puntajes y cumplimiento de metas", color: "text-orange-400", bg: "bg-orange-500/8" },
+                  { icon: <ShieldAlert className="w-3.5 h-3.5" />, label: "Sanciones", desc: "Registro disciplinario", color: "text-red-400", bg: "bg-red-500/8", sensible: true },
+                  { icon: <FileText className="w-3.5 h-3.5" />, label: "Novedades", desc: "Incapacidades y permisos", color: "text-violet-400", bg: "bg-violet-500/8", sensible: true },
+                ]
+                  .filter((i) => !i.sensible || puedeSensible)
+                  .map((item) => (
                     <button
                       key={item.label}
                       onClick={() => navigate("/tc/directorio")}
-                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-muted/20 transition-colors text-left group"
+                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-muted/20 transition-colors text-left group"
                     >
-                      <span className={item.color}>{item.icon}</span>
-                      <span className="text-xs font-medium flex-1">{item.label}</span>
-                      <ArrowUpRight className="w-3 h-3 text-muted-foreground/30 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${item.bg} ${item.color}`}>
+                        {item.icon}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold leading-tight">{item.label}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">{item.desc}</p>
+                      </div>
+                      <ArrowUpRight className="w-3 h-3 text-muted-foreground/20 opacity-0 group-hover:opacity-100 transition-opacity ml-auto shrink-0" />
                     </button>
                   ))}
-                </div>
-                <p className="text-[10px] text-muted-foreground leading-snug">
-                  Abre el perfil de un colaborador en el directorio para registrar.
-                </p>
               </div>
+              <p className="text-[10px] text-muted-foreground/60">
+                Abre el perfil de cualquier colaborador en el directorio para acceder.
+              </p>
             </div>
-          </section>
-        )}
+
+            {/* Import — si tiene permiso */}
+            {puedeImport && (
+              <ModuleCard
+                icon={<Upload className="w-4 h-4" />}
+                color="amber"
+                title="Importar"
+                description="Carga el export JS del Directorio ZYMO."
+                onClick={() => navigate("/tc/import")}
+                compact
+              />
+            )}
+          </div>
+        </section>
 
       </div>
     </PageLayout>
@@ -177,17 +178,14 @@ export function TyCPage() {
 
 // ── Primitivos ────────────────────────────────────────────────────────────────
 
-function Pill({ color, value, label, pct }: { color: string; value: number; label: string; pct: number }) {
-  const cls = color === "emerald"
-    ? "text-emerald-500"
-    : "text-muted-foreground"
+function BigStat({ value, label, pct, color }: { value: number; label: string; pct: number; color: string }) {
   return (
-    <div className="flex items-center gap-2">
-      <span className={`text-lg font-bold tabular-nums leading-none ${cls}`} style={{ fontFamily: "'DM Mono', monospace" }}>
+    <div className="text-right">
+      <p className={`text-4xl font-bold tabular-nums leading-none ${color}`} style={{ fontFamily: "'DM Mono', monospace" }}>
         {value}
-      </span>
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="text-[10px] text-muted-foreground/50 tabular-nums">{pct}%</span>
+      </p>
+      <p className="text-xs text-muted-foreground mt-1">{label}</p>
+      <p className={`text-[10px] tabular-nums mt-0.5 ${color} opacity-60`}>{pct}%</p>
     </div>
   )
 }
