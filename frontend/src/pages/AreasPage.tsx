@@ -19,6 +19,9 @@ import { getApiError } from "@/hooks/useRoles"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
+// re-export for use in CargosPanel
+type SedeBasic = Pick<SedeItem, "id" | "name">
+
 export function AreasPage() {
   return (
     <PageLayout title="Áreas y Sedes" mainClassName="flex-1 overflow-auto p-6">
@@ -206,36 +209,31 @@ function SedesPanel() {
 
 // ── Cargos Panel (T&C) ────────────────────────────────────────────────────────
 
-interface TcEmpresa { id: number; nombre: string; codigo: string }
-interface TcArea    { id: number; name: string }   // Area global (campo 'name', no 'nombre')
-interface TcCargo   { id: number; empresa_id: number; area_id: number | null; nombre: string }
+interface TcArea  { id: number; name: string }
+interface TcCargo { id: number; area_id: number | null; parent_id: number | null; nombre: string; sede_ids: number[] }
 
 function CargosPanel() {
-  const [empresas, setEmpresas]     = useState<TcEmpresa[]>([])
-  const [empresaId, setEmpresaId]   = useState<number | null>(null)
-  const [areas, setAreas]           = useState<TcArea[]>([])
-  const [cargos, setCargos]         = useState<TcCargo[]>([])
-  const [loading, setLoading]       = useState(false)
-  const [pending, setPending]       = useState(false)
-  const [error, setError]           = useState<string>()
+  const { data: sedes = [] } = useSedes()
+  const [sedeId, setSedeId]           = useState<number | null>(null)
+  const [areas, setAreas]             = useState<TcArea[]>([])
+  const [cargos, setCargos]           = useState<TcCargo[]>([])
+  const [loading, setLoading]         = useState(false)
+  const [pending, setPending]         = useState(false)
+  const [error, setError]             = useState<string>()
 
-  const [showCreate, setShowCreate] = useState(false)
-  const [newNombre, setNewNombre]   = useState("")
-  const [newAreaId, setNewAreaId]   = useState<number | "">("")
+  const [showCreate, setShowCreate]   = useState(false)
+  const [newNombre, setNewNombre]       = useState("")
+  const [newAreaId, setNewAreaId]       = useState<number | "">("")
+  const [newParentId, setNewParentId]   = useState<number | "">("")
+  const [newSedeIds, setNewSedeIds]     = useState<number[]>([])
 
-  const [editId, setEditId]         = useState<number | null>(null)
-  const [editNombre, setEditNombre] = useState("")
-  const [editAreaId, setEditAreaId] = useState<number | "">("")
+  const [editId, setEditId]             = useState<number | null>(null)
+  const [editNombre, setEditNombre]     = useState("")
+  const [editAreaId, setEditAreaId]     = useState<number | "">("")
+  const [editParentId, setEditParentId] = useState<number | "">("")
+  const [editSedeIds, setEditSedeIds]   = useState<number[]>([])
 
-  const [deleteId, setDeleteId]     = useState<number | null>(null)
-
-  useEffect(() => {
-    api.get("/tc/empresas").then((r) => {
-      const lista: TcEmpresa[] = Array.isArray(r.data) ? r.data : []
-      setEmpresas(lista)
-      if (lista.length > 0) setEmpresaId(lista[0].id)
-    }).catch(() => {})
-  }, [])
+  const [deleteId, setDeleteId]       = useState<number | null>(null)
 
   useEffect(() => {
     api.get("/areas")
@@ -244,24 +242,33 @@ function CargosPanel() {
   }, [])
 
   const cargarCargos = useCallback(() => {
-    if (!empresaId) { setCargos([]); return }
     setLoading(true)
-    api.get("/tc/cargos", { params: { empresa_id: empresaId } })
+    const params = sedeId ? { sede_id: sedeId } : {}
+    api.get("/tc/cargos", { params })
       .then((r) => setCargos(Array.isArray(r.data) ? r.data : []))
       .catch(() => setCargos([]))
       .finally(() => setLoading(false))
-  }, [empresaId])
+  }, [sedeId])
 
   useEffect(() => { cargarCargos() }, [cargarCargos])
 
+  function toggleSede(id: number, current: number[], set: (v: number[]) => void) {
+    set(current.includes(id) ? current.filter((x) => x !== id) : [...current, id])
+  }
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
-    if (!newNombre.trim() || !empresaId) return
+    if (!newNombre.trim()) return
     setError(undefined)
     setPending(true)
     try {
-      await api.post("/tc/cargos", { empresa_id: empresaId, area_id: newAreaId || null, nombre: newNombre.trim() })
-      setNewNombre(""); setNewAreaId(""); setShowCreate(false)
+      await api.post("/tc/cargos", {
+        area_id: newAreaId || null,
+        parent_id: newParentId || null,
+        nombre: newNombre.trim(),
+        sede_ids: newSedeIds,
+      })
+      setNewNombre(""); setNewAreaId(""); setNewParentId(""); setNewSedeIds([]); setShowCreate(false)
       cargarCargos()
     } catch { setError("No se pudo crear el cargo.") }
     finally { setPending(false) }
@@ -273,7 +280,12 @@ function CargosPanel() {
     setError(undefined)
     setPending(true)
     try {
-      await api.put(`/tc/cargos/${editId}`, { nombre: editNombre.trim(), area_id: editAreaId || null })
+      await api.put(`/tc/cargos/${editId}`, {
+        nombre: editNombre.trim(),
+        area_id: editAreaId || null,
+        parent_id: editParentId || null,
+        sede_ids: editSedeIds,
+      })
       setEditId(null)
       cargarCargos()
     } catch { setError("No se pudo actualizar el cargo.") }
@@ -300,10 +312,20 @@ function CargosPanel() {
     setEditId(c.id)
     setEditNombre(c.nombre)
     setEditAreaId(c.area_id ?? "")
+    setEditParentId(c.parent_id ?? "")
+    setEditSedeIds(c.sede_ids ?? [])
     setError(undefined)
   }
 
+  function openCreate() {
+    setShowCreate(true)
+    setEditId(null)
+    setError(undefined)
+    setNewSedeIds(sedeId ? [sedeId] : [])
+  }
+
   const areaMap = new Map(areas.map((a) => [a.id, a.name]))
+  const sedeMap = new Map((sedes as SedeBasic[]).map((s) => [s.id, s.name]))
 
   return (
     <div className="bg-card rounded-xl border border-border overflow-hidden mt-6">
@@ -312,31 +334,41 @@ function CargosPanel() {
         <div>
           <h3 className="font-semibold text-foreground text-sm">Cargos</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Posiciones laborales por empresa del grupo ZYMO (módulo T&amp;C).
+            Posiciones laborales del grupo ZYMO — asigna cada cargo a una o más sedes.
           </p>
         </div>
         <Button
-          onClick={() => { setShowCreate(true); setEditId(null); setError(undefined) }}
+          onClick={openCreate}
           variant="default" size="sm" className="text-xs px-3 py-1.5 h-auto"
         >
           + Nuevo
         </Button>
       </div>
 
-      {/* Empresa tabs */}
-      {empresas.length > 0 && (
-        <div className="flex gap-1 px-4 pt-3 pb-2 border-b border-border">
-          {empresas.map((e) => (
+      {/* Sede tabs */}
+      {sedes.length > 0 && (
+        <div className="flex flex-wrap gap-1 px-4 pt-3 pb-2 border-b border-border">
+          <button
+            onClick={() => { setSedeId(null); setShowCreate(false); setEditId(null); setDeleteId(null) }}
+            className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+              sedeId === null
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-accent"
+            }`}
+          >
+            Todas
+          </button>
+          {(sedes as SedeBasic[]).map((s) => (
             <button
-              key={e.id}
-              onClick={() => { setEmpresaId(e.id); setShowCreate(false); setEditId(null); setDeleteId(null) }}
+              key={s.id}
+              onClick={() => { setSedeId(s.id); setShowCreate(false); setEditId(null); setDeleteId(null) }}
               className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                empresaId === e.id
+                sedeId === s.id
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:bg-accent"
               }`}
             >
-              {e.codigo}
+              {s.name}
             </button>
           ))}
         </div>
@@ -348,29 +380,56 @@ function CargosPanel() {
 
       {/* Create form */}
       {showCreate && (
-        <form onSubmit={handleCreate} className="flex flex-wrap gap-2 px-4 py-3 border-b border-border">
-          <Input
-            type="text" autoFocus required
-            value={newNombre} onChange={(e) => setNewNombre(e.target.value)}
-            placeholder="Nombre del cargo"
-            className="flex-1 h-8 text-sm min-w-[180px]"
-          />
-          <select
-            value={newAreaId}
-            onChange={(e) => setNewAreaId(e.target.value ? Number(e.target.value) : "")}
-            className="h-8 text-sm bg-background border border-input rounded-md px-2 min-w-[150px]"
-          >
-            <option value="">Sin área</option>
-            {areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </select>
-          <Button type="submit" variant="default" size="sm" disabled={pending}
-            className="text-xs px-3 py-1.5 h-auto whitespace-nowrap">
-            {pending ? "..." : "Agregar"}
-          </Button>
-          <Button type="button" variant="outline" size="sm" onClick={() => setShowCreate(false)}
-            className="text-xs px-3 py-1.5 h-auto">
-            ✕
-          </Button>
+        <form onSubmit={handleCreate} className="flex flex-col gap-2 px-4 py-3 border-b border-border">
+          <div className="flex flex-wrap gap-2">
+            <Input
+              type="text" autoFocus required
+              value={newNombre} onChange={(e) => setNewNombre(e.target.value)}
+              placeholder="Nombre del cargo"
+              className="flex-1 h-8 text-sm min-w-[180px]"
+            />
+            <select
+              value={newAreaId}
+              onChange={(e) => setNewAreaId(e.target.value ? Number(e.target.value) : "")}
+              className="h-8 text-sm bg-background border border-input rounded-md px-2 min-w-[150px]"
+            >
+              <option value="">Sin área</option>
+              {areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+            <select
+              value={newParentId}
+              onChange={(e) => setNewParentId(e.target.value ? Number(e.target.value) : "")}
+              className="h-8 text-sm bg-background border border-input rounded-md px-2 min-w-[160px]"
+            >
+              <option value="">Sin cargo padre</option>
+              {cargos.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+            </select>
+          </div>
+          {sedes.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {(sedes as SedeBasic[]).map((s) => (
+                <label key={s.id} className="flex items-center gap-1.5 text-xs cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={newSedeIds.includes(s.id)}
+                    onChange={() => toggleSede(s.id, newSedeIds, setNewSedeIds)}
+                    className="rounded border-border"
+                  />
+                  {s.name}
+                </label>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-2">
+            <Button type="submit" variant="default" size="sm" disabled={pending}
+              className="text-xs px-3 py-1.5 h-auto whitespace-nowrap">
+              {pending ? "..." : "Agregar"}
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => setShowCreate(false)}
+              className="text-xs px-3 py-1.5 h-auto">
+              ✕
+            </Button>
+          </div>
         </form>
       )}
 
@@ -379,33 +438,62 @@ function CargosPanel() {
         <p className="px-4 py-6 text-xs text-muted-foreground">Cargando...</p>
       ) : cargos.length === 0 ? (
         <p className="px-4 py-8 text-center text-xs text-muted-foreground">
-          No hay cargos registrados para esta empresa.
+          {sedeId ? "No hay cargos en esta sede." : "No hay cargos registrados."}
         </p>
       ) : (
         <ul className="divide-y divide-border">
           {cargos.map((c) => (
             <li key={c.id} className="flex flex-wrap items-center gap-2 px-4 py-2.5 hover:bg-muted transition-colors">
               {editId === c.id ? (
-                <form onSubmit={handleUpdate} className="flex flex-1 flex-wrap gap-2">
-                  <Input
-                    type="text" autoFocus required
-                    value={editNombre} onChange={(e) => setEditNombre(e.target.value)}
-                    className="flex-1 h-8 text-sm min-w-[180px]"
-                  />
-                  <select
-                    value={editAreaId}
-                    onChange={(e) => setEditAreaId(e.target.value ? Number(e.target.value) : "")}
-                    className="h-8 text-sm bg-background border border-input rounded-md px-2 min-w-[150px]"
-                  >
-                    <option value="">Sin área</option>
-                    {areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                  </select>
-                  <Button type="submit" variant="ghost" size="sm" disabled={pending}
-                    className="text-xs px-2 py-1 h-auto text-primary hover:bg-primary/10">
-                    {pending ? "..." : "Guardar"}
-                  </Button>
-                  <Button type="button" variant="ghost" size="sm" onClick={() => setEditId(null)}
-                    className="text-xs px-2 py-1 h-auto">✕</Button>
+                <form onSubmit={handleUpdate} className="flex flex-col flex-1 gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    <Input
+                      type="text" autoFocus required
+                      value={editNombre} onChange={(e) => setEditNombre(e.target.value)}
+                      className="flex-1 h-8 text-sm min-w-[180px]"
+                    />
+                    <select
+                      value={editAreaId}
+                      onChange={(e) => setEditAreaId(e.target.value ? Number(e.target.value) : "")}
+                      className="h-8 text-sm bg-background border border-input rounded-md px-2 min-w-[150px]"
+                    >
+                      <option value="">Sin área</option>
+                      {areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                    </select>
+                    <select
+                      value={editParentId}
+                      onChange={(e) => setEditParentId(e.target.value ? Number(e.target.value) : "")}
+                      className="h-8 text-sm bg-background border border-input rounded-md px-2 min-w-[160px]"
+                    >
+                      <option value="">Sin cargo padre</option>
+                      {cargos.filter((c) => c.id !== editId).map((c) => (
+                        <option key={c.id} value={c.id}>{c.nombre}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {sedes.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {(sedes as SedeBasic[]).map((s) => (
+                        <label key={s.id} className="flex items-center gap-1.5 text-xs cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={editSedeIds.includes(s.id)}
+                            onChange={() => toggleSede(s.id, editSedeIds, setEditSedeIds)}
+                            className="rounded border-border"
+                          />
+                          {s.name}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <Button type="submit" variant="ghost" size="sm" disabled={pending}
+                      className="text-xs px-2 py-1 h-auto text-primary hover:bg-primary/10">
+                      {pending ? "..." : "Guardar"}
+                    </Button>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setEditId(null)}
+                      className="text-xs px-2 py-1 h-auto">✕</Button>
+                  </div>
                 </form>
               ) : deleteId === c.id ? (
                 <div className="flex flex-1 items-center gap-2">
@@ -421,11 +509,23 @@ function CargosPanel() {
               ) : (
                 <>
                   <span className="flex-1 text-sm text-foreground min-w-0">{c.nombre}</span>
-                  {c.area_id && (
-                    <span className="text-[11px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full shrink-0">
-                      {areaMap.get(c.area_id) ?? "—"}
-                    </span>
-                  )}
+                  <div className="flex flex-wrap gap-1 shrink-0">
+                    {c.parent_id && (
+                      <span className="text-[11px] bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full">
+                        ↑ {cargos.find((p) => p.id === c.parent_id)?.nombre ?? `#${c.parent_id}`}
+                      </span>
+                    )}
+                    {c.area_id && (
+                      <span className="text-[11px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
+                        {areaMap.get(c.area_id) ?? "—"}
+                      </span>
+                    )}
+                    {(c.sede_ids ?? []).map((sid) => (
+                      <span key={sid} className="text-[11px] bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                        {sedeMap.get(sid) ?? `Sede ${sid}`}
+                      </span>
+                    ))}
+                  </div>
                   <Button onClick={() => openEdit(c)} variant="ghost" size="sm"
                     className="text-xs px-2 py-1 h-auto text-primary hover:bg-primary/10">
                     Editar

@@ -1,167 +1,335 @@
-import { useState, useEffect, type ReactNode } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { api } from "@/lib/api"
 import { useAuthStore } from "@/store/authStore"
 import { canEditTyC } from "@/lib/permissions"
+import { useSedes, type SedeItem } from "@/hooks/useSedes"
 import { PageLayout } from "@/components/layout/PageLayout"
-import { ArrowLeft, ChevronDown, ChevronRight, Plus, X, Search, Users, Briefcase, LayoutGrid } from "lucide-react"
+import { ArrowLeft, LayoutGrid, Plus, X, ChevronRight, ChevronDown, Users } from "lucide-react"
 
-interface PersonaChip { id: number; nombre: string; initials: string }
-interface CargoNode   { id: number; nombre: string; personas: PersonaChip[] }
-interface AreaNode    { id: number; nombre: string; cargos: CargoNode[] }
-interface GlobalArea  { id: number; name: string }
-
-interface OrgData {
-  empresa: { id: number; nombre: string; codigo: string }
-  areas: AreaNode[]
-  sin_area: CargoNode[]
+interface PersonaMini {
+  id: number
+  nombre: string
+  initials: string
+  foto_url: string
 }
 
-interface Empresa { id: number; nombre: string; codigo: string }
-
-interface PersonaBusqueda {
-  id: number; nombre: string; initials: string; cargo_nombre: string; cargo_id: number | null
+interface ArbolNodo {
+  id: number
+  nombre: string
+  area_id: number | null
+  parent_id: number | null
+  personas: PersonaMini[]
+  hijos: ArbolNodo[]
 }
+
+interface ArbolData { raices: ArbolNodo[] }
+
+// ── Avatar ────────────────────────────────────────────────────────────────────
+
+function Avatar({ p, size = 24 }: { p: PersonaMini; size?: number }) {
+  const [err, setErr] = useState(false)
+  const style = { width: size, height: size, fontSize: size * 0.38 }
+  if (!err && p.foto_url) {
+    return (
+      <img
+        src={p.foto_url}
+        alt={p.nombre}
+        title={p.nombre}
+        onError={() => setErr(true)}
+        style={style}
+        className="rounded-full object-cover border-2 border-background ring-1 ring-white/10 shrink-0"
+      />
+    )
+  }
+  return (
+    <div
+      title={p.nombre}
+      style={style}
+      className="rounded-full bg-teal-600/30 text-teal-300 font-bold flex items-center justify-center border-2 border-background shrink-0 select-none"
+    >
+      {p.initials || p.nombre.slice(0, 2).toUpperCase()}
+    </div>
+  )
+}
+
+// ── Nodo recursivo ────────────────────────────────────────────────────────────
+
+function OrgNodo({
+  nodo,
+  depth,
+  onClickPersonas,
+}: {
+  nodo: ArbolNodo
+  depth: number
+  onClickPersonas: (nodo: ArbolNodo) => void
+}) {
+  const [abierto, setAbierto] = useState(depth < 2)
+  const tieneHijos = nodo.hijos.length > 0
+  const count = nodo.personas.length
+  // Avatares visibles: máximo 4, el resto como "+N"
+  const visibles = nodo.personas.slice(0, 4)
+  const extra = count - visibles.length
+
+  return (
+    <div className="relative">
+      {/* Línea vertical de conexión */}
+      {depth > 0 && (
+        <div
+          className="absolute left-0 top-0 bottom-0 w-px bg-teal-500/15"
+          style={{ left: -16 }}
+        />
+      )}
+
+      <div
+        className="group relative rounded-xl border border-border/60 bg-zinc-950/80 hover:border-teal-500/30 transition-all duration-200 overflow-hidden"
+        style={{ marginLeft: depth > 0 ? 0 : 0 }}
+      >
+        {/* Borde izquierdo de profundidad */}
+        <div
+          className="absolute left-0 top-0 bottom-0 w-0.5 rounded-l-xl"
+          style={{ backgroundColor: depthColor(depth) }}
+        />
+
+        <div className="flex items-center gap-3 px-4 py-3 pl-5">
+          {/* Toggle hijos */}
+          {tieneHijos ? (
+            <button
+              onClick={() => setAbierto((v) => !v)}
+              className="text-muted-foreground/50 hover:text-teal-400 transition-colors shrink-0"
+            >
+              {abierto
+                ? <ChevronDown className="w-3.5 h-3.5" />
+                : <ChevronRight className="w-3.5 h-3.5" />}
+            </button>
+          ) : (
+            <div className="w-3.5 h-3.5 shrink-0" />
+          )}
+
+          {/* Nombre del cargo */}
+          <p className="flex-1 text-sm font-semibold text-foreground/90 leading-tight min-w-0 truncate">
+            {nodo.nombre}
+          </p>
+
+          {/* Avatares + count */}
+          {count > 0 && (
+            <button
+              onClick={() => onClickPersonas(nodo)}
+              className="flex items-center gap-1.5 shrink-0 group/av"
+              title={`${count} persona${count !== 1 ? "s" : ""}`}
+            >
+              <div className="flex -space-x-1.5">
+                {visibles.map((p) => <Avatar key={p.id} p={p} size={22} />)}
+              </div>
+              {extra > 0 && (
+                <span className="text-[10px] font-semibold text-muted-foreground group-hover/av:text-teal-400 transition-colors">
+                  +{extra}
+                </span>
+              )}
+              <span className="text-[10px] text-muted-foreground/50 group-hover/av:text-teal-400 transition-colors ml-0.5">
+                {count}
+              </span>
+            </button>
+          )}
+
+          {count === 0 && (
+            <span className="text-[10px] text-muted-foreground/30 shrink-0">Sin personas</span>
+          )}
+        </div>
+      </div>
+
+      {/* Hijos */}
+      {tieneHijos && abierto && (
+        <div className="mt-1.5 ml-6 pl-4 border-l border-teal-500/10 space-y-1.5">
+          {nodo.hijos.map((hijo) => (
+            <OrgNodo key={hijo.id} nodo={hijo} depth={depth + 1} onClickPersonas={onClickPersonas} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function depthColor(depth: number): string {
+  const colors = ["#14b8a6", "#6366f1", "#f59e0b", "#3b82f6", "#ec4899", "#8b5cf6"]
+  return colors[depth % colors.length]
+}
+
+// ── Drawer personas ───────────────────────────────────────────────────────────
+
+function PersonasDrawer({ nodo, onClose }: { nodo: ArbolNodo; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
+      <div
+        className="relative h-full w-full max-w-xs bg-background border-l border-border shadow-2xl overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border sticky top-0 bg-background z-10">
+          <div>
+            <p className="font-semibold text-sm">{nodo.nombre}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {nodo.personas.length} colaborador{nodo.personas.length !== 1 ? "es" : ""}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="p-4 space-y-2">
+          {nodo.personas.length === 0 ? (
+            <p className="text-xs text-muted-foreground italic text-center py-8">Sin colaboradores activos</p>
+          ) : (
+            nodo.personas.map((p) => (
+              <div key={p.id} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-muted/30 transition-colors">
+                <Avatar p={p} size={36} />
+                <p className="text-sm font-medium text-foreground/90">{p.nombre}</p>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Modal nuevo cargo ─────────────────────────────────────────────────────────
+
+interface GlobalArea { id: number; name: string }
+
+function ModalNuevoCargo({
+  sedes,
+  sedeActiva,
+  onClose,
+  onCreado,
+}: {
+  sedes: SedeItem[]
+  sedeActiva: number | null
+  onClose: () => void
+  onCreado: () => void
+}) {
+  const [nombre, setNombre]   = useState("")
+  const [sedeIds, setSedeIds] = useState<number[]>(sedeActiva ? [sedeActiva] : [])
+  const [areas, setAreas]     = useState<GlobalArea[]>([])
+  const [areaId, setAreaId]   = useState<number | "">("")
+  const [error, setError]     = useState("")
+  const [pending, setPending] = useState(false)
+
+  useEffect(() => {
+    api.get("/areas").then((r) => setAreas(Array.isArray(r.data) ? r.data : [])).catch(() => {})
+  }, [])
+
+  function toggleSede(id: number) {
+    setSedeIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])
+  }
+
+  async function crear() {
+    if (!nombre.trim()) return
+    setPending(true); setError("")
+    try {
+      await api.post("/tc/cargos", { nombre: nombre.trim(), area_id: areaId || null, sede_ids: sedeIds })
+      onCreado()
+      onClose()
+    } catch (e: unknown) {
+      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setError(detail ?? "Error al crear el cargo.")
+    } finally { setPending(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div className="bg-background border border-border rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <p className="font-semibold text-sm">Nuevo cargo</p>
+          <button onClick={onClose} className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="p-4 space-y-3">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">Nombre</label>
+            <input
+              autoFocus type="text" value={nombre}
+              onChange={(e) => { setNombre(e.target.value); setError("") }}
+              onKeyDown={(e) => e.key === "Enter" && crear()}
+              placeholder="ej. Analista de Operaciones"
+              className="w-full px-3 py-2 text-sm bg-muted/30 border border-input rounded-xl focus:outline-none focus:ring-1 focus:ring-teal-500/50"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">Área</label>
+            <select
+              value={areaId}
+              onChange={(e) => setAreaId(e.target.value ? Number(e.target.value) : "")}
+              className="w-full px-3 py-2 text-sm bg-muted/30 border border-input rounded-xl focus:outline-none focus:ring-1 focus:ring-teal-500/50 appearance-none"
+            >
+              <option value="">Sin área</option>
+              {areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+          </div>
+          {sedes.length > 0 && (
+            <div>
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">Sedes</label>
+              <div className="flex flex-wrap gap-2">
+                {sedes.map((s) => (
+                  <label key={s.id} className="flex items-center gap-1.5 text-xs cursor-pointer select-none">
+                    <input type="checkbox" checked={sedeIds.includes(s.id)} onChange={() => toggleSede(s.id)} className="rounded border-border" />
+                    {s.name}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+          {error && <p className="text-xs text-destructive px-1">{error}</p>}
+          <button
+            onClick={crear} disabled={!nombre.trim() || pending}
+            className="w-full h-9 text-sm font-medium bg-teal-500 text-white rounded-xl hover:bg-teal-600 disabled:opacity-50 transition-colors"
+          >
+            {pending ? "Creando…" : "Crear cargo"}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Página principal ──────────────────────────────────────────────────────────
 
 export function TyCOrganigramaPage() {
   const navigate    = useNavigate()
   const user        = useAuthStore((s) => s.user)
   const puedeEditar = user ? canEditTyC(user.role, user.app_permissions) : false
 
-  const [empresas, setEmpresas]           = useState<Empresa[]>([])
-  const [empresaActiva, setEmpresaActiva] = useState<number | null>(null)
-  const [orgData, setOrgData]             = useState<OrgData | null>(null)
-  const [loading, setLoading]             = useState(false)
-  const [areasGlobales, setAreasGlobales] = useState<GlobalArea[]>([])
-  const [areasAbiertas, setAreasAbiertas] = useState<Set<string>>(new Set())
+  const { data: sedes = [] } = useSedes()
+  const [sedeActiva, setSedeActiva]           = useState<number | null>(null)
+  const [arbol, setArbol]                     = useState<ArbolData | null>(null)
+  const [loading, setLoading]                 = useState(false)
+  const [nodoSeleccionado, setNodoSeleccionado] = useState<ArbolNodo | null>(null)
+  const [modalNuevoCargo, setModalNuevoCargo] = useState(false)
 
-  // Modal asignación de persona
-  const [modalCargo, setModalCargo]   = useState<CargoNode | null>(null)
-  const [busqueda, setBusqueda]       = useState("")
-  const [resultados, setResultados]   = useState<PersonaBusqueda[]>([])
-  const [asignando, setAsignando]     = useState<number | null>(null)
-
-  // Modal nuevo cargo
-  const [modalNuevoCargo, setModalNuevoCargo] = useState<{ area_id: number | null } | null>(null)
-  const [nombreCargo, setNombreCargo]         = useState("")
-  const [areaCargo, setAreaCargo]             = useState<number | null>(null)
-  const [creando, setCreando]                 = useState(false)
-  const [errorCargo, setErrorCargo]           = useState("")
-
-  useEffect(() => {
-    api.get("/tc/empresas").then((r) => {
-      const lista: Empresa[] = Array.isArray(r.data) ? r.data : []
-      setEmpresas(lista)
-      if (lista.length > 0) setEmpresaActiva(lista[0].id)
-    }).catch(() => {})
-    api.get("/areas").then((r) => setAreasGlobales(Array.isArray(r.data) ? r.data : [])).catch(() => {})
-  }, [])
-
-  useEffect(() => {
-    if (!empresaActiva) return
+  function cargarArbol(sid: number | null) {
     setLoading(true)
-    api.get(`/tc/organigrama/${empresaActiva}`)
-      .then((r) => {
-        setOrgData(r.data)
-        const keys = new Set<string>((r.data.areas as AreaNode[]).map((a) => String(a.id)))
-        if ((r.data.sin_area as CargoNode[]).length > 0) keys.add("sin_area")
-        setAreasAbiertas(keys)
-      })
-      .catch(() => setOrgData(null))
+    const params = sid ? { sede_id: sid } : {}
+    api.get("/tc/organigrama-arbol", { params })
+      .then((r) => setArbol(r.data))
+      .catch(() => setArbol(null))
       .finally(() => setLoading(false))
-  }, [empresaActiva])
-
-  useEffect(() => {
-    if (!modalCargo || !empresaActiva) { setResultados([]); return }
-    const params: Record<string, string | number> = { empresa_id: empresaActiva, estado: "Activo", limit: 20 }
-    if (busqueda.trim()) params.q = busqueda.trim()
-    const t = setTimeout(() => {
-      api.get("/tc/personas", { params })
-        .then((r) => setResultados(Array.isArray(r.data.items) ? r.data.items : []))
-        .catch(() => setResultados([]))
-    }, busqueda.trim() ? 300 : 0)
-    return () => clearTimeout(t)
-  }, [busqueda, modalCargo, empresaActiva])
-
-  async function recargarOrg() {
-    if (!empresaActiva) return
-    const { data } = await api.get(`/tc/organigrama/${empresaActiva}`)
-    setOrgData(data)
   }
 
-  async function asignar(persona: PersonaBusqueda) {
-    if (!modalCargo) return
-    setAsignando(persona.id)
-    try {
-      await api.put(`/tc/personas/${persona.id}`, { cargo_id: modalCargo.id })
-      await recargarOrg()
-      setModalCargo(null)
-    } catch { /* ignore */ }
-    finally { setAsignando(null) }
-  }
+  useEffect(() => { cargarArbol(sedeActiva) }, [sedeActiva])
 
-  async function desasignar(personaId: number) {
-    try {
-      await api.put(`/tc/personas/${personaId}`, { cargo_id: null })
-      await recargarOrg()
-    } catch { /* ignore */ }
-  }
-
-  async function crearCargo() {
-    if (!nombreCargo.trim()) return
-    setCreando(true)
-    setErrorCargo("")
-    try {
-      await api.post("/tc/cargos", { nombre: nombreCargo.trim(), area_id: areaCargo })
-      await recargarOrg()
-      // abrir área recién creada
-      if (areaCargo !== null) {
-        setAreasAbiertas((prev) => new Set([...prev, String(areaCargo)]))
-      } else {
-        setAreasAbiertas((prev) => new Set([...prev, "sin_area"]))
-      }
-      setModalNuevoCargo(null)
-      setNombreCargo("")
-    } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-      setErrorCargo(msg ?? "Error al crear el cargo.")
-    } finally {
-      setCreando(false)
-    }
-  }
-
-  function abrirModalCargo(preArea: number | null) {
-    setModalNuevoCargo({ area_id: preArea })
-    setAreaCargo(preArea)
-    setNombreCargo("")
-    setErrorCargo("")
-  }
-
-  function toggleArea(key: string) {
-    setAreasAbiertas((prev) => {
-      const next = new Set(prev)
-      next.has(key) ? next.delete(key) : next.add(key)
-      return next
-    })
-  }
-
-  function abrirAsignacion(cargo: CargoNode) {
-    setModalCargo(cargo)
-    setBusqueda("")
-    setResultados([])
-  }
-
-  const totalCargos = (orgData?.areas.flatMap((a) => a.cargos).length ?? 0) + (orgData?.sin_area.length ?? 0)
-  const totalPersonas = orgData
-    ? orgData.areas.flatMap((a) => a.cargos.flatMap((c) => c.personas)).length +
-      orgData.sin_area.flatMap((c) => c.personas).length
-    : 0
+  const totalRaices   = arbol?.raices.length ?? 0
+  const totalCargos   = contarCargos(arbol?.raices ?? [])
+  const totalPersonas = contarPersonas(arbol?.raices ?? [])
 
   return (
     <PageLayout title="T&C — Organigrama" mainClassName="flex-1 flex flex-col overflow-hidden">
 
       {/* Header */}
-      <div className="px-6 pt-5 pb-4 border-b border-border">
+      <div className="px-6 pt-5 pb-4 border-b border-border shrink-0">
         <div className="flex items-center gap-2 mb-4">
           <button
             onClick={() => navigate("/tc")}
@@ -175,43 +343,51 @@ export function TyCOrganigramaPage() {
         </div>
 
         <div className="flex items-center justify-between gap-4 flex-wrap">
+          {/* Tabs de sede */}
           <div className="flex items-center gap-1 bg-muted/30 rounded-xl p-1">
-            {empresas.map((e) => (
+            <button
+              onClick={() => setSedeActiva(null)}
+              className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                sedeActiva === null
+                  ? "bg-teal-500/15 text-teal-400 shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Todas
+            </button>
+            {(sedes as SedeItem[]).map((s) => (
               <button
-                key={e.id}
-                onClick={() => setEmpresaActiva(e.id)}
+                key={s.id}
+                onClick={() => setSedeActiva(s.id)}
                 className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                  empresaActiva === e.id
+                  sedeActiva === s.id
                     ? "bg-teal-500/15 text-teal-400 shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                {e.codigo}
+                {s.name}
               </button>
             ))}
           </div>
 
-          <div className="flex items-center gap-4">
-            {orgData && !loading && (
-              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                <span className="tabular-nums">
-                  <strong className="text-foreground font-semibold">{totalCargos}</strong> cargo{totalCargos !== 1 ? "s" : ""}
-                </span>
-                <span className="tabular-nums">
-                  <strong className="text-emerald-500 font-semibold">{totalPersonas}</strong> activo{totalPersonas !== 1 ? "s" : ""}
-                </span>
-              </div>
+          {/* Acciones */}
+          <div className="flex items-center gap-3">
+            {!loading && arbol && (
+              <span className="text-xs text-muted-foreground tabular-nums hidden sm:block">
+                <strong className="text-foreground">{totalCargos}</strong> cargo{totalCargos !== 1 ? "s" : ""} ·{" "}
+                <strong className="text-foreground">{totalPersonas}</strong> persona{totalPersonas !== 1 ? "s" : ""}
+              </span>
             )}
             <button
               onClick={() => navigate("/tc/organigrama/canvas")}
               className="flex items-center gap-1.5 h-7 px-2.5 text-xs border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
             >
               <LayoutGrid className="w-3 h-3" />
-              Vista canvas
+              Canvas
             </button>
             {puedeEditar && (
               <button
-                onClick={() => abrirModalCargo(null)}
+                onClick={() => setModalNuevoCargo(true)}
                 className="flex items-center gap-1.5 h-7 px-2.5 text-xs font-medium border border-dashed border-teal-500/40 rounded-lg text-teal-500/70 hover:border-teal-500/70 hover:text-teal-400 hover:bg-teal-500/5 transition-all"
               >
                 <Plus className="w-3 h-3" />
@@ -223,336 +399,60 @@ export function TyCOrganigramaPage() {
       </div>
 
       {/* Árbol */}
-      <div className="flex-1 overflow-auto px-6 py-4 space-y-2">
+      <div className="flex-1 overflow-auto px-6 py-4">
         {loading && (
           <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
             Cargando organigrama…
           </div>
         )}
 
-        {!loading && orgData && orgData.areas.length === 0 && orgData.sin_area.length === 0 && (
+        {!loading && (!arbol || totalRaices === 0) && (
           <div className="flex flex-col items-center justify-center h-48 gap-2 text-muted-foreground">
             <Users className="w-8 h-8 opacity-20" />
-            <span className="text-sm">Sin cargos definidos aún.</span>
+            <span className="text-sm">
+              {sedeActiva ? "Sin cargos en esta sede." : "Sin cargos definidos aún."}
+            </span>
             {puedeEditar && (
-              <button
-                onClick={() => abrirModalCargo(null)}
-                className="mt-1 text-xs text-teal-500 hover:underline"
-              >
+              <button onClick={() => setModalNuevoCargo(true)} className="mt-1 text-xs text-teal-500 hover:underline">
                 + Crear primer cargo
               </button>
             )}
           </div>
         )}
 
-        {!loading && orgData && (
-          <>
-            {orgData.areas.map((area) => (
-              <AreaCard
-                key={area.id}
-                nombre={area.nombre}
-                cargos={area.cargos}
-                abierta={areasAbiertas.has(String(area.id))}
-                onToggle={() => toggleArea(String(area.id))}
-                puedeEditar={puedeEditar}
-                onAsignar={abrirAsignacion}
-                onDesasignar={desasignar}
-                onNuevoCargo={() => abrirModalCargo(area.id)}
-              />
+        {!loading && arbol && totalRaices > 0 && (
+          <div className="space-y-2 max-w-3xl">
+            {arbol.raices.map((nodo) => (
+              <OrgNodo key={nodo.id} nodo={nodo} depth={0} onClickPersonas={setNodoSeleccionado} />
             ))}
-            {orgData.sin_area.length > 0 && (
-              <AreaCard
-                nombre="Sin área asignada"
-                cargos={orgData.sin_area}
-                abierta={areasAbiertas.has("sin_area")}
-                onToggle={() => toggleArea("sin_area")}
-                puedeEditar={puedeEditar}
-                onAsignar={abrirAsignacion}
-                onDesasignar={desasignar}
-                onNuevoCargo={() => abrirModalCargo(null)}
-              />
-            )}
-          </>
+          </div>
         )}
       </div>
 
-      {/* ── Modal asignación de persona ───────────────────────────────────────── */}
-      {modalCargo && (
-        <Modal onClose={() => setModalCargo(null)}>
-          <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-            <div>
-              <p className="font-semibold text-sm">Asignar colaborador</p>
-              <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-                <Briefcase className="w-3 h-3" /> {modalCargo.nombre}
-              </p>
-            </div>
-            <CloseBtn onClick={() => setModalCargo(null)} />
-          </div>
-          <div className="p-4 space-y-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Buscar por nombre…"
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
-                autoFocus
-                className="w-full pl-9 pr-3 py-2 text-sm bg-muted/30 border border-input rounded-xl focus:outline-none focus:ring-1 focus:ring-teal-500/50 focus:border-teal-500/50"
-              />
-            </div>
-            <div className="max-h-72 overflow-y-auto rounded-xl border border-border/50 divide-y divide-border/40 bg-muted/10">
-              {resultados.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  {busqueda.trim() ? "Sin resultados" : "Cargando…"}
-                </p>
-              ) : (
-                resultados.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => asignar(p)}
-                    disabled={asignando === p.id}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-muted/40 transition-colors text-left disabled:opacity-50"
-                  >
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-500/10 text-teal-400 text-xs font-bold">
-                      {p.initials || p.nombre.slice(0, 2).toUpperCase()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{p.nombre}</p>
-                      {p.cargo_nombre && (
-                        <p className="text-xs text-muted-foreground truncate">{p.cargo_nombre}</p>
-                      )}
-                    </div>
-                    <span className="text-xs text-teal-500 shrink-0 font-semibold">
-                      {asignando === p.id ? "…" : "Asignar"}
-                    </span>
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-        </Modal>
+      {/* Drawer personas */}
+      {nodoSeleccionado && (
+        <PersonasDrawer nodo={nodoSeleccionado} onClose={() => setNodoSeleccionado(null)} />
       )}
 
-      {/* ── Modal nuevo cargo ─────────────────────────────────────────────────── */}
-      {modalNuevoCargo !== null && (
-        <Modal onClose={() => setModalNuevoCargo(null)}>
-          <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-            <div>
-              <p className="font-semibold text-sm">Nuevo cargo</p>
-              <p className="text-xs text-muted-foreground mt-0.5">El cargo es global — aparece en todas las empresas</p>
-            </div>
-            <CloseBtn onClick={() => setModalNuevoCargo(null)} />
-          </div>
-          <div className="p-4 space-y-3">
-            <div>
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
-                Nombre del cargo
-              </label>
-              <input
-                type="text"
-                placeholder="ej. Auxiliar de IT, Analista de Operaciones…"
-                value={nombreCargo}
-                onChange={(e) => { setNombreCargo(e.target.value); setErrorCargo("") }}
-                onKeyDown={(e) => e.key === "Enter" && crearCargo()}
-                autoFocus
-                className="w-full px-3 py-2 text-sm bg-muted/30 border border-input rounded-xl focus:outline-none focus:ring-1 focus:ring-teal-500/50 focus:border-teal-500/50"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
-                Área
-              </label>
-              <select
-                value={areaCargo ?? ""}
-                onChange={(e) => setAreaCargo(e.target.value ? Number(e.target.value) : null)}
-                className="w-full px-3 py-2 text-sm bg-muted/30 border border-input rounded-xl focus:outline-none focus:ring-1 focus:ring-teal-500/50 appearance-none"
-              >
-                <option value="">Sin área</option>
-                {areasGlobales.map((a) => (
-                  <option key={a.id} value={a.id}>{a.name}</option>
-                ))}
-              </select>
-            </div>
-            {errorCargo && (
-              <p className="text-xs text-destructive px-1">{errorCargo}</p>
-            )}
-            <button
-              onClick={crearCargo}
-              disabled={!nombreCargo.trim() || creando}
-              className="w-full h-9 text-sm font-medium bg-teal-500 text-white rounded-xl hover:bg-teal-600 disabled:opacity-50 transition-colors"
-            >
-              {creando ? "Creando…" : "Crear cargo"}
-            </button>
-          </div>
-        </Modal>
+      {/* Modal nuevo cargo */}
+      {modalNuevoCargo && (
+        <ModalNuevoCargo
+          sedes={sedes as SedeItem[]}
+          sedeActiva={sedeActiva}
+          onClose={() => setModalNuevoCargo(false)}
+          onCreado={() => cargarArbol(sedeActiva)}
+        />
       )}
     </PageLayout>
   )
 }
 
-// ── AreaCard ──────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-function AreaCard({
-  nombre, cargos, abierta, onToggle, puedeEditar, onAsignar, onDesasignar, onNuevoCargo,
-}: {
-  nombre: string
-  cargos: CargoNode[]
-  abierta: boolean
-  onToggle: () => void
-  puedeEditar: boolean
-  onAsignar: (c: CargoNode) => void
-  onDesasignar: (id: number) => void
-  onNuevoCargo: () => void
-}) {
-  const totalPersonas = cargos.reduce((s, c) => s + c.personas.length, 0)
-  const filled = cargos.filter((c) => c.personas.length > 0).length
-
-  return (
-    <div className="rounded-xl overflow-hidden border border-border/70">
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center gap-3 px-4 py-3 bg-muted/15 hover:bg-muted/30 transition-colors text-left border-l-[3px] border-teal-500/60"
-      >
-        <span className="text-muted-foreground/60">
-          {abierta ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-        </span>
-        <span className="font-semibold text-sm flex-1 tracking-tight">{nombre}</span>
-        <div className="flex items-center gap-3 text-xs text-muted-foreground shrink-0">
-          <span>
-            {filled}/{cargos.length} cargo{cargos.length !== 1 ? "s" : ""} cubierto{filled !== 1 ? "s" : ""}
-          </span>
-          <span className="h-3 w-px bg-border" />
-          <span className="text-emerald-500 font-medium">
-            {totalPersonas} activo{totalPersonas !== 1 ? "s" : ""}
-          </span>
-        </div>
-      </button>
-
-      {abierta && (
-        <div className="relative">
-          <div className="absolute left-[27px] top-3 bottom-3 w-px bg-teal-500/15" />
-          <div className="divide-y divide-border/30">
-            {cargos.length === 0 ? (
-              <p className="px-10 py-4 text-xs text-muted-foreground italic">Sin cargos definidos.</p>
-            ) : (
-              cargos.map((cargo, idx) => (
-                <CargoRow
-                  key={cargo.id}
-                  cargo={cargo}
-                  isLast={idx === cargos.length - 1}
-                  puedeEditar={puedeEditar}
-                  onAsignar={onAsignar}
-                  onDesasignar={onDesasignar}
-                />
-              ))
-            )}
-            {puedeEditar && (
-              <div className="px-10 py-2">
-                <button
-                  onClick={onNuevoCargo}
-                  className="flex items-center gap-1 text-[11px] text-muted-foreground/40 hover:text-teal-500 transition-colors"
-                >
-                  <Plus className="w-3 h-3" />
-                  Nuevo cargo aquí
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  )
+function contarCargos(nodos: ArbolNodo[]): number {
+  return nodos.reduce((acc, n) => acc + 1 + contarCargos(n.hijos), 0)
 }
 
-// ── CargoRow ──────────────────────────────────────────────────────────────────
-
-function CargoRow({
-  cargo, puedeEditar, onAsignar, onDesasignar,
-}: {
-  cargo: CargoNode
-  isLast: boolean
-  puedeEditar: boolean
-  onAsignar: (c: CargoNode) => void
-  onDesasignar: (id: number) => void
-}) {
-  const vacio = cargo.personas.length === 0
-  return (
-    <div className={`flex items-start gap-3 px-4 py-3 pl-10 group/row hover:bg-muted/10 transition-colors ${vacio ? "opacity-50 hover:opacity-80" : ""}`}>
-      <div className="flex items-center pt-2 shrink-0">
-        <div className="w-3 h-px bg-teal-500/20" />
-      </div>
-      <div className="w-44 shrink-0 pt-0.5">
-        <p className="text-xs font-semibold text-foreground/80 leading-snug">{cargo.nombre}</p>
-        <p className={`text-[10px] mt-0.5 tabular-nums ${vacio ? "text-muted-foreground/40 italic" : "text-muted-foreground/60"}`}>
-          {vacio ? "Sin asignar" : `${cargo.personas.length} asignado${cargo.personas.length !== 1 ? "s" : ""}`}
-        </p>
-      </div>
-      <div className="flex flex-wrap gap-1.5 flex-1 min-h-[28px] pt-0.5">
-        {cargo.personas.map((p) => (
-          <Chip key={p.id} persona={p} puedeEditar={puedeEditar} onDesasignar={onDesasignar} />
-        ))}
-        {puedeEditar && (
-          <button
-            onClick={() => onAsignar(cargo)}
-            className="flex items-center gap-1 px-2 py-0.5 text-[11px] border border-dashed border-border/60 rounded-full text-muted-foreground/50 hover:border-teal-500/50 hover:text-teal-500 transition-all"
-          >
-            <Plus className="w-2.5 h-2.5" />
-            Asignar
-          </button>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ── Chip ──────────────────────────────────────────────────────────────────────
-
-function Chip({
-  persona, puedeEditar, onDesasignar,
-}: {
-  persona: PersonaChip; puedeEditar: boolean; onDesasignar: (id: number) => void
-}) {
-  const display = persona.nombre.split(" ").slice(0, 2).join(" ")
-  return (
-    <div className="group flex items-center gap-1.5 px-2 py-0.5 bg-muted/40 hover:bg-muted/70 border border-border/40 rounded-full text-[11px] transition-colors">
-      <div className="w-3.5 h-3.5 rounded-full bg-teal-500/20 text-teal-400 flex items-center justify-center text-[8px] font-bold shrink-0">
-        {(persona.initials || persona.nombre)[0]}
-      </div>
-      <span className="max-w-[110px] truncate text-foreground/80">{display}</span>
-      {puedeEditar && (
-        <button
-          onClick={(e) => { e.stopPropagation(); onDesasignar(persona.id) }}
-          className="opacity-0 group-hover:opacity-100 transition-opacity ml-0.5 text-muted-foreground hover:text-red-400"
-        >
-          <X className="w-2.5 h-2.5" />
-        </button>
-      )}
-    </div>
-  )
-}
-
-// ── Utilitarios ───────────────────────────────────────────────────────────────
-
-function Modal({ children, onClose }: { children: ReactNode; onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div
-        className="bg-background border border-border rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {children}
-      </div>
-    </div>
-  )
-}
-
-function CloseBtn({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-    >
-      <X className="w-4 h-4" />
-    </button>
-  )
+function contarPersonas(nodos: ArbolNodo[]): number {
+  return nodos.reduce((acc, n) => acc + n.personas.length + contarPersonas(n.hijos), 0)
 }

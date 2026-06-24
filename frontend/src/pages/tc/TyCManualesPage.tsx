@@ -4,6 +4,7 @@ import { api } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import { useAuthStore } from "@/store/authStore"
 import { canEditTyC } from "@/lib/permissions"
+import { useSedes, type SedeItem } from "@/hooks/useSedes"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { ArrowLeft, Upload, Download, Trash2, Search, BookOpen, RefreshCw, AlertTriangle } from "lucide-react"
 
@@ -32,6 +33,9 @@ export function TyCManualesPage() {
   const user        = useAuthStore((s) => s.user)
   const puedeEditar = user ? canEditTyC(user.role, user.app_permissions) : false
 
+  const { data: sedes = [] } = useSedes()
+  const [sedeActiva, setSedeActiva] = useState<number | null>(null)
+
   const [areas,   setAreas]   = useState<Area[]>([])
   const [cargos,  setCargos]  = useState<Cargo[]>([])
   const [busqueda, setBusqueda] = useState("")
@@ -46,11 +50,13 @@ export function TyCManualesPage() {
 
   useEffect(() => {
     api.get("/areas").then((r) => setAreas(Array.isArray(r.data) ? r.data : [])).catch(() => {})
-    cargarCargos()
   }, [])
 
+  useEffect(() => { cargarCargos() }, [sedeActiva])  // eslint-disable-line react-hooks/exhaustive-deps
+
   function cargarCargos() {
-    api.get("/tc/cargos").then((r) => setCargos(Array.isArray(r.data) ? r.data : [])).catch(() => {})
+    const params = sedeActiva ? { sede_id: sedeActiva } : {}
+    api.get("/tc/cargos", { params }).then((r) => setCargos(Array.isArray(r.data) ? r.data : [])).catch(() => {})
   }
 
   function abrirSelector(cargoId: number) {
@@ -169,6 +175,35 @@ export function TyCManualesPage() {
           <span className="text-muted-foreground/30 text-xs">/</span>
           <span className="text-sm font-medium">Manuales de funciones</span>
         </div>
+
+        {/* Filtro por sede */}
+        {sedes.length > 0 && (
+          <div className="flex items-center gap-1 bg-muted/30 rounded-xl p-1 mb-4 w-fit">
+            <button
+              onClick={() => setSedeActiva(null)}
+              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
+                sedeActiva === null
+                  ? "bg-teal-500/15 text-teal-400 shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Todas
+            </button>
+            {(sedes as SedeItem[]).map((s) => (
+              <button
+                key={s.id}
+                onClick={() => setSedeActiva(s.id)}
+                className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
+                  sedeActiva === s.id
+                    ? "bg-teal-500/15 text-teal-400 shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {s.name}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Stat global */}
         <div className="flex items-end justify-between gap-4 mb-4 flex-wrap">

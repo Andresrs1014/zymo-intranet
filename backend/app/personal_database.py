@@ -62,9 +62,17 @@ class PtcCargo(SQLModel, table=True):
     empresa_id: Optional[int] = Field(default=None, foreign_key="ptc_empresa.id")  # deprecated — cargos son globales
     area_id: Optional[int] = Field(default=None)  # referencia a Area principal (app.models.area)
     nombre: str = Field(max_length=150)
+    parent_id: Optional[int] = Field(default=None)   # cargo padre en el árbol jerárquico
     manual_url: str = Field(default="", max_length=500)
     manual_filename: str = Field(default="", max_length=300)
     manual_text: str = Field(default="", sa_column_kwargs={"server_default": ""})
+
+
+class PtcCargoSede(SQLModel, table=True):
+    __tablename__ = "ptc_cargo_sede"
+
+    cargo_id: int = Field(primary_key=True)
+    sede_id: int = Field(primary_key=True)
 
 
 class PtcPersona(SQLModel, table=True):
@@ -153,14 +161,14 @@ class PtcSancion(SQLModel, table=True):
 # ── Creación de tablas ─────────────────────────────────────────────────────────
 
 _PERSONAL_TABLES = {
-    "ptc_empresa", "ptc_area", "ptc_cargo", "ptc_persona",
+    "ptc_empresa", "ptc_area", "ptc_cargo", "ptc_cargo_sede", "ptc_persona",
     "ptc_capacitacion", "ptc_evaluacion", "ptc_sancion",
 }
 
 
 def create_personal_tables() -> None:
     from app.personal_database import (  # noqa: F401
-        PtcEmpresa, PtcArea, PtcCargo, PtcPersona,
+        PtcEmpresa, PtcArea, PtcCargo, PtcCargoSede, PtcPersona,
         PtcCapacitacion, PtcEvaluacion, PtcSancion,
     )
     tables = [
@@ -180,12 +188,18 @@ def _migrate_personal() -> None:
             "ALTER TABLE ptc_cargo ADD COLUMN manual_url TEXT DEFAULT ''",
             "ALTER TABLE ptc_cargo ADD COLUMN manual_filename TEXT DEFAULT ''",
             "ALTER TABLE ptc_cargo ADD COLUMN manual_text TEXT DEFAULT ''",
+            "ALTER TABLE ptc_cargo ADD COLUMN parent_id INTEGER DEFAULT NULL",
         ]:
             try:
                 conn.execute(text(sql))
                 conn.commit()
             except Exception:
                 pass
+        conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS ptc_cargo_sede "
+            "(cargo_id INTEGER NOT NULL, sede_id INTEGER NOT NULL, PRIMARY KEY (cargo_id, sede_id))"
+        ))
+        conn.commit()
 
 
 _EMPRESAS_SEED = [

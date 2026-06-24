@@ -21,6 +21,7 @@ from app.personal_database import (
     PtcArea,
     PtcCapacitacion,
     PtcCargo,
+    PtcCargoSede,
     PtcEmpresa,
     PtcEvaluacion,
     PtcPersona,
@@ -99,12 +100,16 @@ class AreaCreate(BaseModel):
 
 class CargoCreate(BaseModel):
     area_id: Optional[int] = None
+    parent_id: Optional[int] = None
     nombre: str
+    sede_ids: list[int] = []
 
 
 class CargoUpdate(BaseModel):
     nombre: Optional[str] = None
     area_id: Optional[int] = None
+    parent_id: Optional[int] = None
+    sede_ids: Optional[list[int]] = None
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -240,22 +245,25 @@ def crear_area(
 
 @router.get("/cargos")
 def listar_cargos(
-    empresa_id: Optional[int] = Query(default=None),
+    sede_id: Optional[int] = Query(default=None),
     area_id: Optional[int] = Query(default=None),
     db: Session = Depends(get_personal_db),
     _: User = Depends(require_tc),
 ):
     q = select(PtcCargo)
-    if empresa_id is not None:
-        # Cargos globales: filtrar por los que tienen personas en esta empresa
-        cargo_ids_empresa = select(PtcPersona.cargo_id).where(
-            PtcPersona.empresa_id == empresa_id,
-            PtcPersona.cargo_id.is_not(None),  # type: ignore[union-attr]
-        )
-        q = q.where(col(PtcCargo.id).in_(cargo_ids_empresa))
+    if sede_id is not None:
+        cargo_ids_sede = select(PtcCargoSede.cargo_id).where(PtcCargoSede.sede_id == sede_id)
+        q = q.where(col(PtcCargo.id).in_(cargo_ids_sede))
     if area_id is not None:
         q = q.where(PtcCargo.area_id == area_id)
     cargos = db.exec(q.order_by(col(PtcCargo.nombre))).all()
+    cargo_ids = [c.id for c in cargos]
+    sedes_rows = db.exec(
+        select(PtcCargoSede).where(col(PtcCargoSede.cargo_id).in_(cargo_ids))
+    ).all() if cargo_ids else []
+    cargo_sedes: dict[int, list[int]] = {}
+    for cs in sedes_rows:
+        cargo_sedes.setdefault(cs.cargo_id, []).append(cs.sede_id)
     return [
         {
             "id": c.id,
@@ -263,6 +271,7 @@ def listar_cargos(
             "nombre": c.nombre,
             "manual_url": c.manual_url,
             "manual_filename": c.manual_filename,
+            "sede_ids": cargo_sedes.get(c.id, []),
             **cargo_manual_flags(c.manual_url, c.manual_text),
         }
         for c in cargos
@@ -296,11 +305,19 @@ def crear_cargo(
     existing = db.exec(select(PtcCargo).where(col(PtcCargo.nombre).ilike(nombre))).first()
     if existing:
         raise HTTPException(status_code=400, detail="Ya existe un cargo con ese nombre.")
-    cargo = PtcCargo(area_id=body.area_id, nombre=nombre)
+    # Valida que el padre exista (si se proporcionó)
+    if body.parent_id is not None:
+        if not db.get(PtcCargo, body.parent_id):
+            raise HTTPException(status_code=400, detail="El cargo padre no existe.")
+    cargo = PtcCargo(area_id=body.area_id, parent_id=body.parent_id, nombre=nombre)
     db.add(cargo)
     db.commit()
     db.refresh(cargo)
-    return {"id": cargo.id, "area_id": cargo.area_id, "nombre": cargo.nombre}
+    for sid in body.sede_ids:
+        db.add(PtcCargoSede(cargo_id=cargo.id, sede_id=sid))
+    if body.sede_ids:
+        db.commit()
+    return {"id": cargo.id, "area_id": cargo.area_id, "nombre": cargo.nombre, "sede_ids": body.sede_ids}
 
 
 _MANUAL_MIME: dict[str, str] = {
@@ -495,12 +512,28 @@ def actualizar_cargo(
     cargo = db.get(PtcCargo, cargo_id)
     if not cargo:
         raise HTTPException(status_code=404, detail="Cargo no encontrado.")
-    for field, value in body.model_dump(exclude_unset=True).items():
+    data = body.model_dump(exclude_unset=True)
+    sede_ids = data.pop("sede_ids", None)
+    # Valida parent_id si se está actualizando
+    if "parent_id" in data and data["parent_id"] is not None:
+        if data["parent_id"] == cargo_id:
+            raise HTTPException(status_code=400, detail="Un cargo no puede ser su propio padre.")
+        if not db.get(PtcCargo, data["parent_id"]):
+            raise HTTPException(status_code=400, detail="El cargo padre no existe.")
+    for field, value in data.items():
         setattr(cargo, field, value)
     db.add(cargo)
+    if sede_ids is not None:
+        for row in db.exec(select(PtcCargoSede).where(PtcCargoSede.cargo_id == cargo_id)).all():
+            db.delete(row)
+        for sid in sede_ids:
+            db.add(PtcCargoSede(cargo_id=cargo_id, sede_id=sid))
     db.commit()
     db.refresh(cargo)
-    return {"id": cargo.id, "area_id": cargo.area_id, "nombre": cargo.nombre}
+    current_sedes = [
+        r.sede_id for r in db.exec(select(PtcCargoSede).where(PtcCargoSede.cargo_id == cargo_id)).all()
+    ]
+    return {"id": cargo.id, "area_id": cargo.area_id, "nombre": cargo.nombre, "sede_ids": current_sedes}
 
 
 @router.delete("/cargos/{cargo_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -520,6 +553,8 @@ def eliminar_cargo(
             status_code=400,
             detail=f"El cargo tiene {len(personas_con_cargo)} colaborador(es) asignado(s). Reasigna antes de eliminar.",
         )
+    for row in db.exec(select(PtcCargoSede).where(PtcCargoSede.cargo_id == cargo_id)).all():
+        db.delete(row)
     db.delete(cargo)
     db.commit()
 
@@ -801,57 +836,87 @@ def import_personas_json(
 
 # ── Organigrama ───────────────────────────────────────────────────────────────
 
-@router.get("/organigrama/{empresa_id}")
+@router.get("/organigrama")
 def obtener_organigrama(
-    empresa_id: int,
+    sede_id: Optional[int] = Query(default=None),
     db: Session = Depends(get_personal_db),
     main_db: Session = Depends(get_db),
     _: User = Depends(require_tc),
 ):
-    empresa = db.get(PtcEmpresa, empresa_id)
-    if not empresa:
-        raise HTTPException(status_code=404, detail="Empresa no encontrada")
-
     all_areas = main_db.exec(select(GlobalArea).order_by(GlobalArea.name)).all()
 
-    # Todos los cargos globales (no filtrado por empresa)
-    cargos_all = db.exec(select(PtcCargo).order_by(col(PtcCargo.nombre))).all()
+    q = select(PtcCargo)
+    if sede_id is not None:
+        cargo_ids_sede = select(PtcCargoSede.cargo_id).where(PtcCargoSede.sede_id == sede_id)
+        q = q.where(col(PtcCargo.id).in_(cargo_ids_sede))
+    cargos = db.exec(q.order_by(col(PtcCargo.nombre))).all()
 
-    # Solo personas activas de esta empresa
-    personas_activas = db.exec(
-        select(PtcPersona).where(
-            PtcPersona.empresa_id == empresa_id,
-            PtcPersona.estado == "Activo",
-        )
-    ).all()
-
-    # cargo_id → personas de ESTA empresa
-    por_cargo: dict = {}
-    for p in personas_activas:
-        if p.cargo_id is not None:
-            por_cargo.setdefault(p.cargo_id, []).append({
-                "id": p.id,
-                "nombre": p.nombre,
-                "initials": p.initials or (p.nombre[:2].upper() if p.nombre else "?"),
-            })
-
-    # area_id → lista de cargos (todos, personas vacías si no hay asignados en esta empresa)
     por_area: dict = {}
-    for c in cargos_all:
-        por_area.setdefault(c.area_id, []).append({
-            "id": c.id,
-            "nombre": c.nombre,
-            "personas": por_cargo.get(c.id, []),
-        })
+    for c in cargos:
+        por_area.setdefault(c.area_id, []).append({"id": c.id, "nombre": c.nombre})
 
     return {
-        "empresa": {"id": empresa.id, "nombre": empresa.nombre, "codigo": empresa.codigo},
         "areas": [
             {"id": a.id, "nombre": a.name, "cargos": por_area[a.id]}
             for a in all_areas if a.id in por_area
         ],
         "sin_area": por_area.get(None, []),
     }
+
+
+@router.get("/organigrama-arbol")
+def obtener_organigrama_arbol(
+    sede_id: Optional[int] = Query(default=None),
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_tc),
+):
+    """Árbol jerárquico de cargos con personas y fotos. Nodos raíz = sin parent_id (o padre fuera del filtro)."""
+    # 1. Cargos filtrados por sede
+    q = select(PtcCargo)
+    if sede_id is not None:
+        cargo_ids_sede = select(PtcCargoSede.cargo_id).where(PtcCargoSede.sede_id == sede_id)
+        q = q.where(col(PtcCargo.id).in_(cargo_ids_sede))
+    cargos = db.exec(q.order_by(col(PtcCargo.nombre))).all()
+    cargo_ids_en_set = {c.id for c in cargos}
+
+    # 2. Personas activas agrupadas por cargo_id
+    personas_rows = db.exec(
+        select(PtcPersona).where(
+            col(PtcPersona.cargo_id).in_(list(cargo_ids_en_set)),
+            PtcPersona.estado == "Activo",
+        )
+    ).all() if cargo_ids_en_set else []
+    personas_por_cargo: dict[int, list[dict]] = {}
+    for p in personas_rows:
+        personas_por_cargo.setdefault(p.cargo_id, []).append({
+            "id": p.id,
+            "nombre": p.nombre,
+            "initials": p.initials,
+            "foto_url": p.foto_url,
+        })
+
+    # 3. Construye nodos
+    nodos: dict[int, dict] = {}
+    for c in cargos:
+        nodos[c.id] = {
+            "id": c.id,
+            "nombre": c.nombre,
+            "area_id": c.area_id,
+            "parent_id": c.parent_id,
+            "personas": personas_por_cargo.get(c.id, []),
+            "hijos": [],
+        }
+
+    # 4. Enlaza hijos al padre (solo si el padre también está en el filtro)
+    raices: list[dict] = []
+    for nodo in nodos.values():
+        pid = nodo["parent_id"]
+        if pid is not None and pid in nodos:
+            nodos[pid]["hijos"].append(nodo)
+        else:
+            raices.append(nodo)
+
+    return {"raices": raices}
 
 
 # ── Capacitaciones ────────────────────────────────────────────────────────────
