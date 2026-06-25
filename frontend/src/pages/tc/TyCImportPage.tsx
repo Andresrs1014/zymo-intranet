@@ -166,7 +166,8 @@ export function TyCImportPage() {
     <PageLayout title="T&C — Importar colaboradores" mainClassName="flex-1 overflow-y-auto">
 
       {/* Header */}
-      <div className="px-6 pt-5 pb-4 border-b border-border">
+      <div className="px-8 pt-6 pb-4 border-b border-border">
+        <div className="max-w-5xl mx-auto">
         <div className="flex items-center gap-2 mb-4">
           <button
             onClick={() => navigate("/tc")}
@@ -183,9 +184,10 @@ export function TyCImportPage() {
           del archivo a la sede correspondiente en el sistema. Los colaboradores ya existentes
           (mismo legacy_id) se omiten.
         </p>
+        </div>
       </div>
 
-      <div className="px-6 py-6 max-w-xl space-y-5">
+      <div className="px-8 py-6 max-w-5xl mx-auto space-y-5">
 
         {/* Drop zone */}
         {!result && (

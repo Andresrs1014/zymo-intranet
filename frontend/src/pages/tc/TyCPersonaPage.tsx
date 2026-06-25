@@ -175,7 +175,7 @@ export function TyCPersonaPage() {
 
   return (
     <PageLayout title="T&C — Talento y Cultura">
-      <div className="max-w-3xl mx-auto px-4 pt-4 pb-10 space-y-5">
+      <div className="max-w-5xl mx-auto px-8 pt-6 pb-10 space-y-5">
 
         {/* Breadcrumb */}
         <button

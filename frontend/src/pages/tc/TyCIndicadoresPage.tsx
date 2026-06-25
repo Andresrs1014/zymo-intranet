@@ -38,7 +38,8 @@ export function TyCIndicadoresPage() {
     <PageLayout title="T&C — Indicadores" mainClassName="flex-1 overflow-y-auto">
 
       {/* Header */}
-      <div className="px-6 pt-5 pb-4 border-b border-border">
+      <div className="px-8 pt-6 pb-4 border-b border-border">
+        <div className="max-w-5xl mx-auto">
         <div className="flex items-center gap-2 mb-4">
           <button
             onClick={() => navigate("/tc")}
@@ -53,9 +54,10 @@ export function TyCIndicadoresPage() {
         <p className="text-xs text-muted-foreground max-w-lg">
           Métricas calculadas en tiempo real desde los datos de colaboradores, capacitaciones y evaluaciones.
         </p>
+        </div>
       </div>
 
-      <div className="px-6 py-6 space-y-6 max-w-3xl">
+      <div className="px-8 py-6 space-y-6 max-w-5xl mx-auto">
 
         {loading && (
           <div className="py-16 text-center text-sm text-muted-foreground">Calculando métricas…</div>

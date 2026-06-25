@@ -163,7 +163,8 @@ export function TyCManualesPage() {
     <PageLayout title="T&C — Manuales de funciones" mainClassName="flex-1 flex flex-col overflow-hidden">
 
       {/* ── Header ───────────────────────────────────────────────────────────── */}
-      <div className="px-6 pt-5 pb-4 border-b border-border">
+      <div className="px-8 pt-6 pb-4 border-b border-border">
+        <div className="max-w-5xl mx-auto">
         <div className="flex items-center gap-2 mb-5">
           <button
             onClick={() => navigate("/tc")}
@@ -300,6 +301,7 @@ export function TyCManualesPage() {
         {bulkResult && (
           <p className="text-[11px] text-muted-foreground font-mono mb-3">{bulkResult}</p>
         )}
+        </div>
       </div>
 
       {/* ── Input oculto ─────────────────────────────────────────────────────── */}
@@ -313,7 +315,8 @@ export function TyCManualesPage() {
       />
 
       {/* ── Lista ────────────────────────────────────────────────────────────── */}
-      <div className="flex-1 overflow-auto px-6 py-5 space-y-5">
+      <div className="flex-1 overflow-auto px-8 py-5">
+        <div className="max-w-5xl mx-auto space-y-5">
 
         {grupos.length === 0 && (
           <div className="flex flex-col items-center justify-center h-56 gap-3 text-muted-foreground">
@@ -506,6 +509,7 @@ export function TyCManualesPage() {
             </div>
           )
         })}
+        </div>
       </div>
     </PageLayout>
   )

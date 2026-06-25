@@ -123,8 +123,8 @@ export function TyCDirectorioPage() {
   return (
     <PageLayout title="T&C — Directorio" mainClassName="flex-1 flex flex-col overflow-hidden">
 
-      <div className="px-6 pt-5 pb-0 border-b border-border">
-
+      <div className="px-8 pt-6 pb-0 border-b border-border">
+        <div className="max-w-5xl mx-auto">
         <div className="flex items-center gap-2 mb-4">
           <button
             onClick={() => navigate("/tc")}
@@ -296,9 +296,10 @@ export function TyCDirectorioPage() {
             )}
           </div>
         )}
+        </div>
       </div>
 
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto max-w-5xl mx-auto w-full">
         {error && (
           <div className="m-4 p-3 text-sm text-destructive bg-destructive/10 rounded-lg">{error}</div>
         )}
