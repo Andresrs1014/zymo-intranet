@@ -163,11 +163,80 @@ class PtcNovedad(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class PtcAreaConfig(SQLModel, table=True):
+    """Configuración de áreas para agenda T&C — líder y teléfono para notificaciones WA."""
+    __tablename__ = "ptc_area_config"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    area_id: int = Field(index=True)          # referencia Area global
+    lider_nombre: str = Field(max_length=150, default="")
+    lider_telefono: str = Field(max_length=30, default="")  # +57... para WA API
+    activa: bool = Field(default=True)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class PtcEvento(SQLModel, table=True):
+    """Evento de agenda T&C: inducción, curso, reunión, etc."""
+    __tablename__ = "ptc_evento"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    titulo: str = Field(max_length=200)
+    tipo: str = Field(max_length=40, default="induccion")  # induccion|curso|reunion|otro
+    fecha: date
+    hora_inicio: str = Field(max_length=10, default="08:00")  # "HH:MM"
+    hora_fin: str = Field(max_length=10, default="09:00")
+    lugar: str = Field(max_length=200, default="")
+    descripcion: str = Field(max_length=2000, default="")
+    estado: str = Field(max_length=30, default="Programado")  # Programado|En curso|Completado|Cancelado
+    area_id: Optional[int] = None               # área responsable principal
+    notificacion_enviada: bool = Field(default=False)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class PtcEventoPersona(SQLModel, table=True):
+    """Personas asignadas a un evento."""
+    __tablename__ = "ptc_evento_persona"
+
+    evento_id: int = Field(foreign_key="ptc_evento.id", primary_key=True)
+    persona_id: int = Field(foreign_key="ptc_persona.id", primary_key=True)
+    asistio: Optional[bool] = None
+    evaluacion_puntaje: Optional[float] = None  # 0-5 post-evento
+
+
+class PtcOrdenDia(SQLModel, table=True):
+    """Ítem del orden del día de un evento."""
+    __tablename__ = "ptc_orden_dia"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    evento_id: int = Field(foreign_key="ptc_evento.id")
+    orden: int = Field(default=1)
+    titulo: str = Field(max_length=200)
+    descripcion: str = Field(max_length=1000, default="")
+    responsable_nombre: str = Field(max_length=150, default="")
+    area_id: Optional[int] = None
+    duracion_min: int = Field(default=30)
+
+
+class PtcEventoDocumento(SQLModel, table=True):
+    """Documentos de soporte adjuntos a un evento."""
+    __tablename__ = "ptc_evento_documento"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    evento_id: int = Field(foreign_key="ptc_evento.id")
+    nombre: str = Field(max_length=200)
+    url: str = Field(max_length=500)
+    tipo: str = Field(max_length=50, default="")  # pdf|docx|xlsx|imagen|otro
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 # ── Creación de tablas ─────────────────────────────────────────────────────────
 
 _PERSONAL_TABLES = {
     "ptc_area", "ptc_cargo", "ptc_cargo_sede", "ptc_persona",
     "ptc_capacitacion", "ptc_evaluacion", "ptc_sancion", "ptc_novedad",
+    "ptc_area_config", "ptc_evento", "ptc_evento_persona",
+    "ptc_orden_dia", "ptc_evento_documento",
 }
 
 
@@ -175,6 +244,8 @@ def create_personal_tables() -> None:
     from app.personal_database import (  # noqa: F401
         PtcArea, PtcCargo, PtcCargoSede, PtcPersona,
         PtcCapacitacion, PtcEvaluacion, PtcSancion, PtcNovedad,
+        PtcAreaConfig, PtcEvento, PtcEventoPersona,
+        PtcOrdenDia, PtcEventoDocumento,
     )
     tables = [
         SQLModel.metadata.tables[t]

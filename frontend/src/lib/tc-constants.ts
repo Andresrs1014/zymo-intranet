@@ -39,6 +39,23 @@ export const TC_NOVEDAD_TIPOS  = [
 
 export const TC_NOVEDAD_ESTADOS = ["Pendiente", "Aprobado", "Rechazado"] as const
 
+export const TC_EVENTO_TIPOS = [
+  { value: "induccion", label: "Inducción" },
+  { value: "curso",     label: "Curso / Formación" },
+  { value: "reunion",   label: "Reunión T&C" },
+  { value: "otro",      label: "Otro" },
+] as const
+
+export const TC_EVENTO_ESTADOS = [
+  "Programado",
+  "En curso",
+  "Completado",
+  "Cancelado",
+] as const
+
+export type TcEventoTipo   = typeof TC_EVENTO_TIPOS[number]["value"]
+export type TcEventoEstado = typeof TC_EVENTO_ESTADOS[number]
+
 // Paleta de colores para empresas/sedes — se asigna por índice de llegada.
 // Agrega entradas si el grupo ZYMO crece más de 5 sedes.
 export const TC_EMPRESA_PALETTE = [

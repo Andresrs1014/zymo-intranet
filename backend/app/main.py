@@ -39,6 +39,7 @@ from app.gerencial_database import create_gerencial_tables
 from app.routers.gerencial import router as gerencial_router
 from app.personal_database import create_personal_tables
 from app.routers.personal import router as personal_router
+from app.routers.tc_agenda import router as tc_agenda_router
 from app.routers.borradores import router as borradores_router
 from app.routers.admin.extraccion import router as admin_extraccion_router
 from app.routers.user_tools import router as user_tools_router
@@ -413,6 +414,7 @@ app.include_router(netvault_router)
 app.include_router(mantenimiento_router)
 app.include_router(sig_pdf_router)
 app.include_router(personal_router)
+app.include_router(tc_agenda_router)
 
 _TC_FOTOS_DIR = "/app/data/tc_fotos"
 os.makedirs(_TC_FOTOS_DIR, exist_ok=True)
@@ -421,6 +423,10 @@ app.mount("/tc-fotos", StaticFiles(directory=_TC_FOTOS_DIR), name="tc_fotos")
 _TC_MANUALES_DIR = "/app/data/tc_manuales"
 os.makedirs(_TC_MANUALES_DIR, exist_ok=True)
 app.mount("/tc-manuales", StaticFiles(directory=_TC_MANUALES_DIR), name="tc_manuales")
+
+_TC_DOCS_DIR = "/app/data/tc_docs"
+os.makedirs(_TC_DOCS_DIR, exist_ok=True)
+app.mount("/tc-docs", StaticFiles(directory=_TC_DOCS_DIR), name="tc_docs")
 
 
 @app.exception_handler(RequestValidationError)

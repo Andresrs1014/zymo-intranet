@@ -5,7 +5,7 @@ import { useAuthStore } from "@/store/authStore"
 import { canImportTyC, canSeeTyCSensible } from "@/lib/permissions"
 import { PageLayout } from "@/components/layout/PageLayout"
 import {
-  Users, GitBranch, Upload, FileText, TrendingUp, ArrowUpRight,
+  Users, GitBranch, Upload, FileText, TrendingUp, ArrowUpRight, CalendarDays, Settings2,
 } from "lucide-react"
 
 interface Stats { total: number; activos: number; inactivos: number }
@@ -74,10 +74,10 @@ export function TyCPage() {
       {/* ── Módulos ───────────────────────────────────────────────────── */}
       <div className="px-10 py-8 max-w-5xl mx-auto space-y-8">
 
-        {/* Fila 1: Directorio (ancho) + Organigrama + Manuales */}
+        {/* Fila 1: Directorio + Organigrama + Manuales + Agenda */}
         <section>
           <SectionLabel>Personal y estructura</SectionLabel>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-4 gap-3">
             <div className="col-span-1">
               <ModuleCard
                 icon={<Users className="w-5 h-5" />}
@@ -101,6 +101,13 @@ export function TyCPage() {
               title="Manuales de funciones"
               description="PDF, Word o Excel por cargo. Fuente para análisis IA del SIG."
               onClick={() => navigate("/tc/manuales")}
+            />
+            <ModuleCard
+              icon={<CalendarDays className="w-4 h-4" />}
+              color="teal"
+              title="Agenda"
+              description="Inducciones, cursos y reuniones con notificación WhatsApp al líder."
+              onClick={() => navigate("/tc/calendario")}
             />
           </div>
         </section>
@@ -126,6 +133,16 @@ export function TyCPage() {
                   title="Importar"
                   description="Carga el export JS del Directorio ZYMO."
                   onClick={() => navigate("/tc/import")}
+                  compact
+                />
+              )}
+              {puedeSensible && (
+                <ModuleCard
+                  icon={<Settings2 className="w-4 h-4" />}
+                  color="indigo"
+                  title="Config. áreas"
+                  description="Líderes y teléfonos WA para notificaciones de agenda."
+                  onClick={() => navigate("/tc/area-config")}
                   compact
                 />
               )}

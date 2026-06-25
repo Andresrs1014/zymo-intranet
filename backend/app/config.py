@@ -59,6 +59,11 @@ class Settings(BaseSettings):
     personal_database_url: str = "sqlite:///./data/personal.db"
     tc_manuales_dir: str = "/app/data/tc_manuales"
     tc_fotos_dir: str = "/app/data/tc_fotos"
+    tc_docs_dir: str = "/app/data/tc_docs"
+
+    # ── WhatsApp Business API (Meta) ──────────────────────────────────────────
+    whatsapp_api_token: str = ""           # Bearer token de la app Meta
+    whatsapp_phone_number_id: str = ""     # ID del número remitente
 
     # ── Anthropic / Claude (proxy NetVault — la API key nunca sale del servidor) ──
     anthropic_api_key: str = ""
