@@ -4,7 +4,7 @@ import { api } from "@/lib/api"
 import { useAuthStore } from "@/store/authStore"
 import { canEditTyC } from "@/lib/permissions"
 import { PageLayout } from "@/components/layout/PageLayout"
-import { TC_EVENTO_TIPOS, TC_EVENTO_ESTADOS, type TcEventoTipo, type TcEventoEstado } from "@/lib/tc-constants"
+import { TC_EVENTO_TIPOS, type TcEventoTipo, type TcEventoEstado } from "@/lib/tc-constants"
 import { Plus, ChevronLeft, ChevronRight, Calendar, Users, MapPin, Clock } from "lucide-react"
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
@@ -137,7 +137,7 @@ export function TyCCalendarioPage() {
                       : "text-muted-foreground hover:text-foreground hover:bg-muted/10"
                   }`}
                 >
-                  {"label" in t ? t.label : t.value}
+                  {t.label}
                 </button>
               ))}
             </div>

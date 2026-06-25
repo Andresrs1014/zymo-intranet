@@ -9,7 +9,7 @@ import {
   type TcEventoTipo, type TcEventoEstado,
 } from "@/lib/tc-constants"
 import {
-  ArrowLeft, Plus, Trash2, Send, CheckCircle2,
+  ArrowLeft, Plus, Trash2, CheckCircle2,
   Users, FileText, ListOrdered, Bell, GripVertical,
   Upload, X,
 } from "lucide-react"
@@ -79,7 +79,6 @@ export function TyCEventoPage() {
     hora_fin: "09:00", lugar: "", descripcion: "", estado: "Programado",
     area_id: null, personas: [], orden_dia: [], documentos: [],
   })
-  const [personas, setPersonas]   = useState<PersonaMini[]>([])
   const [areas, setAreas]         = useState<AreaMini[]>([])
   const [busqueda, setBusqueda]   = useState("")
   const [allPersonas, setAllPersonas] = useState<PersonaMini[]>([])
@@ -92,7 +91,6 @@ export function TyCEventoPage() {
     if (isNew) return
     api.get(`/tc/eventos/${id}`).then((r) => {
       setEvento(r.data)
-      setPersonas(r.data.personas ?? [])
     }).catch(() => navigate("/tc/calendario"))
   }, [id, isNew, navigate])
 
