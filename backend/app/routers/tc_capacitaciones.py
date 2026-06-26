@@ -3,13 +3,16 @@ Router T&C — Gestión gerencial de capacitaciones.
 
 Prefijo: /tc  (montado junto a personal.py y tc_agenda.py)
 Endpoints propios:
-  GET    /tc/capacitaciones                         — lista global con filtros
-  POST   /tc/capacitaciones/bulk                    — enrolar múltiples personas
-  PATCH  /tc/capacitaciones/{cap_id}/completar      — marcar completada
+  GET    /tc/capacitaciones                              — lista global con filtros
+  GET    /tc/capacitaciones/stats                        — KPIs globales
+  POST   /tc/capacitaciones/bulk                         — enrolar múltiples personas
+  PATCH  /tc/capacitaciones/{cap_id}/completar           — marcar completada
+  PATCH  /tc/capacitaciones/{cap_id}/documentos          — vincular URLs de documentos
   POST   /tc/eventos/{evento_id}/generar-capacitaciones  — puente evento→capacitación
 """
 from __future__ import annotations
 
+import json
 from datetime import date, datetime
 from typing import Optional
 
@@ -52,6 +55,15 @@ class CompletarBody(BaseModel):
     diploma_url: Optional[str] = Field(default=None, max_length=500)
 
 
+class DocLink(BaseModel):
+    nombre: str = Field(max_length=200)
+    url: str = Field(max_length=1000)
+
+
+class DocumentosBody(BaseModel):
+    documentos: list[DocLink] = []
+
+
 # ── Helper ────────────────────────────────────────────────────────────────────
 
 def _enrich(cap: PtcCapacitacion, db: Session) -> dict:
@@ -68,6 +80,10 @@ def _enrich(cap: PtcCapacitacion, db: Session) -> dict:
         if persona.area_id:
             area = db.get(PtcArea, persona.area_id)
             area_nombre = area.nombre if area else ""
+    try:
+        docs = json.loads(cap.documentos or "[]")
+    except Exception:
+        docs = []
     return {
         "id":             cap.id,
         "titulo":         cap.titulo,
@@ -76,6 +92,7 @@ def _enrich(cap: PtcCapacitacion, db: Session) -> dict:
         "estado":         cap.estado,
         "observaciones":  cap.observaciones,
         "diploma_url":    cap.diploma_url,
+        "documentos":     docs,
         "persona_id":     cap.persona_id,
         "persona_nombre": persona.nombre if persona else "",
         "cargo_nombre":   cargo_nombre,
@@ -211,9 +228,27 @@ def completar_capacitacion(
         return _enrich(cap, db)
 
 
+@router.patch("/capacitaciones/{cap_id}/documentos")
+def actualizar_documentos(
+    cap_id: int,
+    body: DocumentosBody,
+    _: User = Depends(require_tc_editar),
+):
+    with Session(get_personal_engine()) as db:
+        cap = db.get(PtcCapacitacion, cap_id)
+        if not cap:
+            raise HTTPException(status_code=404, detail="Capacitación no encontrada")
+        cap.documentos = json.dumps([d.model_dump() for d in body.documentos], ensure_ascii=False)
+        db.add(cap)
+        db.commit()
+        db.refresh(cap)
+        return _enrich(cap, db)
+
+
 @router.post("/eventos/{evento_id}/generar-capacitaciones", status_code=status.HTTP_201_CREATED)
 def generar_capacitaciones_desde_evento(
     evento_id: int,
+    body: DocumentosBody = None,
     _: User = Depends(require_tc_editar),
 ):
     """
@@ -269,6 +304,10 @@ def generar_capacitaciones_desde_evento(
                 ya_registradas += 1
                 continue
 
+            docs_json = json.dumps(
+                [d.model_dump() for d in body.documentos] if body and body.documentos else [],
+                ensure_ascii=False,
+            )
             cap = PtcCapacitacion(
                 persona_id=asistente.persona_id,
                 titulo=titulo,
@@ -276,6 +315,7 @@ def generar_capacitaciones_desde_evento(
                 horas=horas,
                 estado="Completado",
                 observaciones=obs,
+                documentos=docs_json,
             )
             db.add(cap)
             creadas += 1

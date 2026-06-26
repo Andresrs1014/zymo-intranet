@@ -6,7 +6,7 @@ import { canEditTyC, canSeeTyCSensible } from "@/lib/permissions"
 import { PageLayout } from "@/components/layout/PageLayout"
 import {
   ArrowLeft, Camera, Pencil, X, Check, Plus, Trash2, Loader2,
-  BookOpen, ClipboardList, ShieldAlert, FileText, Award,
+  BookOpen, ClipboardList, ShieldAlert, FileText, Award, Link2,
 } from "lucide-react"
 import {
   TC_ESTADOS, TC_GENEROS, TC_CONTRATOS, TC_SALIDAS,
@@ -58,6 +58,7 @@ interface Novedad {
 interface Capacitacion {
   id: number; titulo: string; fecha: string | null; horas: number | null
   estado: string; diploma_url: string; observaciones: string
+  documentos?: { nombre: string; url: string }[]
 }
 interface Evaluacion {
   id: number; titulo: string; puntaje: number | null
@@ -468,6 +469,17 @@ function CapacitacionesTab({ personaId, puedeEditar }: { personaId: number; pued
                     <Award className="w-3 h-3" />
                     Ver diploma
                   </a>
+                )}
+                {(c.documentos?.length ?? 0) > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-1.5">
+                    {c.documentos!.map((d, i) => (
+                      <a key={i} href={d.url} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[10px] font-medium text-sky-400 hover:text-sky-300 transition-colors">
+                        <Link2 className="w-3 h-3" />
+                        {d.nombre || "Documento"}
+                      </a>
+                    ))}
+                  </div>
                 )}
               </div>
               {puedeEditar && (

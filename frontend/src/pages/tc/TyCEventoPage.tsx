@@ -11,7 +11,7 @@ import {
 import {
   ArrowLeft, Plus, Trash2, CheckCircle2,
   Users, FileText, ListOrdered, Bell, GripVertical,
-  Upload, X,
+  Upload, X, Link2,
 } from "lucide-react"
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
@@ -86,6 +86,9 @@ export function TyCEventoPage() {
   const [sending, setSending]     = useState(false)
   const [notifResult, setNotifResult] = useState<{ ok: boolean; mensaje: string } | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [docLinks, setDocLinks]   = useState<{ nombre: string; url: string }[]>([])
+  const [generando, setGenerando] = useState(false)
+  const [genResult, setGenResult] = useState<{ creadas: number; ya: number } | null>(null)
 
   const load = useCallback(() => {
     if (isNew) return
@@ -209,6 +212,20 @@ export function TyCEventoPage() {
     } catch (e: any) {
       setNotifResult({ ok: false, mensaje: e?.response?.data?.detail ?? "Error al enviar" })
     } finally { setSending(false) }
+  }
+
+  // ── Generar capacitaciones ───────────────────────────────────────────────
+
+  async function generarCapacitaciones() {
+    if (!evento.id) return
+    setGenerando(true)
+    setGenResult(null)
+    try {
+      const r = await api.post(`/tc/eventos/${evento.id}/generar-capacitaciones`, {
+        documentos: docLinks.filter((d) => d.url.trim()),
+      })
+      setGenResult({ creadas: r.data.capacitaciones_creadas, ya: r.data.personas_ya_registradas })
+    } catch { /* noop */ } finally { setGenerando(false) }
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -655,6 +672,66 @@ export function TyCEventoPage() {
             })}
             {(evento.personas?.length ?? 0) === 0 && (
               <p className="text-xs text-muted-foreground text-center py-4">Sin participantes asignados</p>
+            )}
+
+            {/* Generar capacitaciones — solo para curso/inducción */}
+            {(evento.tipo === "induccion" || evento.tipo === "curso") && puedeEditar && (
+              <div className="mt-6 pt-5 border-t border-border space-y-3">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                  Generar registros de capacitación
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Crea un registro en el historial de formación de cada asistente. Puedes adjuntar links (materiales, acta, diploma).
+                </p>
+
+                {/* Lista de links de documentos */}
+                <div className="space-y-2">
+                  {docLinks.map((d, i) => (
+                    <div key={i} className="flex gap-2 items-center">
+                      <input
+                        value={d.nombre}
+                        onChange={(e) => setDocLinks((prev) => prev.map((x, j) => j === i ? { ...x, nombre: e.target.value } : x))}
+                        placeholder="Nombre del documento"
+                        className="input-base text-xs flex-[1]"
+                      />
+                      <input
+                        value={d.url}
+                        onChange={(e) => setDocLinks((prev) => prev.map((x, j) => j === i ? { ...x, url: e.target.value } : x))}
+                        placeholder="https://..."
+                        className="input-base text-xs flex-[2]"
+                      />
+                      <button
+                        onClick={() => setDocLinks((prev) => prev.filter((_, j) => j !== i))}
+                        className="text-rose-400/40 hover:text-rose-400 transition-colors shrink-0"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => setDocLinks((prev) => [...prev, { nombre: "", url: "" }])}
+                    className="flex items-center gap-1 text-xs text-teal-400 hover:text-teal-300 transition-colors"
+                  >
+                    <Link2 className="w-3.5 h-3.5" /> Agregar link
+                  </button>
+                </div>
+
+                {genResult && (
+                  <p className="text-xs text-emerald-400">
+                    ✓ {genResult.creadas} registro{genResult.creadas !== 1 ? "s" : ""} creado{genResult.creadas !== 1 ? "s" : ""}
+                    {genResult.ya > 0 ? ` · ${genResult.ya} ya existían` : ""}
+                  </p>
+                )}
+
+                <button
+                  onClick={generarCapacitaciones}
+                  disabled={generando || (evento.personas?.length ?? 0) === 0}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-teal-500/15 hover:bg-teal-500/25 text-teal-400 text-xs font-semibold transition-colors disabled:opacity-40"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  {generando ? "Generando..." : "Generar capacitaciones"}
+                </button>
+              </div>
             )}
           </div>
         )}

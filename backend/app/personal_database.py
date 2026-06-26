@@ -123,6 +123,7 @@ class PtcCapacitacion(SQLModel, table=True):
     estado: str = Field(max_length=30, default="Completado")
     diploma_url: str = Field(max_length=500, default="")
     observaciones: str = Field(max_length=500, default="")
+    documentos: str = Field(default="[]")  # ponytail: JSON [{nombre,url}], upgrade to table if attachments needed
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -271,6 +272,7 @@ def _migrate_personal() -> None:
             "ALTER TABLE ptc_persona RENAME COLUMN empresa_id TO sede_id",
             # score de ascenso
             "ALTER TABLE ptc_persona ADD COLUMN score INTEGER DEFAULT 0",
+            "ALTER TABLE ptc_capacitacion ADD COLUMN documentos TEXT DEFAULT '[]'",
         ]:
             try:
                 conn.execute(text(sql))
