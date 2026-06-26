@@ -15,7 +15,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
-from sqlmodel import Session, col, select
+from sqlmodel import Session, col, func, select
 
 from app.core.deps import get_current_user, require_permission
 from app.models.user import User
@@ -85,6 +85,33 @@ def _enrich(cap: PtcCapacitacion, db: Session) -> dict:
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
+
+@router.get("/capacitaciones/stats")
+def stats_capacitaciones(_: User = Depends(require_tc)):
+    with Session(get_personal_engine()) as db:
+        total       = db.exec(select(func.count(PtcCapacitacion.id))).one() or 0
+        completadas = db.exec(
+            select(func.count(PtcCapacitacion.id)).where(PtcCapacitacion.estado == "Completado")
+        ).one() or 0
+        horas_total = db.exec(
+            select(func.sum(PtcCapacitacion.horas)).where(col(PtcCapacitacion.horas).isnot(None))
+        ).one() or 0
+        personas_cap = db.exec(
+            select(func.count(func.distinct(PtcCapacitacion.persona_id)))
+        ).one() or 0
+        activos = db.exec(
+            select(func.count(PtcPersona.id)).where(PtcPersona.estado == "Activo")
+        ).one() or 1
+
+    return {
+        "total":               total,
+        "completadas":         completadas,
+        "completacion_pct":    round((completadas / max(total, 1)) * 100, 1),
+        "horas_promedio":      round(float(horas_total) / max(activos, 1), 1),
+        "personas_capacitadas": personas_cap,
+        "cobertura_pct":       round((personas_cap / max(activos, 1)) * 100, 1),
+    }
+
 
 @router.get("/capacitaciones")
 def listar_capacitaciones_global(

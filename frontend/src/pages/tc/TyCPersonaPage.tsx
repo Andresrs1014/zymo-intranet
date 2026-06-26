@@ -6,7 +6,7 @@ import { canEditTyC, canSeeTyCSensible } from "@/lib/permissions"
 import { PageLayout } from "@/components/layout/PageLayout"
 import {
   ArrowLeft, Camera, Pencil, X, Check, Plus, Trash2, Loader2,
-  BookOpen, ClipboardList, ShieldAlert, FileText,
+  BookOpen, ClipboardList, ShieldAlert, FileText, Award,
 } from "lucide-react"
 import {
   TC_ESTADOS, TC_GENEROS, TC_CONTRATOS, TC_SALIDAS,
@@ -397,7 +397,7 @@ function CapacitacionesTab({ personaId, puedeEditar }: { personaId: number; pued
   const [loading, setLoading] = useState(true)
   const [adding, setAdding]   = useState(false)
   const [saving, setSaving]   = useState(false)
-  const [form, setForm]       = useState({ titulo: "", fecha: "", horas: "", estado: TC_CAP_ESTADOS[0] as string, observaciones: "" })
+  const [form, setForm]       = useState({ titulo: "", fecha: "", horas: "", estado: TC_CAP_ESTADOS[0] as string, diploma_url: "", observaciones: "" })
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -418,9 +418,10 @@ function CapacitacionesTab({ personaId, puedeEditar }: { personaId: number; pued
         fecha: form.fecha || null,
         horas: form.horas ? parseFloat(form.horas) : null,
         estado: form.estado,
+        diploma_url: form.diploma_url.trim(),
         observaciones: form.observaciones,
       })
-      setForm({ titulo: "", fecha: "", horas: "", estado: TC_CAP_ESTADOS[0], observaciones: "" })
+      setForm({ titulo: "", fecha: "", horas: "", estado: TC_CAP_ESTADOS[0], diploma_url: "", observaciones: "" })
       setAdding(false)
       load()
     } finally { setSaving(false) }
@@ -461,6 +462,13 @@ function CapacitacionesTab({ personaId, puedeEditar }: { personaId: number; pued
                   </span>
                 </div>
                 {c.observaciones && <p className="text-xs text-muted-foreground mt-1 italic">{c.observaciones}</p>}
+                {c.diploma_url && (
+                  <a href={c.diploma_url} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 mt-1.5 text-[10px] font-medium text-teal-500 hover:text-teal-400 transition-colors">
+                    <Award className="w-3 h-3" />
+                    Ver diploma
+                  </a>
+                )}
               </div>
               {puedeEditar && (
                 <button onClick={() => eliminar(c.id)}
@@ -483,6 +491,7 @@ function CapacitacionesTab({ personaId, puedeEditar }: { personaId: number; pued
           <SelectField label="Estado" value={form.estado} onChange={(v) => setForm((p) => ({ ...p, estado: v }))}>
             {TC_CAP_ESTADOS.map((e) => <option key={e} value={e}>{e}</option>)}
           </SelectField>
+          <InputField label="URL Diploma (opcional)" value={form.diploma_url} onChange={(v) => setForm((p) => ({ ...p, diploma_url: v }))} placeholder="https://..." />
           <InputField label="Observaciones" value={form.observaciones} onChange={(v) => setForm((p) => ({ ...p, observaciones: v }))} />
         </AddForm>
       )}
