@@ -451,6 +451,23 @@ function ProcedureFileView({
   })
 
   const qc = useQueryClient()
+  const [reextractErr, setReextractErr] = useState<string | null>(null)
+  const [reextractWarnings, setReextractWarnings] = useState<string[]>([])
+
+  const reextractCommitMut = useMutation({
+    mutationFn: (commitId: number) => sigApi.post(`/api/commits/${commitId}/reextract`),
+    onSuccess: (res) => {
+      setReextractErr(null)
+      setReextractWarnings(res.data.warnings ?? [])
+      qc.invalidateQueries({ queryKey: ["sig", "commit", res.data.updated.id] })
+      qc.invalidateQueries({ queryKey: ["sig", "procedimiento", id] })
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+        ?? "No se pudo re-extraer el texto."
+      setReextractErr(msg)
+    },
+  })
 
   const { data: instructivosSnap = [] } = useQuery<{ id: number }[]>({
     queryKey: ["sig", "instructivos", id],
@@ -811,6 +828,24 @@ function ProcedureFileView({
                           }
                         </p>
                       </div>
+                      {content?.archivoOriginal && (
+                        <>
+                          {reextractErr && (
+                            <p className="text-[11px] text-red-500 font-mono text-center max-w-sm">{reextractErr}</p>
+                          )}
+                          {reextractWarnings.map((w, i) => (
+                            <p key={i} className="text-[11px] text-amber-600 font-mono text-center max-w-sm">{w}</p>
+                          ))}
+                          <button
+                            onClick={() => reextractCommitMut.mutate(content.id)}
+                            disabled={reextractCommitMut.isPending}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-mono font-semibold border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors disabled:opacity-50"
+                          >
+                            <RefreshCw className={cn("h-3 w-3", reextractCommitMut.isPending && "animate-spin")} />
+                            {reextractCommitMut.isPending ? "Re-extrayendo…" : "Reextraer texto"}
+                          </button>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>

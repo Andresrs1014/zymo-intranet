@@ -318,6 +318,33 @@ router.post("/:id/aprobar", requireGerente, async (req: Request, res: Response) 
   res.json({ ok: true })
 })
 
+// ── POST /api/commits/:id/reextract — re-procesar texto de archivo guardado ───
+
+router.post("/:id/reextract", requireSigAccess, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id)
+  const commit = await prisma.sigCommit.findUnique({ where: { id } })
+  if (!commit) { res.status(404).json({ error: "Commit no encontrado" }); return }
+  if (!commit.archivoOriginal || !commit.nombreArchivo) {
+    res.status(400).json({ error: "Este commit no tiene archivo almacenado para re-procesar" })
+    return
+  }
+
+  const filePath = path.join(UPLOADS_DIR, commit.archivoOriginal)
+  try {
+    await fs.access(filePath)
+  } catch {
+    res.status(404).json({ error: "Archivo físico no encontrado en el servidor" })
+    return
+  }
+
+  const { text, warnings } = await extractText(filePath, commit.nombreArchivo)
+  const updated = await prisma.sigCommit.update({
+    where: { id },
+    data: { contenidoAgente: text },
+  })
+  res.json({ updated, warnings })
+})
+
 // ── POST /api/commits/:id/rechazar ────────────────────────────────────────────
 
 router.post("/:id/rechazar", requireGerente, async (req: Request, res: Response) => {
