@@ -3,7 +3,6 @@ import { api } from "@/lib/api"
 import { useAuthStore } from "@/store/authStore"
 import { canEditTyC } from "@/lib/permissions"
 import { PageLayout } from "@/components/layout/PageLayout"
-import { TC_CAP_ESTADOS } from "@/lib/tc-constants"
 import {
   Plus, RefreshCw, Search, X, GraduationCap,
   BookOpen, Clock, Users, Award,
