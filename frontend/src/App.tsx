@@ -66,6 +66,7 @@ import { TyCIndicadoresPage } from "@/pages/tc/TyCIndicadoresPage"
 import { TyCCalendarioPage } from "@/pages/tc/TyCCalendarioPage"
 import { TyCEventoPage } from "@/pages/tc/TyCEventoPage"
 import { TyCAreaConfigPage } from "@/pages/tc/TyCAreaConfigPage"
+import { TyCCapacitacionesPage } from "@/pages/tc/TyCCapacitacionesPage"
 
 // Decodifica el claim `exp` del JWT sin verificar firma (solo para chequeo local de expiración)
 function isTokenExpired(token: string): boolean {
@@ -603,6 +604,10 @@ export default function App() {
         <Route
           path="/tc/area-config"
           element={<TyCRoute><TyCAreaConfigPage /></TyCRoute>}
+        />
+        <Route
+          path="/tc/capacitaciones"
+          element={<TyCRoute><TyCCapacitacionesPage /></TyCRoute>}
         />
 
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

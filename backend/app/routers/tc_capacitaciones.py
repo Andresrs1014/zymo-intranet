@@ -1,0 +1,262 @@
+"""
+Router T&C — Gestión gerencial de capacitaciones.
+
+Prefijo: /tc  (montado junto a personal.py y tc_agenda.py)
+Endpoints propios:
+  GET    /tc/capacitaciones                         — lista global con filtros
+  POST   /tc/capacitaciones/bulk                    — enrolar múltiples personas
+  PATCH  /tc/capacitaciones/{cap_id}/completar      — marcar completada
+  POST   /tc/eventos/{evento_id}/generar-capacitaciones  — puente evento→capacitación
+"""
+from __future__ import annotations
+
+from datetime import date, datetime
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel, Field
+from sqlmodel import Session, col, select
+
+from app.core.deps import get_current_user, require_permission
+from app.models.user import User
+from app.personal_database import (
+    PtcArea,
+    PtcCapacitacion,
+    PtcCargo,
+    PtcEvento,
+    PtcEventoPersona,
+    PtcPersona,
+    get_personal_engine,
+)
+
+router = APIRouter(prefix="/tc", tags=["T&C Capacitaciones"])
+
+require_tc        = require_permission("mod_tc")
+require_tc_editar = require_permission("mod_tc_editar")
+
+_TIPOS_CAPACITABLES = {"induccion", "curso"}
+
+
+# ── Schemas ──────────────────────────────────────────────────────────────────
+
+class BulkCapacitacionBody(BaseModel):
+    titulo: str = Field(min_length=1, max_length=200)
+    fecha: Optional[date] = None
+    horas: Optional[float] = Field(default=None, ge=0)
+    observaciones: str = Field(default="", max_length=500)
+    persona_ids: list[int] = Field(min_length=1, max_length=300)
+
+
+class CompletarBody(BaseModel):
+    score: Optional[float] = Field(default=None, ge=0, le=100)
+    diploma_url: Optional[str] = Field(default=None, max_length=500)
+
+
+# ── Helper ────────────────────────────────────────────────────────────────────
+
+def _enrich(cap: PtcCapacitacion, db: Session) -> dict:
+    """Devuelve la capacitación con datos de persona, cargo y área."""
+    persona = db.get(PtcPersona, cap.persona_id)
+    cargo_nombre = ""
+    area_nombre = ""
+    sede_id = 0
+    if persona:
+        sede_id = persona.sede_id or 0
+        if persona.cargo_id:
+            cargo = db.get(PtcCargo, persona.cargo_id)
+            cargo_nombre = cargo.nombre if cargo else ""
+        if persona.area_id:
+            area = db.get(PtcArea, persona.area_id)
+            area_nombre = area.nombre if area else ""
+    return {
+        "id":             cap.id,
+        "titulo":         cap.titulo,
+        "fecha":          cap.fecha.isoformat() if cap.fecha else None,
+        "horas":          cap.horas,
+        "estado":         cap.estado,
+        "observaciones":  cap.observaciones,
+        "diploma_url":    cap.diploma_url,
+        "persona_id":     cap.persona_id,
+        "persona_nombre": persona.nombre if persona else "",
+        "cargo_nombre":   cargo_nombre,
+        "area_nombre":    area_nombre,
+        "sede_id":        sede_id,
+    }
+
+
+# ── Endpoints ─────────────────────────────────────────────────────────────────
+
+@router.get("/capacitaciones")
+def listar_capacitaciones_global(
+    area_id:      Optional[int]  = Query(default=None),
+    sede_id:      Optional[int]  = Query(default=None),
+    estado:       Optional[str]  = Query(default=None),
+    fecha_desde:  Optional[date] = Query(default=None),
+    fecha_hasta:  Optional[date] = Query(default=None),
+    _: User = Depends(require_tc),
+):
+    with Session(get_personal_engine()) as db:
+        q = select(PtcCapacitacion).order_by(col(PtcCapacitacion.created_at).desc())
+
+        if estado:
+            q = q.where(PtcCapacitacion.estado == estado)
+        if fecha_desde:
+            q = q.where(PtcCapacitacion.fecha >= fecha_desde)
+        if fecha_hasta:
+            q = q.where(PtcCapacitacion.fecha <= fecha_hasta)
+
+        caps = db.exec(q).all()
+
+        # Filtros por persona (area_id / sede_id) se aplican post-query
+        result = []
+        for cap in caps:
+            persona = db.get(PtcPersona, cap.persona_id)
+            if not persona:
+                continue
+            if area_id is not None and persona.area_id != area_id:
+                continue
+            if sede_id is not None and persona.sede_id != sede_id:
+                continue
+            result.append(_enrich(cap, db))
+
+        return result
+
+
+@router.post("/capacitaciones/bulk", status_code=status.HTTP_201_CREATED)
+def enrolar_masivo(
+    body: BulkCapacitacionBody,
+    _: User = Depends(require_tc_editar),
+):
+    creadas = []
+    with Session(get_personal_engine()) as db:
+        # Verificar que las personas existen
+        personas = db.exec(
+            select(PtcPersona).where(col(PtcPersona.id).in_(body.persona_ids))
+        ).all()
+        ids_validos = {p.id for p in personas}
+
+        for pid in body.persona_ids:
+            if pid not in ids_validos:
+                continue
+            cap = PtcCapacitacion(
+                persona_id=pid,
+                titulo=body.titulo,
+                fecha=body.fecha,
+                horas=body.horas,
+                estado="Pendiente",
+                observaciones=body.observaciones,
+            )
+            db.add(cap)
+            db.flush()
+            creadas.append(cap.id)
+
+        db.commit()
+
+    return {"creadas": len(creadas), "ids": creadas}
+
+
+@router.patch("/capacitaciones/{cap_id}/completar")
+def completar_capacitacion(
+    cap_id: int,
+    body: CompletarBody,
+    _: User = Depends(require_tc_editar),
+):
+    with Session(get_personal_engine()) as db:
+        cap = db.get(PtcCapacitacion, cap_id)
+        if not cap:
+            raise HTTPException(status_code=404, detail="Capacitación no encontrada")
+
+        cap.estado = "Completado"
+
+        obs_parts = [cap.observaciones] if cap.observaciones else []
+        if body.score is not None:
+            obs_parts.append(f"Score: {body.score}/100")
+        if obs_parts:
+            cap.observaciones = " | ".join(obs_parts)
+
+        if body.diploma_url:
+            cap.diploma_url = body.diploma_url
+
+        db.add(cap)
+        db.commit()
+        db.refresh(cap)
+
+        return _enrich(cap, db)
+
+
+@router.post("/eventos/{evento_id}/generar-capacitaciones", status_code=status.HTTP_201_CREATED)
+def generar_capacitaciones_desde_evento(
+    evento_id: int,
+    _: User = Depends(require_tc_editar),
+):
+    """
+    Genera registros de capacitación para todos los asistentes de un evento
+    de tipo 'curso' o 'induccion'. Idempotente: no crea duplicados.
+    """
+    with Session(get_personal_engine()) as db:
+        evento = db.get(PtcEvento, evento_id)
+        if not evento:
+            raise HTTPException(status_code=404, detail="Evento no encontrado")
+
+        if evento.tipo not in _TIPOS_CAPACITABLES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Solo eventos de tipo {_TIPOS_CAPACITABLES} generan capacitaciones. "
+                       f"Este evento es de tipo '{evento.tipo}'.",
+            )
+
+        asistentes = db.exec(
+            select(PtcEventoPersona).where(PtcEventoPersona.evento_id == evento_id)
+        ).all()
+
+        if not asistentes:
+            return {"capacitaciones_creadas": 0, "personas_ya_registradas": 0,
+                    "evento_titulo": evento.titulo}
+
+        # Calcular horas desde duración del evento
+        horas: Optional[float] = None
+        fecha_cap: Optional[date] = None
+        if evento.fecha_inicio:
+            fecha_cap = evento.fecha_inicio if isinstance(evento.fecha_inicio, date) else evento.fecha_inicio.date()
+        if evento.fecha_inicio and evento.fecha_fin:
+            delta = evento.fecha_fin - evento.fecha_inicio
+            horas = round(delta.total_seconds() / 3600, 1)
+
+        titulo = evento.titulo
+        obs = f"Generado automáticamente desde evento #{evento_id}"
+
+        # Detectar duplicados existentes
+        ya_registradas = 0
+        creadas = 0
+
+        for asistente in asistentes:
+            existente = db.exec(
+                select(PtcCapacitacion).where(
+                    PtcCapacitacion.persona_id == asistente.persona_id,
+                    PtcCapacitacion.titulo == titulo,
+                    PtcCapacitacion.fecha == fecha_cap,
+                )
+            ).first()
+
+            if existente:
+                ya_registradas += 1
+                continue
+
+            cap = PtcCapacitacion(
+                persona_id=asistente.persona_id,
+                titulo=titulo,
+                fecha=fecha_cap,
+                horas=horas,
+                estado="Completado",
+                observaciones=obs,
+            )
+            db.add(cap)
+            creadas += 1
+
+        db.commit()
+
+    return {
+        "capacitaciones_creadas": creadas,
+        "personas_ya_registradas": ya_registradas,
+        "evento_titulo": titulo,
+    }

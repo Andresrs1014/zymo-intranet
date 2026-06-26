@@ -1,10 +1,77 @@
 import { Router, Request, Response } from "express"
 import { z } from "zod"
+import multer from "multer"
+import path from "path"
+import fs from "fs"
 import prisma from "../config/prisma"
 import { getUserId, requireSigAccess, requireGerente } from "../middleware/auth"
+import { extractText } from "../services/textExtraction"
 
 const router = Router()
 
+const UPLOADS_PROC_DIR = path.join(process.cwd(), "uploads", "sig", "proc_pdf_tmp")
+fs.mkdirSync(UPLOADS_PROC_DIR, { recursive: true })
+
+const procStorage = multer.diskStorage({
+  destination: UPLOADS_PROC_DIR,
+  filename: (_, file, cb) => {
+    const safe = path.basename(file.originalname).replace(/[^a-z0-9.\-_]/gi, "_").toLowerCase()
+    cb(null, `${Date.now()}-${safe}`)
+  },
+})
+const uploadProcPdf = multer({
+  storage: procStorage,
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (_, file, cb) => {
+    if (file.originalname.toLowerCase().endsWith(".pdf")) cb(null, true)
+    else cb(new Error("Solo se permiten archivos PDF"))
+  },
+})
+
+// POST /api/procedimientos/:id/upload-pdf
+// Sube un PDF, extrae su texto y lo devuelve para revision antes del commit.
+router.post(
+  "/:id/upload-pdf",
+  requireSigAccess,
+  uploadProcPdf.single("file"),
+  async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id)
+    if (!req.file) {
+      res.status(400).json({ error: "No se recibio archivo" })
+      return
+    }
+
+    try {
+      const proc = await prisma.sigProcedimiento.findUnique({ where: { id } })
+      if (!proc) {
+        await fs.promises.unlink(req.file.path).catch(() => {})
+        res.status(404).json({ error: "Procedimiento no encontrado" })
+        return
+      }
+
+      const { text, warnings } = await extractText(req.file.path, req.file.originalname)
+
+      await fs.promises.unlink(req.file.path).catch(() => {})
+
+      if (!text) {
+        res.status(422).json({
+          error: "No se pudo extraer texto del PDF",
+          warnings,
+        })
+        return
+      }
+
+      res.json({
+        texto_extraido: text,
+        warnings,
+        mensaje: "Texto extraido correctamente. Revisalo y crea el commit cuando este listo.",
+      })
+    } catch {
+      await fs.promises.unlink(req.file?.path ?? "").catch(() => {})
+      res.status(500).json({ error: "Error procesando el PDF" })
+    }
+  },
+)
 const ProcedimientoSchema = z.object({
   areaId: z.number().int().positive(),
   codigo: z.string().min(1).max(50),

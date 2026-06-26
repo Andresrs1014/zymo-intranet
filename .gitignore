@@ -53,6 +53,9 @@ plans/archivos/
 .DS_Store
 Thumbs.db
 
+# Docs de implementación (uso interno multi-agente, no van al repo)
+docs/implementacion/
+
 # Documentación interna / estrategia de negocio
 Master_plan/
 Excalidraw

@@ -3,6 +3,7 @@ import mammoth from "mammoth"
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const pdfParse = require("pdf-parse") as (buffer: Buffer) => Promise<{ text: string; numpages: number }>
 import fs from "fs/promises"
+import os from "os"
 import { execFile } from "child_process"
 import { promisify } from "util"
 
@@ -56,17 +57,56 @@ export async function extractText(filePath: string, fileName: string): Promise<E
     try {
       const data = await pdfParse(buffer)
       const text = data.text.trim()
-      if (!text) {
+      if (text) return { text, warnings: [] }
+
+      // PDF escaneado: OCR solo corre cuando pdf-parse no encuentra texto digital.
+      const { fromPath } = await import("pdf2pic")
+      const { createWorker } = await import("tesseract.js")
+
+      const converter = fromPath(filePath, {
+        density: 200,
+        saveFilename: "ocr_page",
+        savePath: os.tmpdir(),
+        format: "png",
+        width: 2480,
+        height: 3508,
+      })
+
+      const pageCount = data.numpages || 1
+      const worker = await createWorker("spa")
+      const ocrTexts: string[] = []
+
+      try {
+        for (let i = 1; i <= Math.min(pageCount, 20); i++) {
+          const result = await converter(i)
+          if (result.path) {
+            try {
+              const { data: { text: ocrText } } = await worker.recognize(result.path)
+              ocrTexts.push(ocrText.trim())
+            } finally {
+              await fs.unlink(result.path).catch(() => {})
+            }
+          }
+        }
+      } finally {
+        await worker.terminate()
+      }
+
+      const combinedText = ocrTexts.join("\n\n").trim()
+      if (!combinedText) {
         return {
           text: "",
-          warnings: ["El PDF no contiene texto extraíble. Puede ser un documento escaneado o basado en imágenes."],
+          warnings: ["PDF escaneado: OCR no encontro texto. Verifica que el documento sea legible."],
         }
       }
-      return { text, warnings: [] }
+      return {
+        text: combinedText,
+        warnings: [`Texto extraido por OCR (${pageCount} paginas). Puede contener errores de reconocimiento.`],
+      }
     } catch {
       return {
         text: "",
-        warnings: ["No se pudo extraer el texto del PDF. El archivo puede estar corrupto o protegido."],
+        warnings: ["No se pudo procesar el PDF. El archivo puede estar corrupto o protegido."],
       }
     }
   }

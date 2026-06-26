@@ -12,8 +12,9 @@ import {
   FileText, GitCommit, Inbox, X,
   GitBranchPlus, Clock, ChevronRight, ChevronLeft, Check, Circle, Download,
   Pencil, Eye, Sparkles, Save, XCircle, Loader, AlertCircle,
-  FlaskConical, RefreshCw, UploadCloud, BookOpen, Paperclip, Users,
+  FlaskConical, RefreshCw, UploadCloud, BookOpen, Paperclip, Users, FileUp,
 } from "lucide-react"
+import { SigPdfUploadModal } from "@/components/sig/SigPdfUploadModal"
 import { SigAiEditorPanel } from "@/components/sig/SigAiEditorPanel"
 import { SigAnalisisPanel } from "@/components/sig/SigAnalisisPanel"
 import { SigAnalisisSyncView } from "@/components/sig/SigAnalisisSyncView"
@@ -437,6 +438,7 @@ function ProcedureFileView({
   const [saveError, setSaveError] = useState("")
   const [contentTab, setContentTab] = useState<"doc" | "archivo" | "soporte" | "cargos">("doc")
   const [selectedInst, setSelectedInst] = useState<SigInstructivo | null>(null)
+  const [showPdfModal, setShowPdfModal] = useState(false)
 
   function switchTab(tab: "doc" | "archivo" | "soporte" | "cargos") {
     setContentTab(tab)
@@ -486,6 +488,14 @@ function ProcedureFileView({
     setCommitMsg("")
     setSaveError("")
     setEditorMode("edit")
+  }
+
+  function handlePdfTextExtracted(text: string) {
+    setEditContent(text)
+    setCommitMsg(`Importado desde PDF — ${proc?.codigo ?? ""}`)
+    setSaveError("")
+    setEditorMode("edit")
+    setShowPdfModal(false)
   }
 
   async function handleSaveEdit() {
@@ -550,6 +560,17 @@ function ProcedureFileView({
 
           {/* Editor mode controls */}
           <div className="ml-auto flex items-center gap-1">
+            {canEditSig && editorMode === "view" && (
+              <button
+                onClick={() => setShowPdfModal(true)}
+                className="flex items-center gap-1.5 px-2 py-1 text-[10px] border border-zinc-200
+                           rounded text-zinc-500 hover:text-zinc-700 hover:border-zinc-300
+                           transition-all font-mono"
+              >
+                <FileUp className="h-3 w-3" />
+                Importar PDF
+              </button>
+            )}
             {editorMode === "view" && currentContent && (
               <>
                 <button
@@ -882,6 +903,15 @@ function ProcedureFileView({
           ))}
         </div>
       </div>
+
+      {showPdfModal && (
+        <SigPdfUploadModal
+          procedimientoId={id}
+          procedimientoCodigo={proc.codigo}
+          onTextExtracted={handlePdfTextExtracted}
+          onClose={() => setShowPdfModal(false)}
+        />
+      )}
     </div>
   )
 }

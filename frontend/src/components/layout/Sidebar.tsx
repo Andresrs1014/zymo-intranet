@@ -13,6 +13,7 @@ import {
   ListTodo,
   Layers,
   Users,
+  GraduationCap,
 } from "lucide-react"
 import { useAuthStore } from "@/store/authStore"
 import {
@@ -204,12 +205,20 @@ export function Sidebar() {
                   />
                 )}
                 {showTyC && (
-                  <NavItem
-                    to="/tc"
-                    label="T&C"
-                    icon={<Users className="w-4 h-4" />}
-                    active={isActive(["/tc"])}
-                  />
+                  <>
+                    <NavItem
+                      to="/tc"
+                      label="T&C"
+                      icon={<Users className="w-4 h-4" />}
+                      active={isActive(["/tc"]) && !isActive(["/tc/capacitaciones"])}
+                    />
+                    <NavItem
+                      to="/tc/capacitaciones"
+                      label="Capacitaciones"
+                      icon={<GraduationCap className="w-4 h-4" />}
+                      active={isActive(["/tc/capacitaciones"])}
+                    />
+                  </>
                 )}
               </SidebarMenu>
             </SidebarGroupContent>
