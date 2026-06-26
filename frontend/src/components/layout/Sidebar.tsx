@@ -210,13 +210,13 @@ export function Sidebar() {
                       to="/tc"
                       label="T&C"
                       icon={<Users className="w-4 h-4" />}
-                      active={isActive(["/tc"]) && !isActive(["/tc/capacitaciones"])}
+                      active={isActive(["/tc"]) && !isActive(["/tc/formacion"])}
                     />
                     <NavItem
-                      to="/tc/capacitaciones"
+                      to="/tc/formacion"
                       label="Capacitaciones"
                       icon={<GraduationCap className="w-4 h-4" />}
-                      active={isActive(["/tc/capacitaciones"])}
+                      active={isActive(["/tc/formacion"])}
                     />
                   </>
                 )}

@@ -606,7 +606,7 @@ export default function App() {
           element={<TyCRoute><TyCAreaConfigPage /></TyCRoute>}
         />
         <Route
-          path="/tc/capacitaciones"
+          path="/tc/formacion"
           element={<TyCRoute><TyCCapacitacionesPage /></TyCRoute>}
         />
 
