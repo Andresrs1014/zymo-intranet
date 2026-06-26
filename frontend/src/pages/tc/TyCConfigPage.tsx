@@ -5,7 +5,7 @@ import { canEditTyC } from "@/lib/permissions"
 import { PageLayout } from "@/components/layout/PageLayout"
 import {
   Plus, Trash2, Save, ChevronDown, ChevronRight,
-  Package, Mail, Eye, EyeOff,
+  Package, Bell, Eye, EyeOff,
 } from "lucide-react"
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
@@ -16,6 +16,7 @@ interface SmtpConfig {
   host: string; port: number; usuario: string
   from_email: string; from_nombre: string; activo: boolean
 }
+interface WaConfig { phone_number_id: string; activo: boolean }
 
 type Tab = "paquetes" | "notificaciones"
 
@@ -43,8 +44,8 @@ export function TyCConfigPage() {
                   tab === t ? "border-teal-500 text-teal-400" : "border-transparent text-muted-foreground hover:text-foreground"
                 }`}
               >
-                {t === "paquetes" ? <Package className="w-3.5 h-3.5" /> : <Mail className="w-3.5 h-3.5" />}
-                {t === "paquetes" ? "Paquetes de capacitación" : "Notificaciones SMTP"}
+                {t === "paquetes" ? <Package className="w-3.5 h-3.5" /> : <Bell className="w-3.5 h-3.5" />}
+                {t === "paquetes" ? "Paquetes de capacitación" : "Notificaciones"}
               </button>
             ))}
           </div>
@@ -53,7 +54,7 @@ export function TyCConfigPage() {
 
       <div className="max-w-4xl mx-auto px-8 py-6">
         {tab === "paquetes" && <PaquetesTab puedeEditar={puedeEditar} />}
-        {tab === "notificaciones" && <SmtpTab puedeEditar={puedeEditar} />}
+        {tab === "notificaciones" && <NotificacionesTab puedeEditar={puedeEditar} />}
       </div>
     </PageLayout>
   )
@@ -252,9 +253,120 @@ function PaqueteCard({
   )
 }
 
-// ── Tab SMTP ──────────────────────────────────────────────────────────────────
+// ── Tab Notificaciones (WA + SMTP) ────────────────────────────────────────────
 
-function SmtpTab({ puedeEditar }: { puedeEditar: boolean }) {
+function NotificacionesTab({ puedeEditar }: { puedeEditar: boolean }) {
+  return (
+    <div className="space-y-8 max-w-xl">
+      <WaSection puedeEditar={puedeEditar} />
+      <div className="h-px bg-border" />
+      <SmtpSection puedeEditar={puedeEditar} />
+    </div>
+  )
+}
+
+function WaSection({ puedeEditar }: { puedeEditar: boolean }) {
+  const [form, setForm] = useState<WaConfig & { token: string }>({
+    phone_number_id: "", token: "", activo: false,
+  })
+  const [showToken, setShowToken] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    api.get("/tc/wa-config").then((r) => setForm((p) => ({ ...p, ...r.data, token: "" })))
+  }, [])
+
+  function f(field: keyof typeof form, value: string | boolean) {
+    setForm((p) => ({ ...p, [field]: value }))
+  }
+
+  async function guardar() {
+    setSaving(true)
+    try {
+      await api.put("/tc/wa-config", {
+        phone_number_id: form.phone_number_id,
+        token: form.token || undefined,
+        activo: form.activo,
+      })
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 mb-1">
+        {/* WhatsApp logo */}
+        <svg viewBox="0 0 32 32" className="w-4 h-4 shrink-0" fill="#25D366">
+          <path d="M16 3C9.373 3 4 8.373 4 15c0 2.385.68 4.61 1.857 6.5L4 29l7.7-1.82A12.93 12.93 0 0 0 16 28c6.627 0 12-5.373 12-12S22.627 3 16 3zm0 2c5.523 0 10 4.477 10 10S21.523 25 16 25a10.93 10.93 0 0 1-5.5-1.48l-.4-.24-4.57 1.08 1.1-4.44-.27-.41A9.94 9.94 0 0 1 6 15c0-5.523 4.477-10 10-10zm-3.5 5.5c-.28 0-.73.1-1.11.5-.38.4-1.39 1.35-1.39 3.3s1.42 3.82 1.62 4.08c.2.26 2.77 4.23 6.72 5.93 3.94 1.7 3.94 1.13 4.65 1.06.71-.07 2.29-.93 2.61-1.83.33-.9.33-1.67.23-1.83-.1-.16-.36-.26-.75-.46s-2.29-1.13-2.65-1.26c-.36-.13-.62-.2-.88.2-.26.4-1 1.26-1.23 1.52-.23.26-.46.29-.85.1-.39-.2-1.64-.6-3.12-1.92-1.15-1.02-1.93-2.28-2.16-2.67-.23-.39-.02-.6.17-.79.17-.17.39-.46.58-.69.2-.23.26-.39.39-.66.13-.26.07-.49-.03-.69-.1-.2-.88-2.12-1.2-2.9-.32-.76-.64-.65-.88-.66-.23-.01-.49-.01-.75-.01z"/>
+        </svg>
+        <p className="text-sm font-semibold">WhatsApp Business API</p>
+      </div>
+      <p className="text-xs text-muted-foreground -mt-1">
+        Configura el token y el Phone Number ID de la Meta Business API para enviar notificaciones por WhatsApp.
+      </p>
+
+      <div>
+        <Label>Phone Number ID</Label>
+        <input
+          value={form.phone_number_id}
+          onChange={(e) => f("phone_number_id", e.target.value)}
+          placeholder="123456789012345"
+          className="input-base text-sm"
+          readOnly={!puedeEditar}
+        />
+      </div>
+
+      <div>
+        <Label>
+          Token de acceso{" "}
+          {form.token === "" && <span className="text-muted-foreground font-normal">(dejar vacío para no cambiar)</span>}
+        </Label>
+        <div className="relative">
+          <input
+            type={showToken ? "text" : "password"}
+            value={form.token}
+            onChange={(e) => f("token", e.target.value)}
+            placeholder="EAABkxxx..."
+            className="input-base text-sm pr-9"
+            readOnly={!puedeEditar}
+          />
+          <button onClick={() => setShowToken((v) => !v)}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
+            {showToken ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+          </button>
+        </div>
+      </div>
+
+      <label className="flex items-center gap-2 cursor-pointer select-none pt-1">
+        <input
+          type="checkbox"
+          checked={form.activo}
+          onChange={(e) => f("activo", e.target.checked)}
+          disabled={!puedeEditar}
+          className="w-4 h-4 accent-teal-500"
+        />
+        <span className="text-sm">Activar notificaciones por WhatsApp</span>
+      </label>
+
+      {puedeEditar && (
+        <button
+          onClick={guardar}
+          disabled={saving}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${
+            saved ? "bg-emerald-500/15 text-emerald-400" : "bg-teal-500/15 hover:bg-teal-500/25 text-teal-400"
+          } disabled:opacity-40`}
+        >
+          <Save className="w-3.5 h-3.5" />
+          {saving ? "Guardando..." : saved ? "Guardado ✓" : "Guardar configuración WhatsApp"}
+        </button>
+      )}
+    </div>
+  )
+}
+
+function SmtpSection({ puedeEditar }: { puedeEditar: boolean }) {
   const [form, setForm] = useState<SmtpConfig & { password: string }>({
     host: "", port: 587, usuario: "", password: "",
     from_email: "", from_nombre: "T&C Zymo", activo: false,
@@ -284,8 +396,15 @@ function SmtpTab({ puedeEditar }: { puedeEditar: boolean }) {
   }
 
   return (
-    <div className="max-w-xl space-y-4">
-      <p className="text-sm text-muted-foreground mb-4">
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 mb-1">
+        <svg viewBox="0 0 24 24" className="w-4 h-4 shrink-0 text-sky-400" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+          <polyline points="22,6 12,13 2,6"/>
+        </svg>
+        <p className="text-sm font-semibold">Email SMTP</p>
+      </div>
+      <p className="text-xs text-muted-foreground -mt-1">
         Configura el servidor SMTP para enviar notificaciones de eventos por correo al líder del área.
       </p>
 

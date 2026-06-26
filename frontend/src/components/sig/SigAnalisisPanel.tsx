@@ -6,7 +6,7 @@ import { api } from "@/lib/api"
 import { useSigAnalisisStore, type AnalysisType } from "@/store/sigAnalisisStore"
 import {
   Search, SlidersHorizontal, FileText,
-  Target, Lightbulb, GitCompare, Database, Users, Loader, AlertTriangle, X,
+  Target, Lightbulb, GitCompare, Database, Users, Loader, AlertTriangle, X, ChevronDown, ChevronRight,
 } from "lucide-react"
 import { fetchProcCargoIds, type ProcCargoAsignado } from "@/components/sig/SigProcedimientoCargosPanel"
 
@@ -222,6 +222,86 @@ const ANALYSIS_TYPES: Array<{
   { type: "lightrag",      label: "LightRAG",    icon: <Database  className="h-3 w-3" />, color: "text-emerald-600 border-emerald-200 bg-emerald-50 hover:bg-emerald-100" },
 ]
 
+// ── RAG Status Bar ────────────────────────────────────────────────────────────
+
+interface RagStats { num_docs: number; num_chunks: number; num_entities: number; num_relations: number }
+interface RagStatusData { stats: RagStats }
+
+function RagStatusBar() {
+  const [open, setOpen] = useState(false)
+
+  const { data: rag1, isLoading: l1 } = useQuery<RagStatusData>({
+    queryKey: ["sig", "rag-status", "rag1"],
+    queryFn: () => api.get("/api/netvault/rag-status?rag_id=rag1").then((r) => r.data),
+    enabled: open,
+    staleTime: 60_000,
+  })
+
+  const { data: rag2, isLoading: l2 } = useQuery<RagStatusData>({
+    queryKey: ["sig", "rag-status", "rag2"],
+    queryFn: () => api.get("/api/netvault/rag-status?rag_id=rag2").then((r) => r.data),
+    enabled: open,
+    staleTime: 60_000,
+  })
+
+  return (
+    <div className="shrink-0 border-b border-zinc-200 bg-emerald-50/60">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center gap-2 px-4 py-2 text-[11px] font-mono text-emerald-700 hover:bg-emerald-100/60 transition-colors"
+      >
+        <Database className="h-3 w-3 shrink-0" />
+        <span className="font-semibold">LightRAG Knowledge Graph</span>
+        {!open && rag1 && (
+          <span className="text-emerald-600 opacity-70">
+            · Jarvis {rag1.stats.num_docs} docs / {rag1.stats.num_entities} entidades
+          </span>
+        )}
+        <div className="ml-auto">{open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}</div>
+      </button>
+
+      {open && (
+        <div className="px-4 pb-3 grid grid-cols-2 gap-3">
+          <RagCard label="rag1 — Jarvis" subtitle="empresa actual" data={rag1?.stats} loading={l1} color="emerald" />
+          <RagCard label="rag2 — Ultron" subtitle="empresa mejorada" data={rag2?.stats} loading={l2} color="violet" />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function RagCard({
+  label, subtitle, data, loading, color,
+}: { label: string; subtitle: string; data: RagStats | undefined; loading: boolean; color: "emerald" | "violet" }) {
+  const cc = color === "emerald"
+    ? { text: "text-emerald-700", bg: "bg-emerald-100", dot: "bg-emerald-500" }
+    : { text: "text-violet-700", bg: "bg-violet-100", dot: "bg-violet-500" }
+
+  return (
+    <div className={`rounded-lg border p-3 ${cc.bg} border-${color}-200`}>
+      <div className="flex items-center gap-1.5 mb-2">
+        <span className={`h-1.5 w-1.5 rounded-full ${cc.dot}`} />
+        <span className={`text-[11px] font-mono font-semibold ${cc.text}`}>{label}</span>
+        <span className={`text-[10px] ${cc.text} opacity-60`}>{subtitle}</span>
+      </div>
+      {loading ? (
+        <div className="flex items-center gap-1.5 text-[10px] text-zinc-400"><Loader className="h-2.5 w-2.5 animate-spin" /> Cargando…</div>
+      ) : data ? (
+        <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
+          {([["docs", data.num_docs], ["chunks", data.num_chunks], ["entidades", data.num_entities], ["relaciones", data.num_relations]] as [string, number][]).map(([k, v]) => (
+            <div key={k} className="flex items-baseline justify-between text-[10px] font-mono">
+              <span className="text-zinc-500">{k}</span>
+              <span className={`font-semibold tabular-nums ${cc.text}`}>{v}</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-[10px] text-zinc-400 font-mono">Sin datos</p>
+      )}
+    </div>
+  )
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function SigAnalisisPanel() {
@@ -251,6 +331,9 @@ export function SigAnalisisPanel() {
 
   return (
     <div className="flex flex-col h-full bg-zinc-50 overflow-hidden">
+
+      {/* RAG status */}
+      <RagStatusBar />
 
       {/* Filter bar */}
       <div className="shrink-0 flex items-center gap-2 px-4 h-11 border-b border-zinc-200 bg-white">

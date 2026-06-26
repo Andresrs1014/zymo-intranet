@@ -20,7 +20,7 @@ from sqlmodel import Session, select
 
 from app.core.deps import require_permission
 from app.models.user import User
-from app.personal_database import PtcPaquete, PtcPaqueteItem, PtcSmtpConfig, get_personal_engine
+from app.personal_database import PtcPaquete, PtcPaqueteItem, PtcSmtpConfig, PtcWaConfig, get_personal_engine
 
 router = APIRouter(prefix="/tc", tags=["T&C Paquetes"])
 
@@ -165,6 +165,38 @@ def set_smtp_config(body: SmtpConfigBody, _: User = Depends(require_tc_editar)):
             cfg.password = body.password
         cfg.from_email = body.from_email
         cfg.from_nombre = body.from_nombre
+        cfg.activo = body.activo
+        db.add(cfg)
+        db.commit()
+        return {"ok": True}
+
+
+# ── WA Config ─────────────────────────────────────────────────────────────────
+
+class WaConfigBody(BaseModel):
+    phone_number_id: str = Field(default="", max_length=100)
+    token: Optional[str] = None  # None = no modificar
+    activo: bool = False
+
+
+@router.get("/wa-config")
+def get_wa_config(_: User = Depends(require_tc)):
+    with Session(get_personal_engine()) as db:
+        cfg = db.get(PtcWaConfig, 1)
+        if not cfg:
+            return {"id": 1, "phone_number_id": "", "activo": False}
+        return {"id": cfg.id, "phone_number_id": cfg.phone_number_id, "activo": cfg.activo}
+
+
+@router.put("/wa-config")
+def set_wa_config(body: WaConfigBody, _: User = Depends(require_tc_editar)):
+    with Session(get_personal_engine()) as db:
+        cfg = db.get(PtcWaConfig, 1)
+        if not cfg:
+            cfg = PtcWaConfig(id=1)
+        cfg.phone_number_id = body.phone_number_id
+        if body.token is not None:
+            cfg.token = body.token
         cfg.activo = body.activo
         db.add(cfg)
         db.commit()

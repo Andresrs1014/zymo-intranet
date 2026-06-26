@@ -24,11 +24,24 @@ def _build_body(to: str, message: str) -> dict:
     }
 
 
+def _get_wa_credentials() -> tuple[str, str]:
+    """Lee token y phone_number_id desde DB (PtcWaConfig). Fallback a .env si DB vacía."""
+    try:
+        from app.personal_database import PtcWaConfig, get_personal_engine
+        from sqlmodel import Session
+        with Session(get_personal_engine()) as db:
+            cfg = db.get(PtcWaConfig, 1)
+            if cfg and cfg.activo and cfg.token and cfg.phone_number_id:
+                return cfg.token, cfg.phone_number_id
+    except Exception:
+        pass
+    from app.config import settings
+    return (settings.whatsapp_api_token or ""), (settings.whatsapp_phone_number_id or "")
+
+
 def send_whatsapp(to: str, message: str) -> bool:
     """Envía mensaje de texto plano. Retorna True si 2xx."""
-    from app.config import settings
-    token = settings.whatsapp_api_token
-    phone_id = settings.whatsapp_phone_number_id
+    token, phone_id = _get_wa_credentials()
 
     if not token or not phone_id:
         log.warning("[tc_wa] WhatsApp no configurado — token o phone_id vacíos")

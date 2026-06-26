@@ -12,10 +12,10 @@ import {
   FileText, GitCommit, Inbox, X,
   GitBranchPlus, Clock, ChevronRight, ChevronLeft, Check, Circle, Download,
   Pencil, Eye, Sparkles, Save, XCircle, Loader, AlertCircle,
-  FlaskConical, RefreshCw, UploadCloud, BookOpen, Paperclip, Users,
+  FlaskConical, RefreshCw, UploadCloud, BookOpen, Paperclip, Users, Database,
 } from "lucide-react"
 import { SigAiEditorPanel } from "@/components/sig/SigAiEditorPanel"
-import { SigAnalisisPanel } from "@/components/sig/SigAnalisisPanel"
+import { SigAnalisisPanel, useRunAnalysis } from "@/components/sig/SigAnalisisPanel"
 import { SigAnalisisSyncView } from "@/components/sig/SigAnalisisSyncView"
 import { SigAnalisisQueue } from "@/components/sig/SigAnalisisQueue"
 import { SigAnalisisInspector } from "@/components/sig/SigAnalisisInspector"
@@ -437,6 +437,8 @@ function ProcedureFileView({
   const [saveError, setSaveError] = useState("")
   const [contentTab, setContentTab] = useState<"doc" | "archivo" | "soporte" | "cargos">("doc")
   const [selectedInst, setSelectedInst] = useState<SigInstructivo | null>(null)
+  const [indexingRag, setIndexingRag] = useState(false)
+  const runAnalysis = useRunAnalysis()
   function switchTab(tab: "doc" | "archivo" | "soporte" | "cargos") {
     setContentTab(tab)
     if (tab !== "soporte") setSelectedInst(null)
@@ -524,6 +526,24 @@ function ProcedureFileView({
     }
   }
 
+  async function handleIndexRag() {
+    if (!content?.contenidoAgente || !proc || indexingRag) return
+    setIndexingRag(true)
+    try {
+      const inst = instructivosSnap.length > 0
+        ? (await sigApi.get(`/api/instructivos?procedimientoId=${id}&activo=true`)).data as Array<{ id: number; codigo: string; titulo: string; contenido: string }>
+        : []
+      void runAnalysis(
+        { id: proc.id, codigo: proc.codigo, titulo: proc.titulo, areaNombre: proc.area.nombre },
+        "lightrag",
+        content.contenidoAgente,
+        inst,
+      )
+    } finally {
+      setIndexingRag(false)
+    }
+  }
+
   if (procLoading) {
     return (
       <div className="flex items-center justify-center h-full bg-white">
@@ -568,6 +588,15 @@ function ProcedureFileView({
           <div className="ml-auto flex items-center gap-1">
             {editorMode === "view" && currentContent && (
               <>
+                <button
+                  onClick={handleIndexRag}
+                  disabled={indexingRag}
+                  title="Indexar este procedimiento en el grafo de conocimiento LightRAG"
+                  className="flex items-center gap-1 text-[10px] px-2 py-1 rounded border border-emerald-200 text-emerald-600 hover:bg-emerald-50 transition-colors font-mono disabled:opacity-40"
+                >
+                  {indexingRag ? <Loader className="h-3 w-3 animate-spin" /> : <Database className="h-3 w-3" />}
+                  RAG
+                </button>
                 <button
                   onClick={enterEdit}
                   className="flex items-center gap-1 text-[10px] px-2 py-1 rounded border border-zinc-200 text-zinc-500 hover:border-zinc-300 hover:text-zinc-700 transition-colors font-mono"

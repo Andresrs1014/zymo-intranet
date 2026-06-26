@@ -212,6 +212,16 @@ class PtcSmtpConfig(SQLModel, table=True):
     activo: bool = Field(default=False)
 
 
+class PtcWaConfig(SQLModel, table=True):
+    """Configuración WhatsApp Business API — fila única (id=1)."""
+    __tablename__ = "ptc_wa_config"
+
+    id: int = Field(default=1, primary_key=True)
+    phone_number_id: str = Field(default="", max_length=100)
+    token: str = Field(default="", max_length=500)
+    activo: bool = Field(default=False)
+
+
 class PtcEvento(SQLModel, table=True):
     """Evento de agenda T&C: inducción, curso, reunión, etc."""
     __tablename__ = "ptc_evento"
@@ -274,7 +284,7 @@ _PERSONAL_TABLES = {
     "ptc_capacitacion", "ptc_evaluacion", "ptc_sancion", "ptc_novedad",
     "ptc_area_config", "ptc_evento", "ptc_evento_persona",
     "ptc_orden_dia", "ptc_evento_documento",
-    "ptc_paquete", "ptc_paquete_item", "ptc_smtp_config",
+    "ptc_paquete", "ptc_paquete_item", "ptc_smtp_config", "ptc_wa_config",
 }
 
 
@@ -284,7 +294,7 @@ def create_personal_tables() -> None:
         PtcCapacitacion, PtcEvaluacion, PtcSancion, PtcNovedad,
         PtcAreaConfig, PtcEvento, PtcEventoPersona,
         PtcOrdenDia, PtcEventoDocumento,
-        PtcPaquete, PtcPaqueteItem, PtcSmtpConfig,
+        PtcPaquete, PtcPaqueteItem, PtcSmtpConfig, PtcWaConfig,
     )
     tables = [
         SQLModel.metadata.tables[t]
