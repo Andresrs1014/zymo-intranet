@@ -10,7 +10,7 @@ import {
 } from "@/lib/tc-constants"
 import {
   ArrowLeft, Plus, Trash2, CheckCircle2,
-  Users, FileText, ListOrdered, Bell, GripVertical,
+  Users, FileText, ListOrdered, GripVertical,
   Upload, X, Link2,
 } from "lucide-react"
 
