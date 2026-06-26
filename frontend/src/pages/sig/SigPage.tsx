@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query"
 import { useAuthStore } from "@/store/authStore"
 import { cn } from "@/lib/utils"
 import { sigApi } from "@/lib/sigApi"
@@ -12,9 +12,8 @@ import {
   FileText, GitCommit, Inbox, X,
   GitBranchPlus, Clock, ChevronRight, ChevronLeft, Check, Circle, Download,
   Pencil, Eye, Sparkles, Save, XCircle, Loader, AlertCircle,
-  FlaskConical, RefreshCw, UploadCloud, BookOpen, Paperclip, Users, FileUp,
+  FlaskConical, RefreshCw, UploadCloud, BookOpen, Paperclip, Users,
 } from "lucide-react"
-import { SigPdfUploadModal } from "@/components/sig/SigPdfUploadModal"
 import { SigAiEditorPanel } from "@/components/sig/SigAiEditorPanel"
 import { SigAnalisisPanel } from "@/components/sig/SigAnalisisPanel"
 import { SigAnalisisSyncView } from "@/components/sig/SigAnalisisSyncView"
@@ -438,8 +437,6 @@ function ProcedureFileView({
   const [saveError, setSaveError] = useState("")
   const [contentTab, setContentTab] = useState<"doc" | "archivo" | "soporte" | "cargos">("doc")
   const [selectedInst, setSelectedInst] = useState<SigInstructivo | null>(null)
-  const [showPdfModal, setShowPdfModal] = useState(false)
-
   function switchTab(tab: "doc" | "archivo" | "soporte" | "cargos") {
     setContentTab(tab)
     if (tab !== "soporte") setSelectedInst(null)
@@ -488,14 +485,6 @@ function ProcedureFileView({
     setCommitMsg("")
     setSaveError("")
     setEditorMode("edit")
-  }
-
-  function handlePdfTextExtracted(text: string) {
-    setEditContent(text)
-    setCommitMsg(`Importado desde PDF — ${proc?.codigo ?? ""}`)
-    setSaveError("")
-    setEditorMode("edit")
-    setShowPdfModal(false)
   }
 
   async function handleSaveEdit() {
@@ -560,17 +549,6 @@ function ProcedureFileView({
 
           {/* Editor mode controls */}
           <div className="ml-auto flex items-center gap-1">
-            {canEditSig && editorMode === "view" && (
-              <button
-                onClick={() => setShowPdfModal(true)}
-                className="flex items-center gap-1.5 px-2 py-1 text-[10px] border border-zinc-200
-                           rounded text-zinc-500 hover:text-zinc-700 hover:border-zinc-300
-                           transition-all font-mono"
-              >
-                <FileUp className="h-3 w-3" />
-                Importar PDF
-              </button>
-            )}
             {editorMode === "view" && currentContent && (
               <>
                 <button
@@ -904,14 +882,6 @@ function ProcedureFileView({
         </div>
       </div>
 
-      {showPdfModal && (
-        <SigPdfUploadModal
-          procedimientoId={id}
-          procedimientoCodigo={proc.codigo}
-          onTextExtracted={handlePdfTextExtracted}
-          onClose={() => setShowPdfModal(false)}
-        />
-      )}
     </div>
   )
 }
@@ -922,6 +892,23 @@ function InstructivoDetailView({ inst, onBack }: { inst: SigInstructivo; onBack:
   const hasFile = !!inst.archivoOriginal && !inst.tipoMime?.startsWith("text/")
   const defaultTab = !inst.contenido.trim() && hasFile ? "archivo" : "doc"
   const [tab, setTab] = useState<"doc" | "archivo">(defaultTab)
+  const [contenidoLocal, setContenidoLocal] = useState(inst.contenido)
+  const [reextractErr, setReextractErr] = useState<string | null>(null)
+  const [reextractWarnings, setReextractWarnings] = useState<string[]>([])
+
+  const reextractMut = useMutation({
+    mutationFn: () => sigApi.post(`/api/instructivos/${inst.id}/reextract`),
+    onSuccess: (res) => {
+      setContenidoLocal(res.data.updated.contenido ?? "")
+      setReextractWarnings(res.data.warnings ?? [])
+      setReextractErr(null)
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+        ?? "No se pudo re-extraer el texto."
+      setReextractErr(msg)
+    },
+  })
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -987,17 +974,39 @@ function InstructivoDetailView({ inst, onBack }: { inst: SigInstructivo; onBack:
               )}
             </div>
             {/* Content */}
-            {inst.contenido.trim() ? (
+            {contenidoLocal.trim() ? (
               <div className={INST_PROSE}>
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{inst.contenido}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{contenidoLocal}</ReactMarkdown>
+                {reextractWarnings.length > 0 && (
+                  <div className="mt-4 p-3 rounded-lg bg-amber-50 border border-amber-200 space-y-1">
+                    {reextractWarnings.map((w, i) => (
+                      <p key={i} className="text-[11px] text-amber-700 font-mono">{w}</p>
+                    ))}
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex flex-col items-center gap-3 py-16">
                 <Paperclip className="h-8 w-8 text-zinc-200" />
                 <p className="text-[13px] text-zinc-400 font-mono text-center">
-                  No se pudo extraer texto de este archivo.<br />
-                  {hasFile ? "Cambia a la pestaña «Archivo original» para verlo." : ""}
+                  No se pudo extraer texto de este archivo.
                 </p>
+                {reextractErr && (
+                  <p className="text-[11px] text-red-500 font-mono text-center max-w-sm">{reextractErr}</p>
+                )}
+                {reextractWarnings.map((w, i) => (
+                  <p key={i} className="text-[11px] text-amber-600 font-mono text-center max-w-sm">{w}</p>
+                ))}
+                {hasFile && (
+                  <button
+                    onClick={() => reextractMut.mutate()}
+                    disabled={reextractMut.isPending}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-mono font-semibold border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors disabled:opacity-50"
+                  >
+                    <RefreshCw className={cn("h-3 w-3", reextractMut.isPending && "animate-spin")} />
+                    {reextractMut.isPending ? "Re-extrayendo…" : "Reextraer texto"}
+                  </button>
+                )}
               </div>
             )}
           </div>
