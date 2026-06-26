@@ -5,7 +5,8 @@ import { useAuthStore } from "@/store/authStore"
 import { canImportTyC, canSeeTyCSensible } from "@/lib/permissions"
 import { PageLayout } from "@/components/layout/PageLayout"
 import {
-  Users, GitBranch, Upload, FileText, TrendingUp, ArrowUpRight, CalendarDays, Settings2,
+  Users, GitBranch, Upload, FileText, TrendingUp, ArrowUpRight,
+  CalendarDays, Settings2, GraduationCap,
 } from "lucide-react"
 
 interface Stats { total: number; activos: number; inactivos: number }
@@ -74,7 +75,7 @@ export function TyCPage() {
       {/* ── Módulos ───────────────────────────────────────────────────── */}
       <div className="px-10 py-8 max-w-5xl mx-auto space-y-8">
 
-        {/* Fila 1: Directorio + Organigrama + Manuales + Agenda */}
+        {/* Fila 1: Directorio + Organigrama + Manuales + Agenda + Capacitaciones */}
         <section>
           <SectionLabel>Personal y estructura</SectionLabel>
           <div className="grid grid-cols-4 gap-3">
@@ -96,18 +97,27 @@ export function TyCPage() {
               onClick={() => navigate("/tc/organigrama")}
             />
             <ModuleCard
-              icon={<FileText className="w-4 h-4" />}
-              color="indigo"
-              title="Manuales de funciones"
-              description="PDF, Word o Excel por cargo. Fuente para análisis IA del SIG."
-              onClick={() => navigate("/tc/manuales")}
-            />
-            <ModuleCard
               icon={<CalendarDays className="w-4 h-4" />}
               color="teal"
               title="Agenda"
               description="Inducciones, cursos y reuniones con notificación WhatsApp al líder."
               onClick={() => navigate("/tc/calendario")}
+            />
+            <ModuleCard
+              icon={<GraduationCap className="w-4 h-4" />}
+              color="indigo"
+              title="Capacitaciones"
+              description="Historial de formación, paquetes de inducción y seguimiento por área."
+              onClick={() => navigate("/tc/formacion")}
+            />
+          </div>
+          <div className="grid grid-cols-4 gap-3 mt-3">
+            <ModuleCard
+              icon={<FileText className="w-4 h-4" />}
+              color="indigo"
+              title="Manuales de funciones"
+              description="PDF, Word o Excel por cargo. Fuente para análisis IA del SIG."
+              onClick={() => navigate("/tc/manuales")}
             />
           </div>
         </section>
@@ -140,9 +150,9 @@ export function TyCPage() {
                 <ModuleCard
                   icon={<Settings2 className="w-4 h-4" />}
                   color="indigo"
-                  title="Config. áreas"
-                  description="Líderes y teléfonos WA para notificaciones de agenda."
-                  onClick={() => navigate("/tc/area-config")}
+                  title="Configuración T&C"
+                  description="Paquetes de capacitación, SMTP y líderes de área para notificaciones."
+                  onClick={() => navigate("/tc/ajustes")}
                   compact
                 />
               )}
