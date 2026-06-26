@@ -165,15 +165,51 @@ class PtcNovedad(SQLModel, table=True):
 
 
 class PtcAreaConfig(SQLModel, table=True):
-    """Configuración de áreas para agenda T&C — líder y teléfono para notificaciones WA."""
+    """Configuración de áreas para agenda T&C — líder y contactos para notificaciones."""
     __tablename__ = "ptc_area_config"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    area_id: int = Field(index=True)          # referencia Area global
+    area_id: int = Field(index=True)
     lider_nombre: str = Field(max_length=150, default="")
-    lider_telefono: str = Field(max_length=30, default="")  # +57... para WA API
+    lider_telefono: str = Field(max_length=30, default="")
+    lider_email: str = Field(max_length=200, default="")
     activa: bool = Field(default=True)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class PtcPaquete(SQLModel, table=True):
+    """Paquete de capacitaciones — plantilla reutilizable de cursos para inducción."""
+    __tablename__ = "ptc_paquete"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    nombre: str = Field(max_length=200)
+    descripcion: str = Field(default="", max_length=500)
+    activo: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class PtcPaqueteItem(SQLModel, table=True):
+    __tablename__ = "ptc_paquete_item"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    paquete_id: int = Field(foreign_key="ptc_paquete.id")
+    titulo: str = Field(max_length=200)
+    horas: Optional[float] = None
+    orden: int = Field(default=0)
+
+
+class PtcSmtpConfig(SQLModel, table=True):
+    """Configuración SMTP para notificaciones por email — fila única (id=1)."""
+    __tablename__ = "ptc_smtp_config"
+
+    id: int = Field(default=1, primary_key=True)
+    host: str = Field(default="", max_length=200)
+    port: int = Field(default=587)
+    usuario: str = Field(default="", max_length=200)
+    password: str = Field(default="", max_length=500)
+    from_email: str = Field(default="", max_length=200)
+    from_nombre: str = Field(default="T&C Zymo", max_length=100)
+    activo: bool = Field(default=False)
 
 
 class PtcEvento(SQLModel, table=True):
@@ -238,6 +274,7 @@ _PERSONAL_TABLES = {
     "ptc_capacitacion", "ptc_evaluacion", "ptc_sancion", "ptc_novedad",
     "ptc_area_config", "ptc_evento", "ptc_evento_persona",
     "ptc_orden_dia", "ptc_evento_documento",
+    "ptc_paquete", "ptc_paquete_item", "ptc_smtp_config",
 }
 
 
@@ -247,6 +284,7 @@ def create_personal_tables() -> None:
         PtcCapacitacion, PtcEvaluacion, PtcSancion, PtcNovedad,
         PtcAreaConfig, PtcEvento, PtcEventoPersona,
         PtcOrdenDia, PtcEventoDocumento,
+        PtcPaquete, PtcPaqueteItem, PtcSmtpConfig,
     )
     tables = [
         SQLModel.metadata.tables[t]
@@ -273,6 +311,7 @@ def _migrate_personal() -> None:
             # score de ascenso
             "ALTER TABLE ptc_persona ADD COLUMN score INTEGER DEFAULT 0",
             "ALTER TABLE ptc_capacitacion ADD COLUMN documentos TEXT DEFAULT '[]'",
+            "ALTER TABLE ptc_area_config ADD COLUMN lider_email TEXT DEFAULT ''",
         ]:
             try:
                 conn.execute(text(sql))

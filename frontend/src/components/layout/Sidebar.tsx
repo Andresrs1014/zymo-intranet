@@ -14,6 +14,7 @@ import {
   Layers,
   Users,
   GraduationCap,
+  Settings2,
 } from "lucide-react"
 import { useAuthStore } from "@/store/authStore"
 import {
@@ -217,6 +218,12 @@ export function Sidebar() {
                       label="Capacitaciones"
                       icon={<GraduationCap className="w-4 h-4" />}
                       active={isActive(["/tc/formacion"])}
+                    />
+                    <NavItem
+                      to="/tc/ajustes"
+                      label="Configuración T&C"
+                      icon={<Settings2 className="w-4 h-4" />}
+                      active={isActive(["/tc/ajustes"])}
                     />
                   </>
                 )}

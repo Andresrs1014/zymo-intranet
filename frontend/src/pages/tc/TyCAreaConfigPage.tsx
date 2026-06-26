@@ -3,7 +3,7 @@ import { api } from "@/lib/api"
 import { useAuthStore } from "@/store/authStore"
 import { canEditTyC } from "@/lib/permissions"
 import { PageLayout } from "@/components/layout/PageLayout"
-import { Save, Phone } from "lucide-react"
+import { Save, Phone, Mail } from "lucide-react"
 
 interface AreaConfig {
   id?: number
@@ -11,6 +11,7 @@ interface AreaConfig {
   area_nombre: string
   lider_nombre: string
   lider_telefono: string
+  lider_email: string
   activa: boolean
 }
 
@@ -35,7 +36,7 @@ export function TyCAreaConfigPage() {
   // Combinar áreas globales con configs existentes
   const rows: AreaConfig[] = areas.map((a) => {
     const cfg = configs.find((c) => c.area_id === a.id)
-    return cfg ?? { area_id: a.id, area_nombre: a.name, lider_nombre: "", lider_telefono: "", activa: true }
+    return cfg ?? { area_id: a.id, area_nombre: a.name, lider_nombre: "", lider_telefono: "", lider_email: "", activa: true }
   })
 
   function edit(areaId: number, field: keyof AreaConfig, value: string | boolean) {
@@ -57,6 +58,7 @@ export function TyCAreaConfigPage() {
       area_id:       row.area_id,
       lider_nombre:  (changes.lider_nombre  ?? row.lider_nombre)  as string,
       lider_telefono:(changes.lider_telefono ?? row.lider_telefono) as string,
+      lider_email:   (changes.lider_email   ?? row.lider_email)   as string,
       activa:        (changes.activa         ?? row.activa)         as boolean,
     })
     const [c] = await Promise.all([api.get("/tc/area-config")])
@@ -103,6 +105,17 @@ export function TyCAreaConfigPage() {
                       value={(getVal(row, "lider_telefono") as string) ?? ""}
                       onChange={(e) => edit(row.area_id, "lider_telefono", e.target.value)}
                       placeholder="+57 300 000 0000"
+                      readOnly={!puedeEditar}
+                      className="input-base flex-1 text-xs"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-1.5 flex-1">
+                    <Mail className="w-3 h-3 text-muted-foreground shrink-0" />
+                    <input
+                      value={(getVal(row, "lider_email") as string) ?? ""}
+                      onChange={(e) => edit(row.area_id, "lider_email", e.target.value)}
+                      placeholder="lider@empresa.com"
                       readOnly={!puedeEditar}
                       className="input-base flex-1 text-xs"
                     />

@@ -1,0 +1,381 @@
+import { useEffect, useState, useCallback } from "react"
+import { api } from "@/lib/api"
+import { useAuthStore } from "@/store/authStore"
+import { canEditTyC } from "@/lib/permissions"
+import { PageLayout } from "@/components/layout/PageLayout"
+import {
+  Plus, Trash2, Save, ChevronDown, ChevronRight,
+  Package, Mail, Eye, EyeOff,
+} from "lucide-react"
+
+// ── Tipos ─────────────────────────────────────────────────────────────────────
+
+interface PaqueteItem { id?: number; titulo: string; horas: number | null; orden: number }
+interface Paquete { id: number; nombre: string; descripcion: string; activo: boolean; items: PaqueteItem[] }
+interface SmtpConfig {
+  host: string; port: number; usuario: string
+  from_email: string; from_nombre: string; activo: boolean
+}
+
+type Tab = "paquetes" | "notificaciones"
+
+// ── Componente ────────────────────────────────────────────────────────────────
+
+export function TyCConfigPage() {
+  const user        = useAuthStore((s) => s.user)
+  const puedeEditar = user ? canEditTyC(user.role, user.app_permissions) : false
+  const [tab, setTab] = useState<Tab>("paquetes")
+
+  return (
+    <PageLayout title="Configuración T&C" mainClassName="flex-1 overflow-y-auto">
+      <div className="border-b border-border px-8 pt-6 pb-0">
+        <div className="max-w-4xl mx-auto">
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-teal-500 mb-1">
+            Talento y Cultura
+          </p>
+          <h1 className="text-xl font-bold mb-4">Configuración</h1>
+          <div className="flex gap-0 -mb-px">
+            {(["paquetes", "notificaciones"] as Tab[]).map((t) => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={`flex items-center gap-1.5 px-4 py-2 text-xs font-medium border-b-2 capitalize transition-colors ${
+                  tab === t ? "border-teal-500 text-teal-400" : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {t === "paquetes" ? <Package className="w-3.5 h-3.5" /> : <Mail className="w-3.5 h-3.5" />}
+                {t === "paquetes" ? "Paquetes de capacitación" : "Notificaciones SMTP"}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-4xl mx-auto px-8 py-6">
+        {tab === "paquetes" && <PaquetesTab puedeEditar={puedeEditar} />}
+        {tab === "notificaciones" && <SmtpTab puedeEditar={puedeEditar} />}
+      </div>
+    </PageLayout>
+  )
+}
+
+// ── Tab Paquetes ──────────────────────────────────────────────────────────────
+
+function PaquetesTab({ puedeEditar }: { puedeEditar: boolean }) {
+  const [paquetes, setPaquetes] = useState<Paquete[]>([])
+  const [expanded, setExpanded] = useState<number | null>(null)
+  const [creating, setCreating] = useState(false)
+  const [newNombre, setNewNombre] = useState("")
+  const [saving, setSaving] = useState(false)
+
+  const load = useCallback(() => {
+    api.get("/tc/paquetes").then((r) => setPaquetes(r.data))
+  }, [])
+  useEffect(() => { load() }, [load])
+
+  async function crearPaquete() {
+    if (!newNombre.trim()) return
+    setSaving(true)
+    try {
+      const r = await api.post("/tc/paquetes", { nombre: newNombre.trim(), descripcion: "", activo: true })
+      setPaquetes((p) => [...p, { ...r.data, items: [] }])
+      setNewNombre("")
+      setCreating(false)
+      setExpanded(r.data.id)
+    } finally { setSaving(false) }
+  }
+
+  async function eliminar(id: number) {
+    await api.delete(`/tc/paquetes/${id}`)
+    setPaquetes((p) => p.filter((x) => x.id !== id))
+    if (expanded === id) setExpanded(null)
+  }
+
+  return (
+    <div className="space-y-3 max-w-2xl">
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-sm text-muted-foreground">
+          Define plantillas de capacitaciones que se pre-cargan al crear un evento.
+        </p>
+        {puedeEditar && (
+          <button
+            onClick={() => setCreating(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-500/15 hover:bg-teal-500/25 text-teal-400 text-xs font-semibold transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" /> Nuevo paquete
+          </button>
+        )}
+      </div>
+
+      {creating && (
+        <div className="flex gap-2 p-3 rounded-xl border border-teal-500/30 bg-teal-500/5">
+          <input
+            autoFocus
+            value={newNombre}
+            onChange={(e) => setNewNombre(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && crearPaquete()}
+            placeholder="Nombre del paquete (ej. Inducción nuevos empleados)"
+            className="input-base flex-1 text-sm"
+          />
+          <button onClick={crearPaquete} disabled={saving || !newNombre.trim()}
+            className="px-3 py-1.5 rounded-lg bg-teal-500/20 text-teal-400 text-xs font-semibold disabled:opacity-40">
+            {saving ? "..." : "Crear"}
+          </button>
+          <button onClick={() => setCreating(false)} className="text-muted-foreground hover:text-foreground">
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      {paquetes.map((p) => (
+        <PaqueteCard
+          key={p.id}
+          paquete={p}
+          expanded={expanded === p.id}
+          onToggle={() => setExpanded(expanded === p.id ? null : p.id)}
+          onDelete={() => eliminar(p.id)}
+          onUpdated={(updated) => setPaquetes((prev) => prev.map((x) => x.id === updated.id ? updated : x))}
+          puedeEditar={puedeEditar}
+        />
+      ))}
+
+      {paquetes.length === 0 && !creating && (
+        <div className="text-center py-12 text-muted-foreground text-xs">
+          <Package className="w-10 h-10 mx-auto mb-3 opacity-20" />
+          Sin paquetes configurados
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Card de un paquete ────────────────────────────────────────────────────────
+
+function PaqueteCard({
+  paquete, expanded, onToggle, onDelete, onUpdated, puedeEditar,
+}: {
+  paquete: Paquete
+  expanded: boolean
+  onToggle: () => void
+  onDelete: () => void
+  onUpdated: (p: Paquete) => void
+  puedeEditar: boolean
+}) {
+  const [items, setItems] = useState<PaqueteItem[]>(paquete.items)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => { setItems(paquete.items) }, [paquete.items])
+
+  function addItem() {
+    setItems((prev) => [...prev, { titulo: "", horas: null, orden: prev.length }])
+  }
+
+  function updateItem(i: number, field: keyof PaqueteItem, value: string | number | null) {
+    setItems((prev) => prev.map((x, j) => j === i ? { ...x, [field]: value } : x))
+  }
+
+  async function saveItems() {
+    setSaving(true)
+    try {
+      const r = await api.put(`/tc/paquetes/${paquete.id}/items`,
+        items.filter((x) => x.titulo.trim()).map((x, i) => ({ titulo: x.titulo, horas: x.horas, orden: i }))
+      )
+      onUpdated(r.data)
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <div className={`rounded-xl border transition-colors ${expanded ? "border-teal-500/20 bg-teal-500/5" : "border-border bg-muted/5"}`}>
+      <div className="flex items-center gap-3 p-4">
+        <button onClick={onToggle} className="flex items-center gap-2 flex-1 text-left">
+          {expanded ? <ChevronDown className="w-3.5 h-3.5 text-teal-400" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
+          <div>
+            <p className="text-sm font-semibold">{paquete.nombre}</p>
+            <p className="text-[10px] text-muted-foreground">
+              {paquete.items.length} capacitación{paquete.items.length !== 1 ? "es" : ""}
+            </p>
+          </div>
+        </button>
+        {puedeEditar && (
+          <button onClick={onDelete} className="opacity-30 hover:opacity-100 transition-opacity text-rose-400">
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+
+      {expanded && (
+        <div className="px-4 pb-4 border-t border-border/50 pt-3 space-y-2">
+          {items.map((item, i) => (
+            <div key={i} className="flex gap-2 items-center">
+              <span className="text-[10px] text-muted-foreground tabular-nums w-4 shrink-0">{i + 1}</span>
+              <input
+                value={item.titulo}
+                onChange={(e) => updateItem(i, "titulo", e.target.value)}
+                placeholder="Título de la capacitación"
+                className="input-base text-xs flex-[3]"
+                readOnly={!puedeEditar}
+              />
+              <input
+                type="number"
+                value={item.horas ?? ""}
+                onChange={(e) => updateItem(i, "horas", e.target.value ? parseFloat(e.target.value) : null)}
+                placeholder="Horas"
+                className="input-base text-xs w-20"
+                readOnly={!puedeEditar}
+              />
+              <span className="text-[10px] text-muted-foreground shrink-0">h</span>
+              {puedeEditar && (
+                <button onClick={() => setItems((prev) => prev.filter((_, j) => j !== i))}
+                  className="text-rose-400/40 hover:text-rose-400 transition-colors">
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          ))}
+
+          {puedeEditar && (
+            <div className="flex items-center gap-3 pt-1">
+              <button onClick={addItem}
+                className="flex items-center gap-1 text-xs text-teal-400 hover:text-teal-300 transition-colors">
+                <Plus className="w-3.5 h-3.5" /> Agregar ítem
+              </button>
+              <button onClick={saveItems} disabled={saving}
+                className="flex items-center gap-1 text-xs text-teal-400 hover:text-teal-300 transition-colors ml-auto disabled:opacity-40">
+                <Save className="w-3.5 h-3.5" />
+                {saving ? "Guardando..." : "Guardar items"}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Tab SMTP ──────────────────────────────────────────────────────────────────
+
+function SmtpTab({ puedeEditar }: { puedeEditar: boolean }) {
+  const [form, setForm] = useState<SmtpConfig & { password: string }>({
+    host: "", port: 587, usuario: "", password: "",
+    from_email: "", from_nombre: "T&C Zymo", activo: false,
+  })
+  const [showPass, setShowPass] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    api.get("/tc/smtp-config").then((r) => setForm((p) => ({ ...p, ...r.data, password: "" })))
+  }, [])
+
+  async function guardar() {
+    setSaving(true)
+    try {
+      await api.put("/tc/smtp-config", {
+        ...form,
+        password: form.password || undefined,
+      })
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } finally { setSaving(false) }
+  }
+
+  function f(field: keyof typeof form, value: string | number | boolean) {
+    setForm((p) => ({ ...p, [field]: value }))
+  }
+
+  return (
+    <div className="max-w-xl space-y-4">
+      <p className="text-sm text-muted-foreground mb-4">
+        Configura el servidor SMTP para enviar notificaciones de eventos por correo al líder del área.
+      </p>
+
+      <div className="space-y-3">
+        <div className="grid grid-cols-3 gap-3">
+          <div className="col-span-2">
+            <Label>Servidor SMTP (host)</Label>
+            <input value={form.host} onChange={(e) => f("host", e.target.value)}
+              placeholder="smtp.gmail.com" className="input-base text-sm" readOnly={!puedeEditar} />
+          </div>
+          <div>
+            <Label>Puerto</Label>
+            <input type="number" value={form.port} onChange={(e) => f("port", parseInt(e.target.value) || 587)}
+              className="input-base text-sm" readOnly={!puedeEditar} />
+          </div>
+        </div>
+
+        <div>
+          <Label>Usuario / Email de envío</Label>
+          <input value={form.usuario} onChange={(e) => f("usuario", e.target.value)}
+            placeholder="notificaciones@empresa.com" className="input-base text-sm" readOnly={!puedeEditar} />
+        </div>
+
+        <div>
+          <Label>Contraseña {form.password === "" && <span className="text-muted-foreground font-normal">(dejar vacío para no cambiar)</span>}</Label>
+          <div className="relative">
+            <input
+              type={showPass ? "text" : "password"}
+              value={form.password}
+              onChange={(e) => f("password", e.target.value)}
+              placeholder="••••••••"
+              className="input-base text-sm pr-9"
+              readOnly={!puedeEditar}
+            />
+            <button onClick={() => setShowPass((v) => !v)}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
+              {showPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label>From email</Label>
+            <input value={form.from_email} onChange={(e) => f("from_email", e.target.value)}
+              placeholder="tyc@zymologistica.com" className="input-base text-sm" readOnly={!puedeEditar} />
+          </div>
+          <div>
+            <Label>Nombre del remitente</Label>
+            <input value={form.from_nombre} onChange={(e) => f("from_nombre", e.target.value)}
+              placeholder="T&C Zymo" className="input-base text-sm" readOnly={!puedeEditar} />
+          </div>
+        </div>
+
+        <label className="flex items-center gap-2 cursor-pointer select-none pt-1">
+          <input
+            type="checkbox"
+            checked={form.activo}
+            onChange={(e) => f("activo", e.target.checked)}
+            disabled={!puedeEditar}
+            className="w-4 h-4 accent-teal-500"
+          />
+          <span className="text-sm">Activar notificaciones por email</span>
+        </label>
+      </div>
+
+      {puedeEditar && (
+        <button
+          onClick={guardar}
+          disabled={saving}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${
+            saved
+              ? "bg-emerald-500/15 text-emerald-400"
+              : "bg-teal-500/15 hover:bg-teal-500/25 text-teal-400"
+          } disabled:opacity-40`}
+        >
+          <Save className="w-3.5 h-3.5" />
+          {saving ? "Guardando..." : saved ? "Guardado ✓" : "Guardar configuración SMTP"}
+        </button>
+      )}
+
+      <div className="mt-4 p-3 rounded-xl border border-border bg-muted/5 text-xs text-muted-foreground space-y-1">
+        <p className="font-semibold text-foreground mb-1">Para Gmail / Workspace:</p>
+        <p>Host: <code className="text-teal-400">smtp.gmail.com</code> · Puerto: <code className="text-teal-400">587</code></p>
+        <p>Requiere contraseña de aplicación (no la contraseña de cuenta).</p>
+      </div>
+    </div>
+  )
+}
+
+function Label({ children }: { children: React.ReactNode }) {
+  return <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">{children}</label>
+}

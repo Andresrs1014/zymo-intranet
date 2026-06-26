@@ -33,6 +33,8 @@ from app.services.tc_whatsapp import (
     build_induccion_message,
     send_whatsapp,
 )
+from app.services.tc_email import build_evento_email, send_email
+from app.personal_database import PtcSmtpConfig
 
 router = APIRouter(prefix="/tc", tags=["T&C Agenda"])
 
@@ -89,6 +91,7 @@ class AreaConfigUpsert(BaseModel):
     area_id: int
     lider_nombre: str = ""
     lider_telefono: str = ""
+    lider_email: str = ""
     activa: bool = True
 
 
@@ -165,6 +168,7 @@ def listar_area_config(
             "area_nombre": area.name if area else str(c.area_id),
             "lider_nombre": c.lider_nombre,
             "lider_telefono": c.lider_telefono,
+            "lider_email": c.lider_email,
             "activa": c.activa,
         })
     return result
@@ -182,6 +186,7 @@ def upsert_area_config(
     if existing:
         existing.lider_nombre = body.lider_nombre
         existing.lider_telefono = body.lider_telefono
+        existing.lider_email = body.lider_email
         existing.activa = body.activa
         existing.updated_at = datetime.utcnow()
         db.add(existing)
@@ -190,6 +195,7 @@ def upsert_area_config(
             area_id=body.area_id,
             lider_nombre=body.lider_nombre,
             lider_telefono=body.lider_telefono,
+            lider_email=body.lider_email,
             activa=body.activa,
         ))
     db.commit()
@@ -497,3 +503,53 @@ def notificar_evento(
         db.commit()
 
     return {"ok": ok, "to": config.lider_telefono, "mensaje": msg}
+
+
+# ── Notificación Email ────────────────────────────────────────────────────────
+
+@router.post("/eventos/{evento_id}/notificar-email")
+def notificar_evento_email(
+    evento_id: int,
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_tc_editar),
+):
+    ev = db.get(PtcEvento, evento_id)
+    if not ev:
+        raise HTTPException(404)
+
+    config = db.exec(
+        select(PtcAreaConfig).where(PtcAreaConfig.area_id == ev.area_id)
+    ).first() if ev.area_id else None
+
+    if not config or not config.lider_email:
+        raise HTTPException(400, "El área no tiene email del líder configurado")
+
+    smtp = db.get(PtcSmtpConfig, 1)
+    if not smtp or not smtp.activo or not smtp.host:
+        raise HTTPException(400, "SMTP no configurado o inactivo — configúralo en T&C · Ajustes")
+
+    personas_ids = [
+        p.persona_id for p in db.exec(
+            select(PtcEventoPersona).where(PtcEventoPersona.evento_id == evento_id)
+        ).all()
+    ]
+    nombres = [p.nombre for pid in personas_ids[:10] if (p := db.get(PtcPersona, pid))]
+    fecha_fmt = ev.fecha.strftime("%d/%m/%Y") if ev.fecha else ""
+
+    subject, html = build_evento_email(
+        lider_nombre=config.lider_nombre or "Estimado/a",
+        fecha=fecha_fmt,
+        hora=ev.hora_inicio,
+        evento_titulo=ev.titulo,
+        lugar=ev.lugar,
+        personas=nombres if ev.tipo == "induccion" else None,
+    )
+
+    ok = send_email(
+        host=smtp.host, port=smtp.port,
+        usuario=smtp.usuario, password=smtp.password,
+        from_email=smtp.from_email, from_nombre=smtp.from_nombre,
+        to=config.lider_email, subject=subject, body_html=html,
+    )
+
+    return {"ok": ok, "to": config.lider_email, "asunto": subject}
