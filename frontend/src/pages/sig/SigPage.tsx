@@ -890,8 +890,7 @@ function ProcedureFileView({
 
 function InstructivoDetailView({ inst, onBack }: { inst: SigInstructivo; onBack: () => void }) {
   const hasFile = !!inst.archivoOriginal && !inst.tipoMime?.startsWith("text/")
-  const defaultTab = !inst.contenido.trim() && hasFile ? "archivo" : "doc"
-  const [tab, setTab] = useState<"doc" | "archivo">(defaultTab)
+  const [tab, setTab] = useState<"doc" | "archivo">("doc")
   const [contenidoLocal, setContenidoLocal] = useState(inst.contenido)
   const [reextractErr, setReextractErr] = useState<string | null>(null)
   const [reextractWarnings, setReextractWarnings] = useState<string[]>([])
