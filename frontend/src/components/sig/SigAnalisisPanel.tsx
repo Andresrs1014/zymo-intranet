@@ -283,21 +283,21 @@ const KEY_FILES = [
 
 function RagStatusBadge({ onOpen }: { onOpen: () => void }) {
   return (
-    <div className="shrink-0 border-b border-zinc-200 bg-zinc-900/95 px-4 py-2 flex items-center gap-3">
+    <div className="shrink-0 border-b border-zinc-200 bg-white px-4 py-2 flex items-center gap-3">
       <div className="flex items-center gap-1.5">
-        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-        <Database className="h-3 w-3 text-emerald-400" />
-        <span className="text-[11px] font-mono font-semibold text-emerald-400">LightRAG</span>
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+        <Database className="h-3 w-3 text-emerald-600" />
+        <span className="text-[11px] font-mono font-semibold text-emerald-700">LightRAG</span>
       </div>
-      <div className="flex items-center gap-2 text-[10px] font-mono text-zinc-500">
-        <span className="text-zinc-600">·</span>
-        <span className="text-emerald-600/80">Jarvis</span>
-        <span className="text-zinc-600">·</span>
-        <span className="text-violet-600/80">Ultron</span>
+      <div className="flex items-center gap-2 text-[10px] font-mono text-zinc-400">
+        <span>·</span>
+        <span className="text-emerald-600">Jarvis</span>
+        <span>·</span>
+        <span className="text-violet-600">Ultron</span>
       </div>
       <button
         onClick={onOpen}
-        className="ml-auto flex items-center gap-1 text-[10px] font-mono px-2.5 py-1 rounded border border-emerald-800 text-emerald-400 hover:bg-emerald-950/60 transition-colors"
+        className="ml-auto flex items-center gap-1 text-[10px] font-mono px-2.5 py-1 rounded border border-emerald-200 text-emerald-700 hover:bg-emerald-50 transition-colors"
       >
         Ver estado del grafo →
       </button>
