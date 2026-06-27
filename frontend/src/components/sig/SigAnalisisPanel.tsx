@@ -6,7 +6,7 @@ import { api } from "@/lib/api"
 import { useSigAnalisisStore, type AnalysisType } from "@/store/sigAnalisisStore"
 import {
   Search, SlidersHorizontal, FileText,
-  Target, Lightbulb, GitCompare, Database, Users, Loader, AlertTriangle, X, ChevronDown, ChevronRight,
+  Target, Lightbulb, GitCompare, Database, Users, Loader, AlertTriangle, X,
 } from "lucide-react"
 import { fetchProcCargoIds, type ProcCargoAsignado } from "@/components/sig/SigProcedimientoCargosPanel"
 
@@ -224,80 +224,302 @@ const ANALYSIS_TYPES: Array<{
 
 // ── RAG Status Bar ────────────────────────────────────────────────────────────
 
-interface RagStats { num_docs: number; num_chunks: number; num_entities: number; num_relations: number }
-interface RagStatusData { stats: RagStats }
+// ── RAG modal types ───────────────────────────────────────────────────────────
 
-function RagStatusBar() {
-  const [open, setOpen] = useState(false)
+interface RagStats {
+  documentos_indexados: number
+  chunks: number
+  entidades_grafo: number
+  relaciones_grafo: number
+}
+interface RagStatusData {
+  exists: boolean
+  rag_id?: string
+  working_dir?: string
+  stats?: RagStats
+  fuentes?: string[]
+  archivos_en_directorio?: string[]
+}
 
-  const { data: rag1, isLoading: l1 } = useQuery<RagStatusData>({
-    queryKey: ["sig", "rag-status", "rag1"],
-    queryFn: () => api.get("/api/netvault/rag-status?rag_id=rag1").then((r) => r.data),
-    enabled: open,
-    staleTime: 60_000,
-  })
+const AGENTS = {
+  rag1: {
+    nombre: "Jarvis",
+    rol:    "rag1",
+    color:  "emerald",
+    badge:  "bg-emerald-500",
+    ring:   "ring-emerald-400",
+    text:   "text-emerald-400",
+    bg:     "bg-emerald-950/40",
+    desc:   "Modela la empresa tal como opera hoy. Indexa procedimientos vigentes, instructivos y análisis actuales.",
+    pregunta: "¿Cómo se ejecuta X proceso actualmente en ZYMO?",
+    llm:    "Gemini 2.0 Flash",
+    embed:  "Ollama nomic-embed-text · 768 dims",
+  },
+  rag2: {
+    nombre: "Ultron",
+    rol:    "rag2",
+    color:  "violet",
+    badge:  "bg-violet-500",
+    ring:   "ring-violet-400",
+    text:   "text-violet-400",
+    bg:     "bg-violet-950/40",
+    desc:   "Modela la empresa con sus procedimientos corregidos y optimizados. Solo indexa versiones mejoradas.",
+    pregunta: "¿Cómo debería ejecutarse X proceso según las mejoras propuestas?",
+    llm:    "Gemini 2.0 Flash",
+    embed:  "Ollama nomic-embed-text · 768 dims",
+  },
+} as const
 
-  const { data: rag2, isLoading: l2 } = useQuery<RagStatusData>({
-    queryKey: ["sig", "rag-status", "rag2"],
-    queryFn: () => api.get("/api/netvault/rag-status?rag_id=rag2").then((r) => r.data),
-    enabled: open,
-    staleTime: 60_000,
-  })
+const KEY_FILES = [
+  { file: "graph_chunk_entity_relation.graphml", label: "Grafo de entidades y relaciones" },
+  { file: "kv_store_full_docs.json",             label: "Store de documentos completos" },
+  { file: "kv_store_text_chunks.json",           label: "Store de chunks de texto" },
+  { file: "kv_store_llm_response_cache.json",    label: "Caché de respuestas LLM" },
+  { file: "vdb_chunks.json",                     label: "Vector DB — chunks" },
+  { file: "vdb_entities.json",                   label: "Vector DB — entidades" },
+]
 
+// ── Compact trigger badge ─────────────────────────────────────────────────────
+
+function RagStatusBadge({ onOpen }: { onOpen: () => void }) {
   return (
-    <div className="shrink-0 border-b border-zinc-200 bg-emerald-50/60">
+    <div className="shrink-0 border-b border-zinc-200 bg-zinc-900/95 px-4 py-2 flex items-center gap-3">
+      <div className="flex items-center gap-1.5">
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+        <Database className="h-3 w-3 text-emerald-400" />
+        <span className="text-[11px] font-mono font-semibold text-emerald-400">LightRAG</span>
+      </div>
+      <div className="flex items-center gap-2 text-[10px] font-mono text-zinc-500">
+        <span className="text-zinc-600">·</span>
+        <span className="text-emerald-600/80">Jarvis</span>
+        <span className="text-zinc-600">·</span>
+        <span className="text-violet-600/80">Ultron</span>
+      </div>
       <button
-        onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center gap-2 px-4 py-2 text-[11px] font-mono text-emerald-700 hover:bg-emerald-100/60 transition-colors"
+        onClick={onOpen}
+        className="ml-auto flex items-center gap-1 text-[10px] font-mono px-2.5 py-1 rounded border border-emerald-800 text-emerald-400 hover:bg-emerald-950/60 transition-colors"
       >
-        <Database className="h-3 w-3 shrink-0" />
-        <span className="font-semibold">LightRAG Knowledge Graph</span>
-        {!open && rag1 && (
-          <span className="text-emerald-600 opacity-70">
-            · Jarvis {rag1.stats.num_docs} docs / {rag1.stats.num_entities} entidades
-          </span>
-        )}
-        <div className="ml-auto">{open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}</div>
+        Ver estado del grafo →
       </button>
-
-      {open && (
-        <div className="px-4 pb-3 grid grid-cols-2 gap-3">
-          <RagCard label="rag1 — Jarvis" subtitle="empresa actual" data={rag1?.stats} loading={l1} color="emerald" />
-          <RagCard label="rag2 — Ultron" subtitle="empresa mejorada" data={rag2?.stats} loading={l2} color="violet" />
-        </div>
-      )}
     </div>
   )
 }
 
-function RagCard({
-  label, subtitle, data, loading, color,
-}: { label: string; subtitle: string; data: RagStats | undefined; loading: boolean; color: "emerald" | "violet" }) {
-  const cc = color === "emerald"
-    ? { text: "text-emerald-700", bg: "bg-emerald-100", dot: "bg-emerald-500" }
-    : { text: "text-violet-700", bg: "bg-violet-100", dot: "bg-violet-500" }
+// ── RAG modal overlay ─────────────────────────────────────────────────────────
+
+function SigRagModal({ onClose }: { onClose: () => void }) {
+  const [activeRag, setActiveRag] = useState<"rag1" | "rag2">("rag1")
+
+  const { data: ragData, isLoading, refetch } = useQuery<RagStatusData>({
+    queryKey: ["sig", "rag-modal", activeRag],
+    queryFn:  () => api.get(`/api/netvault/rag-status?rag_id=${activeRag}`).then((r) => r.data),
+    staleTime: 30_000,
+  })
+
+  const agent = AGENTS[activeRag]
+  const s     = ragData?.stats
+  const files = ragData?.archivos_en_directorio ?? []
 
   return (
-    <div className={`rounded-lg border p-3 ${cc.bg} border-${color}-200`}>
-      <div className="flex items-center gap-1.5 mb-2">
-        <span className={`h-1.5 w-1.5 rounded-full ${cc.dot}`} />
-        <span className={`text-[11px] font-mono font-semibold ${cc.text}`}>{label}</span>
-        <span className={`text-[10px] ${cc.text} opacity-60`}>{subtitle}</span>
-      </div>
-      {loading ? (
-        <div className="flex items-center gap-1.5 text-[10px] text-zinc-400"><Loader className="h-2.5 w-2.5 animate-spin" /> Cargando…</div>
-      ) : data ? (
-        <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
-          {([["docs", data.num_docs], ["chunks", data.num_chunks], ["entidades", data.num_entities], ["relaciones", data.num_relations]] as [string, number][]).map(([k, v]) => (
-            <div key={k} className="flex items-baseline justify-between text-[10px] font-mono">
-              <span className="text-zinc-500">{k}</span>
-              <span className={`font-semibold tabular-nums ${cc.text}`}>{v}</span>
-            </div>
-          ))}
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div className="relative w-[680px] max-h-[85vh] flex flex-col rounded-2xl border border-zinc-700 bg-zinc-900 shadow-2xl overflow-hidden">
+
+        {/* Header */}
+        <div className="shrink-0 flex items-center gap-3 px-6 py-4 border-b border-zinc-800">
+          <Database className="h-4 w-4 text-emerald-400 shrink-0" />
+          <div>
+            <p className="text-sm font-mono font-bold text-white">LightRAG — Grafo de conocimiento ZYMO</p>
+            <p className="text-[10px] text-zinc-500 font-mono mt-0.5">Gemini 2.0 Flash · Ollama nomic-embed-text · 768 dims</p>
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              onClick={() => { void refetch() }}
+              className="flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded border border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:border-zinc-500 transition-colors"
+            >
+              <Loader className={cn("h-2.5 w-2.5", isLoading && "animate-spin")} />
+              Refrescar
+            </button>
+            <button onClick={onClose} className="p-1 text-zinc-500 hover:text-zinc-200 transition-colors">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
-      ) : (
-        <p className="text-[10px] text-zinc-400 font-mono">Sin datos</p>
-      )}
+
+        {/* Agent tabs */}
+        <div className="shrink-0 flex gap-0 border-b border-zinc-800 px-6 pt-4 pb-0">
+          {(["rag1", "rag2"] as const).map((rid) => {
+            const a = AGENTS[rid]
+            const active = activeRag === rid
+            return (
+              <button
+                key={rid}
+                onClick={() => setActiveRag(rid)}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2 text-xs font-mono font-semibold border-b-2 transition-all",
+                  active
+                    ? `border-${a.color}-400 ${a.text}`
+                    : "border-transparent text-zinc-500 hover:text-zinc-300",
+                )}
+              >
+                <span className={cn("h-2 w-2 rounded-full", a.badge)} />
+                {a.nombre}
+                <span className="text-[9px] font-normal opacity-60">{a.rol}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Body — scrollable */}
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+
+          {/* Agent identity card */}
+          <div className={cn("rounded-xl border border-zinc-700 p-4", agent.bg)}>
+            <div className="flex items-start gap-3">
+              <div className={cn("h-8 w-8 rounded-full flex items-center justify-center text-white text-xs font-bold font-mono shrink-0", agent.badge)}>
+                {agent.nombre[0]}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-baseline gap-2 mb-1">
+                  <span className={cn("text-sm font-mono font-bold", agent.text)}>{agent.nombre}</span>
+                  <span className="text-[10px] font-mono text-zinc-500">{agent.rol} · activo</span>
+                </div>
+                <p className="text-[12px] text-zinc-300 leading-relaxed">{agent.desc}</p>
+                <div className="mt-2.5 flex items-start gap-1.5">
+                  <span className="text-[10px] font-mono text-zinc-600 shrink-0">Responde a:</span>
+                  <span className={cn("text-[10px] font-mono italic", agent.text)}>"{agent.pregunta}"</span>
+                </div>
+              </div>
+            </div>
+            <div className="mt-3 pt-3 border-t border-zinc-700/60 grid grid-cols-2 gap-2 text-[10px] font-mono text-zinc-500">
+              <div><span className="text-zinc-600">LLM extracción:</span> <span className="text-zinc-300">{agent.llm}</span></div>
+              <div><span className="text-zinc-600">Embeddings:</span> <span className="text-zinc-300">{agent.embed}</span></div>
+            </div>
+          </div>
+
+          {isLoading && (
+            <div className="flex items-center justify-center py-10 gap-2 text-zinc-500">
+              <Loader className="h-4 w-4 animate-spin" />
+              <span className="text-xs font-mono">Consultando grafo…</span>
+            </div>
+          )}
+
+          {!isLoading && ragData && !ragData.exists && (
+            <div className="rounded-xl border border-amber-800/40 bg-amber-950/30 p-4 text-center">
+              <AlertTriangle className="h-5 w-5 text-amber-500 mx-auto mb-2" />
+              <p className="text-sm font-mono text-amber-400">Sin datos indexados aún</p>
+              <p className="text-[11px] text-zinc-500 mt-1">Usa el botón LightRAG en cualquier procedimiento para empezar a indexar.</p>
+            </div>
+          )}
+
+          {!isLoading && s && (
+            <>
+              {/* Pipeline visual */}
+              <div>
+                <p className="text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-widest mb-3">Pipeline de indexación</p>
+                <div className="flex items-center gap-2 font-mono">
+                  <PipelineNode value={s.documentos_indexados} label="docs" color={agent.text} />
+                  <PipelineArrow label="chunking" />
+                  <PipelineNode value={s.chunks} label="chunks" color={agent.text} />
+                  <PipelineArrow label="Gemini extrae" />
+                  <PipelineNode value={s.entidades_grafo} label="entidades" color={agent.text} />
+                  <div className="text-zinc-600 text-[11px]">+</div>
+                  <PipelineNode value={s.relaciones_grafo} label="relaciones" color={agent.text} />
+                </div>
+              </div>
+
+              {/* Stats grid */}
+              <div className="grid grid-cols-4 gap-3">
+                {([
+                  { k: "Documentos",  v: s.documentos_indexados },
+                  { k: "Chunks",      v: s.chunks },
+                  { k: "Entidades",   v: s.entidades_grafo },
+                  { k: "Relaciones",  v: s.relaciones_grafo },
+                ]).map(({ k, v }) => (
+                  <div key={k} className="rounded-lg border border-zinc-800 bg-zinc-800/40 p-3 text-center">
+                    <p className={cn("text-xl font-mono font-bold tabular-nums", agent.text)}>{v}</p>
+                    <p className="text-[10px] font-mono text-zinc-500 mt-0.5">{k}</p>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Fuentes indexadas */}
+          {!isLoading && ragData?.fuentes && ragData.fuentes.length > 0 && (
+            <div>
+              <p className="text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-widest mb-2">
+                Fuentes indexadas ({ragData.fuentes.length})
+              </p>
+              <div className="rounded-xl border border-zinc-800 bg-zinc-800/30 divide-y divide-zinc-800 max-h-48 overflow-y-auto">
+                {ragData.fuentes.map((f, i) => {
+                  const name = f.split("/").pop() ?? f
+                  return (
+                    <div key={i} className="flex items-center gap-2.5 px-3 py-2">
+                      <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", agent.badge)} />
+                      <span className="text-[11px] font-mono text-zinc-300 truncate flex-1" title={f}>{name}</span>
+                      <span className="text-[10px] font-mono text-zinc-600 shrink-0 truncate max-w-[200px]" title={f}>{f}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Archivos internos del grafo */}
+          {!isLoading && files.length > 0 && (
+            <div>
+              <p className="text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-widest mb-2">
+                Archivos internos del grafo
+              </p>
+              <div className="space-y-1">
+                {KEY_FILES.map(({ file, label }) => {
+                  const exists = files.includes(file)
+                  return (
+                    <div key={file} className="flex items-center gap-2 text-[10px] font-mono">
+                      <span className={exists ? "text-emerald-500" : "text-zinc-700"}>
+                        {exists ? "✓" : "○"}
+                      </span>
+                      <span className={exists ? "text-zinc-300" : "text-zinc-600"}>{label}</span>
+                      <span className="text-zinc-700 truncate">{file}</span>
+                    </div>
+                  )
+                })}
+                {files.filter((f) => !KEY_FILES.some((k) => k.file === f)).length > 0 && (
+                  <p className="text-[10px] font-mono text-zinc-700 pt-1">
+                    +{files.filter((f) => !KEY_FILES.some((k) => k.file === f)).length} archivos adicionales
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function PipelineNode({ value, label, color }: { value: number; label: string; color: string }) {
+  return (
+    <div className="flex flex-col items-center">
+      <span className={cn("text-base font-bold tabular-nums font-mono", color)}>{value}</span>
+      <span className="text-[9px] text-zinc-600">{label}</span>
+    </div>
+  )
+}
+
+function PipelineArrow({ label }: { label: string }) {
+  return (
+    <div className="flex flex-col items-center gap-0.5 flex-1 min-w-0">
+      <div className="flex items-center w-full gap-0.5">
+        <div className="flex-1 h-px bg-zinc-700" />
+        <span className="text-zinc-600 text-[10px]">▶</span>
+      </div>
+      <span className="text-[8px] font-mono text-zinc-700 truncate">{label}</span>
     </div>
   )
 }
@@ -305,8 +527,9 @@ function RagCard({
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function SigAnalisisPanel() {
-  const [areaFilter, setAreaFilter] = useState<number | null>(null)
-  const [searchQ,    setSearchQ]    = useState("")
+  const [areaFilter,   setAreaFilter]   = useState<number | null>(null)
+  const [searchQ,      setSearchQ]      = useState("")
+  const [showRagModal, setShowRagModal] = useState(false)
 
   const { data: areas = [] } = useQuery<SigArea[]>({
     queryKey: ["sig", "areas"],
@@ -332,8 +555,11 @@ export function SigAnalisisPanel() {
   return (
     <div className="flex flex-col h-full bg-zinc-50 overflow-hidden">
 
-      {/* RAG status */}
-      <RagStatusBar />
+      {/* RAG badge */}
+      <RagStatusBadge onOpen={() => setShowRagModal(true)} />
+
+      {/* RAG modal */}
+      {showRagModal && <SigRagModal onClose={() => setShowRagModal(false)} />}
 
       {/* Filter bar */}
       <div className="shrink-0 flex items-center gap-2 px-4 h-11 border-b border-zinc-200 bg-white">
