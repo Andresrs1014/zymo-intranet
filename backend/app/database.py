@@ -8,12 +8,12 @@ _engine = None
 def get_engine():
     global _engine
     if _engine is None:
-        # Crear directorio data/ si no existe (para SQLite)
-        if settings.database_url.startswith("sqlite"):
-            ensure_sqlite_parent_dir(settings.database_url)
+        url = settings.zymo_database_url or settings.database_url
+        if url.startswith("sqlite"):
+            ensure_sqlite_parent_dir(url)
         _engine = create_engine(
-            settings.database_url,
-            connect_args={"check_same_thread": False} if "sqlite" in settings.database_url else {},
+            url,
+            connect_args={"check_same_thread": False} if "sqlite" in url else {},
         )
     return _engine
 
