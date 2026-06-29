@@ -12,7 +12,7 @@ import sys
 
 sys.path.insert(0, "/app")
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import Boolean, create_engine, text
 from sqlmodel import SQLModel
 
 # ── Modelos — registro en SQLModel.metadata ────────────────────────────────────
@@ -44,9 +44,18 @@ JSON_COLUMNS = {
 }
 
 
-def parse_json_col(table: str, col: str, val):
+def get_bool_columns(table_name: str) -> set:
+    if table_name not in SQLModel.metadata.tables:
+        return set()
+    tbl = SQLModel.metadata.tables[table_name]
+    return {col.name for col in tbl.columns if isinstance(col.type, Boolean)}
+
+
+def parse_value(table: str, col: str, val, bool_cols: set):
     if val is None:
         return val
+    if col in bool_cols and isinstance(val, int):
+        return bool(val)
     if table in JSON_COLUMNS and col in JSON_COLUMNS[table]:
         if isinstance(val, str):
             try:
@@ -95,10 +104,11 @@ def migrate():
                 continue
 
             cols = list(rows[0].keys())
+            bool_cols = get_bool_columns(table)
             inserted = skipped = 0
 
             for row in rows:
-                d = {col: parse_json_col(table, col, row[col]) for col in cols}
+                d = {col: parse_value(table, col, row[col], bool_cols) for col in cols}
                 cols_sql = ", ".join(f'"{c}"' for c in cols)
                 vals_sql = ", ".join(f":{c}" for c in cols)
                 stmt = text(
