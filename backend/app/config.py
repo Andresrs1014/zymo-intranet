@@ -84,6 +84,12 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434"
     ollama_embed_model: str = "nomic-embed-text"
 
+    # ── PostgreSQL principal Python (reemplaza SQLite progresivamente) ─────────
+    # Cuando esté vacío el sistema sigue usando los SQLite individuales (fallback).
+    zymo_database_url: str = ""
+    # SIG DB — acceso de lectura para el agente RAG / LightRAG
+    sig_database_url: str = ""
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 

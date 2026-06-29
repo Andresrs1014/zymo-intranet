@@ -13,8 +13,15 @@ services:
       # SIG — URL interna del sig-backend para generación de PDF
       - SIG_BACKEND_URL=http://sig-backend:3003
       - SIG_PLATFORM_SLUG=${SIG_PLATFORM_SLUG:-logimat}
+      # Nueva BD principal Python (reemplazará SQLite progresivamente)
+      - ZYMO_DATABASE_URL=postgresql://${ZYMO_DB_USER:-zymo}:${ZYMO_DB_PASSWORD}@zymo-db:5432/${ZYMO_DB_NAME:-zymodb}
+      # SIG DB — acceso de lectura para el agente RAG
+      - SIG_DATABASE_URL=postgresql://${SIG_DB_USER:-sig}:${SIG_DB_PASSWORD}@sig-db:5432/${SIG_DB_NAME:-sigdb}
     volumes:
       - backend_data:/app/data
+    depends_on:
+      zymo-db:
+        condition: service_healthy
     restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -36,11 +43,17 @@ services:
     command: python -m app.agents.worker
     env_file:
       - ./backend/.env
+    environment:
+      - ZYMO_DATABASE_URL=postgresql://${ZYMO_DB_USER:-zymo}:${ZYMO_DB_PASSWORD}@zymo-db:5432/${ZYMO_DB_NAME:-zymodb}
+      - SIG_DATABASE_URL=postgresql://${SIG_DB_USER:-sig}:${SIG_DB_PASSWORD}@sig-db:5432/${SIG_DB_NAME:-sigdb}
     volumes:
       - backend_data:/app/data
     restart: always
     depends_on:
-      - backend
+      zymo-db:
+        condition: service_healthy
+      backend:
+        condition: service_started
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
@@ -163,6 +176,23 @@ services:
       timeout: 5s
       retries: 10
 
+  zymo-db:
+    image: postgres:15-alpine
+    ports:
+      - "5435:5432"
+    environment:
+      - POSTGRES_USER=${ZYMO_DB_USER:-zymo}
+      - POSTGRES_PASSWORD=${ZYMO_DB_PASSWORD}
+      - POSTGRES_DB=${ZYMO_DB_NAME:-zymodb}
+    volumes:
+      - zymo_db_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ZYMO_DB_USER:-zymo} -d ${ZYMO_DB_NAME:-zymodb}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   backend_data:
   helix_db_data:
@@ -171,3 +201,4 @@ volumes:
   task_uploads:
   sig_db_data:
   sig_uploads:
+  zymo_db_data:
