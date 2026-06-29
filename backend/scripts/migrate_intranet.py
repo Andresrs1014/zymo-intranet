@@ -57,11 +57,11 @@ def parse_value(table: str, col: str, val, bool_cols: set):
     if col in bool_cols and isinstance(val, int):
         return bool(val)
     if table in JSON_COLUMNS and col in JSON_COLUMNS[table]:
-        if isinstance(val, str):
-            try:
-                return json.loads(val)
-            except Exception:
-                return val
+        # Pasar como string — PostgreSQL acepta JSON en texto plano.
+        # NO usar json.loads(): psycopg2 convertiría listas Python a text[] en vez de json.
+        if isinstance(val, (list, dict)):
+            return json.dumps(val)
+        return val  # ya es string JSON desde SQLite
     return val
 
 
