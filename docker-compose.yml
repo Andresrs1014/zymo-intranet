@@ -179,7 +179,7 @@ services:
   zymo-db:
     image: postgres:15-alpine
     ports:
-      - "5435:5432"
+      - "5437:5432"
     environment:
       - POSTGRES_USER=${ZYMO_DB_USER:-zymo}
       - POSTGRES_PASSWORD=${ZYMO_DB_PASSWORD}

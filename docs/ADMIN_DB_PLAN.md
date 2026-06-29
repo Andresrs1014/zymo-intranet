@@ -175,7 +175,7 @@ zymo-db:
 | Servicio | Base | Puerto | Motor | Quien escribe |
 |---|---|---|---|---|
 | `sig-backend` | `sig-db` | **5436** | PostgreSQL 15 | Node/Prisma |
-| `backend` (Python) | `zymo-db` | **5435** | PostgreSQL 15 | Python/SQLAlchemy |
+| `backend` (Python) | `zymo-db` | **5437** | PostgreSQL 15 | Python/SQLAlchemy |
 | `helix-backend` | `helix-db` | 5433 | PostgreSQL 15 | Node/Prisma |
 | `task-backend` | `task-db` | 5434 | PostgreSQL 15 | Node/Prisma |
 
