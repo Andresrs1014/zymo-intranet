@@ -279,6 +279,26 @@ class PtcEventoDocumento(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class PtcCliente(SQLModel, table=True):
+    __tablename__ = "ptc_cliente"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    client_no: str = Field(max_length=50, default="", index=True)
+    dume_no: str = Field(max_length=50, default="")
+    nombre: str = Field(max_length=200)
+    activo: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class PtcClienteAsignacion(SQLModel, table=True):
+    __tablename__ = "ptc_cliente_asignacion"
+
+    cliente_id: int = Field(foreign_key="ptc_cliente.id", primary_key=True)
+    sede_id: int = Field(primary_key=True)
+    persona_id: Optional[int] = Field(default=None, foreign_key="ptc_persona.id")
+
+
 # ── Creación de tablas ─────────────────────────────────────────────────────────
 
 _PERSONAL_TABLES = {
@@ -287,6 +307,7 @@ _PERSONAL_TABLES = {
     "ptc_area_config", "ptc_evento", "ptc_evento_persona",
     "ptc_orden_dia", "ptc_evento_documento",
     "ptc_paquete", "ptc_paquete_item", "ptc_smtp_config", "ptc_wa_config",
+    "ptc_cliente", "ptc_cliente_asignacion",
 }
 
 
@@ -297,6 +318,7 @@ def create_personal_tables() -> None:
         PtcAreaConfig, PtcEvento, PtcEventoPersona,
         PtcOrdenDia, PtcEventoDocumento,
         PtcPaquete, PtcPaqueteItem, PtcSmtpConfig, PtcWaConfig,
+        PtcCliente, PtcClienteAsignacion,
     )
     tables = [
         SQLModel.metadata.tables[t]
@@ -339,6 +361,14 @@ def _migrate_personal() -> None:
         conn.execute(text(
             "CREATE TABLE IF NOT EXISTS ptc_config "
             "(key TEXT PRIMARY KEY, value TEXT)"
+        ))
+        conn.commit()
+
+        conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS ptc_cliente_asignacion "
+            "(cliente_id INTEGER NOT NULL, sede_id INTEGER NOT NULL, "
+            "persona_id INTEGER DEFAULT NULL, "
+            "PRIMARY KEY (cliente_id, sede_id))"
         ))
         conn.commit()
 

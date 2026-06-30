@@ -6,7 +6,7 @@ import { canConfigTyC, canEditTyC, canImportTyC, canSeeTyCSensible } from "@/lib
 import { PageLayout } from "@/components/layout/PageLayout"
 import {
   Users, GitBranch, Upload, FileText, TrendingUp, ArrowUpRight,
-  CalendarDays, Settings2, GraduationCap, UserX,
+  CalendarDays, Settings2, GraduationCap, UserX, Building2,
 } from "lucide-react"
 
 interface Stats { total: number; activos: number; inactivos: number }
@@ -130,6 +130,13 @@ export function TyCPage() {
                 onClick={() => navigate("/tc/rotacion")}
               />
             )}
+            <ModuleCard
+              icon={<Building2 className="w-4 h-4" />}
+              color="indigo"
+              title="Clientes"
+              description="Cartera corporativa y asignación a analistas de operaciones."
+              onClick={() => navigate("/tc/clientes")}
+            />
           </div>
         </section>
 

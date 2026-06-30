@@ -44,7 +44,7 @@ function tipoFromApi(t: string | null | undefined): string | null {
   return t ?? null
 }
 
-// ponytail: mock hasta que Codex despliegue PATCH /tc/personas/bulk-estado
+// ponytail: endpoint desplegado — mock solo si 404/405
 function mockOk(n: number): BulkResult { return { updated: n, errors: [] } }
 
 export function TyCRotacionPage() {
