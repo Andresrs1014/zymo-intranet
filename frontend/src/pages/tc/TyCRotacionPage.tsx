@@ -30,7 +30,6 @@ interface Cambio {
 interface BulkResult { updated: number; errors: { id: number; detail: string }[] }
 
 const TIPO_SALIDA_UI = ["Voluntario", "Involuntario"] as const
-type TipoSalidaUi = (typeof TIPO_SALIDA_UI)[number]
 
 function tipoToApi(t: string | null | undefined): string | null {
   if (t === "Voluntario" || t === "voluntaria") return "voluntaria"
