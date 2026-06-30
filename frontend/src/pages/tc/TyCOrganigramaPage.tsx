@@ -50,12 +50,29 @@ type CargoNodeData = {
   personas: PersonaMini[]
   org_number: string
   org_image_url: string
+  isRoot: boolean
+}
+
+// ── Paleta Directorio ZYMO ──────────────────────────────────────────────────────
+
+const ORG = {
+  red: "#ef3340",
+  cyan: "#00a8c8",
+  gold: "#d6aa48",
+  goldLine: "rgba(218,175,75,0.55)",
+  goldBorder: "rgba(218,175,75,0.5)",
+  cardBg: "#ffffff",
+  rootFrom: "#4e1012",
+  rootTo: "#74151d",
+  ink: "#1f2430",
+  numberBg: "#fff1c9",
+  numberInk: "#74151d",
 }
 
 // ── Layout ─────────────────────────────────────────────────────────────────────
 
-const NODE_W = 200
-const NODE_H = 138
+const NODE_W = 196
+const NODE_H = 132
 
 function orgContext(sedeId: number | null): string {
   return sedeId === null ? "corporativo" : `sede:${sedeId}`
@@ -78,21 +95,23 @@ function findNodo(nodos: ArbolNodo[], id: number): ArbolNodo | null {
 function buildNodesEdges(arbol: ArbolData): { nodes: Node<CargoNodeData>[]; edges: Edge[] } {
   const flat = flattenArbol(arbol.raices)
 
+  const rootIds = new Set(arbol.raices.map((r) => r.id))
+
   const edges: Edge[] = flat.flatMap((nodo) =>
     nodo.hijos.map((hijo) => ({
       id: `e-${nodo.id}-${hijo.id}`,
       source: String(nodo.id),
       target: String(hijo.id),
       type: "smoothstep",
-      style: { stroke: "#14b8a6", strokeWidth: 1.5, opacity: 0.22 },
+      style: { stroke: ORG.gold, strokeWidth: 1.6, opacity: 0.7 },
       animated: false,
     }))
   )
 
-  // Dagre base layout
+  // Dagre — vertical top-down (raíz arriba, ramas hacia abajo)
   const g = new dagre.graphlib.Graph()
   g.setDefaultEdgeLabel(() => ({}))
-  g.setGraph({ rankdir: "TB", nodesep: 60, ranksep: 100 })
+  g.setGraph({ rankdir: "TB", nodesep: 38, ranksep: 96, marginx: 24, marginy: 24 })
   flat.forEach((n) => g.setNode(String(n.id), { width: NODE_W, height: NODE_H }))
   edges.forEach((e) => g.setEdge(e.source, e.target))
   dagre.layout(g)
@@ -113,6 +132,7 @@ function buildNodesEdges(arbol: ArbolData): { nodes: Node<CargoNodeData>[]; edge
         personas: nodo.personas ?? [],
         org_number: nodo.org_number ?? "",
         org_image_url: nodo.org_image_url ?? "",
+        isRoot: rootIds.has(nodo.id),
       },
     }
   })
@@ -129,14 +149,15 @@ function AvatarMini({ p }: { p: PersonaMini }) {
       <img
         src={p.foto_url} alt={p.nombre} title={p.nombre}
         onError={() => setErr(true)}
-        className="w-5 h-5 rounded-full object-cover border-2 border-[#0d0d0f]"
+        className="w-5 h-5 rounded-full object-cover border-2 border-white shadow-sm"
       />
     )
   }
   return (
     <div
       title={p.nombre}
-      className="w-5 h-5 rounded-full bg-teal-600/25 text-teal-300 text-[7px] font-bold flex items-center justify-center border-2 border-[#0d0d0f] select-none"
+      className="w-5 h-5 rounded-full text-[7px] font-bold flex items-center justify-center border-2 border-white shadow-sm select-none"
+      style={{ background: "rgba(0,168,200,0.12)", color: "#0a7c93" }}
     >
       {p.initials || p.nombre.slice(0, 2).toUpperCase()}
     </div>
@@ -158,8 +179,8 @@ function Avatar({ p, size = 24 }: { p: PersonaMini; size?: number }) {
   return (
     <div
       title={p.nombre}
-      style={style}
-      className="rounded-full bg-teal-600/30 text-teal-300 font-bold flex items-center justify-center border-2 border-background shrink-0 select-none"
+      style={{ ...style, background: "rgba(0,168,200,0.14)", color: "#0a7c93" }}
+      className="rounded-full font-bold flex items-center justify-center border-2 border-background shrink-0 select-none"
     >
       {p.initials || p.nombre.slice(0, 2).toUpperCase()}
     </div>
@@ -174,7 +195,7 @@ function CargoAvatar({ orgImageUrl, nombre, size = 48 }: { orgImageUrl: string; 
       <img
         src={orgImageUrl} alt={nombre} onError={() => setErr(true)}
         style={style}
-        className="rounded-full object-cover border-2 border-teal-500/30 ring-1 ring-white/10 shrink-0"
+        className="rounded-full object-cover border-2 border-[#dab04b]/50 ring-1 ring-black/5 shrink-0"
       />
     )
   }
@@ -193,55 +214,71 @@ function CargoAvatar({ orgImageUrl, nombre, size = 48 }: { orgImageUrl: string; 
 function OrgChartNode({ data }: NodeProps<Node<CargoNodeData>>) {
   const visibles = data.personas.slice(0, 4)
   const extra    = data.personas.length - visibles.length
+  const root     = data.isRoot
 
   return (
     <div
-      className="relative rounded-2xl select-none cursor-grab active:cursor-grabbing overflow-hidden"
+      className="org-nodo-item relative rounded-xl select-none cursor-grab active:cursor-grabbing overflow-hidden transition-all duration-200 hover:-translate-y-0.5"
       style={{
         width: NODE_W,
-        background: "linear-gradient(160deg, rgba(14,14,22,0.98) 0%, rgba(10,10,16,0.99) 100%)",
-        border: "1px solid rgba(20,184,166,0.18)",
-        boxShadow: "0 0 0 1px rgba(20,184,166,0.07), 0 8px 32px rgba(0,0,0,0.6)",
+        background: root
+          ? `linear-gradient(150deg, ${ORG.rootFrom}, ${ORG.rootTo})`
+          : ORG.cardBg,
+        border: `1px solid ${root ? "rgba(218,175,75,0.72)" : ORG.goldBorder}`,
+        boxShadow: root
+          ? "0 14px 34px rgba(116,21,29,0.28)"
+          : "0 10px 26px rgba(35,38,45,0.10), inset 0 1px 0 rgba(255,255,255,0.7)",
       }}
     >
-      {/* Barra teal */}
-      <div className="h-[3px] w-full bg-gradient-to-r from-teal-400/90 via-teal-500/40 to-transparent" />
+      {/* Barra superior rojo→oro (Directorio) */}
+      <div
+        className="h-[3px] w-full"
+        style={{ background: `linear-gradient(90deg, ${ORG.red}, ${ORG.gold})` }}
+      />
 
-      <div className="px-3 pt-2 pb-2.5 relative">
-        {/* Badge org_number */}
+      <div className="px-3 pt-2.5 pb-2.5 relative">
+        {/* Badge número jerárquico */}
         {data.org_number && (
           <span
-            className="absolute top-2 right-2.5 text-[9px] text-teal-400/50 tabular-nums leading-none"
-            style={{ fontFamily: "'DM Mono', monospace" }}
+            className="absolute top-2 left-2 px-1.5 py-0.5 rounded-full text-[9px] font-bold tabular-nums leading-none"
+            style={{
+              fontFamily: "'DM Mono', monospace",
+              color: root ? "#fff" : ORG.numberInk,
+              background: root ? "rgba(255,255,255,0.16)" : ORG.numberBg,
+              border: `1px solid ${root ? "rgba(255,255,255,0.24)" : "rgba(218,175,75,0.45)"}`,
+            }}
           >
             {data.org_number}
           </span>
         )}
 
-        {/* Foto nodo — org_image_url, NO persona.foto_url */}
-        <div className="flex justify-center mb-2 mt-0.5">
+        {/* Foto del nodo — org_image_url, NO persona.foto_url */}
+        <div className="flex justify-center mb-2 mt-1">
           {data.org_image_url ? (
             <img
               src={data.org_image_url} alt=""
-              className="w-10 h-10 rounded-full object-cover"
-              style={{ border: "2px solid rgba(20,184,166,0.25)" }}
+              className="w-11 h-11 rounded-full object-cover"
+              style={{ border: `2px solid ${root ? "rgba(246,195,74,0.7)" : "rgba(218,175,75,0.5)"}` }}
             />
           ) : (
             <div
-              className="w-10 h-10 rounded-full flex items-center justify-center"
-              style={{ background: "rgba(20,184,166,0.07)", border: "1px solid rgba(20,184,166,0.12)" }}
+              className="w-11 h-11 rounded-full flex items-center justify-center"
+              style={{
+                background: root ? "rgba(255,255,255,0.1)" : "rgba(0,168,200,0.08)",
+                border: `1px solid ${root ? "rgba(246,195,74,0.4)" : "rgba(0,168,200,0.18)"}`,
+              }}
             >
-              <Users className="w-4 h-4" style={{ color: "rgba(20,184,166,0.3)" }} />
+              <Users className="w-4 h-4" style={{ color: root ? "#f6c34a" : ORG.cyan }} />
             </div>
           )}
         </div>
 
-        {/* Nombre cargo */}
+        {/* Nombre del cargo */}
         <p
           className="text-[11px] font-semibold leading-snug text-center mb-2"
           style={{
             fontFamily: "'DM Sans', sans-serif",
-            color: "rgba(255,255,255,0.88)",
+            color: root ? "#ffffff" : ORG.ink,
             display: "-webkit-box",
             WebkitLineClamp: 2,
             WebkitBoxOrient: "vertical",
@@ -255,12 +292,17 @@ function OrgChartNode({ data }: NodeProps<Node<CargoNodeData>>) {
         {data.personas.length > 0 ? (
           <div className="flex items-center justify-center gap-1.5">
             <div className="flex -space-x-1">{visibles.map((p) => <AvatarMini key={p.id} p={p} />)}</div>
-            <span className="text-[9px] tabular-nums" style={{ color: "rgba(20,184,166,0.5)", fontFamily: "'DM Mono', monospace" }}>
+            <span
+              className="text-[9px] tabular-nums"
+              style={{ color: root ? "#edcf91" : ORG.cyan, fontFamily: "'DM Mono', monospace" }}
+            >
               {extra > 0 ? `+${extra} ` : ""}{data.personas.length}
             </span>
           </div>
         ) : (
-          <p className="text-[9px] text-center" style={{ color: "rgba(255,255,255,0.15)" }}>Sin colaboradores</p>
+          <p className="text-[9px] text-center" style={{ color: root ? "rgba(255,255,255,0.4)" : "#9aa3b2" }}>
+            Sin colaboradores
+          </p>
         )}
       </div>
     </div>
@@ -279,25 +321,25 @@ function PanelPorColocar({ items, onSelect }: { items: CargoPendiente[]; onSelec
       className="absolute left-3 top-3 z-10 flex flex-col rounded-2xl overflow-hidden transition-all duration-300"
       style={{
         width: collapsed ? 40 : 220, maxHeight: "calc(100% - 24px)",
-        background: "linear-gradient(160deg, rgba(14,14,20,0.97) 0%, rgba(10,10,16,0.99) 100%)",
-        border: "1px solid rgba(245,158,11,0.2)",
-        boxShadow: "0 0 0 1px rgba(245,158,11,0.08), 0 16px 48px rgba(0,0,0,0.7)",
-        backdropFilter: "blur(12px)",
+        background: "#ffffff",
+        border: `1px solid ${ORG.goldBorder}`,
+        boxShadow: "0 16px 42px rgba(35,38,45,0.16), inset 0 1px 0 rgba(255,255,255,0.8)",
       }}
     >
-      <div className="flex items-center gap-2 px-3 py-2.5 border-b shrink-0" style={{ borderColor: "rgba(245,158,11,0.12)" }}>
-        <div className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" style={{ boxShadow: "0 0 6px #f59e0b" }} />
+      <div className="flex items-center gap-2 px-3 py-2.5 border-b shrink-0" style={{ borderColor: "rgba(218,175,75,0.25)" }}>
+        <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: ORG.red, boxShadow: `0 0 6px ${ORG.red}` }} />
         {!collapsed && (
           <div className="flex-1 min-w-0">
-            <p className="text-[10px] font-semibold text-amber-400 uppercase tracking-widest leading-none">Por colocar</p>
-            <p className="text-[10px] text-white/30 mt-0.5" style={{ fontFamily: "'DM Mono', monospace" }}>
+            <p className="text-[10px] font-bold uppercase tracking-widest leading-none" style={{ color: ORG.red }}>Por colocar</p>
+            <p className="text-[10px] mt-0.5" style={{ color: "#8a93a3", fontFamily: "'DM Mono', monospace" }}>
               {items.length} cargo{items.length !== 1 ? "s" : ""}
             </p>
           </div>
         )}
         <button
           onClick={() => setCollapsed((v) => !v)}
-          className="h-5 w-5 flex items-center justify-center rounded-lg text-white/25 hover:text-amber-400 transition-colors shrink-0"
+          className="h-5 w-5 flex items-center justify-center rounded-lg transition-colors shrink-0"
+          style={{ color: "#9aa3b2" }}
         >
           {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
         </button>
@@ -308,8 +350,8 @@ function PanelPorColocar({ items, onSelect }: { items: CargoPendiente[]; onSelec
             <button
               key={c.id}
               onClick={() => onSelect(c)}
-              className="w-full text-left px-3 py-2 rounded-xl text-[11px] font-medium transition-all"
-              style={{ color: "rgba(255,255,255,0.6)", fontFamily: "'DM Sans', sans-serif" }}
+              className="w-full text-left px-3 py-2 rounded-xl text-[11px] font-medium transition-all hover:bg-[#fff7dc]"
+              style={{ color: ORG.ink, fontFamily: "'DM Sans', sans-serif" }}
             >
               {c.nombre}
             </button>
@@ -403,12 +445,12 @@ function NodeDrawer({ nodo, onClose, onUpdated }: { nodo: ArbolNodo; onClose: ()
                 onChange={(e) => setOrgNumber(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && guardarOrgNumber()}
                 placeholder="ej. 1.2.3"
-                className="flex-1 px-3 py-2 text-sm font-mono bg-muted/30 border border-input rounded-xl focus:outline-none focus:ring-1 focus:ring-teal-500/50"
+                className="flex-1 px-3 py-2 text-sm font-mono bg-muted/30 border border-input rounded-xl focus:outline-none focus:ring-1 focus:ring-[#ef3340]/40"
               />
               <button
                 onClick={guardarOrgNumber}
                 disabled={savingNumber}
-                className={`h-9 w-9 flex items-center justify-center rounded-xl text-white transition-all shrink-0 ${savedNumber ? "bg-emerald-500" : "bg-teal-500 hover:bg-teal-600"}`}
+                className={`h-9 w-9 flex items-center justify-center rounded-xl text-white transition-all shrink-0 ${savedNumber ? "bg-emerald-500" : "bg-[#ef3340] hover:bg-[#d62d39]"}`}
                 title="Guardar número"
               >
                 {savingNumber ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4 opacity-60" />}
@@ -449,7 +491,7 @@ function NodeDrawer({ nodo, onClose, onUpdated }: { nodo: ArbolNodo; onClose: ()
                   >
                     <Avatar p={p} size={32} />
                     <span className="flex-1 text-sm font-medium text-foreground/90 truncate">{p.nombre}</span>
-                    <Link2 className="w-3.5 h-3.5 text-muted-foreground/30 group-hover:text-teal-400 transition-colors shrink-0" />
+                    <Link2 className="w-3.5 h-3.5 text-muted-foreground/30 group-hover:text-[#00a8c8] transition-colors shrink-0" />
                   </button>
                 ))}
               </div>
@@ -506,34 +548,34 @@ function ModalColocarCargo({
       <div
         className="relative w-full max-w-sm rounded-2xl overflow-hidden"
         style={{
-          background: "linear-gradient(160deg, #1e1e2e 0%, #191928 100%)",
-          border: "1px solid rgba(20,184,166,0.35)",
-          boxShadow: "0 0 0 1px rgba(20,184,166,0.12), 0 24px 64px rgba(0,0,0,0.7)",
+          background: "#ffffff",
+          border: `1px solid ${ORG.goldBorder}`,
+          boxShadow: "0 24px 60px rgba(35,38,45,0.22), inset 0 1px 0 rgba(255,255,255,0.8)",
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="h-[2px] w-full bg-gradient-to-r from-teal-400/90 via-teal-500/40 to-transparent" />
-        <div className="px-5 py-4 flex items-start justify-between gap-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+        <div className="h-[3px] w-full" style={{ background: `linear-gradient(90deg, ${ORG.red}, ${ORG.gold})` }} />
+        <div className="px-5 py-4 flex items-start justify-between gap-3" style={{ borderBottom: "1px solid rgba(218,175,75,0.22)" }}>
           <div>
-            <p className="text-[10px] font-bold text-teal-400 uppercase tracking-widest mb-1" style={{ fontFamily: "'DM Mono', monospace" }}>
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: ORG.red, fontFamily: "'DM Mono', monospace" }}>
               Colocar en organigrama
             </p>
-            <p className="text-[15px] font-semibold text-white" style={{ fontFamily: "'DM Sans', sans-serif" }}>{cargo.nombre}</p>
+            <p className="text-[15px] font-semibold" style={{ color: ORG.ink, fontFamily: "'DM Sans', sans-serif" }}>{cargo.nombre}</p>
           </div>
-          <button onClick={onClose} className="mt-0.5 h-7 w-7 flex items-center justify-center rounded-lg shrink-0" style={{ color: "rgba(255,255,255,0.4)", background: "rgba(255,255,255,0.05)" }}>
+          <button onClick={onClose} className="mt-0.5 h-7 w-7 flex items-center justify-center rounded-lg shrink-0" style={{ color: "#9aa3b2", background: "#f1f3f7" }}>
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
         <div className="p-5 space-y-4">
           <div>
-            <label className="text-[10px] font-bold text-white/50 uppercase tracking-widest mb-2 block" style={{ fontFamily: "'DM Mono', monospace" }}>
+            <label className="text-[10px] font-bold uppercase tracking-widest mb-2 block" style={{ color: "#8a93a3", fontFamily: "'DM Mono', monospace" }}>
               Cargo padre (opcional)
             </label>
-            <div className="rounded-xl overflow-y-auto" style={{ maxHeight: 196, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)" }}>
+            <div className="rounded-xl overflow-y-auto" style={{ maxHeight: 196, border: "1px solid rgba(218,175,75,0.3)", background: "#fbfaf6" }}>
               <button
                 onClick={() => setParentId("")}
                 className="w-full text-left px-3.5 py-2.5 text-[12px] transition-colors"
-                style={{ fontFamily: "'DM Sans', sans-serif", color: parentId === "" ? "#2dd4bf" : "rgba(255,255,255,0.5)", background: parentId === "" ? "rgba(20,184,166,0.12)" : "transparent", borderBottom: "1px solid rgba(255,255,255,0.05)", fontWeight: parentId === "" ? 600 : 400 }}
+                style={{ fontFamily: "'DM Sans', sans-serif", color: parentId === "" ? ORG.red : "#5b6573", background: parentId === "" ? "#fff1c9" : "transparent", borderBottom: "1px solid rgba(218,175,75,0.16)", fontWeight: parentId === "" ? 600 : 400 }}
               >
                 — Sin padre (raíz del árbol)
               </button>
@@ -542,18 +584,18 @@ function ModalColocarCargo({
                   key={c.id}
                   onClick={() => setParentId(c.id)}
                   className="w-full text-left px-3.5 py-2 text-[12px] transition-colors"
-                  style={{ fontFamily: "'DM Sans', sans-serif", color: parentId === c.id ? "#2dd4bf" : "rgba(255,255,255,0.75)", background: parentId === c.id ? "rgba(20,184,166,0.12)" : "transparent", borderBottom: i < opciones.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none", fontWeight: parentId === c.id ? 600 : 400 }}
+                  style={{ fontFamily: "'DM Sans', sans-serif", color: parentId === c.id ? ORG.red : ORG.ink, background: parentId === c.id ? "#fff1c9" : "transparent", borderBottom: i < opciones.length - 1 ? "1px solid rgba(218,175,75,0.12)" : "none", fontWeight: parentId === c.id ? 600 : 400 }}
                 >
                   {c.nombre}
                 </button>
               ))}
             </div>
           </div>
-          {error && <p className="text-xs text-red-400 px-1">{error}</p>}
+          {error && <p className="text-xs text-red-500 px-1">{error}</p>}
           <button
             onClick={guardar} disabled={pending}
             className="w-full h-10 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
-            style={{ background: pending ? "rgba(20,184,166,0.3)" : "linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)", color: "white", boxShadow: pending ? "none" : "0 4px 20px rgba(20,184,166,0.35)", fontFamily: "'DM Sans', sans-serif" }}
+            style={{ background: pending ? "rgba(239,51,64,0.4)" : ORG.red, color: "white", boxShadow: pending ? "none" : "0 8px 22px rgba(239,51,64,0.28)", fontFamily: "'DM Sans', sans-serif" }}
           >
             {pending ? "Guardando…" : "Colocar en organigrama"}
           </button>
@@ -613,7 +655,7 @@ function ModalNuevoCargo({ sedes, sedeActiva, orgContextValue, onClose, onCreado
               onChange={(e) => { setNombre(e.target.value); setError("") }}
               onKeyDown={(e) => e.key === "Enter" && crear()}
               placeholder="ej. Analista de Operaciones"
-              className="w-full px-3 py-2 text-sm bg-muted/30 border border-input rounded-xl focus:outline-none focus:ring-1 focus:ring-teal-500/50"
+              className="w-full px-3 py-2 text-sm bg-muted/30 border border-input rounded-xl focus:outline-none focus:ring-1 focus:ring-[#ef3340]/40"
             />
           </div>
           <div>
@@ -643,7 +685,7 @@ function ModalNuevoCargo({ sedes, sedeActiva, orgContextValue, onClose, onCreado
           {error && <p className="text-xs text-destructive px-1">{error}</p>}
           <button
             onClick={crear} disabled={!nombre.trim() || pending}
-            className="w-full h-9 text-sm font-medium bg-teal-500 text-white rounded-xl hover:bg-teal-600 disabled:opacity-50 transition-colors"
+            className="w-full h-9 text-sm font-medium bg-[#ef3340] text-white rounded-xl hover:bg-[#d62d39] disabled:opacity-50 transition-colors"
           >
             {pending ? "Creando…" : "Crear cargo"}
           </button>
@@ -696,6 +738,10 @@ export function TyCOrganigramaPage() {
     }
     const { nodes: n, edges: e } = buildNodesEdges(limpio)
     setNodes(n); setEdges(e)
+    // Persistir el reset: limpiar posiciones manuales para que el auto-layout aguante al recargar
+    n.forEach((node) => {
+      api.put(`/tc/cargos/${node.id}`, { org_pos_x: null, org_pos_y: null }).catch(() => {})
+    })
   }, [arbol, setNodes, setEdges])
 
   // Drag stop → persistir posición en servidor (fire-and-forget)
@@ -730,7 +776,7 @@ export function TyCOrganigramaPage() {
           <div className="flex items-center gap-1 bg-muted/30 rounded-xl p-1">
             <button
               onClick={() => setSedeActiva(null)}
-              className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all ${sedeActiva === null ? "bg-teal-500/15 text-teal-400 shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all ${sedeActiva === null ? "bg-[#ef3340]/12 text-[#ef3340] shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
             >
               Corporativo
             </button>
@@ -738,7 +784,7 @@ export function TyCOrganigramaPage() {
               <button
                 key={s.id}
                 onClick={() => setSedeActiva(s.id)}
-                className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all ${sedeActiva === s.id ? "bg-teal-500/15 text-teal-400 shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all ${sedeActiva === s.id ? "bg-[#ef3340]/12 text-[#ef3340] shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
               >
                 {s.name}
               </button>
@@ -750,7 +796,7 @@ export function TyCOrganigramaPage() {
               <span className="text-xs text-muted-foreground tabular-nums" style={{ fontFamily: "'DM Mono', monospace" }}>
                 <strong className="text-foreground">{nodes.length}</strong> colocado{nodes.length !== 1 ? "s" : ""}
                 {sinColocar.length > 0 && (
-                  <span className="ml-2 text-amber-400">· {sinColocar.length} pendiente{sinColocar.length !== 1 ? "s" : ""}</span>
+                  <span className="ml-2 text-[#b8860b]">· {sinColocar.length} pendiente{sinColocar.length !== 1 ? "s" : ""}</span>
                 )}
               </span>
             )}
@@ -763,7 +809,7 @@ export function TyCOrganigramaPage() {
             {puedeEditar && (
               <button
                 onClick={() => setModalNuevoCargo(true)}
-                className="flex items-center gap-1.5 h-7 px-2.5 text-xs font-medium border border-dashed border-teal-500/40 rounded-lg text-teal-500/70 hover:border-teal-500/70 hover:text-teal-400 hover:bg-teal-500/5 transition-all"
+                className="flex items-center gap-1.5 h-7 px-2.5 text-xs font-medium border border-dashed border-[#ef3340]/40 rounded-lg text-[#ef3340]/80 hover:border-[#ef3340]/70 hover:text-[#ef3340] hover:bg-[#ef3340]/5 transition-all"
               >
                 <Plus className="w-3 h-3" />
                 Nuevo cargo
@@ -774,11 +820,17 @@ export function TyCOrganigramaPage() {
       </div>
 
       {/* Canvas */}
-      <div className="flex-1 relative">
+      <div
+        className="flex-1 relative"
+        style={{
+          background:
+            "radial-gradient(circle at top right, rgba(239,51,64,.05), transparent 30%), linear-gradient(180deg,#f7f8fb 0%,#f4f6fa 46%,#eef1f6 100%)",
+        }}
+      >
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center z-10">
             <div className="flex flex-col items-center gap-3">
-              <div className="w-8 h-8 rounded-full border-2 border-teal-500/30 border-t-teal-500 animate-spin" />
+              <div className="w-8 h-8 rounded-full border-2 border-[#ef3340]/25 border-t-[#ef3340] animate-spin" />
               <p className="text-xs text-muted-foreground">Cargando organigrama…</p>
             </div>
           </div>
@@ -789,7 +841,7 @@ export function TyCOrganigramaPage() {
             <Inbox className="w-10 h-10 opacity-20" />
             <p className="text-sm">{sedeActiva ? "Sin cargos en esta sede." : "Sin cargos definidos."}</p>
             {puedeEditar && (
-              <button onClick={() => setModalNuevoCargo(true)} className="text-xs text-teal-500 hover:underline">
+              <button onClick={() => setModalNuevoCargo(true)} className="text-xs text-[#ef3340] hover:underline">
                 + Crear primer cargo
               </button>
             )}
@@ -822,7 +874,7 @@ export function TyCOrganigramaPage() {
           maxZoom={2.5}
           proOptions={{ hideAttribution: true }}
         >
-          <Background variant={BackgroundVariant.Dots} gap={28} size={1} color="#ffffff08" />
+          <Background variant={BackgroundVariant.Dots} gap={28} size={1} color="rgba(218,175,75,0.18)" />
           <Controls showInteractive={false} />
         </ReactFlow>
       </div>

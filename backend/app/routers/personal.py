@@ -137,6 +137,7 @@ class CargoUpdate(BaseModel):
     parent_id: Optional[int] = None
     en_organigrama: Optional[bool] = None
     sede_ids: Optional[list[int]] = None
+    org_context: Optional[str] = None
     org_number: Optional[str] = None
     org_image_url: Optional[str] = None
     org_pos_x: Optional[float] = None
