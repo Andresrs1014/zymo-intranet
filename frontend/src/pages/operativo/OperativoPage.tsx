@@ -1,10 +1,15 @@
 import { NavLink, Link } from "react-router-dom"
 import { PageLayout } from "@/components/layout/PageLayout"
+import { useAuthStore } from "@/store/authStore"
+import { canSeeOperClientes } from "@/lib/permissions"
 
 // URL del sistema BRP — eventualmente se reemplazará por ruta interna
 const BRP_URL = "https://brp.zymointranet.com"
 
 export function OperativoPage() {
+  const user = useAuthStore((s) => s.user)
+  const verClientes = user ? canSeeOperClientes(user.role, user.app_permissions) : false
+
   return (
     <PageLayout title="Operativo">
           {/* Section header */}
@@ -40,6 +45,14 @@ export function OperativoPage() {
               label="BRP"
               description="Sistema de gestión operativa. Acceso directo al portal BRP de ZYMO."
             />
+            {verClientes && (
+              <InternalCard
+                to="/operativo/clientes"
+                icon={<IconClientes />}
+                label="Cartera de clientes"
+                description="Importa clientes corporativos y asigna analistas de operaciones por sede."
+              />
+            )}
           </div>
     </PageLayout>
   )
@@ -173,6 +186,15 @@ function IconBRP() {
     <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
       <path d="M10 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />
       <path fillRule="evenodd" d="M.664 10.59a1.651 1.651 0 0 1 0-1.186A10.004 10.004 0 0 1 10 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0 1 10 17c-4.257 0-7.893-2.66-9.336-6.41ZM14 10a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z" clipRule="evenodd" />
+    </svg>
+  )
+}
+
+function IconClientes() {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <path fillRule="evenodd" d="M4 16.5v-13h-.25a.75.75 0 0 1 0-1.5h4.586a1.5 1.5 0 0 1 1.06.44L9.5 4.5H16a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4Zm1.5-1.5h9V6H9.56L6.5 3.44V15Z" clipRule="evenodd" />
+      <path d="M8 8.75a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5A.75.75 0 0 1 8 8.75Zm0 3a.75.75 0 0 1 .75-.75h4.5a.75.75 0 0 1 0 1.5h-4.5A.75.75 0 0 1 8 11.75Z" />
     </svg>
   )
 }

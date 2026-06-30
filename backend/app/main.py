@@ -42,6 +42,7 @@ from app.routers.personal import router as personal_router
 from app.routers.tc_agenda import router as tc_agenda_router
 from app.routers.tc_capacitaciones import router as tc_caps_router
 from app.routers.tc_clientes import router as tc_clientes_router
+from app.routers.oper_clientes import router as oper_clientes_router
 from app.routers.tc_paquetes import router as tc_paquetes_router
 from app.routers.borradores import router as borradores_router
 from app.routers.admin.extraccion import router as admin_extraccion_router
@@ -424,6 +425,7 @@ app.include_router(tc_agenda_router)
 app.include_router(tc_caps_router)
 app.include_router(tc_paquetes_router)
 app.include_router(tc_clientes_router)
+app.include_router(oper_clientes_router)
 
 _TC_FOTOS_DIR = "/app/data/tc_fotos"
 os.makedirs(_TC_FOTOS_DIR, exist_ok=True)

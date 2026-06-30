@@ -40,6 +40,13 @@ export const INTERNAL_MODULES: AppDefinition[] = [
     description: "Crear solicitudes de compra y consultar su estado",
   },
   {
+    id: "mod_oper_clientes",
+    category: "modulo",
+    icon: "🏢",
+    name: "Operativo — Cartera de clientes",
+    description: "Importar clientes corporativos y asignar analistas de operaciones por sede",
+  },
+  {
     id: "mod_sgc",
     category: "modulo",
     icon: "📋",

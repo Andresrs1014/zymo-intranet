@@ -14,6 +14,7 @@ import {
   canSeeExtraccionIA,
   canSeeHelix,
   canSeeTyC,
+  canSeeOperClientes,
 } from "@/lib/permissions"
 import { useAgentPanelStore } from "@/store/agentPanelStore"
 import { useMinWidth } from "@/hooks/useMinWidth"
@@ -38,6 +39,7 @@ import { MisSolicitudesPage } from "@/pages/operativo/MisSolicitudesPage"
 import { MiSolicitudDetallePage } from "@/pages/operativo/MiSolicitudDetallePage"
 import { NuevaSolicitudPage } from "@/pages/operativo/NuevaSolicitudPage"
 import { PaquetesPage } from "@/pages/operativo/PaquetesPage"
+import { OperClientesPage } from "@/pages/operativo/OperClientesPage"
 import { FinancieroPage } from "@/pages/financiero/FinancieroPage"
 import { FacturasPage } from "@/pages/financiero/FacturasPage"
 import { FacturaDetallePage } from "@/pages/financiero/FacturaDetallePage"
@@ -141,6 +143,13 @@ function OperativoRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user)
   if (!user) return <Navigate to="/login" replace />
   if (!canSeeOperativo(user.role, user.area, user.app_permissions)) return <Navigate to="/dashboard" replace />
+  return <>{children}</>
+}
+
+function OperClientesRoute({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user)
+  if (!user) return <Navigate to="/login" replace />
+  if (!canSeeOperClientes(user.role, user.app_permissions)) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
 
@@ -393,6 +402,14 @@ export default function App() {
             <PrivateRoute>
               <PaquetesPage />
             </PrivateRoute>
+          }
+        />
+        <Route
+          path="/operativo/clientes"
+          element={
+            <OperClientesRoute>
+              <OperClientesPage />
+            </OperClientesRoute>
           }
         />
 

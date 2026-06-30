@@ -134,7 +134,7 @@ export function TyCPage() {
               icon={<Building2 className="w-4 h-4" />}
               color="indigo"
               title="Clientes"
-              description="Cartera corporativa y asignación a analistas de operaciones."
+              description="Consulta la cartera y analistas asignados por sede (solo lectura)."
               onClick={() => navigate("/tc/clientes")}
             />
           </div>
