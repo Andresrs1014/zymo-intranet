@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { api } from "@/lib/api"
 import { useAuthStore } from "@/store/authStore"
 import { canEditTyC } from "@/lib/permissions"
 import { PageLayout } from "@/components/layout/PageLayout"
-import { Save, Phone, Mail } from "lucide-react"
+import { Save, Phone, Mail, ArrowLeft } from "lucide-react"
 
 interface AreaConfig {
   id?: number
@@ -18,6 +19,7 @@ interface AreaConfig {
 interface AreaGlobal { id: number; name: string }
 
 export function TyCAreaConfigPage() {
+  const navigate    = useNavigate()
   const user        = useAuthStore((s) => s.user)
   const puedeEditar = user ? canEditTyC(user.role, user.app_permissions) : false
 
@@ -74,6 +76,13 @@ export function TyCAreaConfigPage() {
           Talento y Cultura · Configuración
         </p>
         <h1 className="text-xl font-bold mb-1">Áreas y líderes</h1>
+        <button
+          onClick={() => navigate("/tc/ajustes")}
+          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Volver a configuración
+        </button>
         <p className="text-sm text-muted-foreground mb-6">
           Define el líder y teléfono WhatsApp de cada área. Se usa para notificar automáticamente al agendar un evento.
         </p>

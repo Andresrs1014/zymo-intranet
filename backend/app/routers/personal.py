@@ -68,6 +68,8 @@ class PersonaCreate(BaseModel):
     email_corporativo: str = ""
     telefono: str = ""
     telefono_corporativo: str = ""
+    fecha_nacimiento: Optional[str] = None  # ISO "YYYY-MM-DD"
+    edad: Optional[int] = None
     tipo_contrato: str = "Término indefinido"
     fecha_ingreso: Optional[str] = None   # ISO date string "YYYY-MM-DD"
     antiguedad_label: str = ""
@@ -90,6 +92,8 @@ class PersonaUpdate(BaseModel):
     email_corporativo: Optional[str] = None
     telefono: Optional[str] = None
     telefono_corporativo: Optional[str] = None
+    fecha_nacimiento: Optional[str] = None  # ISO "YYYY-MM-DD"
+    edad: Optional[int] = None
     tipo_contrato: Optional[str] = None
     fecha_ingreso: Optional[str] = None
     antiguedad_label: Optional[str] = None
@@ -100,6 +104,17 @@ class PersonaUpdate(BaseModel):
     idp_eligible: Optional[bool] = None
     score: Optional[int] = None
     user_id: Optional[int] = None
+
+
+class BulkEstadoItem(BaseModel):
+    id: int
+    estado: str
+    tipo_salida: Optional[str] = None
+    fecha_salida: Optional[str] = None
+
+
+class BulkEstadoBody(BaseModel):
+    items: list[BulkEstadoItem]
 
 
 class AreaCreate(BaseModel):
@@ -148,6 +163,8 @@ def _persona_dict(p: PtcPersona, db: Session, main_db: Session) -> dict:
         "telefono": p.telefono,
         "telefono_corporativo": p.telefono_corporativo,
         "foto_url": p.foto_url,
+        "fecha_nacimiento": p.fecha_nacimiento.isoformat() if p.fecha_nacimiento else None,
+        "edad": p.edad,
         "tipo_contrato": p.tipo_contrato,
         "fecha_ingreso": p.fecha_ingreso.isoformat() if p.fecha_ingreso else None,
         "antiguedad_label": p.antiguedad_label,
@@ -650,6 +667,8 @@ def crear_persona(
         email_corporativo=body.email_corporativo,
         telefono=body.telefono,
         telefono_corporativo=body.telefono_corporativo,
+        fecha_nacimiento=_parse_date(body.fecha_nacimiento),
+        edad=body.edad,
         tipo_contrato=body.tipo_contrato,
         fecha_ingreso=_parse_date(body.fecha_ingreso),
         antiguedad_label=body.antiguedad_label,
@@ -681,9 +700,7 @@ def actualizar_persona(
     if "empresa_id" in data:
         data["sede_id"] = data.pop("empresa_id")
     for field, value in data.items():
-        if field == "fecha_ingreso":
-            setattr(persona, field, _parse_date(value))
-        elif field == "fecha_salida":
+        if field in ("fecha_ingreso", "fecha_salida", "fecha_nacimiento"):
             setattr(persona, field, _parse_date(value))
         else:
             setattr(persona, field, value)
@@ -693,6 +710,50 @@ def actualizar_persona(
     db.commit()
     db.refresh(persona)
     return _persona_dict(persona, db, main_db)
+
+
+@router.patch("/personas/bulk-estado")
+def actualizar_estado_personas(
+    body: BulkEstadoBody,
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_tc_editar),
+) -> dict:
+    if len(body.items) > 200:
+        raise HTTPException(status_code=400, detail="Máximo 200 items por solicitud.")
+
+    updated = 0
+    errors = []
+    for item in body.items:
+        if item.estado not in (_ACTIVO, _INACTIVO):
+            errors.append({"id": item.id, "detail": "Estado inválido."})
+            continue
+
+        persona = db.get(PtcPersona, item.id)
+        if not persona:
+            errors.append({"id": item.id, "detail": "Persona no encontrada"})
+            continue
+        if (
+            item.estado == _INACTIVO
+            and item.tipo_salida not in ("voluntaria", "involuntaria")
+        ):
+            errors.append(
+                {"id": item.id, "detail": "tipo_salida inválido para persona inactiva."}
+            )
+            continue
+
+        persona.estado = item.estado
+        if item.estado == _ACTIVO:
+            persona.tipo_salida = ""
+            persona.fecha_salida = None
+        else:
+            persona.tipo_salida = item.tipo_salida
+            persona.fecha_salida = _parse_date(item.fecha_salida)
+        persona.updated_at = datetime.utcnow()
+        db.add(persona)
+        updated += 1
+
+    db.commit()
+    return {"updated": updated, "errors": errors}
 
 
 @router.post("/personas/{persona_id}/foto")
@@ -757,6 +818,8 @@ class ImportPersonaItem(BaseModel):
     email: str = ""
     email_corporativo: str = ""
     telefono: str = ""
+    fecha_nacimiento: Optional[str] = None
+    edad: Optional[int] = None
     tipo_contrato: str = "Término indefinido"
     fecha_ingreso: Optional[str] = None
     antiguedad_label: str = ""
@@ -822,6 +885,8 @@ def import_personas_json(
             email=item.email,
             email_corporativo=item.email_corporativo,
             telefono=item.telefono,
+            fecha_nacimiento=_parse_date(item.fecha_nacimiento),
+            edad=item.edad,
             tipo_contrato=item.tipo_contrato,
             fecha_ingreso=_parse_date(item.fecha_ingreso),
             antiguedad_label=item.antiguedad_label,

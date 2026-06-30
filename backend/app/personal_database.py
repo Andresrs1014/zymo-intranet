@@ -89,6 +89,8 @@ class PtcPersona(SQLModel, table=True):
     telefono: str = Field(max_length=30, default="")
     telefono_corporativo: str = Field(max_length=30, default="")
     foto_url: str = Field(max_length=500, default="")
+    fecha_nacimiento: Optional[date] = None
+    edad: Optional[int] = None
 
     # Contrato
     tipo_contrato: str = Field(max_length=80, default="Término indefinido")
@@ -322,6 +324,8 @@ def _migrate_personal() -> None:
             "ALTER TABLE ptc_persona ADD COLUMN score INTEGER DEFAULT 0",
             "ALTER TABLE ptc_capacitacion ADD COLUMN documentos TEXT DEFAULT '[]'",
             "ALTER TABLE ptc_area_config ADD COLUMN lider_email TEXT DEFAULT ''",
+            "ALTER TABLE ptc_persona ADD COLUMN fecha_nacimiento DATE DEFAULT NULL",
+            "ALTER TABLE ptc_persona ADD COLUMN edad INTEGER DEFAULT NULL",
         ]:
             try:
                 conn.execute(text(sql))

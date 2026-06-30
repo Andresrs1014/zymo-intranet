@@ -2,11 +2,11 @@ import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { api } from "@/lib/api"
 import { useAuthStore } from "@/store/authStore"
-import { canImportTyC, canSeeTyCSensible } from "@/lib/permissions"
+import { canConfigTyC, canEditTyC, canImportTyC, canSeeTyCSensible } from "@/lib/permissions"
 import { PageLayout } from "@/components/layout/PageLayout"
 import {
   Users, GitBranch, Upload, FileText, TrendingUp, ArrowUpRight,
-  CalendarDays, Settings2, GraduationCap,
+  CalendarDays, Settings2, GraduationCap, UserX,
 } from "lucide-react"
 
 interface Stats { total: number; activos: number; inactivos: number }
@@ -14,8 +14,10 @@ interface Stats { total: number; activos: number; inactivos: number }
 export function TyCPage() {
   const navigate      = useNavigate()
   const user          = useAuthStore((s) => s.user)
-  const puedeImport   = user ? canImportTyC(user.role, user.app_permissions) : false
-  const puedeSensible = user ? canSeeTyCSensible(user.role, user.app_permissions) : false
+  const puedeImport     = user ? canImportTyC(user.role, user.app_permissions) : false
+  const puedeSensible   = user ? canSeeTyCSensible(user.role, user.app_permissions) : false
+  const puedeConfigurar = user ? canConfigTyC(user.role, user.app_permissions) : false
+  const puedeEditar     = user ? canEditTyC(user.role, user.app_permissions) : false
 
   const [stats, setStats] = useState<Stats | null>(null)
 
@@ -119,11 +121,20 @@ export function TyCPage() {
               description="PDF, Word o Excel por cargo. Fuente para análisis IA del SIG."
               onClick={() => navigate("/tc/manuales")}
             />
+            {puedeEditar && (
+              <ModuleCard
+                icon={<UserX className="w-4 h-4" />}
+                color="amber"
+                title="Rotación"
+                description="Marca activos/inactivos y clasifica retiros en bloque."
+                onClick={() => navigate("/tc/rotacion")}
+              />
+            )}
           </div>
         </section>
 
         {/* Fila 2: Desarrollo */}
-        {(puedeSensible || puedeImport) && (
+        {(puedeSensible || puedeImport || puedeConfigurar) && (
           <section>
             <SectionLabel>Desarrollo y talento</SectionLabel>
             <div className="grid grid-cols-3 gap-3">
@@ -146,12 +157,12 @@ export function TyCPage() {
                   compact
                 />
               )}
-              {puedeSensible && (
+              {puedeConfigurar && (
                 <ModuleCard
                   icon={<Settings2 className="w-4 h-4" />}
                   color="indigo"
                   title="Configuración T&C"
-                  description="Paquetes de capacitación, SMTP y líderes de área para notificaciones."
+                  description="WhatsApp, SMTP, paquetes de capacitación y líderes de área."
                   onClick={() => navigate("/tc/ajustes")}
                   compact
                 />

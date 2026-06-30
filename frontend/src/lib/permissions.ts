@@ -136,6 +136,11 @@ export function canImportTyC(role: string, appPerms?: string[]): boolean {
   return hasPerm(appPerms, "mod_tc_importar")
 }
 
+export function canConfigTyC(role: string, appPerms?: string[]): boolean {
+  if (role === "admin") return true
+  return canEditTyC(role, appPerms) || canSeeTyCSensible(role, appPerms)
+}
+
 export function canSeeMantenimiento(
   role: string,
   appPerms?: string[]

@@ -48,6 +48,8 @@ interface Persona {
   idp_eligible: boolean
   score: number
   user_id: number | null
+  fecha_nacimiento?: string | null
+  edad?: number | null
 }
 
 interface Novedad {
@@ -321,6 +323,16 @@ export function TyCPersonaPage() {
               </FieldRow>
               <FieldRow label="RH">
                 {editando ? <TextInput value={datos.rh} onChange={(v) => setField("rh", v)} placeholder="O+" /> : (datos.rh || "—")}
+              </FieldRow>
+              <FieldRow label="Fecha de nacimiento">
+                {editando ? (
+                  <TextInput value={datos.fecha_nacimiento ?? ""} onChange={(v) => setField("fecha_nacimiento", v || null)} type="date" />
+                ) : (datos.fecha_nacimiento || "—")}
+              </FieldRow>
+              <FieldRow label="Edad">
+                {editando ? (
+                  <TextInput value={datos.edad != null ? String(datos.edad) : ""} onChange={(v) => setField("edad", v ? parseInt(v) : null)} type="number" placeholder="0" />
+                ) : (datos.edad != null ? `${datos.edad} años` : "—")}
               </FieldRow>
               <FieldRow label="Correo personal">
                 {editando ? <TextInput value={datos.email} onChange={(v) => setField("email", v)} type="email" /> : (datos.email || "—")}

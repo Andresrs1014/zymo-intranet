@@ -1,11 +1,12 @@
 import { useEffect, useState, useCallback } from "react"
+import { useNavigate } from "react-router-dom"
 import { api } from "@/lib/api"
 import { useAuthStore } from "@/store/authStore"
 import { canEditTyC } from "@/lib/permissions"
 import { PageLayout } from "@/components/layout/PageLayout"
 import {
   Plus, Trash2, Save, ChevronDown, ChevronRight,
-  Package, Bell, Eye, EyeOff,
+  Package, Bell, Eye, EyeOff, Users, ArrowRight,
 } from "lucide-react"
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
@@ -18,14 +19,15 @@ interface SmtpConfig {
 }
 interface WaConfig { phone_number_id: string; activo: boolean }
 
-type Tab = "paquetes" | "notificaciones"
+type Tab = "notificaciones" | "lideres" | "paquetes"
 
 // ── Componente ────────────────────────────────────────────────────────────────
 
 export function TyCConfigPage() {
+  const navigate    = useNavigate()
   const user        = useAuthStore((s) => s.user)
   const puedeEditar = user ? canEditTyC(user.role, user.app_permissions) : false
-  const [tab, setTab] = useState<Tab>("paquetes")
+  const [tab, setTab] = useState<Tab>("notificaciones")
 
   return (
     <PageLayout title="Configuración T&C" mainClassName="flex-1 overflow-y-auto">
@@ -36,7 +38,7 @@ export function TyCConfigPage() {
           </p>
           <h1 className="text-xl font-bold mb-4">Configuración</h1>
           <div className="flex gap-0 -mb-px">
-            {(["paquetes", "notificaciones"] as Tab[]).map((t) => (
+            {(["notificaciones", "lideres", "paquetes"] as Tab[]).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -44,8 +46,12 @@ export function TyCConfigPage() {
                   tab === t ? "border-teal-500 text-teal-400" : "border-transparent text-muted-foreground hover:text-foreground"
                 }`}
               >
-                {t === "paquetes" ? <Package className="w-3.5 h-3.5" /> : <Bell className="w-3.5 h-3.5" />}
-                {t === "paquetes" ? "Paquetes de capacitación" : "Notificaciones"}
+                {t === "notificaciones" ? <Bell className="w-3.5 h-3.5" /> :
+                  t === "lideres" ? <Users className="w-3.5 h-3.5" /> :
+                  <Package className="w-3.5 h-3.5" />}
+                {t === "notificaciones" ? "Notificaciones" :
+                  t === "lideres" ? "Líderes de área" :
+                  "Paquetes de capacitación"}
               </button>
             ))}
           </div>
@@ -53,9 +59,17 @@ export function TyCConfigPage() {
       </div>
 
       <div className="max-w-4xl mx-auto px-8 py-6">
-        {tab === "paquetes" && <PaquetesTab puedeEditar={puedeEditar} />}
-        {tab === "notificaciones" && <NotificacionesTab puedeEditar={puedeEditar} />}
+        <div className="animate-fade-in">
+          {tab === "notificaciones" && <NotificacionesTab puedeEditar={puedeEditar} />}
+          {tab === "lideres" && <LideresTab navigate={navigate} />}
+          {tab === "paquetes" && <PaquetesTab puedeEditar={puedeEditar} />}
+        </div>
       </div>
+
+      <style>{`
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.2s ease-out; }
+      `}</style>
     </PageLayout>
   )
 }
@@ -249,6 +263,37 @@ function PaqueteCard({
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Tab Líderes de área ───────────────────────────────────────────────────────
+
+function LideresTab({ navigate }: { navigate: ReturnType<typeof import("react-router-dom").useNavigate> }) {
+  return (
+    <div className="max-w-xl">
+      <div className="flex flex-col gap-3">
+        <p className="text-sm text-muted-foreground -mt-1">
+          Teléfono y email del líder por área. WhatsApp de eventos usa estos contactos.
+        </p>
+        <button
+          onClick={() => navigate("/tc/area-config")}
+          className="flex items-center justify-between gap-4 p-5 rounded-xl border border-border bg-muted/5 hover:bg-muted/10 hover:border-teal-500/30 transition-all group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-500/10">
+              <Users className="w-5 h-5 text-teal-400" />
+            </div>
+            <div className="text-left">
+              <p className="text-sm font-semibold">Configurar líderes de área</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Nombre, teléfono y correo del responsable de cada área.
+              </p>
+            </div>
+          </div>
+          <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-teal-400 group-hover:translate-x-0.5 transition-all shrink-0" />
+        </button>
+      </div>
     </div>
   )
 }

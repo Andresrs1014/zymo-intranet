@@ -31,6 +31,8 @@ export function PersonaFormModal({ empresas, onCreada, onCerrar }: Props) {
     telefono: "",
     tipo_contrato: TC_CONTRATOS[0],
     fecha_ingreso: "",
+    fecha_nacimiento: "",
+    edad: "",
     estado: "Activo",   // ponytail: valor inicial fijo, no hay selector en este modal
   })
 
@@ -63,6 +65,8 @@ export function PersonaFormModal({ empresas, onCreada, onCerrar }: Props) {
         area_id: form.area_id || null,
         cargo_id: form.cargo_id || null,
         fecha_ingreso: form.fecha_ingreso || null,
+        fecha_nacimiento: form.fecha_nacimiento || null,
+        edad: form.edad ? parseInt(form.edad) : null,
       })
       onCreada()
     } catch {
@@ -156,6 +160,16 @@ export function PersonaFormModal({ empresas, onCreada, onCerrar }: Props) {
 
             <FormGroup label="RH">
               <Input value={form.rh} onChange={(v) => setField("rh", v)} placeholder="O+" />
+            </FormGroup>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <FormGroup label="Fecha de nacimiento">
+              <Input value={form.fecha_nacimiento} onChange={(v) => setField("fecha_nacimiento", v)} type="date" />
+            </FormGroup>
+
+            <FormGroup label="Edad">
+              <Input value={form.edad} onChange={(v) => setField("edad", v)} type="number" placeholder="0" />
             </FormGroup>
           </div>
 
