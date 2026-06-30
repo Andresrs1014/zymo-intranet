@@ -1369,6 +1369,123 @@ def listar_todas_novedades(
 
 # ── KPIs ──────────────────────────────────────────────────────────────────────
 
+_MES_ES = ("", "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic")
+
+
+def _last_months(n: int = 6) -> list[tuple[int, int]]:
+    from datetime import date as _date
+    today = _date.today()
+    y, m = today.year, today.month
+    out: list[tuple[int, int]] = []
+    for _ in range(n):
+        out.append((y, m))
+        m -= 1
+        if m == 0:
+            m, y = 12, y - 1
+    return list(reversed(out))
+
+
+def _is_salida_voluntaria(tipo: str) -> bool:
+    t = (tipo or "").strip().lower()
+    if t in ("voluntaria", "involuntaria"):
+        return t == "voluntaria"
+    return "voluntar" in t or t == "mutuo acuerdo"
+
+
+def _compute_kpi_charts(db: Session, activos: int) -> dict:
+    from datetime import date as _date, timedelta
+    from sqlalchemy import func as sqlfunc
+
+    months = _last_months(6)
+    labels = [_MES_ES[m] for _, m in months]
+
+    rotacion_vals: list[float] = []
+    cap_vals: list[float] = []
+    for y, mo in months:
+        start = _date(y, mo, 1)
+        end = _date(y + 1, 1, 1) if mo == 12 else _date(y, mo + 1, 1)
+        salidas = db.exec(
+            select(sqlfunc.count(PtcPersona.id)).where(
+                PtcPersona.fecha_salida >= start,
+                PtcPersona.fecha_salida < end,
+                PtcPersona.estado == _INACTIVO,
+            )
+        ).one()
+        rotacion_vals.append(round((salidas / max(activos, 1)) * 100, 1))
+
+        caps = db.exec(
+            select(PtcCapacitacion).where(
+                PtcCapacitacion.fecha >= start,
+                PtcCapacitacion.fecha < end,
+            )
+        ).all()
+        if caps:
+            done = sum(1 for c in caps if c.estado == "Completado")
+            cap_vals.append(round((done / len(caps)) * 100, 1))
+        else:
+            cap_vals.append(0.0)
+
+    hace_12m = _date.today() - timedelta(days=365)
+    inactivos_12m = db.exec(
+        select(PtcPersona).where(
+            PtcPersona.estado == _INACTIVO,
+            col(PtcPersona.fecha_salida).is_not(None),
+            PtcPersona.fecha_salida >= hace_12m,
+        )
+    ).all()
+    vol = sum(1 for p in inactivos_12m if _is_salida_voluntaria(p.tipo_salida))
+    inv = len(inactivos_12m) - vol
+
+    early = 0
+    ingresos_12m = 0
+    for p in inactivos_12m:
+        if p.fecha_ingreso and p.fecha_salida:
+            dias = (p.fecha_salida - p.fecha_ingreso).days
+            if dias <= 60:
+                early += 1
+    ingresos_12m = db.exec(
+        select(sqlfunc.count(PtcPersona.id)).where(
+            col(PtcPersona.fecha_ingreso).is_not(None),
+            PtcPersona.fecha_ingreso >= hace_12m,
+        )
+    ).one()
+    early_pct = round((early / max(ingresos_12m, 1)) * 100, 1)
+
+    evals = db.exec(
+        select(PtcEvaluacion).where(col(PtcEvaluacion.puntaje).is_not(None))
+    ).all()
+    buckets = [0, 0, 0, 0, 0]
+    for e in evals:
+        idx = min(max(int(round(float(e.puntaje or 0))), 1), 5) - 1
+        buckets[idx] += 1
+
+    return {
+        "rotacion_mensual": {"labels": labels, "values": rotacion_vals},
+        "salida_tipo": {"voluntaria": vol, "involuntaria": inv},
+        "rotacion_temprana_pct": early_pct,
+        "cap_completacion_mensual": {"labels": labels, "values": cap_vals},
+        "eval_distribucion": {
+            "labels": ["Bajo", "Básico", "Esperado", "Alto", "Excelente"],
+            "values": buckets,
+        },
+    }
+
+
+def _antiguedad_promedio(db: Session) -> float:
+    from datetime import date as _date
+    personas = db.exec(
+        select(PtcPersona).where(
+            PtcPersona.estado == _ACTIVO,
+            col(PtcPersona.fecha_ingreso).is_not(None),
+        )
+    ).all()
+    if not personas:
+        return 0.0
+    today = _date.today()
+    total = sum((today - p.fecha_ingreso).days / 365.25 for p in personas if p.fecha_ingreso)
+    return round(total / len(personas), 1)
+
+
 @router.get("/kpis")
 def kpis(
     db: Session = Depends(get_personal_db),
@@ -1440,7 +1557,12 @@ def kpis(
     ).one()
 
     return {
-        "headcount": {"total": total, "activos": activos, "inactivos": inactivos},
+        "headcount": {
+            "total": total,
+            "activos": activos,
+            "inactivos": inactivos,
+            "antiguedad_anios": _antiguedad_promedio(db),
+        },
         "rotacion": {"salidas_12m": salidas_12m, "tasa_pct": rotacion_pct},
         "capacitacion": {
             "total_registros": total_caps,
@@ -1458,4 +1580,5 @@ def kpis(
         "idp": {"activos": idp_activos, "cobertura_pct": idp_pct},
         "sanciones": {"total": total_sanciones, "personas_afectadas": personas_con_sancion},
         "novedades": {"total": total_novedades, "pendientes": pendientes_novedades},
+        "charts": _compute_kpi_charts(db, activos),
     }
