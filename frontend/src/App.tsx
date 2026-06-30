@@ -61,7 +61,6 @@ import { TyCPersonaPage } from "@/pages/tc/TyCPersonaPage"
 import { TyCOrganigramaPage } from "@/pages/tc/TyCOrganigramaPage"
 import { TyCImportPage } from "@/pages/tc/TyCImportPage"
 import { TyCManualesPage } from "@/pages/tc/TyCManualesPage"
-import { TyCOrganigramaCanvasPage } from "@/pages/tc/TyCOrganigramaCanvasPage"
 import { TyCIndicadoresPage } from "@/pages/tc/TyCIndicadoresPage"
 import { TyCCalendarioPage } from "@/pages/tc/TyCCalendarioPage"
 import { TyCEventoPage } from "@/pages/tc/TyCEventoPage"
@@ -590,11 +589,7 @@ export default function App() {
         />
         <Route
           path="/tc/organigrama/canvas"
-          element={
-            <TyCRoute>
-              <TyCOrganigramaCanvasPage />
-            </TyCRoute>
-          }
+          element={<Navigate to="/tc/organigrama" replace />}
         />
         <Route
           path="/tc/calendario"

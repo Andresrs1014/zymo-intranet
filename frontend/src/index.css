@@ -64,4 +64,14 @@
   .input-base {
     @apply w-full rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-teal-500/50 transition-shadow;
   }
+
+  /* Stagger fade-in para nodos del organigrama */
+  @keyframes organodo-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .org-nodo-item {
+    animation: organodo-in 300ms ease-out both;
+  }
 }

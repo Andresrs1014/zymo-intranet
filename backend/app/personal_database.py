@@ -54,6 +54,12 @@ class PtcCargo(SQLModel, table=True):
     nombre: str = Field(max_length=150)
     parent_id: Optional[int] = Field(default=None)
     en_organigrama: bool = Field(default=False)
+    org_context: str = Field(default="", max_length=40, index=True)
+    org_key: str = Field(default="", max_length=80, index=True)
+    org_number: str = Field(default="", max_length=30)
+    org_image_url: str = Field(default="", max_length=500)
+    org_pos_x: Optional[float] = Field(default=None)
+    org_pos_y: Optional[float] = Field(default=None)
     manual_url: str = Field(default="", max_length=500)
     manual_filename: str = Field(default="", max_length=300)
     manual_text: str = Field(default="", sa_column_kwargs={"server_default": ""})
@@ -348,6 +354,12 @@ def _migrate_personal() -> None:
             "ALTER TABLE ptc_area_config ADD COLUMN lider_email TEXT DEFAULT ''",
             "ALTER TABLE ptc_persona ADD COLUMN fecha_nacimiento DATE DEFAULT NULL",
             "ALTER TABLE ptc_persona ADD COLUMN edad INTEGER DEFAULT NULL",
+            "ALTER TABLE ptc_cargo ADD COLUMN org_context TEXT DEFAULT ''",
+            "ALTER TABLE ptc_cargo ADD COLUMN org_key TEXT DEFAULT ''",
+            "ALTER TABLE ptc_cargo ADD COLUMN org_number TEXT DEFAULT ''",
+            "ALTER TABLE ptc_cargo ADD COLUMN org_image_url TEXT DEFAULT ''",
+            "ALTER TABLE ptc_cargo ADD COLUMN org_pos_x REAL DEFAULT NULL",
+            "ALTER TABLE ptc_cargo ADD COLUMN org_pos_y REAL DEFAULT NULL",
         ]:
             try:
                 conn.execute(text(sql))

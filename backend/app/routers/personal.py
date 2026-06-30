@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, 
 from pydantic import BaseModel
 from sqlmodel import Session, col, select
 
-from app.core.deps import get_current_user, require_permission
+from app.core.deps import get_current_user, require_admin, require_permission
 from app.database import get_db
 from app.models.area import Area as GlobalArea
 from app.models.sede import Sede
@@ -126,6 +126,7 @@ class CargoCreate(BaseModel):
     area_id: Optional[int] = None
     parent_id: Optional[int] = None
     en_organigrama: bool = False
+    org_context: str = "corporativo"
     nombre: str
     sede_ids: list[int] = []
 
@@ -136,6 +137,10 @@ class CargoUpdate(BaseModel):
     parent_id: Optional[int] = None
     en_organigrama: Optional[bool] = None
     sede_ids: Optional[list[int]] = None
+    org_number: Optional[str] = None
+    org_image_url: Optional[str] = None
+    org_pos_x: Optional[float] = None
+    org_pos_y: Optional[float] = None
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -343,7 +348,14 @@ def crear_cargo(
     if body.parent_id is not None:
         if not db.get(PtcCargo, body.parent_id):
             raise HTTPException(status_code=400, detail="El cargo padre no existe.")
-    cargo = PtcCargo(area_id=body.area_id, parent_id=body.parent_id, nombre=nombre)
+    cargo = PtcCargo(
+        area_id=body.area_id,
+        parent_id=body.parent_id,
+        nombre=nombre,
+        en_organigrama=body.en_organigrama,
+        org_context=body.org_context.strip() or "corporativo",
+        org_key="",
+    )
     db.add(cargo)
     db.commit()
     db.refresh(cargo)
@@ -536,6 +548,25 @@ def eliminar_manual(
     db.commit()
 
 
+def _cargo_parent_creates_cycle(
+    db: Session,
+    cargo_id: int,
+    parent_id: int,
+) -> bool:
+    # ponytail: un cargo tiene un solo padre; recorrer ancestros basta.
+    current_id: Optional[int] = parent_id
+    visited: set[int] = set()
+    while current_id is not None and current_id not in visited:
+        if current_id == cargo_id:
+            return True
+        visited.add(current_id)
+        current = db.get(PtcCargo, current_id)
+        if not current:
+            return False
+        current_id = current.parent_id
+    return False
+
+
 @router.put("/cargos/{cargo_id}")
 def actualizar_cargo(
     cargo_id: int,
@@ -554,6 +585,11 @@ def actualizar_cargo(
             raise HTTPException(status_code=400, detail="Un cargo no puede ser su propio padre.")
         if not db.get(PtcCargo, data["parent_id"]):
             raise HTTPException(status_code=400, detail="El cargo padre no existe.")
+        if _cargo_parent_creates_cycle(db, cargo_id, data["parent_id"]):
+            raise HTTPException(
+                status_code=400,
+                detail="El cargo padre no puede ser un descendiente del cargo.",
+            )
     for field, value in data.items():
         setattr(cargo, field, value)
     db.add(cargo)
@@ -788,6 +824,42 @@ async def subir_foto_persona(
     return _persona_dict(persona, db, main_db)
 
 
+@router.post("/cargos/{cargo_id}/org-image")
+async def subir_imagen_cargo(
+    cargo_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_tc_editar),
+):
+    cargo = db.get(PtcCargo, cargo_id)
+    if not cargo:
+        raise HTTPException(status_code=404, detail="Cargo no encontrado.")
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Solo se permiten imágenes.")
+
+    content = await file.read()
+    if len(content) > _MAX_FOTO_MB * 1024 * 1024:
+        raise HTTPException(status_code=400, detail=f"La imagen no puede superar los {_MAX_FOTO_MB} MB.")
+
+    ext = {"image/png": "png", "image/webp": "webp"}.get(file.content_type, "jpg")
+    fotos_dir = settings.tc_fotos_dir
+    os.makedirs(fotos_dir, exist_ok=True)
+    fname = f"cargo-{cargo_id}.{ext}"
+    with open(os.path.join(fotos_dir, fname), "wb") as f:
+        f.write(content)
+
+    cargo.org_image_url = f"/tc-fotos/{fname}"
+    db.add(cargo)
+    db.commit()
+    db.refresh(cargo)
+    return {
+        "id": cargo.id,
+        "org_image_url": cargo.org_image_url,
+        "org_number": cargo.org_number or "",
+        "nombre": cargo.nombre,
+    }
+
+
 @router.delete("/personas/{persona_id}", status_code=status.HTTP_204_NO_CONTENT)
 def desactivar_persona(
     persona_id: int,
@@ -933,27 +1005,45 @@ def obtener_organigrama(
     }
 
 
+@router.post("/organigrama/reseed")
+def reseed_organigrama(
+    main_db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> dict:
+    """Reaplica el seed sin borrar fotos ni números editados de cargos existentes."""
+    from sqlalchemy import text
+
+    from app.personal_database import get_personal_engine
+    from app.tc_org_seed import seed_organigrama_if_needed
+
+    with get_personal_engine().begin() as conn:
+        conn.execute(text(
+            "DELETE FROM ptc_config WHERE key='organigrama_seed_v2'"
+        ))
+    seed_organigrama_if_needed(main_db)
+    return {"ok": True, "detail": "Organigrama resembrado."}
+
+
 @router.get("/organigrama-arbol")
 def obtener_organigrama_arbol(
     sede_id: Optional[int] = Query(default=None),
     db: Session = Depends(get_personal_db),
     _: User = Depends(require_tc),
 ):
-    """Árbol jerárquico de cargos con personas y fotos. Solo cargos con en_organigrama=True."""
-    # 1. Cargos colocados en el organigrama, filtrados opcionalmente por sede
-    q = select(PtcCargo).where(PtcCargo.en_organigrama == True)  # noqa: E712
-    if sede_id is not None:
-        cargo_ids_sede = select(PtcCargoSede.cargo_id).where(PtcCargoSede.sede_id == sede_id)
-        q = q.where(col(PtcCargo.id).in_(cargo_ids_sede))
+    """Árbol jerárquico de cargos con personas y fotos. Filtra por org_context."""
+    org_context = "corporativo" if sede_id is None else f"sede:{sede_id}"
+
+    q = select(PtcCargo).where(
+        PtcCargo.en_organigrama == True,  # noqa: E712
+        PtcCargo.org_context == org_context,
+    )
     cargos = db.exec(q.order_by(col(PtcCargo.nombre))).all()
     cargo_ids_en_set = {c.id for c in cargos}
 
-    # 1b. Cargos sin colocar (para el panel lateral del frontend)
-    q_pending = select(PtcCargo).where(PtcCargo.en_organigrama == False)  # noqa: E712
-    if sede_id is not None:
-        q_pending = q_pending.where(col(PtcCargo.id).in_(
-            select(PtcCargoSede.cargo_id).where(PtcCargoSede.sede_id == sede_id)
-        ))
+    q_pending = select(PtcCargo).where(
+        PtcCargo.en_organigrama == False,  # noqa: E712
+        PtcCargo.org_context == org_context,
+    )
     pending = db.exec(q_pending.order_by(col(PtcCargo.nombre))).all()
 
     # 2. Personas activas agrupadas por cargo_id
@@ -980,6 +1070,10 @@ def obtener_organigrama_arbol(
             "nombre": c.nombre,
             "area_id": c.area_id,
             "parent_id": c.parent_id,
+            "org_number": c.org_number or "",
+            "org_image_url": c.org_image_url or "",
+            "org_pos_x": c.org_pos_x,
+            "org_pos_y": c.org_pos_y,
             "personas": personas_por_cargo.get(c.id, []),
             "hijos": [],
         }

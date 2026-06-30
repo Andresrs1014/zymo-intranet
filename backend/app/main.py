@@ -365,6 +365,9 @@ async def lifespan(app: FastAPI):
     create_agent_tables()
     create_gerencial_tables()
     create_personal_tables()
+    from app.tc_org_seed import seed_organigrama_if_needed
+    with Session(get_engine()) as _main_db:
+        seed_organigrama_if_needed(_main_db)
 
     # ── Scheduler de limpieza de borradores ──────────────────────────────────
     scheduler = BackgroundScheduler(timezone="America/Bogota")

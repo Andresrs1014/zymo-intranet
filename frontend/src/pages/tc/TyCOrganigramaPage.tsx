@@ -1,18 +1,32 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { api } from "@/lib/api"
 import { useAuthStore } from "@/store/authStore"
 import { canEditTyC } from "@/lib/permissions"
 import { useSedes, type SedeItem } from "@/hooks/useSedes"
 import { PageLayout } from "@/components/layout/PageLayout"
-import { ArrowLeft, LayoutGrid, Plus, X, ChevronRight, ChevronDown, Users, Inbox } from "lucide-react"
+import {
+  ReactFlow,
+  Background,
+  Controls,
+  useNodesState,
+  useEdgesState,
+  BackgroundVariant,
+  type Node,
+  type Edge,
+  type NodeProps,
+  type NodeTypes,
+} from "@xyflow/react"
+import "@xyflow/react/dist/style.css"
+import dagre from "@dagrejs/dagre"
+import {
+  ArrowLeft, X, ChevronLeft, ChevronRight, Inbox, Users, Plus,
+  Upload, Link2, Trash2, Check, Loader2,
+} from "lucide-react"
 
-interface PersonaMini {
-  id: number
-  nombre: string
-  initials: string
-  foto_url: string
-}
+// ── Types ──────────────────────────────────────────────────────────────────────
+
+interface PersonaMini { id: number; nombre: string; initials: string; foto_url: string }
 
 interface ArbolNodo {
   id: number
@@ -20,14 +34,114 @@ interface ArbolNodo {
   area_id: number | null
   parent_id: number | null
   personas: PersonaMini[]
+  org_number: string
+  org_image_url: string
+  org_pos_x?: number | null
+  org_pos_y?: number | null
   hijos: ArbolNodo[]
 }
 
 interface CargoPendiente { id: number; nombre: string; area_id: number | null }
+interface ArbolData    { raices: ArbolNodo[]; sin_colocar: CargoPendiente[] }
+interface GlobalArea   { id: number; name: string }
 
-interface ArbolData { raices: ArbolNodo[]; sin_colocar: CargoPendiente[] }
+type CargoNodeData = {
+  nombre: string
+  personas: PersonaMini[]
+  org_number: string
+  org_image_url: string
+}
 
-// ── Avatar ────────────────────────────────────────────────────────────────────
+// ── Layout ─────────────────────────────────────────────────────────────────────
+
+const NODE_W = 200
+const NODE_H = 138
+
+function orgContext(sedeId: number | null): string {
+  return sedeId === null ? "corporativo" : `sede:${sedeId}`
+}
+
+function flattenArbol(nodos: ArbolNodo[], result: ArbolNodo[] = []): ArbolNodo[] {
+  for (const n of nodos) { result.push(n); flattenArbol(n.hijos, result) }
+  return result
+}
+
+function findNodo(nodos: ArbolNodo[], id: number): ArbolNodo | null {
+  for (const n of nodos) {
+    if (n.id === id) return n
+    const found = findNodo(n.hijos, id)
+    if (found) return found
+  }
+  return null
+}
+
+function buildNodesEdges(arbol: ArbolData): { nodes: Node<CargoNodeData>[]; edges: Edge[] } {
+  const flat = flattenArbol(arbol.raices)
+
+  const edges: Edge[] = flat.flatMap((nodo) =>
+    nodo.hijos.map((hijo) => ({
+      id: `e-${nodo.id}-${hijo.id}`,
+      source: String(nodo.id),
+      target: String(hijo.id),
+      type: "smoothstep",
+      style: { stroke: "#14b8a6", strokeWidth: 1.5, opacity: 0.22 },
+      animated: false,
+    }))
+  )
+
+  // Dagre base layout
+  const g = new dagre.graphlib.Graph()
+  g.setDefaultEdgeLabel(() => ({}))
+  g.setGraph({ rankdir: "TB", nodesep: 60, ranksep: 100 })
+  flat.forEach((n) => g.setNode(String(n.id), { width: NODE_W, height: NODE_H }))
+  edges.forEach((e) => g.setEdge(e.source, e.target))
+  dagre.layout(g)
+
+  const nodes: Node<CargoNodeData>[] = flat.map((nodo) => {
+    const dg = g.node(String(nodo.id))
+    // Server positions override dagre per node
+    const position =
+      nodo.org_pos_x != null && nodo.org_pos_y != null
+        ? { x: nodo.org_pos_x, y: nodo.org_pos_y }
+        : { x: (dg?.x ?? 0) - NODE_W / 2, y: (dg?.y ?? 0) - NODE_H / 2 }
+    return {
+      id: String(nodo.id),
+      type: "cargo",
+      position,
+      data: {
+        nombre: nodo.nombre,
+        personas: nodo.personas ?? [],
+        org_number: nodo.org_number ?? "",
+        org_image_url: nodo.org_image_url ?? "",
+      },
+    }
+  })
+
+  return { nodes, edges }
+}
+
+// ── Avatars ────────────────────────────────────────────────────────────────────
+
+function AvatarMini({ p }: { p: PersonaMini }) {
+  const [err, setErr] = useState(false)
+  if (!err && p.foto_url) {
+    return (
+      <img
+        src={p.foto_url} alt={p.nombre} title={p.nombre}
+        onError={() => setErr(true)}
+        className="w-5 h-5 rounded-full object-cover border-2 border-[#0d0d0f]"
+      />
+    )
+  }
+  return (
+    <div
+      title={p.nombre}
+      className="w-5 h-5 rounded-full bg-teal-600/25 text-teal-300 text-[7px] font-bold flex items-center justify-center border-2 border-[#0d0d0f] select-none"
+    >
+      {p.initials || p.nombre.slice(0, 2).toUpperCase()}
+    </div>
+  )
+}
 
 function Avatar({ p, size = 24 }: { p: PersonaMini; size?: number }) {
   const [err, setErr] = useState(false)
@@ -35,10 +149,7 @@ function Avatar({ p, size = 24 }: { p: PersonaMini; size?: number }) {
   if (!err && p.foto_url) {
     return (
       <img
-        src={p.foto_url}
-        alt={p.nombre}
-        title={p.nombre}
-        onError={() => setErr(true)}
+        src={p.foto_url} alt={p.nombre} title={p.nombre} onError={() => setErr(true)}
         style={style}
         className="rounded-full object-cover border-2 border-background ring-1 ring-white/10 shrink-0"
       />
@@ -55,100 +166,153 @@ function Avatar({ p, size = 24 }: { p: PersonaMini; size?: number }) {
   )
 }
 
-// ── Nodo recursivo ────────────────────────────────────────────────────────────
+function CargoAvatar({ orgImageUrl, nombre, size = 48 }: { orgImageUrl: string; nombre: string; size?: number }) {
+  const [err, setErr] = useState(false)
+  const style = { width: size, height: size, fontSize: size * 0.28 }
+  if (!err && orgImageUrl) {
+    return (
+      <img
+        src={orgImageUrl} alt={nombre} onError={() => setErr(true)}
+        style={style}
+        className="rounded-full object-cover border-2 border-teal-500/30 ring-1 ring-white/10 shrink-0"
+      />
+    )
+  }
+  return (
+    <div
+      style={style}
+      className="rounded-full bg-zinc-800 text-zinc-500 font-bold flex items-center justify-center border-2 border-border shrink-0 select-none"
+    >
+      {nombre.slice(0, 2).toUpperCase()}
+    </div>
+  )
+}
 
-function OrgNodo({
-  nodo,
-  depth,
-  onClickPersonas,
-  _seen = new Set<number>(),
-}: {
-  nodo: ArbolNodo
-  depth: number
-  onClickPersonas: (nodo: ArbolNodo) => void
-  _seen?: Set<number>
-}) {
-  const [abierto, setAbierto] = useState(depth < 2)
-  const seen = new Set(_seen).add(nodo.id)
-  const hijos    = (nodo.hijos ?? []).filter(h => !_seen.has(h.id))
-  const personas = nodo.personas ?? []
-  const tieneHijos = hijos.length > 0
-  const count      = personas.length
-  const visibles   = personas.slice(0, 4)
-  const extra      = count - visibles.length
+// ── OrgChartNode (canvas card) ─────────────────────────────────────────────────
+
+function OrgChartNode({ data }: NodeProps<Node<CargoNodeData>>) {
+  const visibles = data.personas.slice(0, 4)
+  const extra    = data.personas.length - visibles.length
 
   return (
-    <div className="relative">
-      {/* Línea vertical de conexión */}
-      {depth > 0 && (
-        <div
-          className="absolute left-0 top-0 bottom-0 w-px bg-teal-500/15"
-          style={{ left: -16 }}
-        />
-      )}
+    <div
+      className="relative rounded-2xl select-none cursor-grab active:cursor-grabbing overflow-hidden"
+      style={{
+        width: NODE_W,
+        background: "linear-gradient(160deg, rgba(14,14,22,0.98) 0%, rgba(10,10,16,0.99) 100%)",
+        border: "1px solid rgba(20,184,166,0.18)",
+        boxShadow: "0 0 0 1px rgba(20,184,166,0.07), 0 8px 32px rgba(0,0,0,0.6)",
+      }}
+    >
+      {/* Barra teal */}
+      <div className="h-[3px] w-full bg-gradient-to-r from-teal-400/90 via-teal-500/40 to-transparent" />
 
-      <div
-        className="group relative rounded-xl border border-border/60 bg-zinc-950/80 hover:border-teal-500/30 transition-all duration-200 overflow-hidden"
-        style={{ marginLeft: depth > 0 ? 0 : 0 }}
-      >
-        {/* Borde izquierdo de profundidad */}
-        <div
-          className="absolute left-0 top-0 bottom-0 w-0.5 rounded-l-xl"
-          style={{ backgroundColor: depthColor(depth) }}
-        />
+      <div className="px-3 pt-2 pb-2.5 relative">
+        {/* Badge org_number */}
+        {data.org_number && (
+          <span
+            className="absolute top-2 right-2.5 text-[9px] text-teal-400/50 tabular-nums leading-none"
+            style={{ fontFamily: "'DM Mono', monospace" }}
+          >
+            {data.org_number}
+          </span>
+        )}
 
-        <div className="flex items-center gap-3 px-4 py-3 pl-5">
-          {/* Toggle hijos */}
-          {tieneHijos ? (
-            <button
-              onClick={() => setAbierto((v) => !v)}
-              className="text-muted-foreground/50 hover:text-teal-400 transition-colors shrink-0"
-            >
-              {abierto
-                ? <ChevronDown className="w-3.5 h-3.5" />
-                : <ChevronRight className="w-3.5 h-3.5" />}
-            </button>
+        {/* Foto nodo — org_image_url, NO persona.foto_url */}
+        <div className="flex justify-center mb-2 mt-0.5">
+          {data.org_image_url ? (
+            <img
+              src={data.org_image_url} alt=""
+              className="w-10 h-10 rounded-full object-cover"
+              style={{ border: "2px solid rgba(20,184,166,0.25)" }}
+            />
           ) : (
-            <div className="w-3.5 h-3.5 shrink-0" />
-          )}
-
-          {/* Nombre del cargo */}
-          <p className="flex-1 text-sm font-semibold text-foreground/90 leading-tight min-w-0 truncate">
-            {nodo.nombre}
-          </p>
-
-          {/* Avatares + count */}
-          {count > 0 && (
-            <button
-              onClick={() => onClickPersonas(nodo)}
-              className="flex items-center gap-1.5 shrink-0 group/av"
-              title={`${count} persona${count !== 1 ? "s" : ""}`}
+            <div
+              className="w-10 h-10 rounded-full flex items-center justify-center"
+              style={{ background: "rgba(20,184,166,0.07)", border: "1px solid rgba(20,184,166,0.12)" }}
             >
-              <div className="flex -space-x-1.5">
-                {visibles.map((p) => <Avatar key={p.id} p={p} size={22} />)}
-              </div>
-              {extra > 0 && (
-                <span className="text-[10px] font-semibold text-muted-foreground group-hover/av:text-teal-400 transition-colors">
-                  +{extra}
-                </span>
-              )}
-              <span className="text-[10px] text-muted-foreground/50 group-hover/av:text-teal-400 transition-colors ml-0.5">
-                {count}
-              </span>
-            </button>
-          )}
-
-          {count === 0 && (
-            <span className="text-[10px] text-muted-foreground/30 shrink-0">Sin personas</span>
+              <Users className="w-4 h-4" style={{ color: "rgba(20,184,166,0.3)" }} />
+            </div>
           )}
         </div>
-      </div>
 
-      {/* Hijos */}
-      {tieneHijos && abierto && (
-        <div className="mt-1.5 ml-6 pl-4 border-l border-teal-500/10 space-y-1.5">
-          {hijos.map((hijo) => (
-            <OrgNodo key={hijo.id} nodo={hijo} depth={depth + 1} onClickPersonas={onClickPersonas} _seen={seen} />
+        {/* Nombre cargo */}
+        <p
+          className="text-[11px] font-semibold leading-snug text-center mb-2"
+          style={{
+            fontFamily: "'DM Sans', sans-serif",
+            color: "rgba(255,255,255,0.88)",
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+          }}
+        >
+          {data.nombre}
+        </p>
+
+        {/* Personas */}
+        {data.personas.length > 0 ? (
+          <div className="flex items-center justify-center gap-1.5">
+            <div className="flex -space-x-1">{visibles.map((p) => <AvatarMini key={p.id} p={p} />)}</div>
+            <span className="text-[9px] tabular-nums" style={{ color: "rgba(20,184,166,0.5)", fontFamily: "'DM Mono', monospace" }}>
+              {extra > 0 ? `+${extra} ` : ""}{data.personas.length}
+            </span>
+          </div>
+        ) : (
+          <p className="text-[9px] text-center" style={{ color: "rgba(255,255,255,0.15)" }}>Sin colaboradores</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+const NODE_TYPES: NodeTypes = { cargo: OrgChartNode }
+
+// ── Panel "Por colocar" (overlay sobre canvas) ─────────────────────────────────
+
+function PanelPorColocar({ items, onSelect }: { items: CargoPendiente[]; onSelect: (c: CargoPendiente) => void }) {
+  const [collapsed, setCollapsed] = useState(false)
+  if (items.length === 0) return null
+  return (
+    <div
+      className="absolute left-3 top-3 z-10 flex flex-col rounded-2xl overflow-hidden transition-all duration-300"
+      style={{
+        width: collapsed ? 40 : 220, maxHeight: "calc(100% - 24px)",
+        background: "linear-gradient(160deg, rgba(14,14,20,0.97) 0%, rgba(10,10,16,0.99) 100%)",
+        border: "1px solid rgba(245,158,11,0.2)",
+        boxShadow: "0 0 0 1px rgba(245,158,11,0.08), 0 16px 48px rgba(0,0,0,0.7)",
+        backdropFilter: "blur(12px)",
+      }}
+    >
+      <div className="flex items-center gap-2 px-3 py-2.5 border-b shrink-0" style={{ borderColor: "rgba(245,158,11,0.12)" }}>
+        <div className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" style={{ boxShadow: "0 0 6px #f59e0b" }} />
+        {!collapsed && (
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-semibold text-amber-400 uppercase tracking-widest leading-none">Por colocar</p>
+            <p className="text-[10px] text-white/30 mt-0.5" style={{ fontFamily: "'DM Mono', monospace" }}>
+              {items.length} cargo{items.length !== 1 ? "s" : ""}
+            </p>
+          </div>
+        )}
+        <button
+          onClick={() => setCollapsed((v) => !v)}
+          className="h-5 w-5 flex items-center justify-center rounded-lg text-white/25 hover:text-amber-400 transition-colors shrink-0"
+        >
+          {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
+        </button>
+      </div>
+      {!collapsed && (
+        <div className="overflow-y-auto flex-1 p-2 space-y-1">
+          {items.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => onSelect(c)}
+              className="w-full text-left px-3 py-2 rounded-xl text-[11px] font-medium transition-all"
+              style={{ color: "rgba(255,255,255,0.6)", fontFamily: "'DM Sans', sans-serif" }}
+            >
+              {c.nombre}
+            </button>
           ))}
         </div>
       )}
@@ -156,66 +320,254 @@ function OrgNodo({
   )
 }
 
-function depthColor(depth: number): string {
-  const colors = ["#14b8a6", "#6366f1", "#f59e0b", "#3b82f6", "#ec4899", "#8b5cf6"]
-  return colors[depth % colors.length]
-}
+// ── NodeDrawer — edit cargo en organigrama ─────────────────────────────────────
 
-// ── Drawer personas ───────────────────────────────────────────────────────────
+function NodeDrawer({ nodo, onClose, onUpdated }: { nodo: ArbolNodo; onClose: () => void; onUpdated: () => void }) {
+  const navigate = useNavigate()
+  const [orgNumber, setOrgNumber]       = useState(nodo.org_number ?? "")
+  const [savingNumber, setSavingNumber] = useState(false)
+  const [savedNumber, setSavedNumber]   = useState(false)
+  const [uploading, setUploading]       = useState(false)
+  const [previewUrl, setPreviewUrl]     = useState(nodo.org_image_url ?? "")
+  const [removing, setRemoving]         = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
 
-function PersonasDrawer({ nodo, onClose }: { nodo: ArbolNodo; onClose: () => void }) {
+  useEffect(() => { setPreviewUrl(nodo.org_image_url ?? "") }, [nodo.org_image_url])
+
+  async function guardarOrgNumber() {
+    if (orgNumber === (nodo.org_number ?? "")) return
+    setSavingNumber(true)
+    try {
+      await api.put(`/tc/cargos/${nodo.id}`, { org_number: orgNumber.trim() || null })
+      setSavedNumber(true)
+      setTimeout(() => { setSavedNumber(false); onUpdated() }, 700)
+    } catch { setSavingNumber(false) }
+  }
+
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    const fd = new FormData()
+    fd.append("file", file)
+    try {
+      const { data } = await api.post(`/tc/cargos/${nodo.id}/org-image`, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      })
+      setPreviewUrl((data as { org_image_url?: string }).org_image_url ?? "")
+      setTimeout(() => onUpdated(), 800)
+    } catch { /* silent */ }
+    finally { setUploading(false) }
+  }
+
+  async function quitarDelOrg() {
+    if (!confirm(`¿Quitar "${nodo.nombre}" del organigrama?`)) return
+    setRemoving(true)
+    try {
+      await api.put(`/tc/cargos/${nodo.id}`, { en_organigrama: false })
+      onUpdated(); onClose()
+    } catch { setRemoving(false) }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
       <div
-        className="relative h-full w-full max-w-xs bg-background border-l border-border shadow-2xl overflow-y-auto"
+        className="relative h-full w-full max-w-xs bg-background border-l border-border shadow-2xl overflow-y-auto flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border sticky top-0 bg-background z-10">
-          <div>
-            <p className="font-semibold text-sm">{nodo.nombre}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {(nodo.personas ?? []).length} colaborador{(nodo.personas ?? []).length !== 1 ? "es" : ""}
-            </p>
+        {/* Header */}
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-border shrink-0">
+          <CargoAvatar orgImageUrl={previewUrl} nombre={nodo.nombre} size={40} />
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-sm leading-tight truncate">{nodo.nombre}</p>
+            {nodo.org_number && (
+              <p className="text-xs text-muted-foreground font-mono mt-0.5">{nodo.org_number}</p>
+            )}
           </div>
           <button
             onClick={onClose}
-            className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="p-4 space-y-2">
-          {(nodo.personas ?? []).length === 0 ? (
-            <p className="text-xs text-muted-foreground italic text-center py-8">Sin colaboradores activos</p>
-          ) : (
-            (nodo.personas ?? []).map((p) => (
-              <div key={p.id} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-muted/30 transition-colors">
-                <Avatar p={p} size={36} />
-                <p className="text-sm font-medium text-foreground/90">{p.nombre}</p>
+        <div className="flex-1 overflow-y-auto p-4 space-y-5">
+
+          {/* Número jerárquico */}
+          <section>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Número jerárquico</p>
+            <div className="flex items-center gap-2">
+              <input
+                value={orgNumber}
+                onChange={(e) => setOrgNumber(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && guardarOrgNumber()}
+                placeholder="ej. 1.2.3"
+                className="flex-1 px-3 py-2 text-sm font-mono bg-muted/30 border border-input rounded-xl focus:outline-none focus:ring-1 focus:ring-teal-500/50"
+              />
+              <button
+                onClick={guardarOrgNumber}
+                disabled={savingNumber}
+                className={`h-9 w-9 flex items-center justify-center rounded-xl text-white transition-all shrink-0 ${savedNumber ? "bg-emerald-500" : "bg-teal-500 hover:bg-teal-600"}`}
+                title="Guardar número"
+              >
+                {savingNumber ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4 opacity-60" />}
+              </button>
+            </div>
+          </section>
+
+          {/* Foto del nodo */}
+          <section>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Foto del nodo</p>
+            <div className="flex items-center gap-3">
+              <CargoAvatar orgImageUrl={previewUrl} nombre={nodo.nombre} size={52} />
+              <button
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading}
+                className="flex items-center gap-1.5 h-8 px-3 text-xs font-medium border border-border rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+              >
+                {uploading ? <><Loader2 className="w-3 h-3 animate-spin" /> Subiendo…</> : <><Upload className="w-3 h-3" /> Subir foto</>}
+              </button>
+              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
+            </div>
+          </section>
+
+          {/* Personas */}
+          <section>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+              Colaboradores ({(nodo.personas ?? []).length})
+            </p>
+            {(nodo.personas ?? []).length === 0 ? (
+              <p className="text-xs text-muted-foreground italic text-center py-6">Sin colaboradores activos</p>
+            ) : (
+              <div className="space-y-1">
+                {(nodo.personas ?? []).map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => { navigate(`/tc/persona/${p.id}`); onClose() }}
+                    className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-muted/30 transition-colors group text-left"
+                  >
+                    <Avatar p={p} size={32} />
+                    <span className="flex-1 text-sm font-medium text-foreground/90 truncate">{p.nombre}</span>
+                    <Link2 className="w-3.5 h-3.5 text-muted-foreground/30 group-hover:text-teal-400 transition-colors shrink-0" />
+                  </button>
+                ))}
               </div>
-            ))
-          )}
+            )}
+          </section>
+
+          {/* Quitar del organigrama */}
+          <section>
+            <button
+              onClick={quitarDelOrg}
+              disabled={removing}
+              className="w-full flex items-center justify-center gap-2 h-9 text-xs font-medium text-destructive/80 border border-destructive/30 rounded-xl hover:bg-destructive/10 hover:text-destructive hover:border-destructive/50 transition-all disabled:opacity-50"
+            >
+              {removing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+              Quitar del organigrama
+            </button>
+          </section>
         </div>
       </div>
     </div>
   )
 }
 
-// ── Modal nuevo cargo ─────────────────────────────────────────────────────────
+// ── Modal colocar cargo ────────────────────────────────────────────────────────
 
-interface GlobalArea { id: number; name: string }
-
-function ModalNuevoCargo({
-  sedes,
-  sedeActiva,
-  onClose,
-  onCreado,
+function ModalColocarCargo({
+  cargo, cargosColocados, orgContextValue, onClose, onGuardado,
 }: {
-  sedes: SedeItem[]
-  sedeActiva: number | null
-  onClose: () => void
-  onCreado: () => void
+  cargo: CargoPendiente; cargosColocados: ArbolNodo[]
+  orgContextValue: string; onClose: () => void; onGuardado: () => void
+}) {
+  const [parentId, setParentId] = useState<number | "">("")
+  const [pending, setPending]   = useState(false)
+  const [error, setError]       = useState("")
+
+  function aplanar(nodos: ArbolNodo[]): ArbolNodo[] {
+    return nodos.flatMap((n) => [n, ...aplanar(n.hijos)])
+  }
+  const opciones = aplanar(cargosColocados).filter((n) => n.id !== cargo.id)
+
+  async function guardar() {
+    setPending(true); setError("")
+    try {
+      await api.put(`/tc/cargos/${cargo.id}`, {
+        parent_id: parentId || null, en_organigrama: true, org_context: orgContextValue,
+      })
+      onGuardado(); onClose()
+    } catch { setError("No se pudo guardar.") }
+    finally { setPending(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
+      <div
+        className="relative w-full max-w-sm rounded-2xl overflow-hidden"
+        style={{
+          background: "linear-gradient(160deg, #1e1e2e 0%, #191928 100%)",
+          border: "1px solid rgba(20,184,166,0.35)",
+          boxShadow: "0 0 0 1px rgba(20,184,166,0.12), 0 24px 64px rgba(0,0,0,0.7)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="h-[2px] w-full bg-gradient-to-r from-teal-400/90 via-teal-500/40 to-transparent" />
+        <div className="px-5 py-4 flex items-start justify-between gap-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+          <div>
+            <p className="text-[10px] font-bold text-teal-400 uppercase tracking-widest mb-1" style={{ fontFamily: "'DM Mono', monospace" }}>
+              Colocar en organigrama
+            </p>
+            <p className="text-[15px] font-semibold text-white" style={{ fontFamily: "'DM Sans', sans-serif" }}>{cargo.nombre}</p>
+          </div>
+          <button onClick={onClose} className="mt-0.5 h-7 w-7 flex items-center justify-center rounded-lg shrink-0" style={{ color: "rgba(255,255,255,0.4)", background: "rgba(255,255,255,0.05)" }}>
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+        <div className="p-5 space-y-4">
+          <div>
+            <label className="text-[10px] font-bold text-white/50 uppercase tracking-widest mb-2 block" style={{ fontFamily: "'DM Mono', monospace" }}>
+              Cargo padre (opcional)
+            </label>
+            <div className="rounded-xl overflow-y-auto" style={{ maxHeight: 196, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)" }}>
+              <button
+                onClick={() => setParentId("")}
+                className="w-full text-left px-3.5 py-2.5 text-[12px] transition-colors"
+                style={{ fontFamily: "'DM Sans', sans-serif", color: parentId === "" ? "#2dd4bf" : "rgba(255,255,255,0.5)", background: parentId === "" ? "rgba(20,184,166,0.12)" : "transparent", borderBottom: "1px solid rgba(255,255,255,0.05)", fontWeight: parentId === "" ? 600 : 400 }}
+              >
+                — Sin padre (raíz del árbol)
+              </button>
+              {opciones.map((c, i) => (
+                <button
+                  key={c.id}
+                  onClick={() => setParentId(c.id)}
+                  className="w-full text-left px-3.5 py-2 text-[12px] transition-colors"
+                  style={{ fontFamily: "'DM Sans', sans-serif", color: parentId === c.id ? "#2dd4bf" : "rgba(255,255,255,0.75)", background: parentId === c.id ? "rgba(20,184,166,0.12)" : "transparent", borderBottom: i < opciones.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none", fontWeight: parentId === c.id ? 600 : 400 }}
+                >
+                  {c.nombre}
+                </button>
+              ))}
+            </div>
+          </div>
+          {error && <p className="text-xs text-red-400 px-1">{error}</p>}
+          <button
+            onClick={guardar} disabled={pending}
+            className="w-full h-10 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
+            style={{ background: pending ? "rgba(20,184,166,0.3)" : "linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)", color: "white", boxShadow: pending ? "none" : "0 4px 20px rgba(20,184,166,0.35)", fontFamily: "'DM Sans', sans-serif" }}
+          >
+            {pending ? "Guardando…" : "Colocar en organigrama"}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Modal nuevo cargo ──────────────────────────────────────────────────────────
+
+function ModalNuevoCargo({ sedes, sedeActiva, orgContextValue, onClose, onCreado }: {
+  sedes: SedeItem[]; sedeActiva: number | null
+  orgContextValue: string; onClose: () => void; onCreado: () => void
 }) {
   const [nombre, setNombre]   = useState("")
   const [sedeIds, setSedeIds] = useState<number[]>(sedeActiva ? [sedeActiva] : [])
@@ -236,9 +588,8 @@ function ModalNuevoCargo({
     if (!nombre.trim()) return
     setPending(true); setError("")
     try {
-      await api.post("/tc/cargos", { nombre: nombre.trim(), area_id: areaId || null, sede_ids: sedeIds })
-      onCreado()
-      onClose()
+      await api.post("/tc/cargos", { nombre: nombre.trim(), area_id: areaId || null, sede_ids: sedeIds, org_context: orgContextValue })
+      onCreado(); onClose()
     } catch (e: unknown) {
       const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
       setError(detail ?? "Error al crear el cargo.")
@@ -256,7 +607,7 @@ function ModalNuevoCargo({
         </div>
         <div className="p-4 space-y-3">
           <div>
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">Nombre</label>
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">Nombre del cargo</label>
             <input
               autoFocus type="text" value={nombre}
               onChange={(e) => { setNombre(e.target.value); setError("") }}
@@ -270,7 +621,7 @@ function ModalNuevoCargo({
             <select
               value={areaId}
               onChange={(e) => setAreaId(e.target.value ? Number(e.target.value) : "")}
-              className="w-full px-3 py-2 text-sm bg-muted/30 border border-input rounded-xl focus:outline-none focus:ring-1 focus:ring-teal-500/50 appearance-none"
+              className="w-full px-3 py-2 text-sm bg-muted/30 border border-input rounded-xl focus:outline-none appearance-none"
             >
               <option value="">Sin área</option>
               {areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -302,132 +653,67 @@ function ModalNuevoCargo({
   )
 }
 
-// ── Modal colocar cargo en organigrama ───────────────────────────────────────
-
-function ModalColocarCargo({
-  cargo,
-  cargosColocados,
-  onClose,
-  onGuardado,
-}: {
-  cargo: CargoPendiente
-  cargosColocados: ArbolNodo[]
-  onClose: () => void
-  onGuardado: () => void
-}) {
-  const [parentId, setParentId] = useState<number | "">("")
-  const [pending, setPending]   = useState(false)
-  const [error, setError]       = useState("")
-
-  // Aplana el árbol para mostrar todos los cargos colocados como opciones de padre
-  function aplanar(nodos: ArbolNodo[]): ArbolNodo[] {
-    return nodos.flatMap(n => [n, ...aplanar(n.hijos)])
-  }
-  const opciones = aplanar(cargosColocados).filter(n => n.id !== cargo.id)
-
-  async function guardar() {
-    setPending(true); setError("")
-    try {
-      await api.put(`/tc/cargos/${cargo.id}`, {
-        parent_id: parentId || null,
-        en_organigrama: true,
-      })
-      onGuardado()
-      onClose()
-    } catch { setError("No se pudo guardar.") }
-    finally { setPending(false) }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div
-        className="bg-background border border-border rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <div>
-            <p className="font-semibold text-sm">Colocar en organigrama</p>
-            <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-[220px]">{cargo.nombre}</p>
-          </div>
-          <button onClick={onClose} className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted transition-colors">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="p-4 space-y-3">
-          <div>
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
-              Cargo padre <span className="text-muted-foreground/50 normal-case font-normal">(opcional — vacío = raíz)</span>
-            </label>
-            <select
-              value={parentId}
-              onChange={e => setParentId(e.target.value ? Number(e.target.value) : "")}
-              className="w-full px-3 py-2 text-sm bg-muted/30 border border-input rounded-xl focus:outline-none focus:ring-1 focus:ring-teal-500/50 appearance-none"
-            >
-              <option value="">— Sin padre (nivel superior) —</option>
-              {opciones.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-            </select>
-          </div>
-
-          {error && <p className="text-xs text-destructive px-1">{error}</p>}
-
-          <button
-            onClick={guardar}
-            disabled={pending}
-            className="w-full h-9 text-sm font-medium bg-teal-500 text-white rounded-xl hover:bg-teal-600 disabled:opacity-50 transition-colors"
-          >
-            {pending ? "Guardando…" : "Colocar en organigrama"}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── Página principal ──────────────────────────────────────────────────────────
+// ── Página ─────────────────────────────────────────────────────────────────────
 
 export function TyCOrganigramaPage() {
   const navigate    = useNavigate()
   const user        = useAuthStore((s) => s.user)
   const puedeEditar = user ? canEditTyC(user.role, user.app_permissions) : false
-
   const { data: sedes = [] } = useSedes()
+
   const [sedeActiva, setSedeActiva]           = useState<number | null>(null)
   const [arbol, setArbol]                     = useState<ArbolData | null>(null)
   const [loading, setLoading]                 = useState(false)
-  const [apiError, setApiError]               = useState<string | null>(null)
   const [nodoSeleccionado, setNodoSeleccionado] = useState<ArbolNodo | null>(null)
   const [modalNuevoCargo, setModalNuevoCargo] = useState(false)
   const [cargoAColocar, setCargoAColocar]     = useState<CargoPendiente | null>(null)
 
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node<CargoNodeData>>([])
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
+
+  const ctxActivo = orgContext(sedeActiva)
+
   function cargarArbol(sid: number | null) {
     setLoading(true)
-    setApiError(null)
-    const params = sid ? { sede_id: sid } : {}
-    api.get("/tc/organigrama-arbol", { params })
-      .then((r) => setArbol(r.data))
-      .catch((e: { response?: { status?: number } }) => {
-        setArbol(null)
-        const status = e?.response?.status
-        setApiError(status === 404
-          ? "Endpoint no encontrado (¿falta rebuild de Docker?)"
-          : `Error ${status ?? "de red"} al cargar el organigrama`)
+    api.get("/tc/organigrama-arbol", { params: sid ? { sede_id: sid } : {} })
+      .then((r) => {
+        const data: ArbolData = r.data
+        setArbol(data)
+        const { nodes: n, edges: e } = buildNodesEdges(data)
+        setNodes(n); setEdges(e)
       })
+      .catch(() => setArbol(null))
       .finally(() => setLoading(false))
   }
 
   useEffect(() => { cargarArbol(sedeActiva) }, [sedeActiva])
 
-  const totalRaices   = arbol?.raices?.length ?? 0
-  const totalCargos   = contarCargos(arbol?.raices ?? [])
-  const totalPersonas = contarPersonas(arbol?.raices ?? [])
+  const resetLayout = useCallback(() => {
+    if (!arbol) return
+    const limpio: ArbolData = {
+      ...arbol,
+      raices: stripServerPos(arbol.raices),
+    }
+    const { nodes: n, edges: e } = buildNodesEdges(limpio)
+    setNodes(n); setEdges(e)
+  }, [arbol, setNodes, setEdges])
+
+  // Drag stop → persistir posición en servidor (fire-and-forget)
+  const handleNodeDragStop = (_: unknown, node: Node<CargoNodeData>) => {
+    api.put(`/tc/cargos/${node.id}`, {
+      org_pos_x: node.position.x,
+      org_pos_y: node.position.y,
+    }).catch(() => {})
+  }
+
+  const sinColocar = arbol?.sin_colocar ?? []
 
   return (
     <PageLayout title="T&C — Organigrama" mainClassName="flex-1 flex flex-col overflow-hidden">
 
       {/* Header */}
       <div className="px-6 pt-5 pb-4 border-b border-border shrink-0">
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex items-center gap-2 mb-3">
           <button
             onClick={() => navigate("/tc")}
             className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -440,47 +726,39 @@ export function TyCOrganigramaPage() {
         </div>
 
         <div className="flex items-center justify-between gap-4 flex-wrap">
-          {/* Tabs de sede */}
+          {/* Tabs sede */}
           <div className="flex items-center gap-1 bg-muted/30 rounded-xl p-1">
             <button
               onClick={() => setSedeActiva(null)}
-              className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                sedeActiva === null
-                  ? "bg-teal-500/15 text-teal-400 shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
+              className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all ${sedeActiva === null ? "bg-teal-500/15 text-teal-400 shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
             >
-              Todas
+              Corporativo
             </button>
             {(sedes as SedeItem[]).map((s) => (
               <button
                 key={s.id}
                 onClick={() => setSedeActiva(s.id)}
-                className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                  sedeActiva === s.id
-                    ? "bg-teal-500/15 text-teal-400 shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
+                className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all ${sedeActiva === s.id ? "bg-teal-500/15 text-teal-400 shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
               >
                 {s.name}
               </button>
             ))}
           </div>
 
-          {/* Acciones */}
           <div className="flex items-center gap-3">
-            {!loading && arbol && (
-              <span className="text-xs text-muted-foreground tabular-nums hidden sm:block">
-                <strong className="text-foreground">{totalCargos}</strong> cargo{totalCargos !== 1 ? "s" : ""} ·{" "}
-                <strong className="text-foreground">{totalPersonas}</strong> persona{totalPersonas !== 1 ? "s" : ""}
+            {!loading && (
+              <span className="text-xs text-muted-foreground tabular-nums" style={{ fontFamily: "'DM Mono', monospace" }}>
+                <strong className="text-foreground">{nodes.length}</strong> colocado{nodes.length !== 1 ? "s" : ""}
+                {sinColocar.length > 0 && (
+                  <span className="ml-2 text-amber-400">· {sinColocar.length} pendiente{sinColocar.length !== 1 ? "s" : ""}</span>
+                )}
               </span>
             )}
             <button
-              onClick={() => navigate("/tc/organigrama/canvas")}
-              className="flex items-center gap-1.5 h-7 px-2.5 text-xs border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
+              onClick={resetLayout}
+              className="h-7 px-2.5 text-xs border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
             >
-              <LayoutGrid className="w-3 h-3" />
-              Canvas
+              Auto-ordenar
             </button>
             {puedeEditar && (
               <button
@@ -495,101 +773,83 @@ export function TyCOrganigramaPage() {
         </div>
       </div>
 
-      {/* Contenido principal: árbol + panel lateral */}
-      <div className="flex-1 flex overflow-hidden">
-
-        {/* Árbol */}
-        <div className="flex-1 overflow-auto px-6 py-4">
-          {loading && (
-            <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
-              Cargando organigrama…
-            </div>
-          )}
-
-          {!loading && apiError && (
-            <div className="flex flex-col items-center justify-center h-48 gap-2">
-              <span className="text-sm text-destructive">{apiError}</span>
-            </div>
-          )}
-
-          {!loading && !apiError && (!arbol || totalRaices === 0) && (arbol?.sin_colocar ?? []).length === 0 && (
-            <div className="flex flex-col items-center justify-center h-48 gap-2 text-muted-foreground">
-              <Users className="w-8 h-8 opacity-20" />
-              <span className="text-sm">
-                {sedeActiva ? "Sin cargos en esta sede." : "Sin cargos definidos aún."}
-              </span>
-              {puedeEditar && (
-                <button onClick={() => setModalNuevoCargo(true)} className="mt-1 text-xs text-teal-500 hover:underline">
-                  + Crear primer cargo
-                </button>
-              )}
-            </div>
-          )}
-
-          {!loading && !apiError && (!arbol || totalRaices === 0) && (arbol?.sin_colocar ?? []).length > 0 && (
-            <div className="flex flex-col items-center justify-center h-48 gap-2 text-muted-foreground">
-              <Inbox className="w-8 h-8 opacity-20" />
-              <span className="text-sm">El árbol está vacío — coloca cargos desde el panel de la derecha.</span>
-            </div>
-          )}
-
-          {!loading && arbol && totalRaices > 0 && (
-            <div className="space-y-2 max-w-3xl">
-              {arbol.raices.map((nodo) => (
-                <OrgNodo key={nodo.id} nodo={nodo} depth={0} onClickPersonas={setNodoSeleccionado} />
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Panel "Por colocar" */}
-        {puedeEditar && !loading && (arbol?.sin_colocar ?? []).length > 0 && (
-          <div className="w-64 shrink-0 border-l border-border overflow-y-auto bg-zinc-950/50">
-            <div className="sticky top-0 bg-zinc-950/90 backdrop-blur px-4 py-3 border-b border-border">
-              <div className="flex items-center gap-2">
-                <Inbox className="w-3.5 h-3.5 text-amber-400" />
-                <p className="text-xs font-semibold text-amber-400">Por colocar</p>
-                <span className="ml-auto text-[11px] bg-amber-500/15 text-amber-400 px-1.5 py-0.5 rounded-full font-semibold">
-                  {(arbol?.sin_colocar ?? []).length}
-                </span>
-              </div>
-              <p className="text-[11px] text-muted-foreground/60 mt-1">Haz clic para asignar posición</p>
-            </div>
-            <div className="p-2 space-y-1">
-              {(arbol?.sin_colocar ?? []).map(c => (
-                <button
-                  key={c.id}
-                  onClick={() => setCargoAColocar(c)}
-                  className="w-full text-left px-3 py-2.5 rounded-xl text-xs font-medium text-foreground/80 hover:bg-teal-500/10 hover:text-teal-300 border border-transparent hover:border-teal-500/20 transition-all"
-                >
-                  {c.nombre}
-                </button>
-              ))}
+      {/* Canvas */}
+      <div className="flex-1 relative">
+        {loading && (
+          <div className="absolute inset-0 flex items-center justify-center z-10">
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-8 h-8 rounded-full border-2 border-teal-500/30 border-t-teal-500 animate-spin" />
+              <p className="text-xs text-muted-foreground">Cargando organigrama…</p>
             </div>
           </div>
         )}
+
+        {!loading && nodes.length === 0 && sinColocar.length === 0 && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-muted-foreground">
+            <Inbox className="w-10 h-10 opacity-20" />
+            <p className="text-sm">{sedeActiva ? "Sin cargos en esta sede." : "Sin cargos definidos."}</p>
+            {puedeEditar && (
+              <button onClick={() => setModalNuevoCargo(true)} className="text-xs text-teal-500 hover:underline">
+                + Crear primer cargo
+              </button>
+            )}
+          </div>
+        )}
+
+        {!loading && nodes.length === 0 && sinColocar.length > 0 && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-muted-foreground pointer-events-none">
+            <Inbox className="w-10 h-10 opacity-15" />
+            <p className="text-sm opacity-60">El árbol está vacío — coloca cargos desde el panel izquierdo</p>
+          </div>
+        )}
+
+        {puedeEditar && !loading && <PanelPorColocar items={sinColocar} onSelect={setCargoAColocar} />}
+
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onNodeDragStop={handleNodeDragStop}
+          onNodeClick={(_, node) => {
+            const nodo = findNodo(arbol?.raices ?? [], Number(node.id))
+            if (nodo) setNodoSeleccionado(nodo)
+          }}
+          nodeTypes={NODE_TYPES}
+          fitView
+          fitViewOptions={{ padding: 0.2 }}
+          minZoom={0.12}
+          maxZoom={2.5}
+          proOptions={{ hideAttribution: true }}
+        >
+          <Background variant={BackgroundVariant.Dots} gap={28} size={1} color="#ffffff08" />
+          <Controls showInteractive={false} />
+        </ReactFlow>
       </div>
 
-      {/* Drawer personas */}
       {nodoSeleccionado && (
-        <PersonasDrawer nodo={nodoSeleccionado} onClose={() => setNodoSeleccionado(null)} />
+        <NodeDrawer
+          nodo={nodoSeleccionado}
+          onClose={() => setNodoSeleccionado(null)}
+          onUpdated={() => { setNodoSeleccionado(null); cargarArbol(sedeActiva) }}
+        />
       )}
 
-      {/* Modal nuevo cargo */}
       {modalNuevoCargo && (
         <ModalNuevoCargo
           sedes={sedes as SedeItem[]}
           sedeActiva={sedeActiva}
+          orgContextValue={ctxActivo}
           onClose={() => setModalNuevoCargo(false)}
           onCreado={() => cargarArbol(sedeActiva)}
         />
       )}
 
-      {/* Modal colocar cargo pendiente */}
       {cargoAColocar && (
         <ModalColocarCargo
           cargo={cargoAColocar}
           cargosColocados={arbol?.raices ?? []}
+          orgContextValue={ctxActivo}
           onClose={() => setCargoAColocar(null)}
           onGuardado={() => { setCargoAColocar(null); cargarArbol(sedeActiva) }}
         />
@@ -598,12 +858,8 @@ export function TyCOrganigramaPage() {
   )
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Helpers ────────────────────────────────────────────────────────────────────
 
-function contarCargos(nodos: ArbolNodo[]): number {
-  return nodos.reduce((acc, n) => acc + 1 + contarCargos(n.hijos), 0)
-}
-
-function contarPersonas(nodos: ArbolNodo[]): number {
-  return nodos.reduce((acc, n) => acc + n.personas.length + contarPersonas(n.hijos), 0)
+function stripServerPos(nodos: ArbolNodo[]): ArbolNodo[] {
+  return nodos.map((n) => ({ ...n, org_pos_x: null, org_pos_y: null, hijos: stripServerPos(n.hijos) }))
 }
