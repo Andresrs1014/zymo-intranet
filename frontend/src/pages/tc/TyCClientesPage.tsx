@@ -125,7 +125,7 @@ export function TyCClientesPage() {
       const url = URL.createObjectURL(data as Blob)
       const a = document.createElement("a")
       a.href = url
-      a.download = "Plantilla_Clientes_TYC.xlsx"
+      a.download = "Plantilla_Cargue_Clientes.xlsx"
       a.click()
       URL.revokeObjectURL(url)
     } catch {

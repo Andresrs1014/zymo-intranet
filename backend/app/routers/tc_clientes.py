@@ -3,11 +3,12 @@ from __future__ import annotations
 
 import io
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 import openpyxl
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlmodel import Session, col, select
 
@@ -28,6 +29,9 @@ require_tc = require_permission("mod_tc")
 require_tc_editar = require_permission("mod_tc_editar")
 
 _ACTIVO = "Activo"
+_PLANTILLA_CLIENTES = (
+    Path(__file__).resolve().parent.parent / "assets" / "Plantilla_Cargue_Clientes.xlsx"
+)
 
 
 class AsignacionBody(BaseModel):
@@ -220,18 +224,13 @@ def eliminar_cliente(
 
 @router.get("/clientes/plantilla")
 def descargar_plantilla_clientes(_: User = Depends(require_tc)):
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Clientes"
-    ws.append(["No de Cliente", "No de DUME", "Nombre o razón social"])
-    ws.append(["CLI-001", "DUME-123", "Ejemplo Cliente S.A.S."])
-    buf = io.BytesIO()
-    wb.save(buf)
-    buf.seek(0)
-    return StreamingResponse(
-        buf,
+    """Plantilla oficial del Directorio ZYMO (Plantilla_Cargue_Clientes.xlsx)."""
+    if not _PLANTILLA_CLIENTES.is_file():
+        raise HTTPException(status_code=404, detail="Plantilla no disponible en el servidor.")
+    return FileResponse(
+        _PLANTILLA_CLIENTES,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": 'attachment; filename="Plantilla_Clientes_TYC.xlsx"'},
+        filename="Plantilla_Cargue_Clientes.xlsx",
     )
 
 
@@ -271,7 +270,15 @@ async def importar_clientes_excel(
         )
         nombre = _client_field(
             row_dict,
-            ["Nombre o razón social", "Nombre", "Razon social", "Nombre o razon social"],
+            [
+                "Nombre de Cliente",
+                "Nombre Cliente",
+                "Cliente Nombre",
+                "Nombre o razón social",
+                "Nombre",
+                "Razon social",
+                "Nombre o razon social",
+            ],
         )
 
         if not client_no or not nombre:
