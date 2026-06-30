@@ -42,6 +42,7 @@ from app.routers.personal import router as personal_router
 from app.routers.tc_agenda import router as tc_agenda_router
 from app.routers.tc_capacitaciones import router as tc_caps_router
 from app.routers.tc_clientes import router as tc_clientes_router
+from app.routers.tc_paquetes import router as tc_paquetes_router
 from app.routers.borradores import router as borradores_router
 from app.routers.admin.extraccion import router as admin_extraccion_router
 from app.routers.user_tools import router as user_tools_router
