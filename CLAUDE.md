@@ -28,9 +28,9 @@ uvicorn app.main:app --reload --port 8001   # Dev server
 python -m app.agents.worker                 # Worker de agentes en background
 ```
 
-### Node backends (sig-backend / helix-backend / task-backend)
+### Node backends (sig-backend / helix-backend / task-backend / zymoally-backend)
 ```bash
-cd sig-backend        # o helix-backend / task-backend
+cd sig-backend        # o helix-backend / task-backend / zymoally-backend
 npm run dev           # Dev con hot-reload (ts-node / nodemon)
 npm run build         # Compilar TS → dist/
 npx tsc --noEmit      # Verificar TypeScript — OBLIGATORIO antes de commit
@@ -41,6 +41,8 @@ npx prisma migrate deploy                # Aplicar migraciones (producción, en 
 npx prisma generate                      # Regenerar cliente (tras cambios en schema.prisma)
 npx prisma studio                        # UI para inspeccionar la BD en dev
 ```
+
+**Convención de testing:** ningún backend Node de este repo usa jest/vitest. Para lógica con riesgo real (condiciones de carrera, generación de códigos únicos, cálculos), el patrón es un script `ts-node` con `assert` (`src/services/*.selfcheck.ts`, ejecutado vía `npm run selfcheck`) que ejercita el caso límite contra la BD real — ver `zymoally-backend/src/services/pqrCode.selfcheck.ts` (verifica códigos de ticket únicos bajo `Promise.all` concurrente). No introducir un framework de test nuevo para un módulo aislado.
 
 ### Checks críticos pre-commit (código de servidor)
 ```
@@ -71,6 +73,7 @@ import { fetchProcCargoIds, type ProcCargoAsignado } from "@/components/sig/..."
 | `helix-backend` | 3001 | 3001 | `helix-db` | 5433 |
 | `task-backend` | 3002 | 3002 | `task-db` | 5434 |
 | `sig-backend` | 3004 | 3003 | `sig-db` | 5436 |
+| `zymoally-backend` | 3005 | 3005 | `zymoally-db` | 5438 |
 
 ### JWT compartido
 El backend Python emite el JWT (HS256) con claims `{id, role, sede, area, email}`. **Todos los backends Node** validan ese mismo token usando `SECRET_KEY` de `./backend/.env`. El campo `app_permissions` **no está en el JWT** — se resuelve en el frontend vía `GET /auth/me` después del login.
@@ -199,6 +202,8 @@ Servidor MCP en `C:\Gestion_documental\mcps\mcp001-intranet` que expone 15 herra
 - `get_engine()` / `SessionLocal` → PostgreSQL principal (usuarios, roles, OC, etc.)
 - `get_oc_engine()` → SQLite secundario (`oc_database.py`) — aloja OC + **tablas de mantenimiento** (`mnt_solicitudes`, `mnt_aprobaciones`, `mnt_activos_qr`)
 
+**Gotcha — secuencias de Postgres tras migrar datos con `id` explícito:** cualquier script que inserte filas copiando un `id` ya existente (ej. migrar una tabla desde SQLite) deja la secuencia de esa tabla desincronizada — el próximo `INSERT` normal de la app (sin `id`) choca con `IntegrityError: UniqueViolation` en la PK. `_resync_pg_sequences()` en `main.py` corre en cada arranque (dentro de `_migrate_db()`) y resincroniza vía `setval(pg_get_serial_sequence(...), MAX(id))` para las tablas con PK entera — pero cualquier migración de datos *nueva* debe considerar este mismo paso explícitamente, no asumir que el autoreparo cubre tablas que no estén en `_TABLES_WITH_SERIAL_ID`.
+
 ### Patrón de migración inline (SQLite)
 Las tablas SQLite ya existentes en producción no admiten `DROP`/`CREATE`. Nuevas columnas se agregan al final de `create_oc_tables()` con `try/except pass`:
 ```python
@@ -238,6 +243,23 @@ solicitud → evaluacion → programado → ejecucion → completado → cerrado
 
 ### Nota sobre `Session` en endpoints públicos
 Los routers `mobile.py` y cualquier endpoint sin `Depends(get_current_user)` deben usar `Session(get_oc_engine())` directamente (context manager manual), no `Depends(get_oc_db)`.
+
+---
+
+## ZymoAlly — Tickets (PQR) + SAC (`zymoally-backend`)
+
+Migrado desde una app standalone HTML/JS (`C:\Proyectos-indexar\ZymoAlly`, sin backend, `localStorage`). Dos dominios sin relación entre sí, compartiendo un solo backend Node + una sola Postgres (la separación es solo lógica — routers/permisos, no infraestructura):
+- **Tickets** = PQR completo (`mod_tickets` / `mod_tickets_config` para editar maestros).
+- **SAC** = Fidelización de clientes (NPS), Diseñando la Experiencia, Reporte de visita (`mod_sac` / `mod_sac_config`).
+
+### Opciones de formulario configurables
+`ZymoConfigList` (tabla genérica `{listType, value, label, sortOrder, isActive}`) sirve ambos dominios sin necesitar migración de esquema por cada lista nueva: los 14 maestros de PQR (`clients`, `platforms`, `impacts`...) y las 5 choice-lists de SAC (`surveyValueChoices`, `surveyIssues`, `experienceFitChoices`, `experienceClarityChoices`, `visitOutcomes`) viven en la misma tabla, filtradas por `listType`. Cada dominio expone `GET .../listas` (agrupado), `POST/PATCH/DELETE`, y `POST .../reset` (restaura defaults de `utils/constants.ts`).
+
+### Encuestas públicas — magic-link sin login
+`POST /api/sac/surveys/magic-link` (staff) genera un JWT `scope=survey_client` (TTL 30 días) — mismo patrón que `scope=mnt_mobile` de Mantenimiento. Las rutas públicas (`src/routers/public/survey.ts`) se montan ANTES de `app.use("/api", authenticate)` en `app.ts`: `GET /public/survey/config` (sin auth, solo etiquetas) y `POST /public/survey/{client,experience}` (validan únicamente el `scope` vía `requireSurveyScope`, nunca `app_permissions` — el cliente final no tiene cuenta en la intranet).
+
+### Frontend público (`survey-frontend/`)
+React 19 + Vite + Tailwind standalone (mismo stack que `frontend/`, para que portarlo sea copiar la carpeta `src/`, no rediseñar). Layout responsive único vía breakpoints CSS (`lg:`), sin detección de dispositivo por JS: desktop = split-screen con panel de marca oscuro + stats, mobile = banda de header con degradado. Ruta `/e/:surveyType?t=:token`.
 
 ---
 
