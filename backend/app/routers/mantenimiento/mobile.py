@@ -1,5 +1,5 @@
-"""Vista m?vil para el auxiliar de mantenimiento.
-Acceso v?a JWT (24h) o token estable por solicitud (QR / WhatsApp).
+"""Vista móvil para el auxiliar de mantenimiento.
+Acceso vía JWT (24h) o token estable por solicitud (QR / WhatsApp).
 Hub: lista todas las solicitudes activas del auxiliar asignado.
 """
 import logging
@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException
-from jose import JWTError, jwt
+from jose import ExpiredSignatureError, JWTError, jwt
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -39,6 +39,8 @@ def _solicitud_id_desde_jwt(token: str) -> Optional[int]:
         if payload.get("scope") != "mnt_mobile":
             return None
         return int(payload["solicitud_id"])
+    except ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Este enlace expiró (los enlaces temporales duran 24h). Pide uno nuevo al equipo administrativo.")
     except JWTError:
         return None
 
@@ -73,14 +75,14 @@ def _lookup_solicitud_por_token(token: str, oc_db: Session):
         )
     ).first()
     if not sol:
-        raise HTTPException(status_code=401, detail="Enlace inv?lido o expirado.")
+        raise HTTPException(status_code=401, detail="Enlace inválido o expirado.")
     return sol
 
 
 def resolve_solicitud_id(token: str, oc_db: Session) -> int:
     sol = _lookup_solicitud_por_token(token, oc_db)
     if sol.estado in _ESTADOS_TERMINALES:
-        raise HTTPException(status_code=403, detail="Esta solicitud ya est? finalizada.")
+        raise HTTPException(status_code=403, detail="Esta solicitud ya está finalizada.")
     return sol.id
 
 
@@ -205,7 +207,7 @@ def _ejecutar_accion(sol, body: AccionMobileBody, oc_db: Session) -> dict:
     from app.models.mantenimiento import HistorialMantenimiento, EstadoMantenimiento
 
     if sol.estado in _ESTADOS_TERMINALES:
-        raise HTTPException(status_code=400, detail="La solicitud ya est? finalizada.")
+        raise HTTPException(status_code=400, detail="La solicitud ya está finalizada.")
 
     estado_anterior = sol.estado
 
@@ -249,10 +251,10 @@ def _ejecutar_accion(sol, body: AccionMobileBody, oc_db: Session) -> dict:
         )
         oc_db.add(hist)
         oc_db.commit()
-        return {"ok": True, "mensaje": "Notificaci?n registrada."}
+        return {"ok": True, "mensaje": "Notificación registrada."}
 
     else:
-        raise HTTPException(status_code=400, detail="Acci?n inv?lida.")
+        raise HTTPException(status_code=400, detail="Acción inválida.")
 
     sol.updated_at = datetime.now(timezone.utc)
     oc_db.add(sol)
@@ -268,7 +270,7 @@ def _ejecutar_accion(sol, body: AccionMobileBody, oc_db: Session) -> dict:
     oc_db.add(hist)
     oc_db.commit()
 
-    log.info("Acci?n mobile '%s' en solicitud %s", body.accion, sol.consecutivo)
+    log.info("Acción mobile '%s' en solicitud %s", body.accion, sol.consecutivo)
     return {"ok": True, "estado_nuevo": sol.estado}
 
 
@@ -349,13 +351,13 @@ def obtener_detalle_mobile(token: str, solicitud_id: int):
 
 @router.post("/{token}/solicitudes/{solicitud_id}/accion")
 def ejecutar_accion_mobile_hub(token: str, solicitud_id: int, body: AccionMobileBody):
-    """Acci?n del auxiliar sobre una solicitud del hub."""
+    """Acción del auxiliar sobre una solicitud del hub."""
     from app.oc_database import get_oc_engine
     from app.models.mantenimiento import SolicitudMantenimiento
 
     acciones_validas = {"en_camino", "completado", "necesita_repuesto"}
     if body.accion not in acciones_validas:
-        raise HTTPException(status_code=400, detail=f"Acci?n inv?lida. Permitidas: {acciones_validas}")
+        raise HTTPException(status_code=400, detail=f"Acción inválida. Permitidas: {acciones_validas}")
 
     with Session(get_oc_engine()) as oc_db:
         _assert_acceso_solicitud(token, solicitud_id, oc_db)
@@ -420,7 +422,7 @@ def crear_oc_mobile(token: str, solicitud_id: int, body: CrearOCMobileBody):
 
 @router.get("/{token}", response_model=MobileOut)
 def obtener_solicitud_mobile(token: str):
-    """Datos b?sicos para la vista m?vil (sin login) ? compatibilidad."""
+    """Datos básicos para la vista móvil (sin login) — compatibilidad."""
     from app.oc_database import get_oc_engine
     from app.database import get_engine
     from app.models.mantenimiento import SolicitudMantenimiento
@@ -428,7 +430,7 @@ def obtener_solicitud_mobile(token: str):
     with Session(get_oc_engine()) as oc_db:
         sol = _lookup_solicitud_por_token(token, oc_db)
         if sol.estado in _ESTADOS_TERMINALES:
-            raise HTTPException(status_code=403, detail="Esta solicitud ya est? finalizada.")
+            raise HTTPException(status_code=403, detail="Esta solicitud ya está finalizada.")
 
         with Session(get_engine()) as app_db:
             by_id = _users_for_solicitudes(app_db, [sol])
@@ -438,13 +440,13 @@ def obtener_solicitud_mobile(token: str):
 
 @router.post("/{token}/accion")
 def ejecutar_accion_mobile(token: str, body: AccionMobileBody):
-    """Acci?n del auxiliar ? compatibilidad con enlace de una sola solicitud."""
+    """Acción del auxiliar — compatibilidad con enlace de una sola solicitud."""
     from app.oc_database import get_oc_engine
     from app.models.mantenimiento import SolicitudMantenimiento
 
     acciones_validas = {"en_camino", "completado", "necesita_repuesto"}
     if body.accion not in acciones_validas:
-        raise HTTPException(status_code=400, detail=f"Acci?n inv?lida. Permitidas: {acciones_validas}")
+        raise HTTPException(status_code=400, detail=f"Acción inválida. Permitidas: {acciones_validas}")
 
     with Session(get_oc_engine()) as oc_db:
         solicitud_id = resolve_solicitud_id(token, oc_db)

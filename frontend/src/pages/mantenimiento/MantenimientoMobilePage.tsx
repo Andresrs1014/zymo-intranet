@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useState, type CSSProperties, type FormEvent, type ReactNode } from "react"
 import { useParams } from "react-router-dom"
 import type {
   CrearOCMobilePayload,
@@ -146,7 +146,7 @@ export default function MantenimientoMobilePage({ mode }: Props) {
     setVista("oc")
   }
 
-  async function enviarOC(e: React.FormEvent) {
+  async function enviarOC(e: FormEvent) {
     e.preventDefault()
     if (!mobileToken || !selectedId || !ocDesc.trim()) return
     setBusy(true)
@@ -445,7 +445,7 @@ function EstadoPill({ estado }: { estado: string }) {
   )
 }
 
-function Shell({ children }: { children: React.ReactNode }) {
+function Shell({ children }: { children: ReactNode }) {
   return (
     <div
       className="mx-auto box-border min-h-screen max-w-[480px] bg-[#0f172a] px-6 font-[family-name:var(--font-dm-sans)] text-slate-100 [color-scheme:dark] touch-manipulation pt-[max(24px,env(safe-area-inset-top))] pb-[max(24px,env(safe-area-inset-bottom))] pl-[max(24px,env(safe-area-inset-left))] pr-[max(24px,env(safe-area-inset-right))] [&_button:focus-visible]:outline [&_button:focus-visible]:outline-2 [&_button:focus-visible]:outline-sky-400 [&_button:focus-visible]:outline-offset-2"
@@ -509,7 +509,7 @@ function BackBtn({ onClick, label }: { onClick: () => void; label: string }) {
   )
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
       <label style={{ display: "block", fontSize: 12, color: "#94a3b8", marginBottom: 4 }}>{label}</label>
@@ -518,25 +518,25 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
-const h1: React.CSSProperties = { fontSize: 22, fontWeight: 700, margin: 0 }
-const sub: React.CSSProperties = { color: "#64748b", fontSize: 13, margin: "4px 0 0" }
-const sectionTitle: React.CSSProperties = {
+const h1: CSSProperties = { fontSize: 22, fontWeight: 700, margin: 0 }
+const sub: CSSProperties = { color: "#64748b", fontSize: 13, margin: "4px 0 0" }
+const sectionTitle: CSSProperties = {
   fontSize: 11, fontWeight: 700, color: "#64748b",
   textTransform: "uppercase", letterSpacing: 1, marginBottom: 10,
 }
-const card: React.CSSProperties = {
+const card: CSSProperties = {
   background: "#1e293b", borderRadius: 12, padding: 20,
 }
-const ocCard: React.CSSProperties = {
+const ocCard: CSSProperties = {
   background: "#1e293b", borderRadius: 10, padding: 12, marginBottom: 8,
 }
-const input: React.CSSProperties = {
+const input: CSSProperties = {
   width: "100%", borderRadius: 8, border: "1px solid #334155",
   background: "#0f172a", color: "#f1f5f9", padding: "10px 12px",
   fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box",
 }
 
-function taskCard(destacada: boolean): React.CSSProperties {
+function taskCard(destacada: boolean): CSSProperties {
   return {
     background: destacada ? "#1e3a5f" : "#1e293b",
     border: destacada ? "1px solid #2563eb44" : "1px solid #334155",
@@ -549,7 +549,7 @@ function taskCard(destacada: boolean): React.CSSProperties {
   }
 }
 
-function btnStyle(bg: string): React.CSSProperties {
+function btnStyle(bg: string): CSSProperties {
   return {
     background: bg, color: "#fff", border: "none", borderRadius: 12,
     padding: "18px 20px", fontSize: 16, fontWeight: 700,
@@ -557,7 +557,7 @@ function btnStyle(bg: string): React.CSSProperties {
   }
 }
 
-const btnOutline: React.CSSProperties = {
+const btnOutline: CSSProperties = {
   ...btnStyle("transparent"),
   border: "1px solid #334155",
   color: "#94a3b8",

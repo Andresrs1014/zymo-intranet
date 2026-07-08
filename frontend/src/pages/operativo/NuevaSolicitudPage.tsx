@@ -5,9 +5,9 @@ import { Combobox } from "@/components/ui/Combobox"
 import { useAuthStore } from "@/store/authStore"
 import { useListasFormulario, useCrearSolicitudInterna, usePaquetes, useSubirFotoSolicitud } from "@/hooks/useOC"
 import { useTiposMantenimiento, useCrearMantenimiento } from "@/hooks/useMantenimiento"
-import { FotoEvidenciaField } from "@/components/mantenimiento/FotoEvidenciaField"
+import { MantenimientoCamposForm } from "@/components/mantenimiento/MantenimientoCamposForm"
 import type { SolicitudInternaCreate } from "@/hooks/useOC"
-import type { CrearMantenimientoPayload } from "@/types/mantenimiento"
+import type { CrearMantenimientoPayload, ClasificacionMantenimiento, ModalidadMantenimiento, PrioridadMantenimiento } from "@/types/mantenimiento"
 import { useDraft, useAutosaveDraft, useDeleteDraft } from "@/hooks/useDraft"
 import { useSedesParaSolicitudesOc } from "@/hooks/useSedes"
 
@@ -35,11 +35,13 @@ const FORM_COMPRA_VACIO: SolicitudInternaCreate = {
 interface FormMant {
   titulo: string
   tipo_mantenimiento: string
-  clasificacion: "correctivo" | "preventivo"
-  modalidad: "interno" | "externo"
+  clasificacion: ClasificacionMantenimiento
+  modalidad: ModalidadMantenimiento
   fecha_proxima: string
   descripcion: string
   evidencia_antes: string | null
+  prioridad: PrioridadMantenimiento
+  monto_estimado: string
 }
 
 const FORM_MANT_VACIO: FormMant = {
@@ -50,6 +52,8 @@ const FORM_MANT_VACIO: FormMant = {
   fecha_proxima: "",
   descripcion: "",
   evidencia_antes: null,
+  prioridad: "media",
+  monto_estimado: "",
 }
 
 export function NuevaSolicitudPage() {
@@ -128,11 +132,6 @@ export function NuevaSolicitudPage() {
   const opcionesCondicion = useMemo(
     () => (listas?.condiciones ?? []).map((c) => ({ value: c, label: c })),
     [listas?.condiciones]
-  )
-
-  const opcionesPlaca = useMemo(
-    () => (listas?.placas ?? []).map((p) => ({ value: p, label: p })),
-    [listas?.placas]
   )
 
   const opcionesPlataforma = useMemo(
@@ -303,10 +302,14 @@ export function NuevaSolicitudPage() {
           clasificacion: formMant.clasificacion,
           modalidad: formMant.modalidad,
           fecha_proxima_mantenimiento: formMant.clasificacion === "preventivo" ? (formMant.fecha_proxima || null) : null,
+          prioridad: formMant.prioridad,
+          monto_estimado: formMant.monto_estimado.trim()
+            ? Number(formMant.monto_estimado.replace(/\./g, "").replace(",", "."))
+            : null,
           evidencia_antes_url: formMant.modalidad === "externo" ? formMant.evidencia_antes : null,
         }
-        await crearMant.mutateAsync(mantPayload)
-        navigate("/mantenimiento")
+        const solMant = await crearMant.mutateAsync(mantPayload)
+        navigate(`/mantenimiento/${solMant.id}`)
       } else {
         // Compra — flujo OC normal
         const payload: SolicitudInternaCreate = {
@@ -552,101 +555,23 @@ export function NuevaSolicitudPage() {
                     />
                   </div>
 
-                  {/* Tipo de mantenimiento */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-1">
-                        Tipo de mantenimiento *
-                      </label>
-                      <Combobox
-                        className="w-full"
-                        options={opcionesTipoMantenimiento}
-                        value={formMant.tipo_mantenimiento || null}
-                        onChange={(v) => setFormMant((p) => ({ ...p, tipo_mantenimiento: v != null ? String(v) : "" }))}
-                        placeholder="Seleccionar tipo..."
-                      />
-                    </div>
-
-                    {/* Placa del equipo */}
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-1">
-                        Placa / Equipo
-                      </label>
-                      {listas?.placas && listas.placas.length > 0 ? (
-                        <Combobox
-                          className="w-full"
-                          options={opcionesPlaca}
-                          value={null}
-                          onChange={() => {}}
-                          placeholder="Buscar placa o equipo..."
-                        />
-                      ) : (
-                        <input
-                          type="text"
-                          placeholder="Ej. VH-001 o número de ficha técnica"
-                          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                        />
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Clasificación — Correctivo / Preventivo */}
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">
-                      Clasificacion *
-                    </label>
-                    <SegmentedControl
-                      value={formMant.clasificacion}
-                      options={[
-                        { value: "correctivo", label: "Correctivo", accent: "red" },
-                        { value: "preventivo", label: "Preventivo", accent: "green" },
-                      ]}
-                      onChange={(v) => setFormMant((p) => ({
-                        ...p,
-                        clasificacion: v as "correctivo" | "preventivo",
-                        fecha_proxima: v === "correctivo" ? "" : p.fecha_proxima,
-                      }))}
-                    />
-                  </div>
-
-                  {/* Modalidad — Interno / Externo */}
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">
-                      Modalidad *
-                    </label>
-                    <SegmentedControl
-                      value={formMant.modalidad}
-                      options={[
-                        { value: "interno", label: "Interno" },
-                        { value: "externo", label: "Externo" },
-                      ]}
-                      onChange={(v) => setFormMant((p) => ({ ...p, modalidad: v as "interno" | "externo" }))}
-                    />
-                  </div>
-
-                  {formMant.modalidad === "externo" && (
-                    <FotoEvidenciaField
-                      label="Foto evidencia inicial (antes)"
-                      required
-                      valuePreview={formMant.evidencia_antes}
-                      onChange={(url) => setFormMant((p) => ({ ...p, evidencia_antes: url }))}
-                    />
-                  )}
-
-                  {/* Fecha próximo mantenimiento — solo si preventivo */}
-                  <div className={`overflow-hidden transition-all duration-200 ${
-                    formMant.clasificacion === "preventivo" ? "max-h-24 opacity-100" : "max-h-0 opacity-0 pointer-events-none"
-                  }`}>
-                    <label className="block text-sm font-medium text-foreground mb-1">
-                      Fecha proxima de mantenimiento *
-                    </label>
-                    <input
-                      type="date"
-                      value={formMant.fecha_proxima}
-                      onChange={(e) => setFormMant((p) => ({ ...p, fecha_proxima: e.target.value }))}
-                      className="w-full max-w-xs rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                    />
-                  </div>
+                  <MantenimientoCamposForm
+                    tiposOptions={opcionesTipoMantenimiento}
+                    tipoMantenimiento={formMant.tipo_mantenimiento}
+                    onTipoMantenimientoChange={(v) => setFormMant((p) => ({ ...p, tipo_mantenimiento: v }))}
+                    clasificacion={formMant.clasificacion}
+                    onClasificacionChange={(v) => setFormMant((p) => ({ ...p, clasificacion: v }))}
+                    modalidad={formMant.modalidad}
+                    onModalidadChange={(v) => setFormMant((p) => ({ ...p, modalidad: v }))}
+                    fechaProxima={formMant.fecha_proxima}
+                    onFechaProximaChange={(v) => setFormMant((p) => ({ ...p, fecha_proxima: v }))}
+                    prioridad={formMant.prioridad}
+                    onPrioridadChange={(v) => setFormMant((p) => ({ ...p, prioridad: v }))}
+                    montoEstimado={formMant.monto_estimado}
+                    onMontoEstimadoChange={(v) => setFormMant((p) => ({ ...p, monto_estimado: v }))}
+                    evidenciaAntes={formMant.evidencia_antes}
+                    onEvidenciaAntesChange={(v) => setFormMant((p) => ({ ...p, evidencia_antes: v }))}
+                  />
 
                   {/* Descripción */}
                   <div>
@@ -801,7 +726,8 @@ export function NuevaSolicitudPage() {
                 </section>
               )}
 
-              {/* Sección de Evidencias */}
+              {/* Sección de Evidencias — solo compra; mantenimiento usa FotoEvidenciaField dedicado arriba */}
+              {tipoSolicitud === "compra" && (
               <section className="bg-card rounded-xl border border-border p-6 space-y-4">
                 <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                   Fotos / Evidencias
@@ -868,6 +794,7 @@ export function NuevaSolicitudPage() {
                   </div>
                 )}
               </section>
+              )}
 
               {/* Error */}
               {error && (
@@ -912,48 +839,3 @@ export function NuevaSolicitudPage() {
   )
 }
 
-// ── SegmentedControl ──────────────────────────────────────────────────────────
-
-interface SegmentOption {
-  value: string
-  label: string
-  accent?: "red" | "green"
-}
-
-interface SegmentedControlProps {
-  value: string
-  options: SegmentOption[]
-  onChange: (value: string) => void
-}
-
-function SegmentedControl({ value, options, onChange }: SegmentedControlProps) {
-  return (
-    <div className="inline-flex border border-border rounded-md overflow-hidden divide-x divide-border">
-      {options.map((opt) => {
-        const isSelected = value === opt.value
-        const accentBorder =
-          isSelected && opt.accent === "red"
-            ? "border-l-2 border-l-red-500"
-            : isSelected && opt.accent === "green"
-            ? "border-l-2 border-l-emerald-500"
-            : ""
-        return (
-          <button
-            key={opt.value}
-            type="button"
-            onClick={() => onChange(opt.value)}
-            className={[
-              "px-5 py-2 text-sm transition-colors",
-              accentBorder,
-              isSelected
-                ? "bg-muted text-foreground font-semibold"
-                : "bg-card text-muted-foreground hover:bg-muted/50",
-            ].join(" ")}
-          >
-            {opt.label}
-          </button>
-        )
-      })}
-    </div>
-  )
-}

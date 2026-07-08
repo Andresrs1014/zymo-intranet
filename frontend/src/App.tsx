@@ -55,7 +55,7 @@ import MantenimientoPage from "@/pages/mantenimiento/MantenimientoPage"
 import NuevaMantenimientoPage from "@/pages/mantenimiento/NuevaMantenimientoPage"
 import MantenimientoDetallePage from "@/pages/mantenimiento/MantenimientoDetallePage"
 import MantenimientoPortalShell from "@/pages/mantenimiento/MantenimientoPortalShell"
-import MantenimientoLegacyRedirect from "@/pages/mantenimiento/MantenimientoLegacyRedirect"
+import MantenimientoMobilePage from "@/pages/mantenimiento/MantenimientoMobilePage"
 import MantenimientoDashboard from "@/pages/mantenimiento/MantenimientoDashboard"
 import { TyCPage } from "@/pages/tc/TyCPage"
 import { TyCDirectorioPage } from "@/pages/tc/TyCDirectorioPage"
@@ -197,6 +197,17 @@ function MantenimientoRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+// /operativo/nueva-solicitud sirve 2 flujos (compra + mantenimiento) — exige acceso a cualquiera de los dos módulos
+function NuevaSolicitudRoute({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user)
+  if (!user) return <Navigate to="/login" replace />
+  const tieneAcceso =
+    canSeeOperativo(user.role, user.area, user.app_permissions) ||
+    canAccessMantenimiento(user.role, user.area, user.app_permissions)
+  if (!tieneAcceso) return <Navigate to="/dashboard" replace />
+  return <>{children}</>
+}
+
 function TyCRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user)
   if (!user) return <Navigate to="/login" replace />
@@ -240,8 +251,8 @@ export default function App() {
           <Route index element={<MantenimientoPage />} />
           <Route path=":id" element={<MantenimientoDetallePage />} />
         </Route>
-        <Route path="/m/q/:accessToken" element={<MantenimientoLegacyRedirect mode="stable" />} />
-        <Route path="/m/:token" element={<MantenimientoLegacyRedirect mode="jwt" />} />
+        <Route path="/m/q/:accessToken" element={<MantenimientoMobilePage mode="stable" />} />
+        <Route path="/m/:token" element={<MantenimientoMobilePage mode="jwt" />} />
         <Route
           path="/login"
           element={
@@ -391,9 +402,9 @@ export default function App() {
         <Route
           path="/operativo/nueva-solicitud"
           element={
-            <PrivateRoute>
+            <NuevaSolicitudRoute>
               <NuevaSolicitudPage />
-            </PrivateRoute>
+            </NuevaSolicitudRoute>
           }
         />
         <Route

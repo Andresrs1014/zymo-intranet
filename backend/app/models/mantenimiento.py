@@ -71,7 +71,9 @@ class SolicitudMantenimiento(SQLModel, table=True):
     prioridad:      str = Field(default=PrioridadMantenimiento.media, max_length=20)
     monto_estimado: Optional[Decimal] = Field(default=None)
     monto_real:     Optional[Decimal] = Field(default=None)
-    evidencia_url:  Optional[str] = Field(default=None, max_length=500)
+    # Sin max_length: guarda foto como data-URL base64 (cientos de KB), no una URL corta —
+    # antes declarado VARCHAR(500), inconsistente con evidencia_antes/despues_url.
+    evidencia_url:  Optional[str] = Field(default=None)
     evidencia_antes_url:  Optional[str] = Field(default=None)
     evidencia_despues_url: Optional[str] = Field(default=None)
     activo_qr_id:   Optional[int] = Field(default=None)

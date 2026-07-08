@@ -2,11 +2,9 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { Button } from "@/components/ui/button"
-import { Combobox } from "@/components/ui/Combobox"
 import { useCrearMantenimiento, useTiposMantenimiento } from "@/hooks/useMantenimiento"
-import { FotoEvidenciaField } from "@/components/mantenimiento/FotoEvidenciaField"
-import { MntSegmentedControl } from "@/components/mantenimiento/MntSegmentedControl"
-import { mntField, mntFieldMono } from "@/components/mantenimiento/mntFormClasses"
+import { MantenimientoCamposForm } from "@/components/mantenimiento/MantenimientoCamposForm"
+import { mntField } from "@/components/mantenimiento/mntFormClasses"
 import { useAuthStore } from "@/store/authStore"
 import type { ClasificacionMantenimiento, ModalidadMantenimiento, PrioridadMantenimiento } from "@/types/mantenimiento"
 import { format } from "date-fns"
@@ -125,116 +123,23 @@ export default function NuevaMantenimientoPage() {
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
-              Tipo de mantenimiento *
-            </label>
-            <Combobox
-              options={tiposOptions}
-              value={tipoMantenimiento}
-              onChange={(v) => setTipoMantenimiento(v != null ? String(v) : "")}
-              placeholder="Seleccionar tipo…"
-            />
-          </div>
-
-          <div>
-            <span className="block text-sm font-medium text-foreground mb-2" id="mnt-clasificacion-label">
-              Clasificación *
-            </span>
-            <MntSegmentedControl
-              name="Clasificación"
-              value={clasificacion}
-              onChange={(c) => {
-                setClasificacion(c)
-                if (c === "correctivo") setFechaProxima("")
-              }}
-              options={[
-                { value: "correctivo", label: "Correctivo", activeClass: "border-red-500 bg-red-50 text-red-700" },
-                { value: "preventivo", label: "Preventivo", activeClass: "border-emerald-500 bg-emerald-50 text-emerald-700" },
-              ]}
-            />
-          </div>
-
-          {/* Fecha próxima — solo visible si preventivo */}
-          <div
-            className={`overflow-hidden transition-[max-height,opacity] duration-200 motion-reduce:transition-none ${
-              clasificacion === "preventivo" ? "max-h-24 opacity-100" : "max-h-0 opacity-0"
-            }`}
-          >
-            <label htmlFor="mnt-fecha-proxima" className="block text-sm font-medium text-foreground mb-1">
-              Fecha próximo mantenimiento preventivo *
-            </label>
-            <input
-              id="mnt-fecha-proxima"
-              name="fecha_proxima"
-              type="date"
-              className={`${mntField} max-w-xs`}
-              value={fechaProxima}
-              onChange={(e) => setFechaProxima(e.target.value)}
-              min={format(new Date(), "yyyy-MM-dd")}
-            />
-          </div>
-
-          <div>
-            <span className="block text-sm font-medium text-foreground mb-2" id="mnt-modalidad-label">
-              Modalidad *
-            </span>
-            <MntSegmentedControl
-              name="Modalidad"
-              value={modalidad}
-              onChange={setModalidad}
-              options={[
-                { value: "interno", label: "Interno" },
-                { value: "externo", label: "Externo", activeClass: "border-amber-500 bg-amber-500/10 text-amber-700" },
-              ]}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="mnt-prioridad" className="block text-sm font-medium text-foreground mb-1">
-                Prioridad
-              </label>
-              <select
-                id="mnt-prioridad"
-                name="prioridad"
-                value={prioridad}
-                onChange={(e) => setPrioridad(e.target.value as PrioridadMantenimiento)}
-                className={mntField}
-              >
-                <option value="baja">Baja</option>
-                <option value="media">Media</option>
-                <option value="alta">Alta</option>
-                <option value="urgente">Urgente</option>
-              </select>
-            </div>
-            <div>
-              <label htmlFor="mnt-monto" className="block text-sm font-medium text-foreground mb-1">
-                Monto estimado (COP)
-              </label>
-              <input
-                id="mnt-monto"
-                name="monto_estimado"
-                type="text"
-                inputMode="numeric"
-                autoComplete="off"
-                value={montoEstimado}
-                onChange={(e) => setMontoEstimado(e.target.value)}
-                placeholder="Opcional"
-                className={mntFieldMono}
-              />
-            </div>
-          </div>
-
-          {modalidad === "externo" && (
-            <FotoEvidenciaField
-              label="Foto evidencia inicial (antes del servicio)"
-              hint="Requerida para mantenimiento externo — estado previo al proveedor."
-              required
-              valuePreview={evidenciaAntes}
-              onChange={setEvidenciaAntes}
-            />
-          )}
+          <MantenimientoCamposForm
+            tiposOptions={tiposOptions}
+            tipoMantenimiento={tipoMantenimiento}
+            onTipoMantenimientoChange={setTipoMantenimiento}
+            clasificacion={clasificacion}
+            onClasificacionChange={setClasificacion}
+            modalidad={modalidad}
+            onModalidadChange={setModalidad}
+            fechaProxima={fechaProxima}
+            onFechaProximaChange={setFechaProxima}
+            prioridad={prioridad}
+            onPrioridadChange={setPrioridad}
+            montoEstimado={montoEstimado}
+            onMontoEstimadoChange={setMontoEstimado}
+            evidenciaAntes={evidenciaAntes}
+            onEvidenciaAntesChange={setEvidenciaAntes}
+          />
         </section>
 
         {error && (
