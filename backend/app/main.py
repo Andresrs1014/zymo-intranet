@@ -164,6 +164,41 @@ def _migrate_db() -> None:
                 sede_row.visible_en_solicitudes_oc = False
                 session.add(sede_row)
         session.commit()
+    _resync_pg_sequences()
+
+
+# Tablas con PK entero autoincremental migradas desde SQLite (ver
+# backend/scripts/migrate_intranet.py) — form_drafts queda fuera porque su
+# id es texto (UUID), no serial.
+_TABLES_WITH_SERIAL_ID = [
+    "area", "sede", "role", "user", "user_tools",
+    "learned_synonyms", "extraction_reviews",
+]
+
+
+def _resync_pg_sequences() -> None:
+    """Autorepara secuencias de PostgreSQL desincronizadas tras una migración
+    de datos con id explícito (ver incidente 2026-07-07: crear usuarios
+    fallaba con UniqueViolation porque user_id_seq se quedó en 1 tras migrar
+    intranet.db). Idempotente y sin efecto si las secuencias ya están al día.
+    """
+    engine = get_engine()
+    if engine.dialect.name != "postgresql":
+        return  # setval/pg_get_serial_sequence no aplican a SQLite (dev local)
+    with engine.connect() as conn:
+        for table in _TABLES_WITH_SERIAL_ID:
+            try:
+                conn.execute(
+                    text(
+                        f'SELECT setval('
+                        f"pg_get_serial_sequence('{table}', 'id'), "
+                        f'COALESCE((SELECT MAX(id) FROM "{table}"), 1), '
+                        f'(SELECT MAX(id) IS NOT NULL FROM "{table}"))'
+                    )
+                )
+                conn.commit()
+            except Exception as exc:
+                print(f"[migrate] No se pudo resincronizar la secuencia de {table}: {exc}")
 
 
 def _seed_roles() -> None:
