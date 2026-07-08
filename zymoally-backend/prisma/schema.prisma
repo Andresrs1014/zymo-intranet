@@ -1,0 +1,141 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Tickets (PQR) ─────────────────────────────────────────────────────────
+
+model ZymoPqrTicket {
+  id                 Int               @id @default(autoincrement())
+  code               String            @unique
+  createdAt          DateTime          @default(now())
+  monthKey           String
+  area               String
+  areaPrefix         String
+  client             String
+  platform           String?
+  supervisor         String?
+  analyst            String?
+  coordinator        String?
+  phone              String?
+  email              String?
+  owner              String?
+  date               String
+  dueDate            String?
+  type               String
+  status             String
+  priority           String
+  impact             String?
+  channel            String?
+  managementCriteria String?
+  closedDate         String?
+  description        String?
+  actions            ZymoPqrAction[]
+  evidence           ZymoPqrEvidence[]
+}
+
+model ZymoPqrAction {
+  id        Int           @id @default(autoincrement())
+  ticketId  Int
+  ticket    ZymoPqrTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  createdAt DateTime      @default(now())
+  texto     String
+
+  @@index([ticketId])
+}
+
+model ZymoPqrEvidence {
+  id        Int           @id @default(autoincrement())
+  ticketId  Int
+  ticket    ZymoPqrTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  createdAt DateTime      @default(now())
+  filename  String
+  url       String?
+
+  @@index([ticketId])
+}
+
+model ZymoConfigList {
+  id        Int     @id @default(autoincrement())
+  listType  String
+  value     String
+  label     String
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+
+  @@unique([listType, value])
+  @@index([listType])
+}
+
+model ZymoAreaPrefix {
+  id        Int     @id @default(autoincrement())
+  area      String
+  prefix    String  @unique
+  isActive  Boolean @default(true)
+  sortOrder Int     @default(0)
+}
+
+// ─── SAC (Servicio al Cliente) ─────────────────────────────────────────────
+
+model ZymoClientSurvey {
+  id            Int      @id @default(autoincrement())
+  createdAt     DateTime @default(now())
+  date          String
+  company       String?
+  role          String?
+  email         String?
+  phone         String?
+  nps           Int
+  npsCategory   String
+  satisfaction  Int
+  delivery      Int
+  attention     Int
+  meeting       Int
+  solution      Int
+  valuedAspect  String?
+  issue         String?
+  comment       String?
+  nextStep      String?
+}
+
+model ZymoExperienceSurvey {
+  id                       Int      @id @default(autoincrement())
+  createdAt                DateTime @default(now())
+  date                     String
+  company                  String?
+  contact                  String?
+  email                    String?
+  phone                    String?
+  fit                      String?
+  futureValue              Int
+  clarity                  String?
+  exceededExpectations     String?
+  actionToday              String?
+  professionalSatisfaction Int
+  meetingFit               Int
+  leadershipComment        String?
+  satisfaction             Int
+  solution                 Int
+  nextStep                 String?
+}
+
+model ZymoVisitReport {
+  id           Int      @id @default(autoincrement())
+  createdAt    DateTime @default(now())
+  date         String
+  commercial   String?
+  client       String
+  contact      String?
+  outcome      String?
+  nextDate     String?
+  quality      Int
+  clientMood   Int
+  opportunity  Int
+  urgency      Int
+  observations String?
+  actionPlan   String?
+}

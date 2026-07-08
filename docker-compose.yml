@@ -193,6 +193,45 @@ services:
       timeout: 5s
       retries: 10
 
+  zymoally-backend:
+    build:
+      context: ./zymoally-backend
+      dockerfile: Dockerfile
+    ports:
+      - "3005:3005"
+    env_file:
+      - ./backend/.env          # provee SECRET_KEY (mismo JWT secret que FastAPI)
+    environment:
+      - NODE_ENV=production
+      - PORT=3005
+      - DATABASE_URL=postgresql://${ZYMOALLY_DB_USER:-zymoally}:${ZYMOALLY_DB_PASSWORD}@zymoally-db:5432/${ZYMOALLY_DB_NAME:-zymoallydb}
+      - INTRANET_API_URL=http://backend:8001
+      - UPLOAD_DIR=/app/uploads
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:81}
+    volumes:
+      - zymoally_uploads:/app/uploads
+    depends_on:
+      zymoally-db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  zymoally-db:
+    image: postgres:15-alpine
+    ports:
+      - "5438:5432"
+    environment:
+      - POSTGRES_USER=${ZYMOALLY_DB_USER:-zymoally}
+      - POSTGRES_PASSWORD=${ZYMOALLY_DB_PASSWORD}
+      - POSTGRES_DB=${ZYMOALLY_DB_NAME:-zymoallydb}
+    volumes:
+      - zymoally_db_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ZYMOALLY_DB_USER:-zymoally} -d ${ZYMOALLY_DB_NAME:-zymoallydb}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   backend_data:
   helix_db_data:
@@ -202,3 +241,5 @@ volumes:
   sig_db_data:
   sig_uploads:
   zymo_db_data:
+  zymoally_db_data:
+  zymoally_uploads:
