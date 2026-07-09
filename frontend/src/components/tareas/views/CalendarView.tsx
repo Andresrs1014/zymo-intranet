@@ -23,17 +23,9 @@ function getDaysInMonth(year: number, month: number): Date[] {
 const MONTH_NAMES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"]
 const DAY_NAMES = ["L","M","M","J","V","S","D"]
 
-const INPUT_STYLE: React.CSSProperties = {
-  padding: "8px 12px",
-  borderRadius: 6,
-  border: "1px solid rgba(255,255,255,0.10)",
-  fontSize: 13,
-  color: "#f4f4f5",
-  background: "#1b2029",
-  outline: "none",
-  width: "100%",
-  boxSizing: "border-box",
-}
+const INPUT_CLASS =
+  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-[13px] text-zinc-900 outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/30"
+const SUBLABEL = "mb-1 block text-[11px] font-semibold text-zinc-500"
 
 // ─── Event Card ───────────────────────────────────────────────────────────────
 
@@ -43,80 +35,55 @@ function EventCard({ event, currentUserId, onConfirm }: { event: TaskEvent; curr
   const alreadyConfirmed = currentUserId != null && event.participants.find((p) => p.userId === currentUserId)?.confirmado === true
   return (
     <div
-      style={{
-        background: "#1b2029",
-        borderRadius: 8,
-        border: `1.5px solid ${hasConflict ? "rgba(239,51,64,0.45)" : "rgba(255,255,255,0.10)"}`,
-        padding: "12px 14px",
-        marginBottom: 10,
-      }}
+      className="mb-2.5 rounded-lg bg-white px-3.5 py-3 shadow-sm"
+      style={{ border: `1.5px solid ${hasConflict ? "rgba(196,30,58,0.45)" : "#e4e4e7"}` }}
     >
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 600, fontSize: 13, color: "#f4f4f5" }}>{event.titulo}</div>
-          <div style={{ color: "#a1a1aa", fontSize: 12, marginTop: 3 }}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1">
+          <div className="text-[13px] font-semibold text-zinc-900">{event.titulo}</div>
+          <div className="mt-1 text-xs text-zinc-500">
             {event.horaInicio} · {event.duracionMinutos}min
             {event.plataforma && ` · ${event.plataforma}`}
             {event.modalidad && ` · ${event.modalidad}`}
           </div>
           {(event as { descripcion?: string }).descripcion && (
-            <div style={{ color: "#a1a1aa", fontSize: 12, marginTop: 4 }}>
+            <div className="mt-1 text-xs text-zinc-500">
               {(event as { descripcion?: string }).descripcion}
             </div>
           )}
         </div>
         {hasConflict && (
-          <span title="Conflicto de horario" style={{ color: "#ef4444", fontSize: 16, flexShrink: 0 }}>⚠</span>
+          <span title="Conflicto de horario" className="shrink-0 text-base text-red-600">⚠</span>
         )}
       </div>
 
-      <div style={{ marginTop: 10, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+      <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
         {event.participants.slice(0, 6).map((p) => (
           <div
             key={p.userId}
             title={p.userNombre + (p.hasConflict ? ` — ${p.conflictDetail}` : "") + (p.confirmado ? " ✓" : "")}
+            className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white"
             style={{
-              width: 26,
-              height: 26,
-              borderRadius: "50%",
-              background: p.confirmado ? "#10b981" : "#00a8c8",
-              color: "#fff",
-              fontSize: 9,
-              fontWeight: 700,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              border: p.hasConflict ? "2px solid #ef4444" : "2px solid transparent",
-              cursor: "default",
-              flexShrink: 0,
+              background: p.confirmado ? "#059669" : "#0891b2",
+              border: p.hasConflict ? "2px solid #dc2626" : "2px solid transparent",
             }}
           >
             {p.userNombre.slice(0, 2).toUpperCase()}
           </div>
         ))}
         {event.participants.length > 6 && (
-          <span style={{ fontSize: 11, color: "#71717a" }}>+{event.participants.length - 6}</span>
+          <span className="text-[11px] text-zinc-500">+{event.participants.length - 6}</span>
         )}
         {isParticipant && !alreadyConfirmed && (
           <button
             onClick={() => onConfirm(event.id)}
-            style={{
-              marginLeft: "auto",
-              padding: "4px 12px",
-              borderRadius: 6,
-              border: "1px solid rgba(255,255,255,0.10)",
-              background: "#12151c",
-              color: "#d4d4d8",
-              fontSize: 11,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
+            className="ml-auto rounded-md border border-zinc-300 bg-white px-3 py-1 text-[11px] font-semibold text-zinc-700 transition hover:bg-zinc-50"
           >
             Confirmar asistencia
           </button>
         )}
         {isParticipant && alreadyConfirmed && (
-          <span style={{ marginLeft: "auto", fontSize: 11, color: "#10b981", fontWeight: 600 }}>✓ Confirmado</span>
+          <span className="ml-auto text-[11px] font-semibold text-emerald-600">✓ Confirmado</span>
         )}
       </div>
     </div>
@@ -212,82 +179,65 @@ function CreateEventForm({
       : allUsers.map((u) => ({ id: u.id, name: u.full_name ?? u.email }))
 
   return (
-    <div
-      style={{
-        background: "#1b2029",
-        borderRadius: 10,
-        border: "1px solid rgba(255,255,255,0.10)",
-        padding: 20,
-        marginTop: 16,
-      }}
-    >
-      <h3 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 700, color: "#f4f4f5" }}>
+    <div className="mt-4 rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
+      <h3 className="mb-4 text-[14px] font-bold text-zinc-900">
         Nuevo evento — {selectedDay}
       </h3>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div className="flex flex-col gap-3">
         {/* Título */}
         <input
           placeholder="Título del evento *"
           value={form.titulo}
           onChange={(e) => setForm((f) => ({ ...f, titulo: e.target.value }))}
-          style={INPUT_STYLE}
+          className={INPUT_CLASS}
         />
 
         {/* Hora inicio + Hora fin */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <div className="grid grid-cols-2 gap-2.5">
           <div>
-            <label style={{ fontSize: 11, fontWeight: 600, color: "#a1a1aa", display: "block", marginBottom: 4 }}>
-              Hora inicio
-            </label>
+            <label className={SUBLABEL}>Hora inicio</label>
             <input
               type="time"
               value={form.horaInicio}
               onChange={(e) => {
                 const horaInicio = e.target.value
-                // Mantener la misma duración al cambiar hora inicio
                 const duracion = diffMinutes(form.horaInicio, form.horaFin)
                 setForm((f) => ({ ...f, horaInicio, horaFin: addMinutes(horaInicio, duracion) }))
               }}
-              style={INPUT_STYLE}
+              className={INPUT_CLASS}
             />
           </div>
           <div>
-            <label style={{ fontSize: 11, fontWeight: 600, color: "#a1a1aa", display: "block", marginBottom: 4 }}>
-              Hora fin
-            </label>
+            <label className={SUBLABEL}>Hora fin</label>
             <input
               type="time"
               value={form.horaFin}
               onChange={(e) => setForm((f) => ({ ...f, horaFin: e.target.value }))}
-              style={INPUT_STYLE}
+              className={INPUT_CLASS}
             />
           </div>
         </div>
 
         {/* Descripción */}
         <div>
-          <label style={{ fontSize: 11, fontWeight: 600, color: "#a1a1aa", display: "block", marginBottom: 4 }}>
-            Descripción
-          </label>
+          <label className={SUBLABEL}>Descripción</label>
           <textarea
             placeholder="Descripción del evento…"
             value={form.descripcion}
             onChange={(e) => setForm((f) => ({ ...f, descripcion: e.target.value }))}
             rows={2}
-            style={{ ...INPUT_STYLE, resize: "vertical" }}
+            className={`${INPUT_CLASS} resize-y`}
           />
         </div>
 
         {/* Modalidad */}
         <div>
-          <label style={{ fontSize: 11, fontWeight: 600, color: "#a1a1aa", display: "block", marginBottom: 4 }}>
-            Modalidad
-          </label>
+          <label className={SUBLABEL}>Modalidad</label>
           <select
             value={form.modalidad}
             onChange={(e) => setForm((f) => ({ ...f, modalidad: e.target.value }))}
-            style={INPUT_STYLE}
+            className={INPUT_CLASS}
           >
             <option value="">Seleccionar…</option>
             {modalidades.map((m) => (
@@ -297,15 +247,13 @@ function CreateEventForm({
         </div>
 
         {/* Plataforma + Prioridad */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <div className="grid grid-cols-2 gap-2.5">
           <div>
-            <label style={{ fontSize: 11, fontWeight: 600, color: "#a1a1aa", display: "block", marginBottom: 4 }}>
-              Plataforma
-            </label>
+            <label className={SUBLABEL}>Plataforma</label>
             <select
               value={form.plataforma}
               onChange={(e) => setForm((f) => ({ ...f, plataforma: e.target.value }))}
-              style={INPUT_STYLE}
+              className={INPUT_CLASS}
             >
               <option value="">Seleccionar…</option>
               {plataformas.map((p) => (
@@ -314,13 +262,11 @@ function CreateEventForm({
             </select>
           </div>
           <div>
-            <label style={{ fontSize: 11, fontWeight: 600, color: "#a1a1aa", display: "block", marginBottom: 4 }}>
-              Prioridad
-            </label>
+            <label className={SUBLABEL}>Prioridad</label>
             <select
               value={form.prioridad}
               onChange={(e) => setForm((f) => ({ ...f, prioridad: e.target.value }))}
-              style={INPUT_STYLE}
+              className={INPUT_CLASS}
             >
               <option value="">Seleccionar…</option>
               {prioridades.map((p) => (
@@ -332,25 +278,18 @@ function CreateEventForm({
 
         {/* Participantes */}
         <div>
-          <label style={{ fontSize: 11, fontWeight: 600, color: "#a1a1aa", display: "block", marginBottom: 6 }}>
-            Participantes
-          </label>
+          <label className={`${SUBLABEL} mb-1.5`}>Participantes</label>
           {/* Tabs */}
-          <div style={{ display: "flex", borderBottom: "1px solid rgba(255,255,255,0.10)", marginBottom: 8 }}>
+          <div className="mb-2 flex border-b border-zinc-200">
             {(["equipo", "todos"] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setForm((f) => ({ ...f, participantTab: tab }))}
+                className="-mb-px border-b-2 px-3.5 py-1.5 text-xs transition"
                 style={{
-                  padding: "6px 14px",
-                  border: "none",
-                  borderBottom: `2px solid ${form.participantTab === tab ? "#ef3340" : "transparent"}`,
-                  background: "none",
-                  color: form.participantTab === tab ? "#ef3340" : "#a1a1aa",
+                  borderBottomColor: form.participantTab === tab ? "#c41e3a" : "transparent",
+                  color: form.participantTab === tab ? "#c41e3a" : "#71717a",
                   fontWeight: form.participantTab === tab ? 700 : 400,
-                  fontSize: 12,
-                  cursor: "pointer",
-                  marginBottom: -1,
                 }}
               >
                 {tab === "equipo" ? "Equipo" : "Todos"}
@@ -358,79 +297,46 @@ function CreateEventForm({
             ))}
           </div>
           {/* List */}
-          <div
-            style={{
-              maxHeight: 140,
-              overflowY: "auto",
-              border: "1px solid rgba(255,255,255,0.10)",
-              borderRadius: 6,
-              padding: "4px 0",
-            }}
-          >
+          <div className="max-h-[140px] overflow-y-auto rounded-md border border-zinc-200 py-1">
             {participantList.length === 0 ? (
-              <div style={{ padding: "10px 12px", fontSize: 12, color: "#71717a" }}>Sin miembros</div>
+              <div className="px-3 py-2.5 text-xs text-zinc-500">Sin miembros</div>
             ) : (
               participantList.map((u) => (
                 <label
                   key={u.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "6px 12px",
-                    cursor: "pointer",
-                    background: form.participantIds.includes(u.id) ? "rgba(239,51,64,0.12)" : "transparent",
-                  }}
+                  className="flex cursor-pointer items-center gap-2 px-3 py-1.5"
+                  style={{ background: form.participantIds.includes(u.id) ? "rgba(196,30,58,0.08)" : "transparent" }}
                 >
                   <input
                     type="checkbox"
                     checked={form.participantIds.includes(u.id)}
                     onChange={() => toggleParticipant(u.id)}
-                    style={{ cursor: "pointer" }}
+                    className="cursor-pointer accent-primary"
                   />
-                  <span style={{ fontSize: 12, color: "#d4d4d8" }}>{u.name}</span>
+                  <span className="text-xs text-zinc-700">{u.name}</span>
                 </label>
               ))
             )}
           </div>
           {form.participantIds.length > 0 && (
-            <div style={{ fontSize: 11, color: "#a1a1aa", marginTop: 4 }}>
+            <div className="mt-1 text-[11px] text-zinc-500">
               {form.participantIds.length} participante{form.participantIds.length !== 1 ? "s" : ""} seleccionado{form.participantIds.length !== 1 ? "s" : ""}
             </div>
           )}
         </div>
 
         {/* Actions */}
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", paddingTop: 4 }}>
+        <div className="flex justify-end gap-2 pt-1">
           <button
             onClick={onClose}
-            style={{
-              padding: "8px 18px",
-              borderRadius: 7,
-              border: "1px solid rgba(255,255,255,0.10)",
-              background: "#1b2029",
-              color: "#d4d4d8",
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
+            className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-[13px] font-semibold text-zinc-700 transition hover:bg-zinc-50"
           >
             Cancelar
           </button>
           <button
             onClick={handleSubmit}
             disabled={createEvent.isPending || !form.titulo.trim()}
-            style={{
-              padding: "8px 18px",
-              borderRadius: 7,
-              border: "none",
-              background: !form.titulo.trim() ? "rgba(239,51,64,0.45)" : "#ef3340",
-              color: "#fff",
-              fontWeight: 700,
-              fontSize: 13,
-              cursor: form.titulo.trim() ? "pointer" : "default",
-              opacity: createEvent.isPending ? 0.7 : 1,
-            }}
+            className="rounded-md bg-primary px-4 py-2 text-[13px] font-bold text-primary-foreground shadow-sm transition hover:brightness-95 disabled:cursor-default disabled:bg-zinc-200 disabled:text-zinc-400 disabled:shadow-none"
           >
             {createEvent.isPending ? "Guardando…" : "Crear evento"}
           </button>
@@ -461,80 +367,36 @@ export function CalendarView() {
   const datesWithEvents = new Set(events.map((e) => e.fecha.slice(0, 10)))
 
   if (!activeTeamId) {
-    return <div style={{ textAlign: "center", padding: 60, color: "#a1a1aa" }}>Selecciona un equipo.</div>
+    return <div className="p-16 text-center text-zinc-500">Selecciona un equipo.</div>
   }
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 24, alignItems: "start" }}>
+    <div className="grid items-start gap-6" style={{ gridTemplateColumns: "300px 1fr" }}>
       {/* ── Calendar grid ── */}
-      <div
-        style={{
-          background: "#1b2029",
-          borderRadius: 10,
-          border: "1px solid rgba(255,255,255,0.10)",
-          padding: 18,
-          boxShadow: "0 1px 4px rgba(18,20,32,0.05)",
-        }}
-      >
+      <div className="rounded-lg border border-zinc-200 bg-white p-[18px] shadow-sm">
         {/* Month nav */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+        <div className="mb-3.5 flex items-center justify-between">
           <button
             onClick={() => setCurrentDate(new Date(year, month - 1, 1))}
-            style={{
-              width: 30,
-              height: 30,
-              borderRadius: 6,
-              border: "1px solid rgba(255,255,255,0.10)",
-              background: "#12151c",
-              fontSize: 16,
-              cursor: "pointer",
-              color: "#d4d4d8",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              lineHeight: 1,
-            }}
+            className="flex h-[30px] w-[30px] items-center justify-center rounded-md border border-zinc-300 bg-zinc-50 text-base leading-none text-zinc-700 transition hover:bg-zinc-100"
           >
             ‹
           </button>
-          <span style={{ fontWeight: 700, fontSize: 14, color: "#f4f4f5" }}>
+          <span className="text-[14px] font-bold text-zinc-900">
             {MONTH_NAMES[month]} {year}
           </span>
           <button
             onClick={() => setCurrentDate(new Date(year, month + 1, 1))}
-            style={{
-              width: 30,
-              height: 30,
-              borderRadius: 6,
-              border: "1px solid rgba(255,255,255,0.10)",
-              background: "#12151c",
-              fontSize: 16,
-              cursor: "pointer",
-              color: "#d4d4d8",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              lineHeight: 1,
-            }}
+            className="flex h-[30px] w-[30px] items-center justify-center rounded-md border border-zinc-300 bg-zinc-50 text-base leading-none text-zinc-700 transition hover:bg-zinc-100"
           >
             ›
           </button>
         </div>
 
         {/* Day names header */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, marginBottom: 6 }}>
+        <div className="mb-1.5 grid gap-0.5" style={{ gridTemplateColumns: "repeat(7, 1fr)" }}>
           {DAY_NAMES.map((d, i) => (
-            <div
-              key={i}
-              style={{
-                textAlign: "center",
-                fontSize: 10,
-                fontWeight: 700,
-                color: "#71717a",
-                padding: "4px 0",
-                letterSpacing: "0.04em",
-              }}
-            >
+            <div key={i} className="py-1 text-center text-[10px] font-bold tracking-[0.04em] text-zinc-500">
               {d}
             </div>
           ))}
@@ -547,7 +409,7 @@ export function CalendarView() {
           const rows: (Date | null)[][] = []
           for (let i = 0; i < cells.length; i += 7) rows.push(cells.slice(i, i + 7))
           return rows.map((row, ri) => (
-            <div key={ri} style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, marginBottom: 2 }}>
+            <div key={ri} className="mb-0.5 grid gap-0.5" style={{ gridTemplateColumns: "repeat(7, 1fr)" }}>
               {row.map((day, ci) => {
                 if (!day) return <div key={ci} />
                 const iso = formatDate(day)
@@ -558,32 +420,19 @@ export function CalendarView() {
                   <button
                     key={ci}
                     onClick={() => { setSelectedDay(iso); setShowCreate(false) }}
+                    className="relative rounded-md py-[7px] text-[13px] leading-none"
                     style={{
-                      padding: "7px 2px",
-                      borderRadius: 7,
                       border: "none",
-                      background: isSelected ? "#ef3340" : isToday ? "rgba(239,51,64,0.12)" : "transparent",
-                      color: isSelected ? "#fff" : isToday ? "#ef3340" : "#d4d4d8",
+                      background: isSelected ? "#c41e3a" : isToday ? "rgba(196,30,58,0.10)" : "transparent",
+                      color: isSelected ? "#fff" : isToday ? "#c41e3a" : "#3f3f46",
                       fontWeight: isToday || isSelected ? 700 : 400,
-                      fontSize: 13,
-                      cursor: "pointer",
-                      position: "relative",
-                      lineHeight: 1,
                     }}
                   >
                     {day.getDate()}
                     {hasEvent && !isSelected && (
                       <div
-                        style={{
-                          position: "absolute",
-                          bottom: 3,
-                          left: "50%",
-                          transform: "translateX(-50%)",
-                          width: 4,
-                          height: 4,
-                          borderRadius: "50%",
-                          background: "#ef3340",
-                        }}
+                        className="absolute h-1 w-1 rounded-full bg-primary"
+                        style={{ bottom: 3, left: "50%", transform: "translateX(-50%)" }}
                       />
                     )}
                   </button>
@@ -594,23 +443,14 @@ export function CalendarView() {
         })()}
 
         {/* Today button */}
-        <div style={{ marginTop: 12, textAlign: "center" }}>
+        <div className="mt-3 text-center">
           <button
             onClick={() => {
               setCurrentDate(today)
               setSelectedDay(formatDate(today))
               setShowCreate(false)
             }}
-            style={{
-              padding: "5px 14px",
-              borderRadius: 6,
-              border: "1px solid rgba(255,255,255,0.10)",
-              background: "#12151c",
-              color: "#a1a1aa",
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
+            className="rounded-md border border-zinc-300 bg-zinc-50 px-3.5 py-[5px] text-xs font-semibold text-zinc-600 transition hover:bg-zinc-100"
           >
             Hoy
           </button>
@@ -619,56 +459,35 @@ export function CalendarView() {
 
       {/* ── Day panel ── */}
       <div>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: 16,
-            paddingBottom: 12,
-            borderBottom: "1px solid rgba(255,255,255,0.10)",
-          }}
-        >
+        <div className="mb-4 flex items-center justify-between border-b border-zinc-200 pb-3">
           <div>
-            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#f4f4f5" }}>
+            <h2 className="text-[16px] font-bold text-zinc-900">
               {new Date(selectedDay + "T12:00:00").toLocaleDateString("es-CO", {
                 weekday: "long",
                 day: "numeric",
                 month: "long",
               })}
             </h2>
-            <div style={{ fontSize: 12, color: "#71717a", marginTop: 2 }}>
+            <div className="mt-0.5 text-xs text-zinc-500">
               {eventsForSelected.length} evento{eventsForSelected.length !== 1 ? "s" : ""}
             </div>
           </div>
           <button
             onClick={() => setShowCreate((v) => !v)}
-            style={{
-              padding: "8px 18px",
-              borderRadius: 7,
-              border: showCreate ? "1px solid rgba(255,255,255,0.10)" : "none",
-              background: showCreate ? "#12151c" : "#ef3340",
-              color: showCreate ? "#d4d4d8" : "#fff",
-              fontWeight: 700,
-              fontSize: 13,
-              cursor: "pointer",
-            } as React.CSSProperties}
+            className={`rounded-md px-4 py-2 text-[13px] font-bold transition ${
+              showCreate
+                ? "border border-zinc-300 bg-zinc-50 text-zinc-700 hover:bg-zinc-100"
+                : "bg-primary text-primary-foreground shadow-sm hover:brightness-95"
+            }`}
           >
             {showCreate ? "Cancelar" : "+ Nuevo evento"}
           </button>
         </div>
 
         {eventsForSelected.length === 0 && !showCreate ? (
-          <div
-            style={{
-              padding: "48px 0",
-              color: "#71717a",
-              textAlign: "center",
-              fontSize: 14,
-            }}
-          >
+          <div className="py-12 text-center text-sm text-zinc-500">
             Sin eventos para este día.
-            <div style={{ marginTop: 8, fontSize: 12 }}>
+            <div className="mt-2 text-xs">
               Haz clic en "+ Nuevo evento" para crear uno.
             </div>
           </div>

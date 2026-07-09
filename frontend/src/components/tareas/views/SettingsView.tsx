@@ -24,6 +24,9 @@ import type { ListConfig, ListType } from "@/types/task"
 
 type SettingsTab = "team" | "lists"
 
+const INPUT_CLASS =
+  "rounded-md border border-zinc-300 bg-white px-3 py-2 text-[13px] text-zinc-900 outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/30"
+
 // ─── Team settings ────────────────────────────────────────────────────────────
 
 function TeamSettings() {
@@ -56,31 +59,27 @@ function TeamSettings() {
     }
   }
 
-  const ROLE_BADGE = (role: string) => ({
-    padding: "1px 8px",
-    borderRadius: 99,
-    fontSize: 10,
-    fontWeight: 700,
-    background: role === "co_gestor" ? "rgba(245,158,11,0.16)" : "rgba(255,255,255,0.07)",
-    color: role === "co_gestor" ? "#fcd34d" : "#a1a1aa",
-  })
+  const roleBadgeClass = (role: string) =>
+    `rounded-full px-2 py-px text-[10px] font-bold ${
+      role === "co_gestor" ? "bg-amber-100 text-amber-800" : "bg-zinc-100 text-zinc-600"
+    }`
 
   return (
     <div>
       {/* Rename team */}
       {isOwner && (
-        <div style={{ marginBottom: 28 }}>
-          <h3 style={{ margin: "0 0 10px", fontSize: 14, fontWeight: 700, color: "#f4f4f5" }}>Nombre del equipo</h3>
-          <div style={{ display: "flex", gap: 8 }}>
+        <div className="mb-7">
+          <h3 className="mb-2.5 text-[14px] font-bold text-zinc-900">Nombre del equipo</h3>
+          <div className="flex gap-2">
             <input
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              style={{ flex: 1, padding: "8px 12px", borderRadius: 7, border: "1px solid rgba(255,255,255,0.10)", fontSize: 13 }}
+              className={`flex-1 ${INPUT_CLASS}`}
             />
             <button
               onClick={handleRename}
               disabled={rename.isPending}
-              style={{ padding: "8px 18px", borderRadius: 7, border: "none", background: "#ef3340", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+              className="rounded-md bg-primary px-4 py-2 text-[13px] font-bold text-primary-foreground transition hover:brightness-95"
             >
               Guardar
             </button>
@@ -90,15 +89,15 @@ function TeamSettings() {
 
       {/* Danger zone: delete team */}
       {isOwner && (
-        <div style={{ marginBottom: 28, padding: "14px 16px", borderRadius: 8, border: "1px solid rgba(239,51,64,0.45)", background: "rgba(239,51,64,0.08)" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div className="mb-7 rounded-lg border border-red-200 bg-red-50 px-4 py-3.5">
+          <div className="flex items-center justify-between">
             <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#ff6b75" }}>Eliminar espacio de trabajo</div>
-              <div style={{ fontSize: 12, color: "#ef4444", marginTop: 2 }}>Esta acción es permanente y no se puede deshacer.</div>
+              <div className="text-[13px] font-bold text-red-600">Eliminar espacio de trabajo</div>
+              <div className="mt-0.5 text-xs text-red-500">Esta acción es permanente y no se puede deshacer.</div>
             </div>
             <button
               onClick={() => setShowDeleteConfirm(true)}
-              style={{ padding: "7px 16px", borderRadius: 6, border: "none", background: "#ef4444", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}
+              className="rounded-md bg-red-600 px-4 py-1.5 text-xs font-bold text-white transition hover:bg-red-700"
             >
               Eliminar
             </button>
@@ -108,16 +107,16 @@ function TeamSettings() {
 
       {/* Delete confirmation modal */}
       {showDeleteConfirm && activeTeamId && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 }}>
-          <div style={{ background: "#1b2029", borderRadius: 10, padding: 28, width: 380 }}>
-            <h3 style={{ margin: "0 0 10px", fontSize: 15, fontWeight: 700, color: "#f4f4f5" }}>¿Eliminar espacio de trabajo?</h3>
-            <p style={{ fontSize: 13, color: "#a1a1aa", margin: "0 0 20px" }}>
+        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/40 p-4">
+          <div className="w-[380px] rounded-lg border border-zinc-200 bg-white p-7 shadow-2xl">
+            <h3 className="mb-2.5 text-[15px] font-bold text-zinc-900">¿Eliminar espacio de trabajo?</h3>
+            <p className="mb-5 text-[13px] text-zinc-600">
               Se desactivará el equipo <strong>"{team?.name}"</strong>. Las tareas y datos existentes quedarán guardados pero el equipo no será visible.
             </p>
-            <div style={{ display: "flex", gap: 10 }}>
+            <div className="flex gap-2.5">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                style={{ flex: 1, padding: "9px", borderRadius: 7, border: "1px solid rgba(255,255,255,0.10)", background: "#12151c", fontSize: 13, cursor: "pointer" }}
+                className="flex-1 rounded-md border border-zinc-300 bg-white py-2 text-[13px] text-zinc-700 transition hover:bg-zinc-50"
               >
                 Cancelar
               </button>
@@ -133,7 +132,7 @@ function TeamSettings() {
                     showToast("Error al eliminar", "error")
                   }
                 }}
-                style={{ flex: 1, padding: "9px", borderRadius: 7, border: "none", background: "#ef4444", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+                className="flex-1 rounded-md bg-red-600 py-2 text-[13px] font-bold text-white transition hover:bg-red-700"
               >
                 {deleteTeam.isPending ? "Eliminando..." : "Sí, eliminar"}
               </button>
@@ -143,55 +142,44 @@ function TeamSettings() {
       )}
 
       {/* Members list */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#f4f4f5" }}>Miembros ({members.length})</h3>
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-[14px] font-bold text-zinc-900">Miembros ({members.length})</h3>
         {(isOwner || team?.myRole === "co_gestor") && (
           <button
             onClick={() => setShowAddDialog(true)}
-            style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.10)", background: "#12151c", fontSize: 13, cursor: "pointer", color: "#d4d4d8", fontWeight: 600 }}
+            className="rounded-md border border-zinc-300 bg-white px-3.5 py-1.5 text-[13px] font-semibold text-zinc-700 transition hover:bg-zinc-50"
           >
             + Agregar
           </button>
         )}
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div className="flex flex-col gap-2">
         {members.map((m) => (
-          <div key={m.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "#1b2029", borderRadius: 8, border: "1px solid rgba(255,255,255,0.10)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{
-                width: 32,
-                height: 32,
-                borderRadius: "50%",
-                background: "#00a8c8",
-                color: "#fff",
-                fontSize: 11,
-                fontWeight: 700,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}>
+          <div key={m.id} className="flex items-center justify-between rounded-lg border border-zinc-200 bg-white px-3.5 py-2.5">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-600 text-[11px] font-bold text-white">
                 {m.userId.toString().slice(0, 2)}
               </div>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 500, color: "#f4f4f5" }}>{m.userNombre ?? `Usuario ${m.userId}`}</div>
-                <span style={ROLE_BADGE(m.role)}>{m.role === "co_gestor" ? "Co-gestor" : "Miembro"}</span>
+                <div className="text-[13px] font-medium text-zinc-900">{m.userNombre ?? `Usuario ${m.userId}`}</div>
+                <span className={roleBadgeClass(m.role)}>{m.role === "co_gestor" ? "Co-gestor" : "Miembro"}</span>
               </div>
             </div>
 
             {isOwner && activeTeamId && (
-              <div style={{ display: "flex", gap: 6 }}>
+              <div className="flex gap-1.5">
                 {m.role === "member" ? (
                   <button
                     onClick={() => promote.mutateAsync({ teamId: activeTeamId, userId: m.userId })}
-                    style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid rgba(255,255,255,0.10)", background: "#1b2029", fontSize: 11, cursor: "pointer", color: "#d4d4d8" }}
+                    className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-[11px] text-zinc-700 transition hover:bg-zinc-50"
                   >
                     Promover
                   </button>
                 ) : (
                   <button
                     onClick={() => demote.mutateAsync({ teamId: activeTeamId, userId: m.userId })}
-                    style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid rgba(255,255,255,0.10)", background: "#1b2029", fontSize: 11, cursor: "pointer", color: "#d4d4d8" }}
+                    className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-[11px] text-zinc-700 transition hover:bg-zinc-50"
                   >
                     Degradar
                   </button>
@@ -202,7 +190,7 @@ function TeamSettings() {
                       removeMember.mutate({ teamId: activeTeamId, userId: m.userId })
                     }
                   }}
-                  style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid rgba(239,51,64,0.45)", background: "rgba(239,51,64,0.08)", fontSize: 11, cursor: "pointer", color: "#ef4444" }}
+                  className="rounded-md border border-red-300 bg-red-50 px-2.5 py-1 text-[11px] text-red-600 transition hover:bg-red-100"
                 >
                   Remover
                 </button>
@@ -214,29 +202,29 @@ function TeamSettings() {
 
       {/* Add member dialog */}
       {showAddDialog && activeTeamId && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}>
-          <div style={{ background: "#1b2029", borderRadius: 10, padding: 24, width: 400, maxHeight: "70vh", overflow: "auto" }}>
-            <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 700 }}>Agregar miembro</h3>
+        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/40 p-4">
+          <div className="max-h-[70vh] w-[400px] overflow-auto rounded-lg border border-zinc-200 bg-white p-6 shadow-2xl">
+            <h3 className="mb-4 text-[15px] font-bold text-zinc-900">Agregar miembro</h3>
             {(availableUsers as AvailableUser[]).map((u) => (
-              <div key={u.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-                <span style={{ fontSize: 13, color: "#d4d4d8" }}>{u.full_name ?? `Usuario ${u.id}`}</span>
+              <div key={u.id} className="flex items-center justify-between border-b border-zinc-100 py-2">
+                <span className="text-[13px] text-zinc-700">{u.full_name ?? `Usuario ${u.id}`}</span>
                 <button
                   onClick={async () => {
                     await addMember.mutateAsync({ teamId: activeTeamId, userId: u.id, userNombre: u.full_name ?? undefined })
                     showToast("Miembro agregado", "success")
                   }}
-                  style={{ padding: "4px 12px", borderRadius: 5, border: "none", background: "#ef3340", color: "#fff", fontSize: 12, cursor: "pointer" }}
+                  className="rounded-md bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground transition hover:brightness-95"
                 >
                   Agregar
                 </button>
               </div>
             ))}
             {availableUsers.length === 0 && (
-              <p style={{ fontSize: 13, color: "#71717a", textAlign: "center" }}>No hay usuarios disponibles.</p>
+              <p className="text-center text-[13px] text-zinc-500">No hay usuarios disponibles.</p>
             )}
             <button
               onClick={() => setShowAddDialog(false)}
-              style={{ marginTop: 16, width: "100%", padding: "8px", borderRadius: 7, border: "1px solid rgba(255,255,255,0.10)", background: "#12151c", fontSize: 13, cursor: "pointer" }}
+              className="mt-4 w-full rounded-md border border-zinc-300 bg-white py-2 text-[13px] text-zinc-700 transition hover:bg-zinc-50"
             >
               Cerrar
             </button>
@@ -262,16 +250,16 @@ function ListItem({ item, teamId, isEstado }: { item: ListConfig; teamId: number
   const setSpecial = useSetSpecialFlag()
   const [editing, setEditing] = useState(false)
   const [editLabel, setEditLabel] = useState(item.label)
-  const [editColor, setEditColor] = useState(item.color ?? "#6b7280")
+  const [editColor, setEditColor] = useState(item.color ?? "#71717a")
 
   // Border color reflects active special flag
   const borderColor = item.isFinal
-    ? "#22c55e"
+    ? "#16a34a"
     : item.isCanceled
-    ? "#ef4444"
+    ? "#dc2626"
     : item.isInitialAssignment
-    ? "#3b82f6"
-    : "rgba(255,255,255,0.10)"
+    ? "#2563eb"
+    : "#e4e4e7"
 
   const iconBtn = (active: boolean, activeColor: string) => ({
     display: "flex",
@@ -280,9 +268,9 @@ function ListItem({ item, teamId, isEstado }: { item: ListConfig; teamId: number
     width: 26,
     height: 26,
     borderRadius: 5,
-    border: `1px solid ${active ? activeColor : "rgba(255,255,255,0.10)"}`,
+    border: `1px solid ${active ? activeColor : "#d4d4d8"}`,
     background: active ? `${activeColor}18` : "transparent",
-    color: active ? activeColor : "#b0b8cc",
+    color: active ? activeColor : "#71717a",
     cursor: "pointer",
     transition: "all .15s",
   } as React.CSSProperties)
@@ -293,27 +281,20 @@ function ListItem({ item, teamId, isEstado }: { item: ListConfig; teamId: number
   }
 
   return (
-    <div style={{
-      display: "flex",
-      alignItems: "center",
-      gap: 10,
-      padding: "9px 14px",
-      background: "#1b2029",
-      borderRadius: 8,
-      border: `1.5px solid ${borderColor}`,
-      marginBottom: 6,
-      transition: "border-color .2s",
-    }}>
+    <div
+      className="mb-1.5 flex items-center gap-2.5 rounded-lg bg-white px-3.5 py-2.5"
+      style={{ border: `1.5px solid ${borderColor}`, transition: "border-color .2s" }}
+    >
       {/* Color dot */}
       {editing ? (
         <input
           type="color"
           value={editColor}
           onChange={(e) => setEditColor(e.target.value)}
-          style={{ width: 22, height: 22, padding: 1, border: "1px solid rgba(255,255,255,0.10)", borderRadius: 4, cursor: "pointer" }}
+          className="h-[22px] w-[22px] cursor-pointer rounded border border-zinc-300 p-px"
         />
       ) : (
-        <div style={{ width: 12, height: 12, borderRadius: "50%", background: item.color ?? "#6b7280", flexShrink: 0 }} />
+        <div className="h-3 w-3 shrink-0 rounded-full" style={{ background: item.color ?? "#71717a" }} />
       )}
 
       {/* Label / edit input */}
@@ -322,39 +303,36 @@ function ListItem({ item, teamId, isEstado }: { item: ListConfig; teamId: number
           value={editLabel}
           onChange={(e) => setEditLabel(e.target.value)}
           autoFocus
-          style={{ flex: 1, padding: "4px 8px", borderRadius: 5, border: "1px solid rgba(255,255,255,0.10)", fontSize: 13 }}
+          className="flex-1 rounded-md border border-zinc-300 px-2 py-1 text-[13px] text-zinc-900 outline-none focus:border-primary"
         />
       ) : (
-        <div style={{ flex: 1 }}>
-          <span style={{ fontSize: 13, fontWeight: 500, color: item.isActive ? "#f4f4f5" : "#71717a" }}>{item.label}</span>
-          <span style={{ fontSize: 10, color: "#52525b", marginLeft: 6 }}>{item.value}</span>
+        <div className="flex-1">
+          <span className={`text-[13px] font-medium ${item.isActive ? "text-zinc-900" : "text-zinc-400"}`}>{item.label}</span>
+          <span className="ml-1.5 text-[10px] text-zinc-400">{item.value}</span>
         </div>
       )}
 
       {/* Action icons */}
-      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+      <div className="flex items-center gap-1">
         {isEstado && (
           <>
-            {/* Flag = isFinal */}
             <button
               title="Estado final (completado)"
-              style={iconBtn(!!item.isFinal, "#22c55e")}
+              style={iconBtn(!!item.isFinal, "#16a34a")}
               onClick={() => setSpecial.mutate({ teamId, value: item.value, isFinal: !item.isFinal })}
             >
               <Flag size={13} />
             </button>
-            {/* Ban = isCanceled */}
             <button
               title="Estado cancelado"
-              style={iconBtn(!!item.isCanceled, "#ef4444")}
+              style={iconBtn(!!item.isCanceled, "#dc2626")}
               onClick={() => setSpecial.mutate({ teamId, value: item.value, isCanceled: !item.isCanceled })}
             >
               <Ban size={13} />
             </button>
-            {/* Mail = isInitialAssignment */}
             <button
               title="Estado inicial (asignación)"
-              style={iconBtn(!!item.isInitialAssignment, "#3b82f6")}
+              style={iconBtn(!!item.isInitialAssignment, "#2563eb")}
               onClick={() => setSpecial.mutate({ teamId, value: item.value, isInitialAssignment: !item.isInitialAssignment })}
             >
               <Mail size={13} />
@@ -365,15 +343,15 @@ function ListItem({ item, teamId, isEstado }: { item: ListConfig; teamId: number
         {/* Edit / confirm */}
         {editing ? (
           <>
-            <button title="Guardar" style={iconBtn(true, "#22c55e")} onClick={saveEdit} disabled={updateItem.isPending}>
+            <button title="Guardar" style={iconBtn(true, "#16a34a")} onClick={saveEdit} disabled={updateItem.isPending}>
               <Check size={13} />
             </button>
-            <button title="Cancelar" style={iconBtn(false, "#6b7280")} onClick={() => { setEditing(false); setEditLabel(item.label); setEditColor(item.color ?? "#6b7280") }}>
+            <button title="Cancelar" style={iconBtn(false, "#71717a")} onClick={() => { setEditing(false); setEditLabel(item.label); setEditColor(item.color ?? "#71717a") }}>
               <X size={13} />
             </button>
           </>
         ) : (
-          <button title="Editar" style={iconBtn(false, "#6b7280")} onClick={() => setEditing(true)}>
+          <button title="Editar" style={iconBtn(false, "#71717a")} onClick={() => setEditing(true)}>
             <Pencil size={13} />
           </button>
         )}
@@ -381,7 +359,7 @@ function ListItem({ item, teamId, isEstado }: { item: ListConfig; teamId: number
         {/* Trash = toggle isActive */}
         <button
           title={item.isActive ? "Desactivar" : "Activar"}
-          style={iconBtn(!item.isActive, "#ef4444")}
+          style={iconBtn(!item.isActive, "#dc2626")}
           onClick={() => updateItem.mutate({ teamId, listType: item.listType, value: item.value, isActive: !item.isActive })}
         >
           <Trash2 size={13} />
@@ -397,7 +375,7 @@ function ListsSettings() {
   const createItem = useCreateListItem()
   const { showToast } = useTaskToast()
   const [activeListTab, setActiveListTab] = useState<ListType>("estado")
-  const [newItemForm, setNewItemForm] = useState({ value: "", label: "", color: "#6b7280" })
+  const [newItemForm, setNewItemForm] = useState({ value: "", label: "", color: "#71717a" })
 
   if (!activeTeamId) return null
 
@@ -415,7 +393,7 @@ function ListsSettings() {
     try {
       await createItem.mutateAsync({ teamId: activeTeamId!, listType: activeListTab, ...newItemForm })
       showToast("Item creado", "success")
-      setNewItemForm({ value: "", label: "", color: "#6b7280" })
+      setNewItemForm({ value: "", label: "", color: "#71717a" })
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error
       showToast(msg ?? "Error al crear item", "error")
@@ -425,21 +403,16 @@ function ListsSettings() {
   return (
     <div>
       {/* Sub-tabs */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
+      <div className="mb-[18px] flex gap-2">
         {LIST_TYPE_TABS.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveListTab(tab.key)}
-            style={{
-              padding: "7px 18px",
-              borderRadius: 7,
-              border: "none",
-              background: activeListTab === tab.key ? "#ef3340" : "#12151c",
-              color: activeListTab === tab.key ? "#fff" : "#a1a1aa",
-              fontWeight: 600,
-              fontSize: 13,
-              cursor: "pointer",
-            }}
+            className={`rounded-md px-4 py-1.5 text-[13px] font-semibold transition ${
+              activeListTab === tab.key
+                ? "bg-primary text-primary-foreground"
+                : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+            }`}
           >
             {tab.label}
           </button>
@@ -451,31 +424,31 @@ function ListsSettings() {
       ))}
 
       {/* Add new item */}
-      <div style={{ marginTop: 16, padding: "14px", background: "rgba(255,255,255,0.04)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.10)" }}>
-        <h4 style={{ margin: "0 0 10px", fontSize: 13, fontWeight: 700, color: "#d4d4d8" }}>Nuevo item</h4>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+      <div className="mt-4 rounded-lg border border-zinc-200 bg-zinc-50 p-3.5">
+        <h4 className="mb-2.5 text-[13px] font-bold text-zinc-700">Nuevo item</h4>
+        <div className="flex flex-wrap gap-2">
           <input
             placeholder="Valor (slug)"
             value={newItemForm.value}
             onChange={(e) => setNewItemForm((f) => ({ ...f, value: e.target.value }))}
-            style={{ flex: 1, minWidth: 120, padding: "7px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.10)", fontSize: 12 }}
+            className={`min-w-[120px] flex-1 ${INPUT_CLASS} text-xs`}
           />
           <input
             placeholder="Etiqueta visible"
             value={newItemForm.label}
             onChange={(e) => setNewItemForm((f) => ({ ...f, label: e.target.value }))}
-            style={{ flex: 1, minWidth: 120, padding: "7px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.10)", fontSize: 12 }}
+            className={`min-w-[120px] flex-1 ${INPUT_CLASS} text-xs`}
           />
           <input
             type="color"
             value={newItemForm.color}
             onChange={(e) => setNewItemForm((f) => ({ ...f, color: e.target.value }))}
-            style={{ width: 38, height: 33, padding: 2, borderRadius: 5, border: "1px solid rgba(255,255,255,0.10)", cursor: "pointer" }}
+            className="h-[38px] w-[38px] cursor-pointer rounded-md border border-zinc-300 p-0.5"
           />
           <button
             onClick={handleCreate}
             disabled={createItem.isPending}
-            style={{ padding: "7px 16px", borderRadius: 6, border: "none", background: "#ef3340", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+            className="rounded-md bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground transition hover:brightness-95"
           >
             Agregar
           </button>
@@ -490,22 +463,18 @@ function ListsSettings() {
 export function SettingsView() {
   const [activeTab, setActiveTab] = useState<SettingsTab>("team")
 
-  const TAB_BTN = (tab: SettingsTab) => ({
-    padding: "8px 20px",
-    borderRadius: 8,
-    border: "none",
-    background: activeTab === tab ? "#ef3340" : "#12151c",
-    color: activeTab === tab ? "#fff" : "#a1a1aa",
-    fontWeight: 700,
-    fontSize: 13,
-    cursor: "pointer",
-  })
+  const tabClass = (tab: SettingsTab) =>
+    `rounded-md px-5 py-2 text-[13px] font-bold transition ${
+      activeTab === tab
+        ? "bg-primary text-primary-foreground"
+        : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+    }`
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
-        <button style={TAB_BTN("team")} onClick={() => setActiveTab("team")}>Equipo</button>
-        <button style={TAB_BTN("lists")} onClick={() => setActiveTab("lists")}>Listas</button>
+      <div className="mb-6 flex gap-2">
+        <button className={tabClass("team")} onClick={() => setActiveTab("team")}>Equipo</button>
+        <button className={tabClass("lists")} onClick={() => setActiveTab("lists")}>Listas</button>
       </div>
 
       {activeTab === "team" ? <TeamSettings /> : <ListsSettings />}

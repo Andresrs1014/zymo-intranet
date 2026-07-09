@@ -33,7 +33,7 @@ function StagedPreview({ file }: { file: File }) {
     <div className="flex flex-col items-center justify-center h-full gap-3 p-8">
       <span className="text-5xl">{fileIcon(file.type)}</span>
       <div className="text-center">
-        <p className="font-medium text-zinc-100">{file.name}</p>
+        <p className="font-medium text-zinc-900">{file.name}</p>
         <p className="text-sm text-zinc-500 mt-0.5">{formatBytes(file.size)}</p>
       </div>
     </div>
@@ -68,16 +68,16 @@ export function StagedAttachmentsPortal({ files, onChange, taskTitulo, open, onC
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-6xl w-[92vw] max-h-[90vh] h-[90vh] p-0 gap-0 flex flex-col overflow-hidden bg-[#1b2029] text-zinc-100 border border-white/10">
-        <div className="px-4 py-3 border-b border-white/10 shrink-0 pr-12">
+      <DialogContent className="max-w-6xl w-[92vw] max-h-[90vh] h-[90vh] p-0 gap-0 flex flex-col overflow-hidden bg-white text-zinc-900 border border-zinc-200">
+        <div className="px-4 py-3 border-b border-zinc-200 shrink-0 pr-12">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">
             Archivos adjuntos (se suben al crear la tarea)
           </p>
-          <h2 className="text-sm font-semibold text-zinc-100 truncate">{taskTitulo || "Nueva tarea"}</h2>
+          <h2 className="text-sm font-semibold text-zinc-900 truncate">{taskTitulo || "Nueva tarea"}</h2>
         </div>
 
         <div className="flex flex-1 min-h-0 overflow-hidden">
-          <div className="w-[240px] shrink-0 border-r border-white/10 flex flex-col bg-white/[.03]">
+          <div className="w-[240px] shrink-0 border-r border-zinc-200 flex flex-col bg-zinc-50">
             <div className="flex-1 overflow-y-auto py-1">
               {files.length === 0 && (
                 <p className="text-xs text-zinc-500 text-center py-10 px-4">
@@ -91,8 +91,8 @@ export function StagedAttachmentsPortal({ files, onChange, taskTitulo, open, onC
                   className={[
                     "group flex items-start gap-2 px-3 py-2 cursor-pointer text-xs transition-colors",
                     selectedIndex === i
-                      ? "bg-[#ef3340]/15 text-[#ff6b75] border-r-2 border-[#ef3340]"
-                      : "hover:bg-white/5 text-zinc-300",
+                      ? "bg-primary/10 text-primary border-r-2 border-primary"
+                      : "hover:bg-zinc-100 text-zinc-700",
                   ].join(" ")}
                 >
                   <span className="text-base shrink-0 leading-none mt-0.5">{fileIcon(file.type)}</span>
@@ -103,7 +103,7 @@ export function StagedAttachmentsPortal({ files, onChange, taskTitulo, open, onC
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); handleRemove(i) }}
-                    className="opacity-0 group-hover:opacity-100 text-zinc-600 hover:text-[#ff6b75] transition-opacity shrink-0 leading-none"
+                    className="opacity-0 group-hover:opacity-100 text-zinc-400 hover:text-primary transition-opacity shrink-0 leading-none"
                     aria-label={`Quitar ${file.name}`}
                   >
                     ×
@@ -112,16 +112,16 @@ export function StagedAttachmentsPortal({ files, onChange, taskTitulo, open, onC
               ))}
             </div>
 
-            <div className="border-t border-white/10 p-2 shrink-0 space-y-1">
-              {error && <p className="text-[10px] text-[#ff6b75] px-1">{error}</p>}
-              <label className="flex items-center justify-center gap-1.5 w-full rounded-md border border-dashed border-white/15 py-2 text-xs cursor-pointer text-zinc-400 transition-colors hover:bg-white/5 hover:text-zinc-200">
+            <div className="border-t border-zinc-200 p-2 shrink-0 space-y-1">
+              {error && <p className="text-[10px] text-red-600 px-1">{error}</p>}
+              <label className="flex items-center justify-center gap-1.5 w-full rounded-md border border-dashed border-zinc-300 py-2 text-xs cursor-pointer text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700">
                 <span>+ Subir archivo</span>
                 <input type="file" multiple className="hidden" onChange={handleFileInput} />
               </label>
             </div>
           </div>
 
-          <div className="flex-1 overflow-auto bg-[#12151c] flex items-center justify-center">
+          <div className="flex-1 overflow-auto bg-zinc-50 flex items-center justify-center">
             {selected ? (
               <StagedPreview key={`${selected.name}-${selectedIndex}`} file={selected} />
             ) : (
@@ -130,10 +130,10 @@ export function StagedAttachmentsPortal({ files, onChange, taskTitulo, open, onC
           </div>
         </div>
 
-        <div className="border-t border-white/10 px-4 py-3 flex justify-end shrink-0">
+        <div className="border-t border-zinc-200 px-4 py-3 flex justify-end shrink-0">
           <button
             onClick={onClose}
-            className="rounded-lg bg-[#ef3340] px-5 py-2 text-sm font-bold text-white shadow-[0_6px_18px_rgba(239,51,64,0.35)]"
+            className="rounded-md bg-primary px-5 py-2 text-sm font-bold text-primary-foreground shadow-sm transition hover:brightness-95"
           >
             Aceptar
           </button>

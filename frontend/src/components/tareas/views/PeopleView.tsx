@@ -4,6 +4,8 @@ import { usePersonSummaries } from "@/hooks/useTaskDashboard"
 import { useTasks } from "@/hooks/useTasks"
 import type { PersonSummary } from "@/types/task"
 
+const ESTADO_BAR_COLORS = ["#059669", "#d97706", "#0891b2", "#c41e3a", "#71717a"]
+
 function PersonCard({
   person,
   isSelected,
@@ -26,35 +28,20 @@ function PersonCard({
 
   return (
     <div
-      style={{
-        background: "#1b2029",
-        borderRadius: 10,
-        border: `1px solid ${isSelected ? "#ef3340" : "rgba(255,255,255,0.10)"}`,
-        padding: 18,
-        cursor: "pointer",
-        transition: "border-color 120ms",
-      }}
+      className="cursor-pointer rounded-lg border bg-white p-[18px] shadow-sm transition-colors"
+      style={{ borderColor: isSelected ? "#c41e3a" : "#e4e4e7" }}
       onClick={onClick}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-        <div style={{
-          width: 44,
-          height: 44,
-          borderRadius: "50%",
-          background: isSelected ? "#ef3340" : "#00a8c8",
-          color: "#fff",
-          fontSize: 15,
-          fontWeight: 700,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-        }}>
+      <div className="mb-3 flex items-center gap-3">
+        <div
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[15px] font-bold text-white"
+          style={{ background: isSelected ? "#c41e3a" : "#0891b2" }}
+        >
           {person.nombre.slice(0, 2).toUpperCase()}
         </div>
         <div>
-          <div style={{ fontWeight: 700, fontSize: 14, color: "#f4f4f5" }}>{person.nombre}</div>
-          <div style={{ fontSize: 11, color: "#a1a1aa", fontFamily: "'DM Mono', monospace" }}>
+          <div className="text-[14px] font-bold text-zinc-900">{person.nombre}</div>
+          <div className="font-mono text-[11px] text-zinc-500">
             {person.total} tareas · {person.horasTotal}h
           </div>
         </div>
@@ -62,15 +49,12 @@ function PersonCard({
 
       {/* Estado distribution */}
       {person.total > 0 && (
-        <div style={{ display: "flex", gap: 3, height: 6, borderRadius: 3, overflow: "hidden" }}>
+        <div className="flex h-1.5 gap-[3px] overflow-hidden rounded-[3px]">
           {Object.entries(person.byEstado).map(([estado, count], i) => (
             <div
               key={estado}
               title={`${estado}: ${count}`}
-              style={{
-                flex: count,
-                background: ["#10b981", "#f59e0b", "#00a8c8", "#ef3340", "#71717a"][i % 5],
-              }}
+              style={{ flex: count, background: ESTADO_BAR_COLORS[i % ESTADO_BAR_COLORS.length] }}
             />
           ))}
         </div>
@@ -78,23 +62,15 @@ function PersonCard({
 
       {/* Recent tasks (when selected) */}
       {isSelected && recentTasks.length > 0 && (
-        <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#71717a", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
+        <div className="mt-3.5 border-t border-zinc-200 pt-3.5">
+          <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.06em] text-zinc-500">
             Tareas recientes
           </div>
           {recentTasks.map((t) => (
-            <div key={t.id} style={{ fontSize: 12, color: "#d4d4d8", padding: "4px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-              <span style={{
-                display: "inline-block",
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                background: "#ef3340",
-                marginRight: 6,
-                verticalAlign: "middle",
-              }} />
+            <div key={t.id} className="border-b border-zinc-100 py-1 text-xs text-zinc-700">
+              <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-primary align-middle" />
               {t.titulo}
-              <span style={{ color: "#71717a", marginLeft: 6 }}>({t.estado})</span>
+              <span className="ml-1.5 text-zinc-400">({t.estado})</span>
             </div>
           ))}
         </div>
@@ -109,19 +85,19 @@ export function PeopleView() {
   const [selectedPerson, setSelectedPerson] = useState<number | null>(null)
 
   if (!activeTeamId) {
-    return <div style={{ textAlign: "center", padding: 60, color: "#a1a1aa" }}>Selecciona un equipo.</div>
+    return <div className="p-16 text-center text-zinc-500">Selecciona un equipo.</div>
   }
 
   if (persons.length === 0) {
     return (
-      <div style={{ textAlign: "center", padding: 60, color: "#a1a1aa" }}>
+      <div className="p-16 text-center text-zinc-500">
         No hay datos de personas para este equipo.
       </div>
     )
   }
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 16 }}>
+    <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
       {persons.map((p) => (
         <PersonCard
           key={p.userId}

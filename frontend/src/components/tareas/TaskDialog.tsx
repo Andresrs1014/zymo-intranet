@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { Paperclip } from "lucide-react"
 import { useTaskLists } from "@/hooks/useTaskLists"
 import { useTeamMembers } from "@/hooks/useTaskTeams"
 import { useCreateTask, useUpdateTask, useAcceptTask } from "@/hooks/useTasks"
@@ -9,6 +10,7 @@ import { useAuthStore } from "@/store/authStore"
 import type { Task, CreateTaskInput, UpdateTaskInput } from "@/types/task"
 import { AttachmentExplorerV2 } from "./AttachmentExplorerV2"
 import { StagedAttachmentsPortal } from "./StagedAttachmentsPortal"
+import { FormSelect } from "./FormSelect"
 
 function formatMin(min: number): string {
   if (min < 60) return `${min}m`
@@ -16,6 +18,10 @@ function formatMin(min: number): string {
   const m = min % 60
   return m > 0 ? `${h}h ${m}m` : `${h}h`
 }
+
+const LABEL = "mb-1 block text-[11px] font-bold uppercase tracking-[0.06em] text-zinc-500"
+const INPUT =
+  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/30 placeholder:text-zinc-400"
 
 interface TaskDialogProps {
   open: boolean
@@ -35,12 +41,10 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
   const { user } = useAuthStore()
 
   const isEdit = !!task
-  // Task is assigned to the current user and pending acceptance
   const isAssignedToMe = isEdit && task && user && task.asignadoAId === user.id
   const isPendingAcceptance = isAssignedToMe && task?.aceptacion === "pendiente"
 
   const [adjuntosOpen, setAdjuntosOpen] = useState(false)
-  // Archivos elegidos mientras se crea la tarea (aún no hay taskId) — se suben al guardar
   const [stagedFiles, setStagedFiles] = useState<File[]>([])
 
   const [form, setForm] = useState({
@@ -60,7 +64,6 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
 
   const { suggestions } = useTaskAISuggestions(form.titulo)
 
-  // Pre-fill on edit, or reset on open for create
   useEffect(() => {
     if (!open) return
     setStagedFiles([])
@@ -106,8 +109,8 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
   const modalidades = lists?.modalidad ?? []
   const prioridades = lists?.prioridad ?? []
 
-  const LABEL_STYLE = { fontSize: 11, fontWeight: 700, color: "#a1a1aa", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 4 }
-  const INPUT_STYLE = { width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.04)", color: "#f4f4f5", fontSize: 13, outline: "none", boxSizing: "border-box" as const }
+  const toOpts = (arr: { value: string; label: string }[]) =>
+    arr.map((o) => ({ value: o.value, label: o.label }))
 
   async function handleSubmit() {
     if (!teamId || !form.titulo.trim()) {
@@ -177,56 +180,41 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
   }
 
   const isPending = createTask.isPending || updateTask.isPending
+  const canSave = form.titulo.trim().length >= 3
 
   return (
-    <div style={{
-      position: "fixed",
-      inset: 0,
-      background: "rgba(0,0,0,0.45)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      zIndex: 200,
-    }}>
-      <div style={{
-        background: "#1b2029",
-        borderRadius: 12,
-        width: "min(600px, 95vw)",
-        maxHeight: "90vh",
-        overflow: "auto",
-        padding: 28,
-        border: "1px solid rgba(255,255,255,0.10)",
-        boxShadow: "0 24px 60px rgba(0,0,0,0.55)",
-      }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#f4f4f5" }}>
+    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/40 p-4">
+      <div className="w-[min(600px,95vw)] max-h-[90vh] overflow-auto rounded-xl border border-zinc-200 bg-white p-7 shadow-2xl">
+        <div className="mb-5 flex items-center justify-between">
+          <h2 className="m-0 text-[17px] font-bold text-zinc-900">
             {isEdit ? "Editar tarea" : "Nueva tarea"}
           </h2>
           <button
             onClick={onClose}
-            style={{ background: "none", border: "none", fontSize: 22, color: "#71717a", cursor: "pointer" }}
+            className="text-2xl leading-none text-zinc-400 transition hover:text-zinc-700"
+            aria-label="Cerrar"
           >
             ×
           </button>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div className="flex flex-col gap-3.5">
           {/* Título */}
           <div>
-            <div style={LABEL_STYLE}>Título *</div>
+            <div className={LABEL}>Título *</div>
             <input
-              style={INPUT_STYLE}
+              className={INPUT}
               placeholder="Título de la tarea (mín. 3 caracteres)"
               value={form.titulo}
               onChange={(e) => setForm((f) => ({ ...f, titulo: e.target.value }))}
             />
             {/* AI suggestions */}
             {suggestions && "available" in suggestions && suggestions.available && (
-              <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
                 {suggestions.etiqueta_sugerida && (
                   <button
                     onClick={() => setForm((f) => ({ ...f, etiqueta: suggestions.etiqueta_sugerida! }))}
-                    style={{ padding: "2px 10px", borderRadius: 99, fontSize: 11, fontWeight: 600, background: "rgba(239,51,64,0.16)", color: "#ff6b75", border: "1px solid rgba(239,51,64,0.35)", cursor: "pointer" }}
+                    className="rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-[11px] font-semibold text-red-600 transition hover:bg-red-100"
                   >
                     IA: {suggestions.etiqueta_sugerida}
                   </button>
@@ -234,7 +222,7 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
                 {suggestions.plataforma_sugerida && (
                   <button
                     onClick={() => setForm((f) => ({ ...f, plataforma: suggestions.plataforma_sugerida! }))}
-                    style={{ padding: "2px 10px", borderRadius: 99, fontSize: 11, fontWeight: 600, background: "rgba(0,168,200,0.16)", color: "#3fd0e8", border: "1px solid rgba(0,168,200,0.35)", cursor: "pointer" }}
+                    className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-0.5 text-[11px] font-semibold text-sky-700 transition hover:bg-sky-100"
                   >
                     IA: {suggestions.plataforma_sugerida}
                   </button>
@@ -245,9 +233,9 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
 
           {/* Descripción */}
           <div>
-            <div style={LABEL_STYLE}>Descripción técnica</div>
+            <div className={LABEL}>Descripción técnica</div>
             <textarea
-              style={{ ...INPUT_STYLE, minHeight: 80, resize: "vertical" }}
+              className={`${INPUT} min-h-[80px] resize-y`}
               placeholder="Descripción técnica de la tarea…"
               value={form.descripcionTecnica}
               onChange={(e) => setForm((f) => ({ ...f, descripcionTecnica: e.target.value }))}
@@ -255,99 +243,53 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
           </div>
 
           {/* Row: etiqueta + plataforma */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div>
-              <div style={LABEL_STYLE}>Etiqueta</div>
-              <select
-                style={INPUT_STYLE}
-                value={form.etiqueta}
-                onChange={(e) => setForm((f) => ({ ...f, etiqueta: e.target.value }))}
-              >
-                <option value="">Seleccionar…</option>
-                {etiquetas.map((e) => <option key={e.value} value={e.value}>{e.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <div style={LABEL_STYLE}>Plataforma</div>
-              <select
-                style={INPUT_STYLE}
-                value={form.plataforma}
-                onChange={(e) => setForm((f) => ({ ...f, plataforma: e.target.value }))}
-              >
-                <option value="">Seleccionar…</option>
-                {plataformas.map((e) => <option key={e.value} value={e.value}>{e.label}</option>)}
-              </select>
-            </div>
+          <div className="grid grid-cols-2 gap-3">
+            <FormSelect label="Etiqueta" value={form.etiqueta} onChange={(v) => setForm((f) => ({ ...f, etiqueta: v }))} options={toOpts(etiquetas)} />
+            <FormSelect label="Plataforma" value={form.plataforma} onChange={(v) => setForm((f) => ({ ...f, plataforma: v }))} options={toOpts(plataformas)} />
           </div>
 
           {/* Row: estado + prioridad */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div>
-              <div style={LABEL_STYLE}>Estado</div>
-              <select
-                style={INPUT_STYLE}
-                value={form.estado}
-                onChange={(e) => setForm((f) => ({ ...f, estado: e.target.value }))}
-              >
-                <option value="">Seleccionar…</option>
-                {estados.map((e) => <option key={e.value} value={e.value}>{e.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <div style={LABEL_STYLE}>Prioridad</div>
-              <select
-                style={INPUT_STYLE}
-                value={form.prioridad}
-                onChange={(e) => setForm((f) => ({ ...f, prioridad: e.target.value }))}
-              >
-                <option value="">Seleccionar…</option>
-                {prioridades.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
-              </select>
-            </div>
+          <div className="grid grid-cols-2 gap-3">
+            <FormSelect label="Estado" value={form.estado} onChange={(v) => setForm((f) => ({ ...f, estado: v }))} options={toOpts(estados)} />
+            <FormSelect label="Prioridad" value={form.prioridad} onChange={(v) => setForm((f) => ({ ...f, prioridad: v }))} options={toOpts(prioridades)} />
           </div>
 
           {/* Row: fecha + asignado */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <div style={LABEL_STYLE}>Fecha *</div>
+              <div className={LABEL}>Fecha *</div>
               <input
                 type="date"
-                style={INPUT_STYLE}
+                className={INPUT}
                 value={form.fecha}
                 onChange={(e) => setForm((f) => ({ ...f, fecha: e.target.value }))}
               />
             </div>
-            <div>
-              <div style={LABEL_STYLE}>Asignado a</div>
-              <select
-                style={INPUT_STYLE}
-                value={form.asignadoAId}
-                onChange={(e) => setForm((f) => ({ ...f, asignadoAId: e.target.value }))}
-              >
-                <option value="">Sin asignar</option>
-                {members.map((m) => (
-                  <option key={m.userId} value={m.userId}>{m.userNombre ?? `Usuario ${m.userId}`}</option>
-                ))}
-              </select>
-            </div>
+            <FormSelect
+              label="Asignado a"
+              value={String(form.asignadoAId ?? "")}
+              onChange={(v) => setForm((f) => ({ ...f, asignadoAId: v }))}
+              options={members.map((m) => ({ value: String(m.userId), label: m.userNombre ?? `Usuario ${m.userId}` }))}
+              noneLabel="Sin asignar"
+            />
           </div>
 
           {/* Row: hora inicio + hora fin */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <div style={LABEL_STYLE}>Hora inicio</div>
+              <div className={LABEL}>Hora inicio</div>
               <input
                 type="time"
-                style={INPUT_STYLE}
+                className={INPUT}
                 value={form.horaInicio}
                 onChange={(e) => setForm((f) => ({ ...f, horaInicio: e.target.value }))}
               />
             </div>
             <div>
-              <div style={LABEL_STYLE}>Hora fin</div>
+              <div className={LABEL}>Hora fin</div>
               <input
                 type="time"
-                style={INPUT_STYLE}
+                className={INPUT}
                 value={form.horaFin}
                 onChange={(e) => setForm((f) => ({ ...f, horaFin: e.target.value }))}
               />
@@ -356,65 +298,40 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
 
           {/* Modalidad */}
           {modalidades.length > 0 && (
-            <div>
-              <div style={LABEL_STYLE}>Modalidad</div>
-              <select
-                style={INPUT_STYLE}
-                value={form.modalidad}
-                onChange={(e) => setForm((f) => ({ ...f, modalidad: e.target.value }))}
-              >
-                <option value="">Sin modalidad</option>
-                {modalidades.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-              </select>
-            </div>
+            <FormSelect
+              label="Modalidad"
+              value={form.modalidad}
+              onChange={(v) => setForm((f) => ({ ...f, modalidad: v }))}
+              options={toOpts(modalidades)}
+              noneLabel="Sin modalidad"
+            />
           )}
         </div>
 
         {/* Tiempo real registrado */}
         {isEdit && task && task.tiempoTotalMinutos != null && (
-          <div style={{
-            marginTop: 18,
-            padding: "12px 16px",
-            borderRadius: 8,
-            background: "rgba(255,255,255,0.03)",
-            border: "1px solid rgba(255,255,255,0.08)",
-            display: "flex",
-            gap: 24,
-            alignItems: "center",
-            fontSize: 13,
-            color: "#d4d4d8",
-          }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <span style={{ fontSize: 10, fontWeight: 700, color: "#71717a", textTransform: "uppercase", letterSpacing: "0.05em" }}>Tiempo real</span>
-              <span style={{ fontWeight: 700, fontSize: 15, color: "#f4f4f5", fontFamily: "'DM Mono', monospace" }}>{formatMin(task.tiempoTotalMinutos)}</span>
+          <div className="mt-4 flex items-center gap-6 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[10px] font-bold uppercase tracking-[0.05em] text-zinc-500">Tiempo real</span>
+              <span className="font-mono text-[15px] font-bold text-zinc-900">{formatMin(task.tiempoTotalMinutos)}</span>
             </div>
           </div>
         )}
 
         {/* Aceptar / rechazar tarea asignada */}
         {isPendingAcceptance && task && (
-          <div style={{
-            marginTop: 18,
-            padding: "12px 16px",
-            borderRadius: 8,
-            background: "rgba(245,158,11,0.10)",
-            border: "1px solid rgba(245,158,11,0.40)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 12,
-          }}>
-            <div style={{ fontSize: 13, color: "#fcd34d", fontWeight: 500 }}>
+          <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+            <div className="text-[13px] font-medium text-amber-800">
               Esta tarea te fue asignada. ¿La aceptas?
             </div>
-            <div style={{ display: "flex", gap: 8 }}>
+            <div className="flex gap-2">
               <button
                 onClick={async () => {
                   await acceptTask.mutateAsync({ taskId: task.id, aceptacion: "rechazada" })
                   showToast("Tarea rechazada", "error")
                   onClose()
                 }}
-                style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid rgba(239,51,64,0.40)", background: "transparent", color: "#ff6b75", fontWeight: 600, fontSize: 12, cursor: "pointer" }}
+                className="rounded-md border border-red-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50"
               >
                 Rechazar
               </button>
@@ -423,7 +340,7 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
                   await acceptTask.mutateAsync({ taskId: task.id, aceptacion: "aceptada" })
                   showToast("Tarea aceptada", "success")
                 }}
-                style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "#10b981", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}
+                className="rounded-md bg-emerald-600 px-3.5 py-1.5 text-xs font-bold text-white transition hover:bg-emerald-700"
               >
                 Aceptar
               </button>
@@ -433,61 +350,34 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
 
         {/* Estado de aceptación si ya fue procesada */}
         {isEdit && task && task.aceptacion !== "pendiente" && task.asignadoAId && (
-          <div style={{
-            marginTop: 12,
-            padding: "6px 12px",
-            borderRadius: 6,
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            fontSize: 11,
-            fontWeight: 700,
-            background: task.aceptacion === "aceptada" ? "rgba(16,185,129,0.15)" : "rgba(239,51,64,0.15)",
-            color: task.aceptacion === "aceptada" ? "#34d399" : "#ff6b75",
-          }}>
+          <div
+            className={`mt-3 inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-[11px] font-bold ${
+              task.aceptacion === "aceptada"
+                ? "bg-emerald-50 text-emerald-700"
+                : "bg-red-50 text-red-600"
+            }`}
+          >
             {task.aceptacion === "aceptada" ? "✓ Aceptada por el responsable" : "✗ Rechazada por el responsable"}
           </div>
         )}
 
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 24, alignItems: "center" }}>
+        <div className="mt-6 flex items-center justify-end gap-2">
           <button
             onClick={() => setAdjuntosOpen(true)}
-            style={{
-              padding: "9px 16px",
-              borderRadius: 8,
-              border: "1px solid rgba(255,255,255,0.10)",
-              background: "rgba(255,255,255,0.04)",
-              fontSize: 13,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              color: "#d4d4d8",
-              marginRight: "auto",
-            }}
+            className="mr-auto inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-4 py-2 text-[13px] font-medium text-zinc-700 transition hover:bg-zinc-50"
           >
-            📎 Adjuntos{!isEdit && stagedFiles.length > 0 ? ` (${stagedFiles.length})` : ""}
+            <Paperclip size={15} /> Adjuntos{!isEdit && stagedFiles.length > 0 ? ` (${stagedFiles.length})` : ""}
           </button>
           <button
             onClick={onClose}
-            style={{ padding: "9px 22px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.04)", color: "#d4d4d8", fontSize: 13, cursor: "pointer" }}
+            className="rounded-md border border-zinc-300 bg-white px-5 py-2 text-[13px] font-medium text-zinc-700 transition hover:bg-zinc-50"
           >
             Cancelar
           </button>
           <button
             onClick={handleSubmit}
-            disabled={isPending || form.titulo.trim().length < 3}
-            style={{
-              padding: "9px 22px",
-              borderRadius: 8,
-              border: "none",
-              background: form.titulo.trim().length < 3 ? "rgba(255,255,255,0.06)" : "#ef3340",
-              color: form.titulo.trim().length < 3 ? "#71717a" : "#fff",
-              boxShadow: form.titulo.trim().length < 3 ? "none" : "0 6px 18px rgba(239,51,64,0.35)",
-              fontWeight: 700,
-              fontSize: 13,
-              cursor: form.titulo.trim().length < 3 ? "default" : "pointer",
-            }}
+            disabled={isPending || !canSave}
+            className="rounded-md bg-primary px-5 py-2 text-[13px] font-bold text-primary-foreground shadow-sm transition hover:brightness-95 disabled:cursor-default disabled:bg-zinc-200 disabled:text-zinc-400 disabled:shadow-none"
           >
             {isPending ? "Guardando…" : isEdit ? "Guardar cambios" : "Crear tarea"}
           </button>

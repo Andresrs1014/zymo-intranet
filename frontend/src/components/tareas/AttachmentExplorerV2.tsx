@@ -51,7 +51,7 @@ function AttachmentPreview({ attachment }: { attachment: TaskAttachment }) {
   }
   if (error) {
     return (
-      <div className="flex items-center justify-center h-full text-sm text-[#ff6b75]">
+      <div className="flex items-center justify-center h-full text-sm text-red-600">
         Error al cargar el archivo.
       </div>
     )
@@ -81,13 +81,13 @@ function AttachmentPreview({ attachment }: { attachment: TaskAttachment }) {
     <div className="flex flex-col items-center justify-center h-full gap-3 p-8">
       <span className="text-5xl">{fileIcon(attachment.mimeType)}</span>
       <div className="text-center">
-        <p className="font-medium text-zinc-100">{attachment.filename}</p>
+        <p className="font-medium text-zinc-900">{attachment.filename}</p>
         <p className="text-sm text-zinc-500 mt-0.5">{formatBytes(attachment.sizeBytes)}</p>
       </div>
       <a
         href={blobUrl}
         download={attachment.filename}
-        className="text-sm text-[#ff6b75] hover:underline mt-1"
+        className="text-sm text-primary hover:underline mt-1"
       >
         Descargar archivo
       </a>
@@ -158,20 +158,20 @@ export function AttachmentExplorerV2({ taskId, taskTitulo, open, onClose }: Prop
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-6xl w-[92vw] max-h-[90vh] h-[90vh] p-0 gap-0 flex flex-col overflow-hidden bg-[#1b2029] text-zinc-100 border border-white/10">
+      <DialogContent className="max-w-6xl w-[92vw] max-h-[90vh] h-[90vh] p-0 gap-0 flex flex-col overflow-hidden bg-white text-zinc-900 border border-zinc-200">
         {/* Header */}
-        <div className="px-4 py-3 border-b border-white/10 shrink-0 pr-12">
+        <div className="px-4 py-3 border-b border-zinc-200 shrink-0 pr-12">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">
             Archivos adjuntos
           </p>
-          <h2 className="text-sm font-semibold text-zinc-100 truncate">{taskTitulo}</h2>
+          <h2 className="text-sm font-semibold text-zinc-900 truncate">{taskTitulo}</h2>
         </div>
 
         {/* Two-panel body */}
         <div className="flex flex-1 min-h-0 overflow-hidden">
           {/* Left: file list */}
           <div
-            className="shrink-0 border-r border-white/10 flex flex-col bg-white/[.03]"
+            className="shrink-0 border-r border-zinc-200 flex flex-col bg-zinc-50"
             style={{ width: listWidth }}
           >
             <div className="flex-1 overflow-y-auto py-1">
@@ -187,8 +187,8 @@ export function AttachmentExplorerV2({ taskId, taskTitulo, open, onClose }: Prop
                   className={[
                     "group flex items-start gap-2 px-3 py-2 cursor-pointer text-xs transition-colors",
                     selected?.id === a.id
-                      ? "bg-[#ef3340]/15 text-[#ff6b75] border-r-2 border-[#ef3340]"
-                      : "hover:bg-white/5 text-zinc-300",
+                      ? "bg-primary/10 text-primary border-r-2 border-primary"
+                      : "hover:bg-zinc-100 text-zinc-700",
                   ].join(" ")}
                 >
                   <span className="text-base shrink-0 leading-none mt-0.5">
@@ -204,14 +204,14 @@ export function AttachmentExplorerV2({ taskId, taskTitulo, open, onClose }: Prop
                         type="button"
                         onClick={() => handleDelete(a)}
                         disabled={deleteMutation.isPending}
-                        className="text-[#ff6b75] font-semibold hover:text-[#ef3340]"
+                        className="text-primary font-semibold hover:brightness-90"
                       >
                         Sí
                       </button>
                       <button
                         type="button"
                         onClick={() => setConfirmDeleteId(null)}
-                        className="text-zinc-500 hover:text-zinc-300"
+                        className="text-zinc-500 hover:text-zinc-700"
                       >
                         No
                       </button>
@@ -220,7 +220,7 @@ export function AttachmentExplorerV2({ taskId, taskTitulo, open, onClose }: Prop
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(a.id) }}
-                      className="opacity-0 group-hover:opacity-100 text-zinc-600 hover:text-[#ff6b75] transition-opacity shrink-0 leading-none"
+                      className="opacity-0 group-hover:opacity-100 text-zinc-400 hover:text-primary transition-opacity shrink-0 leading-none"
                       aria-label="Eliminar archivo"
                     >
                       ×
@@ -231,15 +231,15 @@ export function AttachmentExplorerV2({ taskId, taskTitulo, open, onClose }: Prop
             </div>
 
             {/* Upload area */}
-            <div className="border-t border-white/10 p-2 shrink-0 space-y-1">
+            <div className="border-t border-zinc-200 p-2 shrink-0 space-y-1">
               {uploadError && (
-                <p className="text-[10px] text-[#ff6b75] px-1">{uploadError}</p>
+                <p className="text-[10px] text-red-600 px-1">{uploadError}</p>
               )}
               <label className={[
                 "flex items-center justify-center gap-1.5 w-full rounded-md border border-dashed py-2 text-xs cursor-pointer transition-colors",
                 upload.isPending
-                  ? "border-white/10 text-zinc-600 cursor-not-allowed"
-                  : "border-white/15 text-zinc-400 hover:bg-white/5 hover:text-zinc-200",
+                  ? "border-zinc-200 text-zinc-400 cursor-not-allowed"
+                  : "border-zinc-300 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700",
               ].join(" ")}>
                 <span>{upload.isPending ? "Subiendo..." : "+ Subir archivo"}</span>
                 <input
@@ -256,12 +256,12 @@ export function AttachmentExplorerV2({ taskId, taskTitulo, open, onClose }: Prop
           {/* Drag handle */}
           <div
             onMouseDown={onMouseDown}
-            className="w-1.5 shrink-0 cursor-col-resize bg-transparent hover:bg-[#ef3340]/30 active:bg-[#ef3340]/60 transition-colors"
+            className="w-1.5 shrink-0 cursor-col-resize bg-transparent hover:bg-primary/30 active:bg-primary/60 transition-colors"
             title="Arrastra para ajustar el tamaño"
           />
 
           {/* Right: preview */}
-          <div className="flex-1 overflow-auto bg-[#12151c] flex items-center justify-center">
+          <div className="flex-1 overflow-auto bg-zinc-50 flex items-center justify-center">
             {selected ? (
               <AttachmentPreview key={selected.id} attachment={selected} />
             ) : (

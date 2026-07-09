@@ -21,7 +21,10 @@ import {
   useMembersWithoutEntryToday,
 } from "@/hooks/useTaskDashboard"
 
-const CHART_COLORS = ["#ef3340", "#00a8c8", "#10b981", "#f59e0b", "#0284c7", "#ff6b75"]
+const CHART_COLORS = ["#c41e3a", "#0891b2", "#059669", "#d97706", "#0284c7", "#db2777"]
+
+const TOOLTIP_STYLE = { background: "#ffffff", border: "1px solid #e4e4e7", borderRadius: 8, color: "#18181b" }
+const AXIS_TICK = { fontSize: 10, fill: "#71717a" }
 
 // Cuenta desde el valor anterior hasta el nuevo en ~500ms — feedback de que el KPI cambió.
 function useCountUp(target: number, durationMs = 500): number {
@@ -49,17 +52,12 @@ function useCountUp(target: number, durationMs = 500): number {
 function KpiCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   const animated = useCountUp(typeof value === "number" ? value : 0)
   return (
-    <div style={{
-      background: "#1b2029",
-      borderRadius: 10,
-      border: "1px solid rgba(255,255,255,0.10)",
-      padding: "18px 20px",
-    }}>
-      <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "#71717a", fontWeight: 600, marginBottom: 6 }}>{label}</div>
-      <div style={{ fontSize: 28, fontWeight: 800, color: "#f4f4f5", fontFamily: "'DM Mono', monospace" }}>
+    <div className="rounded-lg border border-zinc-200 bg-white px-5 py-4 shadow-sm">
+      <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-zinc-500">{label}</div>
+      <div className="font-mono text-[28px] font-extrabold text-zinc-900">
         {typeof value === "number" ? animated : value}
       </div>
-      {sub && <div style={{ fontSize: 12, color: "#a1a1aa", marginTop: 4, fontFamily: "'DM Mono', monospace" }}>{sub}</div>}
+      {sub && <div className="mt-1 font-mono text-xs text-zinc-500">{sub}</div>}
     </div>
   )
 }
@@ -74,31 +72,31 @@ export function DashboardView() {
   const { data: noEntry = [] } = useMembersWithoutEntryToday(activeTeamId)
 
   if (!activeTeamId) {
-    return <div style={{ textAlign: "center", padding: 60, color: "#a1a1aa" }}>Selecciona un equipo.</div>
+    return <div className="p-16 text-center text-zinc-500">Selecciona un equipo.</div>
   }
 
-  const INPUT_STYLE = { padding: "6px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.10)", fontSize: 12 }
+  const dateInput = "rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs text-zinc-900 outline-none focus:border-primary"
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+    <div className="flex flex-col gap-6">
       {/* Date range filter */}
-      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <span style={{ fontSize: 12, color: "#a1a1aa" }}>Rango:</span>
-        <input type="date" value={range.desde ?? ""} onChange={(e) => setRange((r) => ({ ...r, desde: e.target.value || undefined }))} style={INPUT_STYLE} />
-        <span style={{ fontSize: 12, color: "#71717a" }}>—</span>
-        <input type="date" value={range.hasta ?? ""} onChange={(e) => setRange((r) => ({ ...r, hasta: e.target.value || undefined }))} style={INPUT_STYLE} />
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-zinc-500">Rango:</span>
+        <input type="date" value={range.desde ?? ""} onChange={(e) => setRange((r) => ({ ...r, desde: e.target.value || undefined }))} className={dateInput} />
+        <span className="text-xs text-zinc-400">—</span>
+        <input type="date" value={range.hasta ?? ""} onChange={(e) => setRange((r) => ({ ...r, hasta: e.target.value || undefined }))} className={dateInput} />
       </div>
 
       {/* No-entry alert */}
       {noEntry.length > 0 && (
-        <div style={{ background: "rgba(245,158,11,0.10)", border: "1px solid rgba(245,158,11,0.40)", borderRadius: 8, padding: "12px 16px", fontSize: 13 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: noEntry.length > 0 ? 6 : 0 }}>
-            <span style={{ fontSize: 16 }}>⚠</span>
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
+          <div className="mb-1.5 flex items-center gap-2.5">
+            <span className="text-base">⚠</span>
             <span><strong>{noEntry.length} miembro{noEntry.length > 1 ? "s" : ""}</strong> sin registro de tarea hoy:</span>
           </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, paddingLeft: 26 }}>
+          <div className="flex flex-wrap gap-1.5 pl-[26px]">
             {noEntry.map((m) => (
-              <span key={m.userId} style={{ padding: "2px 10px", borderRadius: 99, fontSize: 11, fontWeight: 600, background: "rgba(245,158,11,0.16)", color: "#fcd34d", border: "1px solid rgba(245,158,11,0.35)" }}>
+              <span key={m.userId} className="rounded-full border border-amber-300 bg-amber-100 px-2.5 py-0.5 text-[11px] font-semibold text-amber-800">
                 {m.nombre || `Usuario ${m.userId}`}
               </span>
             ))}
@@ -108,7 +106,7 @@ export function DashboardView() {
 
       {/* KPI cards */}
       {kpis && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 14 }}>
+        <div className="grid gap-3.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))" }}>
           <KpiCard label="Total tareas" value={kpis.total} />
           <KpiCard label="Completadas" value={kpis.completadas} sub={kpis.total > 0 ? `${Math.round(kpis.completadas / kpis.total * 100)}%` : undefined} />
           <KpiCard label="En progreso" value={kpis.enProgreso} />
@@ -120,23 +118,23 @@ export function DashboardView() {
 
       {/* Charts */}
       {charts && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+        <div className="grid grid-cols-2 gap-5">
           {/* By responsable */}
-          <div style={{ background: "#1b2029", borderRadius: 10, border: "1px solid rgba(255,255,255,0.10)", padding: 18 }}>
-            <h3 style={{ margin: "0 0 14px", fontSize: 13, fontWeight: 700, color: "#f4f4f5" }}>Por responsable</h3>
+          <div className="rounded-lg border border-zinc-200 bg-white p-[18px] shadow-sm">
+            <h3 className="mb-3.5 text-[13px] font-bold text-zinc-900">Por responsable</h3>
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={charts.byResponsable}>
-                <XAxis dataKey="nombre" tick={{ fontSize: 10, fill: "#a1a1aa" }} />
-                <YAxis tick={{ fontSize: 10, fill: "#a1a1aa" }} />
-                <Tooltip contentStyle={{ background: "#1b2029", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, color: "#f4f4f5" }} labelStyle={{ color: "#a1a1aa" }} itemStyle={{ color: "#f4f4f5" }} cursor={{ fill: "rgba(255,255,255,0.05)" }} />
-                <Bar dataKey="count" fill="#ef3340" radius={[4, 4, 0, 0]} />
+                <XAxis dataKey="nombre" tick={AXIS_TICK} />
+                <YAxis tick={AXIS_TICK} />
+                <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "#71717a" }} itemStyle={{ color: "#18181b" }} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
+                <Bar dataKey="count" fill="#c41e3a" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
 
           {/* By estado (pie) */}
-          <div style={{ background: "#1b2029", borderRadius: 10, border: "1px solid rgba(255,255,255,0.10)", padding: 18 }}>
-            <h3 style={{ margin: "0 0 14px", fontSize: 13, fontWeight: 700, color: "#f4f4f5" }}>Por estado</h3>
+          <div className="rounded-lg border border-zinc-200 bg-white p-[18px] shadow-sm">
+            <h3 className="mb-3.5 text-[13px] font-bold text-zinc-900">Por estado</h3>
             <ResponsiveContainer width="100%" height={200}>
               <PieChart>
                 <Pie data={charts.byEstado} dataKey="count" nameKey="estado" outerRadius={80} label>
@@ -144,34 +142,34 @@ export function DashboardView() {
                     <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip contentStyle={{ background: "#1b2029", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, color: "#f4f4f5" }} labelStyle={{ color: "#a1a1aa" }} itemStyle={{ color: "#f4f4f5" }} cursor={{ fill: "rgba(255,255,255,0.05)" }} />
+                <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "#71717a" }} itemStyle={{ color: "#18181b" }} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
 
           {/* Hours per day */}
-          <div style={{ background: "#1b2029", borderRadius: 10, border: "1px solid rgba(255,255,255,0.10)", padding: 18 }}>
-            <h3 style={{ margin: "0 0 14px", fontSize: 13, fontWeight: 700, color: "#f4f4f5" }}>Horas por día</h3>
+          <div className="rounded-lg border border-zinc-200 bg-white p-[18px] shadow-sm">
+            <h3 className="mb-3.5 text-[13px] font-bold text-zinc-900">Horas por día</h3>
             <ResponsiveContainer width="100%" height={200}>
               <LineChart data={charts.horasPorDia}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.07)" />
-                <XAxis dataKey="fecha" tick={{ fontSize: 9, fill: "#a1a1aa" }} tickFormatter={(v) => String(v).slice(5)} />
-                <YAxis tick={{ fontSize: 10, fill: "#a1a1aa" }} />
-                <Tooltip contentStyle={{ background: "#1b2029", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, color: "#f4f4f5" }} labelStyle={{ color: "#a1a1aa" }} itemStyle={{ color: "#f4f4f5" }} cursor={{ fill: "rgba(255,255,255,0.05)" }} />
-                <Line type="monotone" dataKey="horas" stroke="#ef3340" strokeWidth={2} dot={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" />
+                <XAxis dataKey="fecha" tick={{ fontSize: 9, fill: "#71717a" }} tickFormatter={(v) => String(v).slice(5)} />
+                <YAxis tick={AXIS_TICK} />
+                <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "#71717a" }} itemStyle={{ color: "#18181b" }} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
+                <Line type="monotone" dataKey="horas" stroke="#c41e3a" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>
 
           {/* By etiqueta */}
-          <div style={{ background: "#1b2029", borderRadius: 10, border: "1px solid rgba(255,255,255,0.10)", padding: 18 }}>
-            <h3 style={{ margin: "0 0 14px", fontSize: 13, fontWeight: 700, color: "#f4f4f5" }}>Por etiqueta</h3>
+          <div className="rounded-lg border border-zinc-200 bg-white p-[18px] shadow-sm">
+            <h3 className="mb-3.5 text-[13px] font-bold text-zinc-900">Por etiqueta</h3>
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={charts.byEtiqueta} layout="vertical">
-                <XAxis type="number" tick={{ fontSize: 10, fill: "#a1a1aa" }} />
-                <YAxis dataKey="etiqueta" type="category" tick={{ fontSize: 10, fill: "#a1a1aa" }} width={80} />
-                <Tooltip contentStyle={{ background: "#1b2029", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, color: "#f4f4f5" }} labelStyle={{ color: "#a1a1aa" }} itemStyle={{ color: "#f4f4f5" }} cursor={{ fill: "rgba(255,255,255,0.05)" }} />
-                <Bar dataKey="count" fill="#00a8c8" radius={[0, 4, 4, 0]} />
+                <XAxis type="number" tick={AXIS_TICK} />
+                <YAxis dataKey="etiqueta" type="category" tick={AXIS_TICK} width={80} />
+                <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "#71717a" }} itemStyle={{ color: "#18181b" }} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
+                <Bar dataKey="count" fill="#0891b2" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -181,32 +179,20 @@ export function DashboardView() {
       {/* Person summaries */}
       {persons.length > 0 && (
         <div>
-          <h2 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 700, color: "#f4f4f5" }}>Resumen por persona</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 14 }}>
+          <h2 className="mb-3.5 text-[15px] font-bold text-zinc-900">Resumen por persona</h2>
+          <div className="grid gap-3.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
             {persons.map((p) => (
-              <div key={p.userId} style={{ background: "#1b2029", borderRadius: 10, border: "1px solid rgba(255,255,255,0.10)", padding: 16 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                  <div style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: "50%",
-                    background: "#ef3340",
-                    color: "#fff",
-                    fontSize: 13,
-                    fontWeight: 700,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}>
+              <div key={p.userId} className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
+                <div className="mb-2.5 flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-[13px] font-bold text-primary-foreground">
                     {p.nombre.slice(0, 2).toUpperCase()}
                   </div>
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: 13, color: "#f4f4f5" }}>{p.nombre}</div>
-                    <div style={{ fontSize: 11, color: "#a1a1aa", fontFamily: "'DM Mono', monospace" }}>{p.total} tareas · {p.horasTotal}h</div>
+                    <div className="text-[13px] font-semibold text-zinc-900">{p.nombre}</div>
+                    <div className="font-mono text-[11px] text-zinc-500">{p.total} tareas · {p.horasTotal}h</div>
                   </div>
                 </div>
-                <div style={{ display: "flex", gap: 3 }}>
+                <div className="flex gap-[3px]">
                   {Object.entries(p.byEstado).map(([estado, count]) => (
                     <div
                       key={estado}
@@ -215,8 +201,8 @@ export function DashboardView() {
                         flex: count,
                         height: 6,
                         borderRadius: 3,
-                        background: "#ef3340",
-                        opacity: 0.6 + (count / p.total) * 0.4,
+                        background: "#c41e3a",
+                        opacity: 0.55 + (count / p.total) * 0.45,
                       }}
                     />
                   ))}

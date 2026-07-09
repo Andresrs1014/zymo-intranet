@@ -1,4 +1,3 @@
-import type { CSSProperties } from "react"
 import { useTask, type TaskView } from "@/context/TaskContext"
 import "./tareas.css"
 
@@ -12,68 +11,26 @@ const VIEW_TITLES: Record<TaskView, string> = {
   settings: "Configuración",
 }
 
-const BASE_BTN: CSSProperties = {
-  minHeight: "40px",
-  border: "1px solid",
-  borderRadius: "8px",
-  font: "inherit",
-  cursor: "pointer",
-  fontWeight: 700,
-}
-
-const PRIMARY_BTN: CSSProperties = {
-  ...BASE_BTN,
-  padding: "0 18px",
-  borderColor: "#ef3340",
-  background: "#ef3340",
-  color: "#fff",
-  boxShadow: "0 8px 20px rgba(239,51,64,0.35)",
-}
-
 export function TaskTopbar() {
   const { activeView, onNewTask } = useTask()
   const title = VIEW_TITLES[activeView]
 
   return (
-    <header
-      style={{
-        padding: "18px 22px",
-        borderRadius: "8px",
-        marginBottom: "24px",
-        background:
-          "linear-gradient(135deg, rgba(52,59,70,0.98), rgba(74,83,96,0.95) 58%, rgba(239,51,64,0.82))",
-        boxShadow: "0 16px 40px rgba(23,26,31,0.18)",
-        border: "1px solid rgba(255,255,255,0.18)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: "16px",
-      }}
-    >
+    <header className="mb-6 flex items-center justify-between gap-4 rounded-lg border-2 border-zinc-900 bg-white px-6 py-4 shadow-sm">
       <div>
-        <p
-          style={{
-            margin: 0,
-            fontSize: "0.62rem",
-            textTransform: "uppercase",
-            letterSpacing: "0.1em",
-            color: "rgba(255,255,255,0.5)",
-            marginBottom: "2px",
-          }}
-        >
+        <p className="mb-0.5 text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-500">
           Gestión de Tareas 2.0
         </p>
-        <h1 style={{ margin: 0, fontSize: "1.3rem", fontWeight: 700, color: "#fff", lineHeight: 1.2 }}>
-          {title}
-        </h1>
+        <h1 className="m-0 text-xl font-bold leading-tight text-zinc-900">{title}</h1>
       </div>
 
       {(activeView === "mywork" || activeView === "list" || activeView === "board") && (
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <button style={PRIMARY_BTN} className="task-primary-btn" onClick={onNewTask}>
-            + Nueva tarea
-          </button>
-        </div>
+        <button
+          className="task-primary-btn inline-flex min-h-[40px] items-center gap-1.5 rounded-md bg-primary px-4 text-sm font-bold text-primary-foreground shadow-sm"
+          onClick={onNewTask}
+        >
+          + Nueva tarea
+        </button>
       )}
     </header>
   )

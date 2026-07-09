@@ -7,7 +7,8 @@ import { useMyTasks } from "@/hooks/useTasks"
 import { useMyTeams } from "@/hooks/useTaskTeams"
 import { TaskDrawer } from "@/components/tareas/TaskDrawer"
 import { TaskStatusPill } from "@/components/tareas/TaskStatusPill"
-import { WorkCardSkeleton } from "@/components/tareas/Skeleton"
+import { Card } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 import { categorizeMyWork, isOverdue } from "@/lib/taskWork"
 import type { Task, ListsGrouped, ListConfig } from "@/types/task"
 
@@ -26,7 +27,19 @@ function fmtFecha(iso: string): string {
   })
 }
 
-// ── Tarjeta de tarea (tema oscuro) ────────────────────────────────────────────
+function WorkCardSkeleton() {
+  return (
+    <Card className="flex w-full items-start gap-3 px-4 py-3.5">
+      <div className="min-w-0 flex-1">
+        <Skeleton className="mb-2 h-4 w-24" />
+        <Skeleton className="mb-2 h-4 w-2/3" />
+        <Skeleton className="h-3 w-32" />
+      </div>
+    </Card>
+  )
+}
+
+// ── Tarjeta de tarea ──────────────────────────────────────────────────────────
 interface CardProps {
   task: Task
   teamName?: string
@@ -41,9 +54,12 @@ function WorkCard({ task, teamName, estadoCfg, prioCfg, done, onOpen }: CardProp
   const tiempo = fmtMin(task.tiempoTotalMinutos)
 
   return (
-    <button
+    <Card
+      role="button"
+      tabIndex={0}
       onClick={() => onOpen(task)}
-      className="group flex w-full items-start gap-3 rounded-xl border border-white/8 bg-white/[.03] px-4 py-3.5 text-left transition hover:-translate-y-px hover:border-white/15 hover:bg-white/[.06]"
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(task) } }}
+      className="group flex w-full cursor-pointer items-start gap-3 px-4 py-3.5 text-left transition hover:-translate-y-px hover:shadow-md"
     >
       <div className="min-w-0 flex-1">
         <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -54,12 +70,12 @@ function WorkCard({ task, teamName, estadoCfg, prioCfg, done, onOpen }: CardProp
             vencida={vencida}
           />
           {teamName && (
-            <span className="rounded-md bg-white/[.05] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+            <span className="rounded-md bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
               {teamName}
             </span>
           )}
         </div>
-        <h4 className="truncate text-[14px] font-semibold text-zinc-100">{task.titulo}</h4>
+        <h4 className="truncate text-[14px] font-semibold text-zinc-900">{task.titulo}</h4>
         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-zinc-500">
           <span className="font-mono">{fmtFecha(task.fecha)}</span>
           {tiempo && <span className="font-mono">{tiempo}</span>}
@@ -69,15 +85,15 @@ function WorkCard({ task, teamName, estadoCfg, prioCfg, done, onOpen }: CardProp
           {prioCfg && (
             <span
               className="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase"
-              style={{ background: `${prioCfg.color ?? "#8a94a6"}1e`, color: prioCfg.color ?? "#8a94a6" }}
+              style={{ background: `${prioCfg.color ?? "#71717a"}1e`, color: prioCfg.color ?? "#71717a" }}
             >
               {prioCfg.label}
             </span>
           )}
         </div>
       </div>
-      <ChevronRight size={16} className="mt-1 shrink-0 text-zinc-600 transition group-hover:text-zinc-300" />
-    </button>
+      <ChevronRight size={16} className="mt-1 shrink-0 text-zinc-400 transition group-hover:text-zinc-600" />
+    </Card>
   )
 }
 
@@ -98,7 +114,7 @@ function Section({ icon, title, accent, tasks, emptyLabel, children }: SectionPr
         <span className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: `${accent}1f`, color: accent }}>
           {icon}
         </span>
-        <h3 className="text-[13px] font-bold uppercase tracking-[0.06em] text-zinc-300">{title}</h3>
+        <h3 className="text-[13px] font-bold uppercase tracking-[0.06em] text-zinc-700">{title}</h3>
         <span
           className="ml-1 rounded-full px-2 py-0.5 font-mono text-[11px] font-bold"
           style={{ background: `${accent}1f`, color: accent }}
@@ -107,7 +123,7 @@ function Section({ icon, title, accent, tasks, emptyLabel, children }: SectionPr
         </span>
       </div>
       {tasks.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-white/8 px-4 py-6 text-center text-[13px] text-zinc-600">
+        <p className="rounded-lg border border-dashed border-zinc-300 px-4 py-6 text-center text-[13px] text-zinc-500">
           {emptyLabel}
         </p>
       ) : (
@@ -125,7 +141,6 @@ export function MiTrabajoView() {
   const teamName = new Map(teams.map((t) => [t.id, t.name]))
   const teamIds = teams.map((t) => t.id)
 
-  // Config (estados/prioridades) de cada equipo → resolver labels/colores y "terminada".
   const listsResults = useQueries({
     queries: teamIds.map((id) => ({
       queryKey: ["taskLists", id],
@@ -172,20 +187,20 @@ export function MiTrabajoView() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <div className="mb-6 rounded-2xl border border-white/8 bg-gradient-to-br from-[#1b2029] to-[#161a22] px-6 py-5">
+      <Card className="mb-6 px-6 py-5">
         <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-500">Bandeja personal</p>
-        <h2 className="mt-1 text-lg font-bold text-white">
-          Tienes <span className="font-mono text-[#ff6b75]">{totalActivo}</span> tarea{totalActivo === 1 ? "" : "s"} activa{totalActivo === 1 ? "" : "s"}
+        <h2 className="mt-1 text-lg font-bold text-zinc-900">
+          Tienes <span className="font-mono text-primary">{totalActivo}</span> tarea{totalActivo === 1 ? "" : "s"} activa{totalActivo === 1 ? "" : "s"}
           {pendientes.length > 0 && (
-            <> · <span className="font-mono text-amber-300">{pendientes.length}</span> por aceptar</>
+            <> · <span className="font-mono text-amber-600">{pendientes.length}</span> por aceptar</>
           )}
         </h2>
-      </div>
+      </Card>
 
       <Section
         icon={<Inbox size={15} />}
         title="Pendientes de aceptar"
-        accent="#f59e0b"
+        accent="#d97706"
         tasks={pendientes}
         emptyLabel="Nada por aceptar. Estás al día."
       >
@@ -195,7 +210,7 @@ export function MiTrabajoView() {
       <Section
         icon={<AlertTriangle size={15} />}
         title="Vencidas o en riesgo"
-        accent="#ef3340"
+        accent="#c41e3a"
         tasks={vencidas}
         emptyLabel="Sin tareas vencidas."
       >
@@ -205,7 +220,7 @@ export function MiTrabajoView() {
       <Section
         icon={<Clock size={15} />}
         title="En curso / para hoy"
-        accent="#00a8c8"
+        accent="#0891b2"
         tasks={enCurso}
         emptyLabel="No tienes tareas en curso."
       >

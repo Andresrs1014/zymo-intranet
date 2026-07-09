@@ -21,6 +21,7 @@ import { useTaskLists } from "@/hooks/useTaskLists"
 import { useTeamMembers } from "@/hooks/useTaskTeams"
 import { useTaskToast } from "@/components/tareas/TaskToast"
 import { TaskDrawer } from "@/components/tareas/TaskDrawer"
+import { Badge } from "@/components/ui/badge"
 import { isOverdue } from "@/lib/taskWork"
 import type { Task, ListConfig } from "@/types/task"
 
@@ -61,109 +62,59 @@ function TaskCard({
     opacity: isDragging ? 0.5 : 1,
   }
 
+  const prio = prioridades.find((p) => p.value === task.prioridad)
+  const prioColor = prio?.color ?? "#71717a"
+  const prioLabel = prio?.label ?? task.prioridad
+
   return (
     <div ref={setNodeRef} style={style} {...attributes}>
       <div
-        className="task-card-glow"
+        className="task-card-glow relative mb-2 cursor-pointer rounded-lg border border-zinc-200 bg-white px-3.5 py-3 shadow-sm"
         onClick={() => onOpen?.(task)}
-        style={{
-          background: "#1b2029",
-          borderRadius: 8,
-          border: "1px solid rgba(255,255,255,0.10)",
-          padding: "12px 14px",
-          cursor: onOpen ? "pointer" : "grab",
-          boxShadow: isDragging ? "0 8px 24px rgba(18,20,32,0.14)" : "0 1px 4px rgba(18,20,32,0.06)",
-          transition: "box-shadow 120ms",
-          marginBottom: 8,
-          position: "relative",
-        }}
+        style={{ cursor: onOpen ? "pointer" : "grab" }}
       >
-        {/* Drag handle — única zona de arrastre; el resto de la tarjeta abre el detalle */}
+        {/* Drag handle — única zona de arrastre; el resto abre el detalle */}
         <button
           {...listeners}
           onClick={(e) => e.stopPropagation()}
           aria-label="Arrastrar tarea"
-          style={{
-            position: "absolute",
-            top: 8,
-            right: 6,
-            padding: 2,
-            border: "none",
-            background: "none",
-            color: "#52525b",
-            cursor: "grab",
-            display: "flex",
-            touchAction: "none",
-          }}
+          className="absolute right-1.5 top-2 flex cursor-grab border-none bg-transparent p-0.5 text-zinc-300 hover:text-zinc-500"
+          style={{ touchAction: "none" }}
         >
           <GripVertical size={15} />
         </button>
-        <div style={{ fontSize: 13, fontWeight: 500, color: "#f4f4f5", marginBottom: 8, lineHeight: 1.4, paddingRight: 18 }}>
+        <div className="mb-2 pr-[18px] text-[13px] font-medium leading-snug text-zinc-900">
           {task.titulo}
         </div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-            <span style={{
-              padding: "1px 7px",
-              borderRadius: 99,
-              fontSize: 10,
-              fontWeight: 600,
-              background: "rgba(255,255,255,0.06)",
-              color: "#a1a1aa",
-            }}>
-              {etiquetaLabel}
-            </span>
-            {porAceptar && (
-              <span style={{ padding: "1px 7px", borderRadius: 99, fontSize: 10, fontWeight: 700, textTransform: "uppercase", background: "rgba(245,158,11,0.16)", color: "#fcd34d" }}>
-                Por aceptar
-              </span>
-            )}
-            {vencida && (
-              <span style={{ padding: "1px 7px", borderRadius: 99, fontSize: 10, fontWeight: 700, textTransform: "uppercase", background: "rgba(239,51,64,0.16)", color: "#ef3340" }}>
-                Vencida
-              </span>
-            )}
+        <div className="flex items-center justify-between">
+          <div className="flex flex-wrap gap-1">
+            <Badge variant="secondary" className="text-[10px] font-normal text-zinc-600">{etiquetaLabel}</Badge>
+            {porAceptar && <Badge variant="warning" className="text-[10px] uppercase">Por aceptar</Badge>}
+            {vencida && <Badge variant="outline" className="border-red-300 bg-red-50 text-[10px] uppercase text-red-600">Vencida</Badge>}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div className="flex items-center gap-1.5">
             {task.tiempoTotalMinutos && (
-              <span style={{ fontSize: 10, color: "#71717a", fontFamily: "'DM Mono', monospace" }}>{formatTiempo(task.tiempoTotalMinutos)}</span>
+              <span className="font-mono text-[10px] text-zinc-500">{formatTiempo(task.tiempoTotalMinutos)}</span>
             )}
-            {task.prioridad && (() => {
-              const p = prioridades.find((p) => p.value === task.prioridad)
-              const color = p?.color ?? "#6b7280"
-              const label = p?.label ?? task.prioridad
-              return (
-                <span style={{
-                  padding: "1px 6px",
-                  borderRadius: 3,
-                  fontSize: 10,
-                  fontWeight: 700,
-                  background: `${color}18`,
-                  color,
-                }}>
-                  {label}
-                </span>
-              )
-            })()}
+            {task.prioridad && (
+              <Badge variant="outline" className="px-1.5 py-0" style={{ background: `${prioColor}18`, color: prioColor, borderColor: `${prioColor}44` }}>
+                {prioLabel}
+              </Badge>
+            )}
           </div>
         </div>
         {(task.asignadoANombre || task.subidoPorNombre) && (() => {
           const isSelfAssigned = !task.asignadoAId || task.asignadoAId === task.subidoPorId
           const displayName = task.asignadoANombre ?? task.subidoPorNombre
           return (
-            <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}>
-              <div style={{
-                width: 22, height: 22, borderRadius: "50%",
-                background: "#ef3340", color: "#fff",
-                fontSize: 9, fontWeight: 700,
-                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-              }}>
+            <div className="mt-2 flex items-center gap-1.5">
+              <div className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground">
                 {displayName!.slice(0, 2).toUpperCase()}
               </div>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 11, color: "#a1a1aa", lineHeight: 1.2 }}>{displayName}</div>
+              <div className="min-w-0">
+                <div className="text-[11px] leading-tight text-zinc-600">{displayName}</div>
                 {!isSelfAssigned && task.subidoPorNombre && (
-                  <div style={{ fontSize: 10, color: "#52525b", lineHeight: 1.2 }}>por {task.subidoPorNombre}</div>
+                  <div className="text-[10px] leading-tight text-zinc-400">por {task.subidoPorNombre}</div>
                 )}
               </div>
             </div>
@@ -182,36 +133,21 @@ function BoardColumn({ config, tasks, prioridades, etiquetas, onOpen }: { config
 
   return (
     <div
+      className="rounded-lg border p-3.5 transition-colors"
       style={{
         minWidth: 280,
         flex: "0 0 280px",
-        background: isOver ? "rgba(239,51,64,0.12)" : "#12151c",
-        borderRadius: 10,
-        border: `1px solid ${isOver ? "#ef3340" : "rgba(255,255,255,0.10)"}`,
-        padding: 14,
-        transition: "background 120ms, border-color 120ms",
+        background: isOver ? "rgba(196,30,58,0.06)" : "#f4f4f5",
+        borderColor: isOver ? "#c41e3a" : "#e4e4e7",
       }}
     >
       {/* Column header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{
-            width: 10,
-            height: 10,
-            borderRadius: "50%",
-            background: config.color ?? "#6b7280",
-          }} />
-          <span style={{ fontSize: 13, fontWeight: 700, color: "#f4f4f5" }}>{config.label}</span>
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="h-2.5 w-2.5 rounded-full" style={{ background: config.color ?? "#71717a" }} />
+          <span className="text-[13px] font-bold text-zinc-900">{config.label}</span>
         </div>
-        <span style={{
-          padding: "2px 8px",
-          borderRadius: 99,
-          fontSize: 11,
-          fontWeight: 700,
-          background: "rgba(255,255,255,0.10)",
-          color: "#a1a1aa",
-          fontFamily: "'DM Mono', monospace",
-        }}>
+        <span className="rounded-full bg-zinc-200 px-2 py-0.5 font-mono text-[11px] font-bold text-zinc-600">
           {tasks.length}
         </span>
       </div>
@@ -242,7 +178,6 @@ export function BoardView() {
 
   const [activeDragTask, setActiveDragTask] = useState<Task | null>(null)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
-  // Drag optimista: mueve la tarjeta de columna al soltar, sin esperar el refetch.
   const [optimisticEstado, setOptimisticEstado] = useState<Map<number, string>>(new Map())
 
   const sensors = useSensors(
@@ -257,7 +192,6 @@ export function BoardView() {
   const etiquetas = listsGrouped?.etiqueta ?? []
   const tasks = taskResult?.tasks ?? []
 
-  // Una vez que el servidor confirma el nuevo estado, suelta el override optimista.
   useEffect(() => {
     setOptimisticEstado((prev) => {
       if (prev.size === 0) return prev
@@ -298,7 +232,6 @@ export function BoardView() {
     const task = tasks.find((t) => t.id === taskId)
     if (!task || task.estado === newEstado) return
 
-    // Optimista: la tarjeta ya se ve en la columna nueva mientras se confirma con el servidor.
     setOptimisticEstado((prev) => new Map(prev).set(taskId, newEstado))
 
     try {
@@ -307,7 +240,6 @@ export function BoardView() {
         input: { estado: newEstado, version: task.version },
       })
     } catch (err: unknown) {
-      // Revertir: el servidor no aceptó el cambio, la tarjeta vuelve a su columna real.
       setOptimisticEstado((prev) => {
         const next = new Map(prev)
         next.delete(taskId)
@@ -327,7 +259,7 @@ export function BoardView() {
 
   if (!activeTeamId) {
     return (
-      <div style={{ textAlign: "center", padding: 60, color: "#a1a1aa" }}>
+      <div className="p-16 text-center text-zinc-500">
         Selecciona un equipo para ver el tablero.
       </div>
     )
@@ -335,7 +267,7 @@ export function BoardView() {
 
   if (estados.length === 0) {
     return (
-      <div style={{ textAlign: "center", padding: 60, color: "#a1a1aa" }}>
+      <div className="p-16 text-center text-zinc-500">
         Este equipo no tiene estados configurados. Ve a Configuración para agregarlos.
       </div>
     )
@@ -343,12 +275,12 @@ export function BoardView() {
 
   return (
     <div>
-      <div style={{ marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontSize: 12, color: "#a1a1aa" }}>Miembro:</span>
+      <div className="mb-3.5 flex items-center gap-2">
+        <span className="text-xs text-zinc-500">Miembro:</span>
         <select
           value={memberFilter ?? ""}
           onChange={(e) => setMemberFilter(e.target.value ? Number(e.target.value) : null)}
-          style={{ padding: "6px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.10)", fontSize: 13, color: "#f4f4f5", background: "#1b2029" }}
+          className="rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-[13px] text-zinc-900 outline-none focus:border-primary"
         >
           <option value="">Todos</option>
           {members.map((m) => (
@@ -361,7 +293,7 @@ export function BoardView() {
           <button
             type="button"
             onClick={() => setMemberFilter(null)}
-            style={{ fontSize: 12, color: "#71717a", cursor: "pointer", border: "none", background: "none", padding: "4px 6px" }}
+            className="border-none bg-transparent px-1.5 py-1 text-xs text-zinc-500 hover:text-zinc-700"
           >
             Limpiar
           </button>
@@ -373,7 +305,7 @@ export function BoardView() {
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 16, alignItems: "flex-start" }}>
+        <div className="flex items-start gap-3.5 overflow-x-auto pb-4">
           {estados.map((config) => (
             <BoardColumn
               key={config.value}

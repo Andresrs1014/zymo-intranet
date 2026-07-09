@@ -13,8 +13,8 @@ const AUTO_DISMISS_MS = 3500
 const MAX_TOASTS = 4
 
 const TYPE_COLORS: Record<ToastType, string> = {
-  success: "#1f9d6a",
-  error: "#ef3340",
+  success: "#059669",
+  error: "#c41e3a",
   info: "#0284c7",
 }
 
@@ -63,10 +63,10 @@ export function TaskToastContainer() {
           style={{
             display: "flex",
             alignItems: "stretch",
-            background: "#1b2029",
+            background: "#ffffff",
             borderRadius: 8,
-            boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
-            border: "1px solid rgba(255,255,255,0.10)",
+            boxShadow: "0 10px 30px rgba(24,24,27,0.18)",
+            border: "1px solid #e4e4e7",
             overflow: "hidden",
             minWidth: 240,
             maxWidth: 340,
@@ -74,7 +74,7 @@ export function TaskToastContainer() {
           }}
         >
           <div style={{ width: 4, flexShrink: 0, background: TYPE_COLORS[toast.type] }} />
-          <div style={{ padding: "12px 16px", fontSize: 13, fontWeight: 500, color: "#f4f4f5", lineHeight: 1.4 }}>
+          <div style={{ padding: "12px 16px", fontSize: 13, fontWeight: 500, color: "#18181b", lineHeight: 1.4 }}>
             {toast.message}
           </div>
         </div>

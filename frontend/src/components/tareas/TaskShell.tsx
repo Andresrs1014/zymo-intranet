@@ -27,39 +27,14 @@ class TaskErrorBoundary extends React.Component<{ children: ReactNode }, EBState
   render() {
     if (this.state.hasError) {
       return (
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            minHeight: "100vh",
-            gap: 12,
-            color: "#a1a1aa",
-            background: "#161a22",
-            padding: 40,
-            textAlign: "center",
-          }}
-        >
-          <div style={{ fontSize: 36, color: "#ef3340" }}>⚠</div>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#f4f4f5" }}>
-            Algo salió mal
-          </h2>
-          <p style={{ margin: 0, fontSize: 13 }}>{this.state.message}</p>
+        <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background p-10 text-center text-zinc-500">
+          <div className="text-4xl text-primary">⚠</div>
+          <h2 className="m-0 text-lg font-bold text-zinc-900">Algo salió mal</h2>
+          <p className="m-0 text-[13px]">{this.state.message}</p>
           <button
             type="button"
             onClick={() => this.setState((s) => ({ hasError: false, message: "", resetKey: s.resetKey + 1 }))}
-            style={{
-              marginTop: 8,
-              padding: "8px 20px",
-              borderRadius: 6,
-              border: "none",
-              background: "#ef3340",
-              color: "#fff",
-              fontSize: 13,
-              fontWeight: 700,
-              cursor: "pointer",
-            }}
+            className="mt-2 rounded-md bg-primary px-5 py-2 text-[13px] font-bold text-primary-foreground transition hover:brightness-95"
           >
             Reintentar
           </button>
@@ -75,15 +50,14 @@ export function TaskShell({ children }: TaskShellProps) {
     <TaskErrorBoundary>
       <TaskContextProvider>
         <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "auto minmax(0, 1fr)",
-            minHeight: "100vh",
-            background: "#161a22",
-          }}
+          className="min-h-screen bg-background text-foreground"
+          style={{ display: "grid", gridTemplateColumns: "auto minmax(0, 1fr)" }}
         >
           <TaskSidebar />
-          <main style={{ padding: "clamp(14px, 2vw, 24px)", overflow: "auto", minWidth: 0, color: "#e5e7eb" }}>
+          <main
+            className="min-w-0 overflow-auto text-foreground"
+            style={{ padding: "clamp(14px, 2vw, 24px)" }}
+          >
             <TaskTopbar />
             {children}
           </main>

@@ -3,7 +3,7 @@
   transition: box-shadow 220ms ease, transform 140ms ease;
 }
 .task-card-glow:hover {
-  box-shadow: 0 8px 26px -6px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 24px -8px rgba(24, 24, 27, 0.18), 0 0 0 1px rgba(24, 24, 27, 0.06);
   transform: translateY(-1px);
 }
 
@@ -23,7 +23,7 @@
   left: calc(100% + 12px);
   top: 50%;
   transform: translateY(-50%) scale(0.92);
-  background: #1a1e27;
+  background: #18181b;
   color: #fff;
   padding: 5px 10px;
   border-radius: 6px;
@@ -33,7 +33,7 @@
   pointer-events: none;
   opacity: 0;
   transition: opacity 140ms ease, transform 140ms ease;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 6px 18px rgba(24, 24, 27, 0.25);
   z-index: 200;
 }
 .task-nav-icon:hover::after {
@@ -43,11 +43,11 @@
 
 /* ── Primary action button ─────────────────────────────────────── */
 .task-primary-btn {
-  transition: background 160ms ease, box-shadow 160ms ease, transform 120ms ease;
+  transition: filter 160ms ease, box-shadow 160ms ease, transform 120ms ease;
 }
 .task-primary-btn:hover {
-  background: #d92d3a !important;
-  box-shadow: 0 6px 18px rgba(239, 51, 64, 0.45) !important;
+  filter: brightness(0.95);
+  box-shadow: 0 6px 16px rgba(196, 30, 58, 0.28) !important;
   transform: translateY(-1px);
 }
 .task-primary-btn:active {
@@ -59,8 +59,8 @@
   transition: background 160ms ease, border-color 160ms ease, transform 120ms ease;
 }
 .task-filter-btn:hover {
-  border-color: rgba(255, 255, 255, 0.25) !important;
-  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: #d4d4d8 !important;
+  background: #f4f4f5 !important;
 }
 
 /* ── Sidebar toggle button ─────────────────────────────────────── */
@@ -68,8 +68,8 @@
   transition: background 160ms ease, transform 140ms ease;
 }
 .task-sidebar-toggle:hover {
-  background: rgba(255, 255, 255, 0.14) !important;
-  color: #fff !important;
+  background: #e4e4e7 !important;
+  color: #18181b !important;
 }
 
 /* ── Team selector ─────────────────────────────────────────────── */
@@ -77,6 +77,6 @@
   transition: box-shadow 160ms ease, transform 140ms ease, opacity 160ms ease;
 }
 .task-team-btn:hover {
-  opacity: 0.85;
+  opacity: 0.88;
   transform: scale(1.05);
 }

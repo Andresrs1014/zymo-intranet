@@ -38,7 +38,7 @@ const NAV_ITEMS: NavItem[] = [
 
 // Generate a deterministic color for a team based on its id
 function teamColor(id: number) {
-  const palette = ["#ef3340", "#00a8c8", "#10b981", "#f59e0b", "#0284c7", "#ff6b75"]
+  const palette = ["#c41e3a", "#0891b2", "#059669", "#d97706", "#0284c7", "#db2777"]
   return palette[id % palette.length]
 }
 
@@ -86,8 +86,8 @@ export function TaskSidebar() {
         alignItems: expanded ? "flex-start" : "center",
         gap: 8,
         padding: "16px 8px",
-        background: "linear-gradient(180deg, #1e232c 0%, #252b36 100%)",
-        borderRight: "1px solid rgba(255,255,255,0.07)",
+        background: "#ffffff",
+        borderRight: "2px solid #18181b",
         minHeight: "100vh",
         width: sidebarWidth,
         transition: "width 220ms ease",
@@ -102,14 +102,14 @@ export function TaskSidebar() {
             width: 36,
             height: 36,
             borderRadius: 8,
-            background: "linear-gradient(135deg, #ef3340, #ff6b75)",
+            background: "linear-gradient(135deg, #c41e3a, #ef3340)",
             color: "#fff",
             fontSize: "1.1rem",
             fontWeight: 900,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            boxShadow: "0 4px 12px rgba(239,51,64,0.35)",
+            boxShadow: "0 4px 12px rgba(196,30,58,0.30)",
             flexShrink: 0,
           }}
         >
@@ -117,8 +117,8 @@ export function TaskSidebar() {
         </div>
         {expanded && (
           <div style={{ marginLeft: 8, flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", whiteSpace: "nowrap" }}>Tareas 2.0</div>
-            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", whiteSpace: "nowrap" }}>Gestión de equipos</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#18181b", whiteSpace: "nowrap" }}>Tareas 2.0</div>
+            <div style={{ fontSize: 10, color: "#71717a", whiteSpace: "nowrap" }}>Gestión de equipos</div>
           </div>
         )}
         <button
@@ -130,9 +130,9 @@ export function TaskSidebar() {
             width: 28,
             height: 28,
             borderRadius: 6,
-            border: "none",
-            background: "rgba(255,255,255,0.07)",
-            color: "rgba(255,255,255,0.4)",
+            border: "1px solid #e4e4e7",
+            background: "#f4f4f5",
+            color: "#52525b",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
@@ -146,7 +146,7 @@ export function TaskSidebar() {
       </div>
 
       {/* Divider */}
-      <div style={{ width: expanded ? "100%" : 32, height: 1, background: "rgba(255,255,255,0.08)", marginBottom: 4 }} />
+      <div style={{ width: expanded ? "100%" : 32, height: 1, background: "#e4e4e7", marginBottom: 4 }} />
 
       {/* Team circles */}
       {!isLoading && teams.length > 0 && (
@@ -166,8 +166,8 @@ export function TaskSidebar() {
                   width: expanded ? "100%" : 36,
                   height: 36,
                   borderRadius: 8,
-                  border: "none",
-                  background: isSelected ? color : `${color}28`,
+                  border: isSelected ? "none" : `1px solid ${color}33`,
+                  background: isSelected ? color : `${color}14`,
                   color: isSelected ? "#fff" : color,
                   fontSize: 13,
                   fontWeight: 700,
@@ -198,9 +198,9 @@ export function TaskSidebar() {
                 width: 36,
                 height: 36,
                 borderRadius: 8,
-                border: "1px dashed rgba(255,255,255,0.2)",
+                border: "1px dashed #d4d4d8",
                 background: "transparent",
-                color: "rgba(255,255,255,0.4)",
+                color: "#71717a",
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
@@ -227,9 +227,9 @@ export function TaskSidebar() {
                   width: "100%",
                   padding: "4px 6px",
                   borderRadius: 5,
-                  border: "1px solid rgba(255,255,255,0.25)",
-                  background: "rgba(255,255,255,0.1)",
-                  color: "#fff",
+                  border: "1px solid #d4d4d8",
+                  background: "#fff",
+                  color: "#18181b",
                   fontSize: 11,
                   outline: "none",
                   boxSizing: "border-box",
@@ -238,13 +238,13 @@ export function TaskSidebar() {
               <button
                 onClick={handleCreateTeam}
                 disabled={createTeam.isPending}
-                style={{ padding: "3px 0", borderRadius: 4, border: "none", background: "#ef3340", color: "#fff", fontSize: 10, fontWeight: 700, cursor: "pointer", width: "100%" }}
+                style={{ padding: "3px 0", borderRadius: 4, border: "none", background: "#c41e3a", color: "#fff", fontSize: 10, fontWeight: 700, cursor: "pointer", width: "100%" }}
               >
                 {createTeam.isPending ? "…" : "OK"}
               </button>
               <button
                 onClick={() => { setShowCreateForm(false); setNewTeamName("") }}
-                style={{ padding: "3px 0", borderRadius: 4, border: "1px solid rgba(255,255,255,0.15)", background: "transparent", color: "rgba(255,255,255,0.5)", fontSize: 10, cursor: "pointer", width: "100%" }}
+                style={{ padding: "3px 0", borderRadius: 4, border: "1px solid #e4e4e7", background: "transparent", color: "#71717a", fontSize: 10, cursor: "pointer", width: "100%" }}
               >
                 ✕
               </button>
@@ -260,9 +260,9 @@ export function TaskSidebar() {
           className="task-nav-icon"
           style={{
             width: 36, height: 36, borderRadius: 8,
-            background: "rgba(255,255,255,0.06)",
+            background: "#f4f4f5",
             display: "flex", alignItems: "center", justifyContent: "center",
-            color: "rgba(255,255,255,0.3)", fontSize: 18,
+            color: "#a1a1aa", fontSize: 18,
           }}
         >
           ?
@@ -270,7 +270,7 @@ export function TaskSidebar() {
       )}
 
       {/* Divider */}
-      <div style={{ width: 32, height: 1, background: "rgba(255,255,255,0.08)", margin: "4px 0" }} />
+      <div style={{ width: 32, height: 1, background: "#e4e4e7", margin: "4px 0" }} />
 
       {/* Navigation icons */}
       <nav style={{ display: "flex", flexDirection: "column", gap: 4, width: "100%", alignItems: expanded ? "flex-start" : "center", paddingLeft: expanded ? 4 : 0 }}>
@@ -289,8 +289,8 @@ export function TaskSidebar() {
                 height: 40,
                 border: "none",
                 borderRadius: 8,
-                background: isActive ? "rgba(239,51,64,0.18)" : "rgba(255,255,255,0.04)",
-                color: isActive ? "#ef3340" : "rgba(255,255,255,0.45)",
+                background: isActive ? "rgba(196,30,58,0.10)" : "transparent",
+                color: isActive ? "#c41e3a" : "#52525b",
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
@@ -312,18 +312,18 @@ export function TaskSidebar() {
                   width: 3,
                   height: 18,
                   borderRadius: 2,
-                  background: "#ef3340",
+                  background: "#c41e3a",
                 }} />
               )}
               {icon}
-              {expanded && <span style={{ fontSize: 13, fontWeight: isActive ? 600 : 400 }}>{label}</span>}
+              {expanded && <span style={{ fontSize: 13, fontWeight: isActive ? 600 : 500 }}>{label}</span>}
 
               {/* Badge de pendientes de aceptar */}
               {showBadge && expanded && (
                 <span style={{
                   marginLeft: "auto",
-                  background: "#f59e0b",
-                  color: "#161a22",
+                  background: "#d97706",
+                  color: "#fff",
                   borderRadius: 99,
                   fontSize: 11,
                   fontWeight: 800,
@@ -347,8 +347,8 @@ export function TaskSidebar() {
                   height: 15,
                   padding: "0 3px",
                   borderRadius: 99,
-                  background: "#f59e0b",
-                  color: "#161a22",
+                  background: "#d97706",
+                  color: "#fff",
                   fontSize: 9,
                   fontWeight: 800,
                   display: "flex",
@@ -374,12 +374,12 @@ export function TaskSidebar() {
               width: 32,
               height: 32,
               borderRadius: "50%",
-              background: "rgba(255,255,255,0.08)",
-              border: "1px solid rgba(255,255,255,0.12)",
+              background: "#f4f4f5",
+              border: "1px solid #e4e4e7",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              color: "rgba(255,255,255,0.4)",
+              color: "#71717a",
               fontSize: 10,
               fontWeight: 700,
               cursor: "default",
