@@ -48,6 +48,7 @@ dist/
 
 # Archivos adjuntos / binarios locales
 plans/archivos/
+Imagenes/
 
 # OS
 .DS_Store
