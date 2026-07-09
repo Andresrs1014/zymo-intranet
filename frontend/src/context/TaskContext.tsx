@@ -38,7 +38,14 @@ interface TaskContextValue {
   setFilters: (f: TaskFiltersState) => void
   onNewTask: () => void
   setOnNewTask: (fn: () => void) => void
+  /** Ancho actual del sidebar en px — el Drawer lo usa para arrancar justo donde termina el sidebar. */
+  sidebarWidth: number
+  sidebarExpanded: boolean
+  setSidebarExpanded: (v: boolean) => void
 }
+
+export const SIDEBAR_WIDTH_EXPANDED = 220
+export const SIDEBAR_WIDTH_COLLAPSED = 64
 
 const TaskContext = createContext<TaskContextValue | null>(null)
 
@@ -48,6 +55,8 @@ export function TaskContextProvider({ children }: { children: ReactNode }) {
   const [teams, setTeams] = useState<Team[]>([])
   const [filters, setFilters] = useState<TaskFiltersState>({})
   const [onNewTask, setOnNewTaskState] = useState<() => void>(() => () => undefined)
+  const [sidebarExpanded, setSidebarExpanded] = useState(true)
+  const sidebarWidth = sidebarExpanded ? SIDEBAR_WIDTH_EXPANDED : SIDEBAR_WIDTH_COLLAPSED
 
   const viewParam = searchParams.get("view")
   const activeView: TaskView = viewParam && VALID_VIEWS.includes(viewParam as TaskView) ? (viewParam as TaskView) : "mywork"
@@ -93,6 +102,9 @@ export function TaskContextProvider({ children }: { children: ReactNode }) {
         setFilters,
         onNewTask,
         setOnNewTask,
+        sidebarWidth,
+        sidebarExpanded,
+        setSidebarExpanded,
       }}
     >
       {children}

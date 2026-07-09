@@ -4,7 +4,8 @@ import { usePersonSummaries } from "@/hooks/useTaskDashboard"
 import { useTasks } from "@/hooks/useTasks"
 import type { PersonSummary } from "@/types/task"
 
-const ESTADO_BAR_COLORS = ["#059669", "#d97706", "#0891b2", "#c41e3a", "#71717a"]
+// Rampa monocroma rojo → zinc (paleta blanco+rojo del módulo)
+const ESTADO_BAR_COLORS = ["#c41e3a", "#e0596e", "#f0a6b1", "#a1a1aa", "#71717a"]
 
 function PersonCard({
   person,
@@ -35,7 +36,7 @@ function PersonCard({
       <div className="mb-3 flex items-center gap-3">
         <div
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[15px] font-bold text-white"
-          style={{ background: isSelected ? "#c41e3a" : "#0891b2" }}
+          style={{ background: isSelected ? "#c41e3a" : "#a1a1aa" }}
         >
           {person.nombre.slice(0, 2).toUpperCase()}
         </div>

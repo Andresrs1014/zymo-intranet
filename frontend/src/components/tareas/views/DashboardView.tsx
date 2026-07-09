@@ -13,6 +13,7 @@ import {
   Line,
   CartesianGrid,
 } from "recharts"
+import { AlertTriangle } from "lucide-react"
 import { useTask } from "@/context/TaskContext"
 import {
   useTeamKpis,
@@ -21,7 +22,9 @@ import {
   useMembersWithoutEntryToday,
 } from "@/hooks/useTaskDashboard"
 
-const CHART_COLORS = ["#c41e3a", "#0891b2", "#059669", "#d97706", "#0284c7", "#db2777"]
+// Rampa monocroma rojo → zinc (Red Dress Rule): el rojo domina, los grises diferencian
+// las series secundarias sin introducir un segundo tono que compita por atención.
+const CHART_COLORS = ["#c41e3a", "#e0596e", "#f0a6b1", "#a1a1aa", "#c4c4cb", "#71717a"]
 
 const TOOLTIP_STYLE = { background: "#ffffff", border: "1px solid #e4e4e7", borderRadius: 8, color: "#18181b" }
 const AXIS_TICK = { fontSize: 10, fill: "#71717a" }
@@ -87,16 +90,16 @@ export function DashboardView() {
         <input type="date" value={range.hasta ?? ""} onChange={(e) => setRange((r) => ({ ...r, hasta: e.target.value || undefined }))} className={dateInput} />
       </div>
 
-      {/* No-entry alert */}
+      {/* No-entry alert — señal de atención → rojo (protagonista), no ámbar */}
       {noEntry.length > 0 && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
+        <div className="rounded-lg border border-primary/25 bg-primary/5 px-4 py-3 text-[13px] text-primary">
           <div className="mb-1.5 flex items-center gap-2.5">
-            <span className="text-base">⚠</span>
+            <AlertTriangle size={15} strokeWidth={2.5} />
             <span><strong>{noEntry.length} miembro{noEntry.length > 1 ? "s" : ""}</strong> sin registro de tarea hoy:</span>
           </div>
           <div className="flex flex-wrap gap-1.5 pl-[26px]">
             {noEntry.map((m) => (
-              <span key={m.userId} className="rounded-full border border-amber-300 bg-amber-100 px-2.5 py-0.5 text-[11px] font-semibold text-amber-800">
+              <span key={m.userId} className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold text-primary">
                 {m.nombre || `Usuario ${m.userId}`}
               </span>
             ))}
@@ -169,7 +172,7 @@ export function DashboardView() {
                 <XAxis type="number" tick={AXIS_TICK} />
                 <YAxis dataKey="etiqueta" type="category" tick={AXIS_TICK} width={80} />
                 <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "#71717a" }} itemStyle={{ color: "#18181b" }} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
-                <Bar dataKey="count" fill="#0891b2" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="count" fill="#71717a" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

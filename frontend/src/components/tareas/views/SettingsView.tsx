@@ -61,15 +61,16 @@ function TeamSettings() {
 
   const roleBadgeClass = (role: string) =>
     `rounded-full px-2 py-px text-[10px] font-bold ${
-      role === "co_gestor" ? "bg-amber-100 text-amber-800" : "bg-zinc-100 text-zinc-600"
+      role === "co_gestor" ? "bg-primary/10 text-primary" : "bg-zinc-100 text-zinc-600"
     }`
 
   return (
     <div>
       {/* Rename team */}
       {isOwner && (
-        <div className="mb-7">
-          <h3 className="mb-2.5 text-[14px] font-bold text-zinc-900">Nombre del equipo</h3>
+        <div className="mb-8">
+          <h3 className="mb-1 text-[14px] font-bold text-zinc-900">Nombre del equipo</h3>
+          <p className="mb-3 text-xs text-zinc-500">Cómo se muestra el equipo en toda la barra lateral.</p>
           <div className="flex gap-2">
             <input
               value={newName}
@@ -79,27 +80,9 @@ function TeamSettings() {
             <button
               onClick={handleRename}
               disabled={rename.isPending}
-              className="rounded-md bg-primary px-4 py-2 text-[13px] font-bold text-primary-foreground transition hover:brightness-95"
+              className="rounded-md bg-primary px-5 py-2 text-[13px] font-bold text-primary-foreground transition hover:brightness-95"
             >
               Guardar
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Danger zone: delete team */}
-      {isOwner && (
-        <div className="mb-7 rounded-lg border border-red-200 bg-red-50 px-4 py-3.5">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-[13px] font-bold text-red-600">Eliminar espacio de trabajo</div>
-              <div className="mt-0.5 text-xs text-red-500">Esta acción es permanente y no se puede deshacer.</div>
-            </div>
-            <button
-              onClick={() => setShowDeleteConfirm(true)}
-              className="rounded-md bg-red-600 px-4 py-1.5 text-xs font-bold text-white transition hover:bg-red-700"
-            >
-              Eliminar
             </button>
           </div>
         </div>
@@ -142,7 +125,7 @@ function TeamSettings() {
       )}
 
       {/* Members list */}
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between border-t border-zinc-200 pt-7">
         <h3 className="text-[14px] font-bold text-zinc-900">Miembros ({members.length})</h3>
         {(isOwner || team?.myRole === "co_gestor") && (
           <button
@@ -158,7 +141,7 @@ function TeamSettings() {
         {members.map((m) => (
           <div key={m.id} className="flex items-center justify-between rounded-lg border border-zinc-200 bg-white px-3.5 py-2.5">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-600 text-[11px] font-bold text-white">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-500 text-[11px] font-bold text-white">
                 {m.userId.toString().slice(0, 2)}
               </div>
               <div>
@@ -199,6 +182,24 @@ function TeamSettings() {
           </div>
         ))}
       </div>
+
+      {/* Danger zone: delete team — acción destructiva al final de todo */}
+      {isOwner && (
+        <div className="mt-10 rounded-lg border border-primary/25 bg-primary/5 px-4 py-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className="text-[13px] font-bold text-primary">Eliminar espacio de trabajo</div>
+              <div className="mt-0.5 text-xs text-zinc-500">Esta acción es permanente y no se puede deshacer.</div>
+            </div>
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="shrink-0 rounded-md bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground transition hover:brightness-95"
+            >
+              Eliminar
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Add member dialog */}
       {showAddDialog && activeTeamId && (
@@ -252,14 +253,10 @@ function ListItem({ item, teamId, isEstado }: { item: ListConfig; teamId: number
   const [editLabel, setEditLabel] = useState(item.label)
   const [editColor, setEditColor] = useState(item.color ?? "#71717a")
 
-  // Border color reflects active special flag
-  const borderColor = item.isFinal
-    ? "#16a34a"
-    : item.isCanceled
-    ? "#dc2626"
-    : item.isInitialAssignment
-    ? "#2563eb"
-    : "#e4e4e7"
+  // Cualquier flag especial activo → borde rojo (marcado); si no, zinc. La distinción
+  // entre final / cancelado / inicial la dan los íconos (Flag / Ban / Mail), no el color.
+  const borderColor =
+    item.isFinal || item.isCanceled || item.isInitialAssignment ? "#c41e3a" : "#e4e4e7"
 
   const iconBtn = (active: boolean, activeColor: string) => ({
     display: "flex",
@@ -318,21 +315,21 @@ function ListItem({ item, teamId, isEstado }: { item: ListConfig; teamId: number
           <>
             <button
               title="Estado final (completado)"
-              style={iconBtn(!!item.isFinal, "#16a34a")}
+              style={iconBtn(!!item.isFinal, "#c41e3a")}
               onClick={() => setSpecial.mutate({ teamId, value: item.value, isFinal: !item.isFinal })}
             >
               <Flag size={13} />
             </button>
             <button
               title="Estado cancelado"
-              style={iconBtn(!!item.isCanceled, "#dc2626")}
+              style={iconBtn(!!item.isCanceled, "#c41e3a")}
               onClick={() => setSpecial.mutate({ teamId, value: item.value, isCanceled: !item.isCanceled })}
             >
               <Ban size={13} />
             </button>
             <button
               title="Estado inicial (asignación)"
-              style={iconBtn(!!item.isInitialAssignment, "#2563eb")}
+              style={iconBtn(!!item.isInitialAssignment, "#c41e3a")}
               onClick={() => setSpecial.mutate({ teamId, value: item.value, isInitialAssignment: !item.isInitialAssignment })}
             >
               <Mail size={13} />
@@ -343,7 +340,7 @@ function ListItem({ item, teamId, isEstado }: { item: ListConfig; teamId: number
         {/* Edit / confirm */}
         {editing ? (
           <>
-            <button title="Guardar" style={iconBtn(true, "#16a34a")} onClick={saveEdit} disabled={updateItem.isPending}>
+            <button title="Guardar" style={iconBtn(true, "#c41e3a")} onClick={saveEdit} disabled={updateItem.isPending}>
               <Check size={13} />
             </button>
             <button title="Cancelar" style={iconBtn(false, "#71717a")} onClick={() => { setEditing(false); setEditLabel(item.label); setEditColor(item.color ?? "#71717a") }}>
@@ -359,7 +356,7 @@ function ListItem({ item, teamId, isEstado }: { item: ListConfig; teamId: number
         {/* Trash = toggle isActive */}
         <button
           title={item.isActive ? "Desactivar" : "Activar"}
-          style={iconBtn(!item.isActive, "#dc2626")}
+          style={iconBtn(!item.isActive, "#c41e3a")}
           onClick={() => updateItem.mutate({ teamId, listType: item.listType, value: item.value, isActive: !item.isActive })}
         >
           <Trash2 size={13} />

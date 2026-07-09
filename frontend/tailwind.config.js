@@ -105,6 +105,17 @@ export default {
           'ui-sans-serif', 'system-ui', 'sans-serif',
         ],
       },
+      keyframes: {
+        // Magic UI ShineBorder — borde animado del header de Tareas 2.0
+        shine: {
+          "0%":  { backgroundPosition: "0% 0%" },
+          "50%": { backgroundPosition: "100% 100%" },
+          to:    { backgroundPosition: "0% 0%" },
+        },
+      },
+      animation: {
+        shine: "shine var(--duration, 14s) infinite linear",
+      },
     },
   },
   plugins: [

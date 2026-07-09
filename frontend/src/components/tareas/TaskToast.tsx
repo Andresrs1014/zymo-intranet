@@ -12,10 +12,11 @@ const TASK_TOAST_EVENT = "task-toast"
 const AUTO_DISMISS_MS = 3500
 const MAX_TOASTS = 4
 
+// Paleta blanco+rojo: success/error usan el rojo ZYMO, info queda en zinc neutro (no es un color nuevo).
 const TYPE_COLORS: Record<ToastType, string> = {
-  success: "#059669",
-  error: "#c41e3a",
-  info: "#0284c7",
+  success: "#ef3340",
+  error: "#ef3340",
+  info: "#71717a",
 }
 
 export function useTaskToast() {

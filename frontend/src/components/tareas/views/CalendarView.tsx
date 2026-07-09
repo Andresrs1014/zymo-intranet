@@ -64,8 +64,9 @@ function EventCard({ event, currentUserId, onConfirm }: { event: TaskEvent; curr
             title={p.userNombre + (p.hasConflict ? ` — ${p.conflictDetail}` : "") + (p.confirmado ? " ✓" : "")}
             className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white"
             style={{
-              background: p.confirmado ? "#059669" : "#0891b2",
-              border: p.hasConflict ? "2px solid #dc2626" : "2px solid transparent",
+              // confirmado = rojo (marcado); pendiente = zinc neutro. Sin verde/cian.
+              background: p.confirmado ? "#c41e3a" : "#a1a1aa",
+              border: p.hasConflict ? "2px solid #c41e3a" : "2px solid transparent",
             }}
           >
             {p.userNombre.slice(0, 2).toUpperCase()}
@@ -83,7 +84,7 @@ function EventCard({ event, currentUserId, onConfirm }: { event: TaskEvent; curr
           </button>
         )}
         {isParticipant && alreadyConfirmed && (
-          <span className="ml-auto text-[11px] font-semibold text-emerald-600">✓ Confirmado</span>
+          <span className="ml-auto text-[11px] font-semibold text-primary">✓ Confirmado</span>
         )}
       </div>
     </div>

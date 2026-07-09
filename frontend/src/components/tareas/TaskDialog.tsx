@@ -222,7 +222,7 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
                 {suggestions.plataforma_sugerida && (
                   <button
                     onClick={() => setForm((f) => ({ ...f, plataforma: suggestions.plataforma_sugerida! }))}
-                    className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-0.5 text-[11px] font-semibold text-sky-700 transition hover:bg-sky-100"
+                    className="rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 text-[11px] font-semibold text-zinc-600 transition hover:bg-zinc-100"
                   >
                     IA: {suggestions.plataforma_sugerida}
                   </button>
@@ -320,8 +320,8 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
 
         {/* Aceptar / rechazar tarea asignada */}
         {isPendingAcceptance && task && (
-          <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
-            <div className="text-[13px] font-medium text-amber-800">
+          <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3">
+            <div className="text-[13px] font-medium text-zinc-700">
               Esta tarea te fue asignada. ¿La aceptas?
             </div>
             <div className="flex gap-2">
@@ -331,7 +331,7 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
                   showToast("Tarea rechazada", "error")
                   onClose()
                 }}
-                className="rounded-md border border-red-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50"
+                className="rounded-md border border-zinc-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-zinc-600 transition hover:bg-zinc-100"
               >
                 Rechazar
               </button>
@@ -340,7 +340,7 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
                   await acceptTask.mutateAsync({ taskId: task.id, aceptacion: "aceptada" })
                   showToast("Tarea aceptada", "success")
                 }}
-                className="rounded-md bg-emerald-600 px-3.5 py-1.5 text-xs font-bold text-white transition hover:bg-emerald-700"
+                className="rounded-md bg-primary px-3.5 py-1.5 text-xs font-bold text-primary-foreground transition hover:brightness-95"
               >
                 Aceptar
               </button>
@@ -353,8 +353,8 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
           <div
             className={`mt-3 inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-[11px] font-bold ${
               task.aceptacion === "aceptada"
-                ? "bg-emerald-50 text-emerald-700"
-                : "bg-red-50 text-red-600"
+                ? "bg-primary/10 text-primary"
+                : "bg-zinc-100 text-zinc-500"
             }`}
           >
             {task.aceptacion === "aceptada" ? "✓ Aceptada por el responsable" : "✗ Rechazada por el responsable"}

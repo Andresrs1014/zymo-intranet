@@ -7,16 +7,19 @@ import {
   CalendarDays,
   LayoutDashboard,
   Users,
+  Users2,
   Settings,
   Plus,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
 } from "lucide-react"
 import { useTask, type TaskView } from "@/context/TaskContext"
 import { useMyTeams, useCreateTeam } from "@/hooks/useTaskTeams"
 import { useMyTasks } from "@/hooks/useTasks"
 import { countPendingForMe } from "@/lib/taskWork"
 import { useAuthStore } from "@/store/authStore"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import "./tareas.css"
 
 interface NavItem {
@@ -36,20 +39,16 @@ const NAV_ITEMS: NavItem[] = [
   { view: "settings",  label: "Configuración",   icon: <Settings size={18} />, managerOnly: true },
 ]
 
-// Generate a deterministic color for a team based on its id
-function teamColor(id: number) {
-  const palette = ["#c41e3a", "#0891b2", "#059669", "#d97706", "#0284c7", "#db2777"]
-  return palette[id % palette.length]
-}
-
 export function TaskSidebar() {
-  const { activeView, setActiveView, activeTeamId, setActiveTeamId, myRole, setTeams } = useTask()
+  const {
+    activeView, setActiveView, activeTeamId, setActiveTeamId, myRole, setTeams,
+    sidebarExpanded: expanded, setSidebarExpanded: setExpanded,
+  } = useTask()
   const { data: teams = [], isLoading } = useMyTeams()
   const createTeam = useCreateTeam()
   const { user } = useAuthStore()
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [newTeamName, setNewTeamName] = useState("")
-  const [expanded, setExpanded] = useState(true)
 
   const isGestor = user?.user_tools?.includes("tool_task_manage_dev") ?? false
   const isManager = myRole === "owner" || myRole === "co_gestor"
@@ -87,7 +86,7 @@ export function TaskSidebar() {
         gap: 8,
         padding: "16px 8px",
         background: "#ffffff",
-        borderRight: "2px solid #18181b",
+        borderRight: "1px solid #e4e4e7",
         minHeight: "100vh",
         width: sidebarWidth,
         transition: "width 220ms ease",
@@ -123,7 +122,7 @@ export function TaskSidebar() {
         )}
         <button
           type="button"
-          onClick={() => setExpanded((v) => !v)}
+          onClick={() => setExpanded(!expanded)}
           className="task-sidebar-toggle"
           data-label={expanded ? "Colapsar" : "Expandir"}
           style={{
@@ -148,107 +147,121 @@ export function TaskSidebar() {
       {/* Divider */}
       <div style={{ width: expanded ? "100%" : 32, height: 1, background: "#e4e4e7", marginBottom: 4 }} />
 
-      {/* Team circles */}
-      {!isLoading && teams.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, width: "100%", alignItems: expanded ? "flex-start" : "center", paddingLeft: expanded ? 4 : 0 }}>
+      {/* ── Equipos ──────────────────────────────────────────────────────
+          Desplegable (Collapsible shadcn) con items cuadrados blancos que se
+          vuelven rojos al seleccionar. Sin color-por-equipo: paleta blanco+rojo,
+          el rojo solo marca el equipo activo. */}
+      {!isLoading && teams.length > 0 && expanded && (
+        <Collapsible defaultOpen className="w-full">
+          <CollapsibleTrigger className="group flex w-full items-center justify-between rounded-md px-2.5 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 transition-colors hover:bg-zinc-50">
+            <span className="flex items-center gap-2">
+              <Users2 size={14} /> Equipos
+            </span>
+            <ChevronDown size={14} className="transition-transform duration-200 group-data-[state=open]:rotate-180" />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-1 flex flex-col gap-1">
+            {teams.map((team) => {
+              const isSelected = team.id === activeTeamId
+              const initial = team.name.charAt(0).toUpperCase()
+              return (
+                <button
+                  key={team.id}
+                  type="button"
+                  onClick={() => setActiveTeamId(team.id)}
+                  className={`flex w-full items-center gap-2.5 rounded-md border px-2.5 py-2 text-left text-[13px] font-medium transition-colors ${
+                    isSelected
+                      ? "border-transparent bg-primary text-primary-foreground shadow-sm"
+                      : "border-zinc-200 bg-white text-zinc-700 hover:border-primary/40 hover:bg-primary/5"
+                  }`}
+                >
+                  <span
+                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-[5px] text-[11px] font-bold ${
+                      isSelected ? "bg-white/20 text-white" : "bg-zinc-100 text-zinc-500"
+                    }`}
+                  >
+                    {initial}
+                  </span>
+                  <span className="truncate">{team.name}</span>
+                </button>
+              )
+            })}
+
+            {/* Crear equipo (solo gestores) */}
+            {isGestor && !showCreateForm && (
+              <button
+                type="button"
+                onClick={() => setShowCreateForm(true)}
+                className="flex w-full items-center gap-2 rounded-md border border-dashed border-zinc-300 px-2.5 py-2 text-[13px] font-medium text-zinc-500 transition-colors hover:border-primary/40 hover:text-primary"
+              >
+                <Plus size={14} /> Crear equipo
+              </button>
+            )}
+
+            {isGestor && showCreateForm && (
+              <div className="flex flex-col gap-1.5 rounded-md border border-zinc-200 p-2">
+                <input
+                  autoFocus
+                  placeholder="Nombre del equipo"
+                  value={newTeamName}
+                  onChange={(e) => setNewTeamName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleCreateTeam()
+                    if (e.key === "Escape") { setShowCreateForm(false); setNewTeamName("") }
+                  }}
+                  className="w-full rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-[12px] text-zinc-900 outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/30"
+                />
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={handleCreateTeam}
+                    disabled={createTeam.isPending}
+                    className="flex-1 rounded-md bg-primary py-1.5 text-[11px] font-bold text-primary-foreground transition hover:brightness-95"
+                  >
+                    {createTeam.isPending ? "…" : "Crear"}
+                  </button>
+                  <button
+                    onClick={() => { setShowCreateForm(false); setNewTeamName("") }}
+                    className="rounded-md border border-zinc-200 px-2.5 py-1.5 text-[11px] font-semibold text-zinc-500 transition hover:bg-zinc-50"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+
+      {/* Colapsado: iconos cuadrados de equipo (blanco → rojo al seleccionar) */}
+      {!isLoading && teams.length > 0 && !expanded && (
+        <div className="flex w-full flex-col items-center gap-1.5">
           {teams.map((team) => {
             const isSelected = team.id === activeTeamId
-            const color = teamColor(team.id)
             const initial = team.name.charAt(0).toUpperCase()
             return (
               <button
                 key={team.id}
                 type="button"
                 onClick={() => setActiveTeamId(team.id)}
-                data-label={!expanded ? team.name : undefined}
-                className={`task-nav-icon task-team-btn${isSelected ? " selected" : ""}`}
-                style={{
-                  width: expanded ? "100%" : 36,
-                  height: 36,
-                  borderRadius: 8,
-                  border: isSelected ? "none" : `1px solid ${color}33`,
-                  background: isSelected ? color : `${color}14`,
-                  color: isSelected ? "#fff" : color,
-                  fontSize: 13,
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: expanded ? "flex-start" : "center",
-                  gap: 8,
-                  paddingLeft: expanded ? 8 : 0,
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                }}
+                data-label={team.name}
+                className={`task-nav-icon flex h-9 w-9 items-center justify-center rounded-md border text-[13px] font-bold transition-colors ${
+                  isSelected
+                    ? "border-transparent bg-primary text-primary-foreground shadow-sm"
+                    : "border-zinc-200 bg-white text-zinc-600 hover:border-primary/40 hover:bg-primary/5"
+                }`}
               >
-                <span style={{ flexShrink: 0 }}>{initial}</span>
-                {expanded && <span style={{ fontSize: 12, overflow: "hidden", textOverflow: "ellipsis" }}>{team.name}</span>}
+                {initial}
               </button>
             )
           })}
-
-          {/* Create team button (gestores only) */}
-          {isGestor && !showCreateForm && (
+          {isGestor && (
             <button
               type="button"
-              onClick={() => setShowCreateForm(true)}
+              onClick={() => { setExpanded(true); setShowCreateForm(true) }}
               data-label="Crear equipo"
-              className="task-nav-icon"
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 8,
-                border: "1px dashed #d4d4d8",
-                background: "transparent",
-                color: "#71717a",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
+              className="task-nav-icon flex h-9 w-9 items-center justify-center rounded-md border border-dashed border-zinc-300 text-zinc-500 transition-colors hover:border-primary/40 hover:text-primary"
             >
               <Plus size={14} />
             </button>
-          )}
-
-          {/* Inline create form */}
-          {isGestor && showCreateForm && (
-            <div style={{ width: 36, display: "flex", flexDirection: "column", gap: 4 }}>
-              <input
-                autoFocus
-                placeholder="Nombre"
-                value={newTeamName}
-                onChange={(e) => setNewTeamName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleCreateTeam()
-                  if (e.key === "Escape") { setShowCreateForm(false); setNewTeamName("") }
-                }}
-                style={{
-                  width: "100%",
-                  padding: "4px 6px",
-                  borderRadius: 5,
-                  border: "1px solid #d4d4d8",
-                  background: "#fff",
-                  color: "#18181b",
-                  fontSize: 11,
-                  outline: "none",
-                  boxSizing: "border-box",
-                }}
-              />
-              <button
-                onClick={handleCreateTeam}
-                disabled={createTeam.isPending}
-                style={{ padding: "3px 0", borderRadius: 4, border: "none", background: "#c41e3a", color: "#fff", fontSize: 10, fontWeight: 700, cursor: "pointer", width: "100%" }}
-              >
-                {createTeam.isPending ? "…" : "OK"}
-              </button>
-              <button
-                onClick={() => { setShowCreateForm(false); setNewTeamName("") }}
-                style={{ padding: "3px 0", borderRadius: 4, border: "1px solid #e4e4e7", background: "transparent", color: "#71717a", fontSize: 10, cursor: "pointer", width: "100%" }}
-              >
-                ✕
-              </button>
-            </div>
           )}
         </div>
       )}
@@ -322,7 +335,7 @@ export function TaskSidebar() {
               {showBadge && expanded && (
                 <span style={{
                   marginLeft: "auto",
-                  background: "#d97706",
+                  background: "#c41e3a",
                   color: "#fff",
                   borderRadius: 99,
                   fontSize: 11,
@@ -347,7 +360,7 @@ export function TaskSidebar() {
                   height: 15,
                   padding: "0 3px",
                   borderRadius: 99,
-                  background: "#d97706",
+                  background: "#c41e3a",
                   color: "#fff",
                   fontSize: 9,
                   fontWeight: 800,

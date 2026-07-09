@@ -71,12 +71,3 @@
   background: #e4e4e7 !important;
   color: #18181b !important;
 }
-
-/* ── Team selector ─────────────────────────────────────────────── */
-.task-team-btn {
-  transition: box-shadow 160ms ease, transform 140ms ease, opacity 160ms ease;
-}
-.task-team-btn:hover {
-  opacity: 0.88;
-  transform: scale(1.05);
-}

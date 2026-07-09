@@ -59,7 +59,7 @@ function WorkCard({ task, teamName, estadoCfg, prioCfg, done, onOpen }: CardProp
       tabIndex={0}
       onClick={() => onOpen(task)}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(task) } }}
-      className="group flex w-full cursor-pointer items-start gap-3 px-4 py-3.5 text-left transition hover:-translate-y-px hover:shadow-md"
+      className="group flex w-full cursor-pointer items-start gap-4 px-5 py-4 text-left transition hover:-translate-y-px hover:border-primary/40 hover:shadow-md"
     >
       <div className="min-w-0 flex-1">
         <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -177,7 +177,7 @@ export function MiTrabajoView() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto flex max-w-3xl flex-col gap-2.5">
+      <div className="flex w-full flex-col gap-3">
         {Array.from({ length: 4 }).map((_, i) => <WorkCardSkeleton key={i} />)}
       </div>
     )
@@ -186,27 +186,19 @@ export function MiTrabajoView() {
   const totalActivo = pendientes.length + vencidas.length + enCurso.length
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <Card className="mb-6 px-6 py-5">
+    <div className="w-full">
+      <Card className="mb-7 px-7 py-6">
         <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-500">Bandeja personal</p>
-        <h2 className="mt-1 text-lg font-bold text-zinc-900">
+        <h2 className="mt-1.5 text-lg font-bold text-zinc-900">
           Tienes <span className="font-mono text-primary">{totalActivo}</span> tarea{totalActivo === 1 ? "" : "s"} activa{totalActivo === 1 ? "" : "s"}
           {pendientes.length > 0 && (
-            <> · <span className="font-mono text-amber-600">{pendientes.length}</span> por aceptar</>
+            <> · <span className="font-mono text-zinc-600">{pendientes.length}</span> por aceptar</>
           )}
         </h2>
       </Card>
 
-      <Section
-        icon={<Inbox size={15} />}
-        title="Pendientes de aceptar"
-        accent="#d97706"
-        tasks={pendientes}
-        emptyLabel="Nada por aceptar. Estás al día."
-      >
-        {renderCard}
-      </Section>
-
+      {/* Vencidas es la única sección roja — protagonista visual (Red Dress Rule).
+          Pendientes y En curso usan zinc neutro para no competir por atención. */}
       <Section
         icon={<AlertTriangle size={15} />}
         title="Vencidas o en riesgo"
@@ -218,9 +210,19 @@ export function MiTrabajoView() {
       </Section>
 
       <Section
+        icon={<Inbox size={15} />}
+        title="Pendientes de aceptar"
+        accent="#52525b"
+        tasks={pendientes}
+        emptyLabel="Nada por aceptar. Estás al día."
+      >
+        {renderCard}
+      </Section>
+
+      <Section
         icon={<Clock size={15} />}
         title="En curso / para hoy"
-        accent="#0891b2"
+        accent="#71717a"
         tasks={enCurso}
         emptyLabel="No tienes tareas en curso."
       >

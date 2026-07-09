@@ -89,8 +89,8 @@ function TaskCard({
         <div className="flex items-center justify-between">
           <div className="flex flex-wrap gap-1">
             <Badge variant="secondary" className="text-[10px] font-normal text-zinc-600">{etiquetaLabel}</Badge>
-            {porAceptar && <Badge variant="warning" className="text-[10px] uppercase">Por aceptar</Badge>}
-            {vencida && <Badge variant="outline" className="border-red-300 bg-red-50 text-[10px] uppercase text-red-600">Vencida</Badge>}
+            {porAceptar && <Badge variant="outline" className="border-zinc-300 text-[10px] font-bold uppercase text-zinc-600">Por aceptar</Badge>}
+            {vencida && <Badge className="border-transparent bg-primary text-[10px] font-bold uppercase text-primary-foreground">Vencida</Badge>}
           </div>
           <div className="flex items-center gap-1.5">
             {task.tiempoTotalMinutos && (

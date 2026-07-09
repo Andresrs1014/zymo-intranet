@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { Paperclip, Check, Ban, Loader2 } from "lucide-react"
 import { useTask as useTaskQuery, useUpdateTask, useAcceptTask, useTaskHistory } from "@/hooks/useTasks"
+import { useTask as useTaskContext } from "@/context/TaskContext"
 import { useTaskLists } from "@/hooks/useTaskLists"
 import { useTeamMembers } from "@/hooks/useTaskTeams"
 import { useAuthStore } from "@/store/authStore"
@@ -45,6 +46,7 @@ interface Props {
 
 export function TaskDrawer({ task, onClose }: Props) {
   const targetId = task?.id ?? null
+  const { sidebarWidth } = useTaskContext()
 
   // Datos frescos: refleja aceptar/editar sin cerrar el drawer (el prop es un snapshot).
   const { data: liveTask } = useTaskQuery(targetId)
@@ -183,9 +185,12 @@ export function TaskDrawer({ task, onClose }: Props) {
       <Sheet open onOpenChange={(v) => !v && onClose()}>
         <SheetContent
           side="right"
-          // Ancho: arranca al borde derecho del sidebar expandido (220px) y llega hasta
-          // el borde de la pantalla. En pantallas chicas ocupa todo el ancho.
-          className="left-0 flex w-auto max-w-none flex-col gap-0 border-l border-zinc-200 bg-white p-0 text-zinc-900 lg:left-[220px]"
+          // Ancho real: `left` en style inline (gana sí o sí sobre `w-3/4`/`sm:max-w-sm`
+          // de la variante base del Sheet, que si no se sobreescribe con la misma
+          // especificidad deja el panel angosto y pegado a la izquierda). Sigue el
+          // ancho actual del sidebar (expandido o colapsado) para no desalinearse.
+          className="flex flex-col gap-0 border-l border-zinc-200 bg-white p-0 text-zinc-900"
+          style={{ left: sidebarWidth, right: 0, width: "auto", maxWidth: "none" }}
         >
           {/* Header */}
           <SheetHeader className="space-y-0 border-b border-zinc-200 px-6 py-5 pr-14 text-left">
@@ -213,21 +218,21 @@ export function TaskDrawer({ task, onClose }: Props) {
 
           {/* Barra de aceptación fijada arriba */}
           {isPendingForMe && (
-            <div className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-6 py-3 animate-in fade-in slide-in-from-top-2 duration-300">
-              <span className="mr-auto text-[13px] font-medium text-amber-800">
+            <div className="flex items-center gap-2 border-b border-zinc-200 bg-zinc-50 px-6 py-3 animate-in fade-in slide-in-from-top-2 duration-300">
+              <span className="mr-auto text-[13px] font-medium text-zinc-700">
                 Te asignaron esta tarea. ¿La aceptas?
               </span>
               <button
                 onClick={() => handleAccept("rechazada")}
                 disabled={acceptTask.isPending}
-                className="inline-flex items-center gap-1.5 rounded-md border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-600 transition hover:bg-zinc-100 disabled:opacity-50"
               >
                 <Ban size={13} /> Rechazar
               </button>
               <button
                 onClick={() => handleAccept("aceptada")}
                 disabled={acceptTask.isPending}
-                className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-1.5 text-xs font-bold text-primary-foreground shadow-sm transition hover:brightness-95 disabled:opacity-50"
               >
                 {acceptTask.isPending ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
                 Aceptar
@@ -247,7 +252,7 @@ export function TaskDrawer({ task, onClose }: Props) {
             </div>
             <div className="relative h-2 w-full overflow-hidden rounded-full bg-zinc-200">
               <div
-                className={`h-full rounded-full transition-[width] duration-500 ${overrun ? "bg-primary" : "bg-emerald-500"}`}
+                className={`h-full rounded-full transition-[width] duration-500 ${overrun ? "bg-primary" : "bg-zinc-400"}`}
                 style={{ width: `${(ratio / 1.5) * 100}%` }}
               />
               {est > 0 && (
