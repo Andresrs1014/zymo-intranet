@@ -552,10 +552,26 @@ export async function getTaskHistory(taskId: number, user: AuthPayload) {
   })
   if (!task) throw new AppError(404, "Tarea no encontrada")
 
-  return prisma.activityLog.findMany({
+  const logs = await prisma.activityLog.findMany({
     where: { taskId },
     orderBy: { fecha: "desc" },
   })
+
+  // Autoreparo best-effort: los logs viejos guardaron "Usuario N" como nombre
+  // porque el JWT no trae full_name (ver resolveActorName). Se resuelve el
+  // nombre actual al leer, sin reescribir el historial.
+  const userIds = Array.from(new Set(logs.map((l) => l.userId)))
+  if (userIds.length > 0) {
+    const nameMap = await enrichUserNames(userIds)
+    if (nameMap.size > 0) {
+      for (const l of logs) {
+        const nombre = nameMap.get(l.userId)
+        if (nombre) l.userNombre = nombre
+      }
+    }
+  }
+
+  return logs
 }
 
 export async function acceptOrRejectTask(
