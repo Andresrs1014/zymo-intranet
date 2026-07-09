@@ -6,7 +6,6 @@ import {
   Kanban,
   CalendarDays,
   LayoutDashboard,
-  Users,
   Users2,
   Settings,
   Plus,
@@ -35,7 +34,6 @@ const NAV_ITEMS: NavItem[] = [
   { view: "board",     label: "Tablero",         icon: <Kanban size={18} /> },
   { view: "calendar",  label: "Calendario",      icon: <CalendarDays size={18} /> },
   { view: "dashboard", label: "Dashboard",       icon: <LayoutDashboard size={18} />, managerOnly: true },
-  { view: "people",    label: "Personas",        icon: <Users size={18} />, managerOnly: true },
   { view: "settings",  label: "Configuración",   icon: <Settings size={18} />, managerOnly: true },
 ]
 

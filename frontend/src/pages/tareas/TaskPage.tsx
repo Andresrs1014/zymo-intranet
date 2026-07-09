@@ -7,7 +7,6 @@ import { ListView } from "@/components/tareas/views/ListView"
 import { BoardView } from "@/components/tareas/views/BoardView"
 import { CalendarView } from "@/components/tareas/views/CalendarView"
 import { DashboardView } from "@/components/tareas/views/DashboardView"
-import { PeopleView } from "@/components/tareas/views/PeopleView"
 import { SettingsView } from "@/components/tareas/views/SettingsView"
 
 function TaskContent() {
@@ -26,7 +25,6 @@ function TaskContent() {
       {activeView === "board" && <BoardView />}
       {activeView === "calendar" && <CalendarView />}
       {activeView === "dashboard" && <DashboardView />}
-      {activeView === "people" && <PeopleView />}
       {activeView === "settings" && <SettingsView />}
 
       <TaskDialog

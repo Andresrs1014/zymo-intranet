@@ -9,10 +9,9 @@ export type TaskView =
   | "board"
   | "calendar"
   | "dashboard"
-  | "people"
   | "settings"
 
-const VALID_VIEWS: TaskView[] = ["mywork", "list", "board", "calendar", "dashboard", "people", "settings"]
+const VALID_VIEWS: TaskView[] = ["mywork", "list", "board", "calendar", "dashboard", "settings"]
 
 export type TeamRole = "owner" | "co_gestor" | "member" | null
 

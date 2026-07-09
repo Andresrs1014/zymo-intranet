@@ -71,3 +71,15 @@
   background: #e4e4e7 !important;
   color: #18181b !important;
 }
+
+/* ── Person card — lista de tareas scrolleable (panel blanco sobre card roja) ── */
+.person-card-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+.person-card-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.person-card-scroll::-webkit-scrollbar-thumb {
+  background: #a8172f;
+  border-radius: 99px;
+}

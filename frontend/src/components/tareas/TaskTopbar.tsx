@@ -9,7 +9,6 @@ const VIEW_TITLES: Record<TaskView, string> = {
   board: "Tablero Scrum",
   calendar: "Calendario",
   dashboard: "Dashboard",
-  people: "Personas",
   settings: "Configuración",
 }
 

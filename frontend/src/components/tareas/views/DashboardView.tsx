@@ -21,6 +21,10 @@ import {
   useCharts,
   useMembersWithoutEntryToday,
 } from "@/hooks/useTaskDashboard"
+import { useTaskLists } from "@/hooks/useTaskLists"
+import { PersonSummaryCard } from "@/components/tareas/PersonSummaryCard"
+import { TaskDrawer } from "@/components/tareas/TaskDrawer"
+import type { Task } from "@/types/task"
 
 // Rampa monocroma rojo → zinc (Red Dress Rule): el rojo domina, los grises diferencian
 // las series secundarias sin introducir un segundo tono que compita por atención.
@@ -65,14 +69,20 @@ function KpiCard({ label, value, sub }: { label: string; value: string | number;
   )
 }
 
+type DashboardTab = "dashboard" | "personas"
+
 export function DashboardView() {
   const { activeTeamId } = useTask()
+  const [tab, setTab] = useState<DashboardTab>("dashboard")
   const [range, setRange] = useState<{ desde?: string; hasta?: string }>({})
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null)
 
   const { data: kpis } = useTeamKpis(activeTeamId, range)
-  const { data: persons = [] } = usePersonSummaries(activeTeamId, range)
+  const { data: persons = [] } = usePersonSummaries(activeTeamId)
   const { data: charts } = useCharts(activeTeamId, range)
   const { data: noEntry = [] } = useMembersWithoutEntryToday(activeTeamId)
+  const { data: lists } = useTaskLists(activeTeamId)
+  const estados = lists?.estado ?? []
 
   if (!activeTeamId) {
     return <div className="p-16 text-center text-zinc-500">Selecciona un equipo.</div>
@@ -82,14 +92,56 @@ export function DashboardView() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Date range filter */}
-      <div className="flex items-center gap-2">
-        <span className="text-xs text-zinc-500">Rango:</span>
-        <input type="date" value={range.desde ?? ""} onChange={(e) => setRange((r) => ({ ...r, desde: e.target.value || undefined }))} className={dateInput} />
-        <span className="text-xs text-zinc-400">—</span>
-        <input type="date" value={range.hasta ?? ""} onChange={(e) => setRange((r) => ({ ...r, hasta: e.target.value || undefined }))} className={dateInput} />
+      {/* Tabs: Dashboard (KPIs/gráficas) | Info por persona (antes "Personas") */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="inline-flex gap-1 rounded-lg border border-zinc-200 bg-white p-1">
+          {([
+            { key: "dashboard" as const, label: "Dashboard" },
+            { key: "personas" as const, label: "Info por persona" },
+          ]).map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTab(t.key)}
+              className={`rounded-md px-3.5 py-1.5 text-[13px] font-semibold transition-colors ${
+                tab === t.key ? "bg-primary text-primary-foreground" : "text-zinc-600 hover:bg-zinc-50"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {tab === "dashboard" && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-zinc-500">Rango:</span>
+            <input type="date" value={range.desde ?? ""} onChange={(e) => setRange((r) => ({ ...r, desde: e.target.value || undefined }))} className={dateInput} />
+            <span className="text-xs text-zinc-400">—</span>
+            <input type="date" value={range.hasta ?? ""} onChange={(e) => setRange((r) => ({ ...r, hasta: e.target.value || undefined }))} className={dateInput} />
+          </div>
+        )}
       </div>
 
+      {tab === "personas" && (
+        <div className="grid gap-5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
+          {persons.length === 0 ? (
+            <p className="p-8 text-center text-sm text-zinc-500">No hay datos de personas para este equipo.</p>
+          ) : (
+            persons.map((p) => (
+              <PersonSummaryCard
+                key={p.userId}
+                person={p}
+                teamId={activeTeamId}
+                estados={estados}
+                onOpenTask={setSelectedTask}
+              />
+            ))
+          )}
+        </div>
+      )}
+
+      {tab === "dashboard" && (
+      <>
       {/* No-entry alert — señal de atención → rojo (protagonista), no ámbar */}
       {noEntry.length > 0 && (
         <div className="rounded-lg border border-primary/25 bg-primary/5 px-4 py-3 text-[13px] text-primary">
@@ -138,9 +190,11 @@ export function DashboardView() {
           {/* By estado (pie) */}
           <div className="rounded-lg border border-zinc-200 bg-white p-[18px] shadow-sm">
             <h3 className="mb-3.5 text-[13px] font-bold text-zinc-900">Por estado</h3>
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie data={charts.byEstado} dataKey="count" nameKey="estado" outerRadius={80} label>
+            {/* Margen + radio reducido: reserva espacio real para las etiquetas externas
+                del pie (sin esto el texto se corta contra el borde del contenedor). */}
+            <ResponsiveContainer width="100%" height={240}>
+              <PieChart margin={{ top: 16, right: 24, bottom: 16, left: 24 }}>
+                <Pie data={charts.byEstado} dataKey="count" nameKey="estado" outerRadius={65} label>
                   {charts.byEstado.map((_, i) => (
                     <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                   ))}
@@ -167,10 +221,21 @@ export function DashboardView() {
           {/* By etiqueta */}
           <div className="rounded-lg border border-zinc-200 bg-white p-[18px] shadow-sm">
             <h3 className="mb-3.5 text-[13px] font-bold text-zinc-900">Por etiqueta</h3>
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={charts.byEtiqueta} layout="vertical">
-                <XAxis type="number" tick={AXIS_TICK} />
-                <YAxis dataKey="etiqueta" type="category" tick={AXIS_TICK} width={80} />
+            {/* Altura y ancho del eje escalan con la cantidad/longitud de etiquetas —
+                con altura fija, más de ~6 etiquetas quedaban amontonadas o cortadas. */}
+            <ResponsiveContainer
+              width="100%"
+              height={Math.max(200, charts.byEtiqueta.length * 34)}
+            >
+              <BarChart data={charts.byEtiqueta} layout="vertical" margin={{ left: 8 }}>
+                <XAxis type="number" tick={AXIS_TICK} allowDecimals={false} />
+                <YAxis
+                  dataKey="etiqueta"
+                  type="category"
+                  tick={AXIS_TICK}
+                  width={Math.min(140, Math.max(80, ...charts.byEtiqueta.map((e) => e.etiqueta.length * 6)))}
+                  interval={0}
+                />
                 <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "#71717a" }} itemStyle={{ color: "#18181b" }} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
                 <Bar dataKey="count" fill="#71717a" radius={[0, 4, 4, 0]} />
               </BarChart>
@@ -178,43 +243,10 @@ export function DashboardView() {
           </div>
         </div>
       )}
-
-      {/* Person summaries */}
-      {persons.length > 0 && (
-        <div>
-          <h2 className="mb-3.5 text-[15px] font-bold text-zinc-900">Resumen por persona</h2>
-          <div className="grid gap-3.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
-            {persons.map((p) => (
-              <div key={p.userId} className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-                <div className="mb-2.5 flex items-center gap-2.5">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-[13px] font-bold text-primary-foreground">
-                    {p.nombre.slice(0, 2).toUpperCase()}
-                  </div>
-                  <div>
-                    <div className="text-[13px] font-semibold text-zinc-900">{p.nombre}</div>
-                    <div className="font-mono text-[11px] text-zinc-500">{p.total} tareas · {p.horasTotal}h</div>
-                  </div>
-                </div>
-                <div className="flex gap-[3px]">
-                  {Object.entries(p.byEstado).map(([estado, count]) => (
-                    <div
-                      key={estado}
-                      title={`${estado}: ${count}`}
-                      style={{
-                        flex: count,
-                        height: 6,
-                        borderRadius: 3,
-                        background: "#c41e3a",
-                        opacity: 0.55 + (count / p.total) * 0.45,
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+      </>
       )}
+
+      <TaskDrawer task={selectedTask} onClose={() => setSelectedTask(null)} />
     </div>
   )
 }
