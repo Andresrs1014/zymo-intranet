@@ -4,6 +4,7 @@ import prisma from "../config/prisma"
 import { AppError } from "../middleware/errorHandler"
 import { AuthPayload, getUserId } from "../middleware/auth"
 import { getMemberTeamIds } from "../utils/permissions"
+import { resolveActorName } from "../utils/userNames"
 import { env } from "../config/env"
 
 const ALLOWED_EXTENSIONS = new Set([
@@ -54,7 +55,7 @@ export async function saveAttachment(
     data: {
       taskId,
       userId,
-      userNombre: user.full_name ?? `Usuario ${userId}`,
+      userNombre: await resolveActorName(userId, user.full_name),
       accion: "adjunto_subido",
       detalle: file.originalname,
     },
@@ -107,7 +108,7 @@ export async function deleteAttachment(attachmentId: number, user: AuthPayload):
     data: {
       taskId: attachment.taskId,
       userId,
-      userNombre: user.full_name ?? `Usuario ${userId}`,
+      userNombre: await resolveActorName(userId, user.full_name),
       accion: "adjunto_eliminado",
       detalle: attachment.filename,
     },

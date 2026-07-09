@@ -3,6 +3,7 @@ import prisma from "../config/prisma"
 import { env } from "../config/env"
 import { AppError } from "../middleware/errorHandler"
 import { AuthPayload, getUserId, isAdmin } from "../middleware/auth"
+import { resolveActorName } from "../utils/userNames"
 
 export interface TeamWithRole {
   id: number
@@ -414,7 +415,7 @@ export async function getOrCreateTeam(user: AuthPayload): Promise<number> {
 
   const team = await prisma.team.create({
     data: {
-      name: `Equipo de ${user.full_name ?? `Usuario ${userId}`}`,
+      name: `Equipo de ${await resolveActorName(userId, user.full_name)}`,
       ownerUserId: userId,
     },
     select: { id: true },

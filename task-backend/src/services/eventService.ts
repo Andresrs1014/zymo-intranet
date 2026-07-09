@@ -121,11 +121,11 @@ export async function createEvent(user: AuthPayload, input: CreateEventInput) {
       horaInicio: input.horaInicio,
       duracionMinutos: duracion,
       creadoPorId: userId,
-      creadoPorNombre: user.full_name ?? `Usuario ${userId}`,
+      creadoPorNombre: nameMap.get(userId) ?? `Usuario ${userId}`,
       participants: {
         create: participantIds.map((uid) => ({
           userId: uid,
-          userNombre: uid === userId ? (user.full_name ?? `Usuario ${uid}`) : (nameMap.get(uid) ?? `Usuario ${uid}`),
+          userNombre: nameMap.get(uid) ?? `Usuario ${uid}`,
           hasConflict: conflicts.has(uid),
           conflictDetail: conflicts.get(uid) ?? null,
           confirmado: uid === userId,
@@ -164,7 +164,7 @@ export async function createEvent(user: AuthPayload, input: CreateEventInput) {
       duracionMinutos: duracion,
       modalidad: input.modalidad ?? null,
       sede: input.sede ?? null,
-      organizadorNombre: user.full_name ?? `Usuario ${userId}`,
+      organizadorNombre: nameMap.get(userId) ?? `Usuario ${userId}`,
       equipo: team?.name ?? "Equipo",
       participantes: participantesInfo,
     } satisfies webhookService.EventoCreadoPayload)
@@ -356,7 +356,7 @@ export async function updateParticipants(
       data: toAdd.map((uid) => ({
         eventId,
         userId: uid,
-        userNombre: uid === userId ? (user.full_name ?? `Usuario ${uid}`) : (nameMap.get(uid) ?? `Usuario ${uid}`),
+        userNombre: nameMap.get(uid) ?? `Usuario ${uid}`,
         hasConflict: conflicts.has(uid),
         conflictDetail: conflicts.get(uid) ?? null,
         confirmado: false,

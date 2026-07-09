@@ -8,7 +8,7 @@ import { getMemberTeamIds, getManagedTeamIds, requireMembership } from "../utils
 import { Prisma, type TaskAcceptanceStatus, type ActivityAction } from "@prisma/client"
 import * as emailService from "./emailService"
 import * as webhookService from "./webhookService"
-import { resolveUserName } from "../utils/userNames"
+import { resolveUserName, resolveActorName, enrichUserNames } from "../utils/userNames"
 
 export interface CreateTaskInput {
   teamId: number
@@ -151,11 +151,13 @@ export async function createTask(
     if (!isMember) throw new AppError(422, "El usuario asignado no pertenece al equipo")
   }
 
+  const actorNombre = await resolveActorName(userId, user.full_name)
+
   // Auto-asignar al creador si no hay asignado explícito
   const resolvedAsignadoId = input.asignadoAId ?? userId
   let resolvedAsignadoNombre: string | null
   if (!input.asignadoAId) {
-    resolvedAsignadoNombre = user.full_name ?? `Usuario ${userId}`
+    resolvedAsignadoNombre = actorNombre
   } else if (input.asignadoANombre) {
     resolvedAsignadoNombre = input.asignadoANombre
   } else {
@@ -169,7 +171,7 @@ export async function createTask(
     data: {
       teamId: input.teamId,
       subidoPorId: userId,
-      subidoPorNombre: user.full_name ?? `Usuario ${userId}`,
+      subidoPorNombre: actorNombre,
       asignadoAId: resolvedAsignadoId,
       asignadoANombre: resolvedAsignadoNombre,
       titulo,
@@ -194,7 +196,7 @@ export async function createTask(
     },
   })
 
-  await logActivity(task.id, userId, user.full_name ?? `Usuario ${userId}`, "creacion", titulo)
+  await logActivity(task.id, userId, actorNombre, "creacion", titulo)
 
   // Fire-and-forget: notificar al asignado si es diferente al creador
   if (task.asignadoAId && task.asignadoAId !== userId) {
@@ -203,7 +205,7 @@ export async function createTask(
     void emailService.notifyTaskAssigned(
       task.asignadoAId,
       userId,
-      user.full_name ?? `Usuario ${userId}`,
+      actorNombre,
       task.titulo,
       task.fecha,
       task.prioridad,
@@ -219,7 +221,7 @@ export async function createTask(
       horaCierre: task.horaCierre?.toISOString() ?? undefined,
       duracionEstimadaMinutos: task.duracionEstimadaMinutos,
       asignadoNombre: task.asignadoANombre ?? `Usuario ${task.asignadoAId}`,
-      asignadoPorNombre: user.full_name ?? `Usuario ${userId}`,
+      asignadoPorNombre: actorNombre,
       equipo: teamNombre,
       prioridad: task.prioridad,
       urlTarea: "https://zymointranet.com/herramientas/tareas",
@@ -235,6 +237,7 @@ export async function updateTask(
   input: UpdateTaskInput,
 ): Promise<ReturnType<typeof getTask>> {
   const userId = getUserId(user)
+  const actorNombre = await resolveActorName(userId, user.full_name)
 
   const current = await prisma.task.findFirst({ where: { id: taskId } })
   if (!current) throw new AppError(404, "Tarea no encontrada")
@@ -393,7 +396,7 @@ export async function updateTask(
   await logActivity(
     taskId,
     userId,
-    user.full_name ?? `Usuario ${userId}`,
+    actorNombre,
     accion,
     undefined,
     Object.keys(campos).length > 0 ? campos : undefined,
@@ -417,7 +420,8 @@ export async function deleteTask(taskId: number, user: AuthPayload): Promise<voi
 
   await prisma.task.delete({ where: { id: taskId } })
 
-  await logActivity(taskId, userId, user.full_name ?? `Usuario ${userId}`, "eliminacion", task.titulo)
+  const actorNombre = await resolveActorName(userId, user.full_name)
+  await logActivity(taskId, userId, actorNombre, "eliminacion", task.titulo)
 }
 
 export async function getTask(taskId: number, user: AuthPayload) {
@@ -435,6 +439,15 @@ export async function getTask(taskId: number, user: AuthPayload) {
   })
 
   if (!task) throw new AppError(404, "Tarea no encontrada")
+
+  const nameMap = await enrichUserNames([task.subidoPorId, task.asignadoAId].filter((id): id is number => id != null))
+  const subidoNombre = nameMap.get(task.subidoPorId)
+  if (subidoNombre) task.subidoPorNombre = subidoNombre
+  if (task.asignadoAId != null) {
+    const asignadoNombre = nameMap.get(task.asignadoAId)
+    if (asignadoNombre) task.asignadoANombre = asignadoNombre
+  }
+
   return task
 }
 
@@ -504,6 +517,26 @@ export async function listTasks(
     }),
   ])
 
+  // Enrich subidoPor/asignadoA names best-effort (fixes stored "Usuario N" placeholders
+  // — el JWT no trae full_name, así que estos nombres pueden haber quedado mal
+  // guardados al crear/asignar la tarea).
+  const userIds = Array.from(
+    new Set(tasks.flatMap((t) => [t.subidoPorId, t.asignadoAId]).filter((id): id is number => id != null)),
+  )
+  if (userIds.length > 0) {
+    const nameMap = await enrichUserNames(userIds)
+    if (nameMap.size > 0) {
+      for (const t of tasks) {
+        const subidoNombre = nameMap.get(t.subidoPorId)
+        if (subidoNombre) t.subidoPorNombre = subidoNombre
+        if (t.asignadoAId != null) {
+          const asignadoNombre = nameMap.get(t.asignadoAId)
+          if (asignadoNombre) t.asignadoANombre = asignadoNombre
+        }
+      }
+    }
+  }
+
   return { total, tasks }
 }
 
@@ -531,6 +564,7 @@ export async function acceptOrRejectTask(
   aceptacion: "aceptada" | "rechazada",
 ): Promise<void> {
   const userId = getUserId(user)
+  const actorNombre = await resolveActorName(userId, user.full_name)
 
   const task = await prisma.task.findFirst({ where: { id: taskId } })
   if (!task) throw new AppError(404, "Tarea no encontrada")
@@ -553,7 +587,7 @@ export async function acceptOrRejectTask(
   await logActivity(
     taskId,
     userId,
-    user.full_name ?? `Usuario ${userId}`,
+    actorNombre,
     "edicion",
     `Tarea ${aceptacion}`,
     { aceptacion: { old: "pendiente", new: aceptacion } },
@@ -562,7 +596,7 @@ export async function acceptOrRejectTask(
   // Fire-and-forget: notificar al creador de la tarea
   void emailService.notifyTaskResponse(
     task.subidoPorId,
-    user.full_name ?? `Usuario ${userId}`,
+    actorNombre,
     task.titulo,
     task.fecha,
     aceptacion,

@@ -30,3 +30,14 @@ export async function resolveUserName(userId: number): Promise<string | null> {
   const map = await enrichUserNames([userId])
   return map.get(userId) ?? null
 }
+
+/**
+ * Resuelve el nombre del usuario autenticado (el que ejecuta la acción) para
+ * logs/notificaciones. El JWT emitido por el backend Python NO incluye
+ * full_name (solo id/role/sede/area/email) — `hintName` casi siempre viene
+ * undefined y esto termina consultando la intranet, en vez de asumir el claim.
+ */
+export async function resolveActorName(userId: number, hintName?: string): Promise<string> {
+  if (hintName) return hintName
+  return (await resolveUserName(userId)) ?? `Usuario ${userId}`
+}
