@@ -37,6 +37,8 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
   const isPendingAcceptance = isAssignedToMe && task?.aceptacion === "pendiente"
 
   const [adjuntosOpen, setAdjuntosOpen] = useState(false)
+  // Tarea recién creada en este mismo modal (aún no hay `task` porque no es edición)
+  const [justCreated, setJustCreated] = useState<Task | null>(null)
 
   const [form, setForm] = useState({
     titulo: "",
@@ -58,6 +60,8 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
   // Pre-fill on edit, or reset on open for create
   useEffect(() => {
     if (!open) return
+    setJustCreated(null)
+    setAdjuntosOpen(false)
     if (task) {
       setForm({
         titulo: task.titulo,
@@ -103,6 +107,10 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
   const INPUT_STYLE = { width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #d8dde8", fontSize: 13, boxSizing: "border-box" as const }
 
   async function handleSubmit() {
+    if (justCreated) {
+      onClose()
+      return
+    }
     if (!teamId || !form.titulo.trim()) {
       showToast("Completa el título y selecciona un equipo", "error")
       return
@@ -143,8 +151,12 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
           modalidad: form.modalidad || undefined,
           duracionEstimadaMinutos: form.duracionEstimadaMinutos ? Number(form.duracionEstimadaMinutos) : null,
         }
-        await createTask.mutateAsync(input)
+        const created = await createTask.mutateAsync(input)
         showToast("Tarea creada", "success")
+        // Deja el modal abierto: ahora sí hay taskId para adjuntar archivos de una vez
+        setJustCreated(created)
+        setAdjuntosOpen(true)
+        return
       }
       onClose()
     } catch (err: unknown) {
@@ -431,7 +443,7 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
         )}
 
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 24, alignItems: "center" }}>
-          {isEdit && task ? (
+          {(isEdit && task) || justCreated ? (
             <button
               onClick={() => setAdjuntosOpen(true)}
               style={{
@@ -471,35 +483,37 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
               📎 Adjuntos
             </div>
           )}
-          <button
-            onClick={onClose}
-            style={{ padding: "9px 22px", borderRadius: 8, border: "1px solid #d8dde8", background: "#fff", fontSize: 13, cursor: "pointer" }}
-          >
-            Cancelar
-          </button>
+          {!justCreated && (
+            <button
+              onClick={onClose}
+              style={{ padding: "9px 22px", borderRadius: 8, border: "1px solid #d8dde8", background: "#fff", fontSize: 13, cursor: "pointer" }}
+            >
+              Cancelar
+            </button>
+          )}
           <button
             onClick={handleSubmit}
-            disabled={isPending || form.titulo.trim().length < 3}
+            disabled={isPending || (!justCreated && form.titulo.trim().length < 3)}
             style={{
               padding: "9px 22px",
               borderRadius: 8,
               border: "none",
-              background: form.titulo.trim().length < 3 ? "#f0f2f7" : "#ef3340",
-              color: form.titulo.trim().length < 3 ? "#9aa5b8" : "#fff",
+              background: !justCreated && form.titulo.trim().length < 3 ? "#f0f2f7" : "#ef3340",
+              color: !justCreated && form.titulo.trim().length < 3 ? "#9aa5b8" : "#fff",
               fontWeight: 700,
               fontSize: 13,
-              cursor: form.titulo.trim().length < 3 ? "default" : "pointer",
+              cursor: !justCreated && form.titulo.trim().length < 3 ? "default" : "pointer",
             }}
           >
-            {isPending ? "Guardando…" : isEdit ? "Guardar cambios" : "Crear tarea"}
+            {isPending ? "Guardando…" : justCreated ? "Listo" : isEdit ? "Guardar cambios" : "Crear tarea"}
           </button>
         </div>
       </div>
 
-      {isEdit && task && adjuntosOpen && (
+      {(task ?? justCreated) && adjuntosOpen && (
         <AttachmentExplorerV2
-          taskId={task.id}
-          taskTitulo={task.titulo}
+          taskId={(task ?? justCreated)!.id}
+          taskTitulo={(task ?? justCreated)!.titulo}
           open={adjuntosOpen}
           onClose={() => setAdjuntosOpen(false)}
         />

@@ -4,7 +4,7 @@ import { AuthPayload, getUserId, isAdmin } from "../middleware/auth"
 import { validateTitle } from "../utils/validators"
 import { PaginationParams } from "../utils/pagination"
 import { validateTransition, getFinalState, StateConfig } from "./stateMachine"
-import { getMemberTeamIds, getManagedTeamIds } from "../utils/permissions"
+import { getMemberTeamIds, getManagedTeamIds, requireMembership } from "../utils/permissions"
 import { Prisma, type TaskAcceptanceStatus, type ActivityAction } from "@prisma/client"
 import * as emailService from "./emailService"
 import * as webhookService from "./webhookService"
@@ -124,6 +124,7 @@ export async function createTask(
   input: CreateTaskInput,
 ): Promise<ReturnType<typeof getTask>> {
   const userId = getUserId(user)
+  await requireMembership(user, input.teamId)
   const titulo = validateTitle(input.titulo)
 
   // Validate etiqueta / plataforma exist in this team
@@ -534,6 +535,7 @@ export async function acceptOrRejectTask(
   if (task.asignadoAId !== userId) {
     throw new AppError(403, "Solo el usuario asignado puede aceptar o rechazar la tarea")
   }
+  await requireMembership(user, task.teamId)
   if (task.aceptacion !== "pendiente") {
     throw new AppError(422, "La tarea ya fue aceptada o rechazada")
   }
