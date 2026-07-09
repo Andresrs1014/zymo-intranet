@@ -3,6 +3,7 @@ import type { ReactNode } from "react"
 import type { Team } from "@/types/task"
 
 export type TaskView =
+  | "mywork"
   | "list"
   | "board"
   | "calendar"
@@ -39,7 +40,7 @@ interface TaskContextValue {
 const TaskContext = createContext<TaskContextValue | null>(null)
 
 export function TaskContextProvider({ children }: { children: ReactNode }) {
-  const [activeView, setActiveView] = useState<TaskView>("list")
+  const [activeView, setActiveView] = useState<TaskView>("mywork")
   const [activeTeamId, setActiveTeamId] = useState<number | null>(null)
   const [teams, setTeams] = useState<Team[]>([])
   const [filters, setFilters] = useState<TaskFiltersState>({})

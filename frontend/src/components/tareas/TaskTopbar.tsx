@@ -3,6 +3,7 @@ import { useTask, type TaskView } from "@/context/TaskContext"
 import "./tareas.css"
 
 const VIEW_TITLES: Record<TaskView, string> = {
+  mywork: "Mi trabajo",
   list: "Lista de Tareas",
   board: "Tablero Scrum",
   calendar: "Calendario",
@@ -23,10 +24,10 @@ const BASE_BTN: CSSProperties = {
 const PRIMARY_BTN: CSSProperties = {
   ...BASE_BTN,
   padding: "0 18px",
-  borderColor: "#fff",
-  background: "#fff",
-  color: "#3f4652",
-  boxShadow: "0 8px 20px rgba(239,51,64,0.18)",
+  borderColor: "#ef3340",
+  background: "#ef3340",
+  color: "#fff",
+  boxShadow: "0 8px 20px rgba(239,51,64,0.35)",
 }
 
 export function TaskTopbar() {
@@ -67,7 +68,7 @@ export function TaskTopbar() {
         </h1>
       </div>
 
-      {(activeView === "list" || activeView === "board") && (
+      {(activeView === "mywork" || activeView === "list" || activeView === "board") && (
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <button style={PRIMARY_BTN} className="task-primary-btn" onClick={onNewTask}>
             + Nueva tarea

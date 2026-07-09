@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"
 import type { ReactNode } from "react"
 import {
+  Inbox,
   List,
   Kanban,
   CalendarDays,
@@ -13,6 +14,8 @@ import {
 } from "lucide-react"
 import { useTask, type TaskView } from "@/context/TaskContext"
 import { useMyTeams, useCreateTeam } from "@/hooks/useTaskTeams"
+import { useMyTasks } from "@/hooks/useTasks"
+import { countPendingForMe } from "@/lib/taskWork"
 import { useAuthStore } from "@/store/authStore"
 import "./tareas.css"
 
@@ -24,6 +27,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  { view: "mywork",    label: "Mi trabajo",      icon: <Inbox size={18} /> },
   { view: "list",      label: "Lista",          icon: <List size={18} /> },
   { view: "board",     label: "Tablero",         icon: <Kanban size={18} /> },
   { view: "calendar",  label: "Calendario",      icon: <CalendarDays size={18} /> },
@@ -34,7 +38,7 @@ const NAV_ITEMS: NavItem[] = [
 
 // Generate a deterministic color for a team based on its id
 function teamColor(id: number) {
-  const palette = ["#ef3340", "#6366f1", "#10b981", "#f59e0b", "#0284c7", "#8b5cf6"]
+  const palette = ["#ef3340", "#00a8c8", "#10b981", "#f59e0b", "#0284c7", "#ff6b75"]
   return palette[id % palette.length]
 }
 
@@ -49,6 +53,10 @@ export function TaskSidebar() {
 
   const isGestor = user?.user_tools?.includes("tool_task_manage_dev") ?? false
   const isManager = myRole === "owner" || myRole === "co_gestor"
+
+  // Badge cross-team: tareas asignadas a mí, aún sin aceptar.
+  const { data: myWork } = useMyTasks()
+  const pendingCount = countPendingForMe(myWork?.tasks ?? [], user?.id ?? null)
 
   useEffect(() => {
     setTeams(teams)
@@ -268,6 +276,7 @@ export function TaskSidebar() {
       <nav style={{ display: "flex", flexDirection: "column", gap: 4, width: "100%", alignItems: expanded ? "flex-start" : "center", paddingLeft: expanded ? 4 : 0 }}>
         {visibleNav.map(({ view, label, icon }) => {
           const isActive = activeView === view
+          const showBadge = view === "mywork" && pendingCount > 0
           return (
             <button
               key={view}
@@ -288,6 +297,7 @@ export function TaskSidebar() {
                 justifyContent: expanded ? "flex-start" : "center",
                 gap: expanded ? 10 : 0,
                 paddingLeft: expanded ? 10 : 0,
+                paddingRight: expanded ? 10 : 0,
                 position: "relative",
                 whiteSpace: "nowrap",
               }}
@@ -307,6 +317,48 @@ export function TaskSidebar() {
               )}
               {icon}
               {expanded && <span style={{ fontSize: 13, fontWeight: isActive ? 600 : 400 }}>{label}</span>}
+
+              {/* Badge de pendientes de aceptar */}
+              {showBadge && expanded && (
+                <span style={{
+                  marginLeft: "auto",
+                  background: "#f59e0b",
+                  color: "#161a22",
+                  borderRadius: 99,
+                  fontSize: 11,
+                  fontWeight: 800,
+                  minWidth: 18,
+                  height: 18,
+                  padding: "0 5px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontFamily: "'DM Mono', monospace",
+                }}>
+                  {pendingCount}
+                </span>
+              )}
+              {showBadge && !expanded && (
+                <span style={{
+                  position: "absolute",
+                  top: 5,
+                  right: 5,
+                  minWidth: 15,
+                  height: 15,
+                  padding: "0 3px",
+                  borderRadius: 99,
+                  background: "#f59e0b",
+                  color: "#161a22",
+                  fontSize: 9,
+                  fontWeight: 800,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontFamily: "'DM Mono', monospace",
+                }}>
+                  {pendingCount}
+                </span>
+              )}
             </button>
           )
         })}

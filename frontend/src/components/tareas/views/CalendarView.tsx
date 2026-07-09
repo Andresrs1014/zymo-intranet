@@ -26,10 +26,10 @@ const DAY_NAMES = ["L","M","M","J","V","S","D"]
 const INPUT_STYLE: React.CSSProperties = {
   padding: "8px 12px",
   borderRadius: 6,
-  border: "1px solid #d8dde8",
+  border: "1px solid rgba(255,255,255,0.10)",
   fontSize: 13,
-  color: "#121420",
-  background: "#fff",
+  color: "#f4f4f5",
+  background: "#1b2029",
   outline: "none",
   width: "100%",
   boxSizing: "border-box",
@@ -44,23 +44,23 @@ function EventCard({ event, currentUserId, onConfirm }: { event: TaskEvent; curr
   return (
     <div
       style={{
-        background: "#fff",
+        background: "#1b2029",
         borderRadius: 8,
-        border: `1.5px solid ${hasConflict ? "#fca5a5" : "#e8ebf4"}`,
+        border: `1.5px solid ${hasConflict ? "rgba(239,51,64,0.45)" : "rgba(255,255,255,0.10)"}`,
         padding: "12px 14px",
         marginBottom: 10,
       }}
     >
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
         <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 600, fontSize: 13, color: "#121420" }}>{event.titulo}</div>
-          <div style={{ color: "#5c6374", fontSize: 12, marginTop: 3 }}>
+          <div style={{ fontWeight: 600, fontSize: 13, color: "#f4f4f5" }}>{event.titulo}</div>
+          <div style={{ color: "#a1a1aa", fontSize: 12, marginTop: 3 }}>
             {event.horaInicio} · {event.duracionMinutos}min
             {event.plataforma && ` · ${event.plataforma}`}
             {event.modalidad && ` · ${event.modalidad}`}
           </div>
           {(event as { descripcion?: string }).descripcion && (
-            <div style={{ color: "#5c6374", fontSize: 12, marginTop: 4 }}>
+            <div style={{ color: "#a1a1aa", fontSize: 12, marginTop: 4 }}>
               {(event as { descripcion?: string }).descripcion}
             </div>
           )}
@@ -79,7 +79,7 @@ function EventCard({ event, currentUserId, onConfirm }: { event: TaskEvent; curr
               width: 26,
               height: 26,
               borderRadius: "50%",
-              background: p.confirmado ? "#10b981" : "#6366f1",
+              background: p.confirmado ? "#10b981" : "#00a8c8",
               color: "#fff",
               fontSize: 9,
               fontWeight: 700,
@@ -95,7 +95,7 @@ function EventCard({ event, currentUserId, onConfirm }: { event: TaskEvent; curr
           </div>
         ))}
         {event.participants.length > 6 && (
-          <span style={{ fontSize: 11, color: "#9aa5b8" }}>+{event.participants.length - 6}</span>
+          <span style={{ fontSize: 11, color: "#71717a" }}>+{event.participants.length - 6}</span>
         )}
         {isParticipant && !alreadyConfirmed && (
           <button
@@ -104,9 +104,9 @@ function EventCard({ event, currentUserId, onConfirm }: { event: TaskEvent; curr
               marginLeft: "auto",
               padding: "4px 12px",
               borderRadius: 6,
-              border: "1px solid #d8dde8",
-              background: "#f4f6fa",
-              color: "#3f4652",
+              border: "1px solid rgba(255,255,255,0.10)",
+              background: "#12151c",
+              color: "#d4d4d8",
               fontSize: 11,
               fontWeight: 600,
               cursor: "pointer",
@@ -214,14 +214,14 @@ function CreateEventForm({
   return (
     <div
       style={{
-        background: "#fff",
+        background: "#1b2029",
         borderRadius: 10,
-        border: "1px solid #e8ebf4",
+        border: "1px solid rgba(255,255,255,0.10)",
         padding: 20,
         marginTop: 16,
       }}
     >
-      <h3 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 700, color: "#121420" }}>
+      <h3 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 700, color: "#f4f4f5" }}>
         Nuevo evento — {selectedDay}
       </h3>
 
@@ -237,7 +237,7 @@ function CreateEventForm({
         {/* Hora inicio + Hora fin */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <div>
-            <label style={{ fontSize: 11, fontWeight: 600, color: "#5c6374", display: "block", marginBottom: 4 }}>
+            <label style={{ fontSize: 11, fontWeight: 600, color: "#a1a1aa", display: "block", marginBottom: 4 }}>
               Hora inicio
             </label>
             <input
@@ -253,7 +253,7 @@ function CreateEventForm({
             />
           </div>
           <div>
-            <label style={{ fontSize: 11, fontWeight: 600, color: "#5c6374", display: "block", marginBottom: 4 }}>
+            <label style={{ fontSize: 11, fontWeight: 600, color: "#a1a1aa", display: "block", marginBottom: 4 }}>
               Hora fin
             </label>
             <input
@@ -267,7 +267,7 @@ function CreateEventForm({
 
         {/* Descripción */}
         <div>
-          <label style={{ fontSize: 11, fontWeight: 600, color: "#5c6374", display: "block", marginBottom: 4 }}>
+          <label style={{ fontSize: 11, fontWeight: 600, color: "#a1a1aa", display: "block", marginBottom: 4 }}>
             Descripción
           </label>
           <textarea
@@ -281,7 +281,7 @@ function CreateEventForm({
 
         {/* Modalidad */}
         <div>
-          <label style={{ fontSize: 11, fontWeight: 600, color: "#5c6374", display: "block", marginBottom: 4 }}>
+          <label style={{ fontSize: 11, fontWeight: 600, color: "#a1a1aa", display: "block", marginBottom: 4 }}>
             Modalidad
           </label>
           <select
@@ -299,7 +299,7 @@ function CreateEventForm({
         {/* Plataforma + Prioridad */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <div>
-            <label style={{ fontSize: 11, fontWeight: 600, color: "#5c6374", display: "block", marginBottom: 4 }}>
+            <label style={{ fontSize: 11, fontWeight: 600, color: "#a1a1aa", display: "block", marginBottom: 4 }}>
               Plataforma
             </label>
             <select
@@ -314,7 +314,7 @@ function CreateEventForm({
             </select>
           </div>
           <div>
-            <label style={{ fontSize: 11, fontWeight: 600, color: "#5c6374", display: "block", marginBottom: 4 }}>
+            <label style={{ fontSize: 11, fontWeight: 600, color: "#a1a1aa", display: "block", marginBottom: 4 }}>
               Prioridad
             </label>
             <select
@@ -332,11 +332,11 @@ function CreateEventForm({
 
         {/* Participantes */}
         <div>
-          <label style={{ fontSize: 11, fontWeight: 600, color: "#5c6374", display: "block", marginBottom: 6 }}>
+          <label style={{ fontSize: 11, fontWeight: 600, color: "#a1a1aa", display: "block", marginBottom: 6 }}>
             Participantes
           </label>
           {/* Tabs */}
-          <div style={{ display: "flex", borderBottom: "1px solid #e8ebf4", marginBottom: 8 }}>
+          <div style={{ display: "flex", borderBottom: "1px solid rgba(255,255,255,0.10)", marginBottom: 8 }}>
             {(["equipo", "todos"] as const).map((tab) => (
               <button
                 key={tab}
@@ -346,7 +346,7 @@ function CreateEventForm({
                   border: "none",
                   borderBottom: `2px solid ${form.participantTab === tab ? "#ef3340" : "transparent"}`,
                   background: "none",
-                  color: form.participantTab === tab ? "#ef3340" : "#5c6374",
+                  color: form.participantTab === tab ? "#ef3340" : "#a1a1aa",
                   fontWeight: form.participantTab === tab ? 700 : 400,
                   fontSize: 12,
                   cursor: "pointer",
@@ -362,13 +362,13 @@ function CreateEventForm({
             style={{
               maxHeight: 140,
               overflowY: "auto",
-              border: "1px solid #e8ebf4",
+              border: "1px solid rgba(255,255,255,0.10)",
               borderRadius: 6,
               padding: "4px 0",
             }}
           >
             {participantList.length === 0 ? (
-              <div style={{ padding: "10px 12px", fontSize: 12, color: "#9aa5b8" }}>Sin miembros</div>
+              <div style={{ padding: "10px 12px", fontSize: 12, color: "#71717a" }}>Sin miembros</div>
             ) : (
               participantList.map((u) => (
                 <label
@@ -379,7 +379,7 @@ function CreateEventForm({
                     gap: 8,
                     padding: "6px 12px",
                     cursor: "pointer",
-                    background: form.participantIds.includes(u.id) ? "#fef2f2" : "transparent",
+                    background: form.participantIds.includes(u.id) ? "rgba(239,51,64,0.12)" : "transparent",
                   }}
                 >
                   <input
@@ -388,13 +388,13 @@ function CreateEventForm({
                     onChange={() => toggleParticipant(u.id)}
                     style={{ cursor: "pointer" }}
                   />
-                  <span style={{ fontSize: 12, color: "#3f4652" }}>{u.name}</span>
+                  <span style={{ fontSize: 12, color: "#d4d4d8" }}>{u.name}</span>
                 </label>
               ))
             )}
           </div>
           {form.participantIds.length > 0 && (
-            <div style={{ fontSize: 11, color: "#5c6374", marginTop: 4 }}>
+            <div style={{ fontSize: 11, color: "#a1a1aa", marginTop: 4 }}>
               {form.participantIds.length} participante{form.participantIds.length !== 1 ? "s" : ""} seleccionado{form.participantIds.length !== 1 ? "s" : ""}
             </div>
           )}
@@ -407,9 +407,9 @@ function CreateEventForm({
             style={{
               padding: "8px 18px",
               borderRadius: 7,
-              border: "1px solid #d8dde8",
-              background: "#fff",
-              color: "#3f4652",
+              border: "1px solid rgba(255,255,255,0.10)",
+              background: "#1b2029",
+              color: "#d4d4d8",
               fontSize: 13,
               fontWeight: 600,
               cursor: "pointer",
@@ -424,7 +424,7 @@ function CreateEventForm({
               padding: "8px 18px",
               borderRadius: 7,
               border: "none",
-              background: !form.titulo.trim() ? "#fca5a5" : "#ef3340",
+              background: !form.titulo.trim() ? "rgba(239,51,64,0.45)" : "#ef3340",
               color: "#fff",
               fontWeight: 700,
               fontSize: 13,
@@ -461,7 +461,7 @@ export function CalendarView() {
   const datesWithEvents = new Set(events.map((e) => e.fecha.slice(0, 10)))
 
   if (!activeTeamId) {
-    return <div style={{ textAlign: "center", padding: 60, color: "#5c6374" }}>Selecciona un equipo.</div>
+    return <div style={{ textAlign: "center", padding: 60, color: "#a1a1aa" }}>Selecciona un equipo.</div>
   }
 
   return (
@@ -469,9 +469,9 @@ export function CalendarView() {
       {/* ── Calendar grid ── */}
       <div
         style={{
-          background: "#fff",
+          background: "#1b2029",
           borderRadius: 10,
-          border: "1px solid #e8ebf4",
+          border: "1px solid rgba(255,255,255,0.10)",
           padding: 18,
           boxShadow: "0 1px 4px rgba(18,20,32,0.05)",
         }}
@@ -484,11 +484,11 @@ export function CalendarView() {
               width: 30,
               height: 30,
               borderRadius: 6,
-              border: "1px solid #e8ebf4",
-              background: "#f4f6fa",
+              border: "1px solid rgba(255,255,255,0.10)",
+              background: "#12151c",
               fontSize: 16,
               cursor: "pointer",
-              color: "#3f4652",
+              color: "#d4d4d8",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -497,7 +497,7 @@ export function CalendarView() {
           >
             ‹
           </button>
-          <span style={{ fontWeight: 700, fontSize: 14, color: "#121420" }}>
+          <span style={{ fontWeight: 700, fontSize: 14, color: "#f4f4f5" }}>
             {MONTH_NAMES[month]} {year}
           </span>
           <button
@@ -506,11 +506,11 @@ export function CalendarView() {
               width: 30,
               height: 30,
               borderRadius: 6,
-              border: "1px solid #e8ebf4",
-              background: "#f4f6fa",
+              border: "1px solid rgba(255,255,255,0.10)",
+              background: "#12151c",
               fontSize: 16,
               cursor: "pointer",
-              color: "#3f4652",
+              color: "#d4d4d8",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -530,7 +530,7 @@ export function CalendarView() {
                 textAlign: "center",
                 fontSize: 10,
                 fontWeight: 700,
-                color: "#9aa5b8",
+                color: "#71717a",
                 padding: "4px 0",
                 letterSpacing: "0.04em",
               }}
@@ -562,8 +562,8 @@ export function CalendarView() {
                       padding: "7px 2px",
                       borderRadius: 7,
                       border: "none",
-                      background: isSelected ? "#ef3340" : isToday ? "#fef2f2" : "transparent",
-                      color: isSelected ? "#fff" : isToday ? "#ef3340" : "#3f4652",
+                      background: isSelected ? "#ef3340" : isToday ? "rgba(239,51,64,0.12)" : "transparent",
+                      color: isSelected ? "#fff" : isToday ? "#ef3340" : "#d4d4d8",
                       fontWeight: isToday || isSelected ? 700 : 400,
                       fontSize: 13,
                       cursor: "pointer",
@@ -604,9 +604,9 @@ export function CalendarView() {
             style={{
               padding: "5px 14px",
               borderRadius: 6,
-              border: "1px solid #e8ebf4",
-              background: "#f4f6fa",
-              color: "#5c6374",
+              border: "1px solid rgba(255,255,255,0.10)",
+              background: "#12151c",
+              color: "#a1a1aa",
               fontSize: 12,
               fontWeight: 600,
               cursor: "pointer",
@@ -626,18 +626,18 @@ export function CalendarView() {
             justifyContent: "space-between",
             marginBottom: 16,
             paddingBottom: 12,
-            borderBottom: "1px solid #e8ebf4",
+            borderBottom: "1px solid rgba(255,255,255,0.10)",
           }}
         >
           <div>
-            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#121420" }}>
+            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#f4f4f5" }}>
               {new Date(selectedDay + "T12:00:00").toLocaleDateString("es-CO", {
                 weekday: "long",
                 day: "numeric",
                 month: "long",
               })}
             </h2>
-            <div style={{ fontSize: 12, color: "#9aa5b8", marginTop: 2 }}>
+            <div style={{ fontSize: 12, color: "#71717a", marginTop: 2 }}>
               {eventsForSelected.length} evento{eventsForSelected.length !== 1 ? "s" : ""}
             </div>
           </div>
@@ -646,9 +646,9 @@ export function CalendarView() {
             style={{
               padding: "8px 18px",
               borderRadius: 7,
-              border: showCreate ? "1px solid #d8dde8" : "none",
-              background: showCreate ? "#f4f6fa" : "#ef3340",
-              color: showCreate ? "#3f4652" : "#fff",
+              border: showCreate ? "1px solid rgba(255,255,255,0.10)" : "none",
+              background: showCreate ? "#12151c" : "#ef3340",
+              color: showCreate ? "#d4d4d8" : "#fff",
               fontWeight: 700,
               fontSize: 13,
               cursor: "pointer",
@@ -662,7 +662,7 @@ export function CalendarView() {
           <div
             style={{
               padding: "48px 0",
-              color: "#9aa5b8",
+              color: "#71717a",
               textAlign: "center",
               fontSize: 14,
             }}

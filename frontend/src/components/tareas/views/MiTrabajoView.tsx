@@ -1,0 +1,213 @@
+import { useState } from "react"
+import type { ReactNode } from "react"
+import { useQueries } from "@tanstack/react-query"
+import { Inbox, Clock, AlertTriangle, ChevronRight } from "lucide-react"
+import { taskApi } from "@/lib/taskApi"
+import { useMyTasks } from "@/hooks/useTasks"
+import { useMyTeams } from "@/hooks/useTaskTeams"
+import { TaskDrawer } from "@/components/tareas/TaskDrawer"
+import { TaskStatusPill } from "@/components/tareas/TaskStatusPill"
+import { categorizeMyWork, isOverdue } from "@/lib/taskWork"
+import type { Task, ListsGrouped, ListConfig } from "@/types/task"
+
+function fmtMin(min: number | null | undefined): string | null {
+  if (!min) return null
+  if (min < 60) return `${min}m`
+  const h = Math.floor(min / 60)
+  const m = min % 60
+  return m ? `${h}h ${m}m` : `${h}h`
+}
+
+function fmtFecha(iso: string): string {
+  return new Date(iso.slice(0, 10) + "T00:00:00").toLocaleDateString("es-CO", {
+    day: "2-digit",
+    month: "short",
+  })
+}
+
+// ── Tarjeta de tarea (tema oscuro) ────────────────────────────────────────────
+interface CardProps {
+  task: Task
+  teamName?: string
+  estadoCfg?: ListConfig
+  prioCfg?: ListConfig
+  done: boolean
+  onOpen: (t: Task) => void
+}
+
+function WorkCard({ task, teamName, estadoCfg, prioCfg, done, onOpen }: CardProps) {
+  const vencida = !done && isOverdue(task)
+  const tiempo = fmtMin(task.tiempoTotalMinutos)
+
+  return (
+    <button
+      onClick={() => onOpen(task)}
+      className="group flex w-full items-start gap-3 rounded-xl border border-white/8 bg-white/[.03] px-4 py-3.5 text-left transition hover:-translate-y-px hover:border-white/15 hover:bg-white/[.06]"
+    >
+      <div className="min-w-0 flex-1">
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <TaskStatusPill
+            estadoLabel={estadoCfg?.label ?? task.estado}
+            estadoColor={estadoCfg?.color}
+            aceptacion={task.aceptacion}
+            vencida={vencida}
+          />
+          {teamName && (
+            <span className="rounded-md bg-white/[.05] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+              {teamName}
+            </span>
+          )}
+        </div>
+        <h4 className="truncate text-[14px] font-semibold text-zinc-100">{task.titulo}</h4>
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-zinc-500">
+          <span className="font-mono">{fmtFecha(task.fecha)}</span>
+          {tiempo && <span className="font-mono">{tiempo}</span>}
+          {task.subidoPorNombre && task.asignadoAId !== task.subidoPorId && (
+            <span>por {task.subidoPorNombre}</span>
+          )}
+          {prioCfg && (
+            <span
+              className="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase"
+              style={{ background: `${prioCfg.color ?? "#8a94a6"}1e`, color: prioCfg.color ?? "#8a94a6" }}
+            >
+              {prioCfg.label}
+            </span>
+          )}
+        </div>
+      </div>
+      <ChevronRight size={16} className="mt-1 shrink-0 text-zinc-600 transition group-hover:text-zinc-300" />
+    </button>
+  )
+}
+
+// ── Sección con encabezado y contador ─────────────────────────────────────────
+interface SectionProps {
+  icon: ReactNode
+  title: string
+  accent: string
+  tasks: Task[]
+  emptyLabel: string
+  children: (t: Task) => ReactNode
+}
+
+function Section({ icon, title, accent, tasks, emptyLabel, children }: SectionProps) {
+  return (
+    <section className="mb-8">
+      <div className="mb-3 flex items-center gap-2.5">
+        <span className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: `${accent}1f`, color: accent }}>
+          {icon}
+        </span>
+        <h3 className="text-[13px] font-bold uppercase tracking-[0.06em] text-zinc-300">{title}</h3>
+        <span
+          className="ml-1 rounded-full px-2 py-0.5 font-mono text-[11px] font-bold"
+          style={{ background: `${accent}1f`, color: accent }}
+        >
+          {tasks.length}
+        </span>
+      </div>
+      {tasks.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-white/8 px-4 py-6 text-center text-[13px] text-zinc-600">
+          {emptyLabel}
+        </p>
+      ) : (
+        <div className="flex flex-col gap-2.5">{tasks.map(children)}</div>
+      )}
+    </section>
+  )
+}
+
+export function MiTrabajoView() {
+  const { data, isLoading, userId } = useMyTasks()
+  const { data: teams = [] } = useMyTeams()
+  const [selected, setSelected] = useState<Task | null>(null)
+
+  const teamName = new Map(teams.map((t) => [t.id, t.name]))
+  const teamIds = teams.map((t) => t.id)
+
+  // Config (estados/prioridades) de cada equipo → resolver labels/colores y "terminada".
+  const listsResults = useQueries({
+    queries: teamIds.map((id) => ({
+      queryKey: ["taskLists", id],
+      queryFn: async () => (await taskApi.get<ListsGrouped>(`/api/teams/${id}/lists`)).data,
+    })),
+  })
+  const listsByTeam = new Map<number, ListsGrouped>()
+  teamIds.forEach((id, i) => {
+    const d = listsResults[i]?.data
+    if (d) listsByTeam.set(id, d)
+  })
+
+  const estadoCfg = (t: Task) => listsByTeam.get(t.teamId)?.estado?.find((e) => e.value === t.estado)
+  const prioCfg = (t: Task) => listsByTeam.get(t.teamId)?.prioridad?.find((p) => p.value === t.prioridad)
+  const isDone = (t: Task) => {
+    const c = estadoCfg(t)
+    return !!(c?.isFinal || c?.isCanceled)
+  }
+
+  const tasks = data?.tasks ?? []
+  const { pendientes, vencidas, enCurso } = categorizeMyWork(tasks, userId, isDone)
+
+  const renderCard = (t: Task) => (
+    <WorkCard
+      key={t.id}
+      task={t}
+      teamName={teamName.get(t.teamId)}
+      estadoCfg={estadoCfg(t)}
+      prioCfg={prioCfg(t)}
+      done={isDone(t)}
+      onOpen={setSelected}
+    />
+  )
+
+  if (isLoading) {
+    return <div className="py-16 text-center text-sm text-zinc-500">Cargando tu trabajo…</div>
+  }
+
+  const totalActivo = pendientes.length + vencidas.length + enCurso.length
+
+  return (
+    <div className="mx-auto max-w-3xl">
+      <div className="mb-6 rounded-2xl border border-white/8 bg-gradient-to-br from-[#1b2029] to-[#161a22] px-6 py-5">
+        <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-500">Bandeja personal</p>
+        <h2 className="mt-1 text-lg font-bold text-white">
+          Tienes <span className="font-mono text-[#ff6b75]">{totalActivo}</span> tarea{totalActivo === 1 ? "" : "s"} activa{totalActivo === 1 ? "" : "s"}
+          {pendientes.length > 0 && (
+            <> · <span className="font-mono text-amber-300">{pendientes.length}</span> por aceptar</>
+          )}
+        </h2>
+      </div>
+
+      <Section
+        icon={<Inbox size={15} />}
+        title="Pendientes de aceptar"
+        accent="#f59e0b"
+        tasks={pendientes}
+        emptyLabel="Nada por aceptar. Estás al día."
+      >
+        {renderCard}
+      </Section>
+
+      <Section
+        icon={<AlertTriangle size={15} />}
+        title="Vencidas o en riesgo"
+        accent="#ef3340"
+        tasks={vencidas}
+        emptyLabel="Sin tareas vencidas."
+      >
+        {renderCard}
+      </Section>
+
+      <Section
+        icon={<Clock size={15} />}
+        title="En curso / para hoy"
+        accent="#00a8c8"
+        tasks={enCurso}
+        emptyLabel="No tienes tareas en curso."
+      >
+        {renderCard}
+      </Section>
+
+      <TaskDrawer task={selected} onClose={() => setSelected(null)} />
+    </div>
+  )
+}

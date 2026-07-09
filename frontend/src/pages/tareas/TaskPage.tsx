@@ -2,6 +2,7 @@ import { useState, useEffect } from "react"
 import { useTask } from "@/context/TaskContext"
 import { TaskShell } from "@/components/tareas/TaskShell"
 import { TaskDialog } from "@/components/tareas/TaskDialog"
+import { MiTrabajoView } from "@/components/tareas/views/MiTrabajoView"
 import { ListView } from "@/components/tareas/views/ListView"
 import { BoardView } from "@/components/tareas/views/BoardView"
 import { CalendarView } from "@/components/tareas/views/CalendarView"
@@ -20,6 +21,7 @@ function TaskContent() {
 
   return (
     <>
+      {activeView === "mywork" && <MiTrabajoView />}
       {activeView === "list" && <ListView />}
       {activeView === "board" && <BoardView />}
       {activeView === "calendar" && <CalendarView />}

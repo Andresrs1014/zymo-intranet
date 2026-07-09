@@ -106,8 +106,8 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
   const modalidades = lists?.modalidad ?? []
   const prioridades = lists?.prioridad ?? []
 
-  const LABEL_STYLE = { fontSize: 11, fontWeight: 700, color: "#5c6374", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 4 }
-  const INPUT_STYLE = { width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #d8dde8", fontSize: 13, boxSizing: "border-box" as const }
+  const LABEL_STYLE = { fontSize: 11, fontWeight: 700, color: "#a1a1aa", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 4 }
+  const INPUT_STYLE = { width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.04)", color: "#f4f4f5", fontSize: 13, outline: "none", boxSizing: "border-box" as const }
 
   async function handleSubmit() {
     if (!teamId || !form.titulo.trim()) {
@@ -189,21 +189,22 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
       zIndex: 200,
     }}>
       <div style={{
-        background: "#fff",
+        background: "#1b2029",
         borderRadius: 12,
         width: "min(600px, 95vw)",
         maxHeight: "90vh",
         overflow: "auto",
         padding: 28,
-        boxShadow: "0 24px 60px rgba(18,20,32,0.2)",
+        border: "1px solid rgba(255,255,255,0.10)",
+        boxShadow: "0 24px 60px rgba(0,0,0,0.55)",
       }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#121420" }}>
+          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#f4f4f5" }}>
             {isEdit ? "Editar tarea" : "Nueva tarea"}
           </h2>
           <button
             onClick={onClose}
-            style={{ background: "none", border: "none", fontSize: 22, color: "#9aa5b8", cursor: "pointer" }}
+            style={{ background: "none", border: "none", fontSize: 22, color: "#71717a", cursor: "pointer" }}
           >
             ×
           </button>
@@ -225,7 +226,7 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
                 {suggestions.etiqueta_sugerida && (
                   <button
                     onClick={() => setForm((f) => ({ ...f, etiqueta: suggestions.etiqueta_sugerida! }))}
-                    style={{ padding: "2px 10px", borderRadius: 99, fontSize: 11, fontWeight: 600, background: "#ede9fe", color: "#5b21b6", border: "none", cursor: "pointer" }}
+                    style={{ padding: "2px 10px", borderRadius: 99, fontSize: 11, fontWeight: 600, background: "rgba(239,51,64,0.16)", color: "#ff6b75", border: "1px solid rgba(239,51,64,0.35)", cursor: "pointer" }}
                   >
                     IA: {suggestions.etiqueta_sugerida}
                   </button>
@@ -233,7 +234,7 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
                 {suggestions.plataforma_sugerida && (
                   <button
                     onClick={() => setForm((f) => ({ ...f, plataforma: suggestions.plataforma_sugerida! }))}
-                    style={{ padding: "2px 10px", borderRadius: 99, fontSize: 11, fontWeight: 600, background: "#dbeafe", color: "#1e40af", border: "none", cursor: "pointer" }}
+                    style={{ padding: "2px 10px", borderRadius: 99, fontSize: 11, fontWeight: 600, background: "rgba(0,168,200,0.16)", color: "#3fd0e8", border: "1px solid rgba(0,168,200,0.35)", cursor: "pointer" }}
                   >
                     IA: {suggestions.plataforma_sugerida}
                   </button>
@@ -375,17 +376,17 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
             marginTop: 18,
             padding: "12px 16px",
             borderRadius: 8,
-            background: "#f8f9fd",
-            border: "1px solid #e8ebf4",
+            background: "rgba(255,255,255,0.03)",
+            border: "1px solid rgba(255,255,255,0.08)",
             display: "flex",
             gap: 24,
             alignItems: "center",
             fontSize: 13,
-            color: "#3f4652",
+            color: "#d4d4d8",
           }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <span style={{ fontSize: 10, fontWeight: 700, color: "#9aa5b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>Tiempo real</span>
-              <span style={{ fontWeight: 700, fontSize: 15, color: "#121420" }}>{formatMin(task.tiempoTotalMinutos)}</span>
+              <span style={{ fontSize: 10, fontWeight: 700, color: "#71717a", textTransform: "uppercase", letterSpacing: "0.05em" }}>Tiempo real</span>
+              <span style={{ fontWeight: 700, fontSize: 15, color: "#f4f4f5", fontFamily: "'DM Mono', monospace" }}>{formatMin(task.tiempoTotalMinutos)}</span>
             </div>
           </div>
         )}
@@ -396,14 +397,14 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
             marginTop: 18,
             padding: "12px 16px",
             borderRadius: 8,
-            background: "#fffbeb",
-            border: "1px solid #fbbf24",
+            background: "rgba(245,158,11,0.10)",
+            border: "1px solid rgba(245,158,11,0.40)",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
             gap: 12,
           }}>
-            <div style={{ fontSize: 13, color: "#92400e", fontWeight: 500 }}>
+            <div style={{ fontSize: 13, color: "#fcd34d", fontWeight: 500 }}>
               Esta tarea te fue asignada. ¿La aceptas?
             </div>
             <div style={{ display: "flex", gap: 8 }}>
@@ -413,7 +414,7 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
                   showToast("Tarea rechazada", "error")
                   onClose()
                 }}
-                style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid #fca5a5", background: "#fff", color: "#ef4444", fontWeight: 600, fontSize: 12, cursor: "pointer" }}
+                style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid rgba(239,51,64,0.40)", background: "transparent", color: "#ff6b75", fontWeight: 600, fontSize: 12, cursor: "pointer" }}
               >
                 Rechazar
               </button>
@@ -441,8 +442,8 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
             gap: 6,
             fontSize: 11,
             fontWeight: 700,
-            background: task.aceptacion === "aceptada" ? "#d1fae5" : "#fee2e2",
-            color: task.aceptacion === "aceptada" ? "#065f46" : "#991b1b",
+            background: task.aceptacion === "aceptada" ? "rgba(16,185,129,0.15)" : "rgba(239,51,64,0.15)",
+            color: task.aceptacion === "aceptada" ? "#34d399" : "#ff6b75",
           }}>
             {task.aceptacion === "aceptada" ? "✓ Aceptada por el responsable" : "✗ Rechazada por el responsable"}
           </div>
@@ -454,14 +455,14 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
             style={{
               padding: "9px 16px",
               borderRadius: 8,
-              border: "1px solid #d8dde8",
-              background: "#fff",
+              border: "1px solid rgba(255,255,255,0.10)",
+              background: "rgba(255,255,255,0.04)",
               fontSize: 13,
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
               gap: 6,
-              color: "#3f4652",
+              color: "#d4d4d8",
               marginRight: "auto",
             }}
           >
@@ -469,7 +470,7 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
           </button>
           <button
             onClick={onClose}
-            style={{ padding: "9px 22px", borderRadius: 8, border: "1px solid #d8dde8", background: "#fff", fontSize: 13, cursor: "pointer" }}
+            style={{ padding: "9px 22px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.04)", color: "#d4d4d8", fontSize: 13, cursor: "pointer" }}
           >
             Cancelar
           </button>
@@ -480,8 +481,9 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
               padding: "9px 22px",
               borderRadius: 8,
               border: "none",
-              background: form.titulo.trim().length < 3 ? "#f0f2f7" : "#ef3340",
-              color: form.titulo.trim().length < 3 ? "#9aa5b8" : "#fff",
+              background: form.titulo.trim().length < 3 ? "rgba(255,255,255,0.06)" : "#ef3340",
+              color: form.titulo.trim().length < 3 ? "#71717a" : "#fff",
+              boxShadow: form.titulo.trim().length < 3 ? "none" : "0 6px 18px rgba(239,51,64,0.35)",
               fontWeight: 700,
               fontSize: 13,
               cursor: form.titulo.trim().length < 3 ? "default" : "pointer",

@@ -27,9 +27,9 @@ function PersonCard({
   return (
     <div
       style={{
-        background: "#fff",
+        background: "#1b2029",
         borderRadius: 10,
-        border: `1px solid ${isSelected ? "#ef3340" : "#e8ebf4"}`,
+        border: `1px solid ${isSelected ? "#ef3340" : "rgba(255,255,255,0.10)"}`,
         padding: 18,
         cursor: "pointer",
         transition: "border-color 120ms",
@@ -41,7 +41,7 @@ function PersonCard({
           width: 44,
           height: 44,
           borderRadius: "50%",
-          background: isSelected ? "#ef3340" : "#6366f1",
+          background: isSelected ? "#ef3340" : "#00a8c8",
           color: "#fff",
           fontSize: 15,
           fontWeight: 700,
@@ -53,8 +53,8 @@ function PersonCard({
           {person.nombre.slice(0, 2).toUpperCase()}
         </div>
         <div>
-          <div style={{ fontWeight: 700, fontSize: 14, color: "#121420" }}>{person.nombre}</div>
-          <div style={{ fontSize: 11, color: "#5c6374" }}>
+          <div style={{ fontWeight: 700, fontSize: 14, color: "#f4f4f5" }}>{person.nombre}</div>
+          <div style={{ fontSize: 11, color: "#a1a1aa", fontFamily: "'DM Mono', monospace" }}>
             {person.total} tareas · {person.horasTotal}h
           </div>
         </div>
@@ -69,7 +69,7 @@ function PersonCard({
               title={`${estado}: ${count}`}
               style={{
                 flex: count,
-                background: ["#10b981", "#f59e0b", "#6366f1", "#ef3340", "#9aa5b8"][i % 5],
+                background: ["#10b981", "#f59e0b", "#00a8c8", "#ef3340", "#71717a"][i % 5],
               }}
             />
           ))}
@@ -78,12 +78,12 @@ function PersonCard({
 
       {/* Recent tasks (when selected) */}
       {isSelected && recentTasks.length > 0 && (
-        <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid #f0f2f7" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#9aa5b8", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
+        <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#71717a", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
             Tareas recientes
           </div>
           {recentTasks.map((t) => (
-            <div key={t.id} style={{ fontSize: 12, color: "#3f4652", padding: "4px 0", borderBottom: "1px solid #f8f9fd" }}>
+            <div key={t.id} style={{ fontSize: 12, color: "#d4d4d8", padding: "4px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
               <span style={{
                 display: "inline-block",
                 width: 8,
@@ -94,7 +94,7 @@ function PersonCard({
                 verticalAlign: "middle",
               }} />
               {t.titulo}
-              <span style={{ color: "#9aa5b8", marginLeft: 6 }}>({t.estado})</span>
+              <span style={{ color: "#71717a", marginLeft: 6 }}>({t.estado})</span>
             </div>
           ))}
         </div>
@@ -109,12 +109,12 @@ export function PeopleView() {
   const [selectedPerson, setSelectedPerson] = useState<number | null>(null)
 
   if (!activeTeamId) {
-    return <div style={{ textAlign: "center", padding: 60, color: "#5c6374" }}>Selecciona un equipo.</div>
+    return <div style={{ textAlign: "center", padding: 60, color: "#a1a1aa" }}>Selecciona un equipo.</div>
   }
 
   if (persons.length === 0) {
     return (
-      <div style={{ textAlign: "center", padding: 60, color: "#5c6374" }}>
+      <div style={{ textAlign: "center", padding: 60, color: "#a1a1aa" }}>
         No hay datos de personas para este equipo.
       </div>
     )

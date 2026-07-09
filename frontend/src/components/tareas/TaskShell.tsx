@@ -33,15 +33,16 @@ class TaskErrorBoundary extends React.Component<{ children: ReactNode }, EBState
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            minHeight: "60vh",
+            minHeight: "100vh",
             gap: 12,
-            color: "#5c6374",
+            color: "#a1a1aa",
+            background: "#161a22",
             padding: 40,
             textAlign: "center",
           }}
         >
           <div style={{ fontSize: 36, color: "#ef3340" }}>⚠</div>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#121420" }}>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#f4f4f5" }}>
             Algo salió mal
           </h2>
           <p style={{ margin: 0, fontSize: 13 }}>{this.state.message}</p>
@@ -78,10 +79,11 @@ export function TaskShell({ children }: TaskShellProps) {
             display: "grid",
             gridTemplateColumns: "auto minmax(0, 1fr)",
             minHeight: "100vh",
+            background: "#161a22",
           }}
         >
           <TaskSidebar />
-          <main style={{ padding: "clamp(14px, 2vw, 24px)", overflow: "auto", minWidth: 0 }}>
+          <main style={{ padding: "clamp(14px, 2vw, 24px)", overflow: "auto", minWidth: 0, color: "#e5e7eb" }}>
             <TaskTopbar />
             {children}
           </main>

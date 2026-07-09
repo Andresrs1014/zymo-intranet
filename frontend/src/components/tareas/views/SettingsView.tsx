@@ -61,8 +61,8 @@ function TeamSettings() {
     borderRadius: 99,
     fontSize: 10,
     fontWeight: 700,
-    background: role === "co_gestor" ? "#fef3c7" : "#f0f2f7",
-    color: role === "co_gestor" ? "#92400e" : "#5c6374",
+    background: role === "co_gestor" ? "rgba(245,158,11,0.16)" : "rgba(255,255,255,0.07)",
+    color: role === "co_gestor" ? "#fcd34d" : "#a1a1aa",
   })
 
   return (
@@ -70,12 +70,12 @@ function TeamSettings() {
       {/* Rename team */}
       {isOwner && (
         <div style={{ marginBottom: 28 }}>
-          <h3 style={{ margin: "0 0 10px", fontSize: 14, fontWeight: 700, color: "#121420" }}>Nombre del equipo</h3>
+          <h3 style={{ margin: "0 0 10px", fontSize: 14, fontWeight: 700, color: "#f4f4f5" }}>Nombre del equipo</h3>
           <div style={{ display: "flex", gap: 8 }}>
             <input
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              style={{ flex: 1, padding: "8px 12px", borderRadius: 7, border: "1px solid #d8dde8", fontSize: 13 }}
+              style={{ flex: 1, padding: "8px 12px", borderRadius: 7, border: "1px solid rgba(255,255,255,0.10)", fontSize: 13 }}
             />
             <button
               onClick={handleRename}
@@ -90,10 +90,10 @@ function TeamSettings() {
 
       {/* Danger zone: delete team */}
       {isOwner && (
-        <div style={{ marginBottom: 28, padding: "14px 16px", borderRadius: 8, border: "1px solid #fca5a5", background: "#fff5f5" }}>
+        <div style={{ marginBottom: 28, padding: "14px 16px", borderRadius: 8, border: "1px solid rgba(239,51,64,0.45)", background: "rgba(239,51,64,0.08)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#b91c1c" }}>Eliminar espacio de trabajo</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#ff6b75" }}>Eliminar espacio de trabajo</div>
               <div style={{ fontSize: 12, color: "#ef4444", marginTop: 2 }}>Esta acción es permanente y no se puede deshacer.</div>
             </div>
             <button
@@ -109,15 +109,15 @@ function TeamSettings() {
       {/* Delete confirmation modal */}
       {showDeleteConfirm && activeTeamId && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 }}>
-          <div style={{ background: "#fff", borderRadius: 10, padding: 28, width: 380 }}>
-            <h3 style={{ margin: "0 0 10px", fontSize: 15, fontWeight: 700, color: "#121420" }}>¿Eliminar espacio de trabajo?</h3>
-            <p style={{ fontSize: 13, color: "#5c6374", margin: "0 0 20px" }}>
+          <div style={{ background: "#1b2029", borderRadius: 10, padding: 28, width: 380 }}>
+            <h3 style={{ margin: "0 0 10px", fontSize: 15, fontWeight: 700, color: "#f4f4f5" }}>¿Eliminar espacio de trabajo?</h3>
+            <p style={{ fontSize: 13, color: "#a1a1aa", margin: "0 0 20px" }}>
               Se desactivará el equipo <strong>"{team?.name}"</strong>. Las tareas y datos existentes quedarán guardados pero el equipo no será visible.
             </p>
             <div style={{ display: "flex", gap: 10 }}>
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                style={{ flex: 1, padding: "9px", borderRadius: 7, border: "1px solid #d8dde8", background: "#f4f6fa", fontSize: 13, cursor: "pointer" }}
+                style={{ flex: 1, padding: "9px", borderRadius: 7, border: "1px solid rgba(255,255,255,0.10)", background: "#12151c", fontSize: 13, cursor: "pointer" }}
               >
                 Cancelar
               </button>
@@ -144,11 +144,11 @@ function TeamSettings() {
 
       {/* Members list */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#121420" }}>Miembros ({members.length})</h3>
+        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#f4f4f5" }}>Miembros ({members.length})</h3>
         {(isOwner || team?.myRole === "co_gestor") && (
           <button
             onClick={() => setShowAddDialog(true)}
-            style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid #d8dde8", background: "#f4f6fa", fontSize: 13, cursor: "pointer", color: "#3f4652", fontWeight: 600 }}
+            style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.10)", background: "#12151c", fontSize: 13, cursor: "pointer", color: "#d4d4d8", fontWeight: 600 }}
           >
             + Agregar
           </button>
@@ -157,13 +157,13 @@ function TeamSettings() {
 
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {members.map((m) => (
-          <div key={m.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "#fff", borderRadius: 8, border: "1px solid #e8ebf4" }}>
+          <div key={m.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "#1b2029", borderRadius: 8, border: "1px solid rgba(255,255,255,0.10)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{
                 width: 32,
                 height: 32,
                 borderRadius: "50%",
-                background: "#6366f1",
+                background: "#00a8c8",
                 color: "#fff",
                 fontSize: 11,
                 fontWeight: 700,
@@ -174,7 +174,7 @@ function TeamSettings() {
                 {m.userId.toString().slice(0, 2)}
               </div>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 500, color: "#121420" }}>{m.userNombre ?? `Usuario ${m.userId}`}</div>
+                <div style={{ fontSize: 13, fontWeight: 500, color: "#f4f4f5" }}>{m.userNombre ?? `Usuario ${m.userId}`}</div>
                 <span style={ROLE_BADGE(m.role)}>{m.role === "co_gestor" ? "Co-gestor" : "Miembro"}</span>
               </div>
             </div>
@@ -184,14 +184,14 @@ function TeamSettings() {
                 {m.role === "member" ? (
                   <button
                     onClick={() => promote.mutateAsync({ teamId: activeTeamId, userId: m.userId })}
-                    style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #d8dde8", background: "#fff", fontSize: 11, cursor: "pointer", color: "#3f4652" }}
+                    style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid rgba(255,255,255,0.10)", background: "#1b2029", fontSize: 11, cursor: "pointer", color: "#d4d4d8" }}
                   >
                     Promover
                   </button>
                 ) : (
                   <button
                     onClick={() => demote.mutateAsync({ teamId: activeTeamId, userId: m.userId })}
-                    style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #d8dde8", background: "#fff", fontSize: 11, cursor: "pointer", color: "#3f4652" }}
+                    style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid rgba(255,255,255,0.10)", background: "#1b2029", fontSize: 11, cursor: "pointer", color: "#d4d4d8" }}
                   >
                     Degradar
                   </button>
@@ -202,7 +202,7 @@ function TeamSettings() {
                       removeMember.mutate({ teamId: activeTeamId, userId: m.userId })
                     }
                   }}
-                  style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #fca5a5", background: "#fff5f5", fontSize: 11, cursor: "pointer", color: "#ef4444" }}
+                  style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid rgba(239,51,64,0.45)", background: "rgba(239,51,64,0.08)", fontSize: 11, cursor: "pointer", color: "#ef4444" }}
                 >
                   Remover
                 </button>
@@ -215,11 +215,11 @@ function TeamSettings() {
       {/* Add member dialog */}
       {showAddDialog && activeTeamId && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}>
-          <div style={{ background: "#fff", borderRadius: 10, padding: 24, width: 400, maxHeight: "70vh", overflow: "auto" }}>
+          <div style={{ background: "#1b2029", borderRadius: 10, padding: 24, width: 400, maxHeight: "70vh", overflow: "auto" }}>
             <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 700 }}>Agregar miembro</h3>
             {(availableUsers as AvailableUser[]).map((u) => (
-              <div key={u.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #f0f2f7" }}>
-                <span style={{ fontSize: 13, color: "#3f4652" }}>{u.full_name ?? `Usuario ${u.id}`}</span>
+              <div key={u.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+                <span style={{ fontSize: 13, color: "#d4d4d8" }}>{u.full_name ?? `Usuario ${u.id}`}</span>
                 <button
                   onClick={async () => {
                     await addMember.mutateAsync({ teamId: activeTeamId, userId: u.id, userNombre: u.full_name ?? undefined })
@@ -232,11 +232,11 @@ function TeamSettings() {
               </div>
             ))}
             {availableUsers.length === 0 && (
-              <p style={{ fontSize: 13, color: "#9aa5b8", textAlign: "center" }}>No hay usuarios disponibles.</p>
+              <p style={{ fontSize: 13, color: "#71717a", textAlign: "center" }}>No hay usuarios disponibles.</p>
             )}
             <button
               onClick={() => setShowAddDialog(false)}
-              style={{ marginTop: 16, width: "100%", padding: "8px", borderRadius: 7, border: "1px solid #d8dde8", background: "#f4f6fa", fontSize: 13, cursor: "pointer" }}
+              style={{ marginTop: 16, width: "100%", padding: "8px", borderRadius: 7, border: "1px solid rgba(255,255,255,0.10)", background: "#12151c", fontSize: 13, cursor: "pointer" }}
             >
               Cerrar
             </button>
@@ -271,7 +271,7 @@ function ListItem({ item, teamId, isEstado }: { item: ListConfig; teamId: number
     ? "#ef4444"
     : item.isInitialAssignment
     ? "#3b82f6"
-    : "#e8ebf4"
+    : "rgba(255,255,255,0.10)"
 
   const iconBtn = (active: boolean, activeColor: string) => ({
     display: "flex",
@@ -280,7 +280,7 @@ function ListItem({ item, teamId, isEstado }: { item: ListConfig; teamId: number
     width: 26,
     height: 26,
     borderRadius: 5,
-    border: `1px solid ${active ? activeColor : "#e2e5ee"}`,
+    border: `1px solid ${active ? activeColor : "rgba(255,255,255,0.10)"}`,
     background: active ? `${activeColor}18` : "transparent",
     color: active ? activeColor : "#b0b8cc",
     cursor: "pointer",
@@ -298,7 +298,7 @@ function ListItem({ item, teamId, isEstado }: { item: ListConfig; teamId: number
       alignItems: "center",
       gap: 10,
       padding: "9px 14px",
-      background: "#fff",
+      background: "#1b2029",
       borderRadius: 8,
       border: `1.5px solid ${borderColor}`,
       marginBottom: 6,
@@ -310,7 +310,7 @@ function ListItem({ item, teamId, isEstado }: { item: ListConfig; teamId: number
           type="color"
           value={editColor}
           onChange={(e) => setEditColor(e.target.value)}
-          style={{ width: 22, height: 22, padding: 1, border: "1px solid #d8dde8", borderRadius: 4, cursor: "pointer" }}
+          style={{ width: 22, height: 22, padding: 1, border: "1px solid rgba(255,255,255,0.10)", borderRadius: 4, cursor: "pointer" }}
         />
       ) : (
         <div style={{ width: 12, height: 12, borderRadius: "50%", background: item.color ?? "#6b7280", flexShrink: 0 }} />
@@ -322,12 +322,12 @@ function ListItem({ item, teamId, isEstado }: { item: ListConfig; teamId: number
           value={editLabel}
           onChange={(e) => setEditLabel(e.target.value)}
           autoFocus
-          style={{ flex: 1, padding: "4px 8px", borderRadius: 5, border: "1px solid #d8dde8", fontSize: 13 }}
+          style={{ flex: 1, padding: "4px 8px", borderRadius: 5, border: "1px solid rgba(255,255,255,0.10)", fontSize: 13 }}
         />
       ) : (
         <div style={{ flex: 1 }}>
-          <span style={{ fontSize: 13, fontWeight: 500, color: item.isActive ? "#121420" : "#9aa5b8" }}>{item.label}</span>
-          <span style={{ fontSize: 10, color: "#c4cad8", marginLeft: 6 }}>{item.value}</span>
+          <span style={{ fontSize: 13, fontWeight: 500, color: item.isActive ? "#f4f4f5" : "#71717a" }}>{item.label}</span>
+          <span style={{ fontSize: 10, color: "#52525b", marginLeft: 6 }}>{item.value}</span>
         </div>
       )}
 
@@ -434,8 +434,8 @@ function ListsSettings() {
               padding: "7px 18px",
               borderRadius: 7,
               border: "none",
-              background: activeListTab === tab.key ? "#ef3340" : "#f4f6fa",
-              color: activeListTab === tab.key ? "#fff" : "#5c6374",
+              background: activeListTab === tab.key ? "#ef3340" : "#12151c",
+              color: activeListTab === tab.key ? "#fff" : "#a1a1aa",
               fontWeight: 600,
               fontSize: 13,
               cursor: "pointer",
@@ -451,26 +451,26 @@ function ListsSettings() {
       ))}
 
       {/* Add new item */}
-      <div style={{ marginTop: 16, padding: "14px", background: "#f8f9fd", borderRadius: 8, border: "1px solid #e8ebf4" }}>
-        <h4 style={{ margin: "0 0 10px", fontSize: 13, fontWeight: 700, color: "#3f4652" }}>Nuevo item</h4>
+      <div style={{ marginTop: 16, padding: "14px", background: "rgba(255,255,255,0.04)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.10)" }}>
+        <h4 style={{ margin: "0 0 10px", fontSize: 13, fontWeight: 700, color: "#d4d4d8" }}>Nuevo item</h4>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <input
             placeholder="Valor (slug)"
             value={newItemForm.value}
             onChange={(e) => setNewItemForm((f) => ({ ...f, value: e.target.value }))}
-            style={{ flex: 1, minWidth: 120, padding: "7px 10px", borderRadius: 6, border: "1px solid #d8dde8", fontSize: 12 }}
+            style={{ flex: 1, minWidth: 120, padding: "7px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.10)", fontSize: 12 }}
           />
           <input
             placeholder="Etiqueta visible"
             value={newItemForm.label}
             onChange={(e) => setNewItemForm((f) => ({ ...f, label: e.target.value }))}
-            style={{ flex: 1, minWidth: 120, padding: "7px 10px", borderRadius: 6, border: "1px solid #d8dde8", fontSize: 12 }}
+            style={{ flex: 1, minWidth: 120, padding: "7px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.10)", fontSize: 12 }}
           />
           <input
             type="color"
             value={newItemForm.color}
             onChange={(e) => setNewItemForm((f) => ({ ...f, color: e.target.value }))}
-            style={{ width: 38, height: 33, padding: 2, borderRadius: 5, border: "1px solid #d8dde8", cursor: "pointer" }}
+            style={{ width: 38, height: 33, padding: 2, borderRadius: 5, border: "1px solid rgba(255,255,255,0.10)", cursor: "pointer" }}
           />
           <button
             onClick={handleCreate}
@@ -494,8 +494,8 @@ export function SettingsView() {
     padding: "8px 20px",
     borderRadius: 8,
     border: "none",
-    background: activeTab === tab ? "#121420" : "#f4f6fa",
-    color: activeTab === tab ? "#fff" : "#5c6374",
+    background: activeTab === tab ? "#ef3340" : "#12151c",
+    color: activeTab === tab ? "#fff" : "#a1a1aa",
     fontWeight: 700,
     fontSize: 13,
     cursor: "pointer",

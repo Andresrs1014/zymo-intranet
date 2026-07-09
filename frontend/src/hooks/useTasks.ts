@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { taskApi } from "@/lib/taskApi"
+import { useAuthStore } from "@/store/authStore"
 import type { Task, CreateTaskInput, UpdateTaskInput, ActivityLog } from "@/types/task"
 
 export interface TaskListFilters {
@@ -50,8 +51,22 @@ export function useTasks(filters: TaskListFilters) {
       const limit = Number(headers["x-limit"] ?? filters.limit ?? 50)
       return { tasks: data, total, page, limit }
     },
-    enabled: filters.teamId !== undefined || filters.subidoPorId !== undefined,
+    enabled:
+      filters.teamId !== undefined ||
+      filters.subidoPorId !== undefined ||
+      filters.responsableId !== undefined,
   })
+}
+
+// ─── My work (cross-team personal inbox) ───────────────────────────────────────
+// Sin teamId: el backend scopea a todos los equipos del usuario (getMemberTeamIds).
+// El filtro responsableId hace OR: [{asignadoAId: me}, {asignadoAId: null, subidoPorId: me}].
+// Query compartida (mismo queryKey) entre la vista "Mi trabajo" y el badge del sidebar.
+
+export function useMyTasks() {
+  const userId = useAuthStore((s) => s.user?.id ?? null)
+  const query = useTasks({ responsableId: userId ?? undefined, limit: 200 })
+  return { ...query, userId }
 }
 
 // ─── Single task ──────────────────────────────────────────────────────────────

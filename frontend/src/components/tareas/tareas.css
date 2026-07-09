@@ -3,7 +3,7 @@
   transition: box-shadow 220ms ease, transform 140ms ease;
 }
 .task-card-glow:hover {
-  box-shadow: 0 6px 24px -4px rgba(18, 20, 32, 0.14), 0 2px 8px rgba(0, 0, 0, 0.07);
+  box-shadow: 0 8px 26px -6px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.08);
   transform: translateY(-1px);
 }
 
@@ -46,8 +46,8 @@
   transition: background 160ms ease, box-shadow 160ms ease, transform 120ms ease;
 }
 .task-primary-btn:hover {
-  background: #f0f0f0 !important;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12) !important;
+  background: #d92d3a !important;
+  box-shadow: 0 6px 18px rgba(239, 51, 64, 0.45) !important;
   transform: translateY(-1px);
 }
 .task-primary-btn:active {
@@ -59,8 +59,8 @@
   transition: background 160ms ease, border-color 160ms ease, transform 120ms ease;
 }
 .task-filter-btn:hover {
-  border-color: #b0b8c8 !important;
-  background: #f8f9fd !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
 }
 
 /* ── Sidebar toggle button ─────────────────────────────────────── */

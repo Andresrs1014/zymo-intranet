@@ -4,7 +4,24 @@ import { env } from "../config/env"
 
 const COOLDOWN_ACTION = "alerta_escalamiento"
 
+// ponytail: guard en memoria — alcanza porque el cron corre en un único proceso Node;
+// si algún día se escala a múltiples instancias, subir a un advisory lock de Postgres.
+let running = false
+
 export async function runEscalationCheck(): Promise<void> {
+  if (running) {
+    console.warn("[Escalation] Corrida anterior aún en curso, se omite este tick.")
+    return
+  }
+  running = true
+  try {
+    await runEscalationCheckInner()
+  } finally {
+    running = false
+  }
+}
+
+async function runEscalationCheckInner(): Promise<void> {
   const startHour = env.ESCALATION_START_HOUR
   const endHour = env.ESCALATION_END_HOUR
 
@@ -41,20 +58,22 @@ export async function runEscalationCheck(): Promise<void> {
     },
   })
 
+  // Check 24h cooldown para todas las tareas candidatas en una sola query (evita N+1)
+  const recentAlerts = await prisma.activityLog.findMany({
+    where: {
+      taskId: { in: staleTasks.map((t) => t.id) },
+      accion: "edicion",
+      detalle: COOLDOWN_ACTION,
+      fecha: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+    },
+    select: { taskId: true },
+  })
+  const alertedTaskIds = new Set(recentAlerts.map((a) => a.taskId))
+
   for (const task of staleTasks) {
     const teamFinals = teamFinalStates.get(task.teamId) ?? new Set()
     if (teamFinals.has(task.estado)) continue // Already final/canceled
-
-    // Check 24h cooldown: was an escalation already sent in the last 24h?
-    const recentAlert = await prisma.activityLog.findFirst({
-      where: {
-        taskId: task.id,
-        accion: "edicion",
-        detalle: COOLDOWN_ACTION,
-        fecha: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
-      },
-    })
-    if (recentAlert) continue
+    if (alertedTaskIds.has(task.id)) continue // Already alerted in the last 24h
 
     const message = `La tarea "${task.titulo}" asignada a ${task.asignadoANombre ?? "—"} lleva más de ${env.ESCALATION_HOURS}h sin actualización.`
 

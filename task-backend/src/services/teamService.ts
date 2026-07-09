@@ -199,8 +199,8 @@ export async function getTeamMembers(teamId: number, token?: string): Promise<Te
       for (const u of users) {
         nameMap.set(u.id, u.full_name ?? u.email)
       }
-    } catch {
-      // enrichment is best-effort; fall back to stored names
+    } catch (err) {
+      console.warn(`[teamService] No se pudo enriquecer nombres desde intranet (team ${teamId}):`, err instanceof Error ? err.message : err)
     }
   }
 

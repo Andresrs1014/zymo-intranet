@@ -146,7 +146,8 @@ export async function createEvent(user: AuthPayload, input: CreateEventInput) {
           if (!res.ok) return { email: `usuario${uid}@zymo.com`, nombre: `Usuario ${uid}` }
           const data = await res.json() as { email?: string; full_name?: string }
           return { email: data.email ?? `usuario${uid}@zymo.com`, nombre: data.full_name ?? `Usuario ${uid}` }
-        } catch {
+        } catch (err) {
+          console.warn(`[eventService] No se pudo enriquecer datos del usuario ${uid} desde intranet:`, err instanceof Error ? err.message : err)
           return { email: `usuario${uid}@zymo.com`, nombre: `Usuario ${uid}` }
         }
       })

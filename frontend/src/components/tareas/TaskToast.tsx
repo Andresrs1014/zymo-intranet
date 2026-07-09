@@ -63,10 +63,10 @@ export function TaskToastContainer() {
           style={{
             display: "flex",
             alignItems: "stretch",
-            background: "#fff",
+            background: "#1b2029",
             borderRadius: 8,
-            boxShadow: "0 4px 16px rgba(18,20,32,0.16)",
-            border: "1px solid #d8dde8",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+            border: "1px solid rgba(255,255,255,0.10)",
             overflow: "hidden",
             minWidth: 240,
             maxWidth: 340,
@@ -74,7 +74,7 @@ export function TaskToastContainer() {
           }}
         >
           <div style={{ width: 4, flexShrink: 0, background: TYPE_COLORS[toast.type] }} />
-          <div style={{ padding: "12px 16px", fontSize: 13, fontWeight: 500, color: "#121420", lineHeight: 1.4 }}>
+          <div style={{ padding: "12px 16px", fontSize: 13, fontWeight: 500, color: "#f4f4f5", lineHeight: 1.4 }}>
             {toast.message}
           </div>
         </div>
