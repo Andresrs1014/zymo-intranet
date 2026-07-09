@@ -59,30 +59,35 @@ export function TaskShell({ children }: TaskShellProps) {
               así que nunca intercepta clicks ni la leen lectores de pantalla.
               El sidebar (blanco) y las tarjetas (blancas) la cubren donde toca,
               por lo que solo asoma en el respiro gris alrededor del contenido. */}
+          {/* El foco del patrón/difuminado se ancla con calc(220px + Nvw), no un %
+              puro del viewport — con % puro, a la mayoría de anchos de pantalla el
+              punto más visible caía detrás del sidebar (opaco), así que en la
+              práctica no se veía nada. 220px = ancho del sidebar expandido. */}
           <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
             <div
               className="absolute inset-0"
               style={{
                 WebkitMaskImage:
-                  "radial-gradient(130% 95% at 14% -5%, #000 0%, rgba(0,0,0,0.4) 45%, transparent 72%)",
+                  "radial-gradient(120% 90% at calc(220px + 12vw) -5%, #000 0%, rgba(0,0,0,0.5) 45%, transparent 75%)",
                 maskImage:
-                  "radial-gradient(130% 95% at 14% -5%, #000 0%, rgba(0,0,0,0.4) 45%, transparent 72%)",
+                  "radial-gradient(120% 90% at calc(220px + 12vw) -5%, #000 0%, rgba(0,0,0,0.5) 45%, transparent 75%)",
               }}
             >
               <HexagonPattern
                 radius={46}
                 gap={7}
                 strokeDasharray="3 6"
-                className="fill-none stroke-zinc-500/10"
+                className="fill-none stroke-zinc-500/18"
               />
             </div>
-            {/* Difuminado rojo: foco atmosférico junto al header/sidebar donde ya
-                está el acento rojo del ShineBorder — no un fondo rojo pleno. */}
+            {/* Difuminado rojo: foco atmosférico dentro del área de contenido real
+                (a la derecha del sidebar), no un fondo rojo pleno. */}
             <div
-              className="absolute -top-24 left-[6%] h-[520px] w-[720px] rounded-full opacity-70 blur-[90px]"
+              className="absolute -top-20 h-[520px] w-[720px] rounded-full opacity-80 blur-[90px]"
               style={{
+                left: "calc(220px + 4vw)",
                 background:
-                  "radial-gradient(50% 50% at 50% 50%, rgba(239,51,64,0.14) 0%, rgba(196,30,58,0.07) 42%, transparent 72%)",
+                  "radial-gradient(50% 50% at 50% 50%, rgba(239,51,64,0.18) 0%, rgba(196,30,58,0.09) 42%, transparent 72%)",
               }}
             />
           </div>
