@@ -3,10 +3,13 @@ import { useTaskLists } from "@/hooks/useTaskLists"
 import { useTeamMembers } from "@/hooks/useTaskTeams"
 import { useCreateTask, useUpdateTask, useAcceptTask } from "@/hooks/useTasks"
 import { useTaskAISuggestions } from "@/hooks/useTaskAI"
+import { useUploadTaskV2Attachment } from "@/hooks/useTaskV2Attachments"
 import { useTaskToast } from "./TaskToast"
 import { useAuthStore } from "@/store/authStore"
 import type { Task, CreateTaskInput, UpdateTaskInput } from "@/types/task"
 import { AttachmentExplorerV2 } from "./AttachmentExplorerV2"
+
+const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024
 
 function formatMin(min: number): string {
   if (min < 60) return `${min}m`
@@ -28,6 +31,7 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
   const createTask = useCreateTask()
   const updateTask = useUpdateTask()
   const acceptTask = useAcceptTask()
+  const uploadAttachment = useUploadTaskV2Attachment()
   const { showToast } = useTaskToast()
   const { user } = useAuthStore()
 
@@ -37,8 +41,8 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
   const isPendingAcceptance = isAssignedToMe && task?.aceptacion === "pendiente"
 
   const [adjuntosOpen, setAdjuntosOpen] = useState(false)
-  // Tarea recién creada en este mismo modal (aún no hay `task` porque no es edición)
-  const [justCreated, setJustCreated] = useState<Task | null>(null)
+  // Archivos elegidos mientras se crea la tarea (aún no hay taskId) — se suben al guardar
+  const [stagedFiles, setStagedFiles] = useState<File[]>([])
 
   const [form, setForm] = useState({
     titulo: "",
@@ -60,7 +64,7 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
   // Pre-fill on edit, or reset on open for create
   useEffect(() => {
     if (!open) return
-    setJustCreated(null)
+    setStagedFiles([])
     setAdjuntosOpen(false)
     if (task) {
       setForm({
@@ -106,11 +110,19 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
   const LABEL_STYLE = { fontSize: 11, fontWeight: 700, color: "#5c6374", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 4 }
   const INPUT_STYLE = { width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #d8dde8", fontSize: 13, boxSizing: "border-box" as const }
 
-  async function handleSubmit() {
-    if (justCreated) {
-      onClose()
+  function handleStageFiles(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    const oversized = files.find((f) => f.size > MAX_ATTACHMENT_BYTES)
+    if (oversized) {
+      showToast(`"${oversized.name}" supera el límite de 20 MB`, "error")
+      e.target.value = ""
       return
     }
+    setStagedFiles((prev) => [...prev, ...files])
+    e.target.value = ""
+  }
+
+  async function handleSubmit() {
     if (!teamId || !form.titulo.trim()) {
       showToast("Completa el título y selecciona un equipo", "error")
       return
@@ -152,11 +164,18 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
           duracionEstimadaMinutos: form.duracionEstimadaMinutos ? Number(form.duracionEstimadaMinutos) : null,
         }
         const created = await createTask.mutateAsync(input)
-        showToast("Tarea creada", "success")
-        // Deja el modal abierto: ahora sí hay taskId para adjuntar archivos de una vez
-        setJustCreated(created)
-        setAdjuntosOpen(true)
-        return
+        if (stagedFiles.length > 0) {
+          try {
+            for (const file of stagedFiles) {
+              await uploadAttachment.mutateAsync({ taskId: created.id, file })
+            }
+            showToast("Tarea creada con adjuntos", "success")
+          } catch {
+            showToast("Tarea creada, pero un adjunto falló al subir. Ábrela y vuelve a intentar.", "error")
+          }
+        } else {
+          showToast("Tarea creada", "success")
+        }
       }
       onClose()
     } catch (err: unknown) {
@@ -442,8 +461,39 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
           </div>
         )}
 
+        {/* Adjuntos elegidos antes de guardar (solo creación) */}
+        {!isEdit && stagedFiles.length > 0 && (
+          <div style={{ marginTop: 14, display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {stagedFiles.map((file, i) => (
+              <span
+                key={`${file.name}-${i}`}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "4px 8px",
+                  borderRadius: 6,
+                  background: "#f4f6fa",
+                  border: "1px solid #e8ebf4",
+                  fontSize: 12,
+                  color: "#3f4652",
+                }}
+              >
+                📎 {file.name}
+                <button
+                  onClick={() => setStagedFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                  style={{ border: "none", background: "none", color: "#9aa5b8", cursor: "pointer", fontSize: 14, lineHeight: 1 }}
+                  aria-label={`Quitar ${file.name}`}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 24, alignItems: "center" }}>
-          {(isEdit && task) || justCreated ? (
+          {isEdit && task ? (
             <button
               onClick={() => setAdjuntosOpen(true)}
               style={{
@@ -463,57 +513,54 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
               📎 Adjuntos
             </button>
           ) : (
-            <div
-              title="Guarda la tarea primero para adjuntar archivos"
+            <label
               style={{
                 padding: "9px 16px",
                 borderRadius: 8,
-                border: "1px solid #e8ebf4",
-                background: "#f8f9fd",
+                border: "1px solid #d8dde8",
+                background: "#fff",
                 fontSize: 13,
+                cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
                 gap: 6,
-                color: "#b0b8c9",
+                color: "#3f4652",
                 marginRight: "auto",
-                cursor: "not-allowed",
-                userSelect: "none",
               }}
             >
-              📎 Adjuntos
-            </div>
-          )}
-          {!justCreated && (
-            <button
-              onClick={onClose}
-              style={{ padding: "9px 22px", borderRadius: 8, border: "1px solid #d8dde8", background: "#fff", fontSize: 13, cursor: "pointer" }}
-            >
-              Cancelar
-            </button>
+              📎 Adjuntos{stagedFiles.length > 0 ? ` (${stagedFiles.length})` : ""}
+              <input type="file" multiple onChange={handleStageFiles} style={{ display: "none" }} />
+            </label>
           )}
           <button
+            onClick={onClose}
+            style={{ padding: "9px 22px", borderRadius: 8, border: "1px solid #d8dde8", background: "#fff", fontSize: 13, cursor: "pointer" }}
+          >
+            Cancelar
+          </button>
+          <button
             onClick={handleSubmit}
-            disabled={isPending || (!justCreated && form.titulo.trim().length < 3)}
+            disabled={isPending || form.titulo.trim().length < 3}
             style={{
               padding: "9px 22px",
               borderRadius: 8,
               border: "none",
-              background: !justCreated && form.titulo.trim().length < 3 ? "#f0f2f7" : "#ef3340",
-              color: !justCreated && form.titulo.trim().length < 3 ? "#9aa5b8" : "#fff",
+              background: form.titulo.trim().length < 3 ? "#f0f2f7" : "#ef3340",
+              color: form.titulo.trim().length < 3 ? "#9aa5b8" : "#fff",
               fontWeight: 700,
               fontSize: 13,
-              cursor: !justCreated && form.titulo.trim().length < 3 ? "default" : "pointer",
+              cursor: form.titulo.trim().length < 3 ? "default" : "pointer",
             }}
           >
-            {isPending ? "Guardando…" : justCreated ? "Listo" : isEdit ? "Guardar cambios" : "Crear tarea"}
+            {isPending ? "Guardando…" : isEdit ? "Guardar cambios" : "Crear tarea"}
           </button>
         </div>
       </div>
 
-      {(task ?? justCreated) && adjuntosOpen && (
+      {isEdit && task && adjuntosOpen && (
         <AttachmentExplorerV2
-          taskId={(task ?? justCreated)!.id}
-          taskTitulo={(task ?? justCreated)!.titulo}
+          taskId={task.id}
+          taskTitulo={task.titulo}
           open={adjuntosOpen}
           onClose={() => setAdjuntosOpen(false)}
         />
