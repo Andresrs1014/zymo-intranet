@@ -58,6 +58,7 @@ export interface TaskFilters {
   responsableId?: number
   subidoPorId?: number
   prioridad?: string
+  soloSinAsignar?: boolean
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -479,6 +480,7 @@ export async function listTasks(
     })
   }
   if (filters.subidoPorId) where["subidoPorId"] = filters.subidoPorId
+  if (filters.soloSinAsignar) where["asignadoAId"] = null
 
   if (andClauses.length > 0) where["AND"] = andClauses
 

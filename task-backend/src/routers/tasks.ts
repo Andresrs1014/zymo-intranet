@@ -47,6 +47,7 @@ router.get("/", async (req: Request, res: Response) => {
     responsableId: q.responsableId ? Number(q.responsableId) : undefined,
     subidoPorId: q.subidoPorId ? Number(q.subidoPorId) : undefined,
     prioridad: q.prioridad ? String(q.prioridad) : undefined,
+    soloSinAsignar: q.soloSinAsignar === "true",
   }
 
   const { total, tasks } = await taskService.listTasks(req.user!, filters, pagination)

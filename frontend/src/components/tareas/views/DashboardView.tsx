@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import {
   BarChart,
   Bar,
@@ -23,7 +23,31 @@ import {
 
 const CHART_COLORS = ["#ef3340", "#00a8c8", "#10b981", "#f59e0b", "#0284c7", "#ff6b75"]
 
+// Cuenta desde el valor anterior hasta el nuevo en ~500ms — feedback de que el KPI cambió.
+function useCountUp(target: number, durationMs = 500): number {
+  const [display, setDisplay] = useState(target)
+  const fromRef = useRef(target)
+
+  useEffect(() => {
+    const from = fromRef.current
+    if (from === target) return
+    const start = performance.now()
+    let frame: number
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / durationMs)
+      setDisplay(Math.round(from + (target - from) * t))
+      if (t < 1) frame = requestAnimationFrame(tick)
+      else fromRef.current = target
+    }
+    frame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frame)
+  }, [target, durationMs])
+
+  return display
+}
+
 function KpiCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
+  const animated = useCountUp(typeof value === "number" ? value : 0)
   return (
     <div style={{
       background: "#1b2029",
@@ -32,7 +56,9 @@ function KpiCard({ label, value, sub }: { label: string; value: string | number;
       padding: "18px 20px",
     }}>
       <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "#71717a", fontWeight: 600, marginBottom: 6 }}>{label}</div>
-      <div style={{ fontSize: 28, fontWeight: 800, color: "#f4f4f5", fontFamily: "'DM Mono', monospace" }}>{value}</div>
+      <div style={{ fontSize: 28, fontWeight: 800, color: "#f4f4f5", fontFamily: "'DM Mono', monospace" }}>
+        {typeof value === "number" ? animated : value}
+      </div>
       {sub && <div style={{ fontSize: 12, color: "#a1a1aa", marginTop: 4, fontFamily: "'DM Mono', monospace" }}>{sub}</div>}
     </div>
   )

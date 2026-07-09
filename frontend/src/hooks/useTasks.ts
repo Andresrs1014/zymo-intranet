@@ -14,6 +14,7 @@ export interface TaskListFilters {
   responsableId?: number
   subidoPorId?: number
   prioridad?: string
+  soloSinAsignar?: boolean
   page?: number
   limit?: number
 }
@@ -42,6 +43,7 @@ export function useTasks(filters: TaskListFilters) {
       if (filters.responsableId) params.set("responsableId", String(filters.responsableId))
       if (filters.subidoPorId) params.set("subidoPorId", String(filters.subidoPorId))
       if (filters.prioridad) params.set("prioridad", filters.prioridad)
+      if (filters.soloSinAsignar) params.set("soloSinAsignar", "true")
       if (filters.page) params.set("page", String(filters.page))
       if (filters.limit) params.set("limit", String(filters.limit))
 

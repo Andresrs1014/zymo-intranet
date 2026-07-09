@@ -7,6 +7,7 @@ import { useMyTasks } from "@/hooks/useTasks"
 import { useMyTeams } from "@/hooks/useTaskTeams"
 import { TaskDrawer } from "@/components/tareas/TaskDrawer"
 import { TaskStatusPill } from "@/components/tareas/TaskStatusPill"
+import { WorkCardSkeleton } from "@/components/tareas/Skeleton"
 import { categorizeMyWork, isOverdue } from "@/lib/taskWork"
 import type { Task, ListsGrouped, ListConfig } from "@/types/task"
 
@@ -160,7 +161,11 @@ export function MiTrabajoView() {
   )
 
   if (isLoading) {
-    return <div className="py-16 text-center text-sm text-zinc-500">Cargando tu trabajo…</div>
+    return (
+      <div className="mx-auto flex max-w-3xl flex-col gap-2.5">
+        {Array.from({ length: 4 }).map((_, i) => <WorkCardSkeleton key={i} />)}
+      </div>
+    )
   }
 
   const totalActivo = pendientes.length + vencidas.length + enCurso.length

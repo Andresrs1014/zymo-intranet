@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import "../tareas.css"
 import {
   DndContext,
@@ -242,6 +242,8 @@ export function BoardView() {
 
   const [activeDragTask, setActiveDragTask] = useState<Task | null>(null)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
+  // Drag optimista: mueve la tarjeta de columna al soltar, sin esperar el refetch.
+  const [optimisticEstado, setOptimisticEstado] = useState<Map<number, string>>(new Map())
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -255,12 +257,29 @@ export function BoardView() {
   const etiquetas = listsGrouped?.etiqueta ?? []
   const tasks = taskResult?.tasks ?? []
 
+  // Una vez que el servidor confirma el nuevo estado, suelta el override optimista.
+  useEffect(() => {
+    setOptimisticEstado((prev) => {
+      if (prev.size === 0) return prev
+      let changed = false
+      const next = new Map(prev)
+      for (const [taskId, estado] of prev) {
+        const real = tasks.find((t) => t.id === taskId)
+        if (real && real.estado === estado) {
+          next.delete(taskId)
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [tasks])
+
   const filteredTasks = memberFilter
     ? tasks.filter((t) => t.asignadoAId === memberFilter || t.subidoPorId === memberFilter)
     : tasks
 
   function getTasksByState(estado: string) {
-    return filteredTasks.filter((t) => t.estado === estado)
+    return filteredTasks.filter((t) => (optimisticEstado.get(t.id) ?? t.estado) === estado)
   }
 
   function handleDragStart(event: DragStartEvent) {
@@ -279,12 +298,21 @@ export function BoardView() {
     const task = tasks.find((t) => t.id === taskId)
     if (!task || task.estado === newEstado) return
 
+    // Optimista: la tarjeta ya se ve en la columna nueva mientras se confirma con el servidor.
+    setOptimisticEstado((prev) => new Map(prev).set(taskId, newEstado))
+
     try {
       await updateTask.mutateAsync({
         taskId,
         input: { estado: newEstado, version: task.version },
       })
     } catch (err: unknown) {
+      // Revertir: el servidor no aceptó el cambio, la tarjeta vuelve a su columna real.
+      setOptimisticEstado((prev) => {
+        const next = new Map(prev)
+        next.delete(taskId)
+        return next
+      })
       const status = (err as { response?: { status?: number } })?.response?.status
       if (status === 409) {
         showToast("La tarea fue modificada por otra sesión. Recargando…", "error")

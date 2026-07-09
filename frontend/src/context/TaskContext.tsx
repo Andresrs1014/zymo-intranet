@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback } from "react"
 import type { ReactNode } from "react"
+import { useSearchParams } from "react-router-dom"
 import type { Team } from "@/types/task"
 
 export type TaskView =
@@ -10,6 +11,8 @@ export type TaskView =
   | "dashboard"
   | "people"
   | "settings"
+
+const VALID_VIEWS: TaskView[] = ["mywork", "list", "board", "calendar", "dashboard", "people", "settings"]
 
 export type TeamRole = "owner" | "co_gestor" | "member" | null
 
@@ -40,11 +43,34 @@ interface TaskContextValue {
 const TaskContext = createContext<TaskContextValue | null>(null)
 
 export function TaskContextProvider({ children }: { children: ReactNode }) {
-  const [activeView, setActiveView] = useState<TaskView>("mywork")
-  const [activeTeamId, setActiveTeamId] = useState<number | null>(null)
+  // activeView/activeTeamId viven en la URL (?view=&team=) — refresh-safe y compartibles.
+  const [searchParams, setSearchParams] = useSearchParams()
   const [teams, setTeams] = useState<Team[]>([])
   const [filters, setFilters] = useState<TaskFiltersState>({})
   const [onNewTask, setOnNewTaskState] = useState<() => void>(() => () => undefined)
+
+  const viewParam = searchParams.get("view")
+  const activeView: TaskView = viewParam && VALID_VIEWS.includes(viewParam as TaskView) ? (viewParam as TaskView) : "mywork"
+
+  const teamParam = searchParams.get("team")
+  const activeTeamId = teamParam ? Number(teamParam) : null
+
+  const setActiveView = useCallback((v: TaskView) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.set("view", v)
+      return next
+    }, { replace: true })
+  }, [setSearchParams])
+
+  const setActiveTeamId = useCallback((id: number | null) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      if (id == null) next.delete("team")
+      else next.set("team", String(id))
+      return next
+    }, { replace: true })
+  }, [setSearchParams])
 
   const setOnNewTask = useCallback((fn: () => void) => {
     setOnNewTaskState(() => fn)

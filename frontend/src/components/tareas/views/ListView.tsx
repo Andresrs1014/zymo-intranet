@@ -5,7 +5,9 @@ import { useTasks, useDeleteTask } from "@/hooks/useTasks"
 import { useTaskLists } from "@/hooks/useTaskLists"
 import { useTeamMembers } from "@/hooks/useTaskTeams"
 import { TaskDrawer } from "@/components/tareas/TaskDrawer"
-import { isOverdue } from "@/lib/taskWork"
+import { ListRowSkeleton } from "@/components/tareas/Skeleton"
+import { isOverdue, todayStr } from "@/lib/taskWork"
+import { useAuthStore } from "@/store/authStore"
 import type { Task, ListConfig, TeamMember } from "@/types/task"
 
 function formatTiempo(minutos: number): string {
@@ -24,6 +26,47 @@ type TaskFilters = {
   prioridad?: string
   fechaDesde?: string
   fechaHasta?: string
+  soloSinAsignar?: boolean
+}
+
+// ── Chips de filtro rápido ────────────────────────────────────────────────────
+function QuickFilterChips({ filters, onChange, userId }: { filters: TaskFilters; onChange: (f: TaskFilters) => void; userId: number | null }) {
+  const today = todayStr()
+  const misTareas = userId != null && filters.responsableId === userId
+  const vencenHoy = filters.fechaDesde === today && filters.fechaHasta === today
+  const sinAsignar = !!filters.soloSinAsignar
+
+  const chip = (active: boolean, label: string, onClick: () => void) => (
+    <button
+      key={label}
+      type="button"
+      onClick={onClick}
+      style={{
+        padding: "5px 12px",
+        borderRadius: 99,
+        fontSize: 12,
+        fontWeight: 600,
+        border: `1px solid ${active ? "#ef3340" : "rgba(255,255,255,0.12)"}`,
+        background: active ? "rgba(239,51,64,0.16)" : "rgba(255,255,255,0.04)",
+        color: active ? "#ff6b75" : "#d4d4d8",
+        cursor: "pointer",
+        transition: "background 120ms, border-color 120ms",
+      }}
+    >
+      {label}
+    </button>
+  )
+
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+      {chip(misTareas, "Mías", () =>
+        onChange({ ...filters, responsableId: misTareas || userId == null ? undefined : userId }))}
+      {chip(vencenHoy, "Vencen hoy", () =>
+        onChange({ ...filters, fechaDesde: vencenHoy ? undefined : today, fechaHasta: vencenHoy ? undefined : today }))}
+      {chip(sinAsignar, "Sin asignar", () =>
+        onChange({ ...filters, soloSinAsignar: sinAsignar ? undefined : true }))}
+    </div>
+  )
 }
 
 const INPUT_STYLE = {
@@ -230,6 +273,7 @@ interface TaskRowProps {
 }
 
 function TaskRow({ task, prioridades, etiquetas, plataformas, estados, nameMap, onSelect, onDelete }: TaskRowProps) {
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const prioConfig = prioridades.find((p) => p.value === task.prioridad)
   const prioColor = prioConfig?.color ?? "#6b7280"
   const prioLabel = prioConfig?.label ?? task.prioridad
@@ -302,20 +346,40 @@ function TaskRow({ task, prioridades, etiquetas, plataformas, estados, nameMap, 
         </span>
       </td>
       <td style={{ padding: "12px 14px" }}>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            if (window.confirm("¿Eliminar esta tarea?")) onDelete(task.id)
-          }}
-          style={{ padding: "4px", borderRadius: 4, border: "none", background: "none", cursor: "pointer", color: "#71717a" }}
-          onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "#ef3340")}
-          onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "#71717a")}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>
-          </svg>
-        </button>
+        {confirmDelete ? (
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }} onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => onDelete(task.id)}
+              style={{ padding: "3px 8px", borderRadius: 4, border: "none", background: "#ef3340", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}
+            >
+              Sí
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(false)}
+              style={{ padding: "3px 8px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.12)", background: "none", color: "#a1a1aa", fontSize: 11, fontWeight: 600, cursor: "pointer" }}
+            >
+              No
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              setConfirmDelete(true)
+            }}
+            style={{ padding: "4px", borderRadius: 4, border: "none", background: "none", cursor: "pointer", color: "#71717a" }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "#ef3340")}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "#71717a")}
+            aria-label="Eliminar tarea"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>
+            </svg>
+          </button>
+        )}
       </td>
     </tr>
   )
@@ -335,6 +399,7 @@ const TH_STYLE = {
 
 export function ListView() {
   const { activeTeamId } = useTask()
+  const { user } = useAuthStore()
   const [localFilters, setLocalFilters] = useState<TaskFilters>({})
   const [page, setPage] = useState(1)
   const limit = 25
@@ -376,6 +441,12 @@ export function ListView() {
 
   return (
     <div>
+      <QuickFilterChips
+        filters={localFilters}
+        userId={user?.id ?? null}
+        onChange={(f) => { setLocalFilters(f); setPage(1) }}
+      />
+
       <TaskFiltersBar
         teamId={activeTeamId}
         filters={localFilters}
@@ -385,7 +456,11 @@ export function ListView() {
 
       <div className="task-card-glow" style={{ background: "#1b2029", borderRadius: 10, border: "1px solid rgba(255,255,255,0.10)", overflow: "hidden" }}>
         {isLoading ? (
-          <div style={{ padding: 40, textAlign: "center", color: "#a1a1aa", fontSize: 14 }}>Cargando tareas…</div>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <tbody>
+              {Array.from({ length: 6 }).map((_, i) => <ListRowSkeleton key={i} />)}
+            </tbody>
+          </table>
         ) : tasks.length === 0 ? (
           <div style={{ padding: 60, textAlign: "center", color: "#a1a1aa", fontSize: 14 }}>
             No se encontraron tareas con los filtros aplicados.
