@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState, type ReactNode } from "react"
-import { TaskContextProvider, useTask } from "@/context/TaskContext"
+import React, { type ReactNode } from "react"
+import { TaskContextProvider } from "@/context/TaskContext"
 import { HexagonPattern } from "@/components/ui/hexagon-pattern"
 import { TaskSidebar } from "./TaskSidebar"
 import { TaskTopbar } from "./TaskTopbar"
@@ -47,70 +47,21 @@ class TaskErrorBoundary extends React.Component<{ children: ReactNode }, EBState
   }
 }
 
-// Marcadores de profundidad: posición/escala/opacidad ya vienen fijadas por
-// data-depth en tareas.css (mismo patrón que el prototipo taskdesk) — acá solo
-// se renderiza la cantidad.
-const DEPTH_MARKERS = [0, 1, 2, 3, 4]
-
 function TaskShellInner({ children }: { children: ReactNode }) {
-  const { activeView } = useTask()
-  const [transitioning, setTransitioning] = useState(false)
-  const mounted = useRef(false)
-
-  // Transición ambiental: al cambiar de vista, el corredor/rieles/marcadores
-  // reaccionan junto con el header (BlurFade) durante ~520ms — "common fate",
-  // no una animación aislada del contenido que cambia.
-  useEffect(() => {
-    if (!mounted.current) {
-      mounted.current = true
-      return
-    }
-    setTransitioning(true)
-    const t = setTimeout(() => setTransitioning(false), 520)
-    return () => clearTimeout(t)
-  }, [activeView])
-
   return (
-    <div
-      className={`relative isolate min-h-screen overflow-hidden bg-background text-foreground ${transitioning ? "is-transitioning" : ""}`}
-    >
-      {/* Capa de profundidad ambiental — vive DETRÁS del contenido real.
-          Corredor con punto de fuga (horizonte + rieles convergentes +
-          marcadores que crecen/se aclaran según qué tan "cerca" están,
-          adaptado de taskdesk) + honeycomb de trazo finísimo + un difuminado
-          rojo. Totalmente decorativa: aria-hidden + pointer-events-none + -z-10,
-          nunca intercepta clicks ni la leen lectores de pantalla. El sidebar y
-          las tarjetas (blancas) la cubren donde toca, por lo que solo asoma en
-          el respiro gris alrededor del contenido. El punto de fuga apunta hacia
-          la esquina superior — donde vive el header/la acción principal — para
-          reforzar "mira aquí primero", no quedar como adorno sin relación con
-          el layout real. */}
-      {/* El foco de cada capa se ancla con calc(220px + Nvw), no un % puro del
-          viewport — con % puro, a la mayoría de anchos de pantalla el punto
-          más visible caía detrás del sidebar (opaco), invisible en la
-          práctica. 220px = ancho del sidebar expandido. */}
+    <div className="relative isolate min-h-screen overflow-hidden bg-background text-foreground">
+      {/* Fondo decorativo — honeycomb de trazo finísimo + difuminado rojo.
+          aria-hidden + pointer-events-none + -z-10: nunca intercepta clicks
+          ni lo leen lectores de pantalla. El punto de fuga corre en diagonal
+          de abajo-derecha (más marcado) hacia arriba-izquierda (más tenue). */}
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-        <div style={{ position: "absolute", inset: 0, left: "calc(220px + 2vw)" }}>
-          <div className="depth-scene">
-            <div className="depth-horizon" />
-            <div className="depth-road" />
-            <div className="depth-rails">
-              <span />
-              <span />
-            </div>
-            {DEPTH_MARKERS.map((i) => (
-              <div key={i} className="depth-marker" data-depth={i} />
-            ))}
-          </div>
-        </div>
-
         <div
           className="absolute inset-0"
           style={{
             WebkitMaskImage:
-              "radial-gradient(120% 90% at calc(220px + 12vw) -5%, #000 0%, rgba(0,0,0,0.5) 45%, transparent 75%)",
+              "radial-gradient(130% 110% at 100% 100%, #000 0%, rgba(0,0,0,0.5) 45%, transparent 78%)",
             maskImage:
-              "radial-gradient(120% 90% at calc(220px + 12vw) -5%, #000 0%, rgba(0,0,0,0.5) 45%, transparent 75%)",
+              "radial-gradient(130% 110% at 100% 100%, #000 0%, rgba(0,0,0,0.5) 45%, transparent 78%)",
           }}
         >
           {/* Color por style inline, no clase Tailwind: `stroke-{color}` no
@@ -125,22 +76,23 @@ function TaskShellInner({ children }: { children: ReactNode }) {
             style={{ stroke: "rgba(113, 113, 122, 0.5)" }}
           />
         </div>
-        {/* Difuminados rojos: un pequeño "ecosistema" de 3 luces (una principal +
-            2 satélites más chicos y tenues) en vez de un solo círculo aislado —
-            sigue siendo sutil, no busca ser protagonista. */}
+        {/* Difuminados rojos: rastro de 3 luces de abajo-derecha (principal,
+            fuerte) hacia arriba-izquierda (satélite, tenue) — misma idea de
+            "ecosistema", orientación invertida. */}
         <div
-          className="absolute -top-20 h-[520px] w-[720px] rounded-full"
+          className="absolute -bottom-24 h-[520px] w-[720px] rounded-full"
           style={{
-            left: "calc(220px + 4vw)",
+            right: "-4vw",
             background:
               "radial-gradient(50% 50% at 50% 50%, rgba(239,51,64,0.32) 0%, rgba(196,30,58,0.16) 42%, transparent 72%)",
             filter: "blur(70px)",
           }}
         />
         <div
-          className="absolute top-16 h-[260px] w-[340px] rounded-full"
+          className="absolute h-[260px] w-[340px] rounded-full"
           style={{
-            left: "calc(220px + 22vw)",
+            bottom: "22vh",
+            right: "26vw",
             background:
               "radial-gradient(50% 50% at 50% 50%, rgba(239,51,64,0.16) 0%, rgba(196,30,58,0.08) 45%, transparent 72%)",
             filter: "blur(60px)",
