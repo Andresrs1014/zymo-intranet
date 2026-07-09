@@ -73,21 +73,27 @@ export function TaskShell({ children }: TaskShellProps) {
                   "radial-gradient(120% 90% at calc(220px + 12vw) -5%, #000 0%, rgba(0,0,0,0.5) 45%, transparent 75%)",
               }}
             >
+              {/* Color por style inline, no clase Tailwind: `stroke-{color}` no
+                  genera CSS en este proyecto (solo stroke-none/stroke-current
+                  están habilitados) — con la clase, el SVG se pintaba sin color,
+                  invisible aunque la posición/máscara estuvieran bien. */}
               <HexagonPattern
                 radius={46}
                 gap={7}
                 strokeDasharray="3 6"
-                className="fill-none stroke-zinc-500/18"
+                className="fill-none"
+                style={{ stroke: "rgba(113, 113, 122, 0.35)" }}
               />
             </div>
             {/* Difuminado rojo: foco atmosférico dentro del área de contenido real
                 (a la derecha del sidebar), no un fondo rojo pleno. */}
             <div
-              className="absolute -top-20 h-[520px] w-[720px] rounded-full opacity-80 blur-[90px]"
+              className="absolute -top-20 h-[520px] w-[720px] rounded-full"
               style={{
                 left: "calc(220px + 4vw)",
                 background:
-                  "radial-gradient(50% 50% at 50% 50%, rgba(239,51,64,0.18) 0%, rgba(196,30,58,0.09) 42%, transparent 72%)",
+                  "radial-gradient(50% 50% at 50% 50%, rgba(239,51,64,0.32) 0%, rgba(196,30,58,0.16) 42%, transparent 72%)",
+                filter: "blur(70px)",
               }}
             />
           </div>
