@@ -19,7 +19,7 @@ const LIST_MIN = 160
 const LIST_MAX = 420
 const LIST_DEFAULT = 240
 
-function fileIcon(mimeType: string): string {
+export function fileIcon(mimeType: string): string {
   if (mimeType.startsWith("image/")) return "🖼️"
   if (mimeType === "application/pdf") return "📄"
   if (mimeType.includes("spreadsheet") || mimeType.includes("excel")) return "📊"
@@ -31,7 +31,7 @@ function fileIcon(mimeType: string): string {
   return "📎"
 }
 
-function formatBytes(bytes: number): string {
+export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`

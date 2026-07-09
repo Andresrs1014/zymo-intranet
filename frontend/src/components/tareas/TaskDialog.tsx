@@ -8,8 +8,7 @@ import { useTaskToast } from "./TaskToast"
 import { useAuthStore } from "@/store/authStore"
 import type { Task, CreateTaskInput, UpdateTaskInput } from "@/types/task"
 import { AttachmentExplorerV2 } from "./AttachmentExplorerV2"
-
-const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024
+import { StagedAttachmentsPortal } from "./StagedAttachmentsPortal"
 
 function formatMin(min: number): string {
   if (min < 60) return `${min}m`
@@ -109,18 +108,6 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
 
   const LABEL_STYLE = { fontSize: 11, fontWeight: 700, color: "#5c6374", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 4 }
   const INPUT_STYLE = { width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #d8dde8", fontSize: 13, boxSizing: "border-box" as const }
-
-  function handleStageFiles(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? [])
-    const oversized = files.find((f) => f.size > MAX_ATTACHMENT_BYTES)
-    if (oversized) {
-      showToast(`"${oversized.name}" supera el límite de 20 MB`, "error")
-      e.target.value = ""
-      return
-    }
-    setStagedFiles((prev) => [...prev, ...files])
-    e.target.value = ""
-  }
 
   async function handleSubmit() {
     if (!teamId || !form.titulo.trim()) {
@@ -461,77 +448,25 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
           </div>
         )}
 
-        {/* Adjuntos elegidos antes de guardar (solo creación) */}
-        {!isEdit && stagedFiles.length > 0 && (
-          <div style={{ marginTop: 14, display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {stagedFiles.map((file, i) => (
-              <span
-                key={`${file.name}-${i}`}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "4px 8px",
-                  borderRadius: 6,
-                  background: "#f4f6fa",
-                  border: "1px solid #e8ebf4",
-                  fontSize: 12,
-                  color: "#3f4652",
-                }}
-              >
-                📎 {file.name}
-                <button
-                  onClick={() => setStagedFiles((prev) => prev.filter((_, idx) => idx !== i))}
-                  style={{ border: "none", background: "none", color: "#9aa5b8", cursor: "pointer", fontSize: 14, lineHeight: 1 }}
-                  aria-label={`Quitar ${file.name}`}
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 24, alignItems: "center" }}>
-          {isEdit && task ? (
-            <button
-              onClick={() => setAdjuntosOpen(true)}
-              style={{
-                padding: "9px 16px",
-                borderRadius: 8,
-                border: "1px solid #d8dde8",
-                background: "#fff",
-                fontSize: 13,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                color: "#3f4652",
-                marginRight: "auto",
-              }}
-            >
-              📎 Adjuntos
-            </button>
-          ) : (
-            <label
-              style={{
-                padding: "9px 16px",
-                borderRadius: 8,
-                border: "1px solid #d8dde8",
-                background: "#fff",
-                fontSize: 13,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                color: "#3f4652",
-                marginRight: "auto",
-              }}
-            >
-              📎 Adjuntos{stagedFiles.length > 0 ? ` (${stagedFiles.length})` : ""}
-              <input type="file" multiple onChange={handleStageFiles} style={{ display: "none" }} />
-            </label>
-          )}
+          <button
+            onClick={() => setAdjuntosOpen(true)}
+            style={{
+              padding: "9px 16px",
+              borderRadius: 8,
+              border: "1px solid #d8dde8",
+              background: "#fff",
+              fontSize: 13,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              color: "#3f4652",
+              marginRight: "auto",
+            }}
+          >
+            📎 Adjuntos{!isEdit && stagedFiles.length > 0 ? ` (${stagedFiles.length})` : ""}
+          </button>
           <button
             onClick={onClose}
             style={{ padding: "9px 22px", borderRadius: 8, border: "1px solid #d8dde8", background: "#fff", fontSize: 13, cursor: "pointer" }}
@@ -561,6 +496,16 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
         <AttachmentExplorerV2
           taskId={task.id}
           taskTitulo={task.titulo}
+          open={adjuntosOpen}
+          onClose={() => setAdjuntosOpen(false)}
+        />
+      )}
+
+      {!isEdit && adjuntosOpen && (
+        <StagedAttachmentsPortal
+          files={stagedFiles}
+          onChange={setStagedFiles}
+          taskTitulo={form.titulo}
           open={adjuntosOpen}
           onClose={() => setAdjuntosOpen(false)}
         />
