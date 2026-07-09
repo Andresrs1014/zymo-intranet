@@ -72,11 +72,12 @@ export function TaskDrawer({ task, onClose }: Props) {
     estado: "",
     prioridad: "",
     fecha: "",
+    esMultiDia: false,
+    fechaFin: "",
     horaInicio: "",
     horaFin: "",
     asignadoAId: "" as string | number,
     modalidad: "",
-    duracionEstimadaMinutos: "" as string | number,
   })
 
   // Semilla del formulario solo cuando cambia la tarea objetivo (evita pisar la edición).
@@ -84,6 +85,9 @@ export function TaskDrawer({ task, onClose }: Props) {
     if (!task) return
     setTab("detalle")
     setAdjuntosOpen(false)
+    const fechaInicio = task.fecha.slice(0, 10)
+    const fechaCierre = task.horaCierre ? task.horaCierre.slice(0, 10) : fechaInicio
+    const esMultiDia = fechaCierre !== fechaInicio
     setForm({
       titulo: task.titulo,
       descripcionTecnica: task.descripcionTecnica ?? "",
@@ -91,12 +95,13 @@ export function TaskDrawer({ task, onClose }: Props) {
       plataforma: task.plataforma,
       estado: task.estado,
       prioridad: task.prioridad,
-      fecha: task.fecha.slice(0, 10),
+      fecha: fechaInicio,
+      esMultiDia,
+      fechaFin: esMultiDia ? fechaCierre : "",
       horaInicio: task.horaInicio ? task.horaInicio.slice(11, 16) : "",
       horaFin: task.horaCierre ? task.horaCierre.slice(11, 16) : "",
       asignadoAId: task.asignadoAId ?? "",
       modalidad: task.modalidad ?? "",
-      duracionEstimadaMinutos: task.duracionEstimadaMinutos ?? "",
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetId])
@@ -125,10 +130,7 @@ export function TaskDrawer({ task, onClose }: Props) {
   const isPendingForMe =
     !!user && t.asignadoAId === user.id && t.aceptacion === "pendiente"
 
-  const est = t.duracionEstimadaMinutos ?? 0
   const real = t.tiempoTotalMinutos ?? 0
-  const overrun = est > 0 && real > est
-  const ratio = est > 0 ? Math.min(real / est, 1.5) : real > 0 ? 1.5 : 0
 
   async function handleAccept(aceptacion: "aceptada" | "rechazada") {
     if (!t) return
@@ -147,6 +149,8 @@ export function TaskDrawer({ task, onClose }: Props) {
       showToast("El título debe tener al menos 3 caracteres", "error")
       return
     }
+    // Si la tarea dura más de un día, "hora fin" cae en fechaFin en vez de en fecha.
+    const fechaCierre = form.esMultiDia && form.fechaFin ? form.fechaFin : form.fecha
     const input: UpdateTaskInput = {
       titulo: form.titulo,
       descripcionTecnica: form.descripcionTecnica || null,
@@ -156,12 +160,9 @@ export function TaskDrawer({ task, onClose }: Props) {
       prioridad: form.prioridad,
       fecha: form.fecha,
       horaInicio: form.horaInicio ? `${form.fecha}T${form.horaInicio}:00` : null,
-      horaCierre: form.horaFin ? `${form.fecha}T${form.horaFin}:00` : null,
+      horaCierre: form.horaFin ? `${fechaCierre}T${form.horaFin}:00` : null,
       asignadoAId: form.asignadoAId ? Number(form.asignadoAId) : null,
       modalidad: form.modalidad || null,
-      duracionEstimadaMinutos: form.duracionEstimadaMinutos
-        ? Number(form.duracionEstimadaMinutos)
-        : null,
       version: t.version,
     }
     try {
@@ -240,38 +241,15 @@ export function TaskDrawer({ task, onClose }: Props) {
             </div>
           )}
 
-          {/* Medidor Estimado vs Real */}
-          <section className="border-b border-zinc-200 px-6 py-4">
-            <div className="mb-2 flex items-baseline justify-between">
+          {/* Tiempo real registrado */}
+          {real > 0 && (
+            <section className="flex items-center justify-between border-b border-zinc-200 px-6 py-4">
               <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-zinc-500">
-                Estimado vs real
+                Tiempo real
               </span>
-              <span className="font-mono text-sm text-zinc-800">
-                {fmtMin(real)} <span className="text-zinc-400">/ {fmtMin(est)}</span>
-              </span>
-            </div>
-            <div className="relative h-2 w-full overflow-hidden rounded-full bg-zinc-200">
-              <div
-                className={`h-full rounded-full transition-[width] duration-500 ${overrun ? "bg-primary" : "bg-zinc-400"}`}
-                style={{ width: `${(ratio / 1.5) * 100}%` }}
-              />
-              {est > 0 && (
-                <span
-                  className="absolute top-0 h-full w-px bg-zinc-400"
-                  style={{ left: "66.6%" }}
-                  title="Estimado"
-                />
-              )}
-            </div>
-            {overrun && (
-              <p className="mt-2 font-mono text-xs font-medium text-red-600">
-                +{fmtMin(real - est)} sobre lo estimado ({Math.round((real / est - 1) * 100)}%)
-              </p>
-            )}
-            {!est && !real && (
-              <p className="mt-2 text-xs text-zinc-500">Sin tiempo estimado ni registrado.</p>
-            )}
-          </section>
+              <span className="font-mono text-sm font-bold text-zinc-900">{fmtMin(real)}</span>
+            </section>
+          )}
 
           {/* Tabs */}
           <Tabs
@@ -331,7 +309,32 @@ export function TaskDrawer({ task, onClose }: Props) {
                     />
                   </div>
 
-                  <div className="grid grid-cols-3 gap-3">
+                  {/* Tarea de varios días */}
+                  <div>
+                    <label className="flex items-center gap-2 text-[12px] font-medium text-zinc-600">
+                      <input
+                        type="checkbox"
+                        checked={form.esMultiDia}
+                        onChange={(e) => setForm((f) => ({ ...f, esMultiDia: e.target.checked }))}
+                        className="h-3.5 w-3.5 rounded border-zinc-300 text-primary focus:ring-primary/30"
+                      />
+                      Esta tarea dura más de un día
+                    </label>
+                    {form.esMultiDia && (
+                      <div className="mt-2">
+                        <label className={LABEL}>Fecha fin</label>
+                        <input
+                          type="date"
+                          className={FIELD}
+                          min={form.fecha}
+                          value={form.fechaFin}
+                          onChange={(e) => setForm((f) => ({ ...f, fechaFin: e.target.value }))}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className={LABEL}>Hora inicio</label>
                       <input type="time" className={FIELD} value={form.horaInicio} onChange={(e) => setForm((f) => ({ ...f, horaInicio: e.target.value }))} />
@@ -339,16 +342,6 @@ export function TaskDrawer({ task, onClose }: Props) {
                     <div>
                       <label className={LABEL}>Hora fin</label>
                       <input type="time" className={FIELD} value={form.horaFin} onChange={(e) => setForm((f) => ({ ...f, horaFin: e.target.value }))} />
-                    </div>
-                    <div>
-                      <label className={LABEL}>Est. (min)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        className={`${FIELD} font-mono`}
-                        value={form.duracionEstimadaMinutos}
-                        onChange={(e) => setForm((f) => ({ ...f, duracionEstimadaMinutos: e.target.value }))}
-                      />
                     </div>
                   </div>
 

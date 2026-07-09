@@ -133,16 +133,16 @@ function BoardColumn({ config, tasks, prioridades, etiquetas, onOpen }: { config
 
   return (
     <div
-      className="rounded-lg border p-3.5 transition-colors"
+      className="flex flex-col rounded-lg border p-3.5 transition-colors"
       style={{
-        minWidth: 280,
-        flex: "0 0 280px",
+        minWidth: 340,
+        flex: "0 0 340px",
         background: isOver ? "rgba(196,30,58,0.06)" : "#f4f4f5",
         borderColor: isOver ? "#c41e3a" : "#e4e4e7",
       }}
     >
       {/* Column header */}
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3 flex shrink-0 items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="h-2.5 w-2.5 rounded-full" style={{ background: config.color ?? "#71717a" }} />
           <span className="text-[13px] font-bold text-zinc-900">{config.label}</span>
@@ -152,8 +152,10 @@ function BoardColumn({ config, tasks, prioridades, etiquetas, onOpen }: { config
         </span>
       </div>
 
-      {/* Tasks */}
-      <div ref={setNodeRef} style={{ minHeight: 60 }}>
+      {/* Tasks — tope de ~8 tarjetas visibles, scroll interno de ahí en adelante
+          (antes crecía sin límite y empujaba la barra de scroll horizontal muy
+          abajo de la pantalla). */}
+      <div ref={setNodeRef} className="thin-scroll-red min-h-[60px] flex-1 overflow-y-auto pr-1" style={{ maxHeight: 720 }}>
         <SortableContext
           items={tasks.map((t) => `task-${t.id}`)}
           strategy={verticalListSortingStrategy}

@@ -93,7 +93,7 @@ export function PersonSummaryCard({ person, teamId, estados, onOpenTask }: Props
         <div className="pr-2.5 text-[11px] font-extrabold uppercase tracking-wider text-[#a8172f]">Tareas</div>
         {/* Máx. ~8 filas visibles (33px c/u); de ahí en adelante scrollea en vez de
             estirar la card sin límite hacia abajo. */}
-        <div className="person-card-scroll max-h-[264px] overflow-y-auto pr-2">
+        <div className="thin-scroll-red max-h-[264px] overflow-y-auto pr-2">
           {filtered.length === 0 ? (
             <p className="py-6 text-center text-xs text-[#a8172f]/60">Sin tareas en este filtro.</p>
           ) : (

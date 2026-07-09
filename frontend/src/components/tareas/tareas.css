@@ -72,14 +72,95 @@
   color: #18181b !important;
 }
 
-/* ── Person card — lista de tareas scrolleable (panel blanco sobre card roja) ── */
-.person-card-scroll::-webkit-scrollbar {
+/* ── Escena de profundidad con punto de fuga ──────────────────────────────
+   Adaptado del prototipo taskdesk (C:\Gestion_documental\Skills\taskdesk):
+   corredor en perspectiva + rieles que convergen + marcadores que crecen y
+   se aclaran según qué tan "cerca" están. El punto de fuga apunta hacia la
+   esquina superior — donde vive el header/la acción principal — reforzando
+   "mira aquí primero" en vez de ser puro adorno sin relación con el layout.
+   Totalmente decorativo (el padre ya tiene aria-hidden/pointer-events-none). */
+.depth-scene {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  perspective: 1000px;
+}
+
+.depth-horizon {
+  position: absolute;
+  inset-inline: 8% 4%;
+  top: 7%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(196, 30, 58, 0.18), transparent);
+}
+
+.depth-road {
+  position: absolute;
+  inset: 14% -18% -34% 10%;
+  transform: rotateX(64deg);
+  transform-origin: 50% 100%;
+  background:
+    linear-gradient(90deg, transparent 0 47%, rgba(196, 30, 58, 0.12) 49.3% 50.7%, transparent 53%),
+    repeating-linear-gradient(0deg, rgba(113, 113, 122, 0.09) 0 2px, transparent 2px 54px);
+  opacity: 0.55;
+  transition: transform 520ms cubic-bezier(0.2, 0, 0.38, 0.9), opacity 520ms cubic-bezier(0.2, 0, 0.38, 0.9);
+}
+
+.depth-rails span {
+  position: absolute;
+  top: 7%;
+  bottom: -22%;
+  width: 1px;
+  transform-origin: top;
+  background: linear-gradient(180deg, transparent, rgba(113, 113, 122, 0.16), transparent);
+  transition: transform 520ms cubic-bezier(0.2, 0, 0.38, 0.9), opacity 520ms cubic-bezier(0.2, 0, 0.38, 0.9);
+}
+.depth-rails span:nth-child(1) { left: 24%; transform: rotate(10deg); }
+.depth-rails span:nth-child(2) { left: 66%; transform: rotate(-8deg); }
+
+.depth-marker {
+  position: absolute;
+  width: clamp(18px, 3vw, 52px);
+  aspect-ratio: 1;
+  border: 1px solid rgba(113, 113, 122, 0.16);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.55);
+  transform: translate3d(var(--x), var(--y), 0) scale(var(--s));
+  opacity: var(--alpha);
+  transition: transform 520ms cubic-bezier(0.2, 0, 0.38, 0.9), opacity 520ms cubic-bezier(0.2, 0, 0.38, 0.9);
+}
+.depth-marker[data-depth="0"] { --x: 70vw; --y: 9vh;  --s: 0.3;  --alpha: 0.16; }
+.depth-marker[data-depth="1"] { --x: 82vw; --y: 17vh; --s: 0.42; --alpha: 0.2; }
+.depth-marker[data-depth="2"] { --x: 60vw; --y: 27vh; --s: 0.58; --alpha: 0.18; }
+.depth-marker[data-depth="3"] { --x: 86vw; --y: 39vh; --s: 0.75; --alpha: 0.14; }
+.depth-marker[data-depth="4"] { --x: 55vw; --y: 52vh; --s: 0.95; --alpha: 0.1; }
+
+/* Transición ambiental: al cambiar de vista, el corredor/rieles/marcadores
+   responden junto con el título del header (BlurFade) — "common fate", no
+   una animación aislada del componente que cambia. Se activa un instante
+   vía la clase `.is-transitioning` en el contenedor raíz. */
+.is-transitioning .depth-road { transform: rotateX(64deg) translateX(-8px); opacity: 0.72; }
+.is-transitioning .depth-rails span { opacity: 0.85; }
+.is-transitioning .depth-marker {
+  transform: translate3d(calc(var(--x) - 5px), var(--y), 0) scale(calc(var(--s) * 1.04));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .depth-road,
+  .depth-rails span,
+  .depth-marker {
+    transition: none !important;
+  }
+}
+
+/* ── Scrollbar delgada roja — listas internas con tope de altura (person card, tablero) ── */
+.thin-scroll-red::-webkit-scrollbar {
   width: 5px;
 }
-.person-card-scroll::-webkit-scrollbar-track {
+.thin-scroll-red::-webkit-scrollbar-track {
   background: transparent;
 }
-.person-card-scroll::-webkit-scrollbar-thumb {
+.thin-scroll-red::-webkit-scrollbar-thumb {
   background: #a8172f;
   border-radius: 99px;
 }

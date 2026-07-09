@@ -11,6 +11,7 @@ import type { Task, CreateTaskInput, UpdateTaskInput } from "@/types/task"
 import { AttachmentExplorerV2 } from "./AttachmentExplorerV2"
 import { StagedAttachmentsPortal } from "./StagedAttachmentsPortal"
 import { FormSelect } from "./FormSelect"
+import { todayStr } from "@/lib/taskWork"
 
 function formatMin(min: number): string {
   if (min < 60) return `${min}m`
@@ -54,12 +55,13 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
     plataforma: "",
     estado: "",
     prioridad: "media",
-    fecha: new Date().toISOString().slice(0, 10),
+    fecha: todayStr(),
+    esMultiDia: false,
+    fechaFin: "",
     horaInicio: "",
     horaFin: "",
     asignadoAId: "" as string | number,
     modalidad: "",
-    duracionEstimadaMinutos: "" as string | number,
   })
 
   const { suggestions } = useTaskAISuggestions(form.titulo)
@@ -69,6 +71,9 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
     setStagedFiles([])
     setAdjuntosOpen(false)
     if (task) {
+      const fechaInicio = task.fecha.slice(0, 10)
+      const fechaCierre = task.horaCierre ? task.horaCierre.slice(0, 10) : fechaInicio
+      const esMultiDia = fechaCierre !== fechaInicio
       setForm({
         titulo: task.titulo,
         descripcionTecnica: task.descripcionTecnica ?? "",
@@ -76,12 +81,13 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
         plataforma: task.plataforma,
         estado: task.estado,
         prioridad: task.prioridad,
-        fecha: task.fecha.slice(0, 10),
+        fecha: fechaInicio,
+        esMultiDia,
+        fechaFin: esMultiDia ? fechaCierre : "",
         horaInicio: task.horaInicio ? task.horaInicio.slice(11, 16) : "",
         horaFin: task.horaCierre ? task.horaCierre.slice(11, 16) : "",
         asignadoAId: task.asignadoAId ?? "",
         modalidad: task.modalidad ?? "",
-        duracionEstimadaMinutos: task.duracionEstimadaMinutos ?? "",
       })
     } else {
       setForm({
@@ -91,12 +97,13 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
         plataforma: "",
         estado: "",
         prioridad: "media",
-        fecha: new Date().toISOString().slice(0, 10),
+        fecha: todayStr(),
+        esMultiDia: false,
+        fechaFin: "",
         horaInicio: "",
         horaFin: "",
         asignadoAId: "",
         modalidad: "",
-        duracionEstimadaMinutos: "",
       })
     }
   }, [open, task])
@@ -118,6 +125,9 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
       return
     }
 
+    // Si la tarea dura más de un día, "hora fin" cae en fechaFin en vez de en fecha.
+    const fechaCierre = form.esMultiDia && form.fechaFin ? form.fechaFin : form.fecha
+
     try {
       if (isEdit && task) {
         const input: UpdateTaskInput = {
@@ -129,10 +139,9 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
           prioridad: form.prioridad,
           fecha: form.fecha,
           horaInicio: form.horaInicio ? `${form.fecha}T${form.horaInicio}:00` : null,
-          horaCierre: form.horaFin ? `${form.fecha}T${form.horaFin}:00` : null,
+          horaCierre: form.horaFin ? `${fechaCierre}T${form.horaFin}:00` : null,
           asignadoAId: form.asignadoAId ? Number(form.asignadoAId) : null,
           modalidad: form.modalidad || null,
-          duracionEstimadaMinutos: form.duracionEstimadaMinutos ? Number(form.duracionEstimadaMinutos) : null,
           version: task.version,
         }
         await updateTask.mutateAsync({ taskId: task.id, input })
@@ -148,10 +157,9 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
           prioridad: form.prioridad || prioridades[0]?.value,
           fecha: form.fecha,
           horaInicio: form.horaInicio ? `${form.fecha}T${form.horaInicio}:00` : undefined,
-          horaCierre: form.horaFin ? `${form.fecha}T${form.horaFin}:00` : undefined,
+          horaCierre: form.horaFin ? `${fechaCierre}T${form.horaFin}:00` : undefined,
           asignadoAId: form.asignadoAId ? Number(form.asignadoAId) : undefined,
           modalidad: form.modalidad || undefined,
-          duracionEstimadaMinutos: form.duracionEstimadaMinutos ? Number(form.duracionEstimadaMinutos) : null,
         }
         const created = await createTask.mutateAsync(input)
         if (stagedFiles.length > 0) {
@@ -272,6 +280,31 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
               options={members.map((m) => ({ value: String(m.userId), label: m.userNombre ?? `Usuario ${m.userId}` }))}
               noneLabel="Sin asignar"
             />
+          </div>
+
+          {/* Tarea de varios días */}
+          <div>
+            <label className="flex items-center gap-2 text-[12px] font-medium text-zinc-600">
+              <input
+                type="checkbox"
+                checked={form.esMultiDia}
+                onChange={(e) => setForm((f) => ({ ...f, esMultiDia: e.target.checked }))}
+                className="h-3.5 w-3.5 rounded border-zinc-300 text-primary focus:ring-primary/30"
+              />
+              Esta tarea dura más de un día
+            </label>
+            {form.esMultiDia && (
+              <div className="mt-2">
+                <div className={LABEL}>Fecha fin *</div>
+                <input
+                  type="date"
+                  className={INPUT}
+                  min={form.fecha}
+                  value={form.fechaFin}
+                  onChange={(e) => setForm((f) => ({ ...f, fechaFin: e.target.value }))}
+                />
+              </div>
+            )}
           </div>
 
           {/* Row: hora inicio + hora fin */}

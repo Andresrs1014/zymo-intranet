@@ -156,7 +156,17 @@ export function useAcceptTask() {
     }) => {
       await taskApi.patch(`/api/tasks/${taskId}/accept`, { aceptacion })
     },
-    onSuccess: (_data, { taskId }) => {
+    onSuccess: (_data, { taskId, aceptacion }) => {
+      // Parchea de inmediato cualquier lista en caché (Mi trabajo, Lista, Tablero)
+      // para que el cambio se vea al instante, sin esperar el round-trip de red del
+      // refetch — antes solo invalidaba y la UI tardaba en reflejar el aceptar/rechazar.
+      qc.setQueriesData<TaskListResult>({ queryKey: ["tasks"] }, (old) => {
+        if (!old) return old
+        return {
+          ...old,
+          tasks: old.tasks.map((t) => (t.id === taskId ? { ...t, aceptacion } : t)),
+        }
+      })
       qc.invalidateQueries({ queryKey: ["tasks"] })
       qc.invalidateQueries({ queryKey: ["task", taskId] })
     },

@@ -30,6 +30,31 @@ import type { Task } from "@/types/task"
 // las series secundarias sin introducir un segundo tono que compita por atención.
 const CHART_COLORS = ["#c41e3a", "#e0596e", "#f0a6b1", "#a1a1aa", "#c4c4cb", "#71717a"]
 
+// Formatea un total de horas (decimal, ej. 42.75) en días de trabajo de 8h + horas + minutos,
+// sin decimales sueltos — ej. 42.75h -> "5d 2h 45m".
+function formatWorkTime(totalHoras: number): string {
+  const totalMinutos = Math.round(totalHoras * 60)
+  const workdayMin = 8 * 60
+  const dias = Math.floor(totalMinutos / workdayMin)
+  const restoDias = totalMinutos % workdayMin
+  const horas = Math.floor(restoDias / 60)
+  const minutos = restoDias % 60
+
+  const partes: string[] = []
+  if (dias > 0) partes.push(`${dias}d`)
+  if (horas > 0 || dias === 0) partes.push(`${horas}h`)
+  if (minutos > 0) partes.push(`${minutos}m`)
+  return partes.length > 0 ? partes.join(" ") : "0h"
+}
+
+// Minutos -> "Xh Ym" (sin días — para promedios por tarea, siempre menores a un día).
+function formatMinutos(min: number): string {
+  if (min < 60) return `${min}m`
+  const h = Math.floor(min / 60)
+  const m = min % 60
+  return m > 0 ? `${h}h ${m}m` : `${h}h`
+}
+
 const TOOLTIP_STYLE = { background: "#ffffff", border: "1px solid #e4e4e7", borderRadius: 8, color: "#18181b" }
 const AXIS_TICK = { fontSize: 10, fill: "#71717a" }
 
@@ -122,8 +147,11 @@ export function DashboardView() {
         )}
       </div>
 
+      {/* items-start: sin esto, CSS grid estira todas las cards a la altura de la más
+          alta de su fila — cada persona debe verse según su propia cantidad de
+          tareas, no forzada a la de sus vecinas. */}
       {tab === "personas" && (
-        <div className="grid gap-5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
+        <div className="grid items-start gap-5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
           {persons.length === 0 ? (
             <p className="p-8 text-center text-sm text-zinc-500">No hay datos de personas para este equipo.</p>
           ) : (
@@ -165,9 +193,9 @@ export function DashboardView() {
           <KpiCard label="Total tareas" value={kpis.total} />
           <KpiCard label="Completadas" value={kpis.completadas} sub={kpis.total > 0 ? `${Math.round(kpis.completadas / kpis.total * 100)}%` : undefined} />
           <KpiCard label="En progreso" value={kpis.enProgreso} />
-          <KpiCard label="Horas totales" value={kpis.horasTotales} />
+          <KpiCard label="Horas totales" value={formatWorkTime(kpis.horasTotales)} />
           <KpiCard label="Usuarios activos" value={kpis.usuariosActivos} />
-          <KpiCard label="Prom. min/tarea" value={kpis.promedioMinutosPorTarea} />
+          <KpiCard label="Prom. tiempo/tarea" value={formatMinutos(kpis.promedioMinutosPorTarea)} />
         </div>
       )}
 
