@@ -121,6 +121,11 @@ export function canSeeHelix(role: string, appPerms?: string[]): boolean {
   return hasPerm(appPerms, "mod_helix")
 }
 
+export function canSeeTickets(role: string, appPerms?: string[]): boolean {
+  if (role === "admin") return true
+  return hasPerm(appPerms, "mod_tickets")
+}
+
 export function canSeeTyC(role: string, appPerms?: string[]): boolean {
   if (role === "admin") return true
   return hasPerm(appPerms, "mod_tc")
