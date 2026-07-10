@@ -7,16 +7,9 @@ import {
   useTicket, useTicketConfigLists, useUpdateTicketStatus, useUpdateTicketCriterio,
   useAddTicketAction, useUploadTicketEvidence,
 } from "@/hooks/useTickets"
+import { extractErrorMessage } from "@/lib/ticketErrors"
 
 type DrawerTab = "detalle" | "bitacora" | "evidencias"
-
-function extractErrorMessage(err: unknown): string {
-  const message =
-    err && typeof err === "object" && "response" in err
-      ? (err as { response?: { data?: { error?: string } } }).response?.data?.error
-      : undefined
-  return message ?? "No se pudo guardar el cambio. Intenta de nuevo."
-}
 
 export function TicketDrawer() {
   const { openTicketId, setOpenTicketId } = useTicketsUI()

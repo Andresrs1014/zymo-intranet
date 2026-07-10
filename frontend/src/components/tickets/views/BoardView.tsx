@@ -1,3 +1,4 @@
+import { useState } from "react"
 import {
   DndContext, type DragEndEvent, closestCorners, useSensor, useSensors, PointerSensor, useDroppable,
 } from "@dnd-kit/core"
@@ -7,6 +8,7 @@ import { GripVertical } from "lucide-react"
 import { useTickets, useTicketConfigLists, useUpdateTicketStatus } from "@/hooks/useTickets"
 import { useTicketsUI } from "@/context/TicketsContext"
 import { priorityTone } from "@/lib/ticketWork"
+import { extractErrorMessage } from "@/lib/ticketErrors"
 import type { Ticket } from "@/types/ticket"
 
 function TicketCard({ ticket, onOpen }: { ticket: Ticket; onOpen: () => void }) {
@@ -82,6 +84,7 @@ export function BoardView() {
   const updateStatus = useUpdateTicketStatus()
   const { setOpenTicketId } = useTicketsUI()
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
+  const [error, setError] = useState<string | null>(null)
 
   const columns = lists?.statuses ?? []
 
@@ -92,22 +95,37 @@ export function BoardView() {
     const targetStatus = resolveTargetStatus(String(over.id), tickets)
     const ticket = tickets.find((t) => t.id === ticketId)
     if (!ticket || !targetStatus || ticket.status === targetStatus) return
-    updateStatus.mutate({ ticketId, status: targetStatus })
+
+    const enteringClosed = /cerrado/i.test(targetStatus) && !/cerrado/i.test(ticket.status)
+    if (enteringClosed && !window.confirm(`¿Cambiar el estado a "${targetStatus}"? Esto registra la fecha de cierre del ticket.`)) {
+      return
+    }
+
+    setError(null)
+    updateStatus.mutate(
+      { ticketId, status: targetStatus },
+      { onError: (err) => setError(extractErrorMessage(err)) },
+    )
   }
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
-      <div className="flex gap-3 overflow-x-auto pb-2">
-        {columns.map((col) => (
-          <Column
-            key={col.value}
-            status={col.value}
-            label={col.label}
-            tickets={tickets.filter((t) => t.status === col.value)}
-            onOpen={setOpenTicketId}
-          />
-        ))}
-      </div>
-    </DndContext>
+    <div>
+      {error && (
+        <p className="mb-3 rounded-md bg-[#fce9ed] px-3 py-2 text-sm text-[#a8172f]">{error}</p>
+      )}
+      <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
+        <div className="flex gap-3 overflow-x-auto pb-2">
+          {columns.map((col) => (
+            <Column
+              key={col.value}
+              status={col.value}
+              label={col.label}
+              tickets={tickets.filter((t) => t.status === col.value)}
+              onOpen={setOpenTicketId}
+            />
+          ))}
+        </div>
+      </DndContext>
+    </div>
   )
 }
