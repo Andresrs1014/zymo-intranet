@@ -157,6 +157,7 @@ export function useAddTicketAction() {
     },
     onSuccess: (_data, { ticketId }) => {
       qc.invalidateQueries({ queryKey: ["ticket", ticketId] })
+      qc.invalidateQueries({ queryKey: ["tickets"] })
     },
   })
 }
