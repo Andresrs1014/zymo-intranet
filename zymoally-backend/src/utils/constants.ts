@@ -29,7 +29,11 @@ export const defaultPqrConfig: Record<PqrListType, string[]> = {
   phones: ["+57 300 000 0000"],
   emails: ["servicio@cliente.com"],
   impacts: ["Bajo", "Medio", "Alto", "Critico"],
-  types: ["Peticion", "Queja", "Reclamo", "Solicitud", "Felicitacion", "Hallazgo operativo"],
+  types: [
+    "Peticion", "Queja", "Reclamo", "Solicitud", "Felicitacion", "Hallazgo operativo",
+    "Novedad de proceso", "Faltante o inconsistencia", "Mantenimiento de instalaciones",
+    "Capacitación de personal", "Corrección de procedimiento", "OKR",
+  ],
   statuses: ["Abierto", "En analisis", "En gestion", "Escalado", "Cerrado"],
   priorities: ["Baja", "Media", "Alta", "Critica"],
   channels: ["WhatsApp", "Correo", "Llamada", "Visita de experiencia", "Mesa de ayuda"],
