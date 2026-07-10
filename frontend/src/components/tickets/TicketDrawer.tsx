@@ -10,6 +10,14 @@ import {
 
 type DrawerTab = "detalle" | "bitacora" | "evidencias"
 
+function extractErrorMessage(err: unknown): string {
+  const message =
+    err && typeof err === "object" && "response" in err
+      ? (err as { response?: { data?: { error?: string } } }).response?.data?.error
+      : undefined
+  return message ?? "No se pudo guardar el cambio. Intenta de nuevo."
+}
+
 export function TicketDrawer() {
   const { openTicketId, setOpenTicketId } = useTicketsUI()
   const [tab, setTab] = useState<DrawerTab>("detalle")
@@ -21,8 +29,55 @@ export function TicketDrawer() {
   const uploadEvidence = useUploadTicketEvidence()
   const [newAction, setNewAction] = useState("")
   const [newFiles, setNewFiles] = useState<File[]>([])
+  const [error, setError] = useState<string | null>(null)
 
   if (!ticket) return null
+
+  function handleStatusChange(status: string) {
+    if (updateStatus.isPending) return
+    const enteringClosed = /cerrado/i.test(status) && !/cerrado/i.test(ticket!.status)
+    if (enteringClosed && !window.confirm(`¿Cambiar el estado a "${status}"? Esto registra la fecha de cierre del ticket.`)) {
+      return
+    }
+    setError(null)
+    updateStatus.mutate(
+      { ticketId: ticket!.id, status },
+      { onError: (err) => setError(extractErrorMessage(err)) },
+    )
+  }
+
+  function handleCriterioChange(managementCriteria: string) {
+    if (updateCriterio.isPending) return
+    setError(null)
+    updateCriterio.mutate(
+      { ticketId: ticket!.id, managementCriteria },
+      { onError: (err) => setError(extractErrorMessage(err)) },
+    )
+  }
+
+  function handleAddAction() {
+    if (!newAction.trim() || addAction.isPending) return
+    setError(null)
+    addAction.mutate(
+      { ticketId: ticket!.id, texto: newAction.trim() },
+      {
+        onSuccess: () => setNewAction(""),
+        onError: (err) => setError(extractErrorMessage(err)),
+      },
+    )
+  }
+
+  function handleUploadEvidence() {
+    if (!newFiles.length || uploadEvidence.isPending) return
+    setError(null)
+    uploadEvidence.mutate(
+      { ticketId: ticket!.id, files: newFiles },
+      {
+        onSuccess: () => setNewFiles([]),
+        onError: (err) => setError(extractErrorMessage(err)),
+      },
+    )
+  }
 
   return (
     <Sheet open={openTicketId !== null} onOpenChange={(open) => !open && setOpenTicketId(null)}>
@@ -30,6 +85,10 @@ export function TicketDrawer() {
         <SheetHeader>
           <SheetTitle className="font-mono text-base">{ticket.code}</SheetTitle>
         </SheetHeader>
+
+        {error && (
+          <p className="mt-2 rounded-md bg-[#fce9ed] px-3 py-2 text-sm text-[#a8172f]">{error}</p>
+        )}
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as DrawerTab)} className="mt-4">
           <TabsList>
@@ -50,13 +109,13 @@ export function TicketDrawer() {
             <FormSelect
               label="Estado"
               value={ticket.status}
-              onChange={(status) => updateStatus.mutate({ ticketId: ticket.id, status })}
+              onChange={handleStatusChange}
               options={(lists?.statuses ?? []).map((s) => ({ value: s.value, label: s.label }))}
             />
             <FormSelect
               label="Criterio de gestión"
               value={ticket.managementCriteria ?? ""}
-              onChange={(managementCriteria) => updateCriterio.mutate({ ticketId: ticket.id, managementCriteria })}
+              onChange={handleCriterioChange}
               options={(lists?.managementCriteria ?? []).map((m) => ({ value: m.value, label: m.label }))}
               noneLabel="Sin definir"
             />
@@ -78,13 +137,10 @@ export function TicketDrawer() {
               <button
                 type="button"
                 disabled={!newAction.trim() || addAction.isPending}
-                onClick={() => {
-                  addAction.mutate({ ticketId: ticket.id, texto: newAction.trim() })
-                  setNewAction("")
-                }}
+                onClick={handleAddAction}
                 className="rounded-md bg-primary px-3 text-sm font-bold text-primary-foreground disabled:opacity-50"
               >
-                Agregar
+                {addAction.isPending ? "Agregando…" : "Agregar"}
               </button>
             </div>
           </TabsContent>
@@ -106,13 +162,10 @@ export function TicketDrawer() {
               <button
                 type="button"
                 disabled={!newFiles.length || uploadEvidence.isPending}
-                onClick={() => {
-                  uploadEvidence.mutate({ ticketId: ticket.id, files: newFiles })
-                  setNewFiles([])
-                }}
+                onClick={handleUploadEvidence}
                 className="rounded-md bg-primary px-3 text-sm font-bold text-primary-foreground disabled:opacity-50"
               >
-                Subir
+                {uploadEvidence.isPending ? "Subiendo…" : "Subir"}
               </button>
             </div>
           </TabsContent>
