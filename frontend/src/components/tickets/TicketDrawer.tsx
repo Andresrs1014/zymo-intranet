@@ -1,0 +1,123 @@
+import { useState } from "react"
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { FormSelect } from "@/components/tareas/FormSelect"
+import { useTicketsUI } from "@/context/TicketsContext"
+import {
+  useTicket, useTicketConfigLists, useUpdateTicketStatus, useUpdateTicketCriterio,
+  useAddTicketAction, useUploadTicketEvidence,
+} from "@/hooks/useTickets"
+
+type DrawerTab = "detalle" | "bitacora" | "evidencias"
+
+export function TicketDrawer() {
+  const { openTicketId, setOpenTicketId } = useTicketsUI()
+  const [tab, setTab] = useState<DrawerTab>("detalle")
+  const { data: ticket } = useTicket(openTicketId)
+  const { data: lists } = useTicketConfigLists()
+  const updateStatus = useUpdateTicketStatus()
+  const updateCriterio = useUpdateTicketCriterio()
+  const addAction = useAddTicketAction()
+  const uploadEvidence = useUploadTicketEvidence()
+  const [newAction, setNewAction] = useState("")
+  const [newFiles, setNewFiles] = useState<File[]>([])
+
+  if (!ticket) return null
+
+  return (
+    <Sheet open={openTicketId !== null} onOpenChange={(open) => !open && setOpenTicketId(null)}>
+      <SheetContent side="right" className="w-full max-w-lg overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle className="font-mono text-base">{ticket.code}</SheetTitle>
+        </SheetHeader>
+
+        <Tabs value={tab} onValueChange={(v) => setTab(v as DrawerTab)} className="mt-4">
+          <TabsList>
+            <TabsTrigger value="detalle">Detalle</TabsTrigger>
+            <TabsTrigger value="bitacora">Bitácora ({ticket.actions.length})</TabsTrigger>
+            <TabsTrigger value="evidencias">Evidencias ({ticket.evidence.length})</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="detalle" className="space-y-4 py-3">
+            <div className="text-[13px] text-zinc-700">
+              <p><strong>Tipo:</strong> {ticket.type}</p>
+              <p><strong>Área:</strong> {ticket.area}</p>
+              {ticket.client && <p><strong>Referencia:</strong> {ticket.client}</p>}
+              <p><strong>Fecha:</strong> {ticket.date}</p>
+              {ticket.description && <p className="mt-2 whitespace-pre-wrap">{ticket.description}</p>}
+            </div>
+
+            <FormSelect
+              label="Estado"
+              value={ticket.status}
+              onChange={(status) => updateStatus.mutate({ ticketId: ticket.id, status })}
+              options={(lists?.statuses ?? []).map((s) => ({ value: s.value, label: s.label }))}
+            />
+            <FormSelect
+              label="Criterio de gestión"
+              value={ticket.managementCriteria ?? ""}
+              onChange={(managementCriteria) => updateCriterio.mutate({ ticketId: ticket.id, managementCriteria })}
+              options={(lists?.managementCriteria ?? []).map((m) => ({ value: m.value, label: m.label }))}
+              noneLabel="Sin definir"
+            />
+          </TabsContent>
+
+          <TabsContent value="bitacora" className="space-y-3 py-3">
+            {ticket.actions.map((action) => (
+              <div key={action.id} className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-[13px] text-zinc-700">
+                {action.texto}
+              </div>
+            ))}
+            <div className="flex gap-2">
+              <input
+                value={newAction}
+                onChange={(e) => setNewAction(e.target.value)}
+                placeholder="Agregar acción…"
+                className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-primary"
+              />
+              <button
+                type="button"
+                disabled={!newAction.trim() || addAction.isPending}
+                onClick={() => {
+                  addAction.mutate({ ticketId: ticket.id, texto: newAction.trim() })
+                  setNewAction("")
+                }}
+                className="rounded-md bg-primary px-3 text-sm font-bold text-primary-foreground disabled:opacity-50"
+              >
+                Agregar
+              </button>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="evidencias" className="space-y-3 py-3">
+            {ticket.evidence.map((ev) => (
+              <a
+                key={ev.id}
+                href={ev.url ?? "#"}
+                target="_blank"
+                rel="noreferrer"
+                className="block rounded-md border border-zinc-200 px-3 py-2 text-[13px] text-primary hover:underline"
+              >
+                {ev.filename}
+              </a>
+            ))}
+            <div className="flex gap-2">
+              <input type="file" multiple onChange={(e) => setNewFiles(Array.from(e.target.files ?? []))} />
+              <button
+                type="button"
+                disabled={!newFiles.length || uploadEvidence.isPending}
+                onClick={() => {
+                  uploadEvidence.mutate({ ticketId: ticket.id, files: newFiles })
+                  setNewFiles([])
+                }}
+                className="rounded-md bg-primary px-3 text-sm font-bold text-primary-foreground disabled:opacity-50"
+              >
+                Subir
+              </button>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </SheetContent>
+    </Sheet>
+  )
+}
