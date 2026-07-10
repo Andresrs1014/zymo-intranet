@@ -30,7 +30,7 @@ ticketsExportRouter.get("/csv", async (_req, res, next) => {
       t.closedDate || "",
       String(daysOpen(t)),
       t.managementCriteria || "",
-      t.client,
+      t.client || "",
       t.platform || "",
       t.supervisor || "",
       t.analyst || "",

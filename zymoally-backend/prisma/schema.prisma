@@ -16,7 +16,7 @@ model ZymoPqrTicket {
   monthKey           String
   area               String
   areaPrefix         String
-  client             String
+  client             String?
   platform           String?
   supervisor         String?
   analyst            String?

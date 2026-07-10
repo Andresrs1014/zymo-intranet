@@ -27,7 +27,7 @@ const upload = multer({ storage, limits: { fileSize: 15 * 1024 * 1024 } })
 const CreateTicketBody = z.object({
   area: z.string().min(1),
   areaPrefix: z.string().min(1),
-  client: z.string().min(1),
+  client: z.string().optional(),
   platform: z.string().optional(),
   supervisor: z.string().optional(),
   analyst: z.string().optional(),
