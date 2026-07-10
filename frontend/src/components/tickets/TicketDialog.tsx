@@ -60,15 +60,23 @@ export function TicketDialog() {
     setForm((f) => ({ ...f, area: areaName, areaPrefix: match?.prefix ?? "" }))
   }
 
+  const canSubmit = Boolean(
+    form.type && form.area && form.date && form.priority && lists?.statuses?.[0]?.value
+  )
+
   async function handleSubmit() {
     const status = lists?.statuses?.[0]?.value
-    if (!form.type || !form.area || !form.date || !form.priority || !status) return
+    if (!canSubmit || !status) return
     setError(null)
     try {
       await createTicket.mutateAsync({ ...form, status, evidence: files })
       setDialogOpen(false)
-    } catch {
-      setError("No se pudo crear el ticket. Revisa los campos requeridos.")
+    } catch (err) {
+      const message =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { data?: { error?: string } } }).response?.data?.error
+          : undefined
+      setError(message ?? "No se pudo crear el ticket. Revisa los campos requeridos.")
     }
   }
 
@@ -81,13 +89,13 @@ export function TicketDialog() {
 
         <div className="grid gap-4 py-2 sm:grid-cols-2">
           <FormSelect
-            label="Tipo"
+            label="Tipo *"
             value={form.type}
             onChange={(v) => set("type", v)}
             options={(lists?.types ?? []).map((t) => ({ value: t.value, label: t.label }))}
           />
           <FormSelect
-            label="Área"
+            label="Área *"
             value={form.area}
             onChange={handleAreaChange}
             options={areas.map((a) => ({ value: a.area, label: a.area }))}
@@ -137,7 +145,7 @@ export function TicketDialog() {
           </div>
 
           <div>
-            <label className={LABEL}>Fecha</label>
+            <label className={LABEL}>Fecha *</label>
             <input type="date" className={INPUT} value={form.date} onChange={(e) => set("date", e.target.value)} />
           </div>
           <div>
@@ -146,7 +154,7 @@ export function TicketDialog() {
           </div>
 
           <FormSelect
-            label="Prioridad"
+            label="Prioridad *"
             value={form.priority}
             onChange={(v) => set("priority", v)}
             options={(lists?.priorities ?? []).map((p) => ({ value: p.value, label: p.label }))}
@@ -202,7 +210,7 @@ export function TicketDialog() {
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={createTicket.isPending}
+            disabled={createTicket.isPending || !canSubmit}
             className="rounded-md bg-primary px-4 py-2 text-sm font-bold text-primary-foreground hover:brightness-95 disabled:opacity-50"
           >
             {createTicket.isPending ? "Creando…" : "Crear ticket"}
