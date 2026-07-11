@@ -68,7 +68,7 @@ router.get("/", async (req, res, next) => {
     const term = (search || "").trim().toLowerCase()
     const filtered = term
       ? tickets.filter((t) =>
-          [t.client, t.owner, t.description, t.type, t.status, t.impact, t.managementCriteria, t.platform, t.supervisor, t.analyst, t.coordinator]
+          [t.code, t.client, t.owner, t.description, t.type, t.status, t.impact, t.managementCriteria, t.platform, t.supervisor, t.analyst, t.coordinator]
             .join(" ")
             .toLowerCase()
             .includes(term)

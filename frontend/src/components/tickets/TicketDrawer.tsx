@@ -96,6 +96,17 @@ export function TicketDrawer() {
               <p><strong>Área:</strong> {ticket.area}</p>
               {ticket.client && <p><strong>Referencia:</strong> {ticket.client}</p>}
               <p><strong>Fecha:</strong> {ticket.date}</p>
+              {ticket.dueDate && <p><strong>Fecha compromiso:</strong> {ticket.dueDate}</p>}
+              <p><strong>Prioridad:</strong> {ticket.priority}</p>
+              {ticket.impact && <p><strong>Impacto:</strong> {ticket.impact}</p>}
+              {ticket.channel && <p><strong>Canal:</strong> {ticket.channel}</p>}
+              {ticket.platform && <p><strong>Plataforma:</strong> {ticket.platform}</p>}
+              {ticket.supervisor && <p><strong>Supervisor:</strong> {ticket.supervisor}</p>}
+              {ticket.analyst && <p><strong>Analista:</strong> {ticket.analyst}</p>}
+              {ticket.coordinator && <p><strong>Coordinador:</strong> {ticket.coordinator}</p>}
+              {ticket.phone && <p><strong>Teléfono:</strong> {ticket.phone}</p>}
+              {ticket.email && <p><strong>Correo:</strong> {ticket.email}</p>}
+              {ticket.closedDate && <p><strong>Cierre:</strong> {ticket.closedDate}</p>}
               {ticket.description && <p className="mt-2 whitespace-pre-wrap">{ticket.description}</p>}
             </div>
 

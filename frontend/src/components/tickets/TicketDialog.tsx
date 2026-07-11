@@ -6,6 +6,7 @@ import {
   useTicketConfigLists, useTicketAreaPrefixes, useTicketCodePreview, useCreateTicket,
 } from "@/hooks/useTickets"
 import { currentDateValue } from "@/lib/ticketWork"
+import { extractErrorMessage } from "@/lib/ticketErrors"
 
 const LABEL = "mb-1.5 block text-[11px] font-bold uppercase tracking-[0.06em] text-zinc-500"
 const INPUT =
@@ -72,11 +73,7 @@ export function TicketDialog() {
       await createTicket.mutateAsync({ ...form, status, evidence: files })
       setDialogOpen(false)
     } catch (err) {
-      const message =
-        err && typeof err === "object" && "response" in err
-          ? (err as { response?: { data?: { error?: string } } }).response?.data?.error
-          : undefined
-      setError(message ?? "No se pudo crear el ticket. Revisa los campos requeridos.")
+      setError(extractErrorMessage(err, "No se pudo crear el ticket. Revisa los campos requeridos."))
     }
   }
 
