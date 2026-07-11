@@ -15,6 +15,7 @@ import {
   canSeeHelix,
   canSeeTyC,
   canSeeOperClientes,
+  canSeeTickets,
 } from "@/lib/permissions"
 import { useAgentPanelStore } from "@/store/agentPanelStore"
 import { useMinWidth } from "@/hooks/useMinWidth"
@@ -49,6 +50,7 @@ import { AgentFloatingWindow } from "@/components/agent/AgentFloatingWindow"
 import { GerencialPage } from "@/pages/gerencial/GerencialPage"
 import { ExtraccionIAPage } from "@/pages/admin/ExtraccionIAPage"
 import { HelixPage } from "@/pages/planeacion/helix/HelixPage"
+import { TicketsPage } from "@/pages/tickets/TicketsPage"
 import { TaskPage } from "@/pages/tareas/TaskPage"
 import { SigPage } from "@/pages/sig/SigPage"
 import MantenimientoPage from "@/pages/mantenimiento/MantenimientoPage"
@@ -185,6 +187,13 @@ function HelixRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user)
   if (!user) return <Navigate to="/login" replace />
   if (!canSeeHelix(user.role, user.app_permissions)) return <Navigate to="/dashboard" replace />
+  return <>{children}</>
+}
+
+function TicketsRoute({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user)
+  if (!user) return <Navigate to="/login" replace />
+  if (!canSeeTickets(user.role, user.app_permissions)) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
 
@@ -521,6 +530,16 @@ export default function App() {
             <HelixRoute>
               <HelixPage />
             </HelixRoute>
+          }
+        />
+
+        {/* Zymo Ally — Tickets (dominio sin relación con Helix, solo comparte posición en el sidebar) */}
+        <Route
+          path="/zymoally/tickets"
+          element={
+            <TicketsRoute>
+              <TicketsPage />
+            </TicketsRoute>
           }
         />
 

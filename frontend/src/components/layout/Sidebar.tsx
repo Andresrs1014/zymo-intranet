@@ -13,6 +13,7 @@ import {
   ListTodo,
   Layers,
   Users,
+  Ticket,
 } from "lucide-react"
 import { useAuthStore } from "@/store/authStore"
 import {
@@ -29,6 +30,7 @@ import {
   canManageDevTasks,
   canSeeHelix,
   canSeeTyC,
+  canSeeTickets,
 } from "@/lib/permissions"
 import {
   Sidebar as ShadcnSidebar,
@@ -65,6 +67,7 @@ export function Sidebar() {
     ? canSubmitDevTasks(user.user_tools ?? []) || canManageDevTasks(user.user_tools ?? [])
     : false
   const showHelix          = user ? canSeeHelix(user.role, perms) : false
+  const showTickets        = user ? canSeeTickets(user.role, perms) : false
   const showTyC            = user ? canSeeTyC(user.role, perms) : false
 
   // Derive user initials for the footer avatar
@@ -244,19 +247,29 @@ export function Sidebar() {
         )}
 
         {/* ── Section: Planeación ────────────────────────────────────── */}
-        {showHelix && (
+        {(showHelix || showTickets) && (
           <>
             <SidebarSeparator />
             <SidebarGroup>
               <SidebarGroupLabel>Planeación</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  <NavItem
-                    to="/planeacion/helix"
-                    label="Helix Zymo"
-                    icon={<Layers className="w-4 h-4" />}
-                    active={isActive(["/planeacion/helix"])}
-                  />
+                  {showHelix && (
+                    <NavItem
+                      to="/planeacion/helix"
+                      label="Helix Zymo"
+                      icon={<Layers className="w-4 h-4" />}
+                      active={isActive(["/planeacion/helix"])}
+                    />
+                  )}
+                  {showTickets && (
+                    <NavItem
+                      to="/zymoally/tickets"
+                      label="Zymo Ally · Tickets"
+                      icon={<Ticket className="w-4 h-4" />}
+                      active={isActive(["/zymoally/tickets"])}
+                    />
+                  )}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
