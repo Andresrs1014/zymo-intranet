@@ -11,6 +11,9 @@ export const env = {
   })(),
   INTRANET_API_URL: process.env.INTRANET_API_URL ?? "http://backend:8001",
   PUBLIC_APP_URL: process.env.PUBLIC_APP_URL ?? "http://localhost:8080",
+  // Cuenta de servicio en el backend Python (sin login humano) usada por el
+  // sync de datos maestros — ver "Prerrequisito manual" al inicio del plan.
+  SYNC_SERVICE_EMAIL: process.env.SYNC_SERVICE_EMAIL ?? "",
   UPLOAD_DIR: process.env.UPLOAD_DIR ?? "./uploads",
   CORS_ORIGIN: process.env.CORS_ORIGIN,
 } as const;
