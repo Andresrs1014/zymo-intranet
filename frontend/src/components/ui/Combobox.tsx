@@ -118,7 +118,7 @@ export function Combobox({
       </button>
 
       {open && (
-        <div className="absolute z-50 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg">
+        <div className="absolute z-[310] mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg">
           {/* Search input */}
           <div className="p-2 border-b border-gray-100">
             <input
