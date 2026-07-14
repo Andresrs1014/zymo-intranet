@@ -29,7 +29,10 @@ export function TicketsShell() {
             duration={3.5}
             repeatDelay={1}
             className={cn(
-              "inset-x-0 inset-y-0 h-full fill-primary/25 stroke-primary/25",
+              // text-primary, no fill-primary: los cuadrados usan
+              // fill="currentColor" (propiedad CSS `color`), fill-* no
+              // les llega — confirmado en vivo, quedaban casi negros.
+              "inset-x-0 inset-y-0 h-full text-primary stroke-primary/25",
               "[mask-image:radial-gradient(1400px_circle_at_15%_0%,white,transparent)]"
             )}
           />

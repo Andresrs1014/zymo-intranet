@@ -78,7 +78,10 @@ export function AnimatedGridPattern({
       ref={containerRef}
       aria-hidden="true"
       className={cn(
-        "pointer-events-none absolute inset-0 h-full w-full fill-zinc-400/30 stroke-zinc-400/30",
+        // Los cuadrados animados usan fill="currentColor" (resuelto por la
+        // propiedad CSS `color`, no `fill`) — por eso el color base va en
+        // text-*, no fill-*. `stroke-*` sí colorea la línea del grid base.
+        "pointer-events-none absolute inset-0 h-full w-full text-zinc-400/30 stroke-zinc-400/30",
         className
       )}
     >
