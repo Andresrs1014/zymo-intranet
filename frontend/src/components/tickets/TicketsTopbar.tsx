@@ -1,4 +1,5 @@
 import { useTicketsUI } from "@/context/TicketsContext"
+import { ShimmerButton } from "@/components/ui/shimmer-button"
 import type { TicketView } from "@/types/ticket"
 
 const VIEW_TITLES: Record<TicketView, string> = {
@@ -16,13 +17,13 @@ export function TicketsTopbar() {
         <p className="mb-0.5 text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-500">Zymo Ally</p>
         <h1 className="m-0 text-xl font-bold leading-tight text-zinc-900">{VIEW_TITLES[activeView]}</h1>
       </div>
-      <button
+      <ShimmerButton
         type="button"
         onClick={() => setDialogOpen(true)}
-        className="inline-flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-md bg-primary px-4 text-sm font-bold text-primary-foreground shadow-sm hover:brightness-95"
+        className="min-h-[40px] shrink-0"
       >
         + Nuevo ticket
-      </button>
+      </ShimmerButton>
     </header>
   )
 }

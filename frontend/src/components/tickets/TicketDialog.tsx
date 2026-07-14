@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Card, CardContent } from "@/components/ui/card"
+import { ShimmerButton } from "@/components/ui/shimmer-button"
 import { FormSelect } from "@/components/tareas/FormSelect"
 import { useTicketsUI } from "@/context/TicketsContext"
 import {
@@ -257,14 +258,13 @@ export function TicketDialog() {
           >
             Cancelar
           </button>
-          <button
+          <ShimmerButton
             type="button"
             onClick={handleSubmit}
             disabled={createTicket.isPending || !canSubmit}
-            className="rounded-md bg-primary px-4 py-2 text-sm font-bold text-primary-foreground hover:brightness-95 disabled:opacity-50"
           >
             {createTicket.isPending ? "Creando…" : "Crear ticket"}
-          </button>
+          </ShimmerButton>
         </div>
       </DialogContent>
     </Dialog>
