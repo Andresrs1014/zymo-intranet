@@ -6,9 +6,12 @@ import { FormSelect } from "@/components/tareas/FormSelect"
 import { useTicketsUI } from "@/context/TicketsContext"
 import {
   useTicketConfigLists, useTicketAreaPrefixes, useTicketCodePreview, useCreateTicket,
+  useSyncMasterData,
 } from "@/hooks/useTickets"
 import { currentDateValue } from "@/lib/ticketWork"
 import { extractErrorMessage } from "@/lib/ticketErrors"
+import { canConfigTickets } from "@/lib/permissions"
+import { useAuthStore } from "@/store/authStore"
 import { useTicketToast } from "./TicketToast"
 
 const LABEL = "mb-1.5 block text-[11px] font-bold uppercase tracking-[0.06em] text-zinc-500"
@@ -54,8 +57,22 @@ export function TicketDialog() {
   const [files, setFiles] = useState<File[]>([])
   const [error, setError] = useState<string | null>(null)
   const createTicket = useCreateTicket()
+  const syncMasterData = useSyncMasterData()
   const { data: preview } = useTicketCodePreview(form.date, form.areaPrefix)
   const { showToast } = useTicketToast()
+  const user = useAuthStore((s) => s.user)
+  const canSync = user ? canConfigTickets(user.role, user.app_permissions) : false
+
+  async function handleSync() {
+    try {
+      const r = await syncMasterData.mutateAsync()
+      const created = r.areas.created + r.platforms.created + r.personas.created
+      const updated = r.areas.updated + r.platforms.updated + r.personas.updated
+      showToast(`Datos maestros sincronizados: ${created} nuevos, ${updated} actualizados`, "success")
+    } catch (err) {
+      showToast(extractErrorMessage(err, "No se pudo sincronizar los datos maestros."), "error")
+    }
+  }
 
   useEffect(() => {
     if (dialogOpen) {
@@ -92,7 +109,19 @@ export function TicketDialog() {
     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
       <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Nuevo ticket</DialogTitle>
+          <div className="flex items-center justify-between gap-3">
+            <DialogTitle>Nuevo ticket</DialogTitle>
+            {canSync && (
+              <button
+                type="button"
+                onClick={handleSync}
+                disabled={syncMasterData.isPending}
+                className="mr-6 rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-600 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {syncMasterData.isPending ? "Sincronizando…" : "Sincronizar ahora"}
+              </button>
+            )}
+          </div>
         </DialogHeader>
 
         <div className="mb-2 grid gap-3 sm:grid-cols-3">
@@ -137,21 +166,21 @@ export function TicketDialog() {
                 label="Supervisor"
                 value={form.supervisor}
                 onChange={(v) => set("supervisor", v)}
-                options={(lists?.supervisors ?? []).map((s) => ({ value: s.value, label: s.label }))}
+                options={(lists?.personas ?? []).map((p) => ({ value: p.value, label: p.label }))}
                 noneLabel="Sin asignar"
               />
               <FormSelect
                 label="Analista"
                 value={form.analyst}
                 onChange={(v) => set("analyst", v)}
-                options={(lists?.analysts ?? []).map((a) => ({ value: a.value, label: a.label }))}
+                options={(lists?.personas ?? []).map((p) => ({ value: p.value, label: p.label }))}
                 noneLabel="Sin asignar"
               />
               <FormSelect
                 label="Coordinador"
                 value={form.coordinator}
                 onChange={(v) => set("coordinator", v)}
-                options={(lists?.coordinators ?? []).map((c) => ({ value: c.value, label: c.label }))}
+                options={(lists?.personas ?? []).map((p) => ({ value: p.value, label: p.label }))}
                 noneLabel="Sin asignar"
               />
               <div>
