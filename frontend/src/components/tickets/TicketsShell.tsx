@@ -1,3 +1,4 @@
+import { SidebarProvider } from "@/components/ui/sidebar"
 import { useTicketsUI } from "@/context/TicketsContext"
 import { TicketsSidebar } from "./TicketsSidebar"
 import { TicketsTopbar } from "./TicketsTopbar"
@@ -11,16 +12,18 @@ export function TicketsShell() {
   const { activeView } = useTicketsUI()
 
   return (
-    <div className="grid min-h-screen bg-background text-foreground" style={{ gridTemplateColumns: "auto minmax(0, 1fr)" }}>
-      <TicketsSidebar />
-      <main className="min-w-0 overflow-auto" style={{ padding: "clamp(14px, 2vw, 24px)" }}>
-        <TicketsTopbar />
-        {activeView === "list" && <ListView />}
-        {activeView === "board" && <BoardView />}
-        {activeView === "dashboard" && <DashboardView />}
-      </main>
+    <SidebarProvider>
+      <div className="flex min-h-screen w-full bg-background text-foreground">
+        <TicketsSidebar />
+        <main className="min-w-0 flex-1 overflow-auto" style={{ padding: "clamp(14px, 2vw, 24px)" }}>
+          <TicketsTopbar />
+          {activeView === "list" && <ListView />}
+          {activeView === "board" && <BoardView />}
+          {activeView === "dashboard" && <DashboardView />}
+        </main>
+      </div>
       <TicketDialog />
       <TicketDrawer />
-    </div>
+    </SidebarProvider>
   )
 }

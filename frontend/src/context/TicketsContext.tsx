@@ -4,8 +4,6 @@ import type { TicketView } from "@/types/ticket"
 interface TicketsContextValue {
   activeView: TicketView
   setActiveView: (view: TicketView) => void
-  sidebarExpanded: boolean
-  setSidebarExpanded: (expanded: boolean) => void
   dialogOpen: boolean
   setDialogOpen: (open: boolean) => void
   openTicketId: number | null
@@ -16,7 +14,6 @@ const TicketsContext = createContext<TicketsContextValue | null>(null)
 
 export function TicketsContextProvider({ children }: { children: ReactNode }) {
   const [activeView, setActiveView] = useState<TicketView>("list")
-  const [sidebarExpanded, setSidebarExpanded] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [openTicketId, setOpenTicketId] = useState<number | null>(null)
 
@@ -24,7 +21,6 @@ export function TicketsContextProvider({ children }: { children: ReactNode }) {
     <TicketsContext.Provider
       value={{
         activeView, setActiveView,
-        sidebarExpanded, setSidebarExpanded,
         dialogOpen, setDialogOpen,
         openTicketId, setOpenTicketId,
       }}
