@@ -188,7 +188,9 @@ export async function syncMasterData(): Promise<SyncMasterDataResult> {
     const [areas, sedes, personasResp] = await Promise.all([
       fetchIntranet<IntranetArea[]>("/areas", token),
       fetchIntranet<IntranetSede[]>("/sedes?para_solicitudes_oc=true", token),
-      fetchIntranet<IntranetPersonasResponse>("/tc/personas?estado=activo&limit=500", token),
+      // "Activo" con mayúscula — PtcPersona.estado (backend/app/personal_database.py)
+      // guarda el valor así y el filtro en personal.py usa == exacto, sensible a mayúsculas.
+      fetchIntranet<IntranetPersonasResponse>("/tc/personas?estado=Activo&limit=500", token),
     ])
 
     const areasResult = await syncAreas(areas)

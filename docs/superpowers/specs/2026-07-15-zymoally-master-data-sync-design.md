@@ -47,7 +47,7 @@ function mintServiceToken(): string {
 |---|---|---|---|
 | Área | `GET /areas` → `[{id, name}]` | ninguno, todas | `ZymoAreaPrefix` (agrega `externalId`, `syncedAt`) |
 | Plataforma | `GET /sedes?para_solicitudes_oc=true` → `[{id, name, visible_en_solicitudes_oc}]` | mismo filtro que ya usa OC | `ZymoConfigList` listType=`platforms` (agrega `externalId`, `syncedAt`) |
-| Supervisor / Analista / Coordinador | `GET /tc/personas?estado=activo&limit=500` → `{total, items:[{id, nombre, ...}]}` | solo activos, sin filtrar por cargo (ver simplificación abajo) | `ZymoConfigList` listType=`personas` (agrega `externalId`, `syncedAt`) |
+| Supervisor / Analista / Coordinador | `GET /tc/personas?estado=Activo&limit=500` → `{total, items:[{id, nombre, ...}]}` | solo activos, sin filtrar por cargo (ver simplificación abajo) | `ZymoConfigList` listType=`personas` (agrega `externalId`, `syncedAt`) |
 
 **Simplificación deliberada:** los 3 campos de personas (Supervisor/Analista/Coordinador) comparten la MISMA lista sincronizada (`listType: "personas"`) en vez de 3 listas separadas — resolver por `cargo_id` específico requiere primero buscar el cargo por nombre en `/tc/cargos` (endpoint que pide `area_id`, sin búsqueda global por nombre de cargo), complejidad no justificada hoy dado que las 3 listas actuales de todos modos tenían un único valor genérico cada una. Si más adelante se necesita filtrar por rol real, se revisita.
 

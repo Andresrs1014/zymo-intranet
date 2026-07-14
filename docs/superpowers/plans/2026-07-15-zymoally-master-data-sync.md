@@ -4,7 +4,7 @@
 
 **Goal:** Poblar los selects del formulario "Crear ticket PQR" con datos reales de la intranet (áreas, sedes/plataformas, personas) sincronizándolos desde el backend Python hacia las tablas locales de `zymoally-backend`, con upsert que preserva las personalizaciones del admin, disparado por cron 3×/día y por un botón manual.
 
-**Architecture:** `zymoally-backend` firma su propio JWT de servicio (`role: "admin"`, TTL 5 min) con el mismo secreto HS256 que FastAPI, y con él consume `GET /areas`, `GET /sedes?para_solicitudes_oc=true` y `GET /tc/personas?estado=activo&limit=500` del backend Python (fetch nativo de Node 20, sin axios). Cada registro se upsertea contra `ZymoAreaPrefix` / `ZymoConfigList` usando un nuevo campo `externalId` como clave estable de matching — actualiza `label`/`area` + `syncedAt`, nunca toca `isActive`/`prefix`/`sortOrder`/`value`, y nunca borra. El disparo es un `node-cron` interno (primer uso de la dependencia en el repo) + un endpoint `POST /api/tickets/config/sync` gateado por `mod_tickets_config`, expuesto en un botón mínimo dentro del diálogo de creación.
+**Architecture:** `zymoally-backend` firma su propio JWT de servicio (`role: "admin"`, TTL 5 min) con el mismo secreto HS256 que FastAPI, y con él consume `GET /areas`, `GET /sedes?para_solicitudes_oc=true` y `GET /tc/personas?estado=Activo&limit=500` del backend Python (fetch nativo de Node 20, sin axios). Cada registro se upsertea contra `ZymoAreaPrefix` / `ZymoConfigList` usando un nuevo campo `externalId` como clave estable de matching — actualiza `label`/`area` + `syncedAt`, nunca toca `isActive`/`prefix`/`sortOrder`/`value`, y nunca borra. El disparo es un `node-cron` interno (primer uso de la dependencia en el repo) + un endpoint `POST /api/tickets/config/sync` gateado por `mod_tickets_config`, expuesto en un botón mínimo dentro del diálogo de creación.
 
 **Tech Stack:** TypeScript, Express, Prisma (Postgres), `jsonwebtoken`, `node-cron` (nuevo), fetch nativo de Node 20; React 19 + Vite, TanStack Query, Zustand, axios (frontend).
 
@@ -455,7 +455,7 @@ export async function syncMasterData(): Promise<SyncMasterDataResult> {
   const [areas, sedes, personasResp] = await Promise.all([
     fetchIntranet<IntranetArea[]>("/areas", token),
     fetchIntranet<IntranetSede[]>("/sedes?para_solicitudes_oc=true", token),
-    fetchIntranet<IntranetPersonasResponse>("/tc/personas?estado=activo&limit=500", token),
+    fetchIntranet<IntranetPersonasResponse>("/tc/personas?estado=Activo&limit=500", token),
   ])
 
   const areasResult = await syncAreas(areas)
@@ -1020,7 +1020,7 @@ git commit -m "feat(zymoally): selects de personas unificados + boton Sincroniza
 |---|---|
 | Sincronizar Área desde `GET /areas` → `ZymoAreaPrefix` con `externalId`/`syncedAt` | Task 1 (columnas), Task 3 (`syncAreas`) |
 | Sincronizar Plataforma desde `GET /sedes?para_solicitudes_oc=true` → `ZymoConfigList listType=platforms` | Task 3 (`syncConfigList("platforms", …)`) |
-| Sincronizar personas desde `GET /tc/personas?estado=activo&limit=500` → `ZymoConfigList listType=personas` (lista única compartida por los 3 campos) | Task 2 (registrar listType), Task 3 (`syncConfigList("personas", …)`), Task 7 (recablear los 3 selects) |
+| Sincronizar personas desde `GET /tc/personas?estado=Activo&limit=500` → `ZymoConfigList listType=personas` (lista única compartida por los 3 campos) | Task 2 (registrar listType), Task 3 (`syncConfigList("personas", …)`), Task 7 (recablear los 3 selects) |
 | Token de servicio JWT `role:"admin"`, TTL 5 min, secreto HS256 compartido | Task 3 (`mintServiceToken`) |
 | Upsert por `externalId`: si existe → actualiza `label`/`area`+`syncedAt`, no toca `isActive`/`prefix`/`sortOrder`; si no → crea `isActive:true`; nunca borra | Task 3 (`syncConfigList`, `syncAreas`) |
 | Prefijo automático para área nueva sin mapeo vía `normalizePrefix` | Task 3 (`uniqueAreaPrefix`) |
