@@ -16,7 +16,7 @@ export function TicketsShell() {
 
   return (
     <SidebarProvider>
-      <div className="relative flex min-h-screen w-full overflow-hidden bg-background text-foreground">
+      <div className="relative isolate flex min-h-screen w-full overflow-hidden bg-background text-foreground">
         {/* Fondo propio de Tickets (no compartido con el resto de la intranet).
             Dos capas conectadas por la misma paleta de marca, no una textura
             gris sola: grid animado en rojo (opacidad real, no decorativa
