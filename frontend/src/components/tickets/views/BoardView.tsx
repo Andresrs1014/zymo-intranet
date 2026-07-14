@@ -18,8 +18,13 @@ function TicketCard({ ticket, onOpen }: { ticket: Ticket; onOpen: () => void }) 
 
   return (
     <div ref={setNodeRef} style={style} {...attributes}>
+      {/* Elevación como señal de profundidad: la card sube de shadow-sm a
+          shadow-lg mientras se arrastra (capa "near" activa), en vez de
+          fondo/perspectiva 3D — ver mixui/references/research/motion-depth-ui.md */}
       <div
-        className="relative mb-2 cursor-pointer rounded-lg border border-zinc-200 bg-white px-3.5 py-3 shadow-sm"
+        className={`relative mb-2 cursor-pointer rounded-lg border border-zinc-200 bg-white px-3.5 py-3 transition-shadow hover:shadow-md ${
+          isDragging ? "shadow-lg" : "shadow-sm"
+        }`}
         onClick={onOpen}
       >
         <button

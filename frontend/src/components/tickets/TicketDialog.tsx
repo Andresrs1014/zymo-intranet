@@ -93,7 +93,10 @@ export function TicketDialog() {
 
         <div className="mb-2 grid gap-3 sm:grid-cols-3">
           {STAGES.map((stage) => (
-            <Card key={stage.n} className={stage.active ? "border-primary/40 bg-primary/5" : "border-zinc-200"}>
+            <Card
+              key={stage.n}
+              className={stage.active ? "border-primary/40 bg-primary/5 shadow-sm" : "border-zinc-200 shadow-none"}
+            >
               <CardContent className="p-3">
                 <div className="mb-1 flex items-center gap-2">
                   <span
