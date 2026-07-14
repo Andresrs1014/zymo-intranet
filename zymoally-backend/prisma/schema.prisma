@@ -60,23 +60,27 @@ model ZymoPqrEvidence {
 }
 
 model ZymoConfigList {
-  id        Int     @id @default(autoincrement())
-  listType  String
-  value     String
-  label     String
-  sortOrder Int     @default(0)
-  isActive  Boolean @default(true)
+  id         Int       @id @default(autoincrement())
+  listType   String
+  value      String
+  label      String
+  sortOrder  Int       @default(0)
+  isActive   Boolean   @default(true)
+  externalId String?
+  syncedAt   DateTime?
 
   @@unique([listType, value])
   @@index([listType])
 }
 
 model ZymoAreaPrefix {
-  id        Int     @id @default(autoincrement())
-  area      String
-  prefix    String  @unique
-  isActive  Boolean @default(true)
-  sortOrder Int     @default(0)
+  id         Int       @id @default(autoincrement())
+  area       String
+  prefix     String    @unique
+  isActive   Boolean   @default(true)
+  sortOrder  Int       @default(0)
+  externalId String?
+  syncedAt   DateTime?
 }
 
 // ─── SAC (Servicio al Cliente) ─────────────────────────────────────────────
