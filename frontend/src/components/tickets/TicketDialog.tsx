@@ -8,6 +8,7 @@ import {
 } from "@/hooks/useTickets"
 import { currentDateValue } from "@/lib/ticketWork"
 import { extractErrorMessage } from "@/lib/ticketErrors"
+import { useTicketToast } from "./TicketToast"
 
 const LABEL = "mb-1.5 block text-[11px] font-bold uppercase tracking-[0.06em] text-zinc-500"
 const INPUT =
@@ -53,6 +54,7 @@ export function TicketDialog() {
   const [error, setError] = useState<string | null>(null)
   const createTicket = useCreateTicket()
   const { data: preview } = useTicketCodePreview(form.date, form.areaPrefix)
+  const { showToast } = useTicketToast()
 
   useEffect(() => {
     if (dialogOpen) {
@@ -79,6 +81,7 @@ export function TicketDialog() {
     try {
       await createTicket.mutateAsync({ ...form, evidence: files })
       setDialogOpen(false)
+      showToast("Ticket creado satisfactoriamente", "success")
     } catch (err) {
       setError(extractErrorMessage(err, "No se pudo crear el ticket. Revisa los campos requeridos."))
     }
