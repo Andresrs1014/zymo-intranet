@@ -17,9 +17,10 @@ docker compose restart sig-backend    # Reiniciar un servicio sin rebuild
 ```bash
 cd frontend
 npm run dev          # Dev server (puerto 5173)
-npm run build        # Build de producción
-npx tsc --noEmit     # Verificar TypeScript sin compilar — OBLIGATORIO antes de commit
+npm run build        # Build de producción — ÚNICO chequeo de TS válido, ver gotcha abajo
 ```
+
+**Gotcha `tsc --noEmit` no revisa nada en `frontend/`:** el `tsconfig.json` raíz usa `files: []` + `references`, así que `npx tsc --noEmit` (desde la raíz o desde `frontend/`) solo valida la config y sale "limpio" incluso con errores de sintaxis/tipos reales delante. El único chequeo confiable es `npm run build` (corre `tsc -b && vite build`). No reportar un cambio de frontend como verificado solo con `tsc --noEmit`.
 
 ### Backend Python (FastAPI)
 ```bash
@@ -46,7 +47,7 @@ npx prisma studio                        # UI para inspeccionar la BD en dev
 
 ### Checks críticos pre-commit (código de servidor)
 ```
-1. npx tsc --noEmit   — sin errores TS (TS6133 rompe Docker build)
+1. npx tsc --noEmit   — sin errores TS (TS6133 rompe Docker build). En frontend/ no sirve, usar `npm run build` (ver gotcha en la sección Frontend).
 2. docker compose up --build -d   — build limpio sin errores
 3. Ningún import no usado, ninguna variable declarada sin uso
 ```
@@ -77,6 +78,8 @@ import { fetchProcCargoIds, type ProcCargoAsignado } from "@/components/sig/..."
 
 ### JWT compartido
 El backend Python emite el JWT (HS256) con claims `{id, role, sede, area, email}`. **Todos los backends Node** validan ese mismo token usando `SECRET_KEY` de `./backend/.env`. El campo `app_permissions` **no está en el JWT** — se resuelve en el frontend vía `GET /auth/me` después del login.
+
+**Gotcha `full_name` tampoco está en el JWT:** ningún backend Node debe leer `user.full_name` del payload decodificado para mostrar el nombre de quien ejecuta una acción (creador de una tarea, quien sube un adjunto, etc.) — ese campo siempre es `undefined` en runtime y cualquier fallback tipo `` `Usuario ${userId}` `` queda grabado permanentemente en la fila si se usa al crear/loguear. Resolver el nombre real contra `GET /api/tasks-v2/users` del backend Python (acepta `X-Internal-Key` o JWT). Patrón de referencia: `task-backend/src/utils/userNames.ts` (`resolveActorName`, `enrichUserNames`) — reusar ese archivo en vez de reinventar la resolución en cada backend nuevo. `task-backend` también autorepara nombres viejos guardados como "Usuario N" al leer (`listTasks`/`getTask`/`getTaskHistory`), mismo patrón que ya existía en `eventService.listEvents`.
 
 ### Patrón de módulo nuevo
 Para agregar un módulo (ej. "Gestión Humana"):
