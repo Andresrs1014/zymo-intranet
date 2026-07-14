@@ -4,6 +4,7 @@ import { prisma } from "../../config/prisma"
 import { requireTicketsConfig } from "../../middleware/auth"
 import { PQR_LIST_TYPES, defaultAreaPrefixes, defaultPqrConfig } from "../../utils/constants"
 import { normalizePrefix } from "../../utils/formatters"
+import { syncMasterData } from "../../services/masterDataSync"
 
 const router = Router()
 
@@ -136,6 +137,25 @@ router.post("/reset", requireTicketsConfig, async (_req, res, next) => {
     ])
     res.status(204).end()
   } catch (err) {
+    next(err)
+  }
+})
+
+// POST /sync — sincroniza áreas/plataformas/personas desde el directorio intranet.
+// Gate mod_tickets_config (botón temporal; la pantalla de config global es F5).
+router.post("/sync", requireTicketsConfig, async (_req, res, next) => {
+  try {
+    const result = await syncMasterData()
+    res.json(result)
+  } catch (err) {
+    // syncMasterData lanza mensajes pensados para mostrarse al usuario (lock
+    // en curso, cuenta de servicio mal configurada, error del directorio
+    // intranet) — el handler global descarta err.message, así que se
+    // responde aquí para que el botón manual muestre la razón real.
+    if (err instanceof Error) {
+      res.status(409).json({ error: err.message })
+      return
+    }
     next(err)
   }
 })
