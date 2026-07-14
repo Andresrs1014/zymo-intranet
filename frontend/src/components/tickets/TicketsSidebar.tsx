@@ -1,17 +1,29 @@
-import { List, Kanban, LayoutDashboard, Ticket } from "lucide-react"
+import { useRef, useState } from "react"
+import { List, Kanban, LayoutDashboard, Settings, Ticket } from "lucide-react"
 import { useTicketsUI } from "@/context/TicketsContext"
 import type { TicketView } from "@/types/ticket"
 import {
   Sidebar,
   SidebarHeader,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarRail,
+  useSidebar,
 } from "@/components/ui/sidebar"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { canConfigTickets } from "@/lib/permissions"
+import { useAuthStore } from "@/store/authStore"
+import { TicketConfigDialog } from "./TicketConfigDialog"
 
 const NAV_ITEMS: { view: TicketView; label: string; icon: React.ReactNode }[] = [
   { view: "list", label: "Lista", icon: <List size={18} /> },
@@ -21,8 +33,14 @@ const NAV_ITEMS: { view: TicketView; label: string; icon: React.ReactNode }[] = 
 
 export function TicketsSidebar() {
   const { activeView, setActiveView } = useTicketsUI()
+  const { setOpenMobile } = useSidebar()
+  const user = useAuthStore((state) => state.user)
+  const canConfig = user ? canConfigTickets(user.role, user.app_permissions) : false
+  const [configOpen, setConfigOpen] = useState(false)
+  const configButtonRef = useRef<HTMLButtonElement>(null)
 
   return (
+    <>
     <Sidebar collapsible="icon">
       <SidebarHeader>
         <div className="flex items-center gap-2.5 px-1.5 py-1.5">
@@ -78,7 +96,38 @@ export function TicketsSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      {canConfig && (
+        <SidebarFooter className="items-end p-2">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  ref={configButtonRef}
+                  type="button"
+                  onClick={() => {
+                    setOpenMobile(false)
+                    setConfigOpen(true)
+                  }}
+                  aria-label="Configuraci&oacute;n"
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring motion-reduce:transition-none"
+                >
+                  <Settings className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Configuraci&oacute;n</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </SidebarFooter>
+      )}
       <SidebarRail />
     </Sidebar>
+      {canConfig && (
+        <TicketConfigDialog
+          open={configOpen}
+          onOpenChange={setConfigOpen}
+          returnFocusRef={configButtonRef}
+        />
+      )}
+    </>
   )
 }

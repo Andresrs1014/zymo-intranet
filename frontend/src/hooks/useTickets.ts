@@ -4,6 +4,7 @@ import type {
   Ticket,
   CreateTicketInput,
   TicketConfigLists,
+  TicketListItem,
   TicketAreaPrefix,
   TicketDashboardResult,
   SyncMasterDataResult,
@@ -17,6 +18,36 @@ export interface TicketListFilters {
   client?: string
   supervisor?: string
   search?: string
+}
+
+type EditableTicketListType = "statuses" | "types"
+
+interface CreateListItemInput {
+  listType: EditableTicketListType
+  value: string
+  label: string
+  sortOrder?: number
+}
+
+interface UpdateListItemInput {
+  id: number
+  label?: string
+  sortOrder?: number
+  isActive?: boolean
+}
+
+interface CreateAreaPrefixInput {
+  area: string
+  prefix: string
+  sortOrder?: number
+}
+
+interface UpdateAreaPrefixInput {
+  id: number
+  area?: string
+  prefix?: string
+  sortOrder?: number
+  isActive?: boolean
 }
 
 function buildParams(filters: TicketListFilters): URLSearchParams {
@@ -213,6 +244,96 @@ export function useTicketAreaPrefixes() {
       return data
     },
     staleTime: 5 * 60 * 1000,
+  })
+}
+
+// --- Configuracion editable (gate mod_tickets_config en backend) ----------------
+
+export function useCreateListItem() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: CreateListItemInput) => {
+      const { data } = await zymoallyApi.post<TicketListItem>(
+        "/api/tickets/config/listas",
+        input
+      )
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tickets-config-lists"] })
+    },
+  })
+}
+
+export function useUpdateListItem() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...input }: UpdateListItemInput) => {
+      const { data } = await zymoallyApi.patch<TicketListItem>(
+        `/api/tickets/config/listas/${id}`,
+        input
+      )
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tickets-config-lists"] })
+    },
+  })
+}
+
+export function useDeleteListItem() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: number) => {
+      await zymoallyApi.delete(`/api/tickets/config/listas/${id}`)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tickets-config-lists"] })
+    },
+  })
+}
+
+export function useCreateAreaPrefix() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: CreateAreaPrefixInput) => {
+      const { data } = await zymoallyApi.post<TicketAreaPrefix>(
+        "/api/tickets/config/areas",
+        input
+      )
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tickets-area-prefixes"] })
+    },
+  })
+}
+
+export function useUpdateAreaPrefix() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...input }: UpdateAreaPrefixInput) => {
+      const { data } = await zymoallyApi.patch<TicketAreaPrefix>(
+        `/api/tickets/config/areas/${id}`,
+        input
+      )
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tickets-area-prefixes"] })
+    },
+  })
+}
+
+export function useDeleteAreaPrefix() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: number) => {
+      await zymoallyApi.delete(`/api/tickets/config/areas/${id}`)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tickets-area-prefixes"] })
+    },
   })
 }
 

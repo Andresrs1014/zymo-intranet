@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { AnimatePresence, motion } from "motion/react"
+import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { CheckCircle2, XCircle } from "lucide-react"
 
 export type TicketToastType = "success" | "error"
@@ -24,6 +24,7 @@ export function useTicketToast() {
 
 export function TicketToastContainer() {
   const [toast, setToast] = useState<TicketToastState | null>(null)
+  const reduceMotion = useReducedMotion()
 
   useEffect(() => {
     function handler(e: Event) {
@@ -44,10 +45,13 @@ export function TicketToastContainer() {
         {toast && (
           <motion.div
             key={toast.id}
-            initial={{ opacity: 0, y: -24, scale: 0.92 }}
+            role={toast.type === "error" ? "alert" : "status"}
+            aria-live={toast.type === "error" ? "assertive" : "polite"}
+            aria-atomic="true"
+            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -24, scale: 0.92 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -16, scale: 0.95 }}
-            transition={{ type: "spring", stiffness: 320, damping: 24 }}
+            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -16, scale: 0.95 }}
+            transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 320, damping: 24 }}
             className={`pointer-events-auto flex items-center gap-3 rounded-xl border px-5 py-3.5 shadow-lg ${
               toast.type === "success"
                 ? "border-primary/30 bg-white text-zinc-900"
