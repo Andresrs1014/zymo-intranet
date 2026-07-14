@@ -80,6 +80,7 @@ export interface TicketConfigLists {
   supervisors: TicketListItem[]
   analysts: TicketListItem[]
   coordinators: TicketListItem[]
+  personas: TicketListItem[]
   generators: TicketListItem[]
   phones: TicketListItem[]
   emails: TicketListItem[]
@@ -115,4 +116,17 @@ export interface TicketDashboardMetrics {
 export interface TicketDashboardResult {
   metrics: TicketDashboardMetrics
   aiAnalysis: string[]
+}
+
+export interface SyncSectionResult {
+  fetched: number
+  created: number
+  updated: number
+}
+
+export interface SyncMasterDataResult {
+  areas: SyncSectionResult
+  platforms: SyncSectionResult
+  personas: SyncSectionResult
+  ranAt: string
 }
