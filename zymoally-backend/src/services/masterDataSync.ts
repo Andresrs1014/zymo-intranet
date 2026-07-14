@@ -66,7 +66,8 @@ async function fetchIntranet<T>(pathAndQuery: string, token: string): Promise<T>
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!res.ok) {
-    throw new Error(`Intranet ${pathAndQuery} respondió ${res.status}`)
+    const body = (await res.text()).slice(0, 300)
+    throw new Error(`Intranet ${pathAndQuery} respondió ${res.status}: ${body}`)
   }
   return (await res.json()) as T
 }
@@ -171,28 +172,42 @@ async function syncAreas(areas: IntranetArea[]): Promise<SyncSection> {
 }
 
 // ─── Orquestador público (compartido por cron y botón manual) ───────────────
+// ponytail: lock en memoria de un solo proceso — suficiente porque
+// zymoally-backend corre como un único contenedor sin réplicas. Evita que un
+// click manual solape con el cron y choque creando el mismo externalId dos
+// veces a mitad de loop.
+let syncing = false
+
 export async function syncMasterData(): Promise<SyncMasterDataResult> {
-  const token = mintServiceToken()
-  const [areas, sedes, personasResp] = await Promise.all([
-    fetchIntranet<IntranetArea[]>("/areas", token),
-    fetchIntranet<IntranetSede[]>("/sedes?para_solicitudes_oc=true", token),
-    fetchIntranet<IntranetPersonasResponse>("/tc/personas?estado=activo&limit=500", token),
-  ])
+  if (syncing) {
+    throw new Error("Ya hay una sincronización en curso, espera a que termine.")
+  }
+  syncing = true
+  try {
+    const token = mintServiceToken()
+    const [areas, sedes, personasResp] = await Promise.all([
+      fetchIntranet<IntranetArea[]>("/areas", token),
+      fetchIntranet<IntranetSede[]>("/sedes?para_solicitudes_oc=true", token),
+      fetchIntranet<IntranetPersonasResponse>("/tc/personas?estado=activo&limit=500", token),
+    ])
 
-  const areasResult = await syncAreas(areas)
-  const platformsResult = await syncConfigList(
-    "platforms",
-    sedes.map((s) => ({ externalId: String(s.id), label: s.name })),
-  )
-  const personasResult = await syncConfigList(
-    "personas",
-    personasResp.items.map((p) => ({ externalId: String(p.id), label: p.nombre })),
-  )
+    const areasResult = await syncAreas(areas)
+    const platformsResult = await syncConfigList(
+      "platforms",
+      sedes.map((s) => ({ externalId: String(s.id), label: s.name })),
+    )
+    const personasResult = await syncConfigList(
+      "personas",
+      personasResp.items.map((p) => ({ externalId: String(p.id), label: p.nombre })),
+    )
 
-  return {
-    areas: areasResult,
-    platforms: platformsResult,
-    personas: personasResult,
-    ranAt: new Date().toISOString(),
+    return {
+      areas: areasResult,
+      platforms: platformsResult,
+      personas: personasResult,
+      ranAt: new Date().toISOString(),
+    }
+  } finally {
+    syncing = false
   }
 }
