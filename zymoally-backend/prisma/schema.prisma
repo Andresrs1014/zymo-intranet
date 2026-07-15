@@ -19,9 +19,13 @@ model ZymoPqrTicket {
   client             String?
   platform           String?
   supervisor         String?
+  supervisorEmail    String?
   analyst            String?
+  analystEmail       String?
   coordinator        String?
+  coordinatorEmail   String?
   manager            String?
+  managerEmail       String?
   phone              String?
   email              String?
   owner              String?
@@ -61,14 +65,16 @@ model ZymoPqrEvidence {
 }
 
 model ZymoConfigList {
-  id         Int       @id @default(autoincrement())
-  listType   String
-  value      String
-  label      String
-  sortOrder  Int       @default(0)
-  isActive   Boolean   @default(true)
-  externalId String?
-  syncedAt   DateTime?
+  id           Int       @id @default(autoincrement())
+  listType     String
+  value        String
+  label        String
+  sortOrder    Int       @default(0)
+  isActive     Boolean   @default(true)
+  externalId   String?
+  syncedAt     DateTime?
+  contactEmail String?
+  contactPhone String?
 
   @@unique([listType, value])
   @@index([listType])

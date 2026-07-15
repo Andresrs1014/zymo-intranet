@@ -24,6 +24,16 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage, limits: { fileSize: 15 * 1024 * 1024 } })
 
+// Resuelve el email de contacto guardado en ZymoConfigList (sync de directorio) para
+// el valor elegido en el select — se fija en el ticket al crear, no cambia si la
+// persona rota de cargo después (trazabilidad histórica, ver Fase A del plan de
+// "Gestionar mis tickets").
+async function resolveContactEmail(listType: string, value: string | undefined): Promise<string | undefined> {
+  if (!value) return undefined
+  const row = await prisma.zymoConfigList.findFirst({ where: { listType, value }, select: { contactEmail: true } })
+  return row?.contactEmail || undefined
+}
+
 const CreateTicketBody = z.object({
   area: z.string().min(1),
   areaPrefix: z.string().min(1),
@@ -126,14 +136,25 @@ router.post("/", upload.array("evidence"), async (req, res, next) => {
     const body = parsed.data
     const files = (req.files as Express.Multer.File[]) || []
 
+    const [supervisorEmail, analystEmail, coordinatorEmail, managerEmail] = await Promise.all([
+      resolveContactEmail("supervisors", body.supervisor),
+      resolveContactEmail("analysts", body.analyst),
+      resolveContactEmail("coordinators", body.coordinator),
+      resolveContactEmail("managers", body.manager),
+    ])
+
     const ticket = await createPqrTicketWithCode(body.date, body.areaPrefix, {
       area: body.area,
       client: body.client,
       platform: body.platform,
       supervisor: body.supervisor,
+      supervisorEmail,
       analyst: body.analyst,
+      analystEmail,
       coordinator: body.coordinator,
+      coordinatorEmail,
       manager: body.manager,
+      managerEmail,
       phone: body.phone,
       email: body.email,
       owner: body.owner,

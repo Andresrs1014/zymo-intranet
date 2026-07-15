@@ -19,6 +19,10 @@ interface IntranetPersona {
   id: number
   nombre: string
   cargo_nombre?: string
+  email_corporativo?: string
+  email?: string
+  telefono_corporativo?: string
+  telefono?: string
 }
 
 interface IntranetPersonasResponse {
@@ -130,10 +134,14 @@ async function uniqueAreaPrefix(name: string, taken: Set<string>): Promise<strin
 }
 
 // ─── Upsert de un listType de ZymoConfigList por externalId ─────────────────
-async function syncConfigList(
-  listType: string,
-  items: { externalId: string; label: string }[],
-): Promise<SyncSection> {
+interface SyncListItem {
+  externalId: string
+  label: string
+  contactEmail?: string
+  contactPhone?: string
+}
+
+async function syncConfigList(listType: string, items: SyncListItem[]): Promise<SyncSection> {
   const section: SyncSection = { fetched: items.length, created: 0, updated: 0 }
   const maxRow = await prisma.zymoConfigList.aggregate({
     where: { listType },
@@ -147,7 +155,12 @@ async function syncConfigList(
     if (existing) {
       await prisma.zymoConfigList.update({
         where: { id: existing.id },
-        data: { label: item.label, syncedAt: new Date() },
+        data: {
+          label: item.label,
+          contactEmail: item.contactEmail || null,
+          contactPhone: item.contactPhone || null,
+          syncedAt: new Date(),
+        },
       })
       section.updated++
       continue
@@ -159,6 +172,8 @@ async function syncConfigList(
         value,
         label: item.label,
         externalId: item.externalId,
+        contactEmail: item.contactEmail || null,
+        contactPhone: item.contactPhone || null,
         sortOrder: nextOrder,
         isActive: true,
         syncedAt: new Date(),
@@ -235,14 +250,21 @@ export async function syncMasterData(): Promise<SyncMasterDataResult> {
       fetchIntranet<IntranetClientesResponse>("/tc/clientes?limit=500", token),
     ])
 
-    const byCategory: Record<PersonaCategory, { externalId: string; label: string }[]> = {
+    const byCategory: Record<PersonaCategory, SyncListItem[]> = {
       supervisors: [],
       analysts: [],
       coordinators: [],
     }
     for (const p of personasResp.items) {
       const category = classifyCargo(p.cargo_nombre)
-      if (category) byCategory[category].push({ externalId: String(p.id), label: p.nombre })
+      if (category) {
+        byCategory[category].push({
+          externalId: String(p.id),
+          label: p.nombre,
+          contactEmail: p.email_corporativo || p.email || undefined,
+          contactPhone: p.telefono_corporativo || p.telefono || undefined,
+        })
+      }
     }
 
     const areasResult = await syncAreas(areas)
@@ -259,7 +281,7 @@ export async function syncMasterData(): Promise<SyncMasterDataResult> {
     const coordinatorsResult = await syncConfigList("coordinators", byCategory.coordinators)
     const managersResult = await syncConfigList(
       "managers",
-      users.map((u) => ({ externalId: String(u.id), label: u.full_name ?? u.email })),
+      users.map((u) => ({ externalId: String(u.id), label: u.full_name ?? u.email, contactEmail: u.email })),
     )
 
     return {
