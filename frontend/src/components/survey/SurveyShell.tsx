@@ -33,8 +33,8 @@ export function SurveyShell({ logoSrc, title, badge, heading, description, stats
             style={{ backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px)", backgroundSize: "16px 16px" }}
           />
           <div className="relative z-10">
-            <div className="inline-block bg-white rounded-lg px-3 py-2 mb-7">
-              <img src={logoSrc} alt="ZYMO" className="h-5" />
+            <div className="inline-block bg-white rounded-lg px-4 py-2.5 mb-7">
+              <img src={logoSrc} alt="ZYMO" className="h-10 w-auto object-contain" />
             </div>
             <span className="inline-block text-[10px] font-semibold tracking-wider uppercase text-[#ffa8b8] bg-[rgba(212,58,86,0.18)] border border-[rgba(212,58,86,0.35)] px-3 py-1.5 rounded-full mb-4">
               {badge}
@@ -54,8 +54,8 @@ export function SurveyShell({ logoSrc, title, badge, heading, description, stats
 
         {/* Banda de header — solo mobile */}
         <div className="lg:hidden relative bg-gradient-to-br from-survey-primary to-survey-primary-dark px-6 pt-6 pb-11">
-          <div className="inline-block bg-white rounded-md px-2.5 py-1.5 mb-3.5">
-            <img src={logoSrc} alt="ZYMO" className="h-4" />
+          <div className="inline-block bg-white rounded-md px-3 py-2 mb-3.5">
+            <img src={logoSrc} alt="ZYMO" className="h-8 w-auto object-contain" />
           </div>
           <h5 className="text-white text-[15px] font-semibold mb-1.5">{title}</h5>
           <p className="text-white/85 text-[11px]">Solo te tomará 2 minutos · Confidencial</p>
