@@ -303,6 +303,7 @@ async def marcar_oc_enviada(
     background_tasks: BackgroundTasks,
     current_user: User = Depends(require_compras),
     oc_db: Session = Depends(get_oc_db),
+    db: Session = Depends(get_db),
 ):
     from app.models.oc import EstadoOC
     from app.services import email_service
@@ -345,7 +346,7 @@ async def marcar_oc_enviada(
     oc_db.refresh(solicitud)
 
     if orden and payload.email_proveedor:
-        # El email OC al proveedor ya incluye al solicitante en CC —
+        # El email OC al proveedor ya incluye al solicitante y al auxiliar en CC —
         # no enviar notificación separada para evitar que el solicitante reciba dos correos.
         cotizacion = oc_db.exec(
             select(CotizacionProveedor)
@@ -355,6 +356,11 @@ async def marcar_oc_enviada(
             )
             .order_by(CotizacionProveedor.created_at.desc())
         ).first()
+        auxiliar_email: Optional[str] = None
+        if solicitud.auxiliar_id:
+            auxiliar = db.get(User, solicitud.auxiliar_id)
+            if auxiliar:
+                auxiliar_email = auxiliar.email
         background_tasks.add_task(
             email_service.send_oc_a_proveedor,
             solicitud,
@@ -362,6 +368,7 @@ async def marcar_oc_enviada(
             orden.pdf_path,
             payload.email_proveedor,
             cotizacion.items if cotizacion else None,
+            auxiliar_email,
         )
     else:
         # Si no hay email de proveedor, notificar al solicitante directamente.

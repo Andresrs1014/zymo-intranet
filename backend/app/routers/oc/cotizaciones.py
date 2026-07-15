@@ -1302,6 +1302,13 @@ def corregir_directivo(
     oc_db.commit()
     oc_db.refresh(cotizacion)
 
+    # Notificar al auxiliar y al solicitante
+    auxiliar_email: Optional[str] = None
+    if solicitud.auxiliar_id:
+        auxiliar = db.get(User, solicitud.auxiliar_id)
+        if auxiliar and auxiliar.email:
+            auxiliar_email = auxiliar.email
+
     if solicitud.estado in (EstadoOC.oc_enviada, EstadoOC.oc_en_plataforma):
         regen = regenerar_pdf_orden_por_solicitud(oc_db, db, solicitud.id)
         if regen:
@@ -1315,14 +1322,8 @@ def corregir_directivo(
                     orden.pdf_path,
                     email_prov,
                     cot_actualizada.items,
+                    auxiliar_email,
                 )
-
-    # Notificar al auxiliar y al solicitante
-    auxiliar_email: Optional[str] = None
-    if solicitud.auxiliar_id:
-        auxiliar = db.get(User, solicitud.auxiliar_id)
-        if auxiliar and auxiliar.email:
-            auxiliar_email = auxiliar.email
 
     background_tasks.add_task(
         send_correccion_directivo,

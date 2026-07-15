@@ -659,8 +659,9 @@ async def send_oc_a_proveedor(
     pdf_path: str | None,
     email_proveedor: str,
     items: Optional[list[dict]] = None,
+    auxiliar_email: Optional[str] = None,
 ) -> None:
-    """Envía el documento OC al proveedor como adjunto + CC al solicitante."""
+    """Envía el documento OC al proveedor como adjunto + CC al solicitante y al auxiliar de compras."""
     cfg = _get_runtime_config(plataforma=s.plataforma)
     if not (cfg["smtp_user"] and cfg["smtp_password"]):
         log.warning("[email] SMTP no configurado — omitiendo envío OC a proveedor")
@@ -679,8 +680,10 @@ async def send_oc_a_proveedor(
         )
         return
 
-    # CC al solicitante si tiene email registrado
-    cc_list = [s.solicitante_email] if s.solicitante_email else []
+    # CC al solicitante y al auxiliar de compras que gestionó la solicitud (sin duplicados)
+    cc_list = list(dict.fromkeys(
+        filter(None, [s.solicitante_email, auxiliar_email])
+    ))
 
     logo_uri = _logo_base64(s.plataforma)
     nombre_empresa = _b(cfg, "empresa_nombre")
