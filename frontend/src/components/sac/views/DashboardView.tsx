@@ -107,7 +107,9 @@ export function DashboardView() {
         <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
           <h3 className="mb-3 text-sm font-bold text-zinc-900">Estrategias sugeridas</h3>
           <ul className="list-disc space-y-1.5 pl-5 text-[13px] text-zinc-700">
-            {strategies.map((line, i) => <li key={i}>{line}</li>)}
+            {strategies.map((s) => (
+              <li key={s.title}><strong>{s.title}:</strong> {s.detail}</li>
+            ))}
           </ul>
         </div>
       </div>

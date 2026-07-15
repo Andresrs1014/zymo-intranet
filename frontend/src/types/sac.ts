@@ -119,7 +119,7 @@ export interface SacDashboardResult {
     commercialPie: SacChartPoint[]
   }
   aiAnalysis: string[]
-  strategies: string[]
+  strategies: { title: string; detail: string }[]
 }
 
 export interface SurveyMagicLinkResult {
