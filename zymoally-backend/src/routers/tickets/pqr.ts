@@ -220,6 +220,28 @@ router.patch("/:id/criterio", async (req, res, next) => {
   }
 })
 
+// PATCH /:id/fecha-compromiso — fecha de compromiso del área asignada (dueDate)
+router.patch("/:id/fecha-compromiso", async (req, res, next) => {
+  try {
+    const id = Number(req.params.id)
+    const { dueDate } = z.object({ dueDate: z.string() }).parse(req.body)
+    const existing = await prisma.zymoPqrTicket.findUnique({ where: { id } })
+    if (!existing) { res.status(404).json({ error: "Ticket no encontrado" }); return }
+
+    const ticket = await prisma.zymoPqrTicket.update({
+      where: { id },
+      data: {
+        dueDate: dueDate || null,
+        actions: { create: [{ texto: `${currentDateValue()} - Fecha de compromiso actualizada a ${dueDate || "sin definir"}` }] },
+      },
+      include: { actions: true, evidence: true },
+    })
+    res.json(ticket)
+  } catch (err) {
+    next(err)
+  }
+})
+
 // PATCH /:id/cierre — fecha de cierre (app.js:1823-1832)
 router.patch("/:id/cierre", async (req, res, next) => {
   try {
