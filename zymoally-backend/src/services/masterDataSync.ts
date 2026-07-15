@@ -18,11 +18,18 @@ interface IntranetSede {
 interface IntranetPersona {
   id: number
   nombre: string
+  cargo_nombre?: string
 }
 
 interface IntranetPersonasResponse {
   total: number
   items: IntranetPersona[]
+}
+
+interface IntranetUser {
+  id: number
+  full_name: string | null
+  email: string
 }
 
 // ─── Resultado del sync ─────────────────────────────────────────────────────
@@ -35,8 +42,26 @@ interface SyncSection {
 export interface SyncMasterDataResult {
   areas: SyncSection
   platforms: SyncSection
-  personas: SyncSection
+  supervisors: SyncSection
+  analysts: SyncSection
+  coordinators: SyncSection
+  managers: SyncSection
   ranAt: string
+}
+
+// ─── Clasificación de personas del directorio por nombre de cargo ───────────
+// ponytail: heurística por texto (no hay categoría estructurada "rol" en
+// PtcCargo, solo `nombre` libre) — si un cargo real no contiene ninguna de
+// estas palabras, esa persona no entra a ningún select y toca agregarla a
+// mano desde el panel de configuración (fallback 100% configurable acordado).
+type PersonaCategory = "supervisors" | "analysts" | "coordinators"
+
+function classifyCargo(cargoNombre: string | undefined): PersonaCategory | null {
+  const n = (cargoNombre ?? "").toLowerCase()
+  if (n.includes("supervisor")) return "supervisors"
+  if (n.includes("analista")) return "analysts"
+  if (n.includes("coordinador")) return "coordinators"
+  return null
 }
 
 // ─── Token de servicio ───────────────────────────────────────────────────────
@@ -185,28 +210,48 @@ export async function syncMasterData(): Promise<SyncMasterDataResult> {
   syncing = true
   try {
     const token = mintServiceToken()
-    const [areas, sedes, personasResp] = await Promise.all([
+    const [areas, sedes, personasResp, users] = await Promise.all([
       fetchIntranet<IntranetArea[]>("/areas", token),
       fetchIntranet<IntranetSede[]>("/sedes?para_solicitudes_oc=true", token),
       // "Activo" con mayúscula — PtcPersona.estado (backend/app/personal_database.py)
       // guarda el valor así y el filtro en personal.py usa == exacto, sensible a mayúsculas.
       fetchIntranet<IntranetPersonasResponse>("/tc/personas?estado=Activo&limit=500", token),
+      // Usuarios reales de la intranet (login propio) — separado del directorio
+      // T&C, son quienes gestionan tickets dentro de la app, no quienes
+      // aparecen en el organigrama.
+      fetchIntranet<IntranetUser[]>("/api/tasks-v2/users", token),
     ])
+
+    const byCategory: Record<PersonaCategory, { externalId: string; label: string }[]> = {
+      supervisors: [],
+      analysts: [],
+      coordinators: [],
+    }
+    for (const p of personasResp.items) {
+      const category = classifyCargo(p.cargo_nombre)
+      if (category) byCategory[category].push({ externalId: String(p.id), label: p.nombre })
+    }
 
     const areasResult = await syncAreas(areas)
     const platformsResult = await syncConfigList(
       "platforms",
       sedes.map((s) => ({ externalId: String(s.id), label: s.name })),
     )
-    const personasResult = await syncConfigList(
-      "personas",
-      personasResp.items.map((p) => ({ externalId: String(p.id), label: p.nombre })),
+    const supervisorsResult = await syncConfigList("supervisors", byCategory.supervisors)
+    const analystsResult = await syncConfigList("analysts", byCategory.analysts)
+    const coordinatorsResult = await syncConfigList("coordinators", byCategory.coordinators)
+    const managersResult = await syncConfigList(
+      "managers",
+      users.map((u) => ({ externalId: String(u.id), label: u.full_name ?? u.email })),
     )
 
     return {
       areas: areasResult,
       platforms: platformsResult,
-      personas: personasResult,
+      supervisors: supervisorsResult,
+      analysts: analystsResult,
+      coordinators: coordinatorsResult,
+      managers: managersResult,
       ranAt: new Date().toISOString(),
     }
   } finally {

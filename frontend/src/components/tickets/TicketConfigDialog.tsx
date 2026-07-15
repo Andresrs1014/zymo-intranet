@@ -4,14 +4,19 @@ import {
   AlertCircle,
   ArrowDown,
   ArrowUp,
+  Building2,
   Check,
   CircleDot,
   Code2,
   Pencil,
   Plus,
+  Search,
   Settings2,
   Tags,
   Trash2,
+  UserCheck,
+  UserCog,
+  Users,
   X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -52,7 +57,8 @@ interface TicketConfigDialogProps {
   returnFocusRef: RefObject<HTMLButtonElement | null>
 }
 
-type EditableListType = "statuses" | "types"
+type EditableListType =
+  | "statuses" | "types" | "platforms" | "supervisors" | "analysts" | "coordinators" | "managers"
 type MoveDirection = -1 | 1
 
 interface IconActionProps extends ComponentProps<typeof Button> {
@@ -681,6 +687,11 @@ export function TicketConfigDialog({
   const areasQuery = useTicketAreaPrefixes()
   const statuses = listsQuery.data?.statuses ?? []
   const types = listsQuery.data?.types ?? []
+  const platforms = listsQuery.data?.platforms ?? []
+  const supervisors = listsQuery.data?.supervisors ?? []
+  const analysts = listsQuery.data?.analysts ?? []
+  const coordinators = listsQuery.data?.coordinators ?? []
+  const managers = listsQuery.data?.managers ?? []
   const areas = areasQuery.data ?? []
 
   return (
@@ -703,7 +714,7 @@ export function TicketConfigDialog({
               <div className="min-w-0">
                 <DialogTitle className="truncate text-base">Configuraci&oacute;n de tickets</DialogTitle>
                 <DialogDescription className="mt-1">
-                  Estado, tipo y prefijos por &aacute;rea.
+                  Estado, tipo, prefijos por &aacute;rea y listas de personas.
                 </DialogDescription>
               </div>
             </div>
@@ -713,7 +724,7 @@ export function TicketConfigDialog({
         <TooltipProvider delayDuration={250}>
           <Tabs defaultValue="statuses" className="flex min-h-0 flex-1 flex-col">
             <div className="shrink-0 border-b border-zinc-200 px-4 py-3">
-              <TabsList className="grid h-auto w-full grid-cols-3 bg-zinc-100 p-1">
+              <TabsList className="grid h-auto w-full grid-cols-2 gap-1 bg-zinc-100 p-1 sm:grid-cols-4">
                 <TabsTrigger
                   value="statuses"
                   className="min-h-10 min-w-0 gap-1.5 px-2 text-xs data-[state=active]:bg-primary data-[state=active]:text-white sm:text-sm"
@@ -737,6 +748,46 @@ export function TicketConfigDialog({
                   <TabLabel icon={<Code2 className="h-4 w-4 shrink-0" />} count={areas.length}>
                     <span className="sm:hidden">C&oacute;d. &aacute;rea</span>
                     <span className="hidden sm:inline">C&oacute;digo por &aacute;rea</span>
+                  </TabLabel>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="platforms"
+                  className="min-h-10 min-w-0 gap-1.5 px-2 text-xs data-[state=active]:bg-primary data-[state=active]:text-white sm:text-sm"
+                >
+                  <TabLabel icon={<Building2 className="h-4 w-4 shrink-0" />} count={platforms.length}>
+                    Plataforma
+                  </TabLabel>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="supervisors"
+                  className="min-h-10 min-w-0 gap-1.5 px-2 text-xs data-[state=active]:bg-primary data-[state=active]:text-white sm:text-sm"
+                >
+                  <TabLabel icon={<UserCog className="h-4 w-4 shrink-0" />} count={supervisors.length}>
+                    Supervisor
+                  </TabLabel>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="analysts"
+                  className="min-h-10 min-w-0 gap-1.5 px-2 text-xs data-[state=active]:bg-primary data-[state=active]:text-white sm:text-sm"
+                >
+                  <TabLabel icon={<Search className="h-4 w-4 shrink-0" />} count={analysts.length}>
+                    Analista
+                  </TabLabel>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="coordinators"
+                  className="min-h-10 min-w-0 gap-1.5 px-2 text-xs data-[state=active]:bg-primary data-[state=active]:text-white sm:text-sm"
+                >
+                  <TabLabel icon={<Users className="h-4 w-4 shrink-0" />} count={coordinators.length}>
+                    Coordinador
+                  </TabLabel>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="managers"
+                  className="min-h-10 min-w-0 gap-1.5 px-2 text-xs data-[state=active]:bg-primary data-[state=active]:text-white sm:text-sm"
+                >
+                  <TabLabel icon={<UserCheck className="h-4 w-4 shrink-0" />} count={managers.length}>
+                    Gestiona
                   </TabLabel>
                 </TabsTrigger>
               </TabsList>
@@ -771,6 +822,66 @@ export function TicketConfigDialog({
                 <QueryErrorState onRetry={() => void areasQuery.refetch()} />
               ) : (
                 <AreaPrefixSection items={areas} isLoading={areasQuery.isLoading} />
+              )}
+            </TabsContent>
+            <TabsContent value="platforms" className="mt-0 min-h-0 flex-1 overflow-hidden">
+              {listsQuery.isError ? (
+                <QueryErrorState onRetry={() => void listsQuery.refetch()} />
+              ) : (
+                <ListConfigSection
+                  listType="platforms"
+                  singular="Plataforma"
+                  items={platforms}
+                  isLoading={listsQuery.isLoading}
+                />
+              )}
+            </TabsContent>
+            <TabsContent value="supervisors" className="mt-0 min-h-0 flex-1 overflow-hidden">
+              {listsQuery.isError ? (
+                <QueryErrorState onRetry={() => void listsQuery.refetch()} />
+              ) : (
+                <ListConfigSection
+                  listType="supervisors"
+                  singular="Supervisor"
+                  items={supervisors}
+                  isLoading={listsQuery.isLoading}
+                />
+              )}
+            </TabsContent>
+            <TabsContent value="analysts" className="mt-0 min-h-0 flex-1 overflow-hidden">
+              {listsQuery.isError ? (
+                <QueryErrorState onRetry={() => void listsQuery.refetch()} />
+              ) : (
+                <ListConfigSection
+                  listType="analysts"
+                  singular="Analista"
+                  items={analysts}
+                  isLoading={listsQuery.isLoading}
+                />
+              )}
+            </TabsContent>
+            <TabsContent value="coordinators" className="mt-0 min-h-0 flex-1 overflow-hidden">
+              {listsQuery.isError ? (
+                <QueryErrorState onRetry={() => void listsQuery.refetch()} />
+              ) : (
+                <ListConfigSection
+                  listType="coordinators"
+                  singular="Coordinador"
+                  items={coordinators}
+                  isLoading={listsQuery.isLoading}
+                />
+              )}
+            </TabsContent>
+            <TabsContent value="managers" className="mt-0 min-h-0 flex-1 overflow-hidden">
+              {listsQuery.isError ? (
+                <QueryErrorState onRetry={() => void listsQuery.refetch()} />
+              ) : (
+                <ListConfigSection
+                  listType="managers"
+                  singular="Gestor"
+                  items={managers}
+                  isLoading={listsQuery.isLoading}
+                />
               )}
             </TabsContent>
           </Tabs>

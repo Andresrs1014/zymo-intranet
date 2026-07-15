@@ -20,7 +20,8 @@ export interface TicketListFilters {
   search?: string
 }
 
-type EditableTicketListType = "statuses" | "types"
+type EditableTicketListType =
+  | "statuses" | "types" | "platforms" | "supervisors" | "analysts" | "coordinators" | "managers"
 
 interface CreateListItemInput {
   listType: EditableTicketListType

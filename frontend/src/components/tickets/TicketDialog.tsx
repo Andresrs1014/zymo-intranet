@@ -44,7 +44,7 @@ const STAGES = [
 
 const EMPTY_FORM = {
   type: "", area: "", areaPrefix: "", client: "", platform: "", supervisor: "",
-  analyst: "", coordinator: "", owner: "", phone: "", email: "", date: currentDateValue(),
+  analyst: "", coordinator: "", manager: "", owner: "", phone: "", email: "", date: currentDateValue(),
   dueDate: "", status: "", priority: "", impact: "", channel: "", managementCriteria: "",
   description: "", actionsInitial: "",
 }
@@ -66,8 +66,10 @@ export function TicketDialog() {
   async function handleSync() {
     try {
       const r = await syncMasterData.mutateAsync()
-      const created = r.areas.created + r.platforms.created + r.personas.created
-      const updated = r.areas.updated + r.platforms.updated + r.personas.updated
+      const created = r.areas.created + r.platforms.created + r.supervisors.created
+        + r.analysts.created + r.coordinators.created + r.managers.created
+      const updated = r.areas.updated + r.platforms.updated + r.supervisors.updated
+        + r.analysts.updated + r.coordinators.updated + r.managers.updated
       showToast(`Datos maestros sincronizados: ${created} nuevos, ${updated} actualizados`, "success")
     } catch (err) {
       showToast(extractErrorMessage(err, "No se pudo sincronizar los datos maestros."), "error")
@@ -166,21 +168,28 @@ export function TicketDialog() {
                 label="Supervisor"
                 value={form.supervisor}
                 onChange={(v) => set("supervisor", v)}
-                options={(lists?.personas ?? []).map((p) => ({ value: p.value, label: p.label }))}
+                options={(lists?.supervisors ?? []).map((p) => ({ value: p.value, label: p.label }))}
                 noneLabel="Sin asignar"
               />
               <FormSelect
                 label="Analista"
                 value={form.analyst}
                 onChange={(v) => set("analyst", v)}
-                options={(lists?.personas ?? []).map((p) => ({ value: p.value, label: p.label }))}
+                options={(lists?.analysts ?? []).map((p) => ({ value: p.value, label: p.label }))}
                 noneLabel="Sin asignar"
               />
               <FormSelect
                 label="Coordinador"
                 value={form.coordinator}
                 onChange={(v) => set("coordinator", v)}
-                options={(lists?.personas ?? []).map((p) => ({ value: p.value, label: p.label }))}
+                options={(lists?.coordinators ?? []).map((p) => ({ value: p.value, label: p.label }))}
+                noneLabel="Sin asignar"
+              />
+              <FormSelect
+                label="¿Quién gestiona el ticket?"
+                value={form.manager}
+                onChange={(v) => set("manager", v)}
+                options={(lists?.managers ?? []).map((p) => ({ value: p.value, label: p.label }))}
                 noneLabel="Sin asignar"
               />
               <div>

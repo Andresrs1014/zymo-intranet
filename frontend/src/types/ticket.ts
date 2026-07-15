@@ -27,6 +27,7 @@ export interface Ticket {
   supervisor: string | null
   analyst: string | null
   coordinator: string | null
+  manager: string | null
   phone: string | null
   email: string | null
   owner: string | null
@@ -52,6 +53,7 @@ export interface CreateTicketInput {
   supervisor?: string
   analyst?: string
   coordinator?: string
+  manager?: string
   phone?: string
   email?: string
   owner?: string
@@ -80,7 +82,7 @@ export interface TicketConfigLists {
   supervisors: TicketListItem[]
   analysts: TicketListItem[]
   coordinators: TicketListItem[]
-  personas: TicketListItem[]
+  managers: TicketListItem[]
   generators: TicketListItem[]
   phones: TicketListItem[]
   emails: TicketListItem[]
@@ -127,6 +129,9 @@ export interface SyncSectionResult {
 export interface SyncMasterDataResult {
   areas: SyncSectionResult
   platforms: SyncSectionResult
-  personas: SyncSectionResult
+  supervisors: SyncSectionResult
+  analysts: SyncSectionResult
+  coordinators: SyncSectionResult
+  managers: SyncSectionResult
   ranAt: string
 }

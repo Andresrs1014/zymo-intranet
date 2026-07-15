@@ -104,6 +104,7 @@ export function TicketDrawer() {
               {ticket.supervisor && <p><strong>Supervisor:</strong> {ticket.supervisor}</p>}
               {ticket.analyst && <p><strong>Analista:</strong> {ticket.analyst}</p>}
               {ticket.coordinator && <p><strong>Coordinador:</strong> {ticket.coordinator}</p>}
+              {ticket.manager && <p><strong>Gestiona:</strong> {ticket.manager}</p>}
               {ticket.phone && <p><strong>Teléfono:</strong> {ticket.phone}</p>}
               {ticket.email && <p><strong>Correo:</strong> {ticket.email}</p>}
               {ticket.closedDate && <p><strong>Cierre:</strong> {ticket.closedDate}</p>}

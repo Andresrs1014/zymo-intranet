@@ -21,6 +21,7 @@ model ZymoPqrTicket {
   supervisor         String?
   analyst            String?
   coordinator        String?
+  manager            String?
   phone              String?
   email              String?
   owner              String?
