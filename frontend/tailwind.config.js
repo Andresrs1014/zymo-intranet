@@ -8,6 +8,16 @@ export default {
   theme: {
     extend: {
       colors: {
+        // ZymoAlly survey module (público, sin login) — paleta blanco+rojo
+        // portada tal cual del sandbox, ver docs/superpowers/specs/2026-07-07-zymoally-survey-frontend-design.md
+        survey: {
+          primary: "#d43a56",
+          "primary-dark": "#a8172f",
+          "accent-bg": "#fce9ed",
+          border: "#e5e5e8",
+          muted: "#767a89",
+          ink: "#0f1013",
+        },
         // Helix Zymo module colors
         helix: {
           accent:      "#ef3340",

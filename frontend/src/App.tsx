@@ -53,6 +53,7 @@ import { ExtraccionIAPage } from "@/pages/admin/ExtraccionIAPage"
 import { HelixPage } from "@/pages/planeacion/helix/HelixPage"
 import { TicketsPage } from "@/pages/tickets/TicketsPage"
 import { SacPage } from "@/pages/sac/SacPage"
+import { SurveyPage } from "@/pages/survey/SurveyPage"
 import { TaskPage } from "@/pages/tareas/TaskPage"
 import { SigPage } from "@/pages/sig/SigPage"
 import MantenimientoPage from "@/pages/mantenimiento/MantenimientoPage"
@@ -271,6 +272,8 @@ export default function App() {
         </Route>
         <Route path="/m/q/:accessToken" element={<MantenimientoMobilePage mode="stable" />} />
         <Route path="/m/:token" element={<MantenimientoMobilePage mode="jwt" />} />
+        {/* Encuesta pública ZymoAlly SAC — sin login, mismo patrón que /m/:token */}
+        <Route path="/e/:surveyType" element={<SurveyPage />} />
         <Route
           path="/login"
           element={
