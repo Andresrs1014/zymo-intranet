@@ -4,6 +4,7 @@ import { z } from "zod"
 import { prisma } from "../../config/prisma"
 import { env } from "../../config/env"
 import { currentDateValue } from "../../utils/formatters"
+import { createShortLink } from "../../services/shortLink"
 import type { SurveyLinkPayload } from "../../middleware/auth"
 
 const router = Router()
@@ -16,13 +17,16 @@ const MagicLinkBody = z.object({
 })
 
 // POST /magic-link — genera el link público de encuesta (mismo patrón que /magic-link de Mantenimiento)
-router.post("/magic-link", (req, res, next) => {
+// + un código corto (/s/:code) porque el JWT en la URL es largo por naturaleza.
+router.post("/magic-link", async (req, res, next) => {
   try {
     const body = MagicLinkBody.parse(req.body)
     const payload: SurveyLinkPayload = { scope: "survey_client", surveyType: body.surveyType }
     const token = jwt.sign(payload, env.JWT_SECRET, { algorithm: "HS256", expiresIn: MAGIC_LINK_TTL })
     const url = `${env.PUBLIC_APP_URL}/e/${body.surveyType}?t=${token}`
-    res.status(201).json({ token, url })
+    const code = await createShortLink(url)
+    const shortUrl = `${env.PUBLIC_APP_URL}/s/${code}`
+    res.status(201).json({ token, url, shortUrl })
   } catch (err) {
     next(err)
   }

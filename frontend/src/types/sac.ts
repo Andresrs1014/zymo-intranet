@@ -125,4 +125,5 @@ export interface SacDashboardResult {
 export interface SurveyMagicLinkResult {
   token: string
   url: string
+  shortUrl: string
 }

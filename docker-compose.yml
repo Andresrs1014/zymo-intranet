@@ -209,6 +209,7 @@ services:
       - SYNC_SERVICE_EMAIL=${SYNC_SERVICE_EMAIL}
       - UPLOAD_DIR=/app/uploads
       - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:81}
+      - PUBLIC_APP_URL=${PUBLIC_APP_URL:-https://zymointranet.com}
     volumes:
       - zymoally_uploads:/app/uploads
     depends_on:

@@ -74,6 +74,15 @@ model ZymoConfigList {
   @@index([listType])
 }
 
+// Links cortos (ej. "Enviar encuesta" en SAC) — el token del magic-link es
+// un JWT, largo por naturaleza; acá se guarda solo el mapeo code -> url real.
+model ZymoShortLink {
+  id        Int      @id @default(autoincrement())
+  code      String   @unique
+  url       String
+  createdAt DateTime @default(now())
+}
+
 model ZymoAreaPrefix {
   id         Int       @id @default(autoincrement())
   area       String

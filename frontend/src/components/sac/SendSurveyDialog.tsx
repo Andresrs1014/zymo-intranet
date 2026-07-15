@@ -33,7 +33,7 @@ export function SendSurveyDialog() {
     if (!surveyType) return
     try {
       const result = await sendLink.mutateAsync(surveyType)
-      setUrl(result.url)
+      setUrl(result.shortUrl)
     } catch (err) {
       showToast(extractErrorMessage(err, "No se pudo generar el link."), "error")
     }

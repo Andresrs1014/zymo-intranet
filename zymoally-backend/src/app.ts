@@ -17,6 +17,7 @@ import sacAlertasRouter from "./routers/sac/sacAlertas"
 import sacConfigRouter from "./routers/sac/sacConfig"
 import { ticketsExportRouter, sacExportRouter } from "./routers/export"
 import publicSurveyRouter from "./routers/public/survey"
+import publicShortLinkRouter from "./routers/public/shortlink"
 
 const app = express()
 
@@ -40,6 +41,9 @@ app.get("/health", (_req: Request, res: Response) => {
 
 // --- Encuesta pública (magic-link, sin login — cliente final) ---
 app.use("/public/survey", publicSurveyRouter)
+
+// --- Links cortos (ej. "Enviar encuesta") — redirect público, sin login ---
+app.use("/s", publicShortLinkRouter)
 
 // --- Auth ---
 app.use("/api", authenticate)
