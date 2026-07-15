@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react"
+import { useNavigate } from "react-router-dom"
+import { Mail, ArrowRight } from "lucide-react"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { api } from "@/lib/api"
 import { useRef } from "react"
@@ -52,11 +54,6 @@ async function descargarParPrueba(): Promise<string> {
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface OcConfigRead {
-  smtp_host: string
-  smtp_port: string
-  smtp_user: string
-  smtp_password_set: boolean
-  smtp_from: string
   email_directora: string
   email_compras?: string
   email_financiero?: string
@@ -79,11 +76,6 @@ interface OcConfigRead {
 }
 
 interface FormState {
-  smtp_host: string
-  smtp_port: string
-  smtp_user: string
-  smtp_password: string
-  smtp_from: string
   email_directora: string
   email_compras: string
   email_financiero: string
@@ -125,13 +117,8 @@ async function saveConfig(payload: Partial<FormState>): Promise<void> {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function OcConfigPage() {
-  const [config, setConfig] = useState<OcConfigRead | null>(null)
+  const navigate = useNavigate()
   const [form, setForm] = useState<FormState>({
-    smtp_host: "",
-    smtp_port: "",
-    smtp_user: "",
-    smtp_password: "",
-    smtp_from: "",
     email_directora: "",
     email_compras: "",
     email_financiero: "",
@@ -183,13 +170,7 @@ export function OcConfigPage() {
   useEffect(() => {
     fetchConfig()
       .then((data) => {
-        setConfig(data)
         setForm({
-          smtp_host: data.smtp_host,
-          smtp_port: data.smtp_port,
-          smtp_user: data.smtp_user,
-          smtp_password: "",
-          smtp_from: data.smtp_from,
           email_directora: data.email_directora,
           email_compras: data.email_compras ?? "",
           email_financiero: data.email_financiero ?? "",
@@ -241,12 +222,7 @@ export function OcConfigPage() {
     setError(null)
     setSuccess(false)
 
-    // Only send password if user typed something
     const payload: Partial<FormState> = {
-      smtp_host: form.smtp_host,
-      smtp_port: form.smtp_port,
-      smtp_user: form.smtp_user,
-      smtp_from: form.smtp_from,
       email_directora: form.email_directora,
       email_compras: form.email_compras,
       email_financiero: form.email_financiero,
@@ -265,17 +241,9 @@ export function OcConfigPage() {
       email_intro_flujo3: form.email_intro_flujo3,
       email_intro_flujo4: form.email_intro_flujo4,
     }
-    if (form.smtp_password.trim()) {
-      payload.smtp_password = form.smtp_password
-    }
-
     try {
       await saveConfig(payload)
       setSuccess(true)
-      // Refresh so smtp_password_set reflects reality
-      const updated = await fetchConfig()
-      setConfig(updated)
-      setForm((prev) => ({ ...prev, smtp_password: "" }))
     } catch {
       setError("Error al guardar la configuración. Intente de nuevo.")
     } finally {
@@ -305,61 +273,23 @@ export function OcConfigPage() {
 
             {!loading && (
               <form onSubmit={handleSubmit} className="space-y-6">
-                {/* SMTP */}
-                <section className="bg-card rounded-xl border border-border p-6 space-y-4">
+                {/* SMTP — ahora centralizado */}
+                <section className="bg-card rounded-xl border border-border p-6 space-y-3">
                   <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                     Servidor SMTP
                   </h2>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <Field
-                      label="Host SMTP"
-                      placeholder="smtp.office365.com"
-                      value={form.smtp_host}
-                      onChange={(v) => handleChange("smtp_host", v)}
-                    />
-                    <Field
-                      label="Puerto"
-                      placeholder="587"
-                      value={form.smtp_port}
-                      onChange={(v) => handleChange("smtp_port", v)}
-                      type="number"
-                    />
-                  </div>
-
-                  <Field
-                    label="Usuario (email remitente)"
-                    placeholder="compras@empresa.com"
-                    value={form.smtp_user}
-                    onChange={(v) => handleChange("smtp_user", v)}
-                    type="email"
-                  />
-
-                  <div>
-                    <Label className="mb-1">
-                      Contraseña
-                    </Label>
-                    <Input
-                      type="password"
-                      placeholder="Dejar en blanco para no cambiar"
-                      value={form.smtp_password}
-                      onChange={(e) => handleChange("smtp_password", e.target.value)}
-                      autoComplete="new-password"
-                    />
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {config?.smtp_password_set
-                        ? "✓ Contraseña configurada — solo escribe si quieres cambiarla"
-                        : "⚠ Sin contraseña configurada"}
-                    </p>
-                  </div>
-
-                  <Field
-                    label='Nombre "De" (smtp_from)'
-                    placeholder="compras@empresa.com"
-                    value={form.smtp_from}
-                    onChange={(v) => handleChange("smtp_from", v)}
-                    hint="Si se deja vacío, se usa el usuario SMTP como remitente."
-                  />
+                  <p className="text-sm text-muted-foreground">
+                    El correo de compras ahora usa la cuenta corporativa centralizada — la misma
+                    que comparten Tickets y T&C.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/admin/configuracion/smtp")}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-muted/5 hover:bg-muted/10 hover:border-primary/30 transition-all text-sm font-medium"
+                  >
+                    <Mail className="w-4 h-4 text-sky-500" /> Ir a SMTP corporativo
+                    <ArrowRight className="w-3.5 h-3.5 text-muted-foreground" />
+                  </button>
                 </section>
 
                 {/* Destinatarios */}

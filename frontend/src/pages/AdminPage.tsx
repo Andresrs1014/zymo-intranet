@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { useSearchParams } from "react-router-dom"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { AdminConfigNav } from "@/components/admin/AdminConfigNav"
 import { formatFechaRelativa } from "@/lib/dates"
@@ -50,8 +51,13 @@ const TOOLS = [
   { key: "tool_task_manage_dev", label: "Gestión de Tareas — Gestor", desc: "Gestión completa del equipo de tareas" },
 ]
 
+const VALID_TABS: Tab[] = ["activos", "archivados", "equipos", "config"]
+
 export function AdminPage() {
-  const [tab, setTab] = useState<Tab>("activos")
+  const [searchParams] = useSearchParams()
+  const tabParam = searchParams.get("tab")
+  const initialTab: Tab = VALID_TABS.includes(tabParam as Tab) ? (tabParam as Tab) : "activos"
+  const [tab, setTab] = useState<Tab>(initialTab)
   const [modal, setModal] = useState<"create" | "edit" | null>(null)
   const [selected, setSelected] = useState<UserListItem | null>(null)
   const [mutationError, setMutationError] = useState<string>()

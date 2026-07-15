@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom"
-import { Users, ShieldCheck, Building2, Mail, MessageCircle, ChevronRight, LockKeyhole } from "lucide-react"
+import { Users, ShieldCheck, Building2, Mail, MessageCircle, Webhook, Palette, Sparkles, ChevronRight, LockKeyhole } from "lucide-react"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { BlurFade } from "@/components/ui/blur-fade"
 
@@ -46,6 +46,27 @@ const CARDS: ConfigCard[] = [
     title: "WhatsApp corporativo",
     description: "Cuenta de WhatsApp Business API compartida para notificaciones — usada hoy por T&C.",
     accent: "#16a34a",
+  },
+  {
+    to: "/admin/configuracion/usuarios?tab=config",
+    icon: <Webhook className="h-5 w-5" />,
+    title: "Webhook Power Automate",
+    description: "Integración específica de Gestión de Tareas — vive aparte, solo enlazada aquí para encontrarla fácil.",
+    accent: "#ea580c",
+  },
+  {
+    to: "/oc/configuracion",
+    icon: <Palette className="h-5 w-5" />,
+    title: "Identidad de correos OC",
+    description: "Nombre, color, NIT y plantillas de los correos de Compras — branding propio de esa herramienta.",
+    accent: "#0369a1",
+  },
+  {
+    to: "/admin/extraccion-ia",
+    icon: <Sparkles className="h-5 w-5" />,
+    title: "Motor de extracción IA",
+    description: "Configuración del motor que lee cotizaciones — módulo aparte, no de gobernanza general.",
+    accent: "#7c3aed",
   },
 ]
 
