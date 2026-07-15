@@ -40,7 +40,11 @@ export function FormSelect({
   noneLabel,
   triggerClassName,
 }: FormSelectProps) {
-  const selectValue = value === "" && noneLabel ? NONE : value
+  // Radix Select trata value="" como "sin controlar" y deja de disparar
+  // onValueChange en selects sin noneLabel (el trigger nunca refleja la
+  // selección) — se usa el sentinel también aquí, sin renderizar el item
+  // visible cuando no hay noneLabel, para que el value controlado nunca sea "".
+  const selectValue = value === "" ? NONE : value
 
   return (
     <div>
