@@ -1,17 +1,29 @@
-import { LayoutDashboard, ListChecks, Smile } from "lucide-react"
+import { useRef, useState } from "react"
+import { LayoutDashboard, ListChecks, Settings, Smile } from "lucide-react"
 import { useSacUI } from "@/context/SacContext"
 import type { SacView } from "@/types/sac"
 import {
   Sidebar,
   SidebarHeader,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarRail,
+  useSidebar,
 } from "@/components/ui/sidebar"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { canConfigSAC } from "@/lib/permissions"
+import { useAuthStore } from "@/store/authStore"
+import { SacConfigDialog } from "./SacConfigDialog"
 
 const NAV_ITEMS: { view: SacView; label: string; icon: React.ReactNode }[] = [
   { view: "dashboard", label: "Dashboard", icon: <LayoutDashboard size={18} /> },
@@ -20,8 +32,14 @@ const NAV_ITEMS: { view: SacView; label: string; icon: React.ReactNode }[] = [
 
 export function SacSidebar() {
   const { activeView, setActiveView } = useSacUI()
+  const { setOpenMobile } = useSidebar()
+  const user = useAuthStore((state) => state.user)
+  const canConfig = user ? canConfigSAC(user.role, user.app_permissions) : false
+  const [configOpen, setConfigOpen] = useState(false)
+  const configButtonRef = useRef<HTMLButtonElement>(null)
 
   return (
+    <>
     <Sidebar collapsible="icon">
       <SidebarHeader>
         <div className="flex items-center gap-2.5 px-1.5 py-1.5">
@@ -71,7 +89,38 @@ export function SacSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      {canConfig && (
+        <SidebarFooter className="items-end p-2">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  ref={configButtonRef}
+                  type="button"
+                  onClick={() => {
+                    setOpenMobile(false)
+                    setConfigOpen(true)
+                  }}
+                  aria-label="Configuraci&oacute;n"
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring motion-reduce:transition-none"
+                >
+                  <Settings className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Configuraci&oacute;n</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </SidebarFooter>
+      )}
       <SidebarRail />
     </Sidebar>
+      {canConfig && (
+        <SacConfigDialog
+          open={configOpen}
+          onOpenChange={setConfigOpen}
+          returnFocusRef={configButtonRef}
+        />
+      )}
+    </>
   )
 }

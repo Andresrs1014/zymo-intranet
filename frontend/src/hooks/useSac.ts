@@ -5,8 +5,29 @@ import type {
 } from "@/types/sac"
 import type { TicketListItem } from "@/types/ticket"
 
+export type SacListType =
+  | "surveyValueChoices" | "surveyIssues" | "experienceFitChoices" | "experienceClarityChoices" | "visitOutcomes"
+
 interface SacConfigLists {
+  surveyValueChoices: TicketListItem[]
+  surveyIssues: TicketListItem[]
+  experienceFitChoices: TicketListItem[]
+  experienceClarityChoices: TicketListItem[]
   visitOutcomes: TicketListItem[]
+}
+
+interface CreateSacListItemInput {
+  listType: SacListType
+  value: string
+  label: string
+  sortOrder?: number
+}
+
+interface UpdateSacListItemInput {
+  id: number
+  label?: string
+  sortOrder?: number
+  isActive?: boolean
 }
 
 function buildParams(filters: SacRecordFilters): URLSearchParams {
@@ -48,6 +69,44 @@ export function useSacConfigLists() {
       return data
     },
     staleTime: 5 * 60 * 1000,
+  })
+}
+
+export function useCreateSacListItem() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: CreateSacListItemInput) => {
+      const { data } = await zymoallyApi.post<TicketListItem>("/api/sac/config/listas", input)
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["sac-config-lists"] })
+    },
+  })
+}
+
+export function useUpdateSacListItem() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...input }: UpdateSacListItemInput) => {
+      const { data } = await zymoallyApi.patch<TicketListItem>(`/api/sac/config/listas/${id}`, input)
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["sac-config-lists"] })
+    },
+  })
+}
+
+export function useDeleteSacListItem() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: number) => {
+      await zymoallyApi.delete(`/api/sac/config/listas/${id}`)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["sac-config-lists"] })
+    },
   })
 }
 
