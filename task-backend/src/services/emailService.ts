@@ -19,11 +19,44 @@ async function getUserEmail(userId: number): Promise<{ email: string; nombre: st
 
 // ─── Transport ───────────────────────────────────────────────────────────────
 
+interface SmtpCreds {
+  host: string
+  port: number
+  user: string
+  pass: string
+  from: string | null
+}
+
+// SMTP corporativo centralizado (Configuración de la intranet) — gana si está configurado.
+// Fallback a la config local de Tareas (systemConfigService) mientras no esté lleno.
+async function getGlobalSmtp(): Promise<SmtpCreds | null> {
+  try {
+    const res = await fetch(`${env.INTRANET_API_URL}/api/admin/smtp-config/service`, {
+      headers: { "X-Internal-Key": env.INTERNAL_KEY },
+    })
+    if (!res.ok) return null
+    const data = await res.json() as {
+      smtp_host: string; smtp_port: string; smtp_user: string; smtp_password: string; smtp_from: string
+    }
+    if (!data.smtp_host || !data.smtp_user || !data.smtp_password) return null
+    return {
+      host: data.smtp_host,
+      port: parseInt(data.smtp_port || "587", 10),
+      user: data.smtp_user,
+      pass: data.smtp_password,
+      from: data.smtp_from || null,
+    }
+  } catch {
+    return null
+  }
+}
+
 async function getTransport(): Promise<nodemailer.Transporter> {
-  const host = await svc.getConfig("smtp_host")
-  const port = parseInt((await svc.getConfig("smtp_port")) ?? "587", 10)
-  const user = await svc.getConfig("smtp_user")
-  const pass = await svc.getConfig("smtp_password")
+  const global = await getGlobalSmtp()
+  const host = global?.host ?? (await svc.getConfig("smtp_host"))
+  const port = global?.port ?? parseInt((await svc.getConfig("smtp_port")) ?? "587", 10)
+  const user = global?.user ?? (await svc.getConfig("smtp_user"))
+  const pass = global?.pass ?? (await svc.getConfig("smtp_password"))
 
   if (!host || !user || !pass) throw new Error("Configuración SMTP incompleta")
 
@@ -34,6 +67,11 @@ async function getTransport(): Promise<nodemailer.Transporter> {
     auth: { user, pass },
     tls: { rejectUnauthorized: false },
   })
+}
+
+async function getFromAddress(): Promise<string> {
+  const global = await getGlobalSmtp()
+  return global?.from ?? (await svc.getConfig("smtp_from")) ?? "ZYMO Intranet <noreply@zymo.com>"
 }
 
 // ─── Templates HTML (branded ZYMO) ──────────────────────────────────────────
@@ -95,7 +133,7 @@ interface TaskAssignedData {
 }
 
 async function sendTaskAssignedEmail(to: string, data: TaskAssignedData): Promise<void> {
-  const from = (await svc.getConfig("smtp_from")) ?? "ZYMO Intranet <noreply@zymo.com>"
+  const from = await getFromAddress()
   const transport = await getTransport()
 
   const body = `
@@ -129,7 +167,7 @@ interface TaskResponseData {
 }
 
 async function sendTaskAcceptedEmail(to: string, data: TaskResponseData): Promise<void> {
-  const from = (await svc.getConfig("smtp_from")) ?? "ZYMO Intranet <noreply@zymo.com>"
+  const from = await getFromAddress()
   const transport = await getTransport()
 
   const body = `
@@ -153,7 +191,7 @@ async function sendTaskAcceptedEmail(to: string, data: TaskResponseData): Promis
 // ─── Email: tarea rechazada ───────────────────────────────────────────────────
 
 async function sendTaskRejectedEmail(to: string, data: TaskResponseData): Promise<void> {
-  const from = (await svc.getConfig("smtp_from")) ?? "ZYMO Intranet <noreply@zymo.com>"
+  const from = await getFromAddress()
   const transport = await getTransport()
 
   const body = `
@@ -178,7 +216,7 @@ async function sendTaskRejectedEmail(to: string, data: TaskResponseData): Promis
 // ─── Email de prueba ──────────────────────────────────────────────────────────
 
 export async function sendTestEmail(to: string): Promise<void> {
-  const from = (await svc.getConfig("smtp_from")) ?? "ZYMO Intranet <noreply@zymo.com>"
+  const from = await getFromAddress()
   const transport = await getTransport()
 
   const body = `

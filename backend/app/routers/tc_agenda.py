@@ -524,9 +524,24 @@ def notificar_evento_email(
     if not config or not config.lider_email:
         raise HTTPException(400, "El área no tiene email del líder configurado")
 
-    smtp = db.get(PtcSmtpConfig, 1)
-    if not smtp or not smtp.activo or not smtp.host:
-        raise HTTPException(400, "SMTP no configurado o inactivo — configúralo en T&C · Ajustes")
+    from app.services.global_smtp import get_global_smtp
+
+    smtp_local = db.get(PtcSmtpConfig, 1)
+    global_smtp = get_global_smtp()
+    if global_smtp:
+        smtp_host, smtp_port = global_smtp["smtp_host"], global_smtp["smtp_port"]
+        smtp_usuario, smtp_password = global_smtp["smtp_user"], global_smtp["smtp_password"]
+        smtp_from_email = global_smtp["smtp_from"]
+        smtp_from_nombre = (smtp_local.from_nombre if smtp_local else "") or "T&C Zymo"
+    elif smtp_local and smtp_local.activo and smtp_local.host:
+        smtp_host, smtp_port = smtp_local.host, smtp_local.port
+        smtp_usuario, smtp_password = smtp_local.usuario, smtp_local.password
+        smtp_from_email, smtp_from_nombre = smtp_local.from_email, smtp_local.from_nombre
+    else:
+        raise HTTPException(
+            400,
+            "SMTP no configurado — configúralo en Configuración de la intranet · SMTP corporativo (o en T&C · Ajustes)",
+        )
 
     personas_ids = [
         p.persona_id for p in db.exec(
@@ -546,9 +561,9 @@ def notificar_evento_email(
     )
 
     ok = send_email(
-        host=smtp.host, port=smtp.port,
-        usuario=smtp.usuario, password=smtp.password,
-        from_email=smtp.from_email, from_nombre=smtp.from_nombre,
+        host=smtp_host, port=smtp_port,
+        usuario=smtp_usuario, password=smtp_password,
+        from_email=smtp_from_email, from_nombre=smtp_from_nombre,
         to=config.lider_email, subject=subject, body_html=html,
     )
 

@@ -5,10 +5,11 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Optional
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
+from app.config import settings
 from app.core.deps import require_admin
 from app.database import get_db
 from app.models.global_config import GlobalConfig
@@ -45,8 +46,21 @@ class TestEmailResult(BaseModel):
     detalle: Optional[str] = None
 
 
+class SmtpConfigService(BaseModel):
+    """Config completa (incluye password) para llamadas servicio-a-servicio (task-backend, etc.)."""
+    smtp_host: str
+    smtp_port: str
+    smtp_user: str
+    smtp_password: str
+    smtp_from: str
+
+
 def _rows(db: Session) -> dict[str, str]:
     return {r.key: r.value for r in db.exec(select(GlobalConfig).where(GlobalConfig.key.in_(_KEYS))).all()}
+
+
+def _is_valid_internal_key(key: Optional[str]) -> bool:
+    return bool(key and settings.internal_key and key == settings.internal_key)
 
 
 @router.get("", response_model=SmtpConfigRead)
@@ -80,6 +94,28 @@ def update_smtp_config(
         else:
             db.add(GlobalConfig(key=field, value=value))
     db.commit()
+
+
+@router.get("/service", response_model=SmtpConfigService)
+def get_smtp_config_service(
+    x_internal_key: Optional[str] = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    """SMTP corporativo para consumo servicio-a-servicio (task-backend, helix-backend, etc.).
+
+    Requiere X-Internal-Key — nunca expuesto a usuarios finales (a diferencia de GET "" que
+    oculta la contraseña real).
+    """
+    if not _is_valid_internal_key(x_internal_key):
+        raise HTTPException(status_code=401, detail="No autorizado")
+    rows = _rows(db)
+    return SmtpConfigService(
+        smtp_host=rows.get("smtp_host", ""),
+        smtp_port=rows.get("smtp_port", "587"),
+        smtp_user=rows.get("smtp_user", ""),
+        smtp_password=rows.get("smtp_password", ""),
+        smtp_from=rows.get("smtp_from", ""),
+    )
 
 
 @router.post("/test", response_model=TestEmailResult)

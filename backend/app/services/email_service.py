@@ -186,6 +186,16 @@ def _get_runtime_config(plataforma: str | None = None) -> dict:
     except Exception as exc:
         log.warning("[email] No se pudo leer oc_config de DB: %s", exc)
 
+    # Capa 3: SMTP corporativo centralizado (Configuración de la intranet) — gana si está configurado
+    try:
+        from app.services.global_smtp import get_global_smtp
+
+        global_smtp = get_global_smtp()
+        if global_smtp:
+            cfg.update(global_smtp)
+    except Exception as exc:
+        log.warning("[email] No se pudo leer SMTP corporativo centralizado: %s", exc)
+
     return cfg
 
 
