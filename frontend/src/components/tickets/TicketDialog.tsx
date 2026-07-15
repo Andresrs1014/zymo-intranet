@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react"
+import { Paperclip } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Card, CardContent } from "@/components/ui/card"
 import { ShimmerButton } from "@/components/ui/shimmer-button"
 import { FormSelect } from "@/components/tareas/FormSelect"
+import { StagedAttachmentsPortal } from "@/components/tareas/StagedAttachmentsPortal"
 import { useTicketsUI } from "@/context/TicketsContext"
 import {
   useTicketConfigLists, useTicketAreaPrefixes, useTicketCodePreview, useCreateTicket,
@@ -55,6 +57,7 @@ export function TicketDialog() {
   const { data: areas = [] } = useTicketAreaPrefixes()
   const [form, setForm] = useState(EMPTY_FORM)
   const [files, setFiles] = useState<File[]>([])
+  const [attachmentsOpen, setAttachmentsOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const createTicket = useCreateTicket()
   const syncMasterData = useSyncMasterData()
@@ -278,10 +281,6 @@ export function TicketDialog() {
                 <label className={LABEL}>Acciones efectuadas</label>
                 <textarea className={INPUT} rows={2} value={form.actionsInitial} onChange={(e) => set("actionsInitial", e.target.value)} />
               </div>
-              <div className="sm:col-span-2">
-                <label className={LABEL}>Evidencias</label>
-                <input type="file" multiple onChange={(e) => setFiles(Array.from(e.target.files ?? []))} />
-              </div>
             </div>
           </section>
         </div>
@@ -289,6 +288,13 @@ export function TicketDialog() {
         {error && <p className="text-sm text-[#a8172f]">{error}</p>}
 
         <div className="flex justify-end gap-2 border-t border-zinc-200 pt-3">
+          <button
+            type="button"
+            onClick={() => setAttachmentsOpen(true)}
+            className="mr-auto inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-600 transition hover:bg-zinc-50"
+          >
+            <Paperclip size={15} /> Evidencias{files.length > 0 ? ` (${files.length})` : ""}
+          </button>
           <button
             type="button"
             onClick={() => setDialogOpen(false)}
@@ -305,6 +311,16 @@ export function TicketDialog() {
           </ShimmerButton>
         </div>
       </DialogContent>
+
+      {attachmentsOpen && (
+        <StagedAttachmentsPortal
+          files={files}
+          onChange={setFiles}
+          title={form.client || "Nuevo ticket"}
+          open={attachmentsOpen}
+          onClose={() => setAttachmentsOpen(false)}
+        />
+      )}
     </Dialog>
   )
 }

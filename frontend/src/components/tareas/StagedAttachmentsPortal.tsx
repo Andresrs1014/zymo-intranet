@@ -7,7 +7,8 @@ const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024
 interface Props {
   files: File[]
   onChange: (files: File[]) => void
-  taskTitulo: string
+  /** Título mostrado en el header del visor (tarea, ticket, etc. — cualquier contexto). */
+  title: string
   open: boolean
   onClose: () => void
 }
@@ -40,7 +41,7 @@ function StagedPreview({ file }: { file: File }) {
   )
 }
 
-export function StagedAttachmentsPortal({ files, onChange, taskTitulo, open, onClose }: Props) {
+export function StagedAttachmentsPortal({ files, onChange, title, open, onClose }: Props) {
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [error, setError] = useState<string | null>(null)
 
@@ -73,7 +74,7 @@ export function StagedAttachmentsPortal({ files, onChange, taskTitulo, open, onC
           <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">
             Archivos adjuntos (se suben al crear la tarea)
           </p>
-          <h2 className="text-sm font-semibold text-zinc-900 truncate">{taskTitulo || "Nueva tarea"}</h2>
+          <h2 className="text-sm font-semibold text-zinc-900 truncate">{title}</h2>
         </div>
 
         <div className="flex flex-1 min-h-0 overflow-hidden">

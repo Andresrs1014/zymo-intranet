@@ -17,6 +17,7 @@ export interface TicketListFilters {
   area?: string
   client?: string
   supervisor?: string
+  priority?: string
   search?: string
 }
 
@@ -59,6 +60,7 @@ function buildParams(filters: TicketListFilters): URLSearchParams {
   if (filters.area) params.set("area", filters.area)
   if (filters.client) params.set("client", filters.client)
   if (filters.supervisor) params.set("supervisor", filters.supervisor)
+  if (filters.priority) params.set("priority", filters.priority)
   if (filters.search) params.set("search", filters.search)
   return params
 }

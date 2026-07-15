@@ -430,7 +430,7 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
         <StagedAttachmentsPortal
           files={stagedFiles}
           onChange={setStagedFiles}
-          taskTitulo={form.titulo}
+          title={form.titulo || "Nueva tarea"}
           open={adjuntosOpen}
           onClose={() => setAdjuntosOpen(false)}
         />

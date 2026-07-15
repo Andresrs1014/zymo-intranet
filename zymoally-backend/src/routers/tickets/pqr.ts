@@ -51,7 +51,7 @@ const CreateTicketBody = z.object({
 // GET / — lista de tickets con filtros (patrón pqrFilteredTickets, app.js:496-511)
 router.get("/", async (req, res, next) => {
   try {
-    const { status, type, impact, area, client, supervisor, search } = req.query as Record<string, string | undefined>
+    const { status, type, impact, area, client, supervisor, priority, search } = req.query as Record<string, string | undefined>
     const where: Record<string, unknown> = {}
     if (status && status !== "all") where.status = status
     if (type && type !== "all") where.type = type
@@ -59,6 +59,7 @@ router.get("/", async (req, res, next) => {
     if (area && area !== "all") where.area = area
     if (client && client !== "all") where.client = client
     if (supervisor && supervisor !== "all") where.supervisor = supervisor
+    if (priority && priority !== "all") where.priority = priority
 
     const tickets = await prisma.zymoPqrTicket.findMany({
       where,
