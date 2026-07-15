@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom"
-import { Users, ShieldCheck, Building2, Mail, ChevronRight, LockKeyhole } from "lucide-react"
+import { Users, ShieldCheck, Building2, Mail, MessageCircle, ChevronRight, LockKeyhole } from "lucide-react"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { BlurFade } from "@/components/ui/blur-fade"
 
@@ -39,6 +39,13 @@ const CARDS: ConfigCard[] = [
     title: "SMTP corporativo",
     description: "Cuenta compartida para enviar alertas por correo desde Tickets, T&C y Tareas.",
     accent: "#9333ea",
+  },
+  {
+    to: "/admin/configuracion/whatsapp",
+    icon: <MessageCircle className="h-5 w-5" />,
+    title: "WhatsApp corporativo",
+    description: "Cuenta de WhatsApp Business API compartida para notificaciones — usada hoy por T&C.",
+    accent: "#16a34a",
   },
 ]
 

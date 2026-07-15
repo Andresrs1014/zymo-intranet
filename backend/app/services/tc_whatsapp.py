@@ -25,7 +25,15 @@ def _build_body(to: str, message: str) -> dict:
 
 
 def _get_wa_credentials() -> tuple[str, str]:
-    """Lee token y phone_number_id desde DB (PtcWaConfig). Fallback a .env si DB vacía."""
+    """Lee token y phone_number_id — WhatsApp corporativo centralizado primero,
+    luego PtcWaConfig (T&C local) y por último .env."""
+    try:
+        from app.services.global_whatsapp import get_global_whatsapp
+        global_wa = get_global_whatsapp()
+        if global_wa:
+            return global_wa["whatsapp_token"], global_wa["whatsapp_phone_number_id"]
+    except Exception:
+        pass
     try:
         from app.personal_database import PtcWaConfig, get_personal_engine
         from sqlmodel import Session

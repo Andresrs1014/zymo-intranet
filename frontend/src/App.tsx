@@ -28,6 +28,7 @@ import { ConfiguracionIntranetPage } from "@/pages/admin/ConfiguracionIntranetPa
 import { RolesPage } from "@/pages/RolesPage"
 import { AreasPage } from "@/pages/AreasPage"
 import { SmtpConfigPage } from "@/pages/admin/SmtpConfigPage"
+import { WhatsappConfigPage } from "@/pages/admin/WhatsappConfigPage"
 import { AdministrativoPage } from "@/pages/AdministrativoPage"
 import { SolicitudesPage } from "@/pages/oc/SolicitudesPage"
 import { SolicitudDetallePage } from "@/pages/oc/SolicitudDetallePage"
@@ -333,6 +334,14 @@ export default function App() {
           element={
             <AdminRoute>
               <SmtpConfigPage />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/configuracion/whatsapp"
+          element={
+            <AdminRoute>
+              <WhatsappConfigPage />
             </AdminRoute>
           }
         />
