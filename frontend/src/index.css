@@ -57,10 +57,6 @@
 }
 
 @layer components {
-  [data-radix-popper-content-wrapper] {
-    z-index: 50 !important;
-  }
-
   .input-base {
     @apply w-full rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-teal-500/50 transition-shadow;
   }
