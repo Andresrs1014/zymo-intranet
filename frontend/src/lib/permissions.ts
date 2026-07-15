@@ -131,6 +131,16 @@ export function canConfigTickets(role: string, appPerms?: string[]): boolean {
   return hasPerm(appPerms, "mod_tickets_config")
 }
 
+export function canSeeSAC(role: string, appPerms?: string[]): boolean {
+  if (role === "admin") return true
+  return hasPerm(appPerms, "mod_sac")
+}
+
+export function canConfigSAC(role: string, appPerms?: string[]): boolean {
+  if (role === "admin") return true
+  return hasPerm(appPerms, "mod_sac_config")
+}
+
 export function canSeeTyC(role: string, appPerms?: string[]): boolean {
   if (role === "admin") return true
   return hasPerm(appPerms, "mod_tc")

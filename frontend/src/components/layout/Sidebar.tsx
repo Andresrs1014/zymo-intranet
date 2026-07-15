@@ -14,6 +14,7 @@ import {
   Layers,
   Users,
   Ticket,
+  Smile,
 } from "lucide-react"
 import { useAuthStore } from "@/store/authStore"
 import {
@@ -31,6 +32,7 @@ import {
   canSeeHelix,
   canSeeTyC,
   canSeeTickets,
+  canSeeSAC,
 } from "@/lib/permissions"
 import {
   Sidebar as ShadcnSidebar,
@@ -68,6 +70,7 @@ export function Sidebar() {
     : false
   const showHelix          = user ? canSeeHelix(user.role, perms) : false
   const showTickets        = user ? canSeeTickets(user.role, perms) : false
+  const showSac            = user ? canSeeSAC(user.role, perms) : false
   const showTyC            = user ? canSeeTyC(user.role, perms) : false
 
   // Derive user initials for the footer avatar
@@ -247,7 +250,7 @@ export function Sidebar() {
         )}
 
         {/* ── Section: Planeación ────────────────────────────────────── */}
-        {(showHelix || showTickets) && (
+        {(showHelix || showTickets || showSac) && (
           <>
             <SidebarSeparator />
             <SidebarGroup>
@@ -268,6 +271,14 @@ export function Sidebar() {
                       label="Zymo Ally · Tickets"
                       icon={<Ticket className="w-4 h-4" />}
                       active={isActive(["/zymoally/tickets"])}
+                    />
+                  )}
+                  {showSac && (
+                    <NavItem
+                      to="/zymoally/sac"
+                      label="Zymo Ally · SAC"
+                      icon={<Smile className="w-4 h-4" />}
+                      active={isActive(["/zymoally/sac"])}
                     />
                   )}
                 </SidebarMenu>

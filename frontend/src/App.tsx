@@ -16,6 +16,7 @@ import {
   canSeeTyC,
   canSeeOperClientes,
   canSeeTickets,
+  canSeeSAC,
 } from "@/lib/permissions"
 import { useAgentPanelStore } from "@/store/agentPanelStore"
 import { useMinWidth } from "@/hooks/useMinWidth"
@@ -51,6 +52,7 @@ import { GerencialPage } from "@/pages/gerencial/GerencialPage"
 import { ExtraccionIAPage } from "@/pages/admin/ExtraccionIAPage"
 import { HelixPage } from "@/pages/planeacion/helix/HelixPage"
 import { TicketsPage } from "@/pages/tickets/TicketsPage"
+import { SacPage } from "@/pages/sac/SacPage"
 import { TaskPage } from "@/pages/tareas/TaskPage"
 import { SigPage } from "@/pages/sig/SigPage"
 import MantenimientoPage from "@/pages/mantenimiento/MantenimientoPage"
@@ -194,6 +196,13 @@ function TicketsRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user)
   if (!user) return <Navigate to="/login" replace />
   if (!canSeeTickets(user.role, user.app_permissions)) return <Navigate to="/dashboard" replace />
+  return <>{children}</>
+}
+
+function SacRoute({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user)
+  if (!user) return <Navigate to="/login" replace />
+  if (!canSeeSAC(user.role, user.app_permissions)) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
 
@@ -540,6 +549,16 @@ export default function App() {
             <TicketsRoute>
               <TicketsPage />
             </TicketsRoute>
+          }
+        />
+
+        {/* Zymo Ally — SAC (dominio propio, sin relación con Tickets) */}
+        <Route
+          path="/zymoally/sac"
+          element={
+            <SacRoute>
+              <SacPage />
+            </SacRoute>
           }
         />
 
