@@ -48,12 +48,13 @@ export function AnimatedGridPattern({
     return Array.from({ length: count }, (_, i) => ({ id: i, pos: getPos(dims) }))
   }
 
-  function updateSquarePosition(squareId: number) {
-    setSquares((current) =>
-      current.map((sq) => (sq.id === squareId ? { ...sq, pos: getPos(dimensions) } : sq))
-    )
-  }
-
+  // ponytail: la versión original reposicionaba cada cuadrado vía setState en
+  // `onAnimationComplete` (un re-render de React por cuadrado, ~70 veces
+  // escalonadas) — con 70 cuadrados eso midió 4700 renders/4s en vivo, ruido
+  // suficiente para interferir con clics rápidos en el resto de la página
+  // (confirmado con el profiler de React). El pulso in/out ahora lo maneja
+  // Framer Motion solo (repeat: Infinity, sin JS de por medio); se pierde el
+  // reposicionamiento con el tiempo, se mantiene el efecto de "grid vivo".
   useEffect(() => {
     if (dimensions.width && dimensions.height) {
       setSquares(generateSquares(numSquares, dimensions))
@@ -92,13 +93,12 @@ export function AnimatedGridPattern({
       </defs>
       <rect width="100%" height="100%" fill={`url(#${id})`} />
       <svg x={x} y={y} className="overflow-visible">
-        {squares.map(({ pos: [sx, sy], id: squareId }, index) => (
+        {squares.map(({ pos: [sx, sy] }, index) => (
           <motion.rect
             key={`${sx}-${sy}-${index}`}
             initial={{ opacity: 0 }}
             animate={{ opacity: maxOpacity }}
-            transition={{ duration, repeat: 1, delay: index * 0.1, repeatType: "reverse", repeatDelay }}
-            onAnimationComplete={() => updateSquarePosition(squareId)}
+            transition={{ duration, repeat: Infinity, delay: index * 0.1, repeatType: "reverse", repeatDelay }}
             width={width - 1}
             height={height - 1}
             x={sx * width + 1}
