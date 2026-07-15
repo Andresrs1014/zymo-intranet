@@ -3,7 +3,7 @@ import { Paperclip } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Card, CardContent } from "@/components/ui/card"
 import { ShimmerButton } from "@/components/ui/shimmer-button"
-import { FormSelect } from "@/components/tareas/FormSelect"
+import { Combobox, type ComboboxOption } from "@/components/ui/Combobox"
 import { StagedAttachmentsPortal } from "@/components/tareas/StagedAttachmentsPortal"
 import { useTicketsUI } from "@/context/TicketsContext"
 import {
@@ -34,6 +34,31 @@ const CLIENT_LABEL_BY_TYPE: Record<string, string> = {
 
 function clientLabelFor(type: string): string {
   return CLIENT_LABEL_BY_TYPE[type] ?? "Cliente"
+}
+
+// Mismo Combobox que ya usan los filtros de la lista (buscador propio, scroll
+// normal) en vez del Select de Radix — sin flechas de scroll arriba/abajo en
+// listas largas (Supervisor, Analista con decenas de personas sincronizadas).
+function SelectField({
+  label, value, onChange, options, placeholder,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  options: ComboboxOption[]
+  placeholder?: string
+}) {
+  return (
+    <div>
+      <label className={LABEL}>{label}</label>
+      <Combobox
+        options={options}
+        value={value || null}
+        onChange={(v) => onChange(v ? String(v) : "")}
+        placeholder={placeholder ?? "Seleccionar…"}
+      />
+    </div>
+  )
 }
 
 // Fiel al header "1 Radicar · 2 Gestionar · 3 Cerrar" del ZymoAlly original
@@ -160,40 +185,40 @@ export function TicketDialog() {
                 <label className={LABEL}>{clientLabelFor(form.type)}</label>
                 <input className={INPUT} value={form.client} onChange={(e) => set("client", e.target.value)} />
               </div>
-              <FormSelect
+              <SelectField
                 label="Plataforma"
                 value={form.platform}
                 onChange={(v) => set("platform", v)}
                 options={(lists?.platforms ?? []).map((p) => ({ value: p.value, label: p.label }))}
-                noneLabel="Sin plataforma"
+                placeholder="Sin plataforma"
               />
-              <FormSelect
+              <SelectField
                 label="Supervisor"
                 value={form.supervisor}
                 onChange={(v) => set("supervisor", v)}
                 options={(lists?.supervisors ?? []).map((p) => ({ value: p.value, label: p.label }))}
-                noneLabel="Sin asignar"
+                placeholder="Sin asignar"
               />
-              <FormSelect
+              <SelectField
                 label="Analista"
                 value={form.analyst}
                 onChange={(v) => set("analyst", v)}
                 options={(lists?.analysts ?? []).map((p) => ({ value: p.value, label: p.label }))}
-                noneLabel="Sin asignar"
+                placeholder="Sin asignar"
               />
-              <FormSelect
+              <SelectField
                 label="Coordinador"
                 value={form.coordinator}
                 onChange={(v) => set("coordinator", v)}
                 options={(lists?.coordinators ?? []).map((p) => ({ value: p.value, label: p.label }))}
-                noneLabel="Sin asignar"
+                placeholder="Sin asignar"
               />
-              <FormSelect
+              <SelectField
                 label="¿Quién gestiona el ticket?"
                 value={form.manager}
                 onChange={(v) => set("manager", v)}
                 options={(lists?.managers ?? []).map((p) => ({ value: p.value, label: p.label }))}
-                noneLabel="Sin asignar"
+                placeholder="Sin asignar"
               />
               <div>
                 <label className={LABEL}>Quien genera ticket</label>
@@ -221,7 +246,7 @@ export function TicketDialog() {
                 <label className={LABEL}>Fecha compromiso</label>
                 <input type="date" className={INPUT} value={form.dueDate} onChange={(e) => set("dueDate", e.target.value)} />
               </div>
-              <FormSelect
+              <SelectField
                 label="Área *"
                 value={form.area}
                 onChange={handleAreaChange}
@@ -231,31 +256,31 @@ export function TicketDialog() {
                 <label className={LABEL}>Código estimado</label>
                 <input className={`${INPUT} bg-zinc-50 font-mono`} value={preview?.code ?? "…"} readOnly />
               </div>
-              <FormSelect
+              <SelectField
                 label="Tipo *"
                 value={form.type}
                 onChange={(v) => set("type", v)}
                 options={(lists?.types ?? []).map((t) => ({ value: t.value, label: t.label }))}
               />
-              <FormSelect
+              <SelectField
                 label="Estado *"
                 value={form.status}
                 onChange={(v) => set("status", v)}
                 options={(lists?.statuses ?? []).map((s) => ({ value: s.value, label: s.label }))}
               />
-              <FormSelect
+              <SelectField
                 label="Prioridad *"
                 value={form.priority}
                 onChange={(v) => set("priority", v)}
                 options={(lists?.priorities ?? []).map((p) => ({ value: p.value, label: p.label }))}
               />
-              <FormSelect
+              <SelectField
                 label="Impacto"
                 value={form.impact}
                 onChange={(v) => set("impact", v)}
                 options={(lists?.impacts ?? []).map((i) => ({ value: i.value, label: i.label }))}
               />
-              <FormSelect
+              <SelectField
                 label="Canal"
                 value={form.channel}
                 onChange={(v) => set("channel", v)}
@@ -267,7 +292,7 @@ export function TicketDialog() {
           <section>
             <h3 className={SECTION_TITLE}>Descripción, acciones y soporte</h3>
             <div className="grid gap-4 sm:grid-cols-2">
-              <FormSelect
+              <SelectField
                 label="Criterio de gestión"
                 value={form.managementCriteria}
                 onChange={(v) => set("managementCriteria", v)}
