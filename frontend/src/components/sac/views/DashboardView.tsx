@@ -1,5 +1,10 @@
+import { useState } from "react"
+import { Download } from "lucide-react"
 import { useSacDashboard } from "@/hooks/useSac"
 import { BlurFade } from "@/components/ui/blur-fade"
+import { downloadFile } from "@/lib/download"
+import { extractErrorMessage } from "@/lib/ticketErrors"
+import { useTicketToast } from "@/components/tickets/TicketToast"
 
 function Bar({ label, value, max }: { label: string; value: number; max: number }) {
   const pct = max > 0 ? Math.round((value / max) * 100) : 0
@@ -39,6 +44,19 @@ function Kpi({ label, value, danger }: { label: string; value: number | string; 
 
 export function DashboardView() {
   const { data, isLoading } = useSacDashboard()
+  const [exporting, setExporting] = useState<"csv" | "json" | null>(null)
+  const { showToast } = useTicketToast()
+
+  async function handleExport(format: "csv" | "json") {
+    setExporting(format)
+    try {
+      await downloadFile(`/api/sac/export/${format}`, `resultados_zymoally.${format}`)
+    } catch (err) {
+      showToast(extractErrorMessage(err, `No se pudo exportar el ${format.toUpperCase()}.`), "error")
+    } finally {
+      setExporting(null)
+    }
+  }
 
   if (isLoading || !data) {
     return <p className="text-zinc-400">Cargando dashboard…</p>
@@ -52,6 +70,25 @@ export function DashboardView() {
 
   return (
     <div>
+      <div className="mb-4 flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => handleExport("csv")}
+          disabled={exporting !== null}
+          className="inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-600 transition hover:bg-zinc-50 disabled:opacity-50"
+        >
+          <Download size={14} /> {exporting === "csv" ? "Exportando…" : "Exportar CSV"}
+        </button>
+        <button
+          type="button"
+          onClick={() => handleExport("json")}
+          disabled={exporting !== null}
+          className="inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-600 transition hover:bg-zinc-50 disabled:opacity-50"
+        >
+          <Download size={14} /> {exporting === "json" ? "Exportando…" : "Exportar JSON"}
+        </button>
+      </div>
+
       {/* Regla del vestido rojo: riesgos de clientes es el único protagonista. */}
       <h3 className="mb-2 text-[11px] font-bold uppercase tracking-[0.06em] text-zinc-500">Fidelización de clientes</h3>
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-5">

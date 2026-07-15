@@ -72,8 +72,8 @@ const STAGES = [
 const EMPTY_FORM = {
   type: "", area: "", areaPrefix: "", client: "", platform: "", supervisor: "",
   analyst: "", coordinator: "", manager: "", owner: "", phone: "", email: "", date: currentDateValue(),
-  dueDate: "", status: "", priority: "", impact: "", channel: "", managementCriteria: "",
-  description: "", actionsInitial: "",
+  status: "", priority: "", impact: "", channel: "", managementCriteria: "",
+  description: "",
 }
 
 export function TicketDialog() {
@@ -94,9 +94,9 @@ export function TicketDialog() {
   async function handleSync() {
     try {
       const r = await syncMasterData.mutateAsync()
-      const created = r.areas.created + r.platforms.created + r.supervisors.created
+      const created = r.areas.created + r.platforms.created + r.clients.created + r.supervisors.created
         + r.analysts.created + r.coordinators.created + r.managers.created
-      const updated = r.areas.updated + r.platforms.updated + r.supervisors.updated
+      const updated = r.areas.updated + r.platforms.updated + r.clients.updated + r.supervisors.updated
         + r.analysts.updated + r.coordinators.updated + r.managers.updated
       showToast(`Datos maestros sincronizados: ${created} nuevos, ${updated} actualizados`, "success")
     } catch (err) {
@@ -181,10 +181,19 @@ export function TicketDialog() {
           <section>
             <h3 className={SECTION_TITLE}>Cliente y responsables</h3>
             <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className={LABEL}>{clientLabelFor(form.type)}</label>
-                <input className={INPUT} value={form.client} onChange={(e) => set("client", e.target.value)} />
-              </div>
+              {clientLabelFor(form.type) === "Cliente" ? (
+                <SelectField
+                  label="Cliente"
+                  value={form.client}
+                  onChange={(v) => set("client", v)}
+                  options={(lists?.clients ?? []).map((c) => ({ value: c.value, label: c.label }))}
+                />
+              ) : (
+                <div>
+                  <label className={LABEL}>{clientLabelFor(form.type)}</label>
+                  <input className={INPUT} value={form.client} onChange={(e) => set("client", e.target.value)} />
+                </div>
+              )}
               <SelectField
                 label="Plataforma"
                 value={form.platform}
@@ -242,10 +251,6 @@ export function TicketDialog() {
                 <label className={LABEL}>Fecha *</label>
                 <input type="date" className={INPUT} value={form.date} onChange={(e) => set("date", e.target.value)} />
               </div>
-              <div>
-                <label className={LABEL}>Fecha compromiso</label>
-                <input type="date" className={INPUT} value={form.dueDate} onChange={(e) => set("dueDate", e.target.value)} />
-              </div>
               <SelectField
                 label="Área *"
                 value={form.area}
@@ -290,7 +295,7 @@ export function TicketDialog() {
           </section>
 
           <section>
-            <h3 className={SECTION_TITLE}>Descripción, acciones y soporte</h3>
+            <h3 className={SECTION_TITLE}>Descripción y soporte</h3>
             <div className="grid gap-4 sm:grid-cols-2">
               <SelectField
                 label="Criterio de gestión"
@@ -301,10 +306,6 @@ export function TicketDialog() {
               <div className="sm:col-span-2">
                 <label className={LABEL}>Descripción</label>
                 <textarea className={INPUT} rows={3} value={form.description} onChange={(e) => set("description", e.target.value)} />
-              </div>
-              <div className="sm:col-span-2">
-                <label className={LABEL}>Acciones efectuadas</label>
-                <textarea className={INPUT} rows={2} value={form.actionsInitial} onChange={(e) => set("actionsInitial", e.target.value)} />
               </div>
             </div>
           </section>

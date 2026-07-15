@@ -1,5 +1,10 @@
+import { useState } from "react"
+import { Download } from "lucide-react"
 import { useTicketDashboard } from "@/hooks/useTickets"
 import { BlurFade } from "@/components/ui/blur-fade"
+import { downloadFile } from "@/lib/download"
+import { extractErrorMessage } from "@/lib/ticketErrors"
+import { useTicketToast } from "../TicketToast"
 
 function Bar({ label, value, max }: { label: string; value: number; max: number }) {
   const pct = max > 0 ? Math.round((value / max) * 100) : 0
@@ -18,6 +23,19 @@ function Bar({ label, value, max }: { label: string; value: number; max: number 
 
 export function DashboardView() {
   const { data, isLoading } = useTicketDashboard()
+  const [exporting, setExporting] = useState(false)
+  const { showToast } = useTicketToast()
+
+  async function handleExport() {
+    setExporting(true)
+    try {
+      await downloadFile("/api/tickets/export/csv", "tickets_pqr_zymoally.csv")
+    } catch (err) {
+      showToast(extractErrorMessage(err, "No se pudo exportar el CSV."), "error")
+    } finally {
+      setExporting(false)
+    }
+  }
 
   if (isLoading || !data) {
     return <p className="text-zinc-400">Cargando dashboard…</p>
@@ -26,9 +44,21 @@ export function DashboardView() {
   const { metrics, aiAnalysis } = data
   const maxByStatus = Math.max(1, ...Object.values(metrics.byStatus))
   const maxByType = Math.max(1, ...Object.values(metrics.byType))
+  const maxByArea = Math.max(1, ...Object.values(metrics.byArea))
 
   return (
     <div>
+      <div className="mb-4 flex justify-end">
+        <button
+          type="button"
+          onClick={handleExport}
+          disabled={exporting}
+          className="inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-600 transition hover:bg-zinc-50 disabled:opacity-50"
+        >
+          <Download size={14} /> {exporting ? "Exportando…" : "Exportar CSV"}
+        </button>
+      </div>
+
       {/* Regla del vestido rojo: un solo protagonista (vencidos por SLA), el
           resto de KPIs queda neutral — ver mixui/references/research/
           priority-layout-time-dashboards.md */}
@@ -62,7 +92,7 @@ export function DashboardView() {
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-3">
         <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
           <h3 className="mb-3 text-sm font-bold text-zinc-900">Por estado</h3>
           {Object.entries(metrics.byStatus).map(([status, count]) => (
@@ -73,6 +103,12 @@ export function DashboardView() {
           <h3 className="mb-3 text-sm font-bold text-zinc-900">Por tipo</h3>
           {Object.entries(metrics.byType).map(([type, count]) => (
             <Bar key={type} label={type} value={count} max={maxByType} />
+          ))}
+        </div>
+        <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
+          <h3 className="mb-3 text-sm font-bold text-zinc-900">Por área</h3>
+          {Object.entries(metrics.byArea).map(([area, count]) => (
+            <Bar key={area} label={area} value={count} max={maxByArea} />
           ))}
         </div>
       </div>

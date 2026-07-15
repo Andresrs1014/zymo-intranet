@@ -19,6 +19,7 @@ export function startSyncCron(): void {
           console.log(
             `[sync] datos maestros ${r.ranAt} — areas +${r.areas.created}/~${r.areas.updated}, ` +
               `platforms +${r.platforms.created}/~${r.platforms.updated}, ` +
+              `clients +${r.clients.created}/~${r.clients.updated}, ` +
               `supervisors +${r.supervisors.created}/~${r.supervisors.updated}, ` +
               `analysts +${r.analysts.created}/~${r.analysts.updated}, ` +
               `coordinators +${r.coordinators.created}/~${r.coordinators.updated}, ` +

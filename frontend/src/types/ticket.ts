@@ -129,6 +129,7 @@ export interface SyncSectionResult {
 export interface SyncMasterDataResult {
   areas: SyncSectionResult
   platforms: SyncSectionResult
+  clients: SyncSectionResult
   supervisors: SyncSectionResult
   analysts: SyncSectionResult
   coordinators: SyncSectionResult

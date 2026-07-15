@@ -26,6 +26,15 @@ interface IntranetPersonasResponse {
   items: IntranetPersona[]
 }
 
+interface IntranetCliente {
+  id: number
+  nombre: string
+}
+
+interface IntranetClientesResponse {
+  items: IntranetCliente[]
+}
+
 interface IntranetUser {
   id: number
   full_name: string | null
@@ -42,6 +51,7 @@ interface SyncSection {
 export interface SyncMasterDataResult {
   areas: SyncSection
   platforms: SyncSection
+  clients: SyncSection
   supervisors: SyncSection
   analysts: SyncSection
   coordinators: SyncSection
@@ -210,7 +220,7 @@ export async function syncMasterData(): Promise<SyncMasterDataResult> {
   syncing = true
   try {
     const token = mintServiceToken()
-    const [areas, sedes, personasResp, users] = await Promise.all([
+    const [areas, sedes, personasResp, users, clientesResp] = await Promise.all([
       fetchIntranet<IntranetArea[]>("/areas", token),
       fetchIntranet<IntranetSede[]>("/sedes?para_solicitudes_oc=true", token),
       // "Activo" con mayúscula — PtcPersona.estado (backend/app/personal_database.py)
@@ -220,6 +230,9 @@ export async function syncMasterData(): Promise<SyncMasterDataResult> {
       // T&C, son quienes gestionan tickets dentro de la app, no quienes
       // aparecen en el organigrama.
       fetchIntranet<IntranetUser[]>("/api/tasks-v2/users", token),
+      // Directorio de clientes corporativos (T&C, solo lectura — se gestionan
+      // de verdad en Operativo).
+      fetchIntranet<IntranetClientesResponse>("/tc/clientes?limit=500", token),
     ])
 
     const byCategory: Record<PersonaCategory, { externalId: string; label: string }[]> = {
@@ -237,6 +250,10 @@ export async function syncMasterData(): Promise<SyncMasterDataResult> {
       "platforms",
       sedes.map((s) => ({ externalId: String(s.id), label: s.name })),
     )
+    const clientsResult = await syncConfigList(
+      "clients",
+      clientesResp.items.map((c) => ({ externalId: String(c.id), label: c.nombre })),
+    )
     const supervisorsResult = await syncConfigList("supervisors", byCategory.supervisors)
     const analystsResult = await syncConfigList("analysts", byCategory.analysts)
     const coordinatorsResult = await syncConfigList("coordinators", byCategory.coordinators)
@@ -248,6 +265,7 @@ export async function syncMasterData(): Promise<SyncMasterDataResult> {
     return {
       areas: areasResult,
       platforms: platformsResult,
+      clients: clientsResult,
       supervisors: supervisorsResult,
       analysts: analystsResult,
       coordinators: coordinatorsResult,

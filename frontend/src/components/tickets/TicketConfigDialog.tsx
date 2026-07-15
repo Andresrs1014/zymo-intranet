@@ -4,6 +4,7 @@ import {
   AlertCircle,
   ArrowDown,
   ArrowUp,
+  Briefcase,
   Building2,
   Check,
   CircleDot,
@@ -58,7 +59,7 @@ interface TicketConfigDialogProps {
 }
 
 type EditableListType =
-  | "statuses" | "types" | "platforms" | "supervisors" | "analysts" | "coordinators" | "managers"
+  | "statuses" | "types" | "platforms" | "clients" | "supervisors" | "analysts" | "coordinators" | "managers"
 type MoveDirection = -1 | 1
 
 interface IconActionProps extends ComponentProps<typeof Button> {
@@ -688,6 +689,7 @@ export function TicketConfigDialog({
   const statuses = listsQuery.data?.statuses ?? []
   const types = listsQuery.data?.types ?? []
   const platforms = listsQuery.data?.platforms ?? []
+  const clients = listsQuery.data?.clients ?? []
   const supervisors = listsQuery.data?.supervisors ?? []
   const analysts = listsQuery.data?.analysts ?? []
   const coordinators = listsQuery.data?.coordinators ?? []
@@ -724,7 +726,7 @@ export function TicketConfigDialog({
         <TooltipProvider delayDuration={250}>
           <Tabs defaultValue="statuses" className="flex min-h-0 flex-1 flex-col">
             <div className="shrink-0 border-b border-zinc-200 px-4 py-3">
-              <TabsList className="grid h-auto w-full grid-cols-2 gap-1 bg-zinc-100 p-1 sm:grid-cols-4">
+              <TabsList className="grid h-auto w-full grid-cols-3 gap-1 bg-zinc-100 p-1 sm:grid-cols-5">
                 <TabsTrigger
                   value="statuses"
                   className="min-h-10 min-w-0 gap-1.5 px-2 text-xs data-[state=active]:bg-primary data-[state=active]:text-white sm:text-sm"
@@ -756,6 +758,14 @@ export function TicketConfigDialog({
                 >
                   <TabLabel icon={<Building2 className="h-4 w-4 shrink-0" />} count={platforms.length}>
                     Plataforma
+                  </TabLabel>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="clients"
+                  className="min-h-10 min-w-0 gap-1.5 px-2 text-xs data-[state=active]:bg-primary data-[state=active]:text-white sm:text-sm"
+                >
+                  <TabLabel icon={<Briefcase className="h-4 w-4 shrink-0" />} count={clients.length}>
+                    Cliente
                   </TabLabel>
                 </TabsTrigger>
                 <TabsTrigger
@@ -832,6 +842,18 @@ export function TicketConfigDialog({
                   listType="platforms"
                   singular="Plataforma"
                   items={platforms}
+                  isLoading={listsQuery.isLoading}
+                />
+              )}
+            </TabsContent>
+            <TabsContent value="clients" className="mt-0 min-h-0 flex-1 overflow-hidden">
+              {listsQuery.isError ? (
+                <QueryErrorState onRetry={() => void listsQuery.refetch()} />
+              ) : (
+                <ListConfigSection
+                  listType="clients"
+                  singular="Cliente"
+                  items={clients}
                   isLoading={listsQuery.isLoading}
                 />
               )}
