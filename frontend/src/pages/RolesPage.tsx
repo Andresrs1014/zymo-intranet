@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { PageLayout } from "@/components/layout/PageLayout"
-import { INTERNAL_MODULES, EXTERNAL_APPS, type AppDefinition } from "@/lib/roles"
+import { AdminConfigNav } from "@/components/admin/AdminConfigNav"
+import { INTERNAL_MODULES, EXTERNAL_APPS, INTERNAL_MODULE_GROUPS, type AppDefinition } from "@/lib/roles"
 import {
   useRoles,
   useCreateRole,
@@ -88,12 +89,13 @@ export function RolesPage() {
   return (
     <>
       <PageLayout title="Roles" mainClassName="flex-1 overflow-auto p-6">
+          <AdminConfigNav />
 
           <div className="mb-6 flex items-center justify-between">
             <div>
               <h2 className="text-xl font-semibold text-foreground">Gestión de Roles</h2>
               <p className="text-sm text-muted-foreground mt-0.5">
-                Define los roles y configura qué módulos y aplicaciones puede ver cada uno.
+                Define qué módulos ve cada rol. Tras cambiar permisos, el usuario debe volver a iniciar sesión.
               </p>
             </div>
             <Button
@@ -332,15 +334,18 @@ function RoleFormModal({ role, onSubmit, onClose, isLoading, error }: RoleFormMo
               />
             </div>
 
-            {/* ── Permisos: Módulos internos ── */}
-            <PermissionGroup
-              title="Módulos de la intranet"
-              subtitle="Qué secciones puede ver este rol en el menú lateral"
-              items={INTERNAL_MODULES}
-              selected={permissions}
-              onToggle={toggle}
-              badgeColor="bg-indigo-50 text-indigo-700"
-            />
+            {/* ── Permisos: Módulos internos (por grupo) ── */}
+            {INTERNAL_MODULE_GROUPS.map((group) => (
+              <PermissionGroup
+                key={group.title}
+                title={group.title}
+                subtitle={group.subtitle}
+                items={group.modules}
+                selected={permissions}
+                onToggle={toggle}
+                badgeColor="bg-indigo-50 text-indigo-700"
+              />
+            ))}
 
             {/* ── Permisos: Apps externas ── */}
             <PermissionGroup

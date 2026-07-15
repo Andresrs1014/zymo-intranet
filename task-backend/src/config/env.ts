@@ -16,6 +16,7 @@ export const env = {
   ESCALATION_HOURS: parseInt(process.env.ESCALATION_HOURS ?? "48", 10),
   ESCALATION_START_HOUR: parseInt(process.env.ESCALATION_START_HOUR ?? "7", 10),
   ESCALATION_END_HOUR: parseInt(process.env.ESCALATION_END_HOUR ?? "19", 10),
+  SYNC_SERVICE_EMAIL: process.env.SYNC_SERVICE_EMAIL ?? "",
 } as const
 
 export type Env = typeof env

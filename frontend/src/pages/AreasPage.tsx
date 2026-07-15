@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, type ReactNode } from "react"
 import { PageLayout } from "@/components/layout/PageLayout"
+import { AdminConfigNav } from "@/components/admin/AdminConfigNav"
 import { api } from "@/lib/api"
 import {
   useAreas,
@@ -25,10 +26,11 @@ type SedeBasic = Pick<SedeItem, "id" | "name">
 export function AreasPage() {
   return (
     <PageLayout title="Áreas y Sedes" mainClassName="flex-1 overflow-auto p-6">
+          <AdminConfigNav />
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-foreground">Áreas y Sedes</h2>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Administra los catálogos de áreas y sedes de la organización.
+              Catálogos maestros de áreas y sedes — fuente para directorio T&C, OC y sincronización a herramientas.
             </p>
           </div>
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

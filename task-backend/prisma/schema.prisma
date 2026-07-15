@@ -211,6 +211,28 @@ model ListConfig {
   @@map("list_configs")
 }
 
+enum DirectoryCacheTipo {
+  persona
+  area
+}
+
+// ─── DIRECTORY CACHE (referencia global del directorio intranet) ─────────────
+// Solo lectura para la app. NO reemplaza ListConfig ni TeamMember.
+// Alimentada por directoryCacheSync.ts — ver docs/config-intranet/AGENT-HANDOFF.md
+
+model DirectoryCache {
+  id             Int                 @id @default(autoincrement())
+  externalId     String              @map("external_id") @db.VarChar(32)
+  nombre         String              @db.VarChar(200)
+  tipo           DirectoryCacheTipo
+  intranetUserId Int?                @map("intranet_user_id")
+  syncedAt       DateTime            @map("synced_at") @db.Timestamptz
+
+  @@unique([tipo, externalId])
+  @@index([tipo, nombre])
+  @@map("directory_cache")
+}
+
 // ─── SYSTEM CONFIG ─────────────────────────────────────────────
 
 model SystemConfig {

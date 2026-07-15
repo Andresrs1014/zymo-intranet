@@ -24,6 +24,7 @@ import { useMe } from "@/hooks/useAuth"
 import { LoginPage } from "@/pages/LoginPage"
 import { DashboardPage } from "@/pages/DashboardPage"
 import { AdminPage } from "@/pages/AdminPage"
+import { ConfiguracionIntranetPage } from "@/pages/admin/ConfiguracionIntranetPage"
 import { RolesPage } from "@/pages/RolesPage"
 import { AreasPage } from "@/pages/AreasPage"
 import { AdministrativoPage } from "@/pages/AdministrativoPage"
@@ -293,6 +294,14 @@ export default function App() {
         <Route
           path="/admin/usuarios"
           element={<Navigate to="/admin/configuracion/usuarios" replace />}
+        />
+        <Route
+          path="/admin/configuracion"
+          element={
+            <AdminRoute>
+              <ConfiguracionIntranetPage />
+            </AdminRoute>
+          }
         />
         <Route
           path="/admin/configuracion/usuarios"

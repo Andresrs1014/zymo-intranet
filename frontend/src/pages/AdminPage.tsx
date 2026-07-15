@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
 import { PageLayout } from "@/components/layout/PageLayout"
+import { AdminConfigNav } from "@/components/admin/AdminConfigNav"
 import { formatFechaRelativa } from "@/lib/dates"
 import { UserFormModal } from "@/components/admin/UserFormModal"
 import { getRoleLabel } from "@/lib/roles"
@@ -133,12 +134,13 @@ export function AdminPage() {
   return (
     <>
       <PageLayout title="Gestión de Usuarios">
+          <AdminConfigNav />
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div>
               <h1 className="text-xl font-bold text-foreground">Usuarios</h1>
               <p className="text-sm text-muted-foreground mt-0.5">
-                Administra el acceso al portal
+                Cuentas del portal. El botón Herramientas asigna acceso granular (ej. Gestión de Tareas) — distinto de los permisos del rol.
               </p>
             </div>
             <Button

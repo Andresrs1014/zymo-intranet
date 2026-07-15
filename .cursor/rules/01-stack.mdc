@@ -44,7 +44,7 @@ except Exception:
 | `/sig/*` | SigRoute | `mod_sig` |
 | `/planeacion/helix` | HelixRoute | `mod_helix` |
 | `/mantenimiento/*` | MantenimientoRoute | — |
-| `/tc/*` | TyCRoute | `mod_tyc` |
+| `/tc/*` | TyCRoute | `mod_tc` |
 | `/admin/*` | AdminRoute | role=admin |
 | `/m/:token` | **sin auth** | JWT scope=mnt_mobile |
 

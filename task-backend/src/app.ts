@@ -14,6 +14,7 @@ import listConfigsRouter from "./routers/listConfigs"
 import exportsRouter from "./routers/exports"
 import aiRouter from "./routers/ai"
 import systemConfigRouter from "./routers/systemConfig"
+import directoryCacheRouter from "./routers/directoryCache"
 
 const app = express()
 
@@ -49,6 +50,7 @@ app.use("/api/dashboard", dashboardRouter)
 app.use("/api/exports", exportsRouter)
 app.use("/api/ai", aiRouter)
 app.use("/api/config", systemConfigRouter)
+app.use("/api/directory", directoryCacheRouter)
 
 // --- 404 handler ---
 app.use((_req: Request, res: Response) => {

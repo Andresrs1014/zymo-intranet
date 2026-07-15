@@ -1,6 +1,8 @@
+import axios from "axios"
 import prisma from "../config/prisma"
 import { AppError } from "../middleware/errorHandler"
 import { isAdmin, AuthPayload, getUserId } from "../middleware/auth"
+import { env } from "../config/env"
 
 /**
  * Returns true if userId is owner or co_gestor of teamId, or is admin.
@@ -132,4 +134,32 @@ export async function getMemberTeamIds(user: AuthPayload): Promise<number[]> {
   ])
 
   return Array.from(ids)
+}
+
+/** Gestor de al menos un equipo, admin, o tool_task_manage_dev — puede sync/leer caché directorio. */
+export async function requireDirectoryManager(
+  user: AuthPayload,
+  token?: string,
+): Promise<void> {
+  if (isAdmin(user)) return
+
+  const managed = await getManagedTeamIds(user)
+  if (managed.length > 0) return
+
+  if (!token) {
+    throw new AppError(403, "No tienes permisos para consultar el directorio")
+  }
+
+  try {
+    const response = await axios.get<{ user_tools?: string[] }>(
+      `${env.INTRANET_API_URL}/auth/me`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    )
+    const tools = response.data?.user_tools ?? []
+    if (tools.includes("tool_task_manage_dev")) return
+  } catch {
+    throw new AppError(403, "Error al verificar permisos en la intranet")
+  }
+
+  throw new AppError(403, "Solo gestores de equipo pueden usar el directorio")
 }

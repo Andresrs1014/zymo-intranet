@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Flag, Ban, Mail, Pencil, Trash2, Check, X } from "lucide-react"
+import { Flag, Ban, Mail, Pencil, Trash2, Check, X, RefreshCw } from "lucide-react"
 import { useTask } from "@/context/TaskContext"
 import {
   useTeamMembers,
@@ -13,6 +13,11 @@ import {
   useDeleteTeam,
   type AvailableUser,
 } from "@/hooks/useTaskTeams"
+import {
+  useDirectoryPersonas,
+  useDirectoryStats,
+  useSyncDirectoryCache,
+} from "@/hooks/useDirectoryCache"
 import {
   useTaskLists,
   useCreateListItem,
@@ -48,6 +53,12 @@ function TeamSettings() {
   const [newName, setNewName] = useState(team?.name ?? "")
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [addSource, setAddSource] = useState<"intranet" | "directorio">("intranet")
+  const [directorioQuery, setDirectorioQuery] = useState("")
+
+  const { data: directorioPersonas = [] } = useDirectoryPersonas(directorioQuery, showAddDialog && addSource === "directorio")
+  const { data: directorioStats } = useDirectoryStats(showAddDialog && addSource === "directorio")
+  const syncDirectorio = useSyncDirectoryCache()
 
   async function handleRename() {
     if (!activeTeamId || !newName.trim()) return
@@ -204,27 +215,123 @@ function TeamSettings() {
       {/* Add member dialog */}
       {showAddDialog && activeTeamId && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/40 p-4">
-          <div className="max-h-[70vh] w-[400px] overflow-auto rounded-lg border border-zinc-200 bg-white p-6 shadow-2xl">
+          <div className="max-h-[70vh] w-[420px] overflow-auto rounded-lg border border-zinc-200 bg-white p-6 shadow-2xl">
             <h3 className="mb-4 text-[15px] font-bold text-zinc-900">Agregar miembro</h3>
-            {(availableUsers as AvailableUser[]).map((u) => (
-              <div key={u.id} className="flex items-center justify-between border-b border-zinc-100 py-2">
-                <span className="text-[13px] text-zinc-700">{u.full_name ?? `Usuario ${u.id}`}</span>
-                <button
-                  onClick={async () => {
-                    await addMember.mutateAsync({ teamId: activeTeamId, userId: u.id, userNombre: u.full_name ?? undefined })
-                    showToast("Miembro agregado", "success")
-                  }}
-                  className="rounded-md bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground transition hover:brightness-95"
-                >
-                  Agregar
-                </button>
-              </div>
-            ))}
-            {availableUsers.length === 0 && (
-              <p className="text-center text-[13px] text-zinc-500">No hay usuarios disponibles.</p>
+
+            <div className="mb-4 flex gap-1 rounded-lg bg-zinc-100 p-1">
+              <button
+                type="button"
+                onClick={() => setAddSource("intranet")}
+                className={`flex-1 rounded-md px-2 py-1.5 text-xs font-semibold transition ${
+                  addSource === "intranet" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500"
+                }`}
+              >
+                Usuarios intranet
+              </button>
+              <button
+                type="button"
+                onClick={() => setAddSource("directorio")}
+                className={`flex-1 rounded-md px-2 py-1.5 text-xs font-semibold transition ${
+                  addSource === "directorio" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500"
+                }`}
+              >
+                Directorio T&C
+              </button>
+            </div>
+
+            {addSource === "intranet" ? (
+              <>
+                {(availableUsers as AvailableUser[]).map((u) => (
+                  <div key={u.id} className="flex items-center justify-between border-b border-zinc-100 py-2">
+                    <span className="text-[13px] text-zinc-700">{u.full_name ?? `Usuario ${u.id}`}</span>
+                    <button
+                      onClick={async () => {
+                        await addMember.mutateAsync({ teamId: activeTeamId, userId: u.id, userNombre: u.full_name ?? undefined })
+                        showToast("Miembro agregado", "success")
+                      }}
+                      className="rounded-md bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground transition hover:brightness-95"
+                    >
+                      Agregar
+                    </button>
+                  </div>
+                ))}
+                {availableUsers.length === 0 && (
+                  <p className="text-center text-[13px] text-zinc-500">No hay usuarios disponibles.</p>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="mb-3 flex items-center gap-2">
+                  <input
+                    value={directorioQuery}
+                    onChange={(e) => setDirectorioQuery(e.target.value)}
+                    placeholder="Buscar en directorio..."
+                    className={`flex-1 ${INPUT_CLASS}`}
+                  />
+                  <button
+                    type="button"
+                    title="Sincronizar directorio"
+                    disabled={syncDirectorio.isPending}
+                    onClick={async () => {
+                      try {
+                        await syncDirectorio.mutateAsync()
+                        showToast("Directorio sincronizado", "success")
+                      } catch {
+                        showToast("Error al sincronizar directorio", "error")
+                      }
+                    }}
+                    className="rounded-md border border-zinc-300 p-2 text-zinc-600 transition hover:bg-zinc-50 disabled:opacity-50"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${syncDirectorio.isPending ? "animate-spin" : ""}`} />
+                  </button>
+                </div>
+                {directorioStats && (
+                  <p className="mb-3 text-[11px] text-zinc-500">
+                    {directorioStats.personas} personas en caché
+                    {directorioStats.lastSyncedAt
+                      ? ` · última sync ${new Date(directorioStats.lastSyncedAt).toLocaleString("es-CO")}`
+                      : " · sin sincronizar aún"}
+                  </p>
+                )}
+                {directorioPersonas.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between border-b border-zinc-100 py-2">
+                    <div>
+                      <div className="text-[13px] text-zinc-700">{p.nombre}</div>
+                      {!p.intranetUserId && (
+                        <div className="text-[10px] text-amber-600">Sin cuenta intranet — no se puede agregar al equipo</div>
+                      )}
+                    </div>
+                    <button
+                      disabled={!p.intranetUserId}
+                      onClick={async () => {
+                        if (!p.intranetUserId) return
+                        await addMember.mutateAsync({
+                          teamId: activeTeamId,
+                          userId: p.intranetUserId,
+                          userNombre: p.nombre,
+                        })
+                        showToast("Miembro agregado desde directorio", "success")
+                      }}
+                      className="rounded-md bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Agregar
+                    </button>
+                  </div>
+                ))}
+                {directorioPersonas.length === 0 && (
+                  <p className="text-center text-[13px] text-zinc-500">
+                    {directorioStats?.personas ? "Sin coincidencias." : "Sincroniza el directorio para ver personas."}
+                  </p>
+                )}
+              </>
             )}
+
             <button
-              onClick={() => setShowAddDialog(false)}
+              onClick={() => {
+                setShowAddDialog(false)
+                setAddSource("intranet")
+                setDirectorioQuery("")
+              }}
               className="mt-4 w-full rounded-md border border-zinc-300 bg-white py-2 text-[13px] text-zinc-700 transition hover:bg-zinc-50"
             >
               Cerrar

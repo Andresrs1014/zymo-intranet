@@ -76,6 +76,13 @@ class AdminSetPasswordRequest(BaseModel):
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+def _permissions_for_role(db: Session, role_name: str) -> list[str]:
+    role = db.exec(select(Role).where(Role.name == role_name)).first()
+    if not role or not role.app_permissions:
+        return []
+    return list(role.app_permissions)
+
+
 def _to_me(
     u: User,
     app_permissions: list[str] | None = None,
@@ -126,9 +133,16 @@ def login(
     db.add(user)
     db.commit()
 
+    perms = _permissions_for_role(db, user.role)
     token = create_access_token(
         subject=user.email,
-        extra={"role": user.role, "sede": user.sede, "area": user.area, "id": user.id},
+        extra={
+            "role": user.role,
+            "sede": user.sede,
+            "area": user.area,
+            "id": user.id,
+            "app_permissions": perms,
+        },
     )
     return TokenResponse(access_token=token)
 
@@ -137,8 +151,7 @@ def login(
 def me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     from app.models.user_tool import UserTool
 
-    role = db.exec(select(Role).where(Role.name == current_user.role)).first()
-    perms = role.app_permissions if role else []
+    perms = _permissions_for_role(db, current_user.role)
     tools = db.exec(
         select(UserTool).where(
             UserTool.user_id == current_user.id,
@@ -236,8 +249,7 @@ def update_user(
     db.add(user)
     db.commit()
     db.refresh(user)
-    role = db.exec(select(Role).where(Role.name == user.role)).first()
-    perms = role.app_permissions if role else []
+    perms = _permissions_for_role(db, user.role)
     return _to_me(user, perms)
 
 

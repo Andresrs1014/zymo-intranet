@@ -106,14 +106,8 @@ export function TopBar({ title = "Dashboard", showAgentDockToggle = false }: Top
             {user.role === "admin" && (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigate("/admin/configuracion/usuarios")}>
-                  Usuarios
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/admin/configuracion/roles")}>
-                  Roles
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/admin/configuracion/areas")}>
-                  Áreas y Sedes
+                <DropdownMenuItem onClick={() => navigate("/admin/configuracion")}>
+                  Configuración de la intranet
                 </DropdownMenuItem>
               </>
             )}

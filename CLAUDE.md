@@ -115,7 +115,7 @@ Clonar y adaptar para cada nuevo backend Node.
 | `/planeacion/helix` | Helix (sprints/tareas) | `HelixRoute` (`mod_helix`) |
 | `/tareas-v2` | Gestión de tareas dev | `PrivateRoute` + `user_tools` |
 | `/mantenimiento/*`, `/mantenimiento/tablero` | Mantenimiento | `MantenimientoRoute` |
-| `/tc/*` | Talento y Cultura (directorio, organigrama) | `TyCRoute` (`mod_tyc`) |
+| `/tc/*` | Talento y Cultura (directorio, organigrama) | `TyCRoute` (`mod_tc`) |
 | `/admin/*` | Administración | `AdminRoute` (role=admin) |
 | `/m/:token` | Vista móvil auxiliar mantenimiento | **Sin auth** — JWT de scope corto |
 
@@ -321,6 +321,7 @@ Un cambio está listo solo si:
 ---
 
 ## Documentación de referencia
+- **`docs/config-intranet/`** — Configuración admin, permisos, directorio como fuente de verdad (handoff agentes)
 - `docs/ADMIN_DB_PLAN.md`
 - `Master_plan/ZYMO_MASTER_PLAN_v2.md`
 - `docs/superpowers/specs/`
