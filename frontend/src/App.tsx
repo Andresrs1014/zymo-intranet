@@ -27,6 +27,7 @@ import { AdminPage } from "@/pages/AdminPage"
 import { ConfiguracionIntranetPage } from "@/pages/admin/ConfiguracionIntranetPage"
 import { RolesPage } from "@/pages/RolesPage"
 import { AreasPage } from "@/pages/AreasPage"
+import { SmtpConfigPage } from "@/pages/admin/SmtpConfigPage"
 import { AdministrativoPage } from "@/pages/AdministrativoPage"
 import { SolicitudesPage } from "@/pages/oc/SolicitudesPage"
 import { SolicitudDetallePage } from "@/pages/oc/SolicitudDetallePage"
@@ -324,6 +325,14 @@ export default function App() {
           element={
             <AdminRoute>
               <AreasPage />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/configuracion/smtp"
+          element={
+            <AdminRoute>
+              <SmtpConfigPage />
             </AdminRoute>
           }
         />

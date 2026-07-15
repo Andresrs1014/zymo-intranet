@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom"
-import { Users, ShieldCheck, Building2, ChevronRight, LockKeyhole } from "lucide-react"
+import { Users, ShieldCheck, Building2, Mail, ChevronRight, LockKeyhole } from "lucide-react"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { BlurFade } from "@/components/ui/blur-fade"
 
@@ -32,6 +32,13 @@ const CARDS: ConfigCard[] = [
     title: "Áreas y sedes",
     description: "Catálogo maestro de áreas/sedes que alimenta los selects de toda la intranet.",
     accent: "#0f766e",
+  },
+  {
+    to: "/admin/configuracion/smtp",
+    icon: <Mail className="h-5 w-5" />,
+    title: "SMTP corporativo",
+    description: "Cuenta compartida para enviar alertas por correo desde Tickets, T&C y Tareas.",
+    accent: "#9333ea",
   },
 ]
 

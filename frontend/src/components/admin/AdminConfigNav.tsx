@@ -1,11 +1,12 @@
 import { Link, useLocation } from "react-router-dom"
-import { ArrowLeft, Building2, ShieldCheck, Users } from "lucide-react"
+import { ArrowLeft, Building2, Mail, ShieldCheck, Users } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const LINKS = [
   { to: "/admin/configuracion/usuarios", label: "Usuarios", icon: Users },
   { to: "/admin/configuracion/roles", label: "Roles y permisos", icon: ShieldCheck },
   { to: "/admin/configuracion/areas", label: "Áreas y sedes", icon: Building2 },
+  { to: "/admin/configuracion/smtp", label: "SMTP corporativo", icon: Mail },
 ] as const
 
 export function AdminConfigNav() {

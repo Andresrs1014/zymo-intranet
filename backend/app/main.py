@@ -46,6 +46,7 @@ from app.routers.oper_clientes import router as oper_clientes_router
 from app.routers.tc_paquetes import router as tc_paquetes_router
 from app.routers.borradores import router as borradores_router
 from app.routers.admin.extraccion import router as admin_extraccion_router
+from app.routers.admin.smtp_config import router as admin_smtp_config_router
 from app.routers.user_tools import router as user_tools_router
 from app.routers.tasks_v2 import router as tasks_v2_router
 from app.routers.netvault import router as netvault_router
@@ -450,6 +451,7 @@ app.include_router(zymo_router)
 app.include_router(gerencial_router)
 app.include_router(borradores_router)
 app.include_router(admin_extraccion_router)
+app.include_router(admin_smtp_config_router)
 app.include_router(user_tools_router)
 app.include_router(tasks_v2_router)
 app.include_router(netvault_router)
