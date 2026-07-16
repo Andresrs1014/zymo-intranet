@@ -60,7 +60,7 @@ export function TicketScorePanel({ tickets, userName }: { tickets: Ticket[]; use
 
   return (
     <BlurFade duration={0.35}>
-      <div className="rounded-2xl border border-border bg-card p-6 flex flex-col items-center text-center">
+      <div className="rounded-2xl border border-border bg-card p-6 shadow-md flex flex-col items-center text-center">
         <Avatar className="h-16 w-16 mb-3">
           <AvatarFallback className="bg-primary/10 text-primary font-bold text-lg">
             {initials(userName)}

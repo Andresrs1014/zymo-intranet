@@ -3,7 +3,7 @@ import { Search, X } from "lucide-react"
 import { useTickets, useTicketConfigLists, useTicketAreaPrefixes } from "@/hooks/useTickets"
 import { useTicketsUI } from "@/context/TicketsContext"
 import { Combobox, type ComboboxOption } from "@/components/ui/Combobox"
-import { impactAgeStatus, daysOpen, priorityTone } from "@/lib/ticketWork"
+import { impactAgeStatus, daysOpen, priorityTone, formatSlaHours } from "@/lib/ticketWork"
 import type { Ticket } from "@/types/ticket"
 
 const FILTER_LABEL = "mb-1.5 block text-[11px] font-bold uppercase tracking-[0.06em] text-zinc-500"
@@ -132,18 +132,19 @@ export function ListView() {
             <tr>
               <th className="px-4 py-2.5">Código</th>
               <th className="px-4 py-2.5">Tipo</th>
-              <th className="px-4 py-2.5">Área</th>
+              <th className="px-4 py-2.5">Área / Plataforma</th>
+              <th className="px-4 py-2.5">Responsable</th>
               <th className="px-4 py-2.5">Prioridad</th>
               <th className="px-4 py-2.5">Estado</th>
-              <th className="px-4 py-2.5">Días abierto</th>
+              <th className="px-4 py-2.5">SLA</th>
             </tr>
           </thead>
           <tbody>
             {isLoading && (
-              <tr><td colSpan={6} className="px-4 py-6 text-center text-zinc-400">Cargando…</td></tr>
+              <tr><td colSpan={7} className="px-4 py-6 text-center text-zinc-400">Cargando…</td></tr>
             )}
             {!isLoading && tickets.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-6 text-center text-zinc-400">Sin tickets para estos filtros.</td></tr>
+              <tr><td colSpan={7} className="px-4 py-6 text-center text-zinc-400">Sin tickets para estos filtros.</td></tr>
             )}
             {tickets.map((ticket) => (
               <TicketRow key={ticket.id} ticket={ticket} onOpen={() => setOpenTicketId(ticket.id)} />
@@ -158,12 +159,25 @@ export function ListView() {
 function TicketRow({ ticket, onOpen }: { ticket: Ticket; onOpen: () => void }) {
   const tone = priorityTone(ticket.priority)
   const vencido = impactAgeStatus(ticket) === "vencido"
+  const responsable = ticket.supervisor || ticket.coordinator || ticket.analyst
+  const slaOverdue = ticket.slaOverdue === true && !/cerrado/i.test(ticket.status)
 
   return (
-    <tr onClick={onOpen} className="cursor-pointer border-b border-zinc-100 last:border-0 hover:bg-zinc-50">
+    <tr
+      onClick={onOpen}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen() } }}
+      role="button"
+      tabIndex={0}
+      aria-label={`Abrir ticket ${ticket.code}`}
+      className="cursor-pointer border-b border-zinc-100 last:border-0 hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-inset"
+    >
       <td className="px-4 py-2.5 font-mono text-[12px] text-zinc-700">{ticket.code}</td>
       <td className="px-4 py-2.5">{ticket.type}</td>
-      <td className="px-4 py-2.5">{ticket.area}</td>
+      <td className="px-4 py-2.5 text-zinc-700">
+        {ticket.area}
+        {ticket.platform && <span className="text-zinc-400"> · {ticket.platform}</span>}
+      </td>
+      <td className="px-4 py-2.5 text-zinc-700">{responsable || <span className="text-zinc-300">—</span>}</td>
       <td className="px-4 py-2.5">
         <span
           className="rounded-full border px-2 py-0.5 text-[11px] font-semibold"
@@ -174,9 +188,16 @@ function TicketRow({ ticket, onOpen }: { ticket: Ticket; onOpen: () => void }) {
       </td>
       <td className="px-4 py-2.5">{ticket.status}</td>
       <td className="px-4 py-2.5">
-        <span className={vencido ? "font-bold text-[#a8172f]" : "text-zinc-600"}>
-          {daysOpen(ticket)} {vencido ? "· vencido" : ""}
-        </span>
+        {ticket.slaLimitHours != null ? (
+          <span className={slaOverdue ? "font-bold text-[#a8172f]" : "text-zinc-600"}>
+            {formatSlaHours(ticket.slaElapsedHours)}/{formatSlaHours(ticket.slaLimitHours)}
+            {slaOverdue ? " · vencido" : ""}
+          </span>
+        ) : (
+          <span className={vencido ? "font-bold text-[#a8172f]" : "text-zinc-600"}>
+            {daysOpen(ticket)}d {vencido ? "· vencido" : ""}
+          </span>
+        )}
       </td>
     </tr>
   )

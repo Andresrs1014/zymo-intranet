@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { BlurFade } from "@/components/ui/blur-fade"
+import { AnimatedGridPattern } from "@/components/ui/animated-grid-pattern"
+import { cn } from "@/lib/utils"
 import { useAuthStore } from "@/store/authStore"
 import { useTickets } from "@/hooks/useTickets"
 import { TicketScorePanel } from "@/components/operativo/gestion-tickets/TicketScorePanel"
@@ -28,8 +30,40 @@ export function GestionarTicketsPage() {
   const cerrados = filtered.filter((t) => /cerrado/i.test(t.status))
 
   return (
-    <PageLayout title="Gestionar mis tickets" mainClassName="flex-1 overflow-y-auto p-6">
-      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 lg:grid-cols-[280px_1fr]">
+    <PageLayout title="Gestionar mis tickets" mainClassName="relative flex-1 overflow-y-auto p-6">
+      {/* Fondo de profundidad — mismo tratamiento de atmósfera que ya usa
+          TicketsShell/TaskShell (grid animado en rojo + blooms de blur),
+          adaptado a un layout con Sidebar/TopBar compartidos: acá vive
+          adentro de <main>, no reemplaza el shell de la intranet. */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+        <AnimatedGridPattern
+          numSquares={50}
+          maxOpacity={0.25}
+          duration={3.5}
+          repeatDelay={1}
+          className={cn(
+            "inset-x-0 inset-y-0 h-full text-primary stroke-primary/20",
+            "[mask-image:radial-gradient(1200px_circle_at_10%_0%,white,transparent)]"
+          )}
+        />
+        <div
+          className="absolute -right-20 -top-20 h-[360px] w-[360px] rounded-full"
+          style={{
+            background:
+              "radial-gradient(50% 50% at 50% 50%, rgba(239,51,64,0.22) 0%, rgba(196,30,58,0.11) 45%, transparent 72%)",
+            filter: "blur(60px)",
+          }}
+        />
+        <div
+          className="absolute bottom-[-8%] left-[8%] h-[280px] w-[280px] rounded-full"
+          style={{
+            background: "radial-gradient(50% 50% at 50% 50%, rgba(196,30,58,0.14) 0%, transparent 70%)",
+            filter: "blur(55px)",
+          }}
+        />
+      </div>
+
+      <div className="relative mx-auto grid max-w-6xl grid-cols-1 gap-6 lg:grid-cols-[280px_1fr]">
         {/* Panel izquierdo — resumen/score, como el perfil de un jugador */}
         <div className="lg:sticky lg:top-6 lg:self-start">
           <TicketScorePanel tickets={tickets} userName={user?.full_name ?? user?.email ?? "—"} />
@@ -45,7 +79,7 @@ export function GestionarTicketsPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por código, área, plataforma…"
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            className="w-full rounded-lg border border-border bg-background/80 px-3 py-2 text-sm text-foreground backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
 
           {isLoading && <p className="text-sm text-muted-foreground">Cargando tickets…</p>}
@@ -63,7 +97,7 @@ export function GestionarTicketsPage() {
               </p>
               <div className="space-y-2">
                 {pendientes.map((t, i) => (
-                  <BlurFade key={t.id} duration={0.3} delay={0.03 * i}>
+                  <BlurFade key={t.id} duration={0.3} delay={Math.min(0.05 * i, 0.4)}>
                     <TicketHistoryRow ticket={t} onClick={() => setOpenTicketId(t.id)} />
                   </BlurFade>
                 ))}
@@ -78,7 +112,7 @@ export function GestionarTicketsPage() {
               </p>
               <div className="space-y-2">
                 {cerrados.map((t, i) => (
-                  <BlurFade key={t.id} duration={0.3} delay={0.03 * i}>
+                  <BlurFade key={t.id} duration={0.3} delay={Math.min(0.05 * i, 0.4)}>
                     <TicketHistoryRow ticket={t} onClick={() => setOpenTicketId(t.id)} />
                   </BlurFade>
                 ))}

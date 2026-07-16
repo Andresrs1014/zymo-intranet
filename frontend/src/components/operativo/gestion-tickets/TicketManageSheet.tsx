@@ -9,13 +9,9 @@ import {
   useUpdateTicketFechaCompromiso, useAddTicketAction, useUploadTicketEvidence,
 } from "@/hooks/useTickets"
 import { extractErrorMessage } from "@/lib/ticketErrors"
+import { formatSlaHours } from "@/lib/ticketWork"
 
 type Tab = "detalle" | "bitacora" | "evidencias"
-
-function formatHours(h: number): string {
-  if (h < 1) return `${Math.round(h * 60)} min`
-  return `${Math.round(h)} h`
-}
 
 export function TicketManageSheet({ ticketId, onClose }: { ticketId: number | null; onClose: () => void }) {
   const [tab, setTab] = useState<Tab>("detalle")
@@ -112,7 +108,7 @@ export function TicketManageSheet({ ticketId, onClose }: { ticketId: number | nu
               {ticket.impact && <p><strong>Impacto:</strong> {ticket.impact}</p>}
               {ticket.slaLimitHours != null && (
                 <p>
-                  <strong>SLA:</strong> {formatHours(ticket.slaElapsedHours)} de {formatHours(ticket.slaLimitHours)} laborales
+                  <strong>SLA:</strong> {formatSlaHours(ticket.slaElapsedHours)} de {formatSlaHours(ticket.slaLimitHours)} laborales
                   {overdue && <span className="text-destructive font-semibold"> — vencido</span>}
                 </p>
               )}

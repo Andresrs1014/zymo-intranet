@@ -1,13 +1,9 @@
 import { Badge } from "@/components/ui/badge"
+import { formatSlaHours } from "@/lib/ticketWork"
 import type { Ticket } from "@/types/ticket"
 
 function isResuelto(t: Ticket): boolean {
   return /cerrado/i.test(t.status)
-}
-
-function formatHours(h: number): string {
-  if (h < 1) return `${Math.round(h * 60)}min`
-  return `${Math.round(h)}h`
 }
 
 interface TicketHistoryRowProps {
@@ -48,7 +44,7 @@ export function TicketHistoryRow({ ticket, onClick }: TicketHistoryRowProps) {
         </Badge>
         {ticket.slaLimitHours != null && (
           <span className={`text-[10px] tabular-nums ${overdue ? "text-destructive font-semibold" : "text-muted-foreground"}`}>
-            {formatHours(ticket.slaElapsedHours)} / {formatHours(ticket.slaLimitHours)} SLA
+            {formatSlaHours(ticket.slaElapsedHours)} / {formatSlaHours(ticket.slaLimitHours)} SLA
           </span>
         )}
       </div>

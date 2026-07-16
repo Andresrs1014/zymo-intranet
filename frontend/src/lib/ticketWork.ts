@@ -14,6 +14,12 @@ export function daysOpen(ticket: Pick<Ticket, "date" | "status" | "closedDate">)
   return Math.max(0, Math.floor((end.getTime() - start.getTime()) / 86400000))
 }
 
+/** Fase C — formatea horas laborales calculadas en el backend (slaElapsedHours/slaLimitHours). */
+export function formatSlaHours(h: number): string {
+  if (h < 1) return `${Math.round(h * 60)}min`
+  return `${Math.round(h)}h`
+}
+
 export function impactLimit(impact?: string | null): number {
   if (/critico/i.test(impact || "")) return 1
   if (/alto/i.test(impact || "")) return 2

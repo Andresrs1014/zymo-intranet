@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useId, useRef, useState } from "react"
-import { motion } from "motion/react"
+import { motion, useReducedMotion } from "motion/react"
 import { cn } from "@/lib/utils"
 
 // Puerto fiel de magicui.design/docs/components/animated-grid-pattern —
@@ -33,6 +33,7 @@ export function AnimatedGridPattern({
   repeatDelay = 0.5,
 }: AnimatedGridPatternProps) {
   const id = useId()
+  const prefersReducedMotion = useReducedMotion()
   const containerRef = useRef<SVGSVGElement>(null)
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
   const [squares, setSquares] = useState<{ id: number; pos: [number, number] }[]>([])
@@ -96,9 +97,13 @@ export function AnimatedGridPattern({
         {squares.map(({ pos: [sx, sy] }, index) => (
           <motion.rect
             key={`${sx}-${sy}-${index}`}
-            initial={{ opacity: 0 }}
+            initial={{ opacity: prefersReducedMotion ? maxOpacity : 0 }}
             animate={{ opacity: maxOpacity }}
-            transition={{ duration, repeat: Infinity, delay: index * 0.1, repeatType: "reverse", repeatDelay }}
+            transition={
+              prefersReducedMotion
+                ? { duration: 0 }
+                : { duration, repeat: Infinity, delay: index * 0.1, repeatType: "reverse", repeatDelay }
+            }
             width={width - 1}
             height={height - 1}
             x={sx * width + 1}
