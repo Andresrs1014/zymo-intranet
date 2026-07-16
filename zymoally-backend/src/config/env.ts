@@ -10,6 +10,7 @@ export const env = {
     return "change-me-same-as-fastapi";
   })(),
   INTRANET_API_URL: process.env.INTRANET_API_URL ?? "http://backend:8001",
+  INTERNAL_KEY: process.env.INTERNAL_KEY ?? "task-internal-key-dev",
   PUBLIC_APP_URL: process.env.PUBLIC_APP_URL ?? "http://localhost:8080",
   // Cuenta de servicio en el backend Python (sin login humano) usada por el
   // sync de datos maestros — ver "Prerrequisito manual" al inicio del plan.

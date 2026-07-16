@@ -12,7 +12,7 @@ const router = Router()
 router.get("/listas", async (_req, res, next) => {
   try {
     const items = await prisma.zymoConfigList.findMany({ where: { isActive: true }, orderBy: [{ listType: "asc" }, { sortOrder: "asc" }, { id: "asc" }] })
-    const grouped = Object.fromEntries(PQR_LIST_TYPES.map((type) => [type, items.filter((i) => i.listType === type).map((i) => ({ id: i.id, value: i.value, label: i.label }))]))
+    const grouped = Object.fromEntries(PQR_LIST_TYPES.map((type) => [type, items.filter((i) => i.listType === type).map((i) => ({ id: i.id, value: i.value, label: i.label, slaHours: i.slaHours }))]))
     res.json(grouped)
   } catch (err) {
     next(err)
@@ -50,6 +50,11 @@ const ListItemUpdateBody = z.object({
   label: z.string().min(1).optional(),
   sortOrder: z.number().int().optional(),
   isActive: z.boolean().optional(),
+  // Solo tiene efecto real en listType="priorities" — horas laborales límite de
+  // gestión para esa opción. Se guarda por item (no por texto) para no depender
+  // de que la etiqueta se llame "Urgente"/"Alta"/etc — ver incidente del motor
+  // de alertas viejo (regex sobre texto configurable, project_zymoally memoria).
+  slaHours: z.number().int().min(0).nullable().optional(),
 })
 
 router.patch("/listas/:id", requireTicketsConfig, async (req, res, next) => {

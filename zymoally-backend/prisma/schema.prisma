@@ -38,6 +38,7 @@ model ZymoPqrTicket {
   channel            String?
   managementCriteria String?
   closedDate         String?
+  closedAt           DateTime?
   description        String?
   actions            ZymoPqrAction[]
   evidence           ZymoPqrEvidence[]
@@ -75,6 +76,7 @@ model ZymoConfigList {
   syncedAt     DateTime?
   contactEmail String?
   contactPhone String?
+  slaHours     Int?      // solo aplica a listType="priorities" — horas laborales límite de gestión
 
   @@unique([listType, value])
   @@index([listType])
