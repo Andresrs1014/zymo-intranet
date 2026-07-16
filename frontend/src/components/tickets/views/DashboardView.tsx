@@ -5,6 +5,7 @@ import { BlurFade } from "@/components/ui/blur-fade"
 import { downloadFile } from "@/lib/download"
 import { extractErrorMessage } from "@/lib/ticketErrors"
 import { useTicketToast } from "../TicketToast"
+import type { ScoreLeaderboardEntry } from "@/types/ticket"
 
 function Bar({ label, value, max }: { label: string; value: number; max: number }) {
   const pct = max > 0 ? Math.round((value / max) * 100) : 0
@@ -17,6 +18,31 @@ function Bar({ label, value, max }: { label: string; value: number; max: number 
       <div className="h-2 rounded-full bg-zinc-100">
         <div className="h-2 rounded-full bg-zinc-400" style={{ width: `${pct}%` }} />
       </div>
+    </div>
+  )
+}
+
+function Leaderboard({ title, entries }: { title: string; entries: ScoreLeaderboardEntry[] }) {
+  return (
+    <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
+      <h3 className="mb-3 text-sm font-bold text-zinc-900">{title}</h3>
+      {entries.length === 0 && <p className="text-xs text-zinc-400">Sin datos suficientes todavía.</p>}
+      <ol className="space-y-2.5">
+        {entries.slice(0, 5).map((entry, i) => (
+          <li key={entry.label} className="flex items-center gap-3">
+            <span className="w-4 shrink-0 text-xs font-bold text-zinc-400 tabular-nums">{i + 1}</span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[13px] font-semibold text-zinc-900">{entry.label}</p>
+              <p className="text-[11px] text-zinc-500">{entry.resolved}/{entry.count} resueltos</p>
+            </div>
+            <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-bold tabular-nums ${
+              i === 0 ? "bg-[#fce9ed] text-[#a8172f]" : "bg-zinc-100 text-zinc-600"
+            }`}>
+              {entry.avgScore}
+            </span>
+          </li>
+        ))}
+      </ol>
     </div>
   )
 }
@@ -41,7 +67,7 @@ export function DashboardView() {
     return <p className="text-zinc-400">Cargando dashboard…</p>
   }
 
-  const { metrics, aiAnalysis } = data
+  const { metrics, aiAnalysis, scoreLeaderboards } = data
   const maxByStatus = Math.max(1, ...Object.values(metrics.byStatus))
   const maxByType = Math.max(1, ...Object.values(metrics.byType))
   const maxByArea = Math.max(1, ...Object.values(metrics.byArea))
@@ -110,6 +136,17 @@ export function DashboardView() {
           {Object.entries(metrics.byArea).map(([area, count]) => (
             <Bar key={area} label={area} value={count} max={maxByArea} />
           ))}
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <div className="mb-2 flex items-baseline justify-between">
+          <h2 className="text-sm font-bold text-zinc-900">Score de gestión</h2>
+          <span className="text-[11px] text-zinc-400">Pesos provisionales — no mide velocidad ni volumen puro</span>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Leaderboard title="Por plataforma" entries={scoreLeaderboards.byPlatform} />
+          <Leaderboard title="Por supervisor / coordinador" entries={scoreLeaderboards.byPerson} />
         </div>
       </div>
 

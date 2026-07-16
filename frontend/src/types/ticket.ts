@@ -126,9 +126,24 @@ export interface TicketDashboardMetrics {
   byArea: Record<string, number>
 }
 
+export interface ScoreLeaderboardEntry {
+  label: string
+  avgScore: number
+  count: number
+  resolved: number
+}
+
+export interface ScoreLeaderboards {
+  byPlatform: ScoreLeaderboardEntry[]
+  byPerson: ScoreLeaderboardEntry[]
+}
+
 export interface TicketDashboardResult {
   metrics: TicketDashboardMetrics
   aiAnalysis: string[]
+  /** Score de calidad de gestión (0-100, pesos provisionales) — ver
+   * docs/superpowers/specs/2026-07-17-zymoally-score-gestion-design.md */
+  scoreLeaderboards: ScoreLeaderboards
 }
 
 export interface SyncSectionResult {

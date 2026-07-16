@@ -1,6 +1,7 @@
 import { Router } from "express"
 import { prisma } from "../../config/prisma"
 import { pqrAiSummary, pqrDashboardMetrics } from "../../services/pqrMetrics"
+import { scoreLeaderboards } from "../../services/scoreMetrics"
 import { normalizePrefix } from "../../utils/formatters"
 
 const router = Router()
@@ -17,10 +18,11 @@ router.get("/", async (req, res, next) => {
     if (client && client !== "all") where.client = client
     if (supervisor && supervisor !== "all") where.supervisor = supervisor
 
-    const tickets = await prisma.zymoPqrTicket.findMany({ where, include: { evidence: true } })
+    const tickets = await prisma.zymoPqrTicket.findMany({ where, include: { evidence: true, actions: true } })
     res.json({
       metrics: pqrDashboardMetrics(tickets),
       aiAnalysis: pqrAiSummary(tickets),
+      scoreLeaderboards: await scoreLeaderboards(tickets),
     })
   } catch (err) {
     next(err)
