@@ -19,8 +19,11 @@ interface IntranetPersona {
   id: number
   nombre: string
   cargo_nombre?: string
-  email_corporativo?: string
-  email?: string
+  // email_corporativo_efectivo ya trae el fallback al email de login de la
+  // intranet cuando la persona nunca llenó "Correo corporativo" en T&C
+  // (backend/app/routers/personal.py::_email_corporativo_efectivo) — usar
+  // este campo, no email_corporativo directo, para no perder ese fallback.
+  email_corporativo_efectivo?: string
   telefono_corporativo?: string
   telefono?: string
 }
@@ -261,7 +264,7 @@ export async function syncMasterData(): Promise<SyncMasterDataResult> {
         byCategory[category].push({
           externalId: String(p.id),
           label: p.nombre,
-          contactEmail: p.email_corporativo || p.email || undefined,
+          contactEmail: p.email_corporativo_efectivo || undefined,
           contactPhone: p.telefono_corporativo || p.telefono || undefined,
         })
       }

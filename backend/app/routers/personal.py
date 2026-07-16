@@ -146,6 +146,26 @@ class CargoUpdate(BaseModel):
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+def _email_corporativo_efectivo(p: PtcPersona, main_db: Session) -> str:
+    """Correo corporativo con fallback al email de login de la intranet.
+
+    Muchas personas nunca llenan "Correo corporativo" en su perfil de T&C,
+    pero si tienen cuenta en la intranet (user_id), ese email de login ES
+    su correo corporativo por política de la empresa — no hace falta que
+    lo repitan a mano. Consumido por integraciones (ej. sync de ZymoAlly)
+    que necesitan un correo confiable, sin depender de que alguien llene
+    un campo duplicado. El campo "email_corporativo" crudo sigue intacto
+    para la UI de T&C (edición manual del perfil).
+    """
+    if p.email_corporativo:
+        return p.email_corporativo
+    if p.user_id:
+        user = main_db.get(User, p.user_id)
+        if user and user.email:
+            return user.email
+    return ""
+
+
 def _persona_dict(p: PtcPersona, db: Session, main_db: Session) -> dict:
     sede  = main_db.get(Sede, p.sede_id) if p.sede_id else None
     area  = main_db.get(GlobalArea, p.area_id) if p.area_id else None
@@ -166,6 +186,7 @@ def _persona_dict(p: PtcPersona, db: Session, main_db: Session) -> dict:
         "rh": p.rh,
         "email": p.email,
         "email_corporativo": p.email_corporativo,
+        "email_corporativo_efectivo": _email_corporativo_efectivo(p, main_db),
         "telefono": p.telefono,
         "telefono_corporativo": p.telefono_corporativo,
         "foto_url": p.foto_url,
