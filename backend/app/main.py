@@ -89,6 +89,12 @@ _DEFAULT_ROLES = [
         "app_permissions": ["matriz", "mod_operativo"],
     },
     {
+        "name": "gestor_tickets",
+        "label": "Gestor de Tickets",
+        "description": "Supervisor/analista/coordinador — gestiona en Operativo los tickets de ZymoAlly asignados a su nombre",
+        "app_permissions": ["matriz", "mod_operativo_tickets"],
+    },
+    {
         "name": "empleado",
         "label": "Empleado",
         "description": "Acceso básico para colaboradores",
