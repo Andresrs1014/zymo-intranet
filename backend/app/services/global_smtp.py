@@ -1,7 +1,11 @@
+import logging
+
 from sqlmodel import Session, select
 
 from app.database import get_engine
 from app.models.global_config import GlobalConfig
+
+log = logging.getLogger(__name__)
 
 _PRIMARY_KEYS = ("smtp_host", "smtp_port", "smtp_user", "smtp_password", "smtp_from")
 _BACKUP_KEYS = ("smtp_backup_host", "smtp_backup_port", "smtp_backup_user", "smtp_backup_password", "smtp_backup_from")
@@ -23,10 +27,16 @@ def _read(keys: tuple[str, ...]) -> dict[str, str]:
 def get_global_smtp() -> dict | None:
     """Lee el SMTP corporativo principal (Configuración de la intranet → SMTP corporativo).
 
-    Retorna None si aún no está configurado — el llamador debe intentar el de respaldo
-    (ver get_global_smtp_backup) y, si tampoco hay, omitir el envío.
+    Retorna None si aún no está configurado O si falla la lectura (DB no disponible, etc.)
+    — nunca propaga la excepción. Esto corre dentro de BackgroundTasks en varios llamadores
+    (email_service.py, tc_agenda.py); una excepción no atrapada ahí muere en silencio, sin
+    log ni traceback visible. Ver incidente 2026-07-16: esto ya rompió las alertas de OC una vez.
     """
-    rows = _read(_PRIMARY_KEYS)
+    try:
+        rows = _read(_PRIMARY_KEYS)
+    except Exception as exc:
+        log.warning("[global_smtp] No se pudo leer SMTP principal: %s", exc)
+        return None
     if not (rows.get("smtp_host") and rows.get("smtp_user") and rows.get("smtp_password")):
         return None
     return {
@@ -40,8 +50,13 @@ def get_global_smtp() -> dict | None:
 
 def get_global_smtp_backup() -> dict | None:
     """Lee el SMTP de respaldo — mismo hub, sección separada. Se usa solo si el
-    principal falla al conectar/autenticar/enviar, no si simplemente no está configurado."""
-    rows = _read(_BACKUP_KEYS)
+    principal falla al conectar/autenticar/enviar, no si simplemente no está configurado.
+    Igual que get_global_smtp(), nunca propaga excepciones (ver docstring de esa función)."""
+    try:
+        rows = _read(_BACKUP_KEYS)
+    except Exception as exc:
+        log.warning("[global_smtp] No se pudo leer SMTP de respaldo: %s", exc)
+        return None
     if not (rows.get("smtp_backup_host") and rows.get("smtp_backup_user") and rows.get("smtp_backup_password")):
         return None
     return {
