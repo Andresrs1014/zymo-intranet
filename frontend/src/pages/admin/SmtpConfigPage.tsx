@@ -196,15 +196,18 @@ export function SmtpConfigPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Nombre "De"</label>
+                <label className="block text-sm font-medium text-foreground mb-1">Correo remitente ("De")</label>
                 <input
-                  type="text"
+                  type="email"
                   className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                  placeholder="ZYMO Intranet"
+                  placeholder="alertas@zymologistica.com"
                   value={form.smtp_from}
                   onChange={(e) => handleChange("smtp_from", e.target.value)}
                 />
-                <p className="mt-1 text-xs text-muted-foreground">Si se deja vacío, se usa el usuario SMTP como remitente.</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Debe ser un <strong>correo válido</strong> (no un nombre) — se usa como dirección real del remitente.
+                  Si se deja vacío, se usa el usuario SMTP.
+                </p>
               </div>
             </section>
 

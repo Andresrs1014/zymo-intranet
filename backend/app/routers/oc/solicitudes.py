@@ -457,7 +457,6 @@ def asignar_auxiliar(
         )
 
     oc_db.commit()
-    oc_db.refresh(sol)
 
     from app.services.mnt_pares_externos import sincronizar_desde_oc_asignar
     sincronizar_desde_oc_asignar(oc_db, solicitud, payload.auxiliar_id, current_user)

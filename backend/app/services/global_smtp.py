@@ -18,10 +18,17 @@ def get_global_smtp() -> dict | None:
     if not (rows.get("smtp_host") and rows.get("smtp_user") and rows.get("smtp_password")):
         return None
 
+    # smtp_from se usa tal cual como MAIL_FROM (dirección real, no un nombre para mostrar).
+    # Un valor guardado sin "@" (dato viejo/malo) rompería el envío para toda la intranet —
+    # se ignora y se cae a smtp_user en vez de propagar basura a smtplib/fastapi-mail.
+    smtp_from = rows.get("smtp_from") or ""
+    if "@" not in smtp_from:
+        smtp_from = rows["smtp_user"]
+
     return {
         "smtp_host": rows["smtp_host"],
         "smtp_port": int(rows.get("smtp_port") or 587),
         "smtp_user": rows["smtp_user"],
         "smtp_password": rows["smtp_password"],
-        "smtp_from": rows.get("smtp_from") or rows["smtp_user"],
+        "smtp_from": smtp_from,
     }

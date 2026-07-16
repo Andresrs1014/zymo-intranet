@@ -95,6 +95,16 @@ def update_smtp_config(
     current_user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
+    # smtp_from se usa tal cual como MAIL_FROM (dirección real del remitente, no un nombre
+    # para mostrar) — un valor sin "@" rompe el envío para TODA la intranet, no solo para
+    # quien lo configuró mal. Ver incidente 2026-07-16: alguien puso "ZYMOLOGISTICA" acá y
+    # tumbó el correo completo de Compras.
+    if payload.smtp_from is not None and payload.smtp_from.strip() and "@" not in payload.smtp_from:
+        raise HTTPException(
+            status_code=422,
+            detail="El correo remitente debe ser una dirección de correo válida (con @), no un nombre.",
+        )
+
     for field, value in payload.model_dump(exclude_unset=True).items():
         if value is None or field not in _KEYS:
             continue
@@ -119,13 +129,18 @@ def get_smtp_config_service(
     """
     if not _is_valid_internal_key(x_internal_key):
         raise HTTPException(status_code=401, detail="No autorizado")
-    rows = _rows(db)
+
+    from app.services.global_smtp import get_global_smtp
+
+    global_smtp = get_global_smtp()
+    if not global_smtp:
+        return SmtpConfigService(smtp_host="", smtp_port="587", smtp_user="", smtp_password="", smtp_from="")
     return SmtpConfigService(
-        smtp_host=rows.get("smtp_host", ""),
-        smtp_port=rows.get("smtp_port", "587"),
-        smtp_user=rows.get("smtp_user", ""),
-        smtp_password=rows.get("smtp_password", ""),
-        smtp_from=rows.get("smtp_from", ""),
+        smtp_host=global_smtp["smtp_host"],
+        smtp_port=str(global_smtp["smtp_port"]),
+        smtp_user=global_smtp["smtp_user"],
+        smtp_password=global_smtp["smtp_password"],
+        smtp_from=global_smtp["smtp_from"],
     )
 
 
