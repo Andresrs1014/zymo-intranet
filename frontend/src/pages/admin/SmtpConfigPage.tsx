@@ -37,7 +37,15 @@ interface TestEmailResult {
 
 const EMPTY_FORM: FormState = { smtp_host: "", smtp_port: "587", smtp_user: "", smtp_password: "", smtp_from: "" }
 
-export function SmtpConfigPage() {
+interface SlotSectionProps {
+  slot: "primary" | "backup"
+  endpoint: string
+  title: string
+  description: string
+  userPlaceholder: string
+}
+
+function SmtpSlotSection({ slot, endpoint, title, description, userPlaceholder }: SlotSectionProps) {
   const [config, setConfig] = useState<SmtpConfigRead | null>(null)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [loading, setLoading] = useState(true)
@@ -51,7 +59,7 @@ export function SmtpConfigPage() {
   function load() {
     setLoading(true)
     api
-      .get<SmtpConfigRead>("/api/admin/smtp-config")
+      .get<SmtpConfigRead>(endpoint)
       .then((res) => {
         setConfig(res.data)
         setForm({
@@ -66,7 +74,7 @@ export function SmtpConfigPage() {
       .finally(() => setLoading(false))
   }
 
-  useEffect(load, [])
+  useEffect(load, [endpoint])
 
   function handleChange(field: keyof FormState, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -87,7 +95,7 @@ export function SmtpConfigPage() {
     if (form.smtp_password.trim()) payload.smtp_password = form.smtp_password
 
     try {
-      await api.patch("/api/admin/smtp-config", payload)
+      await api.patch(endpoint, payload)
       setSuccess(true)
       load()
     } catch {
@@ -106,6 +114,7 @@ export function SmtpConfigPage() {
       .filter(Boolean)
     try {
       const res = await api.post<TestEmailResult>("/api/admin/smtp-config/test", {
+        slot,
         destinatarios: destinatarios.length ? destinatarios : undefined,
       })
       setTestResult(res.data)
@@ -116,172 +125,179 @@ export function SmtpConfigPage() {
     }
   }
 
+  if (loading) return <div className="text-center py-12 text-muted-foreground">Cargando configuración…</div>
+
   return (
-    <PageLayout title="SMTP corporativo" mainClassName="flex-1 overflow-auto p-6">
-      <AdminConfigNav />
-      <div className="max-w-2xl">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-foreground">SMTP corporativo</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Cuenta compartida usada para enviar alertas por correo desde Tickets, T&C y Gestión de Tareas.
-            Guardado en base de datos — nunca en variables de entorno.
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <section className="bg-card rounded-xl border border-border p-6 space-y-4">
+        <div>
+          <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">{title}</h2>
+          <p className="text-xs text-muted-foreground mt-1">{description}</p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Host SMTP</label>
+            <input
+              type="text"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              placeholder="smtp.gmail.com"
+              value={form.smtp_host}
+              onChange={(e) => handleChange("smtp_host", e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Puerto</label>
+            <input
+              type="number"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              placeholder="587"
+              value={form.smtp_port}
+              onChange={(e) => handleChange("smtp_port", e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Usuario</label>
+          <input
+            type="email"
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            placeholder={userPlaceholder}
+            value={form.smtp_user}
+            onChange={(e) => handleChange("smtp_user", e.target.value)}
+          />
+        </div>
+
+        <div>
+          <Label className="mb-1">Contraseña de aplicación</Label>
+          <Input
+            type="password"
+            placeholder="Dejar en blanco para no cambiar"
+            value={form.smtp_password}
+            onChange={(e) => handleChange("smtp_password", e.target.value)}
+            autoComplete="new-password"
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            {config?.smtp_password_set
+              ? "✓ Contraseña configurada — solo escribe si quieres cambiarla"
+              : "⚠ Sin contraseña configurada"}
           </p>
         </div>
 
-        {loading && <div className="text-center py-12 text-muted-foreground">Cargando configuración…</div>}
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Correo remitente ("De")</label>
+          <input
+            type="email"
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            placeholder={userPlaceholder}
+            value={form.smtp_from}
+            onChange={(e) => handleChange("smtp_from", e.target.value)}
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Debe ser un <strong>correo válido</strong> (no un nombre) — se usa como dirección real del remitente.
+            Si se deja vacío, se usa el usuario SMTP.
+          </p>
+        </div>
+      </section>
 
-        {!loading && (
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <section className="bg-card rounded-xl border border-border p-6 space-y-4">
-              <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">Servidor SMTP</h2>
+      <section className="bg-card rounded-xl border border-border p-6 space-y-4">
+        <div>
+          <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">Diagnóstico de correo</h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            Sin destinatarios, se auto-envía a la propia cuenta (valida solo login). Para confirmar entrega
+            real, pega uno o varios correos separados por coma o línea nueva.
+          </p>
+        </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">Host SMTP</label>
-                  <input
-                    type="text"
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                    placeholder="smtp.gmail.com"
-                    value={form.smtp_host}
-                    onChange={(e) => handleChange("smtp_host", e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">Puerto</label>
-                  <input
-                    type="number"
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                    placeholder="587"
-                    value={form.smtp_port}
-                    onChange={(e) => handleChange("smtp_port", e.target.value)}
-                  />
-                </div>
-              </div>
+        <textarea
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring font-mono"
+          rows={3}
+          placeholder="auxiliar.compras@zymologistica.com&#10;lider.tyc@zymologistica.com"
+          value={testRecipients}
+          onChange={(e) => setTestRecipients(e.target.value)}
+        />
 
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Usuario (cuenta Gmail)</label>
-                <input
-                  type="email"
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                  placeholder="alertas@zymologistica.com"
-                  value={form.smtp_user}
-                  onChange={(e) => handleChange("smtp_user", e.target.value)}
-                />
-              </div>
+        <div className="flex justify-end">
+          <Button type="button" onClick={handleTest} disabled={testing} variant="outline" className="shrink-0">
+            {testing ? "Probando…" : "Enviar correo de prueba"}
+          </Button>
+        </div>
 
-              <div>
-                <Label className="mb-1">Contraseña de aplicación</Label>
-                <Input
-                  type="password"
-                  placeholder="Dejar en blanco para no cambiar"
-                  value={form.smtp_password}
-                  onChange={(e) => handleChange("smtp_password", e.target.value)}
-                  autoComplete="new-password"
-                />
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {config?.smtp_password_set
-                    ? "✓ Contraseña configurada — solo escribe si quieres cambiarla"
-                    : "⚠ Sin contraseña configurada"}
-                  {" · "}Genera una en{" "}
-                  <a
-                    href="https://myaccount.google.com/apppasswords"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="underline"
-                  >
-                    myaccount.google.com/apppasswords
-                  </a>{" "}
-                  (requiere verificación en 2 pasos activada).
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Correo remitente ("De")</label>
-                <input
-                  type="email"
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                  placeholder="alertas@zymologistica.com"
-                  value={form.smtp_from}
-                  onChange={(e) => handleChange("smtp_from", e.target.value)}
-                />
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Debe ser un <strong>correo válido</strong> (no un nombre) — se usa como dirección real del remitente.
-                  Si se deja vacío, se usa el usuario SMTP.
-                </p>
-              </div>
-            </section>
-
-            <section className="bg-card rounded-xl border border-border p-6 space-y-4">
-              <div>
-                <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">Diagnóstico de correo</h2>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Sin destinatarios, se auto-envía a la propia cuenta (valida solo login). Para confirmar que
-                  la entrega real funciona en cada área, pega aquí un correo por área a validar
-                  (compras, T&C, tickets…), separados por coma o línea nueva.
-                </p>
-              </div>
-
-              <textarea
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring font-mono"
-                rows={3}
-                placeholder="auxiliar.compras@zymologistica.com&#10;lider.tyc@zymologistica.com"
-                value={testRecipients}
-                onChange={(e) => setTestRecipients(e.target.value)}
-              />
-
-              <div className="flex justify-end">
-                <Button type="button" onClick={handleTest} disabled={testing} variant="outline" className="shrink-0">
-                  {testing ? "Probando…" : "Enviar correo de prueba"}
-                </Button>
-              </div>
-
-              {testResult && (
-                <div
-                  className={`rounded-lg border px-4 py-3 text-sm ${
-                    testResult.ok
-                      ? "bg-green-50 border-green-200 text-green-800"
-                      : "bg-red-50 border-red-200 text-red-800"
-                  }`}
-                >
-                  <p className="font-semibold flex items-center gap-1.5">
-                    {testResult.ok ? "✅" : "❌"} {testResult.mensaje}
-                  </p>
-                  {testResult.detalle && (
-                    <pre className="mt-2 text-xs whitespace-pre-wrap font-mono leading-relaxed opacity-80">
-                      {testResult.detalle}
-                    </pre>
-                  )}
-                  {testResult.resultados && testResult.resultados.length > 1 && (
-                    <ul className="mt-3 space-y-1">
-                      {testResult.resultados.map((r) => (
-                        <li key={r.email} className="flex items-start gap-1.5 text-xs">
-                          <span>{r.ok ? "✅" : "❌"}</span>
-                          <span className="font-mono">{r.email}</span>
-                          {r.detalle && <span className="opacity-70">— {r.detalle}</span>}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              )}
-            </section>
-
-            {error && (
-              <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{error}</div>
+        {testResult && (
+          <div
+            className={`rounded-lg border px-4 py-3 text-sm ${
+              testResult.ok ? "bg-green-50 border-green-200 text-green-800" : "bg-red-50 border-red-200 text-red-800"
+            }`}
+          >
+            <p className="font-semibold flex items-center gap-1.5">
+              {testResult.ok ? "✅" : "❌"} {testResult.mensaje}
+            </p>
+            {testResult.detalle && (
+              <pre className="mt-2 text-xs whitespace-pre-wrap font-mono leading-relaxed opacity-80">{testResult.detalle}</pre>
             )}
-            {success && (
-              <div className="rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700">
-                ✓ Configuración guardada correctamente.
-              </div>
+            {testResult.resultados && testResult.resultados.length > 1 && (
+              <ul className="mt-3 space-y-1">
+                {testResult.resultados.map((r) => (
+                  <li key={r.email} className="flex items-start gap-1.5 text-xs">
+                    <span>{r.ok ? "✅" : "❌"}</span>
+                    <span className="font-mono">{r.email}</span>
+                    {r.detalle && <span className="opacity-70">— {r.detalle}</span>}
+                  </li>
+                ))}
+              </ul>
             )}
-
-            <div className="flex justify-end">
-              <Button type="submit" disabled={saving}>
-                {saving ? "Guardando…" : "Guardar cambios"}
-              </Button>
-            </div>
-          </form>
+          </div>
         )}
+      </section>
+
+      {error && <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{error}</div>}
+      {success && (
+        <div className="rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700">
+          ✓ Configuración guardada correctamente.
+        </div>
+      )}
+
+      <div className="flex justify-end">
+        <Button type="submit" disabled={saving}>
+          {saving ? "Guardando…" : "Guardar cambios"}
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+export function SmtpConfigPage() {
+  return (
+    <PageLayout title="SMTP corporativo" mainClassName="flex-1 overflow-auto p-6">
+      <AdminConfigNav />
+      <div className="max-w-2xl space-y-10">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">SMTP corporativo</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Cuentas compartidas usadas para enviar alertas por correo desde Tickets, T&C y Gestión de Tareas.
+            Guardado en base de datos — nunca en variables de entorno. Si la principal falla al enviar,
+            se reintenta automáticamente con la de respaldo.
+          </p>
+        </div>
+
+        <SmtpSlotSection
+          slot="primary"
+          endpoint="/api/admin/smtp-config"
+          title="Cuenta principal"
+          description="Se usa siempre que esté configurada."
+          userPlaceholder="alertas@zymologistica.com"
+        />
+
+        <div className="border-t border-border pt-10">
+          <SmtpSlotSection
+            slot="backup"
+            endpoint="/api/admin/smtp-config/backup"
+            title="Cuenta de respaldo"
+            description="Solo se usa si el envío con la cuenta principal falla (auth, conexión, etc.). Puede quedar vacía."
+            userPlaceholder="respaldo@zymologistica.com"
+          />
+        </div>
       </div>
     </PageLayout>
   )

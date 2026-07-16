@@ -3,7 +3,7 @@ import smtplib
 import ssl
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel
@@ -21,8 +21,13 @@ router = APIRouter(prefix="/api/admin/smtp-config", tags=["Admin — SMTP corpor
 
 # Cuenta compartida usada por Tickets/T&C/Tareas para enviar alertas por correo.
 # Deliberadamente NO vive en .env — la carga el admin desde /admin/configuracion.
-_KEYS = {"smtp_host", "smtp_port", "smtp_user", "smtp_password", "smtp_from"}
-
+# "backup" es un SEGUNDO juego de credenciales, también centralizado acá — ya no
+# hay fallback a la config local de cada herramienta (OcConfig/PtcSmtpConfig/
+# SystemConfig de Tareas). Ver incidente 2026-07-16.
+_FIELD_MAP: dict[str, dict[str, str]] = {
+    "primary": {"host": "smtp_host", "port": "smtp_port", "user": "smtp_user", "password": "smtp_password", "from": "smtp_from"},
+    "backup": {"host": "smtp_backup_host", "port": "smtp_backup_port", "user": "smtp_backup_user", "password": "smtp_backup_password", "from": "smtp_backup_from"},
+}
 
 class SmtpConfigRead(BaseModel):
     smtp_host: str
@@ -42,6 +47,7 @@ class SmtpConfigUpdate(BaseModel):
 
 class TestEmailRequest(BaseModel):
     destinatarios: Optional[list[str]] = None
+    slot: Literal["primary", "backup"] = "primary"
 
 
 class TestEmailItemResult(BaseModel):
@@ -57,8 +63,7 @@ class TestEmailResult(BaseModel):
     resultados: Optional[list[TestEmailItemResult]] = None
 
 
-class SmtpConfigService(BaseModel):
-    """Config completa (incluye password) para llamadas servicio-a-servicio (task-backend, etc.)."""
+class SmtpConfigServiceCreds(BaseModel):
     smtp_host: str
     smtp_port: str
     smtp_user: str
@@ -66,82 +71,105 @@ class SmtpConfigService(BaseModel):
     smtp_from: str
 
 
-def _rows(db: Session) -> dict[str, str]:
-    return {r.key: r.value for r in db.exec(select(GlobalConfig).where(GlobalConfig.key.in_(_KEYS))).all()}
+class SmtpConfigServiceResponse(BaseModel):
+    """Config completa (incluye password) para llamadas servicio-a-servicio (task-backend, etc.).
+    `backup` es None si no está configurado — el llamador debe intentar `primary` primero."""
+    primary: Optional[SmtpConfigServiceCreds] = None
+    backup: Optional[SmtpConfigServiceCreds] = None
+
+
+def _rows(db: Session, slot: str) -> dict[str, str]:
+    keys = set(_FIELD_MAP[slot].values())
+    return {r.key: r.value for r in db.exec(select(GlobalConfig).where(GlobalConfig.key.in_(keys))).all()}
 
 
 def _is_valid_internal_key(key: Optional[str]) -> bool:
     return bool(key and settings.internal_key and key == settings.internal_key)
 
 
-@router.get("", response_model=SmtpConfigRead)
-def get_smtp_config(
-    current_user: User = Depends(require_admin),
-    db: Session = Depends(get_db),
-):
-    rows = _rows(db)
+def _read_config(db: Session, slot: str) -> SmtpConfigRead:
+    f = _FIELD_MAP[slot]
+    rows = _rows(db, slot)
     return SmtpConfigRead(
-        smtp_host=rows.get("smtp_host", ""),
-        smtp_port=rows.get("smtp_port", "587"),
-        smtp_user=rows.get("smtp_user", ""),
-        smtp_password_set=bool(rows.get("smtp_password")),
-        smtp_from=rows.get("smtp_from", ""),
+        smtp_host=rows.get(f["host"], ""),
+        smtp_port=rows.get(f["port"], "587"),
+        smtp_user=rows.get(f["user"], ""),
+        smtp_password_set=bool(rows.get(f["password"])),
+        smtp_from=rows.get(f["from"], ""),
     )
 
 
-@router.patch("", status_code=status.HTTP_204_NO_CONTENT)
-def update_smtp_config(
-    payload: SmtpConfigUpdate,
-    current_user: User = Depends(require_admin),
-    db: Session = Depends(get_db),
-):
+def _update_config(db: Session, slot: str, payload: SmtpConfigUpdate) -> None:
     # smtp_from se usa tal cual como MAIL_FROM (dirección real del remitente, no un nombre
-    # para mostrar) — un valor sin "@" rompe el envío para TODA la intranet, no solo para
-    # quien lo configuró mal. Ver incidente 2026-07-16: alguien puso "ZYMOLOGISTICA" acá y
-    # tumbó el correo completo de Compras.
+    # para mostrar) — un valor sin "@" rompe el envío para TODA la intranet. Ver incidente
+    # 2026-07-16: alguien puso "ZYMOLOGISTICA" acá y tumbó el correo completo de Compras.
     if payload.smtp_from is not None and payload.smtp_from.strip() and "@" not in payload.smtp_from:
         raise HTTPException(
             status_code=422,
             detail="El correo remitente debe ser una dirección de correo válida (con @), no un nombre.",
         )
-
+    f = _FIELD_MAP[slot]
+    field_to_key = {"smtp_host": f["host"], "smtp_port": f["port"], "smtp_user": f["user"], "smtp_password": f["password"], "smtp_from": f["from"]}
     for field, value in payload.model_dump(exclude_unset=True).items():
-        if value is None or field not in _KEYS:
+        if value is None or field not in field_to_key:
             continue
-        existing = db.get(GlobalConfig, field)
+        key = field_to_key[field]
+        existing = db.get(GlobalConfig, key)
         if existing:
             existing.value = value
             db.add(existing)
         else:
-            db.add(GlobalConfig(key=field, value=value))
+            db.add(GlobalConfig(key=key, value=value))
     db.commit()
 
 
-@router.get("/service", response_model=SmtpConfigService)
+@router.get("", response_model=SmtpConfigRead)
+def get_smtp_config(current_user: User = Depends(require_admin), db: Session = Depends(get_db)):
+    return _read_config(db, "primary")
+
+
+@router.patch("", status_code=status.HTTP_204_NO_CONTENT)
+def update_smtp_config(payload: SmtpConfigUpdate, current_user: User = Depends(require_admin), db: Session = Depends(get_db)):
+    _update_config(db, "primary", payload)
+
+
+@router.get("/backup", response_model=SmtpConfigRead)
+def get_smtp_config_backup(current_user: User = Depends(require_admin), db: Session = Depends(get_db)):
+    return _read_config(db, "backup")
+
+
+@router.patch("/backup", status_code=status.HTTP_204_NO_CONTENT)
+def update_smtp_config_backup(payload: SmtpConfigUpdate, current_user: User = Depends(require_admin), db: Session = Depends(get_db)):
+    _update_config(db, "backup", payload)
+
+
+@router.get("/service", response_model=SmtpConfigServiceResponse)
 def get_smtp_config_service(
     x_internal_key: Optional[str] = Header(default=None),
     db: Session = Depends(get_db),
 ):
-    """SMTP corporativo para consumo servicio-a-servicio (task-backend, helix-backend, etc.).
-
-    Requiere X-Internal-Key — nunca expuesto a usuarios finales (a diferencia de GET "" que
-    oculta la contraseña real).
+    """SMTP corporativo (principal + respaldo) para consumo servicio-a-servicio
+    (task-backend, helix-backend, etc.). Requiere X-Internal-Key — nunca expuesto a
+    usuarios finales (a diferencia de GET "" que oculta la contraseña real). El
+    llamador debe intentar `primary` y, si falla el envío, reintentar con `backup`.
     """
     if not _is_valid_internal_key(x_internal_key):
         raise HTTPException(status_code=401, detail="No autorizado")
 
-    from app.services.global_smtp import get_global_smtp
+    from app.services.global_smtp import get_global_smtp, get_global_smtp_backup
 
-    global_smtp = get_global_smtp()
-    if not global_smtp:
-        return SmtpConfigService(smtp_host="", smtp_port="587", smtp_user="", smtp_password="", smtp_from="")
-    return SmtpConfigService(
-        smtp_host=global_smtp["smtp_host"],
-        smtp_port=str(global_smtp["smtp_port"]),
-        smtp_user=global_smtp["smtp_user"],
-        smtp_password=global_smtp["smtp_password"],
-        smtp_from=global_smtp["smtp_from"],
-    )
+    def _to_creds(cfg: dict | None) -> Optional[SmtpConfigServiceCreds]:
+        if not cfg:
+            return None
+        return SmtpConfigServiceCreds(
+            smtp_host=cfg["smtp_host"],
+            smtp_port=str(cfg["smtp_port"]),
+            smtp_user=cfg["smtp_user"],
+            smtp_password=cfg["smtp_password"],
+            smtp_from=cfg["smtp_from"],
+        )
+
+    return SmtpConfigServiceResponse(primary=_to_creds(get_global_smtp()), backup=_to_creds(get_global_smtp_backup()))
 
 
 @router.post("/test", response_model=TestEmailResult)
@@ -150,17 +178,18 @@ def test_smtp_config(
     current_user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    """Envía un correo de prueba. Sin destinatarios, se auto-envía a smtp_user (valida login).
+    """Envía un correo de prueba con el slot indicado (principal o respaldo).
 
-    Con `destinatarios` (uno por área a validar: compras, T&C, tickets, etc.), envía un correo
-    a cada uno y reporta el resultado individual — esto valida entrega real, no solo autenticación.
+    Sin destinatarios, se auto-envía al usuario del slot (valida login). Con
+    `destinatarios`, envía uno por cada dirección y reporta el resultado individual.
     """
-    rows = _rows(db)
-    host = rows.get("smtp_host", "")
-    port_raw = rows.get("smtp_port", "587")
-    user = rows.get("smtp_user", "")
-    password = rows.get("smtp_password", "")
-    from_addr = rows.get("smtp_from") or user
+    rows = _rows(db, payload.slot)
+    f = _FIELD_MAP[payload.slot]
+    host = rows.get(f["host"], "")
+    port_raw = rows.get(f["port"], "587")
+    user = rows.get(f["user"], "")
+    password = rows.get(f["password"], "")
+    from_addr = rows.get(f["from"]) or user
 
     if not host or not user or not password:
         return TestEmailResult(
@@ -178,14 +207,14 @@ def test_smtp_config(
 
     def _build_msg(to_addr: str) -> MIMEMultipart:
         msg = MIMEMultipart("alternative")
-        msg["Subject"] = "[ZYMO Intranet] Correo de prueba SMTP corporativo"
+        msg["Subject"] = f"[ZYMO Intranet] Correo de prueba SMTP corporativo ({payload.slot})"
         msg["From"] = f"ZYMO Intranet <{from_addr}>"
         msg["To"] = to_addr
         html = f"""
         <div style="font-family:Arial,sans-serif;padding:24px;max-width:500px">
           <h3 style="color:#111">✅ Prueba SMTP exitosa</h3>
           <p style="color:#444">Este correo confirma que la cuenta SMTP corporativa centralizada
-          entrega correctamente a <strong>{to_addr}</strong>.</p>
+          ({payload.slot}) entrega correctamente a <strong>{to_addr}</strong>.</p>
           <p style="color:#888;font-size:12px">Generado desde /admin/configuracion</p>
         </div>
         """
@@ -205,7 +234,7 @@ def test_smtp_config(
                 try:
                     smtp.sendmail(from_addr, [dest], _build_msg(dest).as_string())
                     resultados.append(TestEmailItemResult(email=dest, ok=True))
-                    log.info("[smtp_test] Prueba SMTP corporativa exitosa → %s", dest)
+                    log.info("[smtp_test] Prueba SMTP corporativa (%s) exitosa → %s", payload.slot, dest)
                 except smtplib.SMTPException as e:
                     resultados.append(TestEmailItemResult(email=dest, ok=False, detalle=str(e)))
                     log.warning("[smtp_test] Fallo enviando a %s: %s", dest, e)

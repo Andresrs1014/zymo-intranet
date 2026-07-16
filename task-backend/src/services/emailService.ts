@@ -17,61 +17,74 @@ async function getUserEmail(userId: number): Promise<{ email: string; nombre: st
   }
 }
 
-// ─── Transport ───────────────────────────────────────────────────────────────
+// ─── SMTP corporativo centralizado (Configuración de la intranet) ───────────
+// Ya no hay fallback a la config local de Tareas (systemConfigService) — solo
+// principal + respaldo, ambos gestionados desde el hub central. Ver incidente
+// 2026-07-16 (un smtp_from mal puesto tumbó el correo de toda la intranet).
 
 interface SmtpCreds {
   host: string
   port: number
   user: string
   pass: string
-  from: string | null
+  from: string
 }
 
-// SMTP corporativo centralizado (Configuración de la intranet) — gana si está configurado.
-// Fallback a la config local de Tareas (systemConfigService) mientras no esté lleno.
-async function getGlobalSmtp(): Promise<SmtpCreds | null> {
+async function getSmtpCandidates(): Promise<SmtpCreds[]> {
   try {
     const res = await fetch(`${env.INTRANET_API_URL}/api/admin/smtp-config/service`, {
       headers: { "X-Internal-Key": env.INTERNAL_KEY },
     })
-    if (!res.ok) return null
+    if (!res.ok) return []
     const data = await res.json() as {
-      smtp_host: string; smtp_port: string; smtp_user: string; smtp_password: string; smtp_from: string
+      primary: { smtp_host: string; smtp_port: string; smtp_user: string; smtp_password: string; smtp_from: string } | null
+      backup: { smtp_host: string; smtp_port: string; smtp_user: string; smtp_password: string; smtp_from: string } | null
     }
-    if (!data.smtp_host || !data.smtp_user || !data.smtp_password) return null
-    return {
-      host: data.smtp_host,
-      port: parseInt(data.smtp_port || "587", 10),
-      user: data.smtp_user,
-      pass: data.smtp_password,
-      from: data.smtp_from || null,
-    }
+    const toCreds = (c: typeof data.primary) => c ? {
+      host: c.smtp_host,
+      port: parseInt(c.smtp_port || "587", 10),
+      user: c.smtp_user,
+      pass: c.smtp_password,
+      from: c.smtp_from || c.smtp_user,
+    } : null
+    return [toCreds(data.primary), toCreds(data.backup)].filter((c): c is SmtpCreds => c !== null)
   } catch {
-    return null
+    return []
   }
 }
 
-async function getTransport(): Promise<nodemailer.Transporter> {
-  const global = await getGlobalSmtp()
-  const host = global?.host ?? (await svc.getConfig("smtp_host"))
-  const port = global?.port ?? parseInt((await svc.getConfig("smtp_port")) ?? "587", 10)
-  const user = global?.user ?? (await svc.getConfig("smtp_user"))
-  const pass = global?.pass ?? (await svc.getConfig("smtp_password"))
-
-  if (!host || !user || !pass) throw new Error("Configuración SMTP incompleta")
-
+function buildTransport(creds: SmtpCreds): nodemailer.Transporter {
   return nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: { user, pass },
+    host: creds.host,
+    port: creds.port,
+    secure: creds.port === 465,
+    auth: { user: creds.user, pass: creds.pass },
     tls: { rejectUnauthorized: false },
   })
 }
 
-async function getFromAddress(): Promise<string> {
-  const global = await getGlobalSmtp()
-  return global?.from ?? (await svc.getConfig("smtp_from")) ?? "ZYMO Intranet <noreply@zymo.com>"
+interface MailContent {
+  to: string
+  subject: string
+  html: string
+}
+
+/** Envía probando el SMTP principal y, si falla, el de respaldo. Lanza si ambos fallan
+ * (o si ninguno está configurado) para que el llamador decida si registrar el error. */
+async function sendWithFallback(mail: MailContent): Promise<void> {
+  const candidates = await getSmtpCandidates()
+  if (!candidates.length) throw new Error("SMTP no configurado (Configuración de la intranet · SMTP corporativo)")
+
+  let lastError: unknown
+  for (const creds of candidates) {
+    try {
+      await buildTransport(creds).sendMail({ from: creds.from, to: mail.to, subject: mail.subject, html: mail.html })
+      return
+    } catch (err) {
+      lastError = err
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("Fallo el envío por ambos SMTP configurados")
 }
 
 // ─── Templates HTML (branded ZYMO) ──────────────────────────────────────────
@@ -133,9 +146,6 @@ interface TaskAssignedData {
 }
 
 async function sendTaskAssignedEmail(to: string, data: TaskAssignedData): Promise<void> {
-  const from = await getFromAddress()
-  const transport = await getTransport()
-
   const body = `
     <h2>Tienes una nueva tarea asignada</h2>
     <p>Hola <strong>${data.asignadoNombre}</strong>, <strong>${data.asignadoPorNombre}</strong> te ha asignado una tarea.</p>
@@ -148,13 +158,7 @@ async function sendTaskAssignedEmail(to: string, data: TaskAssignedData): Promis
     <p>Ingresa a la intranet para revisar los detalles y aceptar o rechazar la tarea.</p>
     <a href="${BASE_URL}/herramientas/tareas" class="cta">Ver tarea</a>
   `
-
-  await transport.sendMail({
-    from,
-    to,
-    subject: `[ZYMO] Nueva tarea: ${data.titulo}`,
-    html: wrapEmail("Notificación de tarea", body),
-  })
+  await sendWithFallback({ to, subject: `[ZYMO] Nueva tarea: ${data.titulo}`, html: wrapEmail("Notificación de tarea", body) })
 }
 
 // ─── Email: tarea aceptada ────────────────────────────────────────────────────
@@ -167,9 +171,6 @@ interface TaskResponseData {
 }
 
 async function sendTaskAcceptedEmail(to: string, data: TaskResponseData): Promise<void> {
-  const from = await getFromAddress()
-  const transport = await getTransport()
-
   const body = `
     <h2>Tu tarea fue aceptada</h2>
     <p>Hola <strong>${data.creadorNombre}</strong>, <strong>${data.asignadoNombre}</strong> aceptó la tarea que le asignaste.</p>
@@ -179,21 +180,12 @@ async function sendTaskAcceptedEmail(to: string, data: TaskResponseData): Promis
     </div>
     <a href="${BASE_URL}/herramientas/tareas" class="cta">Ver en la intranet</a>
   `
-
-  await transport.sendMail({
-    from,
-    to,
-    subject: `[ZYMO] Tarea aceptada: ${data.titulo}`,
-    html: wrapEmail("Confirmación de tarea", body),
-  })
+  await sendWithFallback({ to, subject: `[ZYMO] Tarea aceptada: ${data.titulo}`, html: wrapEmail("Confirmación de tarea", body) })
 }
 
 // ─── Email: tarea rechazada ───────────────────────────────────────────────────
 
 async function sendTaskRejectedEmail(to: string, data: TaskResponseData): Promise<void> {
-  const from = await getFromAddress()
-  const transport = await getTransport()
-
   const body = `
     <h2>Tu tarea fue rechazada</h2>
     <p>Hola <strong>${data.creadorNombre}</strong>, <strong>${data.asignadoNombre}</strong> rechazó la tarea que le asignaste.</p>
@@ -204,21 +196,12 @@ async function sendTaskRejectedEmail(to: string, data: TaskResponseData): Promis
     <p>Puedes reasignarla a otro miembro del equipo desde la intranet.</p>
     <a href="${BASE_URL}/herramientas/tareas" class="cta">Ver en la intranet</a>
   `
-
-  await transport.sendMail({
-    from,
-    to,
-    subject: `[ZYMO] Tarea rechazada: ${data.titulo}`,
-    html: wrapEmail("Respuesta de tarea", body),
-  })
+  await sendWithFallback({ to, subject: `[ZYMO] Tarea rechazada: ${data.titulo}`, html: wrapEmail("Respuesta de tarea", body) })
 }
 
 // ─── Email de prueba ──────────────────────────────────────────────────────────
 
 export async function sendTestEmail(to: string): Promise<void> {
-  const from = await getFromAddress()
-  const transport = await getTransport()
-
   const body = `
     <h2>Prueba de configuración</h2>
     <p>Si recibes este correo, la configuración SMTP de ZYMO Intranet está funcionando correctamente.</p>
@@ -227,13 +210,7 @@ export async function sendTestEmail(to: string): Promise<void> {
       <div class="meta-row"><span class="meta-label">Fecha</span><span class="meta-value">${new Date().toLocaleString("es-CO")}</span></div>
     </div>
   `
-
-  await transport.sendMail({
-    from,
-    to,
-    subject: "[ZYMO] Prueba de notificaciones",
-    html: wrapEmail("Email de prueba", body),
-  })
+  await sendWithFallback({ to, subject: "[ZYMO] Prueba de notificaciones", html: wrapEmail("Email de prueba", body) })
 }
 
 // ─── Función principal de disparo (fire-and-forget) ───────────────────────────

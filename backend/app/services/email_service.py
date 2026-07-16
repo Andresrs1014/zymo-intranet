@@ -144,21 +144,19 @@ def _intro(cfg: Optional[dict], key: str, solicitante: str = "") -> str:
 # ── Configuración SMTP ────────────────────────────────────────────────────────
 
 def _get_runtime_config(plataforma: str | None = None) -> dict:
-    """Lee la config SMTP y branding de oc_config (DB), con fallback a settings/.env.
+    """Arma la config de branding/destinatarios de OC (oc_config + branding de plataforma).
 
-    Si se proporciona `plataforma`, aplica branding específico de esa plataforma
-    encima de los defaults. La DB sobreescribe todo.
+    Las credenciales SMTP YA NO se leen de acá — viven solo en el SMTP corporativo
+    centralizado (Configuración de la intranet, ver global_smtp.get_smtp_candidates()).
+    `_smtp_configured` solo indica si hay AL MENOS una config (principal o respaldo)
+    para el chequeo temprano de cada flujo; el envío real prueba ambas en orden.
     """
     from sqlmodel import Session, select
     from app.models.oc import OcConfig
     from app.oc_database import get_oc_engine
+    from app.services.global_smtp import get_smtp_candidates
 
     cfg: dict = {
-        "smtp_user":         settings.smtp_user,
-        "smtp_password":     settings.smtp_password,
-        "smtp_from":         settings.smtp_from or settings.smtp_user,
-        "smtp_host":         settings.smtp_host,
-        "smtp_port":         settings.smtp_port,
         "email_directora":   settings.email_directora,
         "email_compras":     "",
         "email_financiero":  "",
@@ -172,30 +170,22 @@ def _get_runtime_config(plataforma: str | None = None) -> dict:
         "email_intro_flujo4": "",
     }
 
-    # Capa 1: branding de la plataforma (desde config.json)
+    # Branding de la plataforma (desde config.json)
     for k, v in _load_platform_branding(plataforma).items():
         if v:
             cfg[k] = v
 
-    # Capa 2: valores de la DB sobreescriben todo
+    # Destinatarios/branding configurables por el admin (oc_config) — ya no incluye
+    # credenciales SMTP, esas se ignoran acá aunque sigan guardadas en la tabla.
     try:
         with Session(get_oc_engine()) as db:
             for row in db.exec(select(OcConfig)).all():
-                if row.key in cfg and row.value:
-                    cfg[row.key] = int(row.value) if row.key == "smtp_port" else row.value
+                if row.key in cfg and row.value and not row.key.startswith("smtp_"):
+                    cfg[row.key] = row.value
     except Exception as exc:
         log.warning("[email] No se pudo leer oc_config de DB: %s", exc)
 
-    # Capa 3: SMTP corporativo centralizado (Configuración de la intranet) — gana si está configurado
-    try:
-        from app.services.global_smtp import get_global_smtp
-
-        global_smtp = get_global_smtp()
-        if global_smtp:
-            cfg.update(global_smtp)
-    except Exception as exc:
-        log.warning("[email] No se pudo leer SMTP corporativo centralizado: %s", exc)
-
+    cfg["_smtp_configured"] = bool(get_smtp_candidates())
     return cfg
 
 
@@ -204,20 +194,40 @@ def _email_destino_financiero(cfg: dict) -> str:
     return (cfg.get("email_financiero") or cfg.get("email_contabilidad") or "").strip()
 
 
-def _build_conf(cfg: dict) -> ConnectionConfig:
-    """Construye la configuración fastapi-mail a partir de un dict de runtime config."""
+def _build_conf(smtp: dict, cfg: dict) -> ConnectionConfig:
+    """Construye la configuración fastapi-mail para un candidato SMTP (principal o respaldo)."""
     return ConnectionConfig(
-        MAIL_USERNAME=cfg["smtp_user"],
-        MAIL_PASSWORD=cfg["smtp_password"],
-        MAIL_FROM=cfg["smtp_from"] or cfg["smtp_user"],
+        MAIL_USERNAME=smtp["smtp_user"],
+        MAIL_PASSWORD=smtp["smtp_password"],
+        MAIL_FROM=smtp["smtp_from"] or smtp["smtp_user"],
         MAIL_FROM_NAME=f"Compras {cfg.get('empresa_nombre', 'LOGIMAT S.A.S.')}",
-        MAIL_PORT=cfg["smtp_port"],
-        MAIL_SERVER=cfg["smtp_host"],
+        MAIL_PORT=smtp["smtp_port"],
+        MAIL_SERVER=smtp["smtp_host"],
         MAIL_STARTTLS=True,
         MAIL_SSL_TLS=False,
         USE_CREDENTIALS=True,
         VALIDATE_CERTS=True,
     )
+
+
+async def _send_message(msg: MessageSchema, cfg: dict, flujo: str, recipients_for_log: list[str]) -> None:
+    """Envía un MessageSchema ya armado, probando el SMTP principal y luego el de
+    respaldo (ambos centralizados en Configuración de la intranet) si el primero falla."""
+    from app.services.global_smtp import get_smtp_candidates
+
+    candidates = get_smtp_candidates()
+    if not candidates:
+        log.warning("[email] SMTP no configurado — omitiendo %s", flujo)
+        return
+    for i, smtp in enumerate(candidates):
+        slot = "principal" if i == 0 else "respaldo"
+        try:
+            await FastMail(_build_conf(smtp, cfg)).send_message(msg)
+            log.info("[email] %s enviado a %s (smtp %s)", flujo, recipients_for_log, slot)
+            return
+        except Exception:
+            log.exception("[email] Fallo smtp %s enviando %s a %s", slot, flujo, recipients_for_log)
+    log.error("[email] Todos los SMTP configurados fallaron para %s a %s", flujo, recipients_for_log)
 
 
 async def _send_html(
@@ -236,11 +246,7 @@ async def _send_html(
         body=body,
         subtype=MessageType.html,
     )
-    try:
-        await FastMail(_build_conf(cfg)).send_message(msg)
-        log.info("[email] %s enviado a %s", flujo, recipients)
-    except Exception:
-        log.exception("[email] Error enviando %s a %s", flujo, recipients)
+    await _send_message(msg, cfg, flujo, recipients)
 
 
 # ── Utilidades de formato ─────────────────────────────────────────────────────
@@ -568,7 +574,7 @@ def _html_nueva_solicitud_interna(
 async def send_en_gestion(s: "SolicitudOC") -> None:
     """Flujo 1 — email al solicitante cuando el auxiliar toma la solicitud."""
     cfg = _get_runtime_config(plataforma=s.plataforma)
-    if not (cfg["smtp_user"] and cfg["smtp_password"]):
+    if not cfg["_smtp_configured"]:
         log.warning("[email] SMTP no configurado — omitiendo Flujo 1")
         return
     if not s.solicitante_email:
@@ -589,7 +595,7 @@ async def send_en_gestion(s: "SolicitudOC") -> None:
 async def send_cotizacion_lista(s: "SolicitudOC") -> None:
     """Flujo 2 — email al solicitante cuando hay cotizaciones listas."""
     cfg = _get_runtime_config(plataforma=s.plataforma)
-    if not (cfg["smtp_user"] and cfg["smtp_password"]):
+    if not cfg["_smtp_configured"]:
         log.warning("[email] SMTP no configurado — omitiendo Flujo 2")
         return
     if not s.solicitante_email:
@@ -621,7 +627,7 @@ async def send_aprobacion_directora(
     en CC del mismo correo.
     """
     cfg = _get_runtime_config(plataforma=s.plataforma)
-    if not (cfg["smtp_user"] and cfg["smtp_password"]):
+    if not cfg["_smtp_configured"]:
         log.warning("[email] SMTP no configurado — omitiendo Flujo 3")
         return
     directora_email = cfg["email_directora"]
@@ -663,7 +669,7 @@ async def send_oc_a_proveedor(
 ) -> None:
     """Envía el documento OC al proveedor como adjunto + CC al solicitante y al auxiliar de compras."""
     cfg = _get_runtime_config(plataforma=s.plataforma)
-    if not (cfg["smtp_user"] and cfg["smtp_password"]):
+    if not cfg["_smtp_configured"]:
         log.warning("[email] SMTP no configurado — omitiendo envío OC a proveedor")
         return
 
@@ -703,17 +709,13 @@ async def send_oc_a_proveedor(
             },
         }],
     )
-    try:
-        await FastMail(_build_conf(cfg)).send_message(msg)
-        log.info("[email] OC %s enviada a proveedor %s (cc: %s)", numero_oc, email_proveedor, cc_list)
-    except Exception:
-        log.exception("[email] Error enviando OC %s a proveedor %s", numero_oc, email_proveedor)
+    await _send_message(msg, cfg, f"OC {numero_oc} a proveedor (cc: {cc_list})", [email_proveedor])
 
 
 async def send_oc_enviada(s: "SolicitudOC") -> None:
     """Flujo 4 — email al solicitante cuando la OC fue enviada al proveedor."""
     cfg = _get_runtime_config(plataforma=s.plataforma)
-    if not (cfg["smtp_user"] and cfg["smtp_password"]):
+    if not cfg["_smtp_configured"]:
         log.warning("[email] SMTP no configurado — omitiendo Flujo 4")
         return
     if not s.solicitante_email:
@@ -758,7 +760,7 @@ def _html_entrega_confirmada(s: "SolicitudOC", cfg: Optional[dict] = None, logo_
 async def send_entrega_confirmada(s: "SolicitudOC") -> None:
     """Notifica al solicitante cuando coordinador confirma la recepción física."""
     cfg = _get_runtime_config(plataforma=s.plataforma)
-    if not (cfg["smtp_user"] and cfg["smtp_password"]):
+    if not cfg["_smtp_configured"]:
         log.warning("[email] SMTP no configurado — omitiendo notificación entrega confirmada")
         return
     if not s.solicitante_email:
@@ -810,7 +812,7 @@ def _html_solicitud_rechazada(
 async def send_solicitud_rechazada(s: "SolicitudOC", motivo: str, usuario_rechazo: str) -> None:
     """Flujo rechazo — email al solicitante cuando compras rechaza la solicitud entera."""
     cfg = _get_runtime_config(plataforma=s.plataforma)
-    if not (cfg["smtp_user"] and cfg["smtp_password"]):
+    if not cfg["_smtp_configured"]:
         log.warning("[email] SMTP no configurado — omitiendo notificación rechazo solicitud")
         return
     if not s.solicitante_email:
@@ -853,7 +855,7 @@ def _html_rechazo_cotizacion(s: "SolicitudOC", motivo: str, cfg: Optional[dict] 
 async def send_rechazo_cotizacion(s: "SolicitudOC", motivo: str, auxiliar_email: str) -> None:
     """Flujo rechazo — email al auxiliar cuando directora rechaza la cotización."""
     cfg = _get_runtime_config(plataforma=s.plataforma)
-    if not (cfg["smtp_user"] and cfg["smtp_password"]):
+    if not cfg["_smtp_configured"]:
         log.warning("[email] SMTP no configurado — omitiendo notificación rechazo cotización")
         return
     if not auxiliar_email:
@@ -916,7 +918,7 @@ async def send_en_plataforma_financiero(
 ) -> None:
     """Flujo 5 — email a Financiera cuando la OC pasa a estado oc_en_plataforma."""
     cfg = _get_runtime_config(plataforma=s.plataforma)
-    if not (cfg["smtp_user"] and cfg["smtp_password"]):
+    if not cfg["_smtp_configured"]:
         log.warning("[email] SMTP no configurado — omitiendo Flujo 5 (en plataforma)")
         return
     email_fin = _email_destino_financiero(cfg)
@@ -976,7 +978,7 @@ def _html_en_plataforma_solicitante(
 async def send_en_plataforma_solicitante(s: "SolicitudOC") -> None:
     """Flujo 5b — email al solicitante cuando la OC pasa a estado oc_en_plataforma."""
     cfg = _get_runtime_config(plataforma=s.plataforma)
-    if not (cfg["smtp_user"] and cfg["smtp_password"]):
+    if not cfg["_smtp_configured"]:
         log.warning("[email] SMTP no configurado — omitiendo Flujo 5b (en plataforma solicitante)")
         return
     if not s.solicitante_email:
@@ -1050,7 +1052,7 @@ async def send_proforma_financiero(
     Si existe proforma_path, adjunta el archivo al correo.
     """
     cfg = _get_runtime_config(plataforma=s.plataforma)
-    if not (cfg["smtp_user"] and cfg["smtp_password"]):
+    if not cfg["_smtp_configured"]:
         log.warning("[email] SMTP no configurado — omitiendo Flujo Proforma")
         return
     email_fin = _email_destino_financiero(cfg)
@@ -1104,11 +1106,7 @@ async def send_proforma_financiero(
                 },
             }],
         )
-        try:
-            await FastMail(_build_conf(cfg)).send_message(msg)
-            log.info("[email] Flujo Proforma con adjunto enviado a %s", email_fin)
-        except Exception:
-            log.exception("[email] Error enviando Flujo Proforma a %s", email_fin)
+        await _send_message(msg, cfg, "Flujo Proforma (con adjunto)", [email_fin])
     else:
         # Sin adjunto — cotización aprobada pero proforma aún no subida
         await _send_html(
@@ -1190,7 +1188,7 @@ async def send_correccion_directivo(
 ) -> None:
     """Corrección directiva — notifica al auxiliar y al solicitante."""
     cfg = _get_runtime_config(plataforma=s.plataforma)
-    if not (cfg["smtp_user"] and cfg["smtp_password"]):
+    if not cfg["_smtp_configured"]:
         log.warning("[email] SMTP no configurado — omitiendo notificación corrección directiva")
         return
 
@@ -1241,7 +1239,7 @@ async def send_alerta_correccion_post_cierre(
     """Alerta al propio directivo cuando corrige datos de una solicitud ya cerrada/entregada."""
     if cfg is None:
         cfg = _get_runtime_config(plataforma=s.plataforma)
-    if not (cfg["smtp_user"] and cfg["smtp_password"]):
+    if not cfg["_smtp_configured"]:
         log.warning("[email] SMTP no configurado — omitiendo alerta post-cierre")
         return
     logo_uri = _logo_data_uri(cfg)
@@ -1280,7 +1278,7 @@ async def send_alerta_correccion_post_cierre(
 async def send_nueva_solicitud_interna(s: "SolicitudOC") -> None:
     """Flujo Interno — notifica al equipo de compras cuando un coordinador crea una solicitud."""
     cfg = _get_runtime_config(plataforma=s.plataforma)
-    if not (cfg["smtp_user"] and cfg["smtp_password"]):
+    if not cfg["_smtp_configured"]:
         log.warning("[email] SMTP no configurado — omitiendo notificación interna")
         return
 

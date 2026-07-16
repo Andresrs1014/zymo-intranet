@@ -524,24 +524,18 @@ def notificar_evento_email(
     if not config or not config.lider_email:
         raise HTTPException(400, "El área no tiene email del líder configurado")
 
-    from app.services.global_smtp import get_global_smtp
+    from app.services.global_smtp import get_smtp_candidates
 
-    smtp_local = db.get(PtcSmtpConfig, 1)
-    global_smtp = get_global_smtp()
-    if global_smtp:
-        smtp_host, smtp_port = global_smtp["smtp_host"], global_smtp["smtp_port"]
-        smtp_usuario, smtp_password = global_smtp["smtp_user"], global_smtp["smtp_password"]
-        smtp_from_email = global_smtp["smtp_from"]
-        smtp_from_nombre = (smtp_local.from_nombre if smtp_local else "") or "T&C Zymo"
-    elif smtp_local and smtp_local.activo and smtp_local.host:
-        smtp_host, smtp_port = smtp_local.host, smtp_local.port
-        smtp_usuario, smtp_password = smtp_local.usuario, smtp_local.password
-        smtp_from_email, smtp_from_nombre = smtp_local.from_email, smtp_local.from_nombre
-    else:
+    smtp_candidates = get_smtp_candidates()
+    if not smtp_candidates:
         raise HTTPException(
             400,
-            "SMTP no configurado — configúralo en Configuración de la intranet · SMTP corporativo (o en T&C · Ajustes)",
+            "SMTP no configurado — configúralo en Configuración de la intranet · SMTP corporativo",
         )
+    # from_nombre es solo cosmético (nombre para mostrar) — no una credencial, se
+    # conserva el de T&C si existe, sin depender de él para el envío en sí.
+    smtp_local = db.get(PtcSmtpConfig, 1)
+    smtp_from_nombre = (smtp_local.from_nombre if smtp_local else "") or "T&C Zymo"
 
     personas_ids = [
         p.persona_id for p in db.exec(
@@ -560,11 +554,15 @@ def notificar_evento_email(
         personas=nombres if ev.tipo == "induccion" else None,
     )
 
-    ok = send_email(
-        host=smtp_host, port=smtp_port,
-        usuario=smtp_usuario, password=smtp_password,
-        from_email=smtp_from_email, from_nombre=smtp_from_nombre,
-        to=config.lider_email, subject=subject, body_html=html,
-    )
+    ok = False
+    for smtp in smtp_candidates:
+        ok = send_email(
+            host=smtp["smtp_host"], port=smtp["smtp_port"],
+            usuario=smtp["smtp_user"], password=smtp["smtp_password"],
+            from_email=smtp["smtp_from"], from_nombre=smtp_from_nombre,
+            to=config.lider_email, subject=subject, body_html=html,
+        )
+        if ok:
+            break
 
     return {"ok": ok, "to": config.lider_email, "asunto": subject}

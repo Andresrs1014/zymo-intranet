@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { useSearchParams } from "react-router-dom"
+import { useSearchParams, useNavigate } from "react-router-dom"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { AdminConfigNav } from "@/components/admin/AdminConfigNav"
 import { formatFechaRelativa } from "@/lib/dates"
@@ -913,19 +913,13 @@ function UserToolsModal({ user, onClose }: { user: UserListItem; onClose: () => 
 }
 
 function ConfigPanel() {
+  const navigate = useNavigate()
   const { data: config, isLoading } = useSystemConfig()
   const updateConfig = useUpdateSystemConfig()
   const testEmail = useTestEmail()
   const testWebhook = useTestWebhook()
 
-  const [smtp, setSmtp] = useState({
-    smtp_host: "",
-    smtp_port: "587",
-    smtp_user: "",
-    smtp_password: "",
-    smtp_from: "",
-    smtp_enabled: "false",
-  })
+  const [smtp, setSmtp] = useState({ smtp_enabled: "false" })
 
   const [webhook, setWebhook] = useState({
     webhook_powerautomate_url: "",
@@ -937,14 +931,7 @@ function ConfigPanel() {
 
   useEffect(() => {
     if (!config) return
-    setSmtp({
-      smtp_host: config.smtp_host ?? "",
-      smtp_port: config.smtp_port ?? "587",
-      smtp_user: config.smtp_user ?? "",
-      smtp_password: "",
-      smtp_from: config.smtp_from ?? "",
-      smtp_enabled: config.smtp_enabled ?? "false",
-    })
+    setSmtp({ smtp_enabled: config.smtp_enabled ?? "false" })
     setWebhook({
       webhook_powerautomate_url: config.webhook_powerautomate_url ?? "",
       webhook_enabled: config.webhook_enabled ?? "false",
@@ -953,18 +940,13 @@ function ConfigPanel() {
 
   function handleSaveSmtp() {
     setSmtpMsg(null)
-    const payload: Record<string, string> = {
-      smtp_host: smtp.smtp_host,
-      smtp_port: smtp.smtp_port,
-      smtp_user: smtp.smtp_user,
-      smtp_from: smtp.smtp_from,
-      smtp_enabled: smtp.smtp_enabled,
-    }
-    if (smtp.smtp_password) payload.smtp_password = smtp.smtp_password
-    updateConfig.mutate(payload, {
-      onSuccess: () => setSmtpMsg({ ok: true, text: "Configuración SMTP guardada" }),
-      onError: () => setSmtpMsg({ ok: false, text: "Error al guardar" }),
-    })
+    updateConfig.mutate(
+      { smtp_enabled: smtp.smtp_enabled },
+      {
+        onSuccess: () => setSmtpMsg({ ok: true, text: "Guardado" }),
+        onError: () => setSmtpMsg({ ok: false, text: "Error al guardar" }),
+      },
+    )
   }
 
   function handleSaveWebhook() {
@@ -1026,28 +1008,16 @@ function ConfigPanel() {
         </div>
 
         <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label htmlFor="smtp_host" className="text-xs mb-1">Servidor SMTP</Label>
-              <Input id="smtp_host" value={smtp.smtp_host} onChange={(e) => setSmtp((s) => ({ ...s, smtp_host: e.target.value }))} placeholder="smtp.office365.com" className="h-8 text-sm" />
-            </div>
-            <div>
-              <Label htmlFor="smtp_port" className="text-xs mb-1">Puerto</Label>
-              <Input id="smtp_port" value={smtp.smtp_port} onChange={(e) => setSmtp((s) => ({ ...s, smtp_port: e.target.value }))} placeholder="587" className="h-8 text-sm" />
-            </div>
-          </div>
-          <div>
-            <Label htmlFor="smtp_user" className="text-xs mb-1">Usuario</Label>
-            <Input id="smtp_user" type="email" value={smtp.smtp_user} onChange={(e) => setSmtp((s) => ({ ...s, smtp_user: e.target.value }))} placeholder="notificaciones@zymo.com" className="h-8 text-sm" />
-          </div>
-          <div>
-            <Label htmlFor="smtp_password" className="text-xs mb-1">Contraseña</Label>
-            <Input id="smtp_password" type="password" value={smtp.smtp_password} onChange={(e) => setSmtp((s) => ({ ...s, smtp_password: e.target.value }))} placeholder="Dejar vacío para no cambiar" className="h-8 text-sm" />
-          </div>
-          <div>
-            <Label htmlFor="smtp_from" className="text-xs mb-1">Remitente</Label>
-            <Input id="smtp_from" value={smtp.smtp_from} onChange={(e) => setSmtp((s) => ({ ...s, smtp_from: e.target.value }))} placeholder='ZYMO Intranet <noreply@zymo.com>' className="h-8 text-sm" />
-          </div>
+          <p className="text-xs text-muted-foreground">
+            El correo se envía con la cuenta corporativa centralizada — la misma que usan Tickets y T&C.
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate("/admin/configuracion/smtp")}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-muted/5 hover:bg-muted/10 hover:border-primary/30 transition-all text-sm font-medium"
+          >
+            Ir a SMTP corporativo →
+          </button>
         </div>
 
         {smtpMsg && (
