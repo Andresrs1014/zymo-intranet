@@ -30,7 +30,7 @@ export function GestionarTicketsPage() {
   const cerrados = filtered.filter((t) => /cerrado/i.test(t.status))
 
   return (
-    <PageLayout title="Gestionar mis tickets" mainClassName="relative flex-1 overflow-y-auto p-6">
+    <PageLayout title="Gestionar mis tickets" mainClassName="relative isolate flex-1 overflow-y-auto p-6">
       {/* Fondo de profundidad — mismo tratamiento de atmósfera que ya usa
           TicketsShell/TaskShell (grid animado en rojo + blooms de blur),
           adaptado a un layout con Sidebar/TopBar compartidos: acá vive
