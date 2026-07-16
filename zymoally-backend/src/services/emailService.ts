@@ -116,9 +116,11 @@ interface TicketNotifyData {
   description?: string | null
 }
 
-export async function notifyTicketReceived(recipients: string[], data: TicketNotifyData): Promise<void> {
+export type NotifyTicketResult = "sent" | "no-recipients" | "send-failed"
+
+export async function notifyTicketReceived(recipients: string[], data: TicketNotifyData): Promise<NotifyTicketResult> {
   const uniqueRecipients = Array.from(new Set(recipients.filter(Boolean)))
-  if (!uniqueRecipients.length) return
+  if (!uniqueRecipients.length) return "no-recipients"
 
   const body = `
     <h2>Tienes un ticket para gestionar</h2>
@@ -134,9 +136,10 @@ export async function notifyTicketReceived(recipients: string[], data: TicketNot
     <a href="${BASE_URL}/operativo/gestionar-tickets" class="cta">Ver ticket</a>
   `
 
-  await sendMailWithFallback({
+  const sent = await sendMailWithFallback({
     to: uniqueRecipients,
     subject: `[ZYMO] Nuevo ticket para gestionar — ${data.code}`,
     html: wrapEmail("Notificación de ticket", body),
   })
+  return sent ? "sent" : "send-failed"
 }

@@ -242,15 +242,25 @@ router.post("/", upload.array("evidence"), async (req, res, next) => {
     })
 
     // Fase D — notificación de recepción al área asignada. Fire-and-forget: un
-    // problema de correo no debe bloquear ni fallar la creación del ticket.
+    // problema de correo no debe bloquear ni fallar la creación del ticket. El
+    // resultado (incluyendo "no había a quién avisar") queda en la bitácora del
+    // propio ticket — visible para Planeación sin necesitar logs del servidor.
     const recipients = [supervisorEmail, analystEmail, coordinatorEmail].filter((e): e is string => Boolean(e))
-    void notifyTicketReceived(recipients, {
+    notifyTicketReceived(recipients, {
       code: ticket.code,
       area: ticket.area,
       type: ticket.type,
       priority: ticket.priority,
       description: ticket.description,
-    }).catch((err) => console.error("[email] notifyTicketReceived failed:", err))
+    })
+      .then((result) => {
+        if (result === "sent") return
+        const texto = result === "no-recipients"
+          ? "Notificación de recepción NO enviada: el supervisor/analista/coordinador asignado no tiene correo corporativo registrado en el directorio."
+          : "Notificación de recepción NO enviada: falló el envío por ambos SMTP configurados (ver Configuración de la intranet · SMTP corporativo)."
+        return prisma.zymoPqrAction.create({ data: { ticketId: ticket.id, texto: `${currentDateValue()} - ${texto}` } })
+      })
+      .catch((err) => console.error("[email] notifyTicketReceived failed:", err))
 
     res.status(201).json(ticket)
   } catch (err) {
