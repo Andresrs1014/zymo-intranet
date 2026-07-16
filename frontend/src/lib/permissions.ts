@@ -35,6 +35,11 @@ export function canSeeOperClientes(role: string, appPerms?: string[]): boolean {
   return hasPerm(appPerms, "mod_oper_clientes")
 }
 
+export function canSeeGestionTickets(role: string, appPerms?: string[]): boolean {
+  if (role === "admin") return true
+  return hasPerm(appPerms, "mod_operativo_tickets")
+}
+
 export function canSeeSGC(role: string, area?: string | null, appPerms?: string[]): boolean {
   if (role === "admin") return true
   if (hasPerm(appPerms, "mod_sgc")) return true

@@ -131,7 +131,7 @@ export async function notifyTicketReceived(recipients: string[], data: TicketNot
     </div>
     ${data.description ? `<p>${data.description}</p>` : ""}
     <p>Ingresa a la intranet para revisar el detalle y gestionarlo.</p>
-    <a href="${BASE_URL}" class="cta">Ver ticket</a>
+    <a href="${BASE_URL}/operativo/gestionar-tickets" class="cta">Ver ticket</a>
   `
 
   await sendMailWithFallback({

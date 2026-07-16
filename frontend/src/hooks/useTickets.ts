@@ -19,6 +19,8 @@ export interface TicketListFilters {
   supervisor?: string
   priority?: string
   search?: string
+  /** Fase E — solo los tickets donde el usuario logueado es el supervisor/analista/coordinador asignado. */
+  asignadoAMi?: boolean
 }
 
 type EditableTicketListType =
@@ -62,6 +64,7 @@ function buildParams(filters: TicketListFilters): URLSearchParams {
   if (filters.supervisor) params.set("supervisor", filters.supervisor)
   if (filters.priority) params.set("priority", filters.priority)
   if (filters.search) params.set("search", filters.search)
+  if (filters.asignadoAMi) params.set("asignadoAMi", "true")
   return params
 }
 
@@ -164,6 +167,29 @@ export function useUpdateTicketCriterio() {
       const { data } = await zymoallyApi.patch<Ticket>(
         `/api/tickets/pqr/${ticketId}/criterio`,
         { managementCriteria }
+      )
+      return data
+    },
+    onSuccess: (_data, { ticketId }) => {
+      qc.invalidateQueries({ queryKey: ["ticket", ticketId] })
+      qc.invalidateQueries({ queryKey: ["tickets"] })
+    },
+  })
+}
+
+export function useUpdateTicketFechaCompromiso() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      ticketId,
+      dueDate,
+    }: {
+      ticketId: number
+      dueDate: string
+    }) => {
+      const { data } = await zymoallyApi.patch<Ticket>(
+        `/api/tickets/pqr/${ticketId}/fecha-compromiso`,
+        { dueDate }
       )
       return data
     },

@@ -55,7 +55,10 @@ function hasAccess(user: AuthPayload | undefined, perm: string): boolean {
 
 /** Acceso al dominio Tickets (PQR) */
 export function requireTicketsAccess(req: Request, res: Response, next: NextFunction): void {
-  if (hasAccess(req.user, "mod_tickets")) {
+  // mod_operativo_tickets es un permiso más angosto ("Gestionar mis tickets" en
+  // Operativo) — solo ve/gestiona lo suyo vía ?asignadoAMi=true + canManageTicket()
+  // en pqr.ts, pero necesita el mismo acceso de lectura a la API que mod_tickets.
+  if (hasAccess(req.user, "mod_tickets") || hasAccess(req.user, "mod_operativo_tickets")) {
     next()
     return
   }

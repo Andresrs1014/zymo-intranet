@@ -1,7 +1,7 @@
 import { NavLink, Link } from "react-router-dom"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { useAuthStore } from "@/store/authStore"
-import { canSeeOperClientes } from "@/lib/permissions"
+import { canSeeOperClientes, canSeeGestionTickets } from "@/lib/permissions"
 
 // URL del sistema BRP — eventualmente se reemplazará por ruta interna
 const BRP_URL = "https://brp.zymointranet.com"
@@ -9,6 +9,7 @@ const BRP_URL = "https://brp.zymointranet.com"
 export function OperativoPage() {
   const user = useAuthStore((s) => s.user)
   const verClientes = user ? canSeeOperClientes(user.role, user.app_permissions) : false
+  const verGestionTickets = user ? canSeeGestionTickets(user.role, user.app_permissions) : false
 
   return (
     <PageLayout title="Operativo">
@@ -51,6 +52,14 @@ export function OperativoPage() {
                 icon={<IconClientes />}
                 label="Cartera de clientes"
                 description="Importa clientes corporativos y asigna analistas de operaciones por sede."
+              />
+            )}
+            {verGestionTickets && (
+              <InternalCard
+                to="/operativo/gestionar-tickets"
+                icon={<IconTickets />}
+                label="Gestionar mis tickets"
+                description="Tickets de ZymoAlly asignados a ti como supervisor, analista o coordinador."
               />
             )}
           </div>
@@ -186,6 +195,14 @@ function IconBRP() {
     <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
       <path d="M10 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />
       <path fillRule="evenodd" d="M.664 10.59a1.651 1.651 0 0 1 0-1.186A10.004 10.004 0 0 1 10 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0 1 10 17c-4.257 0-7.893-2.66-9.336-6.41ZM14 10a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z" clipRule="evenodd" />
+    </svg>
+  )
+}
+
+function IconTickets() {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <path fillRule="evenodd" d="M2.5 6A1.5 1.5 0 0 1 4 4.5h12A1.5 1.5 0 0 1 17.5 6v1.65a.75.75 0 0 1-.53.716 1.25 1.25 0 0 0 0 2.368.75.75 0 0 1 .53.716V13A1.5 1.5 0 0 1 16 14.5H4A1.5 1.5 0 0 1 2.5 13v-1.55a.75.75 0 0 1 .53-.716 1.25 1.25 0 0 0 0-2.368A.75.75 0 0 1 2.5 7.65V6Zm7-.5v1m0 2v1m0 2v1m0 2v1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" fill="none" />
     </svg>
   )
 }

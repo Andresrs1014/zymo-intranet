@@ -15,6 +15,7 @@ import {
   canSeeHelix,
   canSeeTyC,
   canSeeOperClientes,
+  canSeeGestionTickets,
   canSeeTickets,
   canSeeSAC,
 } from "@/lib/permissions"
@@ -45,6 +46,7 @@ import { MiSolicitudDetallePage } from "@/pages/operativo/MiSolicitudDetallePage
 import { NuevaSolicitudPage } from "@/pages/operativo/NuevaSolicitudPage"
 import { PaquetesPage } from "@/pages/operativo/PaquetesPage"
 import { OperClientesPage } from "@/pages/operativo/OperClientesPage"
+import { GestionarTicketsPage } from "@/pages/operativo/GestionarTicketsPage"
 import { FinancieroPage } from "@/pages/financiero/FinancieroPage"
 import { FacturasPage } from "@/pages/financiero/FacturasPage"
 import { FacturaDetallePage } from "@/pages/financiero/FacturaDetallePage"
@@ -158,6 +160,16 @@ function OperClientesRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user)
   if (!user) return <Navigate to="/login" replace />
   if (!canSeeOperClientes(user.role, user.app_permissions)) return <Navigate to="/dashboard" replace />
+  return <>{children}</>
+}
+
+// Permiso propio (mod_operativo_tickets), independiente de mod_operativo — el
+// link del correo de recepción (emailService.ts) entra directo acá, sin pasar
+// por el hub de Operativo.
+function GestionTicketsRoute({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user)
+  if (!user) return <Navigate to="/login" replace />
+  if (!canSeeGestionTickets(user.role, user.app_permissions)) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
 
@@ -469,6 +481,14 @@ export default function App() {
             <OperClientesRoute>
               <OperClientesPage />
             </OperClientesRoute>
+          }
+        />
+        <Route
+          path="/operativo/gestionar-tickets"
+          element={
+            <GestionTicketsRoute>
+              <GestionarTicketsPage />
+            </GestionTicketsRoute>
           }
         />
 

@@ -25,9 +25,13 @@ export interface Ticket {
   client: string | null
   platform: string | null
   supervisor: string | null
+  supervisorEmail: string | null
   analyst: string | null
+  analystEmail: string | null
   coordinator: string | null
+  coordinatorEmail: string | null
   manager: string | null
+  managerEmail: string | null
   phone: string | null
   email: string | null
   owner: string | null
@@ -40,9 +44,14 @@ export interface Ticket {
   channel: string | null
   managementCriteria: string | null
   closedDate: string | null
+  closedAt: string | null
   description: string | null
   actions: TicketAction[]
   evidence: TicketEvidence[]
+  /** Calculado en el backend (Fase C) — horas laborales 7am-7pm. */
+  slaLimitHours: number | null
+  slaElapsedHours: number
+  slaOverdue: boolean | null
 }
 
 export interface CreateTicketInput {
@@ -74,6 +83,8 @@ export interface TicketListItem {
   id: number
   value: string
   label: string
+  /** Solo tiene valor real en la lista "priorities" (Fase C — SLA por prioridad). */
+  slaHours?: number | null
 }
 
 export interface TicketConfigLists {

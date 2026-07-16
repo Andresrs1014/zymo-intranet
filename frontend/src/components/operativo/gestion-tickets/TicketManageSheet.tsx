@@ -1,0 +1,220 @@
+import { useState } from "react"
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { FormSelect } from "@/components/tareas/FormSelect"
+import {
+  useTicket, useTicketConfigLists, useUpdateTicketStatus, useUpdateTicketCriterio,
+  useUpdateTicketFechaCompromiso, useAddTicketAction, useUploadTicketEvidence,
+} from "@/hooks/useTickets"
+import { extractErrorMessage } from "@/lib/ticketErrors"
+
+type Tab = "detalle" | "bitacora" | "evidencias"
+
+function formatHours(h: number): string {
+  if (h < 1) return `${Math.round(h * 60)} min`
+  return `${Math.round(h)} h`
+}
+
+export function TicketManageSheet({ ticketId, onClose }: { ticketId: number | null; onClose: () => void }) {
+  const [tab, setTab] = useState<Tab>("detalle")
+  const { data: ticket } = useTicket(ticketId)
+  const { data: lists } = useTicketConfigLists()
+  const updateStatus = useUpdateTicketStatus()
+  const updateCriterio = useUpdateTicketCriterio()
+  const updateFecha = useUpdateTicketFechaCompromiso()
+  const addAction = useAddTicketAction()
+  const uploadEvidence = useUploadTicketEvidence()
+  const [newAction, setNewAction] = useState("")
+  const [newFiles, setNewFiles] = useState<File[]>([])
+  const [fechaCompromiso, setFechaCompromiso] = useState("")
+  const [error, setError] = useState<string | null>(null)
+
+  if (!ticket) return null
+
+  function handleStatusChange(status: string) {
+    if (updateStatus.isPending) return
+    const enteringClosed = /cerrado/i.test(status) && !/cerrado/i.test(ticket!.status)
+    if (enteringClosed && !window.confirm(`¿Cambiar el estado a "${status}"? Esto registra la fecha de cierre del ticket.`)) {
+      return
+    }
+    setError(null)
+    updateStatus.mutate({ ticketId: ticket!.id, status }, { onError: (err) => setError(extractErrorMessage(err)) })
+  }
+
+  function handleCriterioChange(managementCriteria: string) {
+    if (updateCriterio.isPending) return
+    setError(null)
+    updateCriterio.mutate({ ticketId: ticket!.id, managementCriteria }, { onError: (err) => setError(extractErrorMessage(err)) })
+  }
+
+  function handleFechaCompromiso() {
+    if (!fechaCompromiso || updateFecha.isPending) return
+    setError(null)
+    updateFecha.mutate(
+      { ticketId: ticket!.id, dueDate: fechaCompromiso },
+      { onSuccess: () => setFechaCompromiso(""), onError: (err) => setError(extractErrorMessage(err)) },
+    )
+  }
+
+  function handleAddAction() {
+    if (!newAction.trim() || addAction.isPending) return
+    setError(null)
+    addAction.mutate(
+      { ticketId: ticket!.id, texto: newAction.trim() },
+      { onSuccess: () => setNewAction(""), onError: (err) => setError(extractErrorMessage(err)) },
+    )
+  }
+
+  function handleUploadEvidence() {
+    if (!newFiles.length || uploadEvidence.isPending) return
+    setError(null)
+    uploadEvidence.mutate(
+      { ticketId: ticket!.id, files: newFiles },
+      { onSuccess: () => setNewFiles([]), onError: (err) => setError(extractErrorMessage(err)) },
+    )
+  }
+
+  const overdue = ticket.slaOverdue === true && !/cerrado/i.test(ticket.status)
+
+  return (
+    <Sheet open={ticketId !== null} onOpenChange={(open) => !open && onClose()}>
+      <SheetContent side="right" className="w-full max-w-lg overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle className="font-mono text-base flex items-center gap-2">
+            {ticket.code}
+            {overdue && <Badge variant="destructive" className="text-[10px]">Vencido SLA</Badge>}
+          </SheetTitle>
+        </SheetHeader>
+
+        {error && (
+          <p role="alert" aria-live="polite" className="mt-2 rounded-md bg-[#fce9ed] px-3 py-2 text-sm text-[#a8172f]">
+            {error}
+          </p>
+        )}
+
+        <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} className="mt-4">
+          <TabsList>
+            <TabsTrigger value="detalle">Detalle</TabsTrigger>
+            <TabsTrigger value="bitacora">Bitácora ({ticket.actions.length})</TabsTrigger>
+            <TabsTrigger value="evidencias">Evidencias ({ticket.evidence.length})</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="detalle" className="space-y-4 py-3">
+            <div className="text-[13px] text-zinc-700">
+              <p><strong>Tipo:</strong> {ticket.type}</p>
+              <p><strong>Área:</strong> {ticket.area}</p>
+              {ticket.platform && <p><strong>Plataforma:</strong> {ticket.platform}</p>}
+              {ticket.client && <p><strong>Referencia:</strong> {ticket.client}</p>}
+              <p><strong>Fecha:</strong> {ticket.date}</p>
+              <p><strong>Prioridad:</strong> {ticket.priority}</p>
+              {ticket.impact && <p><strong>Impacto:</strong> {ticket.impact}</p>}
+              {ticket.slaLimitHours != null && (
+                <p>
+                  <strong>SLA:</strong> {formatHours(ticket.slaElapsedHours)} de {formatHours(ticket.slaLimitHours)} laborales
+                  {overdue && <span className="text-destructive font-semibold"> — vencido</span>}
+                </p>
+              )}
+              {ticket.dueDate && <p><strong>Fecha compromiso:</strong> {ticket.dueDate}</p>}
+              {ticket.closedDate && <p><strong>Cierre:</strong> {ticket.closedDate}</p>}
+              {ticket.description && <p className="mt-2 whitespace-pre-wrap">{ticket.description}</p>}
+            </div>
+
+            <FormSelect
+              label="Estado"
+              value={ticket.status}
+              onChange={handleStatusChange}
+              options={(lists?.statuses ?? []).map((s) => ({ value: s.value, label: s.label }))}
+            />
+            <FormSelect
+              label="Criterio de gestión"
+              value={ticket.managementCriteria ?? ""}
+              onChange={handleCriterioChange}
+              options={(lists?.managementCriteria ?? []).map((m) => ({ value: m.value, label: m.label }))}
+              noneLabel="Sin definir"
+            />
+
+            <div>
+              <label htmlFor="fecha-compromiso" className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.06em] text-zinc-500">
+                Fecha de compromiso
+              </label>
+              <div className="flex gap-2">
+                <input
+                  id="fecha-compromiso"
+                  type="date"
+                  value={fechaCompromiso}
+                  onChange={(e) => setFechaCompromiso(e.target.value)}
+                  className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-primary"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={!fechaCompromiso || updateFecha.isPending}
+                  onClick={handleFechaCompromiso}
+                >
+                  {updateFecha.isPending ? "Guardando…" : "Guardar"}
+                </Button>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="bitacora" className="space-y-3 py-3">
+            {ticket.actions.map((action) => (
+              <div key={action.id} className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-[13px] text-zinc-700">
+                {action.texto}
+              </div>
+            ))}
+            <div className="flex gap-2">
+              <input
+                aria-label="Agregar acción"
+                value={newAction}
+                onChange={(e) => setNewAction(e.target.value)}
+                placeholder="Agregar acción…"
+                className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-primary"
+              />
+              <button
+                type="button"
+                disabled={!newAction.trim() || addAction.isPending}
+                onClick={handleAddAction}
+                className="rounded-md bg-primary px-3 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:hover:bg-primary"
+              >
+                {addAction.isPending ? "Agregando…" : "Agregar"}
+              </button>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="evidencias" className="space-y-3 py-3">
+            {ticket.evidence.map((ev) => (
+              <a
+                key={ev.id}
+                href={ev.url ?? "#"}
+                target="_blank"
+                rel="noreferrer"
+                className="block rounded-md border border-zinc-200 px-3 py-2 text-[13px] text-primary hover:underline"
+              >
+                {ev.filename}
+              </a>
+            ))}
+            <div className="flex gap-2">
+              <input
+                type="file"
+                multiple
+                aria-label="Adjuntar evidencia"
+                onChange={(e) => setNewFiles(Array.from(e.target.files ?? []))}
+              />
+              <button
+                type="button"
+                disabled={!newFiles.length || uploadEvidence.isPending}
+                onClick={handleUploadEvidence}
+                className="rounded-md bg-primary px-3 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:hover:bg-primary"
+              >
+                {uploadEvidence.isPending ? "Subiendo…" : "Subir"}
+              </button>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </SheetContent>
+    </Sheet>
+  )
+}

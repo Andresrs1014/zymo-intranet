@@ -68,6 +68,13 @@ export const INTERNAL_MODULE_GROUPS: ModulePermissionGroup[] = [
         name: "Operativo — Cartera de clientes",
         description: "Importar clientes corporativos y asignar analistas por sede",
       },
+      {
+        id: "mod_operativo_tickets",
+        category: "modulo",
+        icon: "🎫",
+        name: "Operativo — Gestionar mis tickets",
+        description: "Gestionar los tickets de ZymoAlly asignados como supervisor, analista o coordinador",
+      },
     ],
   },
   {
