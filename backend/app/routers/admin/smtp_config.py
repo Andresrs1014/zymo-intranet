@@ -40,10 +40,21 @@ class SmtpConfigUpdate(BaseModel):
     smtp_from: Optional[str] = None
 
 
+class TestEmailRequest(BaseModel):
+    destinatarios: Optional[list[str]] = None
+
+
+class TestEmailItemResult(BaseModel):
+    email: str
+    ok: bool
+    detalle: Optional[str] = None
+
+
 class TestEmailResult(BaseModel):
     ok: bool
     mensaje: str
     detalle: Optional[str] = None
+    resultados: Optional[list[TestEmailItemResult]] = None
 
 
 class SmtpConfigService(BaseModel):
@@ -120,10 +131,15 @@ def get_smtp_config_service(
 
 @router.post("/test", response_model=TestEmailResult)
 def test_smtp_config(
+    payload: TestEmailRequest = TestEmailRequest(),
     current_user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    """Envía un correo de prueba al propio smtp_user — misma lógica que /oc/config/test-email."""
+    """Envía un correo de prueba. Sin destinatarios, se auto-envía a smtp_user (valida login).
+
+    Con `destinatarios` (uno por área a validar: compras, T&C, tickets, etc.), envía un correo
+    a cada uno y reporta el resultado individual — esto valida entrega real, no solo autenticación.
+    """
     rows = _rows(db)
     host = rows.get("smtp_host", "")
     port_raw = rows.get("smtp_port", "587")
@@ -143,19 +159,23 @@ def test_smtp_config(
     except ValueError:
         return TestEmailResult(ok=False, mensaje="Puerto SMTP inválido.", detalle=f"'{port_raw}' no es un número.")
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = "[ZYMO Intranet] Correo de prueba SMTP corporativo"
-    msg["From"] = f"ZYMO Intranet <{from_addr}>"
-    msg["To"] = user
-    html = """
-    <div style="font-family:Arial,sans-serif;padding:24px;max-width:500px">
-      <h3 style="color:#111">✅ Prueba SMTP exitosa</h3>
-      <p style="color:#444">Este correo confirma que la cuenta SMTP corporativa centralizada
-      está funcionando correctamente.</p>
-      <p style="color:#888;font-size:12px">Generado desde /admin/configuracion</p>
-    </div>
-    """
-    msg.attach(MIMEText(html, "html", "utf-8"))
+    destinatarios = [d.strip() for d in (payload.destinatarios or []) if d.strip()] or [user]
+
+    def _build_msg(to_addr: str) -> MIMEMultipart:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = "[ZYMO Intranet] Correo de prueba SMTP corporativo"
+        msg["From"] = f"ZYMO Intranet <{from_addr}>"
+        msg["To"] = to_addr
+        html = f"""
+        <div style="font-family:Arial,sans-serif;padding:24px;max-width:500px">
+          <h3 style="color:#111">✅ Prueba SMTP exitosa</h3>
+          <p style="color:#444">Este correo confirma que la cuenta SMTP corporativa centralizada
+          entrega correctamente a <strong>{to_addr}</strong>.</p>
+          <p style="color:#888;font-size:12px">Generado desde /admin/configuracion</p>
+        </div>
+        """
+        msg.attach(MIMEText(html, "html", "utf-8"))
+        return msg
 
     try:
         context = ssl.create_default_context()
@@ -164,13 +184,28 @@ def test_smtp_config(
             smtp.starttls(context=context)
             smtp.ehlo()
             smtp.login(user, password)
-            smtp.sendmail(from_addr, [user], msg.as_string())
 
-        log.info("[smtp_test] Prueba SMTP corporativa exitosa → %s", user)
+            resultados: list[TestEmailItemResult] = []
+            for dest in destinatarios:
+                try:
+                    smtp.sendmail(from_addr, [dest], _build_msg(dest).as_string())
+                    resultados.append(TestEmailItemResult(email=dest, ok=True))
+                    log.info("[smtp_test] Prueba SMTP corporativa exitosa → %s", dest)
+                except smtplib.SMTPException as e:
+                    resultados.append(TestEmailItemResult(email=dest, ok=False, detalle=str(e)))
+                    log.warning("[smtp_test] Fallo enviando a %s: %s", dest, e)
+
+        todos_ok = all(r.ok for r in resultados)
+        fallidos = [r.email for r in resultados if not r.ok]
         return TestEmailResult(
-            ok=True,
-            mensaje=f"Correo enviado correctamente a {user}.",
+            ok=todos_ok,
+            mensaje=(
+                f"Correo enviado correctamente a {len(resultados)} destinatario(s)."
+                if todos_ok
+                else f"Falló el envío a: {', '.join(fallidos)}"
+            ),
             detalle=f"Servidor: {host}:{port} | Usuario: {user}",
+            resultados=resultados,
         )
 
     except smtplib.SMTPAuthenticationError as e:

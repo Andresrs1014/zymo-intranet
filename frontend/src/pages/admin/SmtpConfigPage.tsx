@@ -22,10 +22,17 @@ interface FormState {
   smtp_from: string
 }
 
+interface TestEmailItemResult {
+  email: string
+  ok: boolean
+  detalle?: string
+}
+
 interface TestEmailResult {
   ok: boolean
   mensaje: string
   detalle?: string
+  resultados?: TestEmailItemResult[]
 }
 
 const EMPTY_FORM: FormState = { smtp_host: "", smtp_port: "587", smtp_user: "", smtp_password: "", smtp_from: "" }
@@ -39,6 +46,7 @@ export function SmtpConfigPage() {
   const [success, setSuccess] = useState(false)
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<TestEmailResult | null>(null)
+  const [testRecipients, setTestRecipients] = useState("")
 
   function load() {
     setLoading(true)
@@ -92,8 +100,14 @@ export function SmtpConfigPage() {
   async function handleTest() {
     setTesting(true)
     setTestResult(null)
+    const destinatarios = testRecipients
+      .split(/[,\n]/)
+      .map((e) => e.trim())
+      .filter(Boolean)
     try {
-      const res = await api.post<TestEmailResult>("/api/admin/smtp-config/test")
+      const res = await api.post<TestEmailResult>("/api/admin/smtp-config/test", {
+        destinatarios: destinatarios.length ? destinatarios : undefined,
+      })
       setTestResult(res.data)
     } catch {
       setTestResult({ ok: false, mensaje: "Error al contactar el servidor.", detalle: "Verifica que el backend esté corriendo." })
@@ -195,13 +209,24 @@ export function SmtpConfigPage() {
             </section>
 
             <section className="bg-card rounded-xl border border-border p-6 space-y-4">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">Diagnóstico de correo</h2>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Envía un correo de prueba a la misma cuenta para verificar que las credenciales funcionan.
-                  </p>
-                </div>
+              <div>
+                <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">Diagnóstico de correo</h2>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Sin destinatarios, se auto-envía a la propia cuenta (valida solo login). Para confirmar que
+                  la entrega real funciona en cada área, pega aquí un correo por área a validar
+                  (compras, T&C, tickets…), separados por coma o línea nueva.
+                </p>
+              </div>
+
+              <textarea
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring font-mono"
+                rows={3}
+                placeholder="auxiliar.compras@zymologistica.com&#10;lider.tyc@zymologistica.com"
+                value={testRecipients}
+                onChange={(e) => setTestRecipients(e.target.value)}
+              />
+
+              <div className="flex justify-end">
                 <Button type="button" onClick={handleTest} disabled={testing} variant="outline" className="shrink-0">
                   {testing ? "Probando…" : "Enviar correo de prueba"}
                 </Button>
@@ -222,6 +247,17 @@ export function SmtpConfigPage() {
                     <pre className="mt-2 text-xs whitespace-pre-wrap font-mono leading-relaxed opacity-80">
                       {testResult.detalle}
                     </pre>
+                  )}
+                  {testResult.resultados && testResult.resultados.length > 1 && (
+                    <ul className="mt-3 space-y-1">
+                      {testResult.resultados.map((r) => (
+                        <li key={r.email} className="flex items-start gap-1.5 text-xs">
+                          <span>{r.ok ? "✅" : "❌"}</span>
+                          <span className="font-mono">{r.email}</span>
+                          {r.detalle && <span className="opacity-70">— {r.detalle}</span>}
+                        </li>
+                      ))}
+                    </ul>
                   )}
                 </div>
               )}
