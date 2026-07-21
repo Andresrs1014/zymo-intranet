@@ -16,10 +16,12 @@ from sqlmodel import Session, col, select
 from app.models.sede import Sede
 from app.personal_database import (
     PtcCliente,
+    PtcClienteAnalista,
     PtcClienteAsignacion,
     PtcPersona,
     get_personal_engine,
 )
+from app.routers.personal import _email_corporativo_efectivo
 
 _ACTIVO = "Activo"
 _CONFIG_SEDES_INACTIVAS = "oper_clientes_sedes_inactivas"
@@ -39,6 +41,10 @@ class ClienteBody(BaseModel):
     nombre: str = Field(min_length=1, max_length=200)
     activo: bool = True
     asignaciones: list[AsignacionBody] = Field(default_factory=list)
+    # Analistas responsables para gestión de tickets (Zymo Ally) — distinto de
+    # `asignaciones` (Cartera de Clientes, 1 persona por sede). Puede haber
+    # varios a la vez.
+    analistas_tickets: list[int] = Field(default_factory=list)
 
 
 class ClienteUpdateBody(BaseModel):
@@ -46,6 +52,7 @@ class ClienteUpdateBody(BaseModel):
     nombre: Optional[str] = None
     activo: Optional[bool] = None
     asignaciones: Optional[list[AsignacionBody]] = None
+    analistas_tickets: Optional[list[int]] = None
 
 
 class SedesConfigBody(BaseModel):
@@ -143,6 +150,11 @@ def _cliente_dict(
                     "persona_nombre": "",
                     "habilitada": False,
                 }
+    analistas_tickets = [
+        _persona_min(persona, main_db)
+        for a in db.exec(select(PtcClienteAnalista).where(PtcClienteAnalista.cliente_id == c.id)).all()
+        if (persona := db.get(PtcPersona, a.persona_id))
+    ]
     return {
         "id": c.id,
         "client_no": c.client_no,
@@ -150,6 +162,7 @@ def _cliente_dict(
         "nombre": c.nombre,
         "activo": c.activo,
         "asignaciones": asignaciones,
+        "analistas_tickets": analistas_tickets,
         "created_at": c.created_at.isoformat(),
         "updated_at": c.updated_at.isoformat(),
     }
@@ -169,6 +182,53 @@ def _sync_asignaciones(db: Session, cliente_id: int, items: list[AsignacionBody]
                 persona_id=item.persona_id,
             )
         )
+
+
+def _sync_analistas_tickets(db: Session, cliente_id: int, persona_ids: list[int]) -> None:
+    existing = db.exec(
+        select(PtcClienteAnalista).where(PtcClienteAnalista.cliente_id == cliente_id)
+    ).all()
+    for row in existing:
+        db.delete(row)
+    for persona_id in dict.fromkeys(persona_ids):  # dedupe, conserva orden
+        db.add(PtcClienteAnalista(cliente_id=cliente_id, persona_id=persona_id))
+
+
+def _persona_min(p: PtcPersona, main_db: Session) -> dict:
+    return {
+        "id": p.id,
+        "nombre": p.nombre,
+        "email": _email_corporativo_efectivo(p, main_db),
+    }
+
+
+def resolver_jerarquia_tickets(cliente_id: int, db: Session, main_db: Session) -> dict:
+    """Para un cliente: sus analistas responsables + coordinador(es) +
+    supervisor(es), caminando `jefe_directo_id` (no el organigrama de cargos,
+    que es ambiguo — ver PtcPersona.jefe_directo_id)."""
+    asignaciones = db.exec(
+        select(PtcClienteAnalista).where(PtcClienteAnalista.cliente_id == cliente_id)
+    ).all()
+    analistas: list[dict] = []
+    coordinadores: dict[int, dict] = {}
+    supervisores: dict[int, dict] = {}
+    for a in asignaciones:
+        persona = db.get(PtcPersona, a.persona_id)
+        if not persona:
+            continue
+        analistas.append(_persona_min(persona, main_db))
+        coordinador = db.get(PtcPersona, persona.jefe_directo_id) if persona.jefe_directo_id else None
+        if not coordinador:
+            continue
+        coordinadores[coordinador.id] = _persona_min(coordinador, main_db)
+        supervisor = db.get(PtcPersona, coordinador.jefe_directo_id) if coordinador.jefe_directo_id else None
+        if supervisor:
+            supervisores[supervisor.id] = _persona_min(supervisor, main_db)
+    return {
+        "analistas": analistas,
+        "coordinadores": list(coordinadores.values()),
+        "supervisores": list(supervisores.values()),
+    }
 
 
 def _stats(clientes: list[PtcCliente], db: Session) -> dict:
@@ -217,6 +277,15 @@ def listar_clientes_response(
     }
 
 
+def listar_clientes_simple(db: Session) -> list[dict]:
+    """Lista liviana (id+nombre) para selects — no requiere mod_oper_clientes,
+    a diferencia de listar_clientes_response (que trae asignaciones/dume)."""
+    clientes = db.exec(
+        select(PtcCliente).where(PtcCliente.activo == True).order_by(col(PtcCliente.nombre))  # noqa: E712
+    ).all()
+    return [{"id": c.id, "nombre": c.nombre} for c in clientes]
+
+
 def listar_analistas(db: Session) -> list[dict]:
     from app.personal_database import PtcCargo
 
@@ -249,6 +318,7 @@ def crear_cliente(body: ClienteBody, db: Session, main_db: Session) -> dict:
     db.add(c)
     db.flush()
     _sync_asignaciones(db, c.id, body.asignaciones)
+    _sync_analistas_tickets(db, c.id, body.analistas_tickets)
     db.commit()
     db.refresh(c)
     activas = sedes_activas_ids(main_db, db)
@@ -269,6 +339,8 @@ def actualizar_cliente(
         c.activo = body.activo
     if body.asignaciones is not None:
         _sync_asignaciones(db, c.id, body.asignaciones)
+    if body.analistas_tickets is not None:
+        _sync_analistas_tickets(db, c.id, body.analistas_tickets)
     c.updated_at = datetime.utcnow()
     db.add(c)
     db.commit()

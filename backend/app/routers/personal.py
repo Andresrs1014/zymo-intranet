@@ -77,6 +77,7 @@ class PersonaCreate(BaseModel):
     idp_active: bool = False
     idp_eligible: bool = True
     user_id: Optional[int] = None
+    jefe_directo_id: Optional[int] = None
 
 
 class PersonaUpdate(BaseModel):
@@ -104,6 +105,7 @@ class PersonaUpdate(BaseModel):
     idp_eligible: Optional[bool] = None
     score: Optional[int] = None
     user_id: Optional[int] = None
+    jefe_directo_id: Optional[int] = None
 
 
 class BulkEstadoItem(BaseModel):
@@ -170,6 +172,7 @@ def _persona_dict(p: PtcPersona, db: Session, main_db: Session) -> dict:
     sede  = main_db.get(Sede, p.sede_id) if p.sede_id else None
     area  = main_db.get(GlobalArea, p.area_id) if p.area_id else None
     cargo = db.get(PtcCargo, p.cargo_id) if p.cargo_id else None
+    jefe  = db.get(PtcPersona, p.jefe_directo_id) if p.jefe_directo_id else None
     return {
         "id": p.id,
         "nombre": p.nombre,
@@ -182,6 +185,8 @@ def _persona_dict(p: PtcPersona, db: Session, main_db: Session) -> dict:
         "area_nombre": area.name if area else "",
         "cargo_id": p.cargo_id,
         "cargo_nombre": cargo.nombre if cargo else "",
+        "jefe_directo_id": p.jefe_directo_id,
+        "jefe_directo_nombre": jefe.nombre if jefe else "",
         "genero": p.genero,
         "rh": p.rh,
         "email": p.email,
@@ -570,6 +575,25 @@ def eliminar_manual(
     db.commit()
 
 
+def _persona_jefe_creates_cycle(
+    db: Session,
+    persona_id: int,
+    jefe_directo_id: int,
+) -> bool:
+    # ponytail: una persona tiene un solo jefe directo; recorrer ancestros basta.
+    current_id: Optional[int] = jefe_directo_id
+    visited: set[int] = set()
+    while current_id is not None and current_id not in visited:
+        if current_id == persona_id:
+            return True
+        visited.add(current_id)
+        current = db.get(PtcPersona, current_id)
+        if not current:
+            return False
+        current_id = current.jefe_directo_id
+    return False
+
+
 def _cargo_parent_creates_cycle(
     db: Session,
     cargo_id: int,
@@ -734,6 +758,7 @@ def crear_persona(
         idp_active=body.idp_active,
         idp_eligible=body.idp_eligible,
         user_id=body.user_id,
+        jefe_directo_id=body.jefe_directo_id,
     )
     db.add(persona)
     db.commit()
@@ -757,6 +782,11 @@ def actualizar_persona(
     # empresa_id es el alias público de sede_id (cross-DB, sin FK)
     if "empresa_id" in data:
         data["sede_id"] = data.pop("empresa_id")
+    if data.get("jefe_directo_id") is not None:
+        if data["jefe_directo_id"] == persona_id:
+            raise HTTPException(status_code=400, detail="Una persona no puede ser su propio jefe directo.")
+        if _persona_jefe_creates_cycle(db, persona_id, data["jefe_directo_id"]):
+            raise HTTPException(status_code=400, detail="Esa jerarquía crearía un ciclo (A es jefe de B que es jefe de A).")
     for field, value in data.items():
         if field in ("fecha_ingreso", "fecha_salida", "fecha_nacimiento"):
             setattr(persona, field, _parse_date(value))

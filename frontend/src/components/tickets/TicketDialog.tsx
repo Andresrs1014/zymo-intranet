@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { ShimmerButton } from "@/components/ui/shimmer-button"
 import { Combobox, type ComboboxOption } from "@/components/ui/Combobox"
 import { StagedAttachmentsPortal } from "@/components/tareas/StagedAttachmentsPortal"
+import { api } from "@/lib/api"
 import { useTicketsUI } from "@/context/TicketsContext"
 import {
   useTicketConfigLists, useTicketAreaPrefixes, useTicketCodePreview, useCreateTicket,
@@ -91,6 +92,52 @@ export function TicketDialog() {
   const user = useAuthStore((s) => s.user)
   const canSync = user ? canConfigTickets(user.role, user.app_permissions) : false
 
+  // Cliente real (directorio T&C) — vive en vivo, separado de `form.client`
+  // (que sigue guardando el nombre, texto plano, para no romper tickets viejos
+  // ni los tipos que reusan el campo "cliente" con otro significado, ver
+  // clientLabelFor). El id solo se usa para resolver analista/coordinador/
+  // supervisor automáticamente.
+  const [clientesDirectorio, setClientesDirectorio] = useState<{ id: number; nombre: string }[]>([])
+  const [clienteId, setClienteId] = useState<number | null>(null)
+  const [jerarquiaSugerida, setJerarquiaSugerida] = useState<{
+    analistas: { nombre: string }[]; coordinadores: { nombre: string }[]; supervisores: { nombre: string }[]
+  } | null>(null)
+
+  useEffect(() => {
+    if (!dialogOpen) return
+    api.get("/operativo/clientes/lista-simple").then(({ data }) => {
+      setClientesDirectorio(Array.isArray(data) ? data : [])
+    }).catch(() => setClientesDirectorio([]))
+  }, [dialogOpen])
+
+  useEffect(() => {
+    if (!clienteId) { setJerarquiaSugerida(null); return }
+    let cancelled = false
+    api.get(`/operativo/clientes/${clienteId}/jerarquia-tickets`).then(({ data }) => {
+      if (cancelled) return
+      setJerarquiaSugerida(data)
+      const matchValue = (nombre: string, options: { value: string; label: string }[]) =>
+        options.find((o) => o.label.trim().toLowerCase() === nombre.trim().toLowerCase())?.value
+      const analista = data.analistas[0] && matchValue(data.analistas[0].nombre, lists?.analysts ?? [])
+      const coordinador = data.coordinadores[0] && matchValue(data.coordinadores[0].nombre, lists?.coordinators ?? [])
+      const supervisor = data.supervisores[0] && matchValue(data.supervisores[0].nombre, lists?.supervisors ?? [])
+      setForm((f) => ({
+        ...f,
+        analyst: analista ?? f.analyst,
+        coordinator: coordinador ?? f.coordinator,
+        supervisor: supervisor ?? f.supervisor,
+      }))
+    }).catch(() => { if (!cancelled) setJerarquiaSugerida(null) })
+    return () => { cancelled = true }
+  }, [clienteId, lists])
+
+  function handleClienteChange(idStr: string) {
+    const id = idStr ? Number(idStr) : null
+    setClienteId(id)
+    const cliente = clientesDirectorio.find((c) => c.id === id)
+    set("client", cliente?.nombre ?? "")
+  }
+
   async function handleSync() {
     try {
       const r = await syncMasterData.mutateAsync()
@@ -109,6 +156,8 @@ export function TicketDialog() {
       setForm(EMPTY_FORM)
       setFiles([])
       setError(null)
+      setClienteId(null)
+      setJerarquiaSugerida(null)
     }
   }, [dialogOpen])
 
@@ -184,9 +233,9 @@ export function TicketDialog() {
               {clientLabelFor(form.type) === "Cliente" ? (
                 <SelectField
                   label="Cliente"
-                  value={form.client}
-                  onChange={(v) => set("client", v)}
-                  options={(lists?.clients ?? []).map((c) => ({ value: c.value, label: c.label }))}
+                  value={clienteId ? String(clienteId) : ""}
+                  onChange={handleClienteChange}
+                  options={clientesDirectorio.map((c) => ({ value: String(c.id), label: c.nombre }))}
                 />
               ) : (
                 <div>
@@ -222,6 +271,14 @@ export function TicketDialog() {
                 options={(lists?.coordinators ?? []).map((p) => ({ value: p.value, label: p.label }))}
                 placeholder="Sin asignar"
               />
+              {jerarquiaSugerida && (
+                <p className="col-span-full text-xs text-zinc-500">
+                  Sugerido desde el directorio — analista: <strong>{jerarquiaSugerida.analistas[0]?.nombre ?? "sin asignar"}</strong>,
+                  {" "}coordinador: <strong>{jerarquiaSugerida.coordinadores[0]?.nombre ?? "sin asignar"}</strong>,
+                  {" "}supervisor: <strong>{jerarquiaSugerida.supervisores[0]?.nombre ?? "sin asignar"}</strong>.
+                  {jerarquiaSugerida.analistas.length > 1 && " Hay más de un analista asignado — revisa cuál corresponde."}
+                </p>
+              )}
               <SelectField
                 label="¿Quién gestiona el ticket?"
                 value={form.manager}

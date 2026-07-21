@@ -15,24 +15,6 @@ interface IntranetSede {
   visible_en_solicitudes_oc?: boolean
 }
 
-interface IntranetPersona {
-  id: number
-  nombre: string
-  cargo_nombre?: string
-  // email_corporativo_efectivo ya trae el fallback al email de login de la
-  // intranet cuando la persona nunca llenó "Correo corporativo" en T&C
-  // (backend/app/routers/personal.py::_email_corporativo_efectivo) — usar
-  // este campo, no email_corporativo directo, para no perder ese fallback.
-  email_corporativo_efectivo?: string
-  telefono_corporativo?: string
-  telefono?: string
-}
-
-interface IntranetPersonasResponse {
-  total: number
-  items: IntranetPersona[]
-}
-
 interface IntranetCliente {
   id: number
   nombre: string
@@ -64,21 +46,6 @@ export interface SyncMasterDataResult {
   coordinators: SyncSection
   managers: SyncSection
   ranAt: string
-}
-
-// ─── Clasificación de personas del directorio por nombre de cargo ───────────
-// ponytail: heurística por texto (no hay categoría estructurada "rol" en
-// PtcCargo, solo `nombre` libre) — si un cargo real no contiene ninguna de
-// estas palabras, esa persona no entra a ningún select y toca agregarla a
-// mano desde el panel de configuración (fallback 100% configurable acordado).
-type PersonaCategory = "supervisors" | "analysts" | "coordinators"
-
-function classifyCargo(cargoNombre: string | undefined): PersonaCategory | null {
-  const n = (cargoNombre ?? "").toLowerCase()
-  if (n.includes("supervisor")) return "supervisors"
-  if (n.includes("analista")) return "analysts"
-  if (n.includes("coordinador")) return "coordinators"
-  return null
 }
 
 // ─── Token de servicio ───────────────────────────────────────────────────────
@@ -238,36 +205,41 @@ export async function syncMasterData(): Promise<SyncMasterDataResult> {
   syncing = true
   try {
     const token = mintServiceToken()
-    const [areas, sedes, personasResp, users, clientesResp] = await Promise.all([
+    const [areas, sedes, users, clientesResp] = await Promise.all([
       fetchIntranet<IntranetArea[]>("/areas", token),
       fetchIntranet<IntranetSede[]>("/sedes?para_solicitudes_oc=true", token),
-      // "Activo" con mayúscula — PtcPersona.estado (backend/app/personal_database.py)
-      // guarda el valor así y el filtro en personal.py usa == exacto, sensible a mayúsculas.
-      fetchIntranet<IntranetPersonasResponse>("/tc/personas?estado=Activo&limit=500", token),
-      // Usuarios reales de la intranet (login propio) — separado del directorio
-      // T&C, son quienes gestionan tickets dentro de la app, no quienes
-      // aparecen en el organigrama.
+      // Usuarios reales de la intranet (login propio) — supervisor/analista/
+      // coordinador/gestiona se eligen todos de esta misma lista, para que el
+      // correo de contacto sea siempre el de login (garantizado), no el
+      // "correo corporativo" opcional de T&C que motivó este cambio.
       fetchIntranet<IntranetUser[]>("/api/tasks-v2/users", token),
       // Directorio de clientes corporativos (T&C, solo lectura — se gestionan
       // de verdad en Operativo).
       fetchIntranet<IntranetClientesResponse>("/tc/clientes?limit=500", token),
     ])
 
-    const byCategory: Record<PersonaCategory, SyncListItem[]> = {
-      supervisors: [],
-      analysts: [],
-      coordinators: [],
-    }
-    for (const p of personasResp.items) {
-      const category = classifyCargo(p.cargo_nombre)
-      if (category) {
-        byCategory[category].push({
-          externalId: String(p.id),
-          label: p.nombre,
-          contactEmail: p.email_corporativo_efectivo || undefined,
-          contactPhone: p.telefono_corporativo || p.telefono || undefined,
-        })
-      }
+    const userItems: SyncListItem[] = users.map((u) => ({
+      externalId: String(u.id),
+      label: u.full_name ?? u.email,
+      contactEmail: u.email,
+    }))
+
+    // Limpieza de transición única: supervisors/analysts/coordinators se
+    // poblaban antes desde personas de T&C (externalId = id de PtcPersona);
+    // ahora vienen de usuarios reales (externalId = id de User). Son
+    // namespaces de id distintos — sin este borrado, una fila vieja queda
+    // huérfana (duplicado en el select) o, peor, un id viejo coincide por
+    // casualidad con el id de un usuario distinto y el upsert por externalId
+    // la pisa con la persona equivocada. No toca filas agregadas a mano
+    // (externalId null).
+    const currentUserIds = new Set(userItems.map((i) => i.externalId))
+    for (const listType of ["supervisors", "analysts", "coordinators"] as const) {
+      const existing = await prisma.zymoConfigList.findMany({
+        where: { listType, externalId: { not: null } },
+        select: { id: true, externalId: true },
+      })
+      const staleIds = existing.filter((e) => !currentUserIds.has(e.externalId!)).map((e) => e.id)
+      if (staleIds.length) await prisma.zymoConfigList.deleteMany({ where: { id: { in: staleIds } } })
     }
 
     const areasResult = await syncAreas(areas)
@@ -279,13 +251,10 @@ export async function syncMasterData(): Promise<SyncMasterDataResult> {
       "clients",
       clientesResp.items.map((c) => ({ externalId: String(c.id), label: c.nombre })),
     )
-    const supervisorsResult = await syncConfigList("supervisors", byCategory.supervisors)
-    const analystsResult = await syncConfigList("analysts", byCategory.analysts)
-    const coordinatorsResult = await syncConfigList("coordinators", byCategory.coordinators)
-    const managersResult = await syncConfigList(
-      "managers",
-      users.map((u) => ({ externalId: String(u.id), label: u.full_name ?? u.email, contactEmail: u.email })),
-    )
+    const supervisorsResult = await syncConfigList("supervisors", userItems)
+    const analystsResult = await syncConfigList("analysts", userItems)
+    const coordinatorsResult = await syncConfigList("coordinators", userItems)
+    const managersResult = await syncConfigList("managers", userItems)
 
     return {
       areas: areasResult,

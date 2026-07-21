@@ -20,6 +20,8 @@ interface Asignacion {
   habilitada: boolean
 }
 
+interface AnalistaTicket { id: number; nombre: string; email: string }
+
 interface Cliente {
   id: number
   client_no: string
@@ -27,6 +29,7 @@ interface Cliente {
   nombre: string
   activo: boolean
   asignaciones: Record<string, Asignacion>
+  analistas_tickets: AnalistaTicket[]
 }
 
 interface ClientesResponse {
@@ -42,6 +45,7 @@ export function OperClientesPage() {
 
   const [sedes, setSedes]           = useState<SedeCartera[]>([])
   const [analistas, setAnalistas]   = useState<Analista[]>([])
+  const [personasLista, setPersonasLista] = useState<{ id: number; nombre: string }[]>([])
   const [clientes, setClientes]     = useState<Cliente[]>([])
   const [stats, setStats]           = useState({ total: 0, asignados: 0, pendientes: 0 })
   const [busqueda, setBusqueda]     = useState("")
@@ -74,12 +78,14 @@ export function OperClientesPage() {
   )
 
   const cargarMeta = useCallback(async () => {
-    const [sRes, aRes] = await Promise.all([
+    const [sRes, aRes, pRes] = await Promise.all([
       api.get<SedeCartera[]>("/operativo/clientes/sedes"),
       api.get<Analista[]>("/operativo/clientes/analistas"),
+      api.get("/tc/personas", { params: { estado: "Activo", limit: 500 } }),
     ])
     setSedes(Array.isArray(sRes.data) ? sRes.data : [])
     setAnalistas(Array.isArray(aRes.data) ? aRes.data : [])
+    setPersonasLista(Array.isArray(pRes.data?.items) ? pRes.data.items : [])
   }, [])
 
   const cargar = useCallback(async () => {
@@ -146,6 +152,18 @@ export function OperClientesPage() {
       void cargar()
     } catch {
       setBanner({ ok: false, msg: "Error al guardar asignación." })
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  async function guardarAnalistasTickets(cliente: Cliente, personaIds: number[]) {
+    setSavingId(cliente.id)
+    try {
+      const { data } = await api.put(`/operativo/clientes/${cliente.id}`, { analistas_tickets: personaIds })
+      setClientes((prev) => prev.map((c) => (c.id === cliente.id ? data : c)))
+    } catch {
+      setBanner({ ok: false, msg: "Error al guardar analistas de tickets." })
     } finally {
       setSavingId(null)
     }
@@ -338,6 +356,9 @@ export function OperClientesPage() {
                     </span>
                   </th>
                 ))}
+                <th className="py-2 text-left text-[10px] font-semibold text-muted-foreground uppercase min-w-[180px]">
+                  Analistas de tickets
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -386,6 +407,24 @@ export function OperClientesPage() {
                       </td>
                     )
                   })}
+                  <td className="py-2 pr-2 align-top">
+                    <select
+                      multiple
+                      size={Math.min(4, Math.max(2, personasLista.length))}
+                      value={c.analistas_tickets.map((a) => String(a.id))}
+                      disabled={savingId === c.id}
+                      onChange={(ev) => {
+                        const ids = Array.from(ev.target.selectedOptions).map((o) => Number(o.value))
+                        void guardarAnalistasTickets(c, ids)
+                      }}
+                      className="w-full text-xs bg-background border border-input rounded-lg focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-40"
+                      title="Quién atiende los tickets de este cliente — usado para autocompletar Zymo Ally"
+                    >
+                      {personasLista.map((p) => (
+                        <option key={p.id} value={p.id}>{p.nombre}</option>
+                      ))}
+                    </select>
+                  </td>
                 </tr>
               ))}
             </tbody>

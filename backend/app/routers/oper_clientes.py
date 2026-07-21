@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, File, Query, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlmodel import Session
 
-from app.core.deps import require_permission
+from app.core.deps import get_current_user, require_permission
 from app.database import get_db
 from app.models.user import User
 from app.services.clientes_cartera import (
@@ -22,13 +22,38 @@ from app.services.clientes_cartera import (
     importar_excel,
     listar_analistas,
     listar_clientes_response,
+    listar_clientes_simple,
     listar_sedes_cartera,
     plantilla_path,
+    resolver_jerarquia_tickets,
 )
 
 router = APIRouter(prefix="/operativo", tags=["Operativo Clientes"])
 
 require_oper_clientes = require_permission("mod_oper_clientes")
+
+
+# ── Lecturas livianas para el formulario de tickets (Zymo Ally) ──────────────
+# Sin gate de mod_oper_clientes: cualquier usuario autenticado que cree
+# tickets necesita ver la lista de clientes y resolver su jerarquía, no solo
+# quien administra la Cartera de Clientes.
+
+@router.get("/clientes/lista-simple")
+def get_clientes_simple(
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(get_current_user),
+):
+    return listar_clientes_simple(db)
+
+
+@router.get("/clientes/{cliente_id}/jerarquia-tickets")
+def get_jerarquia_tickets(
+    cliente_id: int,
+    db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    return resolver_jerarquia_tickets(cliente_id, db, main_db)
 
 
 @router.get("/clientes")

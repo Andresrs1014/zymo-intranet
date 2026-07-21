@@ -114,6 +114,14 @@ class PtcPersona(SQLModel, table=True):
     # Vínculo con intranet (nullable — no todos tienen login)
     user_id: Optional[int] = None
 
+    # Jefe directo explícito (self-referencing) — separado del organigrama de
+    # cargos (PtcCargo.parent_id) porque un cargo puede tener varias personas,
+    # lo que hace ambiguo derivar "el" jefe de alguien caminando cargos. Este
+    # campo siempre resuelve a una sola persona, sin ambigüedad. Usado para
+    # resolver jerarquía analista→coordinador→supervisor (Zymo Ally tickets)
+    # y cualquier otro flujo futuro que necesite "quién es el jefe de X".
+    jefe_directo_id: Optional[int] = Field(default=None, foreign_key="ptc_persona.id")
+
     # Trazabilidad
     legacy_id: str = Field(max_length=80, default="", index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -305,6 +313,20 @@ class PtcClienteAsignacion(SQLModel, table=True):
     persona_id: Optional[int] = Field(default=None, foreign_key="ptc_persona.id")
 
 
+class PtcClienteAnalista(SQLModel, table=True):
+    """Analistas responsables de un cliente para efectos de gestión de tickets
+    (Zymo Ally) — deliberadamente separada de PtcClienteAsignacion (Cartera de
+    Clientes, 1 persona por sede). Acá un cliente puede tener varios analistas
+    a la vez, sin dimensión de sede — son preguntas distintas ("quién asigno
+    para logística en esta sede" vs "quién atiende tickets de este cliente")."""
+
+    __tablename__ = "ptc_cliente_analista"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    cliente_id: int = Field(foreign_key="ptc_cliente.id")
+    persona_id: int = Field(foreign_key="ptc_persona.id")
+
+
 # ── Creación de tablas ─────────────────────────────────────────────────────────
 
 _PERSONAL_TABLES = {
@@ -313,7 +335,7 @@ _PERSONAL_TABLES = {
     "ptc_area_config", "ptc_evento", "ptc_evento_persona",
     "ptc_orden_dia", "ptc_evento_documento",
     "ptc_paquete", "ptc_paquete_item", "ptc_smtp_config", "ptc_wa_config",
-    "ptc_cliente", "ptc_cliente_asignacion",
+    "ptc_cliente", "ptc_cliente_asignacion", "ptc_cliente_analista",
 }
 
 
@@ -324,7 +346,7 @@ def create_personal_tables() -> None:
         PtcAreaConfig, PtcEvento, PtcEventoPersona,
         PtcOrdenDia, PtcEventoDocumento,
         PtcPaquete, PtcPaqueteItem, PtcSmtpConfig, PtcWaConfig,
-        PtcCliente, PtcClienteAsignacion,
+        PtcCliente, PtcClienteAsignacion, PtcClienteAnalista,
     )
     tables = [
         SQLModel.metadata.tables[t]
@@ -360,6 +382,7 @@ def _migrate_personal() -> None:
             "ALTER TABLE ptc_cargo ADD COLUMN org_image_url TEXT DEFAULT ''",
             "ALTER TABLE ptc_cargo ADD COLUMN org_pos_x REAL DEFAULT NULL",
             "ALTER TABLE ptc_cargo ADD COLUMN org_pos_y REAL DEFAULT NULL",
+            "ALTER TABLE ptc_persona ADD COLUMN jefe_directo_id INTEGER DEFAULT NULL",
         ]:
             try:
                 conn.execute(text(sql))
@@ -381,6 +404,12 @@ def _migrate_personal() -> None:
             "(cliente_id INTEGER NOT NULL, sede_id INTEGER NOT NULL, "
             "persona_id INTEGER DEFAULT NULL, "
             "PRIMARY KEY (cliente_id, sede_id))"
+        ))
+        conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS ptc_cliente_analista "
+            "(id INTEGER PRIMARY KEY AUTOINCREMENT, cliente_id INTEGER NOT NULL, "
+            "persona_id INTEGER NOT NULL, "
+            "UNIQUE (cliente_id, persona_id))"
         ))
         conn.commit()
 
