@@ -25,6 +25,7 @@ export interface TicketListFilters {
 
 type EditableTicketListType =
   | "statuses" | "types" | "platforms" | "clients" | "supervisors" | "analysts" | "coordinators" | "managers"
+  | "priorities" | "impacts" | "channels" | "managementCriteria"
 
 interface CreateListItemInput {
   listType: EditableTicketListType
@@ -38,6 +39,8 @@ interface UpdateListItemInput {
   label?: string
   sortOrder?: number
   isActive?: boolean
+  /** Solo tiene efecto en listType="priorities" — horas laborales límite de SLA. */
+  slaHours?: number | null
 }
 
 interface CreateAreaPrefixInput {

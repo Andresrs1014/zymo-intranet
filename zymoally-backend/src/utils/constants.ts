@@ -42,6 +42,18 @@ export const defaultPqrConfig: Record<PqrListType, string[]> = {
   managementCriteria: ["Contencion inicial", "Causa raiz", "Plan de accion", "Validacion cliente", "Cierre documentado"],
 }
 
+// El motor de alertas/dashboard/score (pqrMetrics.ts, scoreMetrics.ts, formatters.ts)
+// matchea estos valores literales por regex, no por id — un ticket guarda el
+// `value` de la opción elegida (inmutable tras crearse, solo el `label` se puede
+// renombrar). Si se BORRA uno de estos valores y se reemplaza por otro texto,
+// esa detección deja de funcionar en silencio para los tickets nuevos. Ver
+// memoria project_zymoally ("Análisis de lógica ported").
+export const PROTECTED_LIST_VALUES: Partial<Record<PqrListType, string[]>> = {
+  statuses: ["Cerrado", "Escalado"],
+  priorities: ["Critica", "Alta"],
+  impacts: ["Critico", "Alto", "Medio"],
+}
+
 export const defaultAreaPrefixes: { area: string; prefix: string }[] = [
   { area: "Servicio al cliente", prefix: "PQR" },
   { area: "Operaciones logisticas", prefix: "OPS" },

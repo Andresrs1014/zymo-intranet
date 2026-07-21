@@ -40,6 +40,10 @@ model ZymoPqrTicket {
   closedDate         String?
   closedAt           DateTime?
   description        String?
+  // Fase F — recordatorios de 1 mes sin gestionar (día 7/15/22/30 desde
+  // createdAt). Guarda el último hito ya notificado para no re-enviar y para
+  // seguir alcanzando el siguiente hito aunque el cron se salte un día.
+  lastReminderDay    Int               @default(0)
   actions            ZymoPqrAction[]
   evidence           ZymoPqrEvidence[]
 }

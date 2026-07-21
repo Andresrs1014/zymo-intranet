@@ -3,7 +3,7 @@ import express, { Request, Response, NextFunction } from "express"
 import cors from "cors"
 import path from "path"
 import { env } from "./config/env"
-import { startSyncCron } from "./cron"
+import { startSyncCron, startReminderCron } from "./cron"
 import { authenticate, requireSacAccess, requireTicketsAccess } from "./middleware/auth"
 import pqrRouter from "./routers/tickets/pqr"
 import pqrConfigRouter from "./routers/tickets/pqrConfig"
@@ -81,6 +81,7 @@ if (require.main === module) {
     console.log(`zymoally-backend listening on port ${env.PORT}`)
   })
   startSyncCron()
+  startReminderCron()
 }
 
 export default app

@@ -1,16 +1,21 @@
 import { useState } from "react"
-import type { ComponentProps, FormEvent, ReactNode, RefObject } from "react"
+import type { ComponentProps, FocusEvent, FormEvent, ReactNode, RefObject } from "react"
 import {
   AlertCircle,
+  AlertTriangle,
   ArrowDown,
   ArrowUp,
   Briefcase,
   Building2,
   Check,
   CircleDot,
+  ClipboardCheck,
+  Clock,
   Code2,
+  Gauge,
   Pencil,
   Plus,
+  Radio,
   Search,
   Settings2,
   Tags,
@@ -60,6 +65,7 @@ interface TicketConfigDialogProps {
 
 type EditableListType =
   | "statuses" | "types" | "platforms" | "clients" | "supervisors" | "analysts" | "coordinators" | "managers"
+  | "priorities" | "impacts" | "channels" | "managementCriteria"
 type MoveDirection = -1 | 1
 
 interface IconActionProps extends ComponentProps<typeof Button> {
@@ -209,6 +215,44 @@ function QueryErrorState({ onRetry }: { onRetry: () => void }) {
   )
 }
 
+function SlaHoursField({
+  item,
+  pending,
+  onSave,
+}: {
+  item: TicketListItem
+  pending: boolean
+  onSave: (hours: number | null) => void
+}) {
+  function handleBlur(event: FocusEvent<HTMLInputElement>) {
+    const raw = event.target.value.trim()
+    const parsed = raw === "" ? null : Math.max(0, Number(raw))
+    if (parsed === (item.slaHours ?? null)) return
+    onSave(Number.isNaN(parsed) ? null : parsed)
+  }
+
+  return (
+    <label className="flex shrink-0 items-center gap-1.5 text-xs text-zinc-500">
+      <Clock className="h-3.5 w-3.5" />
+      <Input
+        key={`${item.id}-${item.slaHours ?? "none"}`}
+        type="number"
+        min={0}
+        disabled={pending}
+        defaultValue={item.slaHours ?? ""}
+        placeholder="Sin límite"
+        aria-label={`Horas laborales límite para ${item.label}`}
+        className="h-8 w-24 text-xs"
+        onBlur={handleBlur}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") event.currentTarget.blur()
+        }}
+      />
+      <span>h</span>
+    </label>
+  )
+}
+
 interface ListRowProps {
   item: TicketListItem
   index: number
@@ -217,10 +261,12 @@ interface ListRowProps {
   draft: string
   confirming: boolean
   pending: boolean
+  showSlaHours?: boolean
   onDraftChange: (value: string) => void
   onEdit: () => void
   onSave: () => void
   onCancelEdit: () => void
+  onSaveSla: (hours: number | null) => void
   onMove: (direction: MoveDirection) => void
   onRequestDelete: () => void
   onConfirmDelete: () => void
@@ -259,17 +305,22 @@ function ListRow(props: ListRowProps) {
             </span>
             <span className="truncate text-sm font-medium text-zinc-800">{props.item.label}</span>
           </div>
-          <ItemActions
-            index={props.index}
-            length={props.length}
-            confirming={props.confirming}
-            pending={props.pending}
-            onMove={props.onMove}
-            onEdit={props.onEdit}
-            onRequestDelete={props.onRequestDelete}
-            onConfirmDelete={props.onConfirmDelete}
-            onCancelDelete={props.onCancelDelete}
-          />
+          <div className="flex shrink-0 items-center gap-2">
+            {props.showSlaHours ? (
+              <SlaHoursField item={props.item} pending={props.pending} onSave={props.onSaveSla} />
+            ) : null}
+            <ItemActions
+              index={props.index}
+              length={props.length}
+              confirming={props.confirming}
+              pending={props.pending}
+              onMove={props.onMove}
+              onEdit={props.onEdit}
+              onRequestDelete={props.onRequestDelete}
+              onConfirmDelete={props.onConfirmDelete}
+              onCancelDelete={props.onCancelDelete}
+            />
+          </div>
         </>
       )}
     </li>
@@ -281,9 +332,10 @@ interface ListConfigSectionProps {
   singular: string
   items: TicketListItem[]
   isLoading: boolean
+  showSlaHours?: boolean
 }
 
-function ListConfigSection({ listType, singular, items, isLoading }: ListConfigSectionProps) {
+function ListConfigSection({ listType, singular, items, isLoading, showSlaHours }: ListConfigSectionProps) {
   const createItem = useCreateListItem()
   const updateItem = useUpdateListItem()
   const deleteItem = useDeleteListItem()
@@ -352,6 +404,15 @@ function ListConfigSection({ listType, singular, items, isLoading }: ListConfigS
     }
   }
 
+  async function handleSaveSla(item: TicketListItem, hours: number | null) {
+    try {
+      await updateItem.mutateAsync({ id: item.id, slaHours: hours })
+      showToast("SLA actualizado", "success")
+    } catch (error) {
+      showToast(extractErrorMessage(error, "No se pudo actualizar el SLA."), "error")
+    }
+  }
+
   return (
     <section aria-label={singular} className="flex h-full min-h-0 flex-col">
       <form onSubmit={handleCreate} className="shrink-0 border-b border-zinc-200 bg-zinc-50/80 p-4">
@@ -395,6 +456,7 @@ function ListConfigSection({ listType, singular, items, isLoading }: ListConfigS
                 draft={draft}
                 confirming={confirmingId === item.id}
                 pending={pending}
+                showSlaHours={showSlaHours}
                 onDraftChange={setDraft}
                 onEdit={() => {
                   setEditingId(item.id)
@@ -403,6 +465,7 @@ function ListConfigSection({ listType, singular, items, isLoading }: ListConfigS
                 }}
                 onSave={() => void handleSave(item)}
                 onCancelEdit={() => setEditingId(null)}
+                onSaveSla={(hours) => void handleSaveSla(item, hours)}
                 onMove={(direction) => void handleMove(index, direction)}
                 onRequestDelete={() => {
                   setConfirmingId(item.id)
@@ -694,6 +757,10 @@ export function TicketConfigDialog({
   const analysts = listsQuery.data?.analysts ?? []
   const coordinators = listsQuery.data?.coordinators ?? []
   const managers = listsQuery.data?.managers ?? []
+  const priorities = listsQuery.data?.priorities ?? []
+  const impacts = listsQuery.data?.impacts ?? []
+  const channels = listsQuery.data?.channels ?? []
+  const managementCriteria = listsQuery.data?.managementCriteria ?? []
   const areas = areasQuery.data ?? []
 
   return (
@@ -800,6 +867,39 @@ export function TicketConfigDialog({
                     Gestiona
                   </TabLabel>
                 </TabsTrigger>
+                <TabsTrigger
+                  value="priorities"
+                  className="min-h-10 min-w-0 gap-1.5 px-2 text-xs data-[state=active]:bg-primary data-[state=active]:text-white sm:text-sm"
+                >
+                  <TabLabel icon={<Gauge className="h-4 w-4 shrink-0" />} count={priorities.length}>
+                    Prioridad
+                  </TabLabel>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="impacts"
+                  className="min-h-10 min-w-0 gap-1.5 px-2 text-xs data-[state=active]:bg-primary data-[state=active]:text-white sm:text-sm"
+                >
+                  <TabLabel icon={<AlertTriangle className="h-4 w-4 shrink-0" />} count={impacts.length}>
+                    Impacto
+                  </TabLabel>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="channels"
+                  className="min-h-10 min-w-0 gap-1.5 px-2 text-xs data-[state=active]:bg-primary data-[state=active]:text-white sm:text-sm"
+                >
+                  <TabLabel icon={<Radio className="h-4 w-4 shrink-0" />} count={channels.length}>
+                    Canal
+                  </TabLabel>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="managementCriteria"
+                  className="min-h-10 min-w-0 gap-1.5 px-2 text-xs data-[state=active]:bg-primary data-[state=active]:text-white sm:text-sm"
+                >
+                  <TabLabel icon={<ClipboardCheck className="h-4 w-4 shrink-0" />} count={managementCriteria.length}>
+                    <span className="sm:hidden">Criterio</span>
+                    <span className="hidden sm:inline">Criterio de gesti&oacute;n</span>
+                  </TabLabel>
+                </TabsTrigger>
               </TabsList>
             </div>
 
@@ -902,6 +1002,55 @@ export function TicketConfigDialog({
                   listType="managers"
                   singular="Gestor"
                   items={managers}
+                  isLoading={listsQuery.isLoading}
+                />
+              )}
+            </TabsContent>
+            <TabsContent value="priorities" className="mt-0 min-h-0 flex-1 overflow-hidden">
+              {listsQuery.isError ? (
+                <QueryErrorState onRetry={() => void listsQuery.refetch()} />
+              ) : (
+                <ListConfigSection
+                  listType="priorities"
+                  singular="Prioridad"
+                  items={priorities}
+                  isLoading={listsQuery.isLoading}
+                  showSlaHours
+                />
+              )}
+            </TabsContent>
+            <TabsContent value="impacts" className="mt-0 min-h-0 flex-1 overflow-hidden">
+              {listsQuery.isError ? (
+                <QueryErrorState onRetry={() => void listsQuery.refetch()} />
+              ) : (
+                <ListConfigSection
+                  listType="impacts"
+                  singular="Impacto"
+                  items={impacts}
+                  isLoading={listsQuery.isLoading}
+                />
+              )}
+            </TabsContent>
+            <TabsContent value="channels" className="mt-0 min-h-0 flex-1 overflow-hidden">
+              {listsQuery.isError ? (
+                <QueryErrorState onRetry={() => void listsQuery.refetch()} />
+              ) : (
+                <ListConfigSection
+                  listType="channels"
+                  singular="Canal"
+                  items={channels}
+                  isLoading={listsQuery.isLoading}
+                />
+              )}
+            </TabsContent>
+            <TabsContent value="managementCriteria" className="mt-0 min-h-0 flex-1 overflow-hidden">
+              {listsQuery.isError ? (
+                <QueryErrorState onRetry={() => void listsQuery.refetch()} />
+              ) : (
+                <ListConfigSection
+                  listType="managementCriteria"
+                  singular="Criterio de gestión"
+                  items={managementCriteria}
                   isLoading={listsQuery.isLoading}
                 />
               )}

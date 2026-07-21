@@ -48,6 +48,7 @@ function buildTransport(creds: SmtpCreds): nodemailer.Transporter {
 
 interface MailContent {
   to: string[]
+  cc?: string[]
   subject: string
   html: string
 }
@@ -64,7 +65,13 @@ export async function sendMailWithFallback(mail: MailContent): Promise<boolean> 
   }
   for (const creds of candidates) {
     try {
-      await buildTransport(creds).sendMail({ from: creds.from, to: mail.to.join(","), subject: mail.subject, html: mail.html })
+      await buildTransport(creds).sendMail({
+        from: creds.from,
+        to: mail.to.join(","),
+        cc: mail.cc?.length ? mail.cc.join(",") : undefined,
+        subject: mail.subject,
+        html: mail.html,
+      })
       return true
     } catch (err) {
       console.warn("[email] Fallo un SMTP, probando siguiente:", (err as Error).message)
@@ -140,6 +147,45 @@ export async function notifyTicketReceived(recipients: string[], data: TicketNot
     to: uniqueRecipients,
     subject: `[ZYMO] Nuevo ticket para gestionar — ${data.code}`,
     html: wrapEmail("Notificación de ticket", body),
+  })
+  return sent ? "sent" : "send-failed"
+}
+
+// ─── Recordatorios de gestión — Fase F (día 7/15/22/30 sin cerrar) ──────────
+
+interface TicketReminderData extends TicketNotifyData {
+  daysOpen: number
+}
+
+/** A partir del día 15 se copia también al responsable de "Gestiona" del
+ * ticket (managerEmail) — escalamiento suave, solo visibilidad, sin acción
+ * disciplinaria automática (decisión explícita del usuario, 2026-07-16). */
+export async function notifyTicketReminder(
+  recipients: string[],
+  ccManager: string | null,
+  data: TicketReminderData,
+): Promise<NotifyTicketResult> {
+  const uniqueRecipients = Array.from(new Set(recipients.filter(Boolean)))
+  if (!uniqueRecipients.length) return "no-recipients"
+  const cc = ccManager && !uniqueRecipients.includes(ccManager) ? [ccManager] : []
+
+  const body = `
+    <h2>Recordatorio: ticket sin cerrar hace ${data.daysOpen} d&iacute;as</h2>
+    <p>Este ticket sigue abierto y no se ha registrado su cierre. Revisa el estado y documenta el avance.</p>
+    <div class="meta">
+      <div class="meta-row"><span class="meta-label">Ticket</span><span class="meta-value">${data.code}</span></div>
+      <div class="meta-row"><span class="meta-label">&Aacute;rea</span><span class="meta-value">${data.area}</span></div>
+      <div class="meta-row"><span class="meta-label">Tipo</span><span class="meta-value">${data.type}</span></div>
+      <div class="meta-row"><span class="meta-label">Prioridad</span><span class="meta-value">${data.priority}</span></div>
+    </div>
+    <a href="${BASE_URL}/operativo/gestionar-tickets" class="cta">Gestionar ahora</a>
+  `
+
+  const sent = await sendMailWithFallback({
+    to: uniqueRecipients,
+    cc,
+    subject: `[ZYMO] Recordatorio (${data.daysOpen}d) — ticket ${data.code} sin cerrar`,
+    html: wrapEmail("Recordatorio de gestión", body),
   })
   return sent ? "sent" : "send-failed"
 }

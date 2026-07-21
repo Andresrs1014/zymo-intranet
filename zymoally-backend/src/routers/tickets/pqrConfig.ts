@@ -2,11 +2,18 @@ import { Router } from "express"
 import { z } from "zod"
 import { prisma } from "../../config/prisma"
 import { requireTicketsConfig } from "../../middleware/auth"
-import { PQR_LIST_TYPES, defaultAreaPrefixes, defaultPqrConfig } from "../../utils/constants"
+import { PQR_LIST_TYPES, PROTECTED_LIST_VALUES, defaultAreaPrefixes, defaultPqrConfig } from "../../utils/constants"
 import { normalizePrefix } from "../../utils/formatters"
 import { syncMasterData } from "../../services/masterDataSync"
 
 const router = Router()
+
+function isProtectedValue(listType: string, value: string): boolean {
+  return (PROTECTED_LIST_VALUES[listType as keyof typeof PROTECTED_LIST_VALUES] ?? []).includes(value)
+}
+
+const PROTECTED_MESSAGE =
+  "Este valor lo usa internamente el motor de alertas/SLA — no se puede eliminar ni desactivar. Solo puedes renombrar su etiqueta visible."
 
 // GET /listas — maestros agrupados por listType (patrón renderPqrOptions, app.js:544-599)
 router.get("/listas", async (_req, res, next) => {
@@ -61,6 +68,13 @@ router.patch("/listas/:id", requireTicketsConfig, async (req, res, next) => {
   try {
     const id = Number(req.params.id)
     const body = ListItemUpdateBody.parse(req.body)
+    if (body.isActive === false) {
+      const existing = await prisma.zymoConfigList.findUnique({ where: { id } })
+      if (existing && isProtectedValue(existing.listType, existing.value)) {
+        res.status(409).json({ error: PROTECTED_MESSAGE })
+        return
+      }
+    }
     const item = await prisma.zymoConfigList.update({ where: { id }, data: body })
     res.json(item)
   } catch (err) {
@@ -71,6 +85,11 @@ router.patch("/listas/:id", requireTicketsConfig, async (req, res, next) => {
 router.delete("/listas/:id", requireTicketsConfig, async (req, res, next) => {
   try {
     const id = Number(req.params.id)
+    const existing = await prisma.zymoConfigList.findUnique({ where: { id } })
+    if (existing && isProtectedValue(existing.listType, existing.value)) {
+      res.status(409).json({ error: PROTECTED_MESSAGE })
+      return
+    }
     await prisma.zymoConfigList.delete({ where: { id } })
     res.status(204).end()
   } catch (err) {
