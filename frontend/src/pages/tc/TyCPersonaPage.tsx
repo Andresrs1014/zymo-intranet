@@ -31,6 +31,8 @@ interface Persona {
   area_nombre: string
   cargo_id: number | null
   cargo_nombre: string
+  jefe_directo_id: number | null
+  jefe_directo_nombre: string
   genero: string
   rh: string
   email: string
@@ -86,6 +88,7 @@ export function TyCPersonaPage() {
   const [empresas, setEmpresas] = useState<Empresa[]>([])
   const [areas, setAreas]       = useState<Area[]>([])
   const [cargos, setCargos]     = useState<Cargo[]>([])
+  const [personasLista, setPersonasLista] = useState<{ id: number; nombre: string }[]>([])
   const [loading, setLoading]   = useState(true)
   const [editando, setEditando] = useState(false)
   const [guardando, setGuardando] = useState(false)
@@ -101,6 +104,9 @@ export function TyCPersonaPage() {
       })
       .catch(() => setError("No se pudo cargar la información del colaborador."))
       .finally(() => setLoading(false))
+    api.get("/tc/personas", { params: { estado: "Activo", limit: 500 } })
+      .then((r) => setPersonasLista(Array.isArray(r.data?.items) ? r.data.items : []))
+      .catch(() => {})
   }, [id])
 
   function cargarAreasCargos(empresaId: number) {
@@ -133,12 +139,16 @@ export function TyCPersonaPage() {
     if (!file || !persona) return
     const fd = new FormData()
     fd.append("file", file)
+    setError("")
     try {
       const { data } = await api.post(`/tc/personas/${persona.id}/foto`, fd, {
         headers: { "Content-Type": "multipart/form-data" },
       })
       setPersona(data)
-    } catch { /* ignore */ }
+    } catch (err) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setError(detail || "No se pudo subir la foto.")
+    }
     e.target.value = ""
   }
 
@@ -306,6 +316,19 @@ export function TyCPersonaPage() {
                     {cargos.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                   </Select>
                 ) : (datos.cargo_nombre || "—")}
+              </FieldRow>
+              <FieldRow label="Jefe directo">
+                {editando ? (
+                  <Select
+                    value={String(datos.jefe_directo_id ?? "")}
+                    onChange={(v) => setField("jefe_directo_id", v ? Number(v) : null)}
+                  >
+                    <option value="">Sin jefe directo</option>
+                    {personasLista.filter((p) => p.id !== persona?.id).map((p) => (
+                      <option key={p.id} value={p.id}>{p.nombre}</option>
+                    ))}
+                  </Select>
+                ) : (datos.jefe_directo_nombre || "—")}
               </FieldRow>
             </Section>
 
