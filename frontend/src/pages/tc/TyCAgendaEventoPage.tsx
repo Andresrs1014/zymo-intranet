@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from "react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
-import { api } from "@/lib/api"
+import { api, openAuthenticatedApiBlob } from "@/lib/api"
 import { useAuthStore } from "@/store/authStore"
 import { PageLayout } from "@/components/layout/PageLayout"
 import {
@@ -654,14 +654,12 @@ export function TyCAgendaEventoPage() {
                 Foto y firma son evidencia intercambiable, no hace falta las dos: si subiste foto, el acta la incrusta y ya sirve como constancia. Si no hay foto, descárgala, hazla firmar por los asistentes y vuelve a subirla.
               </p>
               <div className="flex gap-2">
-                <a
-                  href={`/tc/eventos/${evento.id}/acta.pdf`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  onClick={() => openAuthenticatedApiBlob(`/tc/eventos/${evento.id}/acta.pdf`)}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border hover:bg-muted/10 text-xs font-semibold transition-colors"
                 >
                   <Download className="w-3.5 h-3.5" /> Descargar acta
-                </a>
+                </button>
                 <label className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border hover:bg-muted/10 text-xs font-semibold cursor-pointer transition-colors">
                   <Upload className="w-3.5 h-3.5" /> {subiendoActa ? "Subiendo…" : "Subir acta firmada"}
                   <input type="file" className="hidden" disabled={subiendoActa}
