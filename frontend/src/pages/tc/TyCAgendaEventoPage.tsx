@@ -4,7 +4,7 @@ import { api } from "@/lib/api"
 import { PageLayout } from "@/components/layout/PageLayout"
 import {
   ArrowLeft, Plus, X, Users, FileText, CheckCircle2, ClipboardList,
-  Video, Camera, Download, Upload, ImageOff,
+  Camera, Download, Upload, ImageOff, Pencil, Save, Flag, Lock,
 } from "lucide-react"
 
 interface PersonaMini {
@@ -16,6 +16,8 @@ interface PersonaMini {
 
 interface EventoPersona { persona_id: number; nombre: string; cargo_nombre: string; asistio: boolean | null }
 
+type EstadoEvento = "Agendada" | "En curso" | "Finalizada"
+
 interface Evento {
   id: number
   titulo: string
@@ -24,7 +26,7 @@ interface Evento {
   hora_fin: string
   descripcion: string
   area_nombre: string
-  teams_join_url: string
+  estado: EstadoEvento
   foto_evidencia_url: string
   acta_firmada_url: string
   total_personas: number
@@ -32,6 +34,20 @@ interface Evento {
 }
 
 type Tab = "info" | "personas" | "asistencia" | "acta"
+
+const ESTADO_ESTILO: Record<EstadoEvento, string> = {
+  "Agendada":  "bg-teal-500/10 text-teal-400",
+  "En curso":  "bg-amber-500/10 text-amber-400",
+  "Finalizada": "bg-emerald-500/10 text-emerald-400",
+}
+
+function EstadoBadge({ estado }: { estado: EstadoEvento }) {
+  return (
+    <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${ESTADO_ESTILO[estado]}`}>
+      {estado}
+    </span>
+  )
+}
 
 export function TyCAgendaEventoPage() {
   const { id }         = useParams<{ id: string }>()
@@ -68,9 +84,19 @@ export function TyCAgendaEventoPage() {
   const [areaFiltro, setAreaFiltro] = useState("")
   const [cargoFiltro, setCargoFiltro] = useState("")
 
-  const [creandoTeams, setCreandoTeams] = useState(false)
   const [subiendoFoto, setSubiendoFoto] = useState(false)
   const [subiendoActa, setSubiendoActa] = useState(false)
+  const [finalizando, setFinalizando] = useState(false)
+  const [marcandoTodos, setMarcandoTodos] = useState(false)
+
+  // ── Edición de info (solo mientras Agendada) ─────────────────────────────
+  const [editandoInfo, setEditandoInfo] = useState(false)
+  const [editTitulo, setEditTitulo] = useState("")
+  const [editFecha, setEditFecha] = useState("")
+  const [editHoraInicio, setEditHoraInicio] = useState("")
+  const [editHoraFin, setEditHoraFin] = useState("")
+  const [editDescripcion, setEditDescripcion] = useState("")
+  const [guardandoInfo, setGuardandoInfo] = useState(false)
 
   const load = useCallback(() => {
     if (isNew) return
@@ -167,15 +193,53 @@ export function TyCAgendaEventoPage() {
     load()
   }
 
-  async function crearReunionTeams() {
+  async function finalizarEvento() {
     if (!evento) return
-    setCreandoTeams(true)
+    if (!window.confirm("¿Finalizar esta capacitación? Ya no se podrá editar ni agregar participantes — solo quedará confirmar asistencia y subir evidencia.")) return
+    setFinalizando(true)
     try {
-      const { data } = await api.post(`/tc/eventos/${evento.id}/teams-meeting`)
+      const { data } = await api.post(`/tc/eventos/${evento.id}/finalizar`)
       setEvento(data)
     } catch (e: any) {
-      setError(e?.response?.data?.detail ?? "No se pudo crear la reunión de Teams.")
-    } finally { setCreandoTeams(false) }
+      setError(e?.response?.data?.detail ?? "No se pudo finalizar la capacitación.")
+    } finally { setFinalizando(false) }
+  }
+
+  async function marcarTodosAsistieron() {
+    if (!evento) return
+    setMarcandoTodos(true)
+    try {
+      const { data } = await api.post(`/tc/eventos/${evento.id}/asistencia/marcar-todos`)
+      setEvento(data)
+    } catch (e: any) {
+      setError(e?.response?.data?.detail ?? "No se pudo marcar la asistencia.")
+    } finally { setMarcandoTodos(false) }
+  }
+
+  function iniciarEdicionInfo() {
+    if (!evento) return
+    setEditTitulo(evento.titulo)
+    setEditFecha(evento.fecha)
+    setEditHoraInicio(evento.hora_inicio)
+    setEditHoraFin(evento.hora_fin)
+    setEditDescripcion(evento.descripcion)
+    setEditandoInfo(true)
+  }
+
+  async function guardarInfo() {
+    if (!evento) return
+    setGuardandoInfo(true)
+    try {
+      const { data } = await api.put(`/tc/eventos/${evento.id}`, {
+        titulo: editTitulo, fecha: editFecha,
+        hora_inicio: editHoraInicio, hora_fin: editHoraFin,
+        descripcion: editDescripcion,
+      })
+      setEvento(data)
+      setEditandoInfo(false)
+    } catch (e: any) {
+      setError(e?.response?.data?.detail ?? "No se pudo guardar la información.")
+    } finally { setGuardandoInfo(false) }
   }
 
   async function subirFotoEvidencia(file: File) {
@@ -324,6 +388,9 @@ export function TyCAgendaEventoPage() {
     { id: "acta", label: "Acta", icon: <ClipboardList className="w-3.5 h-3.5" /> },
   ]
 
+  const puedeGestionarPersonas = evento.estado !== "Finalizada"
+  const puedeGestionarAsistencia = evento.estado === "Finalizada"
+
   return (
     <PageLayout title="Agenda — Inducción" mainClassName="flex-1 overflow-y-auto">
       <div className="border-b border-border px-8 pt-6 pb-4">
@@ -333,33 +400,23 @@ export function TyCAgendaEventoPage() {
           </button>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-teal-500 mb-1">{evento.area_nombre}</p>
+              <div className="flex items-center gap-2 mb-1">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-teal-500">{evento.area_nombre}</p>
+                <EstadoBadge estado={evento.estado} />
+              </div>
               <h1 className="text-xl font-bold">{evento.titulo}</h1>
               <p className="text-sm text-muted-foreground mt-0.5">
                 {new Date(evento.fecha + "T00:00:00").toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
                 {" · "}{evento.hora_inicio} – {evento.hora_fin}
               </p>
             </div>
-            {evento.teams_join_url ? (
-              <a
-                href={evento.teams_join_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#6264A7]/10 hover:bg-[#6264A7]/20 text-[#8385D6] text-xs font-semibold transition-colors"
-              >
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#8385D6] opacity-60" />
-                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#8385D6]" />
-                </span>
-                <Video className="w-3.5 h-3.5" /> Unirse en Teams
-              </a>
-            ) : (
+            {evento.estado === "En curso" && (
               <button
-                onClick={crearReunionTeams}
-                disabled={creandoTeams}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#6264A7]/10 hover:bg-[#6264A7]/20 text-[#8385D6] text-xs font-semibold transition-colors disabled:opacity-40"
+                onClick={finalizarEvento}
+                disabled={finalizando}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-semibold transition-colors disabled:opacity-40"
               >
-                <Video className="w-3.5 h-3.5" /> {creandoTeams ? "Creando…" : "Crear reunión Teams"}
+                <Flag className="w-3.5 h-3.5" /> {finalizando ? "Finalizando…" : "Finalizar capacitación"}
               </button>
             )}
           </div>
@@ -383,13 +440,69 @@ export function TyCAgendaEventoPage() {
 
       <div className="max-w-3xl mx-auto px-8 py-6">
         {tab === "info" && (
-          <div className="space-y-3 text-sm">
-            <p className="text-muted-foreground">{evento.descripcion || "Sin descripción."}</p>
+          <div className="max-w-md space-y-4 text-sm">
+            {editandoInfo ? (
+              <>
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1 block">Título</label>
+                  <input value={editTitulo} onChange={(e) => setEditTitulo(e.target.value)} className="input-base" />
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1 block">Fecha</label>
+                    <input type="date" value={editFecha} onChange={(e) => setEditFecha(e.target.value)} className="input-base" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1 block">Hora inicio</label>
+                    <input type="time" value={editHoraInicio} onChange={(e) => setEditHoraInicio(e.target.value)} className="input-base" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1 block">Hora fin</label>
+                    <input type="time" value={editHoraFin} onChange={(e) => setEditHoraFin(e.target.value)} className="input-base" />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1 block">Descripción</label>
+                  <textarea value={editDescripcion} onChange={(e) => setEditDescripcion(e.target.value)} rows={3} className="input-base" />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={guardarInfo}
+                    disabled={guardandoInfo}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-teal-500 hover:bg-teal-400 text-white text-xs font-semibold transition-colors disabled:opacity-40"
+                  >
+                    <Save className="w-3.5 h-3.5" /> {guardandoInfo ? "Guardando…" : "Guardar cambios"}
+                  </button>
+                  <button
+                    onClick={() => setEditandoInfo(false)}
+                    className="px-3 py-2 rounded-lg border border-border hover:bg-muted/10 text-xs font-semibold transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-muted-foreground">{evento.descripcion || "Sin descripción."}</p>
+                {evento.estado === "Agendada" ? (
+                  <button
+                    onClick={iniciarEdicionInfo}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-teal-400 hover:text-teal-300 transition-colors"
+                  >
+                    <Pencil className="w-3.5 h-3.5" /> Editar información
+                  </button>
+                ) : (
+                  <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                    <Lock className="w-3 h-3" /> Ya no se puede editar — la capacitación está {evento.estado.toLowerCase()}.
+                  </p>
+                )}
+              </>
+            )}
           </div>
         )}
 
         {tab === "personas" && (
-          <div className="grid grid-cols-2 gap-6">
+          <div className={puedeGestionarPersonas ? "grid grid-cols-2 gap-6" : "max-w-md"}>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3">Asignados · {evento.personas.length}</p>
               <div className="space-y-1.5">
@@ -398,64 +511,98 @@ export function TyCAgendaEventoPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium truncate">{ep.nombre}</p>
                     </div>
-                    <button
-                      onClick={() => togglePersonaExistente(ep.persona_id, ep.nombre)}
-                      aria-label={`Quitar a ${ep.nombre} de la inducción`}
-                      className="text-rose-400/50 hover:text-rose-400"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
+                    {puedeGestionarPersonas && (
+                      <button
+                        onClick={() => togglePersonaExistente(ep.persona_id, ep.nombre)}
+                        aria-label={`Quitar a ${ep.nombre} de la inducción`}
+                        className="text-rose-400/50 hover:text-rose-400"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 ))}
                 {evento.personas.length === 0 && <p className="text-xs text-muted-foreground py-4 text-center">Sin participantes</p>}
               </div>
+              {!puedeGestionarPersonas && (
+                <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-3">
+                  <Lock className="w-3 h-3" /> Ya finalizada — la lista de participantes quedó cerrada.
+                </p>
+              )}
             </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3">Agregar</p>
-              <FiltrosParticipantes
-                empresaFiltro={empresaFiltro} setEmpresaFiltro={setEmpresaFiltro} empresasUnicas={empresasUnicas}
-                areaFiltro={areaFiltro} setAreaFiltro={setAreaFiltro} areasUnicas={areasUnicas}
-                cargoFiltro={cargoFiltro} setCargoFiltro={setCargoFiltro} cargosUnicos={cargosUnicos}
-                busqueda={busqueda} setBusqueda={setBusqueda}
-                totalFiltrados={filtradas.length} onAgregarTodos={agregarTodosFiltradosExistente}
-              />
-              <div className="space-y-1 max-h-72 overflow-y-auto pr-1">
-                {filtradas.slice(0, 30).map((p) => (
-                  <button key={p.id} onClick={() => togglePersonaExistente(p.id, p.nombre)} className="w-full flex items-center gap-2.5 p-2 rounded-lg hover:bg-muted/10 border border-transparent hover:border-border text-left transition-all">
-                    <Plus className="w-3 h-3 text-teal-400 shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium truncate">{p.nombre}</p>
-                      <p className="text-[10px] text-muted-foreground truncate">{p.cargo_nombre} · {p.empresa_nombre}</p>
-                    </div>
-                  </button>
-                ))}
+            {puedeGestionarPersonas && (
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3">Agregar</p>
+                <FiltrosParticipantes
+                  empresaFiltro={empresaFiltro} setEmpresaFiltro={setEmpresaFiltro} empresasUnicas={empresasUnicas}
+                  areaFiltro={areaFiltro} setAreaFiltro={setAreaFiltro} areasUnicas={areasUnicas}
+                  cargoFiltro={cargoFiltro} setCargoFiltro={setCargoFiltro} cargosUnicos={cargosUnicos}
+                  busqueda={busqueda} setBusqueda={setBusqueda}
+                  totalFiltrados={filtradas.length} onAgregarTodos={agregarTodosFiltradosExistente}
+                />
+                <div className="space-y-1 max-h-72 overflow-y-auto pr-1">
+                  {filtradas.slice(0, 30).map((p) => (
+                    <button key={p.id} onClick={() => togglePersonaExistente(p.id, p.nombre)} className="w-full flex items-center gap-2.5 p-2 rounded-lg hover:bg-muted/10 border border-transparent hover:border-border text-left transition-all">
+                      <Plus className="w-3 h-3 text-teal-400 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium truncate">{p.nombre}</p>
+                        <p className="text-[10px] text-muted-foreground truncate">{p.cargo_nombre} · {p.empresa_nombre}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 
         {tab === "asistencia" && (
-          <div className="max-w-md space-y-2">
-            {evento.personas.map((ep) => (
-              <div key={ep.persona_id} className="flex items-center gap-3 p-3 rounded-xl border border-border bg-muted/5">
-                <p className="flex-1 text-xs font-medium">{ep.nombre}</p>
-                <select
-                  aria-label={`Asistencia de ${ep.nombre}`}
-                  value={ep.asistio === null ? "" : ep.asistio ? "1" : "0"}
-                  onChange={(e) => setAsistencia(ep.persona_id, e.target.value === "1")}
-                  className="text-xs rounded-lg border border-border bg-transparent px-2 py-1"
+          <div className="max-w-md space-y-3">
+            {!puedeGestionarAsistencia ? (
+              <p className="flex items-center gap-1.5 text-xs text-muted-foreground py-4">
+                <Lock className="w-3.5 h-3.5" /> Disponible cuando finalices la capacitación.
+              </p>
+            ) : (
+              <>
+                <button
+                  onClick={marcarTodosAsistieron}
+                  disabled={marcandoTodos || evento.personas.length === 0}
+                  className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition-colors disabled:opacity-40"
                 >
-                  <option value="">— Asistencia —</option>
-                  <option value="1">✓ Asistió</option>
-                  <option value="0">✗ No asistió</option>
-                </select>
-              </div>
-            ))}
-            {evento.personas.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">Sin participantes asignados</p>}
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  {marcandoTodos ? "Marcando…" : "Marcar todos como asistieron"}
+                </button>
+                <p className="text-[11px] text-muted-foreground">Después desmarca puntualmente a quien no asistió.</p>
+              </>
+            )}
+            <div className="space-y-2">
+              {evento.personas.map((ep) => (
+                <label key={ep.persona_id} className="flex items-center gap-3 p-3 rounded-xl border border-border bg-muted/5 cursor-pointer has-[:disabled]:cursor-not-allowed">
+                  <input
+                    type="checkbox"
+                    checked={ep.asistio === true}
+                    disabled={!puedeGestionarAsistencia}
+                    onChange={(e) => setAsistencia(ep.persona_id, e.target.checked)}
+                    className="w-4 h-4 accent-emerald-500 disabled:opacity-40"
+                  />
+                  <p className="flex-1 text-xs font-medium">{ep.nombre}</p>
+                  <span className={`text-[10px] font-semibold ${ep.asistio === null ? "text-muted-foreground" : ep.asistio ? "text-emerald-400" : "text-rose-400"}`}>
+                    {ep.asistio === null ? "Pendiente" : ep.asistio ? "Asistió" : "No asistió"}
+                  </span>
+                </label>
+              ))}
+              {evento.personas.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">Sin participantes asignados</p>}
+            </div>
           </div>
         )}
 
-        {tab === "acta" && (
+        {tab === "acta" && !puedeGestionarAsistencia && (
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground py-4">
+            <Lock className="w-3.5 h-3.5" /> Disponible cuando finalices la capacitación.
+          </p>
+        )}
+
+        {tab === "acta" && puedeGestionarAsistencia && (
           <div className="max-w-md space-y-6">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Foto de evidencia (opcional)</p>

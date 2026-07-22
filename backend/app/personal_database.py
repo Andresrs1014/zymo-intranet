@@ -193,12 +193,13 @@ class PtcEvento(SQLModel, table=True):
     hora_fin: str = Field(max_length=10, default="09:00")
     descripcion: str = Field(max_length=2000, default="")
     area_id: int                                  # auto-resuelto del líder, ver tc_agenda.py
-    # Reunión de Microsoft Teams (Graph API) — vacío si no se creó.
-    teams_join_url: str = Field(default="")
-    teams_event_id: str = Field(default="")
     # Evidencia de la capacitación dictada — foto opcional, o acta firmada físicamente y reescaneada.
     foto_evidencia_url: str = Field(default="")
     acta_firmada_url: str = Field(default="")
+    # Estado (Agendada/En curso/Finalizada) se calcula, no se guarda — ver
+    # _calcular_estado en tc_agenda.py. Lo único que sí se persiste es el
+    # momento en que el líder la marcó finalizada (None = aún no).
+    finalizada_en: Optional[datetime] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -354,6 +355,9 @@ def _migrate_personal() -> None:
             "ALTER TABLE ptc_evento DROP COLUMN lugar",
             "ALTER TABLE ptc_evento DROP COLUMN estado",
             "ALTER TABLE ptc_evento DROP COLUMN notificacion_enviada",
+            # Teams se quita por ahora (2026-07-22) — columnas físicas quedan
+            # huérfanas, inofensivo (SQLAlchemy solo lee columnas del modelo).
+            "ALTER TABLE ptc_evento ADD COLUMN finalizada_en TEXT DEFAULT NULL",
         ]:
             try:
                 conn.execute(text(sql))

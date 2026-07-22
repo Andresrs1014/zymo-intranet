@@ -65,15 +65,6 @@ class Settings(BaseSettings):
     whatsapp_api_token: str = ""           # Bearer token de la app Meta
     whatsapp_phone_number_id: str = ""     # ID del número remitente
 
-    # ── Microsoft Graph API — reuniones de Teams para Agenda T&C ──────────────
-    # App Registration en Entra ID, permiso de aplicación Calendars.ReadWrite
-    # (consentimiento de administrador). graph_organizer_email es el buzón que
-    # organiza las reuniones (correo genérico, ej. talentohumano@zymologistica.com).
-    graph_tenant_id: str = ""
-    graph_client_id: str = ""
-    graph_client_secret: str = ""
-    graph_organizer_email: str = ""
-
     # ── Anthropic / Claude (proxy NetVault — la API key nunca sale del servidor) ──
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-4-6"

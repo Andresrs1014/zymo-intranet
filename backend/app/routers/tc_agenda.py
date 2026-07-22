@@ -27,14 +27,16 @@ from app.models.area import Area as GlobalArea
 from app.models.sede import Sede
 from app.models.user import User
 from app.personal_database import PtcCargo, PtcEvento, PtcEventoPersona, PtcPersona, get_personal_db
-from app.routers.personal import _email_corporativo_efectivo
-from app.services.teams_meetings import crear_reunion
 
 router = APIRouter(prefix="/tc", tags=["T&C Agenda"])
 
 require_tc_agenda = require_permission("mod_tc_agenda")
 
 _MAX_FOTO_MB = 8
+
+_AGENDADA  = "Agendada"
+_EN_CURSO  = "En curso"
+_FINALIZADA = "Finalizada"
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -46,6 +48,14 @@ class EventoCreate(BaseModel):
     hora_fin: str = "09:00"
     descripcion: str = ""
     persona_ids: list[int] = []
+
+
+class EventoUpdate(BaseModel):
+    titulo: str
+    fecha: str
+    hora_inicio: str
+    hora_fin: str
+    descripcion: str = ""
 
 
 class AsistenciaUpdate(BaseModel):
@@ -74,6 +84,25 @@ def _resolver_area_lider(user: User, db: Session) -> int:
     return persona.area_id
 
 
+def _calcular_estado(ev: PtcEvento) -> str:
+    """Agendada → En curso → Finalizada. Las primeras dos se derivan de la
+    fecha/hora — nunca se guardan ni se fuerzan a mano (evita depender de un
+    cron para el corte). Finalizada sí se persiste (`finalizada_en`): es la
+    única transición manual, la decide el líder."""
+    if ev.finalizada_en is not None:
+        return _FINALIZADA
+    inicio = datetime.combine(ev.fecha, datetime.strptime(ev.hora_inicio, "%H:%M").time())
+    if datetime.now() >= inicio:
+        return _EN_CURSO
+    return _AGENDADA
+
+
+def _requerir_estado(ev: PtcEvento, *permitidos: str) -> None:
+    estado = _calcular_estado(ev)
+    if estado not in permitidos:
+        raise HTTPException(409, f"No disponible en estado '{estado}'.")
+
+
 def _evento_dict(ev: PtcEvento, db: Session, main_db: Session) -> dict:
     asignaciones = db.exec(
         select(PtcEventoPersona).where(PtcEventoPersona.evento_id == ev.id)
@@ -98,38 +127,13 @@ def _evento_dict(ev: PtcEvento, db: Session, main_db: Session) -> dict:
         "descripcion": ev.descripcion,
         "area_id": ev.area_id,
         "area_nombre": area.name if area else "",
-        "teams_join_url": ev.teams_join_url,
+        "estado": _calcular_estado(ev),
         "foto_evidencia_url": ev.foto_evidencia_url,
         "acta_firmada_url": ev.acta_firmada_url,
         "total_personas": len(personas),
         "personas": personas,
         "created_at": ev.created_at.isoformat(),
     }
-
-
-def _intentar_crear_reunion_teams(ev: PtcEvento, db: Session, main_db: Session) -> None:
-    """Best-effort: si falla, el evento en T&C queda intacto, solo sin
-    teams_join_url. Invita solo a quienes tengan correo corporativo."""
-    if ev.teams_join_url:
-        return
-    asignaciones = db.exec(
-        select(PtcEventoPersona).where(PtcEventoPersona.evento_id == ev.id)
-    ).all()
-    correos = []
-    for a in asignaciones:
-        p = db.get(PtcPersona, a.persona_id)
-        if p:
-            correo = _email_corporativo_efectivo(p, main_db)
-            if correo:
-                correos.append(correo)
-
-    reunion = crear_reunion(ev.titulo, ev.descripcion, ev.fecha, ev.hora_inicio, ev.hora_fin, correos)
-    if reunion:
-        ev.teams_join_url = reunion["join_url"]
-        ev.teams_event_id = reunion["event_id"]
-        db.add(ev)
-        db.commit()
-        db.refresh(ev)
 
 
 # ── Personas (lectura liviana, sin depender de mod_tc) ────────────────────────
@@ -214,7 +218,6 @@ def crear_evento(
         db.add(PtcEventoPersona(evento_id=ev.id, persona_id=pid))
     db.commit()
     db.refresh(ev)
-    _intentar_crear_reunion_teams(ev, db, main_db)
     return _evento_dict(ev, db, main_db)
 
 
@@ -231,6 +234,29 @@ def get_evento(
     return _evento_dict(ev, db, main_db)
 
 
+@router.put("/eventos/{evento_id}")
+def actualizar_evento(
+    evento_id: int,
+    body: EventoUpdate,
+    db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
+    _: User = Depends(require_tc_agenda),
+):
+    ev = db.get(PtcEvento, evento_id)
+    if not ev:
+        raise HTTPException(404, "Evento no encontrado")
+    _requerir_estado(ev, _AGENDADA)
+    ev.titulo = body.titulo
+    ev.fecha = _parse_date(body.fecha)
+    ev.hora_inicio = body.hora_inicio
+    ev.hora_fin = body.hora_fin
+    ev.descripcion = body.descripcion
+    ev.updated_at = datetime.utcnow()
+    db.add(ev)
+    db.commit()
+    return _evento_dict(ev, db, main_db)
+
+
 @router.put("/eventos/{evento_id}/personas")
 def set_personas_evento(
     evento_id: int,
@@ -242,6 +268,7 @@ def set_personas_evento(
     ev = db.get(PtcEvento, evento_id)
     if not ev:
         raise HTTPException(404, "Evento no encontrado")
+    _requerir_estado(ev, _AGENDADA, _EN_CURSO)
     actuales = {a.persona_id: a for a in db.exec(
         select(PtcEventoPersona).where(PtcEventoPersona.evento_id == evento_id)
     ).all()}
@@ -256,6 +283,23 @@ def set_personas_evento(
     return _evento_dict(ev, db, main_db)
 
 
+@router.post("/eventos/{evento_id}/finalizar")
+def finalizar_evento(
+    evento_id: int,
+    db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
+    _: User = Depends(require_tc_agenda),
+):
+    ev = db.get(PtcEvento, evento_id)
+    if not ev:
+        raise HTTPException(404, "Evento no encontrado")
+    _requerir_estado(ev, _EN_CURSO)
+    ev.finalizada_en = datetime.utcnow()
+    db.add(ev)
+    db.commit()
+    return _evento_dict(ev, db, main_db)
+
+
 @router.patch("/eventos/{evento_id}/asistencia")
 def registrar_asistencia(
     evento_id: int,
@@ -263,6 +307,10 @@ def registrar_asistencia(
     db: Session = Depends(get_personal_db),
     _: User = Depends(require_tc_agenda),
 ):
+    ev = db.get(PtcEvento, evento_id)
+    if not ev:
+        raise HTTPException(404, "Evento no encontrado")
+    _requerir_estado(ev, _FINALIZADA)
     ep = db.exec(
         select(PtcEventoPersona).where(
             PtcEventoPersona.evento_id == evento_id,
@@ -277,22 +325,26 @@ def registrar_asistencia(
     return {"ok": True}
 
 
-@router.post("/eventos/{evento_id}/teams-meeting")
-def crear_reunion_teams_evento(
+@router.post("/eventos/{evento_id}/asistencia/marcar-todos")
+def marcar_todos_asistieron(
     evento_id: int,
     db: Session = Depends(get_personal_db),
     main_db: Session = Depends(get_db),
     _: User = Depends(require_tc_agenda),
 ):
-    """Reintento manual — crea la reunión de Teams si no se creó al agendar."""
+    """Marca a todos como asistieron de una vez — luego el líder desmarca
+    puntualmente a quien no asistió (más rápido que uno por uno)."""
     ev = db.get(PtcEvento, evento_id)
     if not ev:
         raise HTTPException(404, "Evento no encontrado")
-    if ev.teams_join_url:
-        raise HTTPException(409, "Este evento ya tiene una reunión de Teams.")
-    _intentar_crear_reunion_teams(ev, db, main_db)
-    if not ev.teams_join_url:
-        raise HTTPException(502, "No se pudo crear la reunión en Teams. Revisa la configuración de Graph API o intenta de nuevo.")
+    _requerir_estado(ev, _FINALIZADA)
+    asignaciones = db.exec(
+        select(PtcEventoPersona).where(PtcEventoPersona.evento_id == evento_id)
+    ).all()
+    for a in asignaciones:
+        a.asistio = True
+        db.add(a)
+    db.commit()
     return _evento_dict(ev, db, main_db)
 
 
@@ -309,6 +361,7 @@ async def subir_foto_evidencia(
     ev = db.get(PtcEvento, evento_id)
     if not ev:
         raise HTTPException(404, "Evento no encontrado")
+    _requerir_estado(ev, _FINALIZADA)
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(400, "Solo se permiten imágenes.")
 
@@ -417,6 +470,7 @@ async def subir_acta_firmada(
     ev = db.get(PtcEvento, evento_id)
     if not ev:
         raise HTTPException(404, "Evento no encontrado")
+    _requerir_estado(ev, _FINALIZADA)
 
     content = await file.read()
     ext = os.path.splitext(file.filename or "")[1].lstrip(".") or "pdf"

@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { api } from "@/lib/api"
 import { PageLayout } from "@/components/layout/PageLayout"
-import { Plus, ChevronLeft, ChevronRight, Calendar, Users, Clock, Video } from "lucide-react"
+import { Plus, ChevronLeft, ChevronRight, Calendar, Users, Clock } from "lucide-react"
 
 interface Evento {
   id: number
@@ -12,7 +12,13 @@ interface Evento {
   hora_fin: string
   area_nombre: string
   total_personas: number
-  teams_join_url: string
+  estado: "Agendada" | "En curso" | "Finalizada"
+}
+
+const ESTADO_DOT: Record<Evento["estado"], string> = {
+  "Agendada": "bg-teal-400",
+  "En curso": "bg-amber-400",
+  "Finalizada": "bg-emerald-400",
 }
 
 const MESES = [
@@ -178,7 +184,10 @@ export function TyCAgendaCalendarioPage() {
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-teal-500/15 text-teal-400 border-teal-500/30">
                   {ev.area_nombre || "Inducción"}
                 </span>
-                {ev.teams_join_url && <Video className="w-3 h-3 text-[#8385D6]" />}
+                <span className="flex items-center gap-1 text-[9px] text-muted-foreground">
+                  <span className={`w-1.5 h-1.5 rounded-full ${ESTADO_DOT[ev.estado]}`} />
+                  {ev.estado}
+                </span>
               </div>
               <p className="text-sm font-semibold leading-snug">{ev.titulo}</p>
               <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
