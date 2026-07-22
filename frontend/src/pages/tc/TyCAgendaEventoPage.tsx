@@ -50,6 +50,34 @@ function EstadoBadge({ estado }: { estado: EstadoEvento }) {
   )
 }
 
+function iniciales(nombre: string): string {
+  const partes = nombre.trim().split(/\s+/).filter(Boolean)
+  return ((partes[0]?.[0] ?? "") + (partes[1]?.[0] ?? "")).toUpperCase() || "?"
+}
+
+function PersonaRow({
+  nombre, cargoNombre, empresaNombre, children,
+}: {
+  nombre: string
+  cargoNombre?: string
+  empresaNombre?: string
+  children?: React.ReactNode
+}) {
+  const detalle = [cargoNombre, empresaNombre].filter(Boolean).join(" · ")
+  return (
+    <div className="flex items-center gap-3 min-w-0 flex-1">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-teal-500/10 text-teal-500 text-xs font-bold">
+        {iniciales(nombre)}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-medium truncate">{nombre}</p>
+        <p className="text-[10px] text-muted-foreground truncate">{detalle || "Sin cargo"}</p>
+      </div>
+      {children}
+    </div>
+  )
+}
+
 export function TyCAgendaEventoPage() {
   const { id }         = useParams<{ id: string }>()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -464,9 +492,9 @@ export function TyCAgendaEventoPage() {
 
       <div className="max-w-3xl mx-auto px-8 py-6">
         {tab === "info" && (
-          <div className="max-w-md space-y-4 text-sm">
+          <div className="max-w-2xl rounded-xl border border-border bg-muted/5 p-6">
             {editandoInfo ? (
-              <>
+              <div className="space-y-4 text-sm">
                 <div>
                   <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1 block">Título</label>
                   <input value={editTitulo} onChange={(e) => setEditTitulo(e.target.value)} className="input-base" />
@@ -487,7 +515,7 @@ export function TyCAgendaEventoPage() {
                 </div>
                 <div>
                   <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1 block">Descripción</label>
-                  <textarea value={editDescripcion} onChange={(e) => setEditDescripcion(e.target.value)} rows={3} className="input-base" />
+                  <textarea value={editDescripcion} onChange={(e) => setEditDescripcion(e.target.value)} rows={4} className="input-base" />
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -504,19 +532,29 @@ export function TyCAgendaEventoPage() {
                     Cancelar
                   </button>
                 </div>
-              </>
+              </div>
             ) : (
               <>
-                <p className="text-muted-foreground">{evento.descripcion || "Sin descripción."}</p>
-                {evento.estado === "Agendada" ? (
-                  <button
-                    onClick={iniciarEdicionInfo}
-                    className="flex items-center gap-1.5 text-xs font-semibold text-teal-400 hover:text-teal-300 transition-colors"
-                  >
-                    <Pencil className="w-3.5 h-3.5" /> Editar información
-                  </button>
+                <div className="flex items-start justify-between gap-3 mb-4">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Descripción</p>
+                  {evento.estado === "Agendada" && (
+                    <button
+                      onClick={iniciarEdicionInfo}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 text-xs font-semibold transition-colors shrink-0"
+                    >
+                      <Pencil className="w-3.5 h-3.5" /> Editar información
+                    </button>
+                  )}
+                </div>
+                {evento.descripcion ? (
+                  <p className="text-sm text-foreground/90 leading-relaxed">{evento.descripcion}</p>
                 ) : (
-                  <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <p className="text-sm text-muted-foreground italic">
+                    {evento.estado === "Agendada" ? "Sin descripción todavía — agrégala con \"Editar información\"." : "Sin descripción."}
+                  </p>
+                )}
+                {evento.estado !== "Agendada" && (
+                  <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-4 pt-4 border-t border-border">
                     <Lock className="w-3 h-3" /> Ya no se puede editar — la capacitación está {evento.estado.toLowerCase()}.
                   </p>
                 )}
@@ -532,14 +570,12 @@ export function TyCAgendaEventoPage() {
               <div className="space-y-1.5">
                 {evento.personas.map((ep) => (
                   <div key={ep.persona_id} className="flex items-center gap-2.5 p-2 rounded-lg bg-muted/5 border border-border">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium truncate">{ep.nombre}</p>
-                    </div>
+                    <PersonaRow nombre={ep.nombre} cargoNombre={ep.cargo_nombre} />
                     {puedeGestionarPersonas && (
                       <button
                         onClick={() => togglePersonaExistente(ep.persona_id, ep.nombre)}
                         aria-label={`Quitar a ${ep.nombre} de la inducción`}
-                        className="text-rose-400/50 hover:text-rose-400"
+                        className="text-rose-400/50 hover:text-rose-400 shrink-0"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
@@ -567,11 +603,8 @@ export function TyCAgendaEventoPage() {
                 <div className="space-y-1 max-h-72 overflow-y-auto pr-1">
                   {filtradas.slice(0, 30).map((p) => (
                     <button key={p.id} onClick={() => togglePersonaExistente(p.id, p.nombre)} className="w-full flex items-center gap-2.5 p-2 rounded-lg hover:bg-muted/10 border border-transparent hover:border-border text-left transition-all">
-                      <Plus className="w-3 h-3 text-teal-400 shrink-0" />
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium truncate">{p.nombre}</p>
-                        <p className="text-[10px] text-muted-foreground truncate">{p.cargo_nombre} · {p.empresa_nombre}</p>
-                      </div>
+                      <PersonaRow nombre={p.nombre} cargoNombre={p.cargo_nombre} empresaNombre={p.empresa_nombre} />
+                      <Plus className="w-3.5 h-3.5 text-teal-400 shrink-0" />
                     </button>
                   ))}
                 </div>
@@ -581,7 +614,7 @@ export function TyCAgendaEventoPage() {
         )}
 
         {tab === "asistencia" && (
-          <div className="max-w-md space-y-3">
+          <div className="max-w-xl space-y-3">
             {!puedeGestionarAsistencia ? (
               <p className="flex items-center gap-1.5 text-xs text-muted-foreground py-4">
                 <Lock className="w-3.5 h-3.5" /> Disponible cuando finalices la capacitación.
@@ -607,10 +640,10 @@ export function TyCAgendaEventoPage() {
                     checked={ep.asistio === true}
                     disabled={!puedeGestionarAsistencia}
                     onChange={(e) => setAsistencia(ep.persona_id, e.target.checked)}
-                    className="w-4 h-4 accent-emerald-500 disabled:opacity-40"
+                    className="w-4 h-4 accent-emerald-500 disabled:opacity-40 shrink-0"
                   />
-                  <p className="flex-1 text-xs font-medium">{ep.nombre}</p>
-                  <span className={`text-[10px] font-semibold ${ep.asistio === null ? "text-muted-foreground" : ep.asistio ? "text-emerald-400" : "text-rose-400"}`}>
+                  <PersonaRow nombre={ep.nombre} cargoNombre={ep.cargo_nombre} />
+                  <span className={`text-[10px] font-semibold shrink-0 ${ep.asistio === null ? "text-muted-foreground" : ep.asistio ? "text-emerald-400" : "text-rose-400"}`}>
                     {ep.asistio === null ? "Pendiente" : ep.asistio ? "Asistió" : "No asistió"}
                   </span>
                 </label>
@@ -627,7 +660,7 @@ export function TyCAgendaEventoPage() {
         )}
 
         {tab === "acta" && puedeGestionarAsistencia && (
-          <div className="max-w-md space-y-6">
+          <div className="max-w-xl space-y-6">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Foto de evidencia (opcional)</p>
               {evento.foto_evidencia_url ? (

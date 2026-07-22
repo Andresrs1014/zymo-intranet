@@ -110,10 +110,11 @@ def _evento_dict(ev: PtcEvento, db: Session, main_db: Session) -> dict:
     personas = []
     for a in asignaciones:
         p = db.get(PtcPersona, a.persona_id)
+        cargo = db.get(PtcCargo, p.cargo_id) if p and p.cargo_id else None
         personas.append({
             "persona_id": a.persona_id,
             "nombre": p.nombre if p else f"Persona #{a.persona_id}",
-            "cargo_nombre": "",
+            "cargo_nombre": cargo.nombre if cargo else "",
             "asistio": a.asistio,
         })
     area = main_db.get(GlobalArea, ev.area_id)
