@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback, useMemo } from "react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { api } from "@/lib/api"
+import { useAuthStore } from "@/store/authStore"
 import { PageLayout } from "@/components/layout/PageLayout"
 import {
   ArrowLeft, Plus, X, Users, FileText, CheckCircle2, ClipboardList,
-  Camera, Download, Upload, ImageOff, Pencil, Save, Flag, Lock,
+  Camera, Download, Upload, ImageOff, Pencil, Save, Flag, Lock, Trash2,
 } from "lucide-react"
 
 interface PersonaMini {
@@ -54,6 +55,7 @@ export function TyCAgendaEventoPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const isNew          = id === "nuevo"
   const navigate        = useNavigate()
+  const esAdmin         = useAuthStore((s) => s.user?.role) === "admin"
 
   const tab = (searchParams.get("tab") as Tab | null) ?? "info"
   function setTab(t: Tab) {
@@ -242,6 +244,17 @@ export function TyCAgendaEventoPage() {
     } finally { setGuardandoInfo(false) }
   }
 
+  async function eliminarEvento() {
+    if (!evento) return
+    if (!window.confirm(`¿Eliminar "${evento.titulo}"? Esto borra el evento y su lista de participantes, no se puede deshacer.`)) return
+    try {
+      await api.delete(`/tc/eventos/${evento.id}`)
+      navigate("/tc/calendario")
+    } catch (e: any) {
+      setError(e?.response?.data?.detail ?? "No se pudo eliminar el evento.")
+    }
+  }
+
   async function subirFotoEvidencia(file: File) {
     if (!evento) return
     setSubiendoFoto(true)
@@ -410,15 +423,26 @@ export function TyCAgendaEventoPage() {
                 {" · "}{evento.hora_inicio} – {evento.hora_fin}
               </p>
             </div>
-            {evento.estado === "En curso" && (
-              <button
-                onClick={finalizarEvento}
-                disabled={finalizando}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-semibold transition-colors disabled:opacity-40"
-              >
-                <Flag className="w-3.5 h-3.5" /> {finalizando ? "Finalizando…" : "Finalizar capacitación"}
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {evento.estado === "En curso" && (
+                <button
+                  onClick={finalizarEvento}
+                  disabled={finalizando}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-semibold transition-colors disabled:opacity-40"
+                >
+                  <Flag className="w-3.5 h-3.5" /> {finalizando ? "Finalizando…" : "Finalizar capacitación"}
+                </button>
+              )}
+              {esAdmin && (
+                <button
+                  onClick={eliminarEvento}
+                  title="Eliminar (solo admin — pruebas)"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive text-xs font-semibold transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Eliminar
+                </button>
+              )}
+            </div>
           </div>
           {error && <div className="mt-3 p-3 text-sm text-destructive bg-destructive/10 rounded-lg">{error}</div>}
 

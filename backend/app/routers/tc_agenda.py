@@ -21,7 +21,7 @@ from sqlmodel import Session, select
 from weasyprint import HTML
 
 from app.config import settings
-from app.core.deps import require_permission
+from app.core.deps import require_admin, require_permission
 from app.database import get_db
 from app.models.area import Area as GlobalArea
 from app.models.sede import Sede
@@ -232,6 +232,24 @@ def get_evento(
     if not ev:
         raise HTTPException(404, "Evento no encontrado")
     return _evento_dict(ev, db, main_db)
+
+
+@router.delete("/eventos/{evento_id}", status_code=204)
+def eliminar_evento(
+    evento_id: int,
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_admin),
+):
+    """Solo admin — borrado real, sin gate de estado. Pensado para limpiar
+    pruebas, no para uso normal del líder (que no tiene forma de deshacer
+    una capacitación real ya agendada)."""
+    ev = db.get(PtcEvento, evento_id)
+    if not ev:
+        raise HTTPException(404, "Evento no encontrado")
+    for asign in db.exec(select(PtcEventoPersona).where(PtcEventoPersona.evento_id == evento_id)).all():
+        db.delete(asign)
+    db.delete(ev)
+    db.commit()
 
 
 @router.put("/eventos/{evento_id}")
