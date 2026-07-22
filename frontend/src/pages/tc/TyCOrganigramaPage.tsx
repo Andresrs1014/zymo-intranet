@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { api } from "@/lib/api"
 import { useAuthStore } from "@/store/authStore"
 import { canEditTyC } from "@/lib/permissions"
@@ -702,8 +702,10 @@ export function TyCOrganigramaPage() {
   const user        = useAuthStore((s) => s.user)
   const puedeEditar = user ? canEditTyC(user.role, user.app_permissions) : false
   const { data: sedes = [] } = useSedes()
+  const [searchParams] = useSearchParams()
+  const sedeParam = Number(searchParams.get("sede"))
 
-  const [sedeActiva, setSedeActiva]           = useState<number | null>(null)
+  const [sedeActiva, setSedeActiva]           = useState<number | null>(sedeParam || null)
   const [arbol, setArbol]                     = useState<ArbolData | null>(null)
   const [loading, setLoading]                 = useState(false)
   const [nodoSeleccionado, setNodoSeleccionado] = useState<ArbolNodo | null>(null)

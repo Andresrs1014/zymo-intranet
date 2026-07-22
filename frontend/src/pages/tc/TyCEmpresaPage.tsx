@@ -105,7 +105,7 @@ export function TyCEmpresaPage() {
               <SectionLabel>Organigrama de la empresa</SectionLabel>
               <button
                 type="button"
-                onClick={() => navigate(`/tc/empresa/${sedeId}/mapa`)}
+                onClick={() => navigate(`/tc/organigrama?sede=${sedeId}`)}
                 className="group w-full text-left rounded-2xl overflow-hidden border border-[#ef3340]/25 bg-gradient-to-br from-[#4e1012] via-[#74151d] to-[#ef3340]/90 p-5 transition-all hover:shadow-lg hover:shadow-[#ef3340]/15 hover:-translate-y-px"
               >
                 <div className="flex items-start gap-4">
