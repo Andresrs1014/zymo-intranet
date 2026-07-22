@@ -39,7 +39,6 @@ from app.gerencial_database import create_gerencial_tables
 from app.routers.gerencial import router as gerencial_router
 from app.personal_database import create_personal_tables
 from app.routers.personal import router as personal_router
-from app.routers.tc_agenda import router as tc_agenda_router
 from app.routers.tc_capacitaciones import router as tc_caps_router
 from app.routers.tc_clientes import router as tc_clientes_router
 from app.routers.oper_clientes import router as oper_clientes_router
@@ -468,7 +467,6 @@ app.include_router(netvault_router)
 app.include_router(mantenimiento_router)
 app.include_router(sig_pdf_router)
 app.include_router(personal_router)
-app.include_router(tc_agenda_router)
 app.include_router(tc_caps_router)
 app.include_router(tc_paquetes_router)
 app.include_router(tc_clientes_router)

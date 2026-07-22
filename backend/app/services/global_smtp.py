@@ -29,7 +29,7 @@ def get_global_smtp() -> dict | None:
 
     Retorna None si aún no está configurado O si falla la lectura (DB no disponible, etc.)
     — nunca propaga la excepción. Esto corre dentro de BackgroundTasks en varios llamadores
-    (email_service.py, tc_agenda.py); una excepción no atrapada ahí muere en silencio, sin
+    (email_service.py); una excepción no atrapada ahí muere en silencio, sin
     log ni traceback visible. Ver incidente 2026-07-16: esto ya rompió las alertas de OC una vez.
     """
     try:

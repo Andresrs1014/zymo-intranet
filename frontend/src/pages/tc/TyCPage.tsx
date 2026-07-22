@@ -102,7 +102,7 @@ export function TyCPage() {
               icon={<CalendarDays className="w-4 h-4" />}
               color="teal"
               title="Agenda"
-              description="Inducciones, cursos y reuniones con notificación WhatsApp al líder."
+              description="En construcción."
               onClick={() => navigate("/tc/calendario")}
             />
             <ModuleCard

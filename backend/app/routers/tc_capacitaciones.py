@@ -1,14 +1,13 @@
 """
 Router T&C — Gestión gerencial de capacitaciones.
 
-Prefijo: /tc  (montado junto a personal.py y tc_agenda.py)
+Prefijo: /tc  (montado junto a personal.py)
 Endpoints propios:
   GET    /tc/capacitaciones                              — lista global con filtros
   GET    /tc/capacitaciones/stats                        — KPIs globales
   POST   /tc/capacitaciones/bulk                         — enrolar múltiples personas
   PATCH  /tc/capacitaciones/{cap_id}/completar           — marcar completada
   PATCH  /tc/capacitaciones/{cap_id}/documentos          — vincular URLs de documentos
-  POST   /tc/eventos/{evento_id}/generar-capacitaciones  — puente evento→capacitación
 """
 from __future__ import annotations
 
@@ -26,8 +25,6 @@ from app.personal_database import (
     PtcArea,
     PtcCapacitacion,
     PtcCargo,
-    PtcEvento,
-    PtcEventoPersona,
     PtcPersona,
     get_personal_engine,
 )
@@ -36,8 +33,6 @@ router = APIRouter(prefix="/tc", tags=["T&C Capacitaciones"])
 
 require_tc        = require_permission("mod_tc")
 require_tc_editar = require_permission("mod_tc_editar")
-
-_TIPOS_CAPACITABLES = {"induccion", "curso"}
 
 
 # ── Schemas ──────────────────────────────────────────────────────────────────
@@ -243,98 +238,3 @@ def actualizar_documentos(
         db.commit()
         db.refresh(cap)
         return _enrich(cap, db)
-
-
-@router.post("/eventos/{evento_id}/generar-capacitaciones", status_code=status.HTTP_201_CREATED)
-def generar_capacitaciones_desde_evento(
-    evento_id: int,
-    body: DocumentosBody = None,
-    _: User = Depends(require_tc_editar),
-):
-    """
-    Genera registros de capacitación para todos los asistentes de un evento
-    de tipo 'curso' o 'induccion'. Idempotente: no crea duplicados.
-    """
-    with Session(get_personal_engine()) as db:
-        evento = db.get(PtcEvento, evento_id)
-        if not evento:
-            raise HTTPException(status_code=404, detail="Evento no encontrado")
-
-        if evento.tipo not in _TIPOS_CAPACITABLES:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Solo eventos de tipo {_TIPOS_CAPACITABLES} generan capacitaciones. "
-                       f"Este evento es de tipo '{evento.tipo}'.",
-            )
-
-        asistentes = db.exec(
-            select(PtcEventoPersona).where(PtcEventoPersona.evento_id == evento_id)
-        ).all()
-
-        if not asistentes:
-            return {"capacitaciones_creadas": 0, "personas_ya_registradas": 0,
-                    "personas_sin_marcar": 0, "evento_titulo": evento.titulo}
-
-        # Horas desde la duración real del evento (PtcEvento no tiene
-        # fecha_inicio/fecha_fin — solo fecha + hora_inicio/hora_fin "HH:MM").
-        fecha_cap = evento.fecha
-        try:
-            h_ini = datetime.strptime(evento.hora_inicio, "%H:%M")
-            h_fin = datetime.strptime(evento.hora_fin, "%H:%M")
-            horas: Optional[float] = round((h_fin - h_ini).total_seconds() / 3600, 1)
-        except ValueError:
-            horas = None
-
-        titulo = evento.titulo
-
-        # Solo se genera registro para quien ya tiene asistencia marcada —
-        # sin esto, alguien marcado "No asistió" (o sin marcar aún) quedaba
-        # igual como "Completado" en su perfil (bug reportado 2026-07-21).
-        ya_registradas = 0
-        creadas = 0
-        sin_marcar = 0
-
-        for asistente in asistentes:
-            if asistente.asistio is None:
-                sin_marcar += 1
-                continue
-
-            existente = db.exec(
-                select(PtcCapacitacion).where(
-                    PtcCapacitacion.persona_id == asistente.persona_id,
-                    PtcCapacitacion.titulo == titulo,
-                    PtcCapacitacion.fecha == fecha_cap,
-                )
-            ).first()
-
-            if existente:
-                ya_registradas += 1
-                continue
-
-            docs_json = json.dumps(
-                [d.model_dump() for d in body.documentos] if body and body.documentos else [],
-                ensure_ascii=False,
-            )
-            obs = f"Generado automáticamente desde evento #{evento_id}"
-            if not asistente.asistio and asistente.motivo_inasistencia:
-                obs += f" — motivo: {asistente.motivo_inasistencia}"
-            cap = PtcCapacitacion(
-                persona_id=asistente.persona_id,
-                titulo=titulo,
-                fecha=fecha_cap,
-                horas=horas if asistente.asistio else None,
-                estado="Completado" if asistente.asistio else "No asistió",
-                observaciones=obs,
-                documentos=docs_json,
-            )
-            db.add(cap)
-            creadas += 1
-
-        db.commit()
-
-    return {
-        "capacitaciones_creadas": creadas,
-        "personas_ya_registradas": ya_registradas,
-        "personas_sin_marcar": sin_marcar,
-        "evento_titulo": titulo,
-    }

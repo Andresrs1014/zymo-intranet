@@ -6,7 +6,7 @@ import { canEditTyC } from "@/lib/permissions"
 import { PageLayout } from "@/components/layout/PageLayout"
 import {
   Plus, Trash2, Save, ChevronDown, ChevronRight,
-  Package, Bell, Users, ArrowRight, Mail, MessageCircle,
+  Package, Bell, ArrowRight, Mail, MessageCircle,
 } from "lucide-react"
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
@@ -14,12 +14,11 @@ import {
 interface PaqueteItem { id?: number; titulo: string; horas: number | null; orden: number }
 interface Paquete { id: number; nombre: string; descripcion: string; activo: boolean; items: PaqueteItem[] }
 
-type Tab = "notificaciones" | "lideres" | "paquetes"
+type Tab = "notificaciones" | "paquetes"
 
 // ── Componente ────────────────────────────────────────────────────────────────
 
 export function TyCConfigPage() {
-  const navigate    = useNavigate()
   const user        = useAuthStore((s) => s.user)
   const puedeEditar = user ? canEditTyC(user.role, user.app_permissions) : false
   const [tab, setTab] = useState<Tab>("notificaciones")
@@ -33,7 +32,7 @@ export function TyCConfigPage() {
           </p>
           <h1 className="text-xl font-bold mb-4">Configuración</h1>
           <div className="flex gap-0 -mb-px">
-            {(["notificaciones", "lideres", "paquetes"] as Tab[]).map((t) => (
+            {(["notificaciones", "paquetes"] as Tab[]).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -41,12 +40,8 @@ export function TyCConfigPage() {
                   tab === t ? "border-teal-500 text-teal-400" : "border-transparent text-muted-foreground hover:text-foreground"
                 }`}
               >
-                {t === "notificaciones" ? <Bell className="w-3.5 h-3.5" /> :
-                  t === "lideres" ? <Users className="w-3.5 h-3.5" /> :
-                  <Package className="w-3.5 h-3.5" />}
-                {t === "notificaciones" ? "Notificaciones" :
-                  t === "lideres" ? "Líderes de área" :
-                  "Paquetes de capacitación"}
+                {t === "notificaciones" ? <Bell className="w-3.5 h-3.5" /> : <Package className="w-3.5 h-3.5" />}
+                {t === "notificaciones" ? "Notificaciones" : "Paquetes de capacitación"}
               </button>
             ))}
           </div>
@@ -56,7 +51,6 @@ export function TyCConfigPage() {
       <div className="max-w-4xl mx-auto px-8 py-6">
         <div className="animate-fade-in">
           {tab === "notificaciones" && <NotificacionesTab />}
-          {tab === "lideres" && <LideresTab navigate={navigate} />}
           {tab === "paquetes" && <PaquetesTab puedeEditar={puedeEditar} />}
         </div>
       </div>
@@ -258,37 +252,6 @@ function PaqueteCard({
           )}
         </div>
       )}
-    </div>
-  )
-}
-
-// ── Tab Líderes de área ───────────────────────────────────────────────────────
-
-function LideresTab({ navigate }: { navigate: ReturnType<typeof import("react-router-dom").useNavigate> }) {
-  return (
-    <div className="max-w-xl">
-      <div className="flex flex-col gap-3">
-        <p className="text-sm text-muted-foreground -mt-1">
-          Teléfono y email del líder por área. WhatsApp de eventos usa estos contactos.
-        </p>
-        <button
-          onClick={() => navigate("/tc/area-config")}
-          className="flex items-center justify-between gap-4 p-5 rounded-xl border border-border bg-muted/5 hover:bg-muted/10 hover:border-teal-500/30 transition-all group"
-        >
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-500/10">
-              <Users className="w-5 h-5 text-teal-400" />
-            </div>
-            <div className="text-left">
-              <p className="text-sm font-semibold">Configurar líderes de área</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Nombre, teléfono y correo del responsable de cada área.
-              </p>
-            </div>
-          </div>
-          <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-teal-400 group-hover:translate-x-0.5 transition-all shrink-0" />
-        </button>
-      </div>
     </div>
   )
 }
