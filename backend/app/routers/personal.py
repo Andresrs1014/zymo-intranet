@@ -173,6 +173,7 @@ def _persona_dict(p: PtcPersona, db: Session, main_db: Session) -> dict:
     area  = main_db.get(GlobalArea, p.area_id) if p.area_id else None
     cargo = db.get(PtcCargo, p.cargo_id) if p.cargo_id else None
     jefe  = db.get(PtcPersona, p.jefe_directo_id) if p.jefe_directo_id else None
+    user_vinculado = main_db.get(User, p.user_id) if p.user_id else None
     return {
         "id": p.id,
         "nombre": p.nombre,
@@ -207,6 +208,7 @@ def _persona_dict(p: PtcPersona, db: Session, main_db: Session) -> dict:
         "idp_eligible": p.idp_eligible,
         "score": p.score,
         "user_id": p.user_id,
+        "user_nombre": user_vinculado.full_name or user_vinculado.email if user_vinculado else "",
         "legacy_id": p.legacy_id,
         "created_at": p.created_at.isoformat(),
         "updated_at": p.updated_at.isoformat(),

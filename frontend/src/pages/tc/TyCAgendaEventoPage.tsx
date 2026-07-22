@@ -208,43 +208,6 @@ export function TyCAgendaEventoPage() {
     } finally { setSubiendoActa(false) }
   }
 
-  function FiltrosParticipantes({ onAgregarTodos }: { onAgregarTodos: () => void }) {
-    return (
-      <div>
-        <div className="flex gap-1.5 mb-2">
-          <select aria-label="Filtrar por empresa" value={empresaFiltro} onChange={(e) => setEmpresaFiltro(e.target.value)} className="input-base text-xs py-1.5 flex-1">
-            <option value="">Toda empresa</option>
-            {empresasUnicas.map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}
-          </select>
-          <select aria-label="Filtrar por área" value={areaFiltro} onChange={(e) => setAreaFiltro(e.target.value)} className="input-base text-xs py-1.5 flex-1">
-            <option value="">Toda área</option>
-            {areasUnicas.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}
-          </select>
-          <select aria-label="Filtrar por cargo" value={cargoFiltro} onChange={(e) => setCargoFiltro(e.target.value)} className="input-base text-xs py-1.5 flex-1">
-            <option value="">Todo cargo</option>
-            {cargosUnicos.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-          </select>
-        </div>
-        <input
-          value={busqueda}
-          onChange={(e) => setBusqueda(e.target.value)}
-          placeholder="Buscar por nombre…"
-          aria-label="Buscar colaborador por nombre"
-          className="input-base mb-2"
-        />
-        {(empresaFiltro || areaFiltro || cargoFiltro) && filtradas.length > 0 && (
-          <button
-            onClick={onAgregarTodos}
-            className="w-full mb-2 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 transition-colors"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Agregar los {filtradas.length} seleccionados por el filtro
-          </button>
-        )}
-      </div>
-    )
-  }
-
   // ── Vista: creación ───────────────────────────────────────────────────────
 
   if (isNew) {
@@ -311,7 +274,13 @@ export function TyCAgendaEventoPage() {
                 {seleccionados.size === 0 && <p className="text-xs text-muted-foreground py-4 text-center">Sin asistentes aún</p>}
               </div>
               <div>
-                <FiltrosParticipantes onAgregarTodos={agregarTodosFiltradosLocal} />
+                <FiltrosParticipantes
+                  empresaFiltro={empresaFiltro} setEmpresaFiltro={setEmpresaFiltro} empresasUnicas={empresasUnicas}
+                  areaFiltro={areaFiltro} setAreaFiltro={setAreaFiltro} areasUnicas={areasUnicas}
+                  cargoFiltro={cargoFiltro} setCargoFiltro={setCargoFiltro} cargosUnicos={cargosUnicos}
+                  busqueda={busqueda} setBusqueda={setBusqueda}
+                  totalFiltrados={filtradas.length} onAgregarTodos={agregarTodosFiltradosLocal}
+                />
                 <div className="space-y-1 max-h-56 overflow-y-auto pr-1">
                   {filtradas.slice(0, 30).map((p) => (
                     <button
@@ -443,7 +412,13 @@ export function TyCAgendaEventoPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3">Agregar</p>
-              <FiltrosParticipantes onAgregarTodos={agregarTodosFiltradosExistente} />
+              <FiltrosParticipantes
+                empresaFiltro={empresaFiltro} setEmpresaFiltro={setEmpresaFiltro} empresasUnicas={empresasUnicas}
+                areaFiltro={areaFiltro} setAreaFiltro={setAreaFiltro} areasUnicas={areasUnicas}
+                cargoFiltro={cargoFiltro} setCargoFiltro={setCargoFiltro} cargosUnicos={cargosUnicos}
+                busqueda={busqueda} setBusqueda={setBusqueda}
+                totalFiltrados={filtradas.length} onAgregarTodos={agregarTodosFiltradosExistente}
+              />
               <div className="space-y-1 max-h-72 overflow-y-auto pr-1">
                 {filtradas.slice(0, 30).map((p) => (
                   <button key={p.id} onClick={() => togglePersonaExistente(p.id, p.nombre)} className="w-full flex items-center gap-2.5 p-2 rounded-lg hover:bg-muted/10 border border-transparent hover:border-border text-left transition-all">
@@ -537,5 +512,57 @@ export function TyCAgendaEventoPage() {
         )}
       </div>
     </PageLayout>
+  )
+}
+
+interface OpcionFiltro { id: number; nombre: string }
+
+function FiltrosParticipantes({
+  empresaFiltro, setEmpresaFiltro, empresasUnicas,
+  areaFiltro, setAreaFiltro, areasUnicas,
+  cargoFiltro, setCargoFiltro, cargosUnicos,
+  busqueda, setBusqueda,
+  totalFiltrados, onAgregarTodos,
+}: {
+  empresaFiltro: string; setEmpresaFiltro: (v: string) => void; empresasUnicas: OpcionFiltro[]
+  areaFiltro: string; setAreaFiltro: (v: string) => void; areasUnicas: OpcionFiltro[]
+  cargoFiltro: string; setCargoFiltro: (v: string) => void; cargosUnicos: OpcionFiltro[]
+  busqueda: string; setBusqueda: (v: string) => void
+  totalFiltrados: number
+  onAgregarTodos: () => void
+}) {
+  return (
+    <div>
+      <div className="flex gap-1.5 mb-2">
+        <select aria-label="Filtrar por empresa" value={empresaFiltro} onChange={(e) => setEmpresaFiltro(e.target.value)} className="input-base text-xs py-1.5 flex-1">
+          <option value="">Toda empresa</option>
+          {empresasUnicas.map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+        </select>
+        <select aria-label="Filtrar por área" value={areaFiltro} onChange={(e) => setAreaFiltro(e.target.value)} className="input-base text-xs py-1.5 flex-1">
+          <option value="">Toda área</option>
+          {areasUnicas.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+        </select>
+        <select aria-label="Filtrar por cargo" value={cargoFiltro} onChange={(e) => setCargoFiltro(e.target.value)} className="input-base text-xs py-1.5 flex-1">
+          <option value="">Todo cargo</option>
+          {cargosUnicos.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+        </select>
+      </div>
+      <input
+        value={busqueda}
+        onChange={(e) => setBusqueda(e.target.value)}
+        placeholder="Buscar por nombre…"
+        aria-label="Buscar colaborador por nombre"
+        className="input-base mb-2"
+      />
+      {(empresaFiltro || areaFiltro || cargoFiltro) && totalFiltrados > 0 && (
+        <button
+          onClick={onAgregarTodos}
+          className="w-full mb-2 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 transition-colors"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          Agregar los {totalFiltrados} seleccionados por el filtro
+        </button>
+      )}
+    </div>
   )
 }

@@ -50,6 +50,7 @@ interface Persona {
   idp_eligible: boolean
   score: number
   user_id: number | null
+  user_nombre: string
   fecha_nacimiento?: string | null
   edad?: number | null
 }
@@ -89,6 +90,7 @@ export function TyCPersonaPage() {
   const [areas, setAreas]       = useState<Area[]>([])
   const [cargos, setCargos]     = useState<Cargo[]>([])
   const [personasLista, setPersonasLista] = useState<{ id: number; nombre: string }[]>([])
+  const [usuariosIntranet, setUsuariosIntranet] = useState<{ id: number; full_name: string | null; email: string }[]>([])
   const [loading, setLoading]   = useState(true)
   const [editando, setEditando] = useState(false)
   const [guardando, setGuardando] = useState(false)
@@ -106,6 +108,9 @@ export function TyCPersonaPage() {
       .finally(() => setLoading(false))
     api.get("/tc/personas", { params: { estado: "Activo", limit: 500 } })
       .then((r) => setPersonasLista(Array.isArray(r.data?.items) ? r.data.items : []))
+      .catch(() => {})
+    api.get("/api/tasks-v2/users")
+      .then((r) => setUsuariosIntranet(Array.isArray(r.data) ? r.data : []))
       .catch(() => {})
   }, [id])
 
@@ -329,6 +334,19 @@ export function TyCPersonaPage() {
                     ))}
                   </Select>
                 ) : (datos.jefe_directo_nombre || "—")}
+              </FieldRow>
+              <FieldRow label="Usuario vinculado">
+                {editando ? (
+                  <Select
+                    value={String(datos.user_id ?? "")}
+                    onChange={(v) => setField("user_id", v ? Number(v) : null)}
+                  >
+                    <option value="">Sin cuenta vinculada</option>
+                    {usuariosIntranet.map((u) => (
+                      <option key={u.id} value={u.id}>{u.full_name || u.email}</option>
+                    ))}
+                  </Select>
+                ) : (datos.user_nombre || "—")}
               </FieldRow>
             </Section>
 
