@@ -171,6 +171,12 @@ export function canConfigTyC(role: string, appPerms?: string[]): boolean {
   return canEditTyC(role, appPerms) || canSeeTyCSensible(role, appPerms)
 }
 
+// Independiente de mod_tc — un líder de área puede no tener acceso al resto de T&C.
+export function canUseAgenda(role: string, appPerms?: string[]): boolean {
+  if (role === "admin") return true
+  return hasPerm(appPerms, "mod_tc_agenda")
+}
+
 export function canSeeMantenimiento(
   role: string,
   appPerms?: string[]

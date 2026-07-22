@@ -86,14 +86,14 @@ export const INTERNAL_MODULE_GROUPS: ModulePermissionGroup[] = [
         category: "modulo",
         icon: "👥",
         name: "T&C — Ver módulo",
-        description: "Directorio, organigrama, agenda, manuales y clientes (lectura)",
+        description: "Directorio, organigrama, manuales y clientes (lectura)",
       },
       {
         id: "mod_tc_editar",
         category: "modulo",
         icon: "✏️",
         name: "T&C — Editar",
-        description: "Crear y editar personas, cargos, eventos y configuración operativa",
+        description: "Crear y editar personas, cargos y configuración operativa",
       },
       {
         id: "mod_tc_sensible",
@@ -108,6 +108,19 @@ export const INTERNAL_MODULE_GROUPS: ModulePermissionGroup[] = [
         icon: "📥",
         name: "T&C — Importar directorio",
         description: "Importación masiva JSON del directorio legacy",
+      },
+    ],
+  },
+  {
+    title: "Agenda (capacitaciones)",
+    subtitle: "Independiente de T&C — cualquier líder con este permiso puede agendar",
+    modules: [
+      {
+        id: "mod_tc_agenda",
+        category: "modulo",
+        icon: "📅",
+        name: "Agenda — Líder",
+        description: "Agendar capacitaciones para el área propia, elegir asistentes y marcar asistencia",
       },
     ],
   },

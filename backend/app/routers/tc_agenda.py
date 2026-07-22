@@ -1,0 +1,416 @@
+"""
+Router T&C — Agenda (tipo #1: inducción de personal nuevo).
+
+Prefijo: /tc  (montado junto a personal.py)
+Permiso propio `mod_tc_agenda` — independiente de mod_tc/mod_tc_editar:
+cualquier líder de área con este permiso puede agendar, sin necesitar
+acceso al resto de T&C.
+"""
+from __future__ import annotations
+
+import io
+import os
+from datetime import date, datetime
+from typing import Optional
+
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+from sqlmodel import Session, select
+from weasyprint import HTML
+
+from app.config import settings
+from app.core.deps import require_permission
+from app.database import get_db
+from app.models.area import Area as GlobalArea
+from app.models.sede import Sede
+from app.models.user import User
+from app.personal_database import PtcCargo, PtcEvento, PtcEventoPersona, PtcPersona, get_personal_db
+from app.routers.personal import _email_corporativo_efectivo
+from app.services.teams_meetings import crear_reunion
+
+router = APIRouter(prefix="/tc", tags=["T&C Agenda"])
+
+require_tc_agenda = require_permission("mod_tc_agenda")
+
+_MAX_FOTO_MB = 8
+
+
+# ── Schemas ───────────────────────────────────────────────────────────────────
+
+class EventoCreate(BaseModel):
+    titulo: str
+    fecha: str          # "YYYY-MM-DD"
+    hora_inicio: str = "08:00"
+    hora_fin: str = "09:00"
+    descripcion: str = ""
+    persona_ids: list[int] = []
+
+
+class AsistenciaUpdate(BaseModel):
+    persona_id: int
+    asistio: bool
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _parse_date(s: str) -> date:
+    try:
+        return date.fromisoformat(s)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Fecha inválida: {s}")
+
+
+def _resolver_area_lider(user: User, db: Session) -> int:
+    """El área del evento nunca se elige a mano — es la del perfil T&C del
+    líder que agenda. Sin perfil vinculado o sin área asignada, no se puede
+    agendar (hay que arreglar el perfil primero, no adivinar el área)."""
+    persona = db.exec(select(PtcPersona).where(PtcPersona.user_id == user.id)).first()
+    if not persona:
+        raise HTTPException(400, "Tu usuario no tiene un perfil de colaborador vinculado en T&C — no se puede resolver tu área.")
+    if not persona.area_id:
+        raise HTTPException(400, "Tu perfil de T&C no tiene área asignada — pídele a T&C que la complete antes de agendar.")
+    return persona.area_id
+
+
+def _evento_dict(ev: PtcEvento, db: Session, main_db: Session) -> dict:
+    asignaciones = db.exec(
+        select(PtcEventoPersona).where(PtcEventoPersona.evento_id == ev.id)
+    ).all()
+    personas = []
+    for a in asignaciones:
+        p = db.get(PtcPersona, a.persona_id)
+        personas.append({
+            "persona_id": a.persona_id,
+            "nombre": p.nombre if p else f"Persona #{a.persona_id}",
+            "cargo_nombre": "",
+            "asistio": a.asistio,
+        })
+    area = main_db.get(GlobalArea, ev.area_id)
+    return {
+        "id": ev.id,
+        "titulo": ev.titulo,
+        "tipo": ev.tipo,
+        "fecha": ev.fecha.isoformat() if ev.fecha else None,
+        "hora_inicio": ev.hora_inicio,
+        "hora_fin": ev.hora_fin,
+        "descripcion": ev.descripcion,
+        "area_id": ev.area_id,
+        "area_nombre": area.name if area else "",
+        "teams_join_url": ev.teams_join_url,
+        "foto_evidencia_url": ev.foto_evidencia_url,
+        "acta_firmada_url": ev.acta_firmada_url,
+        "total_personas": len(personas),
+        "personas": personas,
+        "created_at": ev.created_at.isoformat(),
+    }
+
+
+def _intentar_crear_reunion_teams(ev: PtcEvento, db: Session, main_db: Session) -> None:
+    """Best-effort: si falla, el evento en T&C queda intacto, solo sin
+    teams_join_url. Invita solo a quienes tengan correo corporativo."""
+    if ev.teams_join_url:
+        return
+    asignaciones = db.exec(
+        select(PtcEventoPersona).where(PtcEventoPersona.evento_id == ev.id)
+    ).all()
+    correos = []
+    for a in asignaciones:
+        p = db.get(PtcPersona, a.persona_id)
+        if p:
+            correo = _email_corporativo_efectivo(p, main_db)
+            if correo:
+                correos.append(correo)
+
+    reunion = crear_reunion(ev.titulo, ev.descripcion, ev.fecha, ev.hora_inicio, ev.hora_fin, correos)
+    if reunion:
+        ev.teams_join_url = reunion["join_url"]
+        ev.teams_event_id = reunion["event_id"]
+        db.add(ev)
+        db.commit()
+        db.refresh(ev)
+
+
+# ── Personas (lectura liviana, sin depender de mod_tc) ────────────────────────
+# El picker de participantes lo usa un líder que puede NO tener acceso al
+# resto de T&C (mod_tc) — mismo patrón que /operativo/clientes/lista-simple.
+
+@router.get("/agenda/personas-lista")
+def listar_personas_para_agenda(
+    db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
+    _: User = Depends(require_tc_agenda),
+):
+    personas = db.exec(
+        select(PtcPersona).where(PtcPersona.estado == "Activo")
+    ).all()
+    result = []
+    for p in personas:
+        sede = main_db.get(Sede, p.sede_id) if p.sede_id else None
+        area = main_db.get(GlobalArea, p.area_id) if p.area_id else None
+        cargo = db.get(PtcCargo, p.cargo_id) if p.cargo_id else None
+        result.append({
+            "id": p.id,
+            "nombre": p.nombre,
+            "empresa_id": p.sede_id,
+            "empresa_nombre": sede.name if sede else "",
+            "area_id": p.area_id,
+            "area_nombre": area.name if area else "",
+            "cargo_id": p.cargo_id,
+            "cargo_nombre": cargo.nombre if cargo else "",
+        })
+    return result
+
+
+# ── Eventos CRUD ──────────────────────────────────────────────────────────────
+
+@router.get("/eventos")
+def listar_eventos(
+    mes: Optional[str] = Query(None, description="YYYY-MM"),
+    desde: Optional[str] = Query(None),
+    hasta: Optional[str] = Query(None),
+    db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
+    _: User = Depends(require_tc_agenda),
+):
+    stmt = select(PtcEvento)
+    if desde:
+        stmt = stmt.where(PtcEvento.fecha >= _parse_date(desde))
+    if hasta:
+        stmt = stmt.where(PtcEvento.fecha <= _parse_date(hasta))
+    eventos = db.exec(stmt.order_by(PtcEvento.fecha)).all()
+
+    if mes:
+        try:
+            y, m = int(mes[:4]), int(mes[5:7])
+            eventos = [e for e in eventos if e.fecha.year == y and e.fecha.month == m]
+        except Exception:
+            pass
+
+    return [_evento_dict(e, db, main_db) for e in eventos]
+
+
+@router.post("/eventos", status_code=201)
+def crear_evento(
+    body: EventoCreate,
+    db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
+    user: User = Depends(require_tc_agenda),
+):
+    area_id = _resolver_area_lider(user, db)
+
+    ev = PtcEvento(
+        titulo=body.titulo,
+        fecha=_parse_date(body.fecha),
+        hora_inicio=body.hora_inicio,
+        hora_fin=body.hora_fin,
+        descripcion=body.descripcion,
+        area_id=area_id,
+    )
+    db.add(ev)
+    db.flush()
+    for pid in body.persona_ids:
+        db.add(PtcEventoPersona(evento_id=ev.id, persona_id=pid))
+    db.commit()
+    db.refresh(ev)
+    _intentar_crear_reunion_teams(ev, db, main_db)
+    return _evento_dict(ev, db, main_db)
+
+
+@router.get("/eventos/{evento_id}")
+def get_evento(
+    evento_id: int,
+    db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
+    _: User = Depends(require_tc_agenda),
+):
+    ev = db.get(PtcEvento, evento_id)
+    if not ev:
+        raise HTTPException(404, "Evento no encontrado")
+    return _evento_dict(ev, db, main_db)
+
+
+@router.put("/eventos/{evento_id}/personas")
+def set_personas_evento(
+    evento_id: int,
+    persona_ids: list[int],
+    db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
+    _: User = Depends(require_tc_agenda),
+):
+    ev = db.get(PtcEvento, evento_id)
+    if not ev:
+        raise HTTPException(404, "Evento no encontrado")
+    actuales = {a.persona_id: a for a in db.exec(
+        select(PtcEventoPersona).where(PtcEventoPersona.evento_id == evento_id)
+    ).all()}
+    nuevos = set(persona_ids)
+    for pid, asign in actuales.items():
+        if pid not in nuevos:
+            db.delete(asign)
+    for pid in nuevos:
+        if pid not in actuales:
+            db.add(PtcEventoPersona(evento_id=evento_id, persona_id=pid))
+    db.commit()
+    return _evento_dict(ev, db, main_db)
+
+
+@router.patch("/eventos/{evento_id}/asistencia")
+def registrar_asistencia(
+    evento_id: int,
+    body: AsistenciaUpdate,
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_tc_agenda),
+):
+    ep = db.exec(
+        select(PtcEventoPersona).where(
+            PtcEventoPersona.evento_id == evento_id,
+            PtcEventoPersona.persona_id == body.persona_id,
+        )
+    ).first()
+    if not ep:
+        raise HTTPException(404, "Persona no asignada a este evento")
+    ep.asistio = body.asistio
+    db.add(ep)
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/eventos/{evento_id}/teams-meeting")
+def crear_reunion_teams_evento(
+    evento_id: int,
+    db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
+    _: User = Depends(require_tc_agenda),
+):
+    """Reintento manual — crea la reunión de Teams si no se creó al agendar."""
+    ev = db.get(PtcEvento, evento_id)
+    if not ev:
+        raise HTTPException(404, "Evento no encontrado")
+    if ev.teams_join_url:
+        raise HTTPException(409, "Este evento ya tiene una reunión de Teams.")
+    _intentar_crear_reunion_teams(ev, db, main_db)
+    if not ev.teams_join_url:
+        raise HTTPException(502, "No se pudo crear la reunión en Teams. Revisa la configuración de Graph API o intenta de nuevo.")
+    return _evento_dict(ev, db, main_db)
+
+
+# ── Evidencia (foto opcional) ─────────────────────────────────────────────────
+
+@router.post("/eventos/{evento_id}/foto-evidencia")
+async def subir_foto_evidencia(
+    evento_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
+    _: User = Depends(require_tc_agenda),
+):
+    ev = db.get(PtcEvento, evento_id)
+    if not ev:
+        raise HTTPException(404, "Evento no encontrado")
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(400, "Solo se permiten imágenes.")
+
+    content = await file.read()
+    if len(content) > _MAX_FOTO_MB * 1024 * 1024:
+        raise HTTPException(400, f"La imagen no puede superar los {_MAX_FOTO_MB} MB.")
+
+    ext = {"image/png": "png", "image/webp": "webp"}.get(file.content_type, "jpg")
+    fotos_dir = settings.tc_fotos_dir
+    os.makedirs(fotos_dir, exist_ok=True)
+    fname = f"evidencia_evento_{evento_id}.{ext}"
+    with open(os.path.join(fotos_dir, fname), "wb") as f:
+        f.write(content)
+
+    ev.foto_evidencia_url = f"/tc-fotos/{fname}"
+    ev.updated_at = datetime.utcnow()
+    db.add(ev)
+    db.commit()
+    db.refresh(ev)
+    return _evento_dict(ev, db, main_db)
+
+
+# ── Acta descargable + reupload firmada ───────────────────────────────────────
+
+@router.get("/eventos/{evento_id}/acta.pdf")
+def descargar_acta(
+    evento_id: int,
+    db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
+    _: User = Depends(require_tc_agenda),
+):
+    ev = db.get(PtcEvento, evento_id)
+    if not ev:
+        raise HTTPException(404, "Evento no encontrado")
+    area = main_db.get(GlobalArea, ev.area_id)
+    asignaciones = db.exec(
+        select(PtcEventoPersona).where(PtcEventoPersona.evento_id == evento_id)
+    ).all()
+    filas = ""
+    for a in asignaciones:
+        p = db.get(PtcPersona, a.persona_id)
+        nombre = p.nombre if p else f"Persona #{a.persona_id}"
+        filas += f"""
+        <tr>
+          <td>{nombre}</td>
+          <td class="firma"></td>
+        </tr>"""
+
+    html = f"""
+    <html><head><meta charset="utf-8"><style>
+      body {{ font-family: sans-serif; font-size: 12px; color: #222; }}
+      h1 {{ font-size: 16px; margin-bottom: 4px; }}
+      .meta {{ margin-bottom: 16px; }}
+      .meta span {{ display: inline-block; margin-right: 18px; }}
+      table {{ width: 100%; border-collapse: collapse; }}
+      th, td {{ border: 1px solid #999; padding: 8px; text-align: left; }}
+      .firma {{ width: 40%; height: 40px; }}
+    </style></head>
+    <body>
+      <h1>Acta de asistencia — {ev.titulo}</h1>
+      <div class="meta">
+        <span><strong>Fecha:</strong> {ev.fecha.strftime('%d/%m/%Y')}</span>
+        <span><strong>Hora:</strong> {ev.hora_inicio} – {ev.hora_fin}</span>
+        <span><strong>Área:</strong> {area.name if area else ''}</span>
+      </div>
+      <p>{ev.descripcion}</p>
+      <table>
+        <thead><tr><th>Nombre</th><th>Firma</th></tr></thead>
+        <tbody>{filas}</tbody>
+      </table>
+    </body></html>
+    """
+    pdf_bytes = HTML(string=html).write_pdf()
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="acta_evento_{evento_id}.pdf"'},
+    )
+
+
+@router.post("/eventos/{evento_id}/acta-firmada")
+async def subir_acta_firmada(
+    evento_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
+    _: User = Depends(require_tc_agenda),
+):
+    ev = db.get(PtcEvento, evento_id)
+    if not ev:
+        raise HTTPException(404, "Evento no encontrado")
+
+    content = await file.read()
+    ext = os.path.splitext(file.filename or "")[1].lstrip(".") or "pdf"
+    docs_dir = settings.tc_docs_dir
+    os.makedirs(docs_dir, exist_ok=True)
+    fname = f"acta_firmada_evento_{evento_id}.{ext}"
+    with open(os.path.join(docs_dir, fname), "wb") as f:
+        f.write(content)
+
+    ev.acta_firmada_url = f"/tc-docs/{fname}"
+    ev.updated_at = datetime.utcnow()
+    db.add(ev)
+    db.commit()
+    db.refresh(ev)
+    return _evento_dict(ev, db, main_db)

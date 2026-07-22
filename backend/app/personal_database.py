@@ -180,6 +180,38 @@ class PtcNovedad(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class PtcEvento(SQLModel, table=True):
+    """Agenda T&C — tipo #1: inducción, agendada por el líder de un área.
+    area_id se auto-resuelve del perfil del líder que agenda, no se elige a mano."""
+    __tablename__ = "ptc_evento"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    titulo: str = Field(max_length=200)
+    tipo: str = Field(max_length=40, default="induccion")  # único tipo soportado por ahora
+    fecha: date
+    hora_inicio: str = Field(max_length=10, default="08:00")  # "HH:MM"
+    hora_fin: str = Field(max_length=10, default="09:00")
+    descripcion: str = Field(max_length=2000, default="")
+    area_id: int                                  # auto-resuelto del líder, ver tc_agenda.py
+    # Reunión de Microsoft Teams (Graph API) — vacío si no se creó.
+    teams_join_url: str = Field(default="")
+    teams_event_id: str = Field(default="")
+    # Evidencia de la capacitación dictada — foto opcional, o acta firmada físicamente y reescaneada.
+    foto_evidencia_url: str = Field(default="")
+    acta_firmada_url: str = Field(default="")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class PtcEventoPersona(SQLModel, table=True):
+    """Personas asignadas a un evento de agenda."""
+    __tablename__ = "ptc_evento_persona"
+
+    evento_id: int = Field(foreign_key="ptc_evento.id", primary_key=True)
+    persona_id: int = Field(foreign_key="ptc_persona.id", primary_key=True)
+    asistio: Optional[bool] = None
+
+
 class PtcPaquete(SQLModel, table=True):
     """Paquete de capacitaciones — plantilla reutilizable de cursos para inducción."""
     __tablename__ = "ptc_paquete"
@@ -264,6 +296,7 @@ class PtcClienteAnalista(SQLModel, table=True):
 _PERSONAL_TABLES = {
     "ptc_area", "ptc_cargo", "ptc_cargo_sede", "ptc_persona",
     "ptc_capacitacion", "ptc_evaluacion", "ptc_sancion", "ptc_novedad",
+    "ptc_evento", "ptc_evento_persona",
     "ptc_paquete", "ptc_paquete_item", "ptc_smtp_config", "ptc_wa_config",
     "ptc_cliente", "ptc_cliente_asignacion", "ptc_cliente_analista",
 }
@@ -273,6 +306,7 @@ def create_personal_tables() -> None:
     from app.personal_database import (  # noqa: F401
         PtcArea, PtcCargo, PtcCargoSede, PtcPersona,
         PtcCapacitacion, PtcEvaluacion, PtcSancion, PtcNovedad,
+        PtcEvento, PtcEventoPersona,
         PtcPaquete, PtcPaqueteItem, PtcSmtpConfig, PtcWaConfig,
         PtcCliente, PtcClienteAsignacion, PtcClienteAnalista,
     )

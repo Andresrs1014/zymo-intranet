@@ -14,6 +14,7 @@ import {
   canSeeExtraccionIA,
   canSeeHelix,
   canSeeTyC,
+  canUseAgenda,
   canSeeOperClientes,
   canSeeGestionTickets,
   canSeeTickets,
@@ -74,7 +75,8 @@ import { TyCOrganigramaPage } from "@/pages/tc/TyCOrganigramaPage"
 import { TyCImportPage } from "@/pages/tc/TyCImportPage"
 import { TyCManualesPage } from "@/pages/tc/TyCManualesPage"
 import { TyCIndicadoresPage } from "@/pages/tc/TyCIndicadoresPage"
-import { TyCAgendaPage } from "@/pages/tc/TyCAgendaPage"
+import { TyCAgendaCalendarioPage } from "@/pages/tc/TyCAgendaCalendarioPage"
+import { TyCAgendaEventoPage } from "@/pages/tc/TyCAgendaEventoPage"
 import { TyCCapacitacionesPage } from "@/pages/tc/TyCCapacitacionesPage"
 import { TyCConfigPage } from "@/pages/tc/TyCConfigPage"
 import { TyCRotacionPage } from "@/pages/tc/TyCRotacionPage"
@@ -244,6 +246,14 @@ function TyCRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user)
   if (!user) return <Navigate to="/login" replace />
   if (!canSeeTyC(user.role, user.app_permissions)) return <Navigate to="/dashboard" replace />
+  return <>{children}</>
+}
+
+// Independiente de TyCRoute — un líder de área puede agendar sin tener acceso al resto de T&C.
+function AgendaRoute({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user)
+  if (!user) return <Navigate to="/login" replace />
+  if (!canUseAgenda(user.role, user.app_permissions)) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
 
@@ -707,7 +717,11 @@ export default function App() {
         />
         <Route
           path="/tc/calendario"
-          element={<TyCRoute><TyCAgendaPage /></TyCRoute>}
+          element={<AgendaRoute><TyCAgendaCalendarioPage /></AgendaRoute>}
+        />
+        <Route
+          path="/tc/eventos/:id"
+          element={<AgendaRoute><TyCAgendaEventoPage /></AgendaRoute>}
         />
         <Route
           path="/tc/formacion"
