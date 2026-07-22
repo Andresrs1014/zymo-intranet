@@ -349,6 +349,11 @@ def _migrate_personal() -> None:
             # que las columnas nuevas de "tipo #1" hay que agregarlas a mano.
             "ALTER TABLE ptc_evento ADD COLUMN foto_evidencia_url TEXT DEFAULT ''",
             "ALTER TABLE ptc_evento ADD COLUMN acta_firmada_url TEXT DEFAULT ''",
+            # columnas de la versión anterior de Agenda, ya no están en el modelo —
+            # "lugar" quedó NOT NULL sin default físico y tumbaba todo INSERT.
+            "ALTER TABLE ptc_evento DROP COLUMN lugar",
+            "ALTER TABLE ptc_evento DROP COLUMN estado",
+            "ALTER TABLE ptc_evento DROP COLUMN notificacion_enviada",
         ]:
             try:
                 conn.execute(text(sql))
