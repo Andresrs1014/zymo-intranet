@@ -267,6 +267,106 @@ def stats_globales(
     }
 
 
+@router.get("/empresa/{sede_id}/hub")
+def hub_empresa(
+    sede_id: int,
+    db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
+    _: User = Depends(require_tc),
+):
+    """Hub por empresa (sede): KPIs, conteo mapa jerárquico y áreas activas."""
+    from datetime import date
+
+    sede = main_db.get(Sede, sede_id)
+    if not sede:
+        raise HTTPException(status_code=404, detail="Empresa (sede) no encontrada")
+
+    personas = db.exec(select(PtcPersona).where(PtcPersona.sede_id == sede_id)).all()
+    activos = [p for p in personas if p.estado == _ACTIVO]
+    con_genero = [p for p in activos if p.genero in _GENEROS_STATS]
+
+    years: list[float] = []
+    for p in activos:
+        if p.fecha_ingreso:
+            years.append((date.today() - p.fecha_ingreso).days / 365.25)
+    antiguedad_prom = round(sum(years) / len(years), 1) if years else 0.0
+
+    cargo_ids_sede = {
+        row.cargo_id
+        for row in db.exec(select(PtcCargoSede).where(PtcCargoSede.sede_id == sede_id)).all()
+    }
+    for p in personas:
+        if p.cargo_id:
+            cargo_ids_sede.add(p.cargo_id)
+
+    cargos: list[PtcCargo] = []
+    if cargo_ids_sede:
+        cargos = db.exec(
+            select(PtcCargo).where(col(PtcCargo.id).in_(cargo_ids_sede))
+        ).all()
+
+    org_context = f"sede:{sede_id}"
+    mapa_cargos = db.exec(
+        select(PtcCargo).where(
+            PtcCargo.org_context == org_context,
+            PtcCargo.en_organigrama == True,  # noqa: E712
+        )
+    ).all()
+
+    global_areas = main_db.exec(select(GlobalArea).order_by(col(GlobalArea.name))).all()
+    areas_out: list[dict] = []
+
+    def _cargo_row(c: PtcCargo) -> dict:
+        return {
+            "id": c.id,
+            "nombre": c.nombre,
+            "personas_count": sum(1 for p in activos if p.cargo_id == c.id),
+        }
+
+    for area in global_areas:
+        area_cargos = [c for c in cargos if c.area_id == area.id]
+        area_personas = [p for p in activos if p.area_id == area.id]
+        if not area_cargos and not area_personas:
+            continue
+        areas_out.append({
+            "id": area.id,
+            "nombre": area.name,
+            "cargos_count": len(area_cargos),
+            "personas_count": len(area_personas),
+            "cargos": [_cargo_row(c) for c in sorted(area_cargos, key=lambda x: x.nombre.lower())],
+        })
+
+    sin_area_cargos = [c for c in cargos if c.area_id is None]
+    sin_area_personas = [p for p in activos if p.area_id is None]
+    if sin_area_cargos or sin_area_personas:
+        areas_out.append({
+            "id": None,
+            "nombre": "Sin área",
+            "cargos_count": len(sin_area_cargos),
+            "personas_count": len(sin_area_personas),
+            "cargos": [_cargo_row(c) for c in sorted(sin_area_cargos, key=lambda x: x.nombre.lower())],
+        })
+
+    return {
+        "empresa": {"id": sede.id, "nombre": sede.name, "codigo": sede.name},
+        "kpis": {
+            "total": len(personas),
+            "activos": len(activos),
+            "antiguedad_promedio": antiguedad_prom,
+            "masculino_pct": round(
+                sum(1 for p in con_genero if p.genero == _GENEROS_STATS[0]) / len(con_genero) * 100
+                if con_genero else 0
+            ),
+            "femenino_pct": round(
+                sum(1 for p in con_genero if p.genero == _GENEROS_STATS[1]) / len(con_genero) * 100
+                if con_genero else 0
+            ),
+        },
+        "mapa_jerarquico": {"cargos_configurados": len(mapa_cargos)},
+        "areas": areas_out,
+    }
+
+
 # ── Empresas ──────────────────────────────────────────────────────────────────
 
 @router.get("/empresas")

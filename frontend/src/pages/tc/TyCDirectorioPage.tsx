@@ -72,6 +72,15 @@ export function TyCDirectorioPage() {
   }, [])
 
   useEffect(() => {
+    const emp = searchParams.get("empresa")
+    const ar = searchParams.get("area")
+    const car = searchParams.get("cargo")
+    if (emp) setEmpresaFiltro(emp)
+    if (ar) setAreaFiltro(ar)
+    if (car) setCargoFiltro(car)
+  }, [searchParams])
+
+  useEffect(() => {
     const params = empresaFiltro ? { empresa_id: empresaFiltro } : {}
     api.get("/tc/cargos", { params })
       .then((r) => setCargos(Array.isArray(r.data) ? r.data : []))
@@ -186,12 +195,8 @@ export function TyCDirectorioPage() {
               return (
                 <button
                   key={e.id}
-                  onClick={() => setEmpresaFiltro(empresaFiltro === String(e.id) ? "" : String(e.id))}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs transition-all ${
-                    empresaFiltro === String(e.id)
-                      ? "border-teal-500/50 bg-teal-500/10 text-teal-400"
-                      : "border-border/60 hover:border-border text-muted-foreground hover:text-foreground"
-                  }`}
+                  onClick={() => navigate(`/tc/empresa/${e.id}`)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs transition-all border-border/60 hover:border-teal-500/40 text-muted-foreground hover:text-foreground`}
                 >
                   <span className={`font-bold ${palette.text}`}>
                     {e.codigo}
