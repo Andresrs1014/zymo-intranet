@@ -15,7 +15,6 @@ import {
   Users,
   Ticket,
   Smile,
-  CalendarClock,
 } from "lucide-react"
 import { useAuthStore } from "@/store/authStore"
 import {
@@ -32,7 +31,6 @@ import {
   canManageDevTasks,
   canSeeHelix,
   canSeeTyC,
-  canUseAgenda,
   canSeeTickets,
   canSeeSAC,
 } from "@/lib/permissions"
@@ -74,8 +72,6 @@ export function Sidebar() {
   const showTickets        = user ? canSeeTickets(user.role, perms) : false
   const showSac            = user ? canSeeSAC(user.role, perms) : false
   const showTyC            = user ? canSeeTyC(user.role, perms) : false
-  // Independiente de showTyC — un líder de área puede no tener acceso al resto de T&C.
-  const showAgendaStandalone = user ? (canUseAgenda(user.role, perms) && !showTyC) : false
 
   // Derive user initials for the footer avatar
   const initials = user?.full_name
@@ -219,14 +215,6 @@ export function Sidebar() {
                     label="T&C"
                     icon={<Users className="w-4 h-4" />}
                     active={isActive(["/tc"])}
-                  />
-                )}
-                {showAgendaStandalone && (
-                  <NavItem
-                    to="/tc/calendario"
-                    label="Agenda"
-                    icon={<CalendarClock className="w-4 h-4" />}
-                    active={isActive(["/tc/calendario", "/tc/eventos"])}
                   />
                 )}
               </SidebarMenu>

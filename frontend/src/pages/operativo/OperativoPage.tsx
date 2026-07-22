@@ -1,7 +1,7 @@
 import { NavLink, Link } from "react-router-dom"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { useAuthStore } from "@/store/authStore"
-import { canSeeOperClientes, canSeeGestionTickets } from "@/lib/permissions"
+import { canSeeOperClientes, canSeeGestionTickets, canUseAgenda, canSeeTyC } from "@/lib/permissions"
 
 // URL del sistema BRP — eventualmente se reemplazará por ruta interna
 const BRP_URL = "https://brp.zymointranet.com"
@@ -10,6 +10,10 @@ export function OperativoPage() {
   const user = useAuthStore((s) => s.user)
   const verClientes = user ? canSeeOperClientes(user.role, user.app_permissions) : false
   const verGestionTickets = user ? canSeeGestionTickets(user.role, user.app_permissions) : false
+  // Líder con permiso de Agenda pero sin T&C completo — quien tiene T&C completo entra desde allá.
+  const verCapacitaciones = user
+    ? canUseAgenda(user.role, user.app_permissions) && !canSeeTyC(user.role, user.app_permissions)
+    : false
 
   return (
     <PageLayout title="Operativo">
@@ -60,6 +64,14 @@ export function OperativoPage() {
                 icon={<IconTickets />}
                 label="Gestionar mis tickets"
                 description="Tickets de ZymoAlly asignados a ti como supervisor, analista o coordinador."
+              />
+            )}
+            {verCapacitaciones && (
+              <InternalCard
+                to="/tc/calendario"
+                icon={<IconCapacitaciones />}
+                label="Capacitaciones"
+                description="Agenda inducciones para tu área, elige asistentes y marca asistencia."
               />
             )}
           </div>
@@ -203,6 +215,14 @@ function IconTickets() {
   return (
     <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
       <path fillRule="evenodd" d="M2.5 6A1.5 1.5 0 0 1 4 4.5h12A1.5 1.5 0 0 1 17.5 6v1.65a.75.75 0 0 1-.53.716 1.25 1.25 0 0 0 0 2.368.75.75 0 0 1 .53.716V13A1.5 1.5 0 0 1 16 14.5H4A1.5 1.5 0 0 1 2.5 13v-1.55a.75.75 0 0 1 .53-.716 1.25 1.25 0 0 0 0-2.368A.75.75 0 0 1 2.5 7.65V6Zm7-.5v1m0 2v1m0 2v1m0 2v1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" fill="none" />
+    </svg>
+  )
+}
+
+function IconCapacitaciones() {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <path fillRule="evenodd" d="M5.75 2a.75.75 0 0 1 .75.75V4h7V2.75a.75.75 0 0 1 1.5 0V4h.25A2.25 2.25 0 0 1 17.5 6.25v8.5A2.25 2.25 0 0 1 15.25 17H4.75A2.25 2.25 0 0 1 2.5 14.75v-8.5A2.25 2.25 0 0 1 4.75 4H5V2.75A.75.75 0 0 1 5.75 2ZM4 8.5v6.25c0 .414.336.75.75.75h10.5a.75.75 0 0 0 .75-.75V8.5H4Z" clipRule="evenodd" />
     </svg>
   )
 }

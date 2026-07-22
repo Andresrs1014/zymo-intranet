@@ -27,6 +27,8 @@ export function canSeeOperativo(role: string, area?: string | null, appPerms?: s
   if (role === "admin") return true
   if (hasPerm(appPerms, "mod_operativo")) return true
   if (area === "Operaciones") return true
+  // Líder con permiso de Agenda (capacitaciones) entra a Operativo aunque no tenga mod_operativo.
+  if (canUseAgenda(role, appPerms)) return true
   return false
 }
 

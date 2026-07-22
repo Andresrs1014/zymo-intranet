@@ -112,15 +112,15 @@ export const INTERNAL_MODULE_GROUPS: ModulePermissionGroup[] = [
     ],
   },
   {
-    title: "Agenda (capacitaciones)",
-    subtitle: "Independiente de T&C — cualquier líder con este permiso puede agendar",
+    title: "Capacitaciones (Agenda)",
+    subtitle: "Independiente de T&C — aparece dentro de Operativo para el líder, y dentro de T&C para quien ya tiene acceso completo",
     modules: [
       {
         id: "mod_tc_agenda",
         category: "modulo",
         icon: "📅",
-        name: "Agenda — Líder",
-        description: "Agendar capacitaciones para el área propia, elegir asistentes y marcar asistencia",
+        name: "Capacitaciones — Líder de área",
+        description: "Agendar inducciones para el área propia, elegir asistentes y marcar asistencia. Accede desde Operativo → Capacitaciones",
       },
     ],
   },
