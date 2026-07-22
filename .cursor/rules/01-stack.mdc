@@ -14,6 +14,7 @@ alwaysApply: true
 | `helix-backend` Node/TS | 3001 | helix-db (5433) |
 | `task-backend` Node/TS | 3002 | task-db (5434) |
 | `sig-backend` Node/TS | 3004 | sig-db (5436) |
+| `zymoally-backend` Node/TS | 3005 | zymoally-db (5438) |
 
 ## JWT compartido
 El backend Python emite JWT HS256 con claims `{id, role, sede, area, email}`.
@@ -45,7 +46,12 @@ except Exception:
 | `/planeacion/helix` | HelixRoute | `mod_helix` |
 | `/mantenimiento/*` | MantenimientoRoute | — |
 | `/tc/*` | TyCRoute | `mod_tc` |
+| `/tc/calendario`, `/tc/eventos/*` | AgendaRoute | `mod_tc_agenda` (independiente de `mod_tc`) |
 | `/admin/*` | AdminRoute | role=admin |
 | `/m/:token` | **sin auth** | JWT scope=mnt_mobile |
 
 La ruta `/m/:token` es la única pública — va antes de `<PrivateRoute>` en `App.tsx`.
+
+## Permiso independiente de un módulo padre — patrón `mod_tc_agenda`
+
+Cuando una función debe ser usable por alguien que NO tiene el permiso del módulo contenedor (ej. un líder de área que agenda capacitaciones pero no tiene acceso al resto de T&C), no anidar el permiso bajo el del módulo — crear un permiso propio (`mod_tc_agenda`, no depende de `mod_tc`) y un guard de ruta separado (`AgendaRoute`, no `TyCRoute`). Igual patrón para endpoints de lectura liviana que ese rol necesita pero que viven en un router de otro módulo (`GET /tc/agenda/personas-lista` gateado por `mod_tc_agenda`, no por `mod_tc` — mismo criterio que `/operativo/clientes/lista-simple`).

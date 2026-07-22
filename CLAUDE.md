@@ -116,6 +116,7 @@ Clonar y adaptar para cada nuevo backend Node.
 | `/tareas-v2` | Gestión de tareas dev | `PrivateRoute` + `user_tools` |
 | `/mantenimiento/*`, `/mantenimiento/tablero` | Mantenimiento | `MantenimientoRoute` |
 | `/tc/*` | Talento y Cultura (directorio, organigrama) | `TyCRoute` (`mod_tc`) |
+| `/tc/calendario`, `/tc/eventos/*` | Agenda (T&C) | `AgendaRoute` (`mod_tc_agenda`, independiente de `mod_tc`) |
 | `/admin/*` | Administración | `AdminRoute` (role=admin) |
 | `/m/:token` | Vista móvil auxiliar mantenimiento | **Sin auth** — JWT de scope corto |
 
@@ -246,6 +247,24 @@ solicitud → evaluacion → programado → ejecucion → completado → cerrado
 
 ### Nota sobre `Session` en endpoints públicos
 Los routers `mobile.py` y cualquier endpoint sin `Depends(get_current_user)` deben usar `Session(get_oc_engine())` directamente (context manager manual), no `Depends(get_oc_db)`.
+
+---
+
+## T&C — Talento y Cultura (`backend/app/routers/personal.py`, `tc_*.py`)
+
+Directorio completo del grupo (empresas/sedes → áreas → cargos → personas), en SQLite propio (`personal.db`), sin backend Node dedicado. Módulos: Directorio, Organigrama (jerarquía de **cargos**, `PtcCargo.parent_id`, no de personas), Cargos, Capacitaciones (historial por persona, independiente de Agenda), y **Agenda**.
+
+### Jerarquía de personas — `jefe_directo_id`, no el organigrama
+`PtcPersona.jefe_directo_id` (self-referencing, con validación anti-ciclo en `personal.py`) resuelve "quién es el jefe de X" persona-a-persona — deliberadamente separado del organigrama de cargos (`PtcCargo.parent_id`), que es ambiguo cuando un cargo tiene varias personas. Usado por `resolver_jerarquia_tickets()` (`services/clientes_cartera.py`) para autocompletar analista→coordinador→supervisor en el formulario de tickets de ZymoAlly a partir de `PtcClienteAnalista` (varios analistas por cliente, distinto de `PtcClienteAsignacion` que es 1 persona por sede).
+
+### Agenda — tipo #1 (inducción), permiso independiente de T&C
+Router `tc_agenda.py`. Permiso propio `mod_tc_agenda`, **independiente** de `mod_tc`/`mod_tc_editar` — cualquier líder de área con ese permiso agenda sin necesitar acceso al resto de T&C (entrada propia en el Sidebar cuando no tiene `mod_tc`, guard `AgendaRoute` separado de `TyCRoute` en `App.tsx`). El área del evento **nunca se elige a mano**: se auto-resuelve del `area_id` del perfil T&C del líder (vía `PtcPersona.user_id == current_user.id`) — si el líder no tiene perfil vinculado o sin área, no puede agendar (hay un campo "Usuario vinculado" en la ficha de persona para setear ese link).
+
+**Estados: Agendada → En curso → Finalizada.** Agendada/En curso se **calculan** en cada respuesta a partir de `fecha`+`hora_inicio` (`_calcular_estado()` en `tc_agenda.py`) — nunca se guardan, no hace falta cron. Finalizada es la única transición manual y persistida (`PtcEvento.finalizada_en`). Gate por estado en cada endpoint (`_requerir_estado()`): Agendada permite editar info + participantes; En curso solo permite seguir agregando participantes (no editar info); Finalizada bloquea todo excepto asistencia (con endpoint de "marcar todos" + desmarcar puntual) y evidencia (foto opcional o acta PDF autogenerada con weasyprint, descargable/firmable/resubible — foto y firma son evidencia intercambiable, no se piden las dos).
+
+**Gotcha — descargas de PDF sin auth:** cualquier link de descarga de archivo servido por un endpoint autenticado (no estático) debe usar `openAuthenticatedApiBlob()` de `lib/api.ts`, nunca un `<a href>` plano — un `window.open`/navegación directa no adjunta el header `Authorization`, igual que el gotcha ya conocido en OC/Financiero.
+
+**Gotcha — nginx:** cualquier router nuevo bajo `/tc/` (incluye `/tc/agenda/*`, `/tc/eventos/*`) debe añadirse a la regex de proxy en `frontend/nginx.conf` (~línea 134) o cae al fallback del SPA y devuelve HTML donde el frontend espera JSON (`.forEach`/`.map` truena con un error genérico, no un 404 obvio).
 
 ---
 

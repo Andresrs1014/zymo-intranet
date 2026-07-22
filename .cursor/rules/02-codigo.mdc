@@ -41,10 +41,14 @@ No agregar: abstracciones no pedidas, interfaces con una sola implementación, f
 4. docker compose up --build -d   — build limpio sin errores
 ```
 
+**Gotcha crítico — `frontend/`:** `npx tsc --noEmit` (raíz o desde `frontend/`) NO revisa nada ahí — el `tsconfig.json` usa `files: []` + `references`, así que compila "limpio" incluso con errores reales de tipos/sintaxis delante. El único chequeo válido para `frontend/` es `npm run build` (corre `tsc -b && vite build`). Nunca reportar un cambio de frontend como verificado solo con `tsc --noEmit`.
+
+**Gotcha `verbatimModuleSyntax` (frontend):** importar un tipo como valor rompe el build en Docker (TS1484) aunque funcione en dev. Siempre `import type` para tipos: `import { fn, type Foo } from "..."`.
+
 ## Definición de Done
 
 Un cambio está listo **solo si**:
-- `npx tsc --noEmit` sin errores en todos los módulos tocados
+- `npx tsc --noEmit` sin errores (backend/Node) — para `frontend/`, `npm run build` en su lugar (ver gotcha arriba)
 - `docker compose up --build -d` pasa sin errores
 - No rompe endpoints existentes sin documentación
 - Desplegable en Docker sin pasos ocultos

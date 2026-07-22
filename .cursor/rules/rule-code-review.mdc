@@ -22,8 +22,7 @@ alwaysApply: true
 - [ ] Errores manejados explícitamente
 - [ ] Sin secretos ni credenciales hardcodeadas
 - [ ] Sin `console.log` ni statements de debug
-- [ ] Tests existen para nueva funcionalidad
-- [ ] Cobertura de tests ≥ 80%
+- [ ] Lógica no trivial (branch/loop/parser/dinero/seguridad) tiene un `*.selfcheck.ts` con `assert` — no framework de test nuevo, no % de cobertura (ver `rule-dev-workflow.mdc`)
 
 ## Triggers de revisión de SEGURIDAD — DETENER y revisar cuando:
 

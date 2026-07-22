@@ -1,7 +1,7 @@
 ---
-description: Arquitectura de módulos clave — Mantenimiento, SIG, T&C
+description: Arquitectura de módulos clave — Mantenimiento, SIG, T&C, ZymoAlly
 alwaysApply: false
-globs: ["**/mantenimiento/**", "**/sig*/**", "**/tc/**", "**/tyc/**"]
+globs: ["**/mantenimiento/**", "**/sig*/**", "**/tc/**", "**/tyc/**", "**/zymoally*/**"]
 ---
 
 # Módulos clave
@@ -57,12 +57,29 @@ La URL `/m/{token}` es pública. Backend valida solo el scope, no el usuario.
 
 ---
 
-## T&C — Talento y Cultura
+## T&C — Talento y Cultura (`personal.py`, `tc_*.py`)
 
-- 164 personas → dominio Python, sin backend Node propio.
-- `_persona_dict` se carga desde `main_db` (PostgreSQL).
-- Área proviene de áreas globales, no de `PtcArea` propia.
-- `personal.py` maneja el directorio; sin base de datos separada.
+Dominio Python, sin backend Node propio, SQLite propio (`personal.db`). Módulos: Directorio, Organigrama (jerarquía de **cargos**, `PtcCargo.parent_id`), Cargos, Capacitaciones, y **Agenda**.
+
+- `_persona_dict` se carga desde `main_db` (PostgreSQL) para resolver área/sede globales — `PtcArea` propia está obsoleta, no usar.
+- **Jerarquía de personas**: `PtcPersona.jefe_directo_id` (self-referencing, anti-ciclo validado) resuelve "jefe de X" — separado del organigrama de cargos, que es ambiguo con varias personas por cargo. Usado para autocompletar analista→coordinador→supervisor en tickets de ZymoAlly vía `PtcClienteAnalista`.
+- **Agenda (tipo #1 — inducción)**: permiso propio `mod_tc_agenda`, independiente de `mod_tc` (ver patrón arriba). Área del evento se auto-resuelve del perfil del líder (`PtcPersona.user_id == current_user.id`), nunca se elige a mano.
+  - Estados **Agendada → En curso → Finalizada**: las dos primeras se calculan de `fecha`+`hora_inicio` en cada response (`_calcular_estado()`), nunca se persisten — sin cron. Finalizada es la única transición manual (`finalizada_en`).
+  - Gate por estado en cada endpoint: Agendada = editar info + participantes; En curso = solo agregar participantes; Finalizada = solo asistencia + evidencia (foto o acta PDF, intercambiables).
+  - Descargas de PDF autenticadas → `openAuthenticatedApiBlob()`, nunca `<a href>` plano (no manda el Bearer token).
+  - Cualquier router nuevo bajo `/tc/` → agregar a la regex de `nginx.conf` o cae al fallback SPA (HTML donde se esperaba JSON).
+
+---
+
+## ZymoAlly — Tickets (PQR) + SAC (`zymoally-backend`)
+
+Migrado de una app standalone (`localStorage`), sin relación entre los dos dominios pero comparten backend Node + Postgres (separación solo lógica):
+- **Tickets** = PQR completo (`mod_tickets` / `mod_tickets_config`).
+- **SAC** = NPS, Diseñando la Experiencia, Reporte de visita (`mod_sac` / `mod_sac_config`).
+
+- `ZymoConfigList` (tabla genérica `{listType, value, label, sortOrder, isActive}`) sirve los 14 maestros de PQR + 5 choice-lists de SAC sin migración de esquema por lista nueva.
+- Magic-link público (`scope=survey_client`, TTL 30 días) — mismo patrón que `scope=mnt_mobile`; rutas públicas montadas ANTES de `app.use("/api", authenticate)`.
+- Auto-resolución de jerarquía cliente→analista→coordinador→supervisor al elegir cliente en el formulario de ticket — ver `jefe_directo_id` en la sección T&C arriba, el resolver vive en el backend Python (`clientes_cartera.py`), no en zymoally-backend.
 
 ---
 

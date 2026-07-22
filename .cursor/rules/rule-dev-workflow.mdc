@@ -20,12 +20,9 @@ alwaysApply: true
 - Generar docs de planning antes de codear: PRD, arquitectura, task_list.
 - Identificar riesgos.
 
-### 2. TDD
+### 2. Testing — convención real de este repo, no TDD genérico de 80%
 
-- Escribir tests primero (RED).
-- Implementar para pasar tests (GREEN).
-- Refactorizar (IMPROVE).
-- Verificar ≥ 80% de cobertura.
+Ningún backend Node de este repo usa jest/vitest. Para lógica con riesgo real (condiciones de carrera, generación de códigos únicos, cálculos), el patrón es un script `ts-node` con `assert` (`src/services/*.selfcheck.ts`, corrido vía `npm run selfcheck`) que ejercita el caso límite contra la BD real — ver `zymoally-backend/src/services/pqrCode.selfcheck.ts`. No introducir un framework de test nuevo para un módulo aislado ni exigir cobertura porcentual — un selfcheck puntual para lógica no trivial (branch, loop, parser, path de dinero/seguridad) es suficiente.
 
 ### 3. Code Review
 
