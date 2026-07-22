@@ -336,7 +336,6 @@ def listar_cargos(
             "area_id": c.area_id,
             "parent_id": c.parent_id,
             "en_organigrama": bool(c.en_organigrama),
-            "org_context": c.org_context or "corporativo",
             "nombre": c.nombre,
             "manual_url": c.manual_url,
             "manual_filename": c.manual_filename,
