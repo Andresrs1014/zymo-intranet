@@ -1,4 +1,9 @@
-"""Seed organigrama T&C desde jerarquías del prototipo Directorio."""
+"""Bootstrap histórico del organigrama T&C (una sola vez al primer arranque).
+
+Los datos ya sembrados en producción no se deben borrar ni re-crear.
+Sedes nuevas y cambios de estructura se configuran desde Admin → Áreas y Sedes
+→ Cargos (/admin/configuracion/areas): org_context, en_organigrama, parent_id.
+Este módulo ya no es la vía para armar árboles por sede."""
 from __future__ import annotations
 
 from typing import Any, Optional

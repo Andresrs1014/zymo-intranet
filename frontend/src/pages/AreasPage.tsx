@@ -211,14 +211,71 @@ function SedesPanel() {
 
 // ── Cargos Panel (T&C) ────────────────────────────────────────────────────────
 
+function OrgTreeSelect({
+  value,
+  sedes,
+  onChange,
+}: {
+  value: OrgScope
+  sedes: SedeBasic[]
+  onChange: (scope: OrgScope) => void
+}) {
+  return (
+    <select
+      value={value === "corporativo" ? "corporativo" : String(value)}
+      onChange={(e) => {
+        const v = e.target.value
+        onChange(v === "corporativo" ? "corporativo" : Number(v))
+      }}
+      className="h-8 text-sm bg-background border border-input rounded-md px-2 min-w-[160px]"
+      title="Árbol jerárquico al que pertenece este cargo"
+    >
+      <option value="corporativo">Árbol corporativo</option>
+      {sedes.map((s) => (
+        <option key={s.id} value={s.id}>Árbol — {s.name}</option>
+      ))}
+    </select>
+  )
+}
+
 interface TcArea  { id: number; name: string }
-interface TcCargo { id: number; area_id: number | null; parent_id: number | null; nombre: string; sede_ids: number[] }
+interface TcCargo {
+  id: number
+  area_id: number | null
+  parent_id: number | null
+  nombre: string
+  sede_ids: number[]
+  org_context: string
+  en_organigrama: boolean
+}
+
+type OrgScope = "corporativo" | number
+
+function orgContextFromScope(scope: OrgScope): string {
+  return scope === "corporativo" ? "corporativo" : `sede:${scope}`
+}
+
+function scopeFromOrgContext(ctx: string | undefined): OrgScope {
+  if (!ctx || ctx === "corporativo") return "corporativo"
+  const m = /^sede:(\d+)$/.exec(ctx)
+  return m ? Number(m[1]) : "corporativo"
+}
+
+function orgTreeLabel(scope: OrgScope, sedeMap: Map<number, string>): string {
+  return scope === "corporativo" ? "Corporativo" : (sedeMap.get(scope) ?? `Sede ${scope}`)
+}
+
+function cargosSameTree(cargos: TcCargo[], orgContext: string, excludeId?: number): TcCargo[] {
+  return cargos.filter(
+    (c) => (c.org_context || "corporativo") === orgContext && c.id !== excludeId,
+  )
+}
 
 function CargosPanel() {
   const { data: sedes = [] } = useSedes()
   const [sedeId, setSedeId]           = useState<number | null>(null)
   const [areas, setAreas]             = useState<TcArea[]>([])
-  const [cargos, setCargos]           = useState<TcCargo[]>([])
+  const [allCargos, setAllCargos]     = useState<TcCargo[]>([])
   const [loading, setLoading]         = useState(false)
   const [pending, setPending]         = useState(false)
   const [error, setError]             = useState<string>()
@@ -228,12 +285,16 @@ function CargosPanel() {
   const [newAreaId, setNewAreaId]       = useState<number | "">("")
   const [newParentId, setNewParentId]   = useState<number | "">("")
   const [newSedeIds, setNewSedeIds]     = useState<number[]>([])
+  const [newOrgScope, setNewOrgScope]   = useState<OrgScope>("corporativo")
+  const [newEnOrganigrama, setNewEnOrganigrama] = useState(false)
 
   const [editId, setEditId]             = useState<number | null>(null)
   const [editNombre, setEditNombre]     = useState("")
   const [editAreaId, setEditAreaId]     = useState<number | "">("")
   const [editParentId, setEditParentId] = useState<number | "">("")
   const [editSedeIds, setEditSedeIds]   = useState<number[]>([])
+  const [editOrgScope, setEditOrgScope] = useState<OrgScope>("corporativo")
+  const [editEnOrganigrama, setEditEnOrganigrama] = useState(false)
 
   const [deleteId, setDeleteId]       = useState<number | null>(null)
 
@@ -245,14 +306,25 @@ function CargosPanel() {
 
   const cargarCargos = useCallback(() => {
     setLoading(true)
-    const params = sedeId ? { sede_id: sedeId } : {}
-    api.get("/tc/cargos", { params })
-      .then((r) => setCargos(Array.isArray(r.data) ? r.data : []))
-      .catch(() => setCargos([]))
+    api.get("/tc/cargos")
+      .then((r) => setAllCargos(Array.isArray(r.data) ? r.data : []))
+      .catch(() => setAllCargos([]))
       .finally(() => setLoading(false))
-  }, [sedeId])
+  }, [])
 
   useEffect(() => { cargarCargos() }, [cargarCargos])
+
+  const cargos = sedeId === null
+    ? allCargos
+    : allCargos.filter((c) => (c.sede_ids ?? []).includes(sedeId))
+
+  function handleOrgScopeChange(scope: OrgScope, setScope: (v: OrgScope) => void, parentId: number | "", setParent: (v: number | "") => void) {
+    setScope(scope)
+    if (parentId === "") return
+    const ctx = orgContextFromScope(scope)
+    const parent = allCargos.find((c) => c.id === parentId)
+    if (parent && (parent.org_context || "corporativo") !== ctx) setParent("")
+  }
 
   function toggleSede(id: number, current: number[], set: (v: number[]) => void) {
     set(current.includes(id) ? current.filter((x) => x !== id) : [...current, id])
@@ -269,8 +341,11 @@ function CargosPanel() {
         parent_id: newParentId || null,
         nombre: newNombre.trim(),
         sede_ids: newSedeIds,
+        org_context: orgContextFromScope(newOrgScope),
+        en_organigrama: newEnOrganigrama,
       })
-      setNewNombre(""); setNewAreaId(""); setNewParentId(""); setNewSedeIds([]); setShowCreate(false)
+      setNewNombre(""); setNewAreaId(""); setNewParentId(""); setNewSedeIds([])
+      setNewOrgScope("corporativo"); setNewEnOrganigrama(false); setShowCreate(false)
       cargarCargos()
     } catch { setError("No se pudo crear el cargo.") }
     finally { setPending(false) }
@@ -287,6 +362,8 @@ function CargosPanel() {
         area_id: editAreaId || null,
         parent_id: editParentId || null,
         sede_ids: editSedeIds,
+        org_context: orgContextFromScope(editOrgScope),
+        en_organigrama: editEnOrganigrama,
       })
       setEditId(null)
       cargarCargos()
@@ -316,6 +393,8 @@ function CargosPanel() {
     setEditAreaId(c.area_id ?? "")
     setEditParentId(c.parent_id ?? "")
     setEditSedeIds(c.sede_ids ?? [])
+    setEditOrgScope(scopeFromOrgContext(c.org_context))
+    setEditEnOrganigrama(!!c.en_organigrama)
     setError(undefined)
   }
 
@@ -324,6 +403,9 @@ function CargosPanel() {
     setEditId(null)
     setError(undefined)
     setNewSedeIds(sedeId ? [sedeId] : [])
+    setNewOrgScope(sedeId ?? "corporativo")
+    setNewEnOrganigrama(false)
+    setNewParentId("")
   }
 
   const areaMap = new Map(areas.map((a) => [a.id, a.name]))
@@ -336,7 +418,7 @@ function CargosPanel() {
         <div>
           <h3 className="font-semibold text-foreground text-sm">Cargos</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Posiciones laborales del grupo ZYMO — asigna cada cargo a una o más sedes.
+            Posiciones laborales del grupo — sedes, árbol jerárquico (corporativo o por sede) y visibilidad en el organigrama T&C.
           </p>
         </div>
         <Button
@@ -404,8 +486,26 @@ function CargosPanel() {
               className="h-8 text-sm bg-background border border-input rounded-md px-2 min-w-[160px]"
             >
               <option value="">Sin cargo padre</option>
-              {cargos.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+              {cargosSameTree(allCargos, orgContextFromScope(newOrgScope)).map((c) => (
+                <option key={c.id} value={c.id}>{c.nombre}</option>
+              ))}
             </select>
+            <OrgTreeSelect
+              value={newOrgScope}
+              sedes={sedes as SedeBasic[]}
+              onChange={(scope) => handleOrgScopeChange(scope, setNewOrgScope, newParentId, setNewParentId)}
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none text-foreground">
+              <input
+                type="checkbox"
+                checked={newEnOrganigrama}
+                onChange={(e) => setNewEnOrganigrama(e.target.checked)}
+                className="rounded border-border accent-[#ef3340]"
+              />
+              Mostrar en el organigrama
+            </label>
           </div>
           {sedes.length > 0 && (
             <div className="flex flex-wrap gap-2">
@@ -468,10 +568,26 @@ function CargosPanel() {
                       className="h-8 text-sm bg-background border border-input rounded-md px-2 min-w-[160px]"
                     >
                       <option value="">Sin cargo padre</option>
-                      {cargos.filter((c) => c.id !== editId).map((c) => (
+                      {cargosSameTree(allCargos, orgContextFromScope(editOrgScope), editId ?? undefined).map((c) => (
                         <option key={c.id} value={c.id}>{c.nombre}</option>
                       ))}
                     </select>
+                    <OrgTreeSelect
+                      value={editOrgScope}
+                      sedes={sedes as SedeBasic[]}
+                      onChange={(scope) => handleOrgScopeChange(scope, setEditOrgScope, editParentId, setEditParentId)}
+                    />
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none text-foreground">
+                      <input
+                        type="checkbox"
+                        checked={editEnOrganigrama}
+                        onChange={(e) => setEditEnOrganigrama(e.target.checked)}
+                        className="rounded border-border accent-[#ef3340]"
+                      />
+                      Mostrar en el organigrama
+                    </label>
                   </div>
                   {sedes.length > 0 && (
                     <div className="flex flex-wrap gap-2">
@@ -512,9 +628,17 @@ function CargosPanel() {
                 <>
                   <span className="flex-1 text-sm text-foreground min-w-0">{c.nombre}</span>
                   <div className="flex flex-wrap gap-1 shrink-0">
+                    <span className="text-[11px] bg-teal-500/10 text-teal-400 px-2 py-0.5 rounded-full font-medium">
+                      {orgTreeLabel(scopeFromOrgContext(c.org_context), sedeMap)}
+                    </span>
+                    {c.en_organigrama && (
+                      <span className="text-[11px] bg-[#ef3340]/10 text-[#ef3340] px-2 py-0.5 rounded-full">
+                        Organigrama
+                      </span>
+                    )}
                     {c.parent_id && (
                       <span className="text-[11px] bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full">
-                        ↑ {cargos.find((p) => p.id === c.parent_id)?.nombre ?? `#${c.parent_id}`}
+                        ↑ {allCargos.find((p) => p.id === c.parent_id)?.nombre ?? `#${c.parent_id}`}
                       </span>
                     )}
                     {c.area_id && (
