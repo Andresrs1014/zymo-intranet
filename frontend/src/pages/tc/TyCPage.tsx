@@ -102,7 +102,7 @@ export function TyCPage() {
               icon={<CalendarDays className="w-4 h-4" />}
               color="teal"
               title="Agenda"
-              description="Inducciones agendadas por el líder de cada área, con reunión de Teams y acta de asistencia."
+              description="Inducciones agendadas por el líder de cada área, con acta de asistencia."
               onClick={() => navigate("/tc/calendario")}
             />
             <ModuleCard

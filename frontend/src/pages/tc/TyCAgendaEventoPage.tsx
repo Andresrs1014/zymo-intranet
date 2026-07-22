@@ -155,7 +155,7 @@ export function TyCAgendaEventoPage() {
   async function togglePersonaExistente(pid: number, nombre: string) {
     if (!evento) return
     const yaAsignado = asignadosIds.has(pid)
-    if (yaAsignado && !window.confirm(`¿Quitar a ${nombre} de esta inducción? Si ya se envió invitación de Teams, no se cancela automáticamente.`)) {
+    if (yaAsignado && !window.confirm(`¿Quitar a ${nombre} de esta inducción?`)) {
       return
     }
     const ids = yaAsignado
