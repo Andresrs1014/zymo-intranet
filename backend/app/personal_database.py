@@ -344,6 +344,11 @@ def _migrate_personal() -> None:
             "ALTER TABLE ptc_cargo ADD COLUMN org_pos_x REAL DEFAULT NULL",
             "ALTER TABLE ptc_cargo ADD COLUMN org_pos_y REAL DEFAULT NULL",
             "ALTER TABLE ptc_persona ADD COLUMN jefe_directo_id INTEGER DEFAULT NULL",
+            # ptc_evento ya existía de una versión anterior de Agenda (borrada y
+            # reconstruida) — create_all() no altera tablas ya existentes, así
+            # que las columnas nuevas de "tipo #1" hay que agregarlas a mano.
+            "ALTER TABLE ptc_evento ADD COLUMN foto_evidencia_url TEXT DEFAULT ''",
+            "ALTER TABLE ptc_evento ADD COLUMN acta_firmada_url TEXT DEFAULT ''",
         ]:
             try:
                 conn.execute(text(sql))
