@@ -8,6 +8,7 @@ acceso al resto de T&C.
 """
 from __future__ import annotations
 
+import base64
 import io
 import os
 from datetime import date, datetime
@@ -346,15 +347,30 @@ def descargar_acta(
     asignaciones = db.exec(
         select(PtcEventoPersona).where(PtcEventoPersona.evento_id == evento_id)
     ).all()
-    filas = ""
+    nombres = []
     for a in asignaciones:
         p = db.get(PtcPersona, a.persona_id)
-        nombre = p.nombre if p else f"Persona #{a.persona_id}"
-        filas += f"""
-        <tr>
-          <td>{nombre}</td>
-          <td class="firma"></td>
-        </tr>"""
+        nombres.append(p.nombre if p else f"Persona #{a.persona_id}")
+
+    # Si ya hay foto de evidencia, el acta la incrusta como constancia y no
+    # pide firma — foto y firma son evidencia intercambiable, no las dos a la vez.
+    foto_b64 = None
+    if ev.foto_evidencia_url:
+        fname = ev.foto_evidencia_url.rsplit("/", 1)[-1]
+        fpath = os.path.join(settings.tc_fotos_dir, fname)
+        if os.path.isfile(fpath):
+            with open(fpath, "rb") as f:
+                ext = os.path.splitext(fname)[1].lstrip(".") or "jpeg"
+                foto_b64 = f"data:image/{ext};base64,{base64.b64encode(f.read()).decode()}"
+
+    if foto_b64:
+        filas = "".join(f"<tr><td>{nombre}</td></tr>" for nombre in nombres)
+        tabla_head = "<tr><th>Nombre</th></tr>"
+        evidencia_html = f'<img src="{foto_b64}" class="evidencia" />'
+    else:
+        filas = "".join(f'<tr><td>{nombre}</td><td class="firma"></td></tr>' for nombre in nombres)
+        tabla_head = "<tr><th>Nombre</th><th>Firma</th></tr>"
+        evidencia_html = ""
 
     html = f"""
     <html><head><meta charset="utf-8"><style>
@@ -365,6 +381,7 @@ def descargar_acta(
       table {{ width: 100%; border-collapse: collapse; }}
       th, td {{ border: 1px solid #999; padding: 8px; text-align: left; }}
       .firma {{ width: 40%; height: 40px; }}
+      .evidencia {{ max-width: 100%; max-height: 260px; margin-bottom: 16px; border: 1px solid #999; }}
     </style></head>
     <body>
       <h1>Acta de asistencia — {ev.titulo}</h1>
@@ -374,8 +391,9 @@ def descargar_acta(
         <span><strong>Área:</strong> {area.name if area else ''}</span>
       </div>
       <p>{ev.descripcion}</p>
+      {evidencia_html}
       <table>
-        <thead><tr><th>Nombre</th><th>Firma</th></tr></thead>
+        <thead>{tabla_head}</thead>
         <tbody>{filas}</tbody>
       </table>
     </body></html>

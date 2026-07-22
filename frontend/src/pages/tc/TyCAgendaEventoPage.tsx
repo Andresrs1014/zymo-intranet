@@ -505,7 +505,7 @@ export function TyCAgendaEventoPage() {
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Acta de asistencia</p>
               <p className="text-xs text-muted-foreground mb-3">
-                Si no hay foto de evidencia, descarga el acta, hazla firmar por los asistentes y vuelve a subirla como constancia.
+                Foto y firma son evidencia intercambiable, no hace falta las dos: si subiste foto, el acta la incrusta y ya sirve como constancia. Si no hay foto, descárgala, hazla firmar por los asistentes y vuelve a subirla.
               </p>
               <div className="flex gap-2">
                 <a
