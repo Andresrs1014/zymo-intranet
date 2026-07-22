@@ -76,6 +76,7 @@ import { TyCManualesPage } from "@/pages/tc/TyCManualesPage"
 import { TyCIndicadoresPage } from "@/pages/tc/TyCIndicadoresPage"
 import { TyCCalendarioPage } from "@/pages/tc/TyCCalendarioPage"
 import { TyCEventoPage } from "@/pages/tc/TyCEventoPage"
+import { TyCHistorialCapacitacionesPage } from "@/pages/tc/TyCHistorialCapacitacionesPage"
 import { TyCAreaConfigPage } from "@/pages/tc/TyCAreaConfigPage"
 import { TyCCapacitacionesPage } from "@/pages/tc/TyCCapacitacionesPage"
 import { TyCConfigPage } from "@/pages/tc/TyCConfigPage"
@@ -714,6 +715,10 @@ export default function App() {
         <Route
           path="/tc/eventos/:id"
           element={<TyCRoute><TyCEventoPage /></TyCRoute>}
+        />
+        <Route
+          path="/tc/agenda/historial"
+          element={<TyCRoute><TyCHistorialCapacitacionesPage /></TyCRoute>}
         />
         <Route
           path="/tc/area-config"

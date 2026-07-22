@@ -253,6 +253,10 @@ class PtcEvento(SQLModel, table=True):
     estado: str = Field(max_length=30, default="Programado")  # Programado|En curso|Completado|Cancelado
     area_id: Optional[int] = None               # área responsable principal
     notificacion_enviada: bool = Field(default=False)
+    # Reunión de Microsoft Teams (Graph API) — vacío si no se creó (Graph no
+    # configurado, falló la llamada, o el tipo de evento aún no lo soporta).
+    teams_join_url: str = Field(default="")
+    teams_event_id: str = Field(default="")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -264,6 +268,7 @@ class PtcEventoPersona(SQLModel, table=True):
     evento_id: int = Field(foreign_key="ptc_evento.id", primary_key=True)
     persona_id: int = Field(foreign_key="ptc_persona.id", primary_key=True)
     asistio: Optional[bool] = None
+    motivo_inasistencia: str = Field(max_length=500, default="")
     evaluacion_puntaje: Optional[float] = None  # 0-5 post-evento
 
 
@@ -383,6 +388,9 @@ def _migrate_personal() -> None:
             "ALTER TABLE ptc_cargo ADD COLUMN org_pos_x REAL DEFAULT NULL",
             "ALTER TABLE ptc_cargo ADD COLUMN org_pos_y REAL DEFAULT NULL",
             "ALTER TABLE ptc_persona ADD COLUMN jefe_directo_id INTEGER DEFAULT NULL",
+            "ALTER TABLE ptc_evento ADD COLUMN teams_join_url TEXT DEFAULT ''",
+            "ALTER TABLE ptc_evento ADD COLUMN teams_event_id TEXT DEFAULT ''",
+            "ALTER TABLE ptc_evento_persona ADD COLUMN motivo_inasistencia TEXT DEFAULT ''",
         ]:
             try:
                 conn.execute(text(sql))

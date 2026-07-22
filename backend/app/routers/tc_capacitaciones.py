@@ -273,25 +273,32 @@ def generar_capacitaciones_desde_evento(
 
         if not asistentes:
             return {"capacitaciones_creadas": 0, "personas_ya_registradas": 0,
-                    "evento_titulo": evento.titulo}
+                    "personas_sin_marcar": 0, "evento_titulo": evento.titulo}
 
-        # Calcular horas desde duración del evento
-        horas: Optional[float] = None
-        fecha_cap: Optional[date] = None
-        if evento.fecha_inicio:
-            fecha_cap = evento.fecha_inicio if isinstance(evento.fecha_inicio, date) else evento.fecha_inicio.date()
-        if evento.fecha_inicio and evento.fecha_fin:
-            delta = evento.fecha_fin - evento.fecha_inicio
-            horas = round(delta.total_seconds() / 3600, 1)
+        # Horas desde la duración real del evento (PtcEvento no tiene
+        # fecha_inicio/fecha_fin — solo fecha + hora_inicio/hora_fin "HH:MM").
+        fecha_cap = evento.fecha
+        try:
+            h_ini = datetime.strptime(evento.hora_inicio, "%H:%M")
+            h_fin = datetime.strptime(evento.hora_fin, "%H:%M")
+            horas: Optional[float] = round((h_fin - h_ini).total_seconds() / 3600, 1)
+        except ValueError:
+            horas = None
 
         titulo = evento.titulo
-        obs = f"Generado automáticamente desde evento #{evento_id}"
 
-        # Detectar duplicados existentes
+        # Solo se genera registro para quien ya tiene asistencia marcada —
+        # sin esto, alguien marcado "No asistió" (o sin marcar aún) quedaba
+        # igual como "Completado" en su perfil (bug reportado 2026-07-21).
         ya_registradas = 0
         creadas = 0
+        sin_marcar = 0
 
         for asistente in asistentes:
+            if asistente.asistio is None:
+                sin_marcar += 1
+                continue
+
             existente = db.exec(
                 select(PtcCapacitacion).where(
                     PtcCapacitacion.persona_id == asistente.persona_id,
@@ -308,12 +315,15 @@ def generar_capacitaciones_desde_evento(
                 [d.model_dump() for d in body.documentos] if body and body.documentos else [],
                 ensure_ascii=False,
             )
+            obs = f"Generado automáticamente desde evento #{evento_id}"
+            if not asistente.asistio and asistente.motivo_inasistencia:
+                obs += f" — motivo: {asistente.motivo_inasistencia}"
             cap = PtcCapacitacion(
                 persona_id=asistente.persona_id,
                 titulo=titulo,
                 fecha=fecha_cap,
-                horas=horas,
-                estado="Completado",
+                horas=horas if asistente.asistio else None,
+                estado="Completado" if asistente.asistio else "No asistió",
                 observaciones=obs,
                 documentos=docs_json,
             )
@@ -325,5 +335,6 @@ def generar_capacitaciones_desde_evento(
     return {
         "capacitaciones_creadas": creadas,
         "personas_ya_registradas": ya_registradas,
+        "personas_sin_marcar": sin_marcar,
         "evento_titulo": titulo,
     }

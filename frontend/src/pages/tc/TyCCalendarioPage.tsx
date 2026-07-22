@@ -5,7 +5,7 @@ import { useAuthStore } from "@/store/authStore"
 import { canEditTyC } from "@/lib/permissions"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { TC_EVENTO_TIPOS, type TcEventoTipo, type TcEventoEstado } from "@/lib/tc-constants"
-import { Plus, ChevronLeft, ChevronRight, Calendar, Users, MapPin, Clock } from "lucide-react"
+import { Plus, ChevronLeft, ChevronRight, Calendar, Users, MapPin, Clock, History } from "lucide-react"
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -141,6 +141,13 @@ export function TyCCalendarioPage() {
                 </button>
               ))}
             </div>
+            <button
+              onClick={() => navigate("/tc/agenda/historial")}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border hover:bg-muted/10 text-xs font-semibold transition-colors"
+            >
+              <History className="w-3.5 h-3.5" />
+              Ver todas las capacitaciones
+            </button>
             {puedeEditar && (
               <button
                 onClick={() => navigate("/tc/eventos/nuevo")}

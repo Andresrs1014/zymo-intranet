@@ -20,6 +20,7 @@ from app.models.area import Area as GlobalArea
 from app.models.user import User
 from app.personal_database import (
     PtcAreaConfig,
+    PtcCargo,
     PtcEvento,
     PtcEventoDocumento,
     PtcEventoPersona,
@@ -34,6 +35,7 @@ from app.services.tc_whatsapp import (
     send_whatsapp,
 )
 from app.services.tc_email import build_evento_email, send_email
+from app.services.teams_meetings import crear_reunion
 from app.personal_database import PtcSmtpConfig
 
 router = APIRouter(prefix="/tc", tags=["T&C Agenda"])
@@ -44,6 +46,9 @@ require_tc_sensible = require_permission("mod_tc_sensible")
 
 _TIPOS_EVENTO = {"induccion", "curso", "reunion", "otro"}
 _ESTADOS_EVENTO = {"Programado", "En curso", "Completado", "Cancelado"}
+# MVP: solo inducción de personal nuevo agenda reunión de Teams automáticamente.
+# Ampliar este set cuando se valide con los demás tipos.
+_TIPOS_CON_TEAMS = {"induccion"}
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -84,6 +89,7 @@ class OrdenDiaItem(BaseModel):
 class AsistenciaUpdate(BaseModel):
     persona_id: int
     asistio: Optional[bool] = None
+    motivo_inasistencia: Optional[str] = None
     evaluacion_puntaje: Optional[float] = None
 
 
@@ -130,9 +136,15 @@ def _evento_dict(ev: PtcEvento, db: Session, main_db: Session) -> dict:
         "area_id": ev.area_id,
         "area_nombre": area.name if area else "",
         "notificacion_enviada": ev.notificacion_enviada,
+        "teams_join_url": ev.teams_join_url,
         "total_personas": len(personas),
+        "asistencia_completa": len(personas) > 0 and all(p.asistio is not None for p in personas),
         "personas": [
-            {"persona_id": p.persona_id, "asistio": p.asistio, "evaluacion_puntaje": p.evaluacion_puntaje}
+            {
+                "persona_id": p.persona_id, "asistio": p.asistio,
+                "motivo_inasistencia": p.motivo_inasistencia,
+                "evaluacion_puntaje": p.evaluacion_puntaje,
+            }
             for p in personas
         ],
         "orden_dia": [
@@ -202,11 +214,27 @@ def upsert_area_config(
     return {"ok": True}
 
 
+def _intentar_crear_reunion_teams(ev: PtcEvento, db: Session) -> None:
+    """Best-effort: si falla, el evento en T&C queda intacto, solo sin
+    teams_join_url. Nunca debe tumbar la request que lo llama."""
+    if ev.tipo not in _TIPOS_CON_TEAMS or ev.teams_join_url:
+        return
+    reunion = crear_reunion(ev.titulo, ev.descripcion, ev.fecha, ev.hora_inicio, ev.hora_fin)
+    if reunion:
+        ev.teams_join_url = reunion["join_url"]
+        ev.teams_event_id = reunion["event_id"]
+        db.add(ev)
+        db.commit()
+        db.refresh(ev)
+
+
 # ── Eventos CRUD ──────────────────────────────────────────────────────────────
 
 @router.get("/eventos")
 def listar_eventos(
     mes: Optional[str] = Query(None, description="YYYY-MM — filtra por mes"),
+    desde: Optional[str] = Query(None, description="YYYY-MM-DD — rango, usado por 'Ver todas las capacitaciones'"),
+    hasta: Optional[str] = Query(None, description="YYYY-MM-DD — rango, usado por 'Ver todas las capacitaciones'"),
     tipo: Optional[str] = Query(None),
     estado: Optional[str] = Query(None),
     db: Session = Depends(get_personal_db),
@@ -218,6 +246,10 @@ def listar_eventos(
         stmt = stmt.where(PtcEvento.tipo == tipo)
     if estado:
         stmt = stmt.where(PtcEvento.estado == estado)
+    if desde:
+        stmt = stmt.where(PtcEvento.fecha >= _parse_date(desde))
+    if hasta:
+        stmt = stmt.where(PtcEvento.fecha <= _parse_date(hasta))
     eventos = db.exec(stmt.order_by(PtcEvento.fecha)).all()
 
     if mes:
@@ -255,6 +287,7 @@ def crear_evento(
         db.add(PtcEventoPersona(evento_id=ev.id, persona_id=pid))
     db.commit()
     db.refresh(ev)
+    _intentar_crear_reunion_teams(ev, db)
     return _evento_dict(ev, db, main_db)
 
 
@@ -269,6 +302,70 @@ def get_evento(
     if not ev:
         raise HTTPException(404, "Evento no encontrado")
     return _evento_dict(ev, db, main_db)
+
+
+@router.get("/eventos/{evento_id}/acta")
+def get_acta_evento(
+    evento_id: int,
+    db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
+    _: User = Depends(require_tc),
+):
+    """Acta digital automática: info del evento + asistencia real (con motivo
+    de inasistencia) + fotos de evidencia. No es un documento generado y
+    guardado — se calcula en vivo a partir de los datos del evento."""
+    ev = db.get(PtcEvento, evento_id)
+    if not ev:
+        raise HTTPException(404, "Evento no encontrado")
+
+    asignaciones = db.exec(
+        select(PtcEventoPersona).where(PtcEventoPersona.evento_id == evento_id)
+    ).all()
+    participantes = []
+    for a in asignaciones:
+        persona = db.get(PtcPersona, a.persona_id)
+        participantes.append({
+            "persona_id": a.persona_id,
+            "nombre": persona.nombre if persona else f"Persona #{a.persona_id}",
+            "cargo_nombre": (db.get(PtcCargo, persona.cargo_id).nombre
+                             if persona and persona.cargo_id else ""),
+            "asistio": a.asistio,
+            "motivo_inasistencia": a.motivo_inasistencia,
+        })
+
+    evidencia = [
+        {"id": d.id, "nombre": d.nombre, "url": d.url}
+        for d in db.exec(
+            select(PtcEventoDocumento)
+            .where(PtcEventoDocumento.evento_id == evento_id, PtcEventoDocumento.tipo == "imagen")
+        ).all()
+    ]
+
+    area = main_db.get(GlobalArea, ev.area_id) if ev.area_id else None
+    asistieron = sum(1 for p in participantes if p["asistio"] is True)
+    no_asistieron = sum(1 for p in participantes if p["asistio"] is False)
+    pendientes = sum(1 for p in participantes if p["asistio"] is None)
+
+    return {
+        "evento_id": ev.id,
+        "titulo": ev.titulo,
+        "tipo": ev.tipo,
+        "fecha": ev.fecha.isoformat() if ev.fecha else None,
+        "hora_inicio": ev.hora_inicio,
+        "hora_fin": ev.hora_fin,
+        "lugar": ev.lugar,
+        "descripcion": ev.descripcion,
+        "area_nombre": area.name if area else "",
+        "participantes": participantes,
+        "evidencia": evidencia,
+        "resumen": {
+            "total": len(participantes),
+            "asistieron": asistieron,
+            "no_asistieron": no_asistieron,
+            "pendientes": pendientes,
+            "completa": pendientes == 0 and len(participantes) > 0,
+        },
+    }
 
 
 @router.put("/eventos/{evento_id}")
@@ -292,6 +389,34 @@ def actualizar_evento(
     ev.updated_at = datetime.utcnow()
     db.add(ev)
     db.commit()
+    return _evento_dict(ev, db, main_db)
+
+
+@router.post("/eventos/{evento_id}/teams-meeting")
+def crear_reunion_teams_evento(
+    evento_id: int,
+    db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
+    _: User = Depends(require_tc_editar),
+):
+    """Reintento manual — crea la reunión de Teams si no se creó al agendar
+    (Graph no configurado, falla temporal de red, etc.)."""
+    ev = db.get(PtcEvento, evento_id)
+    if not ev:
+        raise HTTPException(404, "Evento no encontrado")
+    if ev.tipo not in _TIPOS_CON_TEAMS:
+        raise HTTPException(400, f"Reunión de Teams solo disponible para: {_TIPOS_CON_TEAMS}")
+    if ev.teams_join_url:
+        raise HTTPException(409, "Este evento ya tiene una reunión de Teams.")
+    ev.teams_join_url = ""  # fuerza el intento aunque ya se haya llamado antes sin éxito
+    reunion = crear_reunion(ev.titulo, ev.descripcion, ev.fecha, ev.hora_inicio, ev.hora_fin)
+    if not reunion:
+        raise HTTPException(502, "No se pudo crear la reunión en Teams. Revisa la configuración de Graph API o intenta de nuevo.")
+    ev.teams_join_url = reunion["join_url"]
+    ev.teams_event_id = reunion["event_id"]
+    db.add(ev)
+    db.commit()
+    db.refresh(ev)
     return _evento_dict(ev, db, main_db)
 
 
@@ -357,6 +482,10 @@ def registrar_asistencia(
         raise HTTPException(404, "Persona no asignada a este evento")
     if body.asistio is not None:
         ep.asistio = body.asistio
+        if body.asistio:
+            ep.motivo_inasistencia = ""  # si vuelve a marcarse presente, limpia el motivo viejo
+    if body.motivo_inasistencia is not None:
+        ep.motivo_inasistencia = body.motivo_inasistencia
     if body.evaluacion_puntaje is not None:
         ep.evaluacion_puntaje = body.evaluacion_puntaje
     db.add(ep)

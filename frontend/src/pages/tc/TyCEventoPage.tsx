@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useMemo } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { api } from "@/lib/api"
 import { useAuthStore } from "@/store/authStore"
@@ -11,7 +11,7 @@ import {
 import {
   ArrowLeft, Plus, Trash2, CheckCircle2,
   Users, FileText, ListOrdered, GripVertical,
-  Upload, X, Link2,
+  Upload, X, Link2, Video, ClipboardList, ImageOff,
 } from "lucide-react"
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
@@ -29,6 +29,7 @@ interface OrdenDiaItem {
 interface EventoPersona {
   persona_id: number
   asistio: boolean | null
+  motivo_inasistencia: string
   evaluacion_puntaje: number | null
 }
 
@@ -47,17 +48,44 @@ interface Evento {
   area_id: number | null
   area_nombre: string
   notificacion_enviada: boolean
+  teams_join_url: string
   personas: EventoPersona[]
   orden_dia: OrdenDiaItem[]
   documentos: Documento[]
 }
 
-interface PersonaMini { id: number; nombre: string; cargo_nombre: string; empresa_nombre: string; foto_url?: string }
+interface PersonaMini {
+  id: number; nombre: string
+  cargo_id: number | null; cargo_nombre: string
+  area_id: number | null; area_nombre: string
+  empresa_id: number; empresa_nombre: string
+  foto_url?: string
+}
 interface AreaMini { id: number; name: string }
 interface PaqueteItem { titulo: string; horas: number | null; orden: number }
 interface Paquete { id: number; nombre: string; items: PaqueteItem[] }
 
-type Tab = "info" | "personas" | "agenda" | "documentos" | "asistencia"
+type Tab = "info" | "personas" | "agenda" | "documentos" | "asistencia" | "acta"
+
+interface ActaData {
+  evento_id: number
+  titulo: string
+  fecha: string | null
+  hora_inicio: string
+  hora_fin: string
+  lugar: string
+  descripcion: string
+  area_nombre: string
+  participantes: {
+    persona_id: number
+    nombre: string
+    cargo_nombre: string
+    asistio: boolean | null
+    motivo_inasistencia: string
+  }[]
+  evidencia: { id: number; nombre: string; url: string }[]
+  resumen: { total: number; asistieron: number; no_asistieron: number; pendientes: number; completa: boolean }
+}
 
 const TIPO_LABEL: Record<TcEventoTipo, string> = {
   induccion: "Inducción",
@@ -88,12 +116,15 @@ export function TyCEventoPage() {
   const [sending, setSending]     = useState(false)
   const [sendingEmail, setSendingEmail] = useState(false)
   const [notifResult, setNotifResult] = useState<{ ok: boolean; mensaje: string } | null>(null)
+  const [creandoTeams, setCreandoTeams] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [docLinks, setDocLinks]   = useState<{ nombre: string; url: string }[]>([])
   const [generando, setGenerando] = useState(false)
   const [genResult, setGenResult] = useState<{ creadas: number; ya: number } | null>(null)
   const [paquetes, setPaquetes]   = useState<Paquete[]>([])
   const [paqueteId, setPaqueteId] = useState<number | "">("")
+  const [acta, setActa]           = useState<ActaData | null>(null)
+  const [loadingActa, setLoadingActa] = useState(false)
 
   const load = useCallback(() => {
     if (isNew) return
@@ -136,9 +167,31 @@ export function TyCEventoPage() {
 
   // ── Personas ──────────────────────────────────────────────────────────────
 
+  const [empresaFiltro, setEmpresaFiltro] = useState("")
+  const [areaFiltro, setAreaFiltro]       = useState("")
+  const [cargoFiltro, setCargoFiltro]     = useState("")
+
+  // Derivados de allPersonas (ya cargado completo) — evita otro fetch solo
+  // para poblar estos selects de "seleccionar todos los de...".
+  const empresasUnicas = useMemo(() => {
+    const map = new Map<number, string>()
+    allPersonas.forEach((p) => map.set(p.empresa_id, p.empresa_nombre))
+    return [...map.entries()].map(([id, nombre]) => ({ id, nombre })).sort((a, b) => a.nombre.localeCompare(b.nombre))
+  }, [allPersonas])
+
+  const cargosUnicos = useMemo(() => {
+    const map = new Map<number, string>()
+    allPersonas.forEach((p) => { if (p.cargo_id) map.set(p.cargo_id, p.cargo_nombre) })
+    return [...map.entries()].map(([id, nombre]) => ({ id, nombre })).sort((a, b) => a.nombre.localeCompare(b.nombre))
+  }, [allPersonas])
+
   const asignadas = new Set(evento.personas?.map((p) => p.persona_id) ?? [])
   const filtradas = allPersonas.filter((p) =>
-    p.nombre.toLowerCase().includes(busqueda.toLowerCase()) && !asignadas.has(p.id)
+    p.nombre.toLowerCase().includes(busqueda.toLowerCase()) &&
+    !asignadas.has(p.id) &&
+    (!empresaFiltro || String(p.empresa_id) === empresaFiltro) &&
+    (!areaFiltro || String(p.area_id) === areaFiltro) &&
+    (!cargoFiltro || String(p.cargo_id) === cargoFiltro)
   )
 
   async function togglePersona(pid: number) {
@@ -150,10 +203,25 @@ export function TyCEventoPage() {
     load()
   }
 
+  async function agregarTodosFiltrados() {
+    if (!evento.id || filtradas.length === 0) return
+    const nuevos = [...new Set([...asignadas, ...filtradas.map((p) => p.id)])]
+    await api.put(`/tc/eventos/${evento.id}/personas`, nuevos)
+    load()
+  }
+
   // ── Orden del día ─────────────────────────────────────────────────────────
 
   const [agendaLocal, setAgendaLocal] = useState<OrdenDiaItem[]>([])
   useEffect(() => { setAgendaLocal(evento.orden_dia ?? []) }, [evento.orden_dia])
+
+  useEffect(() => {
+    if (tab !== "acta" || !evento.id) return
+    setLoadingActa(true)
+    api.get(`/tc/eventos/${evento.id}/acta`)
+      .then((r) => setActa(r.data))
+      .finally(() => setLoadingActa(false))
+  }, [tab, evento.id])
 
   function addItem() {
     setAgendaLocal((prev) => [
@@ -206,6 +274,12 @@ export function TyCEventoPage() {
     load()
   }
 
+  async function setMotivo(personaId: number, motivo: string) {
+    if (!evento.id) return
+    await api.patch(`/tc/eventos/${evento.id}/asistencia`, { persona_id: personaId, motivo_inasistencia: motivo })
+    load()
+  }
+
   // ── Notificación WhatsApp ─────────────────────────────────────────────────
 
   async function enviarNotificacion() {
@@ -249,6 +323,19 @@ export function TyCEventoPage() {
     } finally { setSendingEmail(false) }
   }
 
+  // ── Reunión de Teams ──────────────────────────────────────────────────────
+
+  async function crearReunionTeams() {
+    if (!evento.id) return
+    setCreandoTeams(true)
+    try {
+      const r = await api.post(`/tc/eventos/${evento.id}/teams-meeting`)
+      setEvento((prev) => ({ ...prev, teams_join_url: r.data.teams_join_url }))
+    } catch (e: any) {
+      setNotifResult({ ok: false, mensaje: e?.response?.data?.detail ?? "No se pudo crear la reunión de Teams." })
+    } finally { setCreandoTeams(false) }
+  }
+
   // ── Generar capacitaciones ───────────────────────────────────────────────
 
   async function generarCapacitaciones() {
@@ -271,6 +358,7 @@ export function TyCEventoPage() {
     { id: "agenda",     label: "Orden del día", icon: <ListOrdered className="w-3.5 h-3.5" />, disabled: isNew },
     { id: "documentos", label: "Documentos",    icon: <Upload className="w-3.5 h-3.5" />, disabled: isNew },
     { id: "asistencia", label: "Asistencia",    icon: <CheckCircle2 className="w-3.5 h-3.5" />, disabled: isNew },
+    { id: "acta",       label: "Acta",          icon: <ClipboardList className="w-3.5 h-3.5" />, disabled: isNew },
   ]
 
   return (
@@ -306,8 +394,37 @@ export function TyCEventoPage() {
             </div>
 
             {/* Notificaciones */}
-            {!isNew && puedeEditar && evento.area_id && (
+            {!isNew && puedeEditar && (
               <div className="flex items-center gap-2">
+                {evento.tipo === "induccion" && (
+                  evento.teams_join_url ? (
+                    <a
+                      href={evento.teams_join_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#6264A7]/10 hover:bg-[#6264A7]/20 text-[#8385D6] transition-colors overflow-hidden"
+                    >
+                      <span className="relative flex h-1.5 w-1.5">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#8385D6] opacity-60" />
+                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#8385D6]" />
+                      </span>
+                      <Video className="w-3.5 h-3.5" />
+                      Unirse en Teams
+                    </a>
+                  ) : (
+                    <button
+                      onClick={crearReunionTeams}
+                      disabled={creandoTeams}
+                      title="Crear reunión de Microsoft Teams para esta inducción"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#6264A7]/10 hover:bg-[#6264A7]/20 text-[#8385D6] transition-colors disabled:opacity-40"
+                    >
+                      <Video className="w-3.5 h-3.5" />
+                      {creandoTeams ? "Creando…" : "Crear reunión Teams"}
+                    </button>
+                  )
+                )}
+                {evento.area_id && (
+                <>
                 <button
                   onClick={enviarNotificacion}
                   disabled={sending}
@@ -335,6 +452,8 @@ export function TyCEventoPage() {
                   </svg>
                   {sendingEmail ? "..." : "Email"}
                 </button>
+                </>
+                )}
               </div>
             )}
           </div>
@@ -544,12 +663,39 @@ export function TyCEventoPage() {
                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3">
                   Agregar colaboradores
                 </p>
+
+                <div className="flex gap-1.5 mb-2">
+                  <select value={empresaFiltro} onChange={(e) => setEmpresaFiltro(e.target.value)} className="input-base text-xs py-1.5 flex-1">
+                    <option value="">Toda empresa</option>
+                    {empresasUnicas.map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+                  </select>
+                  <select value={areaFiltro} onChange={(e) => setAreaFiltro(e.target.value)} className="input-base text-xs py-1.5 flex-1">
+                    <option value="">Toda área</option>
+                    {areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  </select>
+                  <select value={cargoFiltro} onChange={(e) => setCargoFiltro(e.target.value)} className="input-base text-xs py-1.5 flex-1">
+                    <option value="">Todo cargo</option>
+                    {cargosUnicos.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                  </select>
+                </div>
+
                 <input
                   value={busqueda}
                   onChange={(e) => setBusqueda(e.target.value)}
                   placeholder="Buscar por nombre..."
                   className="input-base mb-2"
                 />
+
+                {(empresaFiltro || areaFiltro || cargoFiltro) && filtradas.length > 0 && (
+                  <button
+                    onClick={agregarTodosFiltrados}
+                    className="w-full mb-2 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Agregar los {filtradas.length} seleccionados por el filtro
+                  </button>
+                )}
+
                 <div className="space-y-1 max-h-80 overflow-y-auto pr-1">
                   {filtradas.slice(0, 20).map((p) => (
                     <button
@@ -705,40 +851,55 @@ export function TyCEventoPage() {
             {evento.personas?.map((ep) => {
               const p = allPersonas.find((x) => x.id === ep.persona_id)
               return (
-                <div key={ep.persona_id} className="flex items-center gap-3 p-3 rounded-xl border border-border bg-muted/5">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium">{p?.nombre ?? `#${ep.persona_id}`}</p>
-                    <p className="text-[10px] text-muted-foreground">{p?.cargo_nombre}</p>
+                <div key={ep.persona_id} className="p-3 rounded-xl border border-border bg-muted/5 space-y-2">
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium">{p?.nombre ?? `#${ep.persona_id}`}</p>
+                      <p className="text-[10px] text-muted-foreground">{p?.cargo_nombre}</p>
+                    </div>
+                    {puedeEditar ? (
+                      <>
+                        <select
+                          value={ep.asistio === null ? "" : ep.asistio ? "1" : "0"}
+                          onChange={(e) => setAsistencia(ep.persona_id, e.target.value === "1")}
+                          className="text-xs rounded-lg border border-border bg-transparent px-2 py-1"
+                        >
+                          <option value="">— Asistencia —</option>
+                          <option value="1">✓ Asistió</option>
+                          <option value="0">✗ No asistió</option>
+                        </select>
+                        <input
+                          type="number"
+                          min={0} max={5} step={0.1}
+                          value={ep.evaluacion_puntaje ?? ""}
+                          onChange={(e) => setPuntaje(ep.persona_id, parseFloat(e.target.value))}
+                          placeholder="Nota 0-5"
+                          className="w-20 text-xs rounded-lg border border-border bg-transparent px-2 py-1 text-center"
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <span className={`text-xs ${ep.asistio === null ? "text-muted-foreground" : ep.asistio ? "text-emerald-400" : "text-rose-400"}`}>
+                          {ep.asistio === null ? "Pendiente" : ep.asistio ? "Asistió" : "No asistió"}
+                        </span>
+                        {ep.evaluacion_puntaje !== null && (
+                          <span className="text-xs text-teal-400">{ep.evaluacion_puntaje}/5</span>
+                        )}
+                      </>
+                    )}
                   </div>
-                  {puedeEditar ? (
-                    <>
-                      <select
-                        value={ep.asistio === null ? "" : ep.asistio ? "1" : "0"}
-                        onChange={(e) => setAsistencia(ep.persona_id, e.target.value === "1")}
-                        className="text-xs rounded-lg border border-border bg-transparent px-2 py-1"
-                      >
-                        <option value="">— Asistencia —</option>
-                        <option value="1">✓ Asistió</option>
-                        <option value="0">✗ No asistió</option>
-                      </select>
+                  {ep.asistio === false && (
+                    puedeEditar ? (
                       <input
-                        type="number"
-                        min={0} max={5} step={0.1}
-                        value={ep.evaluacion_puntaje ?? ""}
-                        onChange={(e) => setPuntaje(ep.persona_id, parseFloat(e.target.value))}
-                        placeholder="Nota 0-5"
-                        className="w-20 text-xs rounded-lg border border-border bg-transparent px-2 py-1 text-center"
+                        key={`${ep.persona_id}-motivo`}
+                        defaultValue={ep.motivo_inasistencia}
+                        onBlur={(e) => setMotivo(ep.persona_id, e.target.value)}
+                        placeholder="Motivo de la inasistencia…"
+                        className="w-full text-xs rounded-lg border border-rose-400/20 bg-rose-500/5 px-2 py-1.5 placeholder:text-muted-foreground/50"
                       />
-                    </>
-                  ) : (
-                    <>
-                      <span className={`text-xs ${ep.asistio === null ? "text-muted-foreground" : ep.asistio ? "text-emerald-400" : "text-rose-400"}`}>
-                        {ep.asistio === null ? "Pendiente" : ep.asistio ? "Asistió" : "No asistió"}
-                      </span>
-                      {ep.evaluacion_puntaje !== null && (
-                        <span className="text-xs text-teal-400">{ep.evaluacion_puntaje}/5</span>
-                      )}
-                    </>
+                    ) : ep.motivo_inasistencia ? (
+                      <p className="text-[11px] text-rose-400/80 italic">Motivo: {ep.motivo_inasistencia}</p>
+                    ) : null
                   )}
                 </div>
               )
@@ -804,6 +965,95 @@ export function TyCEventoPage() {
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   {generando ? "Generando..." : "Generar capacitaciones"}
                 </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === "acta" && !isNew && (
+          <div className="max-w-2xl">
+            {loadingActa ? (
+              <p className="text-xs text-muted-foreground py-8 text-center">Generando acta…</p>
+            ) : !acta ? (
+              <p className="text-xs text-muted-foreground py-8 text-center">No se pudo cargar el acta.</p>
+            ) : (
+              <div className="space-y-5">
+                <div className="flex items-start justify-between gap-3 p-4 rounded-xl border border-border bg-muted/5">
+                  <div>
+                    <p className="text-sm font-semibold">{acta.titulo}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {acta.fecha && new Date(acta.fecha + "T00:00:00").toLocaleDateString("es-CO", { day: "numeric", month: "long", year: "numeric" })}
+                      {" · "}{acta.hora_inicio}–{acta.hora_fin}
+                      {acta.lugar && ` · ${acta.lugar}`}
+                      {acta.area_nombre && ` · ${acta.area_nombre}`}
+                    </p>
+                    {acta.descripcion && <p className="text-xs text-muted-foreground/80 mt-2">{acta.descripcion}</p>}
+                  </div>
+                  <span className={`shrink-0 px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${
+                    acta.resumen.completa ? "bg-emerald-500/10 text-emerald-400" : "bg-amber-500/10 text-amber-400"
+                  }`}>
+                    {acta.resumen.completa ? "Acta completa" : "Acta pendiente"}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-4 gap-2">
+                  {[
+                    { label: "Total", value: acta.resumen.total, color: "text-foreground" },
+                    { label: "Asistieron", value: acta.resumen.asistieron, color: "text-emerald-400" },
+                    { label: "No asistieron", value: acta.resumen.no_asistieron, color: "text-rose-400" },
+                    { label: "Pendientes", value: acta.resumen.pendientes, color: "text-amber-400" },
+                  ].map((s) => (
+                    <div key={s.label} className="p-2.5 rounded-lg border border-border bg-muted/5 text-center">
+                      <p className={`text-lg font-bold font-mono ${s.color}`}>{s.value}</p>
+                      <p className="text-[9px] uppercase tracking-wide text-muted-foreground">{s.label}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Participantes</p>
+                  <div className="space-y-1.5">
+                    {acta.participantes.map((p) => (
+                      <div key={p.persona_id} className="p-2.5 rounded-lg border border-border bg-muted/5">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium truncate">{p.nombre}</p>
+                            <p className="text-[10px] text-muted-foreground truncate">{p.cargo_nombre}</p>
+                          </div>
+                          <span className={`shrink-0 text-[10px] font-semibold ${
+                            p.asistio === null ? "text-amber-400" : p.asistio ? "text-emerald-400" : "text-rose-400"
+                          }`}>
+                            {p.asistio === null ? "Pendiente" : p.asistio ? "✓ Asistió" : "✗ No asistió"}
+                          </span>
+                        </div>
+                        {p.asistio === false && p.motivo_inasistencia && (
+                          <p className="text-[11px] text-rose-400/80 italic mt-1">Motivo: {p.motivo_inasistencia}</p>
+                        )}
+                      </div>
+                    ))}
+                    {acta.participantes.length === 0 && (
+                      <p className="text-xs text-muted-foreground text-center py-4">Sin participantes asignados</p>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Evidencia fotográfica</p>
+                  {acta.evidencia.length === 0 ? (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground py-4 justify-center">
+                      <ImageOff className="w-3.5 h-3.5" />
+                      Sin fotos cargadas (súbelas en la pestaña Documentos)
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-2">
+                      {acta.evidencia.map((e) => (
+                        <a key={e.id} href={e.url} target="_blank" rel="noopener noreferrer" className="block aspect-square rounded-lg overflow-hidden border border-border">
+                          <img src={e.url} alt={e.nombre} className="w-full h-full object-cover" />
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
