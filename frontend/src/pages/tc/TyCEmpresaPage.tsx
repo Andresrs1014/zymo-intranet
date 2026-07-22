@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom"
 import { api } from "@/lib/api"
 import { PageLayout } from "@/components/layout/PageLayout"
 import {
-  ArrowLeft, ArrowRight, GitBranch, Layers, Users,
+  ArrowLeft, ArrowRight, ArrowUpRight, GitBranch, Layers, Users,
   UserCheck, Mars, Venus, Loader2,
 } from "lucide-react"
 
@@ -90,12 +90,7 @@ export function TyCEmpresaPage() {
             {/* KPIs */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <KpiCard label="Colaboradores" value={String(hub.kpis.total)} icon={<Users className="w-4 h-4" />} />
-              <KpiCard
-                label="Años promedio"
-                value={hub.kpis.antiguedad_promedio.toFixed(1)}
-                icon={<UserCheck className="w-4 h-4" />}
-                mono
-              />
+              <KpiCard label="Años promedio" value={hub.kpis.antiguedad_promedio.toFixed(1)} icon={<UserCheck className="w-4 h-4" />} />
               <KpiCard label="Personal masculino" value={`${hub.kpis.masculino_pct}%`} icon={<Mars className="w-4 h-4" />} />
               <KpiCard label="Personal femenino" value={`${hub.kpis.femenino_pct}%`} icon={<Venus className="w-4 h-4" />} />
             </div>
@@ -106,17 +101,17 @@ export function TyCEmpresaPage() {
               <button
                 type="button"
                 onClick={() => navigate(`/tc/organigrama?sede=${sedeId}`)}
-                className="group w-full text-left rounded-2xl overflow-hidden border border-[#ef3340]/25 bg-gradient-to-br from-[#4e1012] via-[#74151d] to-[#ef3340]/90 p-5 transition-all hover:shadow-lg hover:shadow-[#ef3340]/15 hover:-translate-y-px"
+                className="group w-full text-left rounded-2xl border border-border bg-muted/5 p-5 transition-all duration-200 hover:border-teal-500/30 hover:bg-muted/10 hover:shadow-lg hover:-translate-y-px"
               >
                 <div className="flex items-start gap-4">
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal-500/10 text-teal-400">
                     <GitBranch className="w-5 h-5" />
                   </span>
                   <div className="flex-1 min-w-0">
-                    <h2 className="text-lg font-semibold text-white leading-snug">
+                    <h2 className="text-base font-semibold leading-snug">
                       Mapa jerárquico de {hub.empresa.nombre}
                     </h2>
-                    <p className="text-sm text-white/75 mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       Consulta la estructura financiera y operativa propia de la empresa.
                     </p>
                     <div className="flex flex-wrap gap-2 mt-3">
@@ -125,7 +120,7 @@ export function TyCEmpresaPage() {
                       <Tag>Asignación de personal</Tag>
                     </div>
                   </div>
-                  <ArrowRight className="w-5 h-5 text-white/50 group-hover:text-white/90 shrink-0 mt-1 transition-colors" />
+                  <ArrowUpRight className="w-4 h-4 text-muted-foreground/30 group-hover:text-teal-400 shrink-0 mt-1 transition-colors" />
                 </div>
               </button>
             </section>
@@ -199,20 +194,17 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 function KpiCard({
-  label, value, icon, mono = false,
+  label, value, icon,
 }: {
-  label: string; value: string; icon: React.ReactNode; mono?: boolean
+  label: string; value: string; icon: React.ReactNode
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card px-4 py-3">
+    <div className="rounded-xl border border-border bg-muted/5 px-4 py-3">
       <div className="flex items-center gap-2 text-muted-foreground mb-1">
         {icon}
         <span className="text-[10px] font-semibold uppercase tracking-wide">{label}</span>
       </div>
-      <p
-        className={`text-2xl font-bold tabular-nums ${mono ? "font-mono" : ""}`}
-        style={mono ? { fontFamily: "'DM Mono', monospace" } : undefined}
-      >
+      <p className="text-2xl font-bold tabular-nums" style={{ fontFamily: "'DM Mono', monospace" }}>
         {value}
       </p>
     </div>
@@ -221,7 +213,7 @@ function KpiCard({
 
 function Tag({ children }: { children: React.ReactNode }) {
   return (
-    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-white/15 text-white/90">
+    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full border border-border bg-background/60 text-muted-foreground">
       {children}
     </span>
   )
