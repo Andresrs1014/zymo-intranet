@@ -25,6 +25,7 @@ def create_db_and_tables() -> None:
     from app.models.area import Area
     from app.models.sede import Sede
     from app.models.area_sede import AreaSede
+    from app.models.plataforma_perfil import PlataformaPerfil
     from app.models.draft import FormDraft
     from app.models.learned_synonym import LearnedSynonym
     from app.models.extraction_review import ExtractionReview
@@ -32,7 +33,7 @@ def create_db_and_tables() -> None:
     from app.models.global_config import GlobalConfig
 
     intranet_table_names = {
-        "user", "role", "area", "sede", "area_sede", "form_drafts",
+        "user", "role", "area", "sede", "area_sede", "plataforma_perfil", "form_drafts",
         "learned_synonyms", "extraction_reviews",
         "user_tools", "global_config",
     }

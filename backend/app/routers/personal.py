@@ -13,10 +13,12 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, 
 from pydantic import BaseModel
 from sqlmodel import Session, col, select
 
+from app.config import settings
 from app.core.deps import get_current_user, require_admin, require_permission
 from app.database import get_db
 from app.models.area import Area as GlobalArea
 from app.models.area_sede import AreaSede
+from app.models.plataforma_perfil import PlataformaPerfil
 from app.models.sede import Sede
 from app.models.user import User
 from app.personal_database import (
@@ -281,6 +283,7 @@ def hub_empresa(
     sede = main_db.get(Sede, sede_id)
     if not sede:
         raise HTTPException(status_code=404, detail="Empresa (sede) no encontrada")
+    perfil = main_db.get(PlataformaPerfil, sede_id)
 
     # El headcount de una plataforma es solo quien tiene esa sede como nómina.
     # Un cargo transversal (ej. "Auxiliar" en las 3 empresas) normalmente es
@@ -361,7 +364,12 @@ def hub_empresa(
         })
 
     return {
-        "empresa": {"id": sede.id, "nombre": sede.name, "codigo": sede.name},
+        "empresa": {
+            "id": sede.id,
+            "nombre": perfil.nombre if perfil else sede.name,
+            "codigo": sede.name,
+            "logo_url": perfil.logo_url if perfil else "",
+        },
         "kpis": {
             "total": len(personas),
             "activos": len(activos),
@@ -431,6 +439,103 @@ def listar_empresas(
     """Devuelve las sedes del sistema como lista de empresas (fuente única de verdad)."""
     sedes = main_db.exec(select(Sede)).all()
     return [{"id": s.id, "nombre": s.name, "codigo": s.name} for s in sedes]
+
+
+# ── Plataformas (perfil del Hub por empresa: logo + nombre propios) ───────────
+# Una Sede sin fila en PlataformaPerfil no tiene Hub activo — la activación es
+# explícita (subir logo + nombre), no automática por existir en Admin > Sedes.
+
+class PlataformaPerfilUpdate(BaseModel):
+    nombre: str
+
+
+@router.get("/plataformas")
+def listar_plataformas(
+    main_db: Session = Depends(get_db),
+    _: User = Depends(require_tc),
+):
+    """Todas las sedes, con su perfil de plataforma si ya está configurado."""
+    sedes = main_db.exec(select(Sede)).all()
+    perfiles = {p.sede_id: p for p in main_db.exec(select(PlataformaPerfil)).all()}
+    return [
+        {
+            "sede_id": s.id,
+            "sede_nombre": s.name,
+            "configurada": s.id in perfiles,
+            "nombre": perfiles[s.id].nombre if s.id in perfiles else s.name,
+            "logo_url": perfiles[s.id].logo_url if s.id in perfiles else "",
+        }
+        for s in sedes
+    ]
+
+
+@router.put("/plataformas/{sede_id}")
+def guardar_plataforma(
+    sede_id: int,
+    body: PlataformaPerfilUpdate,
+    main_db: Session = Depends(get_db),
+    _: User = Depends(require_tc_editar),
+):
+    sede = main_db.get(Sede, sede_id)
+    if not sede:
+        raise HTTPException(status_code=404, detail="Sede no encontrada.")
+    perfil = main_db.get(PlataformaPerfil, sede_id)
+    if not perfil:
+        perfil = PlataformaPerfil(sede_id=sede_id, nombre=body.nombre.strip())
+    else:
+        perfil.nombre = body.nombre.strip()
+        perfil.updated_at = datetime.utcnow()
+    main_db.add(perfil)
+    main_db.commit()
+    main_db.refresh(perfil)
+    return {"sede_id": sede_id, "nombre": perfil.nombre, "logo_url": perfil.logo_url}
+
+
+@router.post("/plataformas/{sede_id}/logo")
+async def subir_logo_plataforma(
+    sede_id: int,
+    file: UploadFile = File(...),
+    main_db: Session = Depends(get_db),
+    _: User = Depends(require_tc_editar),
+):
+    sede = main_db.get(Sede, sede_id)
+    if not sede:
+        raise HTTPException(status_code=404, detail="Sede no encontrada.")
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Solo se permiten imágenes.")
+
+    content = await file.read()
+    if len(content) > _MAX_FOTO_MB * 1024 * 1024:
+        raise HTTPException(status_code=400, detail=f"La imagen no puede superar los {_MAX_FOTO_MB} MB.")
+
+    ext = {"image/png": "png", "image/webp": "webp"}.get(file.content_type, "jpg")
+    fotos_dir = settings.tc_fotos_dir
+    os.makedirs(fotos_dir, exist_ok=True)
+    fname = f"plataforma_{sede_id}.{ext}"
+    with open(os.path.join(fotos_dir, fname), "wb") as f:
+        f.write(content)
+
+    perfil = main_db.get(PlataformaPerfil, sede_id)
+    if not perfil:
+        perfil = PlataformaPerfil(sede_id=sede_id, nombre=sede.name)
+    perfil.logo_url = f"/tc-fotos/{fname}"
+    perfil.updated_at = datetime.utcnow()
+    main_db.add(perfil)
+    main_db.commit()
+    main_db.refresh(perfil)
+    return {"sede_id": sede_id, "nombre": perfil.nombre, "logo_url": perfil.logo_url}
+
+
+@router.delete("/plataformas/{sede_id}", status_code=status.HTTP_204_NO_CONTENT)
+def desactivar_plataforma(
+    sede_id: int,
+    main_db: Session = Depends(get_db),
+    _: User = Depends(require_tc_editar),
+):
+    perfil = main_db.get(PlataformaPerfil, sede_id)
+    if perfil:
+        main_db.delete(perfil)
+        main_db.commit()
 
 
 # ── Áreas ─────────────────────────────────────────────────────────────────────
