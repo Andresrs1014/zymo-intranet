@@ -16,6 +16,7 @@ from sqlmodel import Session, col, select
 from app.core.deps import get_current_user, require_admin, require_permission
 from app.database import get_db
 from app.models.area import Area as GlobalArea
+from app.models.area_sede import AreaSede
 from app.models.sede import Sede
 from app.models.user import User
 from app.personal_database import (
@@ -281,7 +282,25 @@ def hub_empresa(
     if not sede:
         raise HTTPException(status_code=404, detail="Empresa (sede) no encontrada")
 
-    personas = db.exec(select(PtcPersona).where(PtcPersona.sede_id == sede_id)).all()
+    personas_nomina = db.exec(select(PtcPersona).where(PtcPersona.sede_id == sede_id)).all()
+
+    cargo_ids_sede = {
+        row.cargo_id
+        for row in db.exec(select(PtcCargoSede).where(PtcCargoSede.sede_id == sede_id)).all()
+    }
+    for p in personas_nomina:
+        if p.cargo_id:
+            cargo_ids_sede.add(p.cargo_id)
+
+    # Personas con nómina en otra sede pero cuyo cargo es transversal (existe
+    # también en esta sede vía PtcCargoSede) — cuentan igual en esta plataforma,
+    # no solo en la de su nómina.
+    personas_by_id = {p.id: p for p in personas_nomina}
+    if cargo_ids_sede:
+        for p in db.exec(select(PtcPersona).where(col(PtcPersona.cargo_id).in_(cargo_ids_sede))).all():
+            personas_by_id.setdefault(p.id, p)
+    personas = list(personas_by_id.values())
+
     activos = [p for p in personas if p.estado == _ACTIVO]
     con_genero = [p for p in activos if p.genero in _GENEROS_STATS]
 
@@ -290,14 +309,6 @@ def hub_empresa(
         if p.fecha_ingreso:
             years.append((date.today() - p.fecha_ingreso).days / 365.25)
     antiguedad_prom = round(sum(years) / len(years), 1) if years else 0.0
-
-    cargo_ids_sede = {
-        row.cargo_id
-        for row in db.exec(select(PtcCargoSede).where(PtcCargoSede.sede_id == sede_id)).all()
-    }
-    for p in personas:
-        if p.cargo_id:
-            cargo_ids_sede.add(p.cargo_id)
 
     cargos: list[PtcCargo] = []
     if cargo_ids_sede:
@@ -314,6 +325,10 @@ def hub_empresa(
     ).all()
 
     global_areas = main_db.exec(select(GlobalArea).order_by(col(GlobalArea.name))).all()
+    areas_activas_ids = {
+        row.area_id
+        for row in main_db.exec(select(AreaSede).where(AreaSede.sede_id == sede_id)).all()
+    }
     areas_out: list[dict] = []
 
     def _cargo_row(c: PtcCargo) -> dict:
@@ -326,11 +341,14 @@ def hub_empresa(
     for area in global_areas:
         area_cargos = [c for c in cargos if c.area_id == area.id]
         area_personas = [p for p in activos if p.area_id == area.id]
-        if not area_cargos and not area_personas:
+        # Se muestra si fue activada explícitamente en "Gestionar áreas" (aunque
+        # todavía no tenga cargos) o si ya tiene contenido real en esta sede.
+        if area.id not in areas_activas_ids and not area_cargos and not area_personas:
             continue
         areas_out.append({
             "id": area.id,
             "nombre": area.name,
+            "activa": area.id in areas_activas_ids,
             "cargos_count": len(area_cargos),
             "personas_count": len(area_personas),
             "cargos": [_cargo_row(c) for c in sorted(area_cargos, key=lambda x: x.nombre.lower())],
@@ -365,6 +383,47 @@ def hub_empresa(
         "mapa_jerarquico": {"cargos_configurados": len(mapa_cargos)},
         "areas": areas_out,
     }
+
+
+@router.get("/empresa/{sede_id}/areas-activas")
+def areas_activas_empresa(
+    sede_id: int,
+    main_db: Session = Depends(get_db),
+    _: User = Depends(require_tc),
+):
+    """Áreas marcadas explícitamente como activas para esta plataforma (sede),
+    vía "Gestionar áreas" — independiente de si ya tienen cargos cargados."""
+    sede = main_db.get(Sede, sede_id)
+    if not sede:
+        raise HTTPException(status_code=404, detail="Empresa (sede) no encontrada")
+    rows = main_db.exec(select(AreaSede).where(AreaSede.sede_id == sede_id)).all()
+    return {"area_ids": [r.area_id for r in rows]}
+
+
+@router.put("/empresa/{sede_id}/areas")
+def set_areas_empresa(
+    sede_id: int,
+    area_ids: list[int],
+    main_db: Session = Depends(get_db),
+    _: User = Depends(require_tc_editar),
+):
+    """Reemplaza el set de áreas activas de esta plataforma (sede)."""
+    sede = main_db.get(Sede, sede_id)
+    if not sede:
+        raise HTTPException(status_code=404, detail="Empresa (sede) no encontrada")
+    actuales = {
+        row.area_id: row
+        for row in main_db.exec(select(AreaSede).where(AreaSede.sede_id == sede_id)).all()
+    }
+    nuevas = set(area_ids)
+    for aid, row in actuales.items():
+        if aid not in nuevas:
+            main_db.delete(row)
+    for aid in nuevas:
+        if aid not in actuales:
+            main_db.add(AreaSede(area_id=aid, sede_id=sede_id))
+    main_db.commit()
+    return {"area_ids": sorted(nuevas)}
 
 
 # ── Empresas ──────────────────────────────────────────────────────────────────
