@@ -66,35 +66,3 @@ export const TC_EMPRESA_PALETTE = [
   { badge: "bg-rose-500/10 text-rose-400",     text: "text-rose-400"    },
 ] as const
 
-/**
- * Marca visual por sede (label corto + escudo del prototipo Directorio).
- * Coincidencia por substring, NO texto exacto — mismo criterio que ya usa
- * `_resolve_sede_ids()` en `backend/app/tc_org_seed.py` (probado en
- * producción contra los Sede.name reales): el nombre de la sede se edita
- * libremente desde Admin → Áreas y Sedes, así que no se puede asumir un
- * string fijo como "LOGIMAT" o "IMC Depósito".
- */
-const TC_EMPRESA_BRANDS = [
-  { test: (n: string) => n.includes("LOGI"), label: "ZYMOLOGI", logo: "/tc/company-logos/zymologi.jpg" },
-  { test: (n: string) => n.includes("IMCC") || n.includes("CARGO"), label: "ZYMOIMCC", logo: "/tc/company-logos/zymoimcc.png" },
-  { test: (n: string) => n.includes("IMDE") || n.includes("DEPOSITO") || n.includes("DEPÓSITO"), label: "ZYMOIMDE", logo: "/tc/company-logos/zymoimde.jpg" },
-] as const
-
-function matchEmpresaBrand(codigo: string) {
-  const upper = codigo.toUpperCase()
-  return TC_EMPRESA_BRANDS.find((b) => b.test(upper))
-}
-
-export function tcEmpresaLabel(codigo: string): string {
-  return matchEmpresaBrand(codigo)?.label ?? codigo
-}
-
-export function tcEmpresaLogo(codigo: string): string | null {
-  return matchEmpresaBrand(codigo)?.logo ?? null
-}
-
-/** Orden del grid «Empresas del grupo»: logi, imcc, imde, luego cualquier sede nueva sin marca. */
-export function tcEmpresaOrderKey(codigo: string): number {
-  const idx = TC_EMPRESA_BRANDS.findIndex((b) => b.test(codigo.toUpperCase()))
-  return idx === -1 ? 99 : idx
-}

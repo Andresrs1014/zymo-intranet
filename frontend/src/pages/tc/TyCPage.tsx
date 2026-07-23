@@ -1,27 +1,29 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { api } from "@/lib/api"
 import { useAuthStore } from "@/store/authStore"
 import { canConfigTyC, canEditTyC, canImportTyC, canSeeTyCSensible, canUseCapCoordinador } from "@/lib/permissions"
 import { PageLayout } from "@/components/layout/PageLayout"
+import { PlataformaConfigSheet } from "./components/PlataformaConfigSheet"
 import {
   Users, GitBranch, Upload, FileText, TrendingUp, ArrowUpRight,
-  CalendarDays, Settings2, GraduationCap, UserX, Building2, UserPlus,
+  CalendarDays, Settings2, GraduationCap, UserX, Building2, UserPlus, Plus, Pencil,
 } from "lucide-react"
-import {
-  tcEmpresaOrderKey,
-  tcEmpresaLabel,
-  tcEmpresaLogo,
-} from "@/lib/tc-constants"
 
 interface Stats {
   total: number
   activos: number
   inactivos: number
-  por_empresa?: { id: number; codigo: string; nombre: string; total: number; activos: number }[]
+  por_empresa?: { id: number; total: number }[]
 }
 
-interface Empresa { id: number; nombre: string; codigo: string }
+interface Plataforma {
+  sede_id: number
+  sede_nombre: string
+  configurada: boolean
+  nombre: string
+  logo_url: string
+}
 
 export function TyCPage() {
   const navigate      = useNavigate()
@@ -33,29 +35,30 @@ export function TyCPage() {
   const puedeCapCoord   = user ? canUseCapCoordinador(user.role, user.app_permissions) : false
 
   const [stats, setStats] = useState<Stats | null>(null)
-  const [empresas, setEmpresas] = useState<Empresa[]>([])
+  const [plataformas, setPlataformas] = useState<Plataforma[]>([])
+  const [configSheetSede, setConfigSheetSede] = useState<Plataforma | null>(null)
 
-  useEffect(() => {
-    Promise.all([api.get("/tc/stats"), api.get("/tc/empresas")])
-      .then(([statsRes, empresasRes]) => {
-        setStats({
-          total: statsRes.data.total,
-          activos: statsRes.data.activos,
-          inactivos: statsRes.data.inactivos,
-          por_empresa: statsRes.data.por_empresa ?? [],
-        })
-        setEmpresas(Array.isArray(empresasRes.data) ? empresasRes.data : [])
-      })
+  const cargarPlataformas = useCallback(() => {
+    api.get("/tc/plataformas")
+      .then((r) => setPlataformas(Array.isArray(r.data) ? r.data : []))
       .catch(() => {})
   }, [])
 
-  const countByEmpresa = new Map(
-    (stats?.por_empresa ?? []).map((e) => [e.codigo, e.total]),
-  )
+  useEffect(() => {
+    api.get("/tc/stats")
+      .then((r) => setStats({
+        total: r.data.total,
+        activos: r.data.activos,
+        inactivos: r.data.inactivos,
+        por_empresa: r.data.por_empresa ?? [],
+      }))
+      .catch(() => {})
+    cargarPlataformas()
+  }, [cargarPlataformas])
 
-  const empresasGrid = [...empresas].sort(
-    (a, b) => tcEmpresaOrderKey(a.codigo) - tcEmpresaOrderKey(b.codigo),
-  )
+  const countBySede = new Map((stats?.por_empresa ?? []).map((e) => [e.id, e.total]))
+  const configuradas = plataformas.filter((p) => p.configurada)
+  const sinConfigurar = plataformas.filter((p) => !p.configurada)
 
   const activePct = stats ? Math.round((stats.activos / Math.max(stats.total, 1)) * 100) : 0
 
@@ -105,21 +108,47 @@ export function TyCPage() {
       </div>
 
       {/* ── Empresas del grupo ─────────────────────────────────────────── */}
-      {empresasGrid.length > 0 && (
+      {plataformas.length > 0 && (
         <div className="px-10 pt-8 pb-2 max-w-5xl mx-auto">
           <SectionLabel>Empresas del grupo</SectionLabel>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {empresasGrid.map((empresa, i) => (
+            {configuradas.map((p, i) => (
               <EmpresaGrupoCard
-                key={empresa.id}
-                codigo={empresa.codigo}
-                colaboradores={countByEmpresa.get(empresa.codigo) ?? 0}
-                onClick={() => navigate(`/tc/empresa/${empresa.id}`)}
+                key={p.sede_id}
+                nombre={p.nombre}
+                logoUrl={p.logo_url}
+                colaboradores={countBySede.get(p.sede_id) ?? 0}
+                onClick={() => navigate(`/tc/empresa/${p.sede_id}`)}
+                onEditar={puedeEditar ? () => setConfigSheetSede(p) : undefined}
                 delayMs={i * 70}
               />
             ))}
+            {puedeEditar && sinConfigurar.map((p) => (
+              <button
+                key={p.sede_id}
+                type="button"
+                onClick={() => setConfigSheetSede(p)}
+                className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border px-5 py-6 text-muted-foreground hover:border-teal-500/40 hover:text-teal-400 transition-colors"
+              >
+                <Plus className="w-6 h-6" />
+                <span className="text-xs font-semibold">Configurar {p.sede_nombre}</span>
+              </button>
+            ))}
           </div>
         </div>
+      )}
+
+      {configSheetSede && (
+        <PlataformaConfigSheet
+          open={!!configSheetSede}
+          onOpenChange={(o) => !o && setConfigSheetSede(null)}
+          sedeId={configSheetSede.sede_id}
+          sedeNombre={configSheetSede.sede_nombre}
+          nombreActual={configSheetSede.nombre}
+          logoActual={configSheetSede.logo_url}
+          configurada={configSheetSede.configurada}
+          onSaved={cargarPlataformas}
+        />
       )}
 
       {/* ── Módulos ───────────────────────────────────────────────────── */}
@@ -270,39 +299,50 @@ const COLOR_MAP = {
 } as const
 
 function EmpresaGrupoCard({
-  codigo,
+  nombre,
+  logoUrl,
   colaboradores,
   onClick,
+  onEditar,
   delayMs = 0,
 }: {
-  codigo: string
+  nombre: string
+  logoUrl: string
   colaboradores: number
   onClick: () => void
+  onEditar?: () => void
   delayMs?: number
 }) {
-  const label = tcEmpresaLabel(codigo)
-  const logo = tcEmpresaLogo(codigo)
-
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group w-full text-center rounded-2xl border border-border bg-card/80 px-5 py-6 transition-all duration-200 hover:border-teal-500/35 hover:bg-muted/10 hover:shadow-lg hover:-translate-y-0.5 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:fill-mode-both"
+    <div
+      className="group relative w-full rounded-2xl border border-border bg-card/80 transition-all duration-200 hover:border-teal-500/35 hover:bg-muted/10 hover:shadow-lg hover:-translate-y-0.5 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:fill-mode-both"
       style={{ animationDelay: `${delayMs}ms`, animationDuration: "450ms" }}
     >
-      <span className="mx-auto mb-4 flex h-24 w-24 items-center justify-center overflow-hidden rounded-[18px] border border-teal-500/15 bg-white shadow-[0_12px_28px_rgba(15,23,42,0.12)]">
-        {logo ? (
-          <img src={logo} alt={`Escudo ${label}`} className="h-[82%] w-[82%] object-contain" />
-        ) : (
-          <Building2 className="h-8 w-8 text-muted-foreground/40" aria-hidden />
-        )}
-      </span>
-      <h3 className="text-base font-extrabold tracking-tight">{label}</h3>
-      <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-teal-500/10 px-3 py-1 text-[11px] font-semibold text-teal-400">
-        <Users className="h-3 w-3" aria-hidden />
-        {colaboradores} colaborador{colaboradores !== 1 ? "es" : ""}
-      </span>
-    </button>
+      {onEditar && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onEditar() }}
+          aria-label={`Editar plataforma ${nombre}`}
+          className="absolute right-3 top-3 z-10 p-1.5 rounded-full bg-background/80 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-teal-400 transition-opacity"
+        >
+          <Pencil className="w-3.5 h-3.5" />
+        </button>
+      )}
+      <button type="button" onClick={onClick} className="w-full text-center px-5 py-6">
+        <span className="mx-auto mb-4 flex h-24 w-24 items-center justify-center overflow-hidden rounded-[18px] border border-teal-500/15 bg-white shadow-[0_12px_28px_rgba(15,23,42,0.12)]">
+          {logoUrl ? (
+            <img src={logoUrl} alt={`Escudo ${nombre}`} className="h-[82%] w-[82%] object-contain" />
+          ) : (
+            <Building2 className="h-8 w-8 text-muted-foreground/40" aria-hidden />
+          )}
+        </span>
+        <h3 className="text-base font-extrabold tracking-tight">{nombre}</h3>
+        <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-teal-500/10 px-3 py-1 text-[11px] font-semibold text-teal-400">
+          <Users className="h-3 w-3" aria-hidden />
+          {colaboradores} colaborador{colaboradores !== 1 ? "es" : ""}
+        </span>
+      </button>
+    </div>
   )
 }
 

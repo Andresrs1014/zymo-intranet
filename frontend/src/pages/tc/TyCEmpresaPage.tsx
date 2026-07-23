@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { api } from "@/lib/api"
-import { tcEmpresaLabel } from "@/lib/tc-constants"
 import { useAuthStore } from "@/store/authStore"
 import { canEditTyC } from "@/lib/permissions"
 import { useAreas } from "@/hooks/useAreas"
@@ -24,7 +23,7 @@ interface HubArea {
   cargos: HubCargo[]
 }
 interface HubData {
-  empresa: { id: number; nombre: string; codigo: string }
+  empresa: { id: number; nombre: string; codigo: string; logo_url?: string }
   kpis: {
     total: number
     activos: number
@@ -62,10 +61,9 @@ export function TyCEmpresaPage() {
   useEffect(() => { cargar() }, [cargar])
 
   const empresa = hub?.empresa
-  const empresaLabel = empresa ? tcEmpresaLabel(empresa.codigo) : "Empresa"
 
   return (
-    <PageLayout title={empresa ? `T&C — ${empresaLabel}` : "T&C — Empresa"} mainClassName="flex-1 overflow-y-auto">
+    <PageLayout title={empresa ? `T&C — ${empresa.nombre}` : "T&C — Empresa"} mainClassName="flex-1 overflow-y-auto">
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">
 
         <button
@@ -89,14 +87,21 @@ export function TyCEmpresaPage() {
 
         {!loading && hub && (
           <>
-            <header>
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-teal-500 mb-2">
-                Empresa del grupo
-              </p>
-              <h1 className="text-3xl font-bold tracking-tight">{empresaLabel}</h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                {hub.kpis.total} colaborador{hub.kpis.total !== 1 ? "es" : ""} registrados
-              </p>
+            <header className="flex items-center gap-4">
+              {hub.empresa.logo_url && (
+                <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-teal-500/15 bg-white">
+                  <img src={hub.empresa.logo_url} alt={`Logo ${hub.empresa.nombre}`} className="h-[82%] w-[82%] object-contain" />
+                </span>
+              )}
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-teal-500 mb-2">
+                  Empresa del grupo
+                </p>
+                <h1 className="text-3xl font-bold tracking-tight">{hub.empresa.nombre}</h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {hub.kpis.total} colaborador{hub.kpis.total !== 1 ? "es" : ""} registrados
+                </p>
+              </div>
             </header>
 
             {/* KPIs */}
