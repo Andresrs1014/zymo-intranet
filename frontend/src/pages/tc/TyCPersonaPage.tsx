@@ -335,7 +335,24 @@ export function TyCPersonaPage() {
                       </div>
                     )
                   })()
-                ) : datos.empresa_nombre}
+                ) : (
+                  (() => {
+                    const cargoActual = cargos.find((c) => c.id === datos.cargo_id)
+                    const otrasEmpresas = cargoActual
+                      ? empresas.filter((e) => cargoActual.sede_ids.includes(e.id) && e.id !== datos.empresa_id)
+                      : []
+                    return (
+                      <div>
+                        <span>{datos.empresa_nombre}</span>
+                        {otrasEmpresas.length > 0 && (
+                          <p className="text-[11px] text-muted-foreground mt-1">
+                            Cargo transversal — también puede estar en: {otrasEmpresas.map((e) => e.nombre).join(", ")}.
+                          </p>
+                        )}
+                      </div>
+                    )
+                  })()
+                )}
               </FieldRow>
               <FieldRow label="Área">
                 {editando ? (
