@@ -5,7 +5,7 @@ import { TC_GENEROS, TC_CONTRATOS } from "@/lib/tc-constants"
 
 interface Empresa { id: number; nombre: string; codigo: string }
 interface Area { id: number; name: string }
-interface Cargo { id: number; empresa_id: number; area_id: number | null; nombre: string }
+interface Cargo { id: number; area_id: number | null; nombre: string; sede_ids: number[] }
 
 interface Props {
   empresas: Empresa[]
@@ -48,7 +48,16 @@ export function PersonaFormModal({ empresas, onCreada, onCerrar }: Props) {
   }, [])
 
   function setField(key: string, value: string | number | null) {
-    setForm((prev) => ({ ...prev, [key]: value }))
+    setForm((prev) => {
+      const next = { ...prev, [key]: value }
+      if (key === "cargo_id") {
+        const cargo = cargos.find((c) => c.id === value)
+        if (cargo && cargo.sede_ids.length > 0 && !cargo.sede_ids.includes(next.empresa_id)) {
+          next.empresa_id = cargo.sede_ids[0]
+        }
+      }
+      return next
+    })
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -106,23 +115,40 @@ export function PersonaFormModal({ empresas, onCreada, onCerrar }: Props) {
             <Input value={form.documento} onChange={(v) => setField("documento", v)} placeholder="12345678" />
           </FormGroup>
 
-          <FormGroup label="Empresa *">
+          <FormGroup label="Cargo">
             <select
-              value={form.empresa_id}
-              onChange={(e) => {
-                setField("empresa_id", Number(e.target.value))
-                setField("area_id", "")
-                setField("cargo_id", "")
-              }}
+              value={form.cargo_id}
+              onChange={(e) => setField("cargo_id", e.target.value ? Number(e.target.value) : "")}
               className="form-select"
             >
-              {empresas.map((e) => (
-                <option key={e.id} value={e.id}>{e.nombre}</option>
+              <option value="">Sin cargo</option>
+              {cargos.map((c) => (
+                <option key={c.id} value={c.id}>{c.nombre}</option>
               ))}
             </select>
           </FormGroup>
 
           <div className="grid grid-cols-2 gap-3">
+            <FormGroup label="Empresa (nómina) *">
+              {(() => {
+                const cargoActual = cargos.find((c) => c.id === form.cargo_id)
+                const opciones = cargoActual && cargoActual.sede_ids.length > 0
+                  ? empresas.filter((e) => cargoActual.sede_ids.includes(e.id))
+                  : empresas
+                return (
+                  <select
+                    value={form.empresa_id}
+                    onChange={(e) => setField("empresa_id", Number(e.target.value))}
+                    className="form-select"
+                  >
+                    {opciones.map((e) => (
+                      <option key={e.id} value={e.id}>{e.nombre}</option>
+                    ))}
+                  </select>
+                )
+              })()}
+            </FormGroup>
+
             <FormGroup label="Área">
               <select
                 value={form.area_id}
@@ -132,19 +158,6 @@ export function PersonaFormModal({ empresas, onCreada, onCerrar }: Props) {
                 <option value="">Sin área</option>
                 {areas.map((a) => (
                   <option key={a.id} value={a.id}>{a.name}</option>
-                ))}
-              </select>
-            </FormGroup>
-
-            <FormGroup label="Cargo">
-              <select
-                value={form.cargo_id}
-                onChange={(e) => setField("cargo_id", e.target.value ? Number(e.target.value) : "")}
-                className="form-select"
-              >
-                <option value="">Sin cargo</option>
-                {cargos.map((c) => (
-                  <option key={c.id} value={c.id}>{c.nombre}</option>
                 ))}
               </select>
             </FormGroup>

@@ -17,7 +17,7 @@ import {
 
 interface Empresa { id: number; nombre: string; codigo: string }
 interface Area    { id: number; name: string }
-interface Cargo   { id: number; empresa_id: number; area_id: number | null; nombre: string }
+interface Cargo   { id: number; area_id: number | null; nombre: string; sede_ids: number[] }
 
 interface Persona {
   id: number
@@ -102,10 +102,14 @@ export function TyCPersonaPage() {
       .then(([pRes, eRes]) => {
         setPersona(pRes.data)
         setEmpresas(eRes.data)
-        cargarAreasCargos(pRes.data.empresa_id)
       })
       .catch(() => setError("No se pudo cargar la información del colaborador."))
       .finally(() => setLoading(false))
+    api.get("/areas").then((r) => setAreas(Array.isArray(r.data) ? r.data : []))
+    // Cargos son globales — un mismo cargo puede existir en varias sedes
+    // (transversal). No se filtran por empresa: la empresa (nómina) se
+    // restringe según las sedes del cargo elegido, no al revés.
+    api.get("/tc/cargos").then((r) => setCargos(Array.isArray(r.data) ? r.data : []))
     api.get("/tc/personas", { params: { estado: "Activo", limit: 500 } })
       .then((r) => setPersonasLista(Array.isArray(r.data?.items) ? r.data.items : []))
       .catch(() => {})
@@ -113,12 +117,6 @@ export function TyCPersonaPage() {
       .then((r) => setUsuariosIntranet(Array.isArray(r.data) ? r.data : []))
       .catch(() => {})
   }, [id])
-
-  function cargarAreasCargos(empresaId: number) {
-    api.get("/areas").then((r) => setAreas(Array.isArray(r.data) ? r.data : []))
-    api.get("/tc/cargos", { params: { empresa_id: empresaId } })
-      .then((r) => setCargos(Array.isArray(r.data) ? r.data : []))
-  }
 
   function iniciarEdicion() {
     if (!persona) return
@@ -158,11 +156,20 @@ export function TyCPersonaPage() {
   }
 
   function setField(key: keyof Persona, value: string | number | boolean | null) {
-    setForm((prev) => ({ ...prev, [key]: value }))
-    if (key === "empresa_id" && typeof value === "number") {
-      setForm((prev) => ({ ...prev, area_id: null, cargo_id: null }))
-      cargarAreasCargos(value)
-    }
+    setForm((prev) => {
+      const next = { ...prev, [key]: value }
+      // Si el cargo elegido no existe en la sede (nómina) actual, saltar a la
+      // primera sede válida de ese cargo — un cargo transversal puede existir
+      // en varias sedes, la nómina no puede quedar en una donde el cargo no está.
+      if (key === "cargo_id") {
+        const cargo = cargos.find((c) => c.id === value)
+        const empresaActual = next.empresa_id ?? persona?.empresa_id
+        if (cargo && cargo.sede_ids.length > 0 && !cargo.sede_ids.includes(empresaActual as number)) {
+          next.empresa_id = cargo.sede_ids[0]
+        }
+      }
+      return next
+    })
   }
 
   if (loading) return (
@@ -299,11 +306,35 @@ export function TyCPersonaPage() {
         {tab === "info" && (
           <div className="space-y-6">
             <Section title="Organización">
-              <FieldRow label="Empresa">
+              <FieldRow label="Cargo">
                 {editando ? (
-                  <Select value={String(datos.empresa_id)} onChange={(v) => setField("empresa_id", Number(v))}>
-                    {empresas.map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+                  <Select value={String(datos.cargo_id ?? "")} onChange={(v) => setField("cargo_id", v ? Number(v) : null)}>
+                    <option value="">Sin cargo</option>
+                    {cargos.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                   </Select>
+                ) : (datos.cargo_nombre || "—")}
+              </FieldRow>
+              <FieldRow label="Empresa (nómina)">
+                {editando ? (
+                  (() => {
+                    const cargoActual = cargos.find((c) => c.id === datos.cargo_id)
+                    const esTransversal = (cargoActual?.sede_ids.length ?? 0) > 1
+                    const opciones = cargoActual && cargoActual.sede_ids.length > 0
+                      ? empresas.filter((e) => cargoActual.sede_ids.includes(e.id))
+                      : empresas
+                    return (
+                      <div>
+                        <Select value={String(datos.empresa_id)} onChange={(v) => setField("empresa_id", Number(v))}>
+                          {opciones.map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+                        </Select>
+                        {esTransversal && (
+                          <p className="text-[11px] text-muted-foreground mt-1">
+                            Cargo transversal — elige en cuál de las {opciones.length} empresas está en nómina.
+                          </p>
+                        )}
+                      </div>
+                    )
+                  })()
                 ) : datos.empresa_nombre}
               </FieldRow>
               <FieldRow label="Área">
@@ -313,14 +344,6 @@ export function TyCPersonaPage() {
                     {areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                   </Select>
                 ) : (datos.area_nombre || "—")}
-              </FieldRow>
-              <FieldRow label="Cargo">
-                {editando ? (
-                  <Select value={String(datos.cargo_id ?? "")} onChange={(v) => setField("cargo_id", v ? Number(v) : null)}>
-                    <option value="">Sin cargo</option>
-                    {cargos.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                  </Select>
-                ) : (datos.cargo_nombre || "—")}
               </FieldRow>
               <FieldRow label="Jefe directo">
                 {editando ? (

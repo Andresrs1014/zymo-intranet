@@ -9,15 +9,17 @@ import { useSedes } from "@/hooks/useSedes"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { BlurFade } from "@/components/ui/blur-fade"
 import { CargoSheet, type CargoConfig } from "./components/CargoSheet"
+import { GestionarAreasSheet } from "./components/GestionarAreasSheet"
 import {
   ArrowLeft, ArrowRight, ArrowUpRight, GitBranch, Layers, Users,
-  UserCheck, Mars, Venus, Loader2, Plus, Pencil, Building2,
+  UserCheck, Mars, Venus, Loader2, Plus, Pencil, Building2, Settings2,
 } from "lucide-react"
 
 interface HubCargo { id: number; nombre: string; personas_count: number }
 interface HubArea {
   id: number | null
   nombre: string
+  activa?: boolean
   cargos_count: number
   personas_count: number
   cargos: HubCargo[]
@@ -49,6 +51,8 @@ export function TyCEmpresaPage() {
   const [error, setError] = useState("")
   const [sheetOpen, setSheetOpen] = useState(false)
   const [sheetCargo, setSheetCargo] = useState<CargoConfig | null>(null)
+  const [sheetAreaInicial, setSheetAreaInicial] = useState<number | null>(null)
+  const [areasSheetOpen, setAreasSheetOpen] = useState(false)
 
   const cargar = useCallback(() => {
     if (!sedeId) return
@@ -77,8 +81,9 @@ export function TyCEmpresaPage() {
     navigate(`/tc/directorio${q ? `?${q}` : ""}`)
   }
 
-  function abrirCrear() {
+  function abrirCrear(areaId: number | null = null) {
     setSheetCargo(null)
+    setSheetAreaInicial(areaId)
     setSheetOpen(true)
   }
 
@@ -167,19 +172,38 @@ export function TyCEmpresaPage() {
               <div className="flex items-center justify-between mb-3">
                 <SectionLabel>Áreas y cargos de esta empresa</SectionLabel>
                 {puedeEditar && (
-                  <button
-                    type="button"
-                    onClick={abrirCrear}
-                    className="flex items-center gap-1.5 shrink-0 px-3 py-1.5 rounded-lg bg-teal-500/15 hover:bg-teal-500/25 text-teal-400 text-xs font-semibold transition-colors"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    Nuevo cargo
-                  </button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setAreasSheetOpen(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted/10 text-xs font-semibold transition-colors"
+                    >
+                      <Settings2 className="w-3.5 h-3.5" />
+                      Gestionar áreas
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => abrirCrear()}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-500/15 hover:bg-teal-500/25 text-teal-400 text-xs font-semibold transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Nuevo cargo
+                    </button>
+                  </div>
                 )}
               </div>
               {hub.areas.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-border px-6 py-12 text-center text-sm text-muted-foreground">
-                  Sin áreas con cargos o personal en esta empresa.
+                <div className="rounded-2xl border border-dashed border-border px-6 py-12 text-center text-sm text-muted-foreground space-y-3">
+                  <p>Sin áreas activas en esta empresa todavía.</p>
+                  {puedeEditar && (
+                    <button
+                      type="button"
+                      onClick={() => setAreasSheetOpen(true)}
+                      className="text-xs font-semibold text-teal-400 hover:text-teal-300"
+                    >
+                      + Gestionar áreas
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -205,6 +229,18 @@ export function TyCEmpresaPage() {
                           </span>
                           <ArrowRight className="w-4 h-4 text-muted-foreground/30 shrink-0 mt-0.5" />
                         </button>
+                        {area.cargos.length === 0 && puedeEditar && area.id != null && (
+                          <div className="px-4 pb-4">
+                            <button
+                              type="button"
+                              onClick={() => abrirCrear(area.id)}
+                              className="flex items-center gap-1.5 text-[11px] font-semibold text-teal-400 hover:text-teal-300 transition-colors"
+                            >
+                              <Plus className="w-3 h-3" />
+                              Agregar el primer cargo de esta área
+                            </button>
+                          </div>
+                        )}
                         {area.cargos.length > 0 && (
                           <div className="flex flex-wrap gap-1.5 px-4 pb-4">
                             {area.cargos.map((cargo) => {
@@ -248,6 +284,16 @@ export function TyCEmpresaPage() {
         )}
 
         {puedeEditar && (
+          <GestionarAreasSheet
+            open={areasSheetOpen}
+            onOpenChange={setAreasSheetOpen}
+            sedeId={Number(sedeId)}
+            areas={areas}
+            onSaved={cargar}
+          />
+        )}
+
+        {puedeEditar && (
           <CargoSheet
             open={sheetOpen}
             onOpenChange={setSheetOpen}
@@ -255,6 +301,7 @@ export function TyCEmpresaPage() {
             areas={areas}
             sedes={sedes}
             cargo={sheetCargo}
+            areaIdInicial={sheetAreaInicial}
             onSaved={cargar}
           />
         )}

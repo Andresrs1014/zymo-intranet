@@ -24,10 +24,12 @@ interface Props {
   sedes: SedeOpt[]
   /** null/undefined = crear cargo nuevo, ya viene con la sede actual pre-marcada. */
   cargo?: CargoConfig | null
+  /** Solo aplica al crear (cargo=null) — preselecciona el área, ej. desde una tarjeta de área vacía. */
+  areaIdInicial?: number | null
   onSaved: () => void
 }
 
-export function CargoSheet({ open, onOpenChange, sedeIdActual, areas, sedes, cargo, onSaved }: Props) {
+export function CargoSheet({ open, onOpenChange, sedeIdActual, areas, sedes, cargo, areaIdInicial, onSaved }: Props) {
   const editando = !!cargo
   const [nombre, setNombre] = useState("")
   const [areaId, setAreaId] = useState<string>("")
@@ -39,11 +41,11 @@ export function CargoSheet({ open, onOpenChange, sedeIdActual, areas, sedes, car
   useEffect(() => {
     if (!open) return
     setNombre(cargo?.nombre ?? "")
-    setAreaId(cargo?.area_id != null ? String(cargo.area_id) : "")
+    setAreaId(cargo?.area_id != null ? String(cargo.area_id) : areaIdInicial != null ? String(areaIdInicial) : "")
     setSedeIds(cargo?.sede_ids ?? [sedeIdActual])
     setError("")
     setConfirmarEliminar(false)
-  }, [open, cargo, sedeIdActual])
+  }, [open, cargo, sedeIdActual, areaIdInicial])
 
   function toggleSede(id: number) {
     setSedeIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
