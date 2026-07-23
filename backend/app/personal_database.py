@@ -213,6 +213,47 @@ class PtcEventoPersona(SQLModel, table=True):
     asistio: Optional[bool] = None
 
 
+class PtcCapDia(SQLModel, table=True):
+    """Agenda T&C — tipo #2: capacitación de nuevo personal, agendada por el
+    coordinador de T&C (mod_tc_cap_coordinador). Un día agrupa uno o más
+    bloques (líder + horario); el roster y la evidencia viven por bloque,
+    no en el día — ver PtcCapBloque/PtcCapBloquePersona."""
+    __tablename__ = "ptc_cap_dia"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    fecha: date
+    titulo: str = Field(max_length=200, default="Capacitación nuevo personal")
+    descripcion: str = Field(max_length=2000, default="")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class PtcCapBloque(SQLModel, table=True):
+    """Bloque líder+horario dentro de un día de capacitación (tipo #2) —
+    equivalente a una franja de Teams: un líder dicta de hora_inicio a hora_fin."""
+    __tablename__ = "ptc_cap_bloque"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    dia_id: int = Field(foreign_key="ptc_cap_dia.id")
+    lider_persona_id: int = Field(foreign_key="ptc_persona.id")
+    hora_inicio: str = Field(max_length=10, default="08:00")
+    hora_fin: str = Field(max_length=10, default="09:00")
+    foto_evidencia_url: str = Field(default="")
+    acta_firmada_url: str = Field(default="")
+    finalizada_en: Optional[datetime] = None
+
+
+class PtcCapBloquePersona(SQLModel, table=True):
+    """Roster por bloque. Por default toda persona del día queda incluida en
+    todos los bloques (incluido=True) — el coordinador desmarca puntualmente
+    a quien no aplique a ese bloque específico, sin borrar el registro."""
+    __tablename__ = "ptc_cap_bloque_persona"
+
+    bloque_id: int = Field(foreign_key="ptc_cap_bloque.id", primary_key=True)
+    persona_id: int = Field(foreign_key="ptc_persona.id", primary_key=True)
+    incluido: bool = Field(default=True)
+    asistio: Optional[bool] = None
+
+
 class PtcPaquete(SQLModel, table=True):
     """Paquete de capacitaciones — plantilla reutilizable de cursos para inducción."""
     __tablename__ = "ptc_paquete"
@@ -298,6 +339,7 @@ _PERSONAL_TABLES = {
     "ptc_area", "ptc_cargo", "ptc_cargo_sede", "ptc_persona",
     "ptc_capacitacion", "ptc_evaluacion", "ptc_sancion", "ptc_novedad",
     "ptc_evento", "ptc_evento_persona",
+    "ptc_cap_dia", "ptc_cap_bloque", "ptc_cap_bloque_persona",
     "ptc_paquete", "ptc_paquete_item", "ptc_smtp_config", "ptc_wa_config",
     "ptc_cliente", "ptc_cliente_asignacion", "ptc_cliente_analista",
 }
@@ -308,6 +350,7 @@ def create_personal_tables() -> None:
         PtcArea, PtcCargo, PtcCargoSede, PtcPersona,
         PtcCapacitacion, PtcEvaluacion, PtcSancion, PtcNovedad,
         PtcEvento, PtcEventoPersona,
+        PtcCapDia, PtcCapBloque, PtcCapBloquePersona,
         PtcPaquete, PtcPaqueteItem, PtcSmtpConfig, PtcWaConfig,
         PtcCliente, PtcClienteAsignacion, PtcClienteAnalista,
     )
