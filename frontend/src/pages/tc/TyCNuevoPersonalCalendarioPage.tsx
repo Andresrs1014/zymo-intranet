@@ -17,6 +17,7 @@ interface Dia {
   fecha: string
   titulo: string
   descripcion: string
+  sede_nombre: string
   bloques: Bloque[]
   total_personas: number
 }
@@ -84,12 +85,12 @@ export function TyCNuevoPersonalCalendarioPage() {
   }
 
   return (
-    <PageLayout title="Calendario capacitación nuevo personal" mainClassName="flex-1 overflow-y-auto">
+    <PageLayout title="Inducción Nuevo personal" mainClassName="flex-1 overflow-y-auto">
       <div className="border-b border-border px-8 pt-8 pb-6">
         <div className="max-w-6xl mx-auto flex items-end justify-between gap-4">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-teal-500 mb-1">T&C · Coordinador</p>
-            <h1 className="text-2xl font-bold">Capacitación nuevo personal</h1>
+            <h1 className="text-2xl font-bold">Inducción Nuevo personal</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
               Click en un día para agendar esa fecha, con uno o varios líderes por horario.
             </p>
@@ -99,7 +100,7 @@ export function TyCNuevoPersonalCalendarioPage() {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-500/15 hover:bg-teal-500/25 text-teal-400 text-xs font-semibold transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
-            Nueva capacitación
+            Nueva inducción
           </button>
         </div>
       </div>
@@ -192,6 +193,7 @@ export function TyCNuevoPersonalCalendarioPage() {
                 </span>
               </div>
               <p className="text-sm font-semibold leading-snug">{d.titulo}</p>
+              {d.sede_nombre && <p className="text-[10px] text-teal-400 font-medium mt-0.5">{d.sede_nombre}</p>}
               <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
                 {d.total_personas > 0 && <span className="flex items-center gap-1"><Users className="w-2.5 h-2.5" />{d.total_personas}</span>}
               </div>

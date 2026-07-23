@@ -226,7 +226,7 @@ export function TyCPage() {
                 <ModuleCard
                   icon={<UserPlus className="w-4 h-4" />}
                   color="teal"
-                  title="Calendario capacitación nuevo personal"
+                  title="Inducción Nuevo personal"
                   description="Agenda inducciones y reinducciones con varios líderes por día, cada uno con su propio horario."
                   onClick={() => navigate("/tc/nuevo-personal")}
                 />

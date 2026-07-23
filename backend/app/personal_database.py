@@ -222,8 +222,9 @@ class PtcCapDia(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     fecha: date
-    titulo: str = Field(max_length=200, default="Capacitación nuevo personal")
+    titulo: str = Field(max_length=200, default="Inducción nuevo personal")
     descripcion: str = Field(max_length=2000, default="")
+    sede_id: Optional[int] = Field(default=None)  # plataforma donde se realiza — Sede (Postgres), sin FK
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -401,6 +402,8 @@ def _migrate_personal() -> None:
             # Teams se quita por ahora (2026-07-22) — columnas físicas quedan
             # huérfanas, inofensivo (SQLAlchemy solo lee columnas del modelo).
             "ALTER TABLE ptc_evento ADD COLUMN finalizada_en TEXT DEFAULT NULL",
+            # tipo #2 — plataforma (sede) donde se realiza la inducción
+            "ALTER TABLE ptc_cap_dia ADD COLUMN sede_id INTEGER DEFAULT NULL",
         ]:
             try:
                 conn.execute(text(sql))

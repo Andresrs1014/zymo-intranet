@@ -17,10 +17,12 @@ export function TyCNuevoPersonalNuevoPage() {
   const [searchParams] = useSearchParams()
   const fechaInicial = searchParams.get("fecha") || new Date().toISOString().slice(0, 10)
 
+  const { data: sedes = [] } = useSedes()
   const [paso, setPaso] = useState(0)
   const [fecha, setFecha] = useState(fechaInicial)
-  const [titulo, setTitulo] = useState("Capacitación nuevo personal")
+  const [titulo, setTitulo] = useState("Inducción nuevo personal")
   const [descripcion, setDescripcion] = useState("")
+  const [sedeId, setSedeId] = useState("")
   const [personas, setPersonas] = useState<PersonaOpt[]>([])
   const [bloques, setBloques] = useState<BloqueDraft[]>([])
   const [enviando, setEnviando] = useState(false)
@@ -42,6 +44,7 @@ export function TyCNuevoPersonalNuevoPage() {
         fecha,
         titulo,
         descripcion,
+        sede_id: Number(sedeId),
         persona_ids: personas.map((p) => p.id),
         bloques: bloques.map((b) => ({
           lider_persona_id: b.lider_id,
@@ -57,7 +60,7 @@ export function TyCNuevoPersonalNuevoPage() {
   }
 
   return (
-    <PageLayout title="Nueva capacitación — Nuevo personal" mainClassName="flex-1 overflow-y-auto">
+    <PageLayout title="Nueva inducción — Nuevo personal" mainClassName="flex-1 overflow-y-auto">
       <div className="max-w-5xl mx-auto px-8 py-8 space-y-7">
         <button
           onClick={() => navigate("/tc/nuevo-personal")}
@@ -93,6 +96,7 @@ export function TyCNuevoPersonalNuevoPage() {
             fecha={fecha} setFecha={setFecha}
             titulo={titulo} setTitulo={setTitulo}
             descripcion={descripcion} setDescripcion={setDescripcion}
+            sedeId={sedeId} setSedeId={setSedeId} sedes={sedes}
             personas={personas} setPersonas={setPersonas}
             onNext={() => setPaso(1)}
           />
@@ -108,6 +112,7 @@ export function TyCNuevoPersonalNuevoPage() {
         {paso === 2 && (
           <PasoConfirmar
             fecha={fecha} titulo={titulo} descripcion={descripcion}
+            sedeNombre={sedes.find((s) => String(s.id) === sedeId)?.name ?? ""}
             personas={personas} bloques={bloques}
             enviando={enviando}
             onBack={() => setPaso(1)}
@@ -131,11 +136,13 @@ export function TyCNuevoPersonalNuevoPage() {
 // ── Paso 1 — Personas a capacitar ────────────────────────────────────────────
 
 function PasoPersonas({
-  fecha, setFecha, titulo, setTitulo, descripcion, setDescripcion, personas, setPersonas, onNext,
+  fecha, setFecha, titulo, setTitulo, descripcion, setDescripcion,
+  sedeId, setSedeId, sedes, personas, setPersonas, onNext,
 }: {
   fecha: string; setFecha: (v: string) => void
   titulo: string; setTitulo: (v: string) => void
   descripcion: string; setDescripcion: (v: string) => void
+  sedeId: string; setSedeId: (v: string) => void; sedes: { id: number; name: string }[]
   personas: PersonaOpt[]; setPersonas: (v: PersonaOpt[]) => void
   onNext: () => void
 }) {
@@ -170,10 +177,17 @@ function PasoPersonas({
   return (
     <div className="space-y-6">
       <div className="rounded-2xl border border-border bg-muted/5 p-7 space-y-5">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <div>
             <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5 block">Fecha</label>
             <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="input-base" />
+          </div>
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5 block">Plataforma</label>
+            <select value={sedeId} onChange={(e) => setSedeId(e.target.value)} className="input-base">
+              <option value="">Selecciona…</option>
+              {sedes.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
           </div>
           <div>
             <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5 block">Título</label>
@@ -247,7 +261,7 @@ function PasoPersonas({
       <div className="flex justify-end">
         <button
           onClick={onNext}
-          disabled={personas.length === 0 || !fecha || !titulo}
+          disabled={personas.length === 0 || !fecha || !titulo || !sedeId}
           className="flex items-center gap-2 h-11 px-5 text-sm font-medium rounded-xl bg-teal-500/15 hover:bg-teal-500/25 text-teal-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Siguiente: Líderes
@@ -459,9 +473,9 @@ function PasoLideres({
 // ── Paso 3 — Confirmar ───────────────────────────────────────────────────────
 
 function PasoConfirmar({
-  fecha, titulo, descripcion, personas, bloques, enviando, onBack, onConfirmar,
+  fecha, titulo, descripcion, sedeNombre, personas, bloques, enviando, onBack, onConfirmar,
 }: {
-  fecha: string; titulo: string; descripcion: string
+  fecha: string; titulo: string; descripcion: string; sedeNombre: string
   personas: PersonaOpt[]; bloques: BloqueDraft[]
   enviando: boolean
   onBack: () => void; onConfirmar: () => void
@@ -469,9 +483,15 @@ function PasoConfirmar({
   return (
     <div className="space-y-6">
       <div className="rounded-2xl border border-border bg-muted/5 p-7 space-y-5">
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Fecha</p>
-          <p className="text-sm font-semibold mt-1">{fecha}</p>
+        <div className="flex gap-8">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Fecha</p>
+            <p className="text-sm font-semibold mt-1">{fecha}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Plataforma</p>
+            <p className="text-sm font-semibold mt-1">{sedeNombre || "—"}</p>
+          </div>
         </div>
         <div>
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{titulo}</p>

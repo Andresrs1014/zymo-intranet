@@ -26,6 +26,7 @@ interface Dia {
   fecha: string
   titulo: string
   descripcion: string
+  sede_nombre: string
   bloques: Bloque[]
   total_personas: number
 }
@@ -66,7 +67,7 @@ export function TyCNuevoPersonalDiaPage() {
   }
 
   return (
-    <PageLayout title={dia ? dia.titulo : "Capacitación nuevo personal"} mainClassName="flex-1 overflow-y-auto">
+    <PageLayout title={dia ? dia.titulo : "Inducción nuevo personal"} mainClassName="flex-1 overflow-y-auto">
       <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
         <div className="flex items-center justify-between">
           <button
@@ -103,6 +104,11 @@ export function TyCNuevoPersonalDiaPage() {
                 {new Date(dia.fecha + "T00:00:00").toLocaleDateString("es-CO", { day: "numeric", month: "long", year: "numeric" })}
               </p>
               <h1 className="text-xl font-bold">{dia.titulo}</h1>
+              {dia.sede_nombre && (
+                <span className="inline-block mt-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-400">
+                  {dia.sede_nombre}
+                </span>
+              )}
               {dia.descripcion && <p className="text-sm text-muted-foreground mt-1">{dia.descripcion}</p>}
               <p className="flex items-center gap-1.5 text-xs text-muted-foreground mt-2">
                 <Users className="w-3.5 h-3.5" />

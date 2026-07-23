@@ -31,6 +31,8 @@ from weasyprint import HTML
 
 from app.config import settings
 from app.core.deps import require_admin, require_permission
+from app.database import get_db
+from app.models.sede import Sede
 from app.models.user import User
 from app.personal_database import (
     PtcCapBloque,
@@ -62,8 +64,9 @@ class BloqueInput(BaseModel):
 
 class DiaCreate(BaseModel):
     fecha: str  # "YYYY-MM-DD"
-    titulo: str = "Capacitación nuevo personal"
+    titulo: str = "Inducción nuevo personal"
     descripcion: str = ""
+    sede_id: int
     persona_ids: list[int] = []
     bloques: list[BloqueInput] = []
 
@@ -143,16 +146,19 @@ def _bloque_dict(b: PtcCapBloque, db: Session, dia: Optional[PtcCapDia] = None) 
     }
 
 
-def _dia_dict(d: PtcCapDia, db: Session) -> dict:
+def _dia_dict(d: PtcCapDia, db: Session, main_db: Session) -> dict:
     bloques = db.exec(
         select(PtcCapBloque).where(PtcCapBloque.dia_id == d.id).order_by(PtcCapBloque.hora_inicio)
     ).all()
     bloque_dicts = [_bloque_dict(b, db, dia=d) for b in bloques]
+    sede = main_db.get(Sede, d.sede_id) if d.sede_id else None
     return {
         "id": d.id,
         "fecha": d.fecha.isoformat() if d.fecha else None,
         "titulo": d.titulo,
         "descripcion": d.descripcion,
+        "sede_id": d.sede_id,
+        "sede_nombre": sede.name if sede else "",
         "bloques": bloque_dicts,
         "total_personas": len(_personas_del_dia(db, d.id)),
         "created_at": d.created_at.isoformat(),
@@ -165,6 +171,7 @@ def _dia_dict(d: PtcCapDia, db: Session) -> dict:
 def listar_dias(
     mes: Optional[str] = Query(None, description="YYYY-MM"),
     db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
     _: User = Depends(require_tc_cap),
 ):
     stmt = select(PtcCapDia).order_by(PtcCapDia.fecha)
@@ -175,21 +182,24 @@ def listar_dias(
             dias = [d for d in dias if d.fecha.year == y and d.fecha.month == m]
         except Exception:
             pass
-    return [_dia_dict(d, db) for d in dias]
+    return [_dia_dict(d, db, main_db) for d in dias]
 
 
 @router.post("/dias", status_code=201)
 def crear_dia(
     body: DiaCreate,
     db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
     _: User = Depends(require_tc_cap),
 ):
+    if not main_db.get(Sede, body.sede_id):
+        raise HTTPException(400, "La plataforma (sede) seleccionada no existe.")
     if not body.bloques:
         raise HTTPException(400, "Agrega al menos un bloque (líder + horario).")
     if not body.persona_ids:
         raise HTTPException(400, "Selecciona al menos una persona a capacitar.")
 
-    dia = PtcCapDia(fecha=_parse_date(body.fecha), titulo=body.titulo, descripcion=body.descripcion)
+    dia = PtcCapDia(fecha=_parse_date(body.fecha), titulo=body.titulo, descripcion=body.descripcion, sede_id=body.sede_id)
     db.add(dia)
     db.flush()
 
@@ -207,19 +217,20 @@ def crear_dia(
 
     db.commit()
     db.refresh(dia)
-    return _dia_dict(dia, db)
+    return _dia_dict(dia, db, main_db)
 
 
 @router.get("/dias/{dia_id}")
 def get_dia(
     dia_id: int,
     db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
     _: User = Depends(require_tc_cap),
 ):
     dia = db.get(PtcCapDia, dia_id)
     if not dia:
         raise HTTPException(404, "Día no encontrado")
-    return _dia_dict(dia, db)
+    return _dia_dict(dia, db, main_db)
 
 
 @router.delete("/dias/{dia_id}", status_code=204)
@@ -244,6 +255,7 @@ def agregar_bloque(
     dia_id: int,
     body: BloqueInput,
     db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
     _: User = Depends(require_tc_cap),
 ):
     """Agrega un bloque (líder + horario) adicional a un día ya creado — el
@@ -263,7 +275,7 @@ def agregar_bloque(
     for pid in _personas_del_dia(db, dia_id):
         db.add(PtcCapBloquePersona(bloque_id=bloque.id, persona_id=pid, incluido=True))
     db.commit()
-    return _dia_dict(dia, db)
+    return _dia_dict(dia, db, main_db)
 
 
 # ── Bloques ───────────────────────────────────────────────────────────────────
