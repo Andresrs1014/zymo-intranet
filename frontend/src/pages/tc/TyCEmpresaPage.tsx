@@ -1,11 +1,17 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { api } from "@/lib/api"
 import { tcEmpresaLabel } from "@/lib/tc-constants"
+import { useAuthStore } from "@/store/authStore"
+import { canEditTyC } from "@/lib/permissions"
+import { useAreas } from "@/hooks/useAreas"
+import { useSedes } from "@/hooks/useSedes"
 import { PageLayout } from "@/components/layout/PageLayout"
+import { BlurFade } from "@/components/ui/blur-fade"
+import { CargoSheet, type CargoConfig } from "./components/CargoSheet"
 import {
   ArrowLeft, ArrowRight, ArrowUpRight, GitBranch, Layers, Users,
-  UserCheck, Mars, Venus, Loader2,
+  UserCheck, Mars, Venus, Loader2, Plus, Pencil, Building2,
 } from "lucide-react"
 
 interface HubCargo { id: number; nombre: string; personas_count: number }
@@ -32,26 +38,55 @@ interface HubData {
 export function TyCEmpresaPage() {
   const { sedeId } = useParams<{ sedeId: string }>()
   const navigate = useNavigate()
+  const user = useAuthStore((s) => s.user)
+  const puedeEditar = user ? canEditTyC(user.role, user.app_permissions) : false
+  const { data: areas = [] } = useAreas()
+  const { data: sedes = [] } = useSedes()
+
   const [hub, setHub] = useState<HubData | null>(null)
+  const [cargosConfig, setCargosConfig] = useState<CargoConfig[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [sheetCargo, setSheetCargo] = useState<CargoConfig | null>(null)
 
-  useEffect(() => {
+  const cargar = useCallback(() => {
     if (!sedeId) return
     setLoading(true)
     setError("")
-    api.get(`/tc/empresa/${sedeId}/hub`)
-      .then((r) => setHub(r.data))
+    Promise.all([
+      api.get(`/tc/empresa/${sedeId}/hub`),
+      api.get("/tc/cargos", { params: { sede_id: sedeId } }),
+    ])
+      .then(([hubRes, cargosRes]) => {
+        setHub(hubRes.data)
+        setCargosConfig(cargosRes.data ?? [])
+      })
       .catch(() => setError("No se pudo cargar el hub de la empresa."))
       .finally(() => setLoading(false))
   }, [sedeId])
 
+  useEffect(() => { cargar() }, [cargar])
+
   const empresa = hub?.empresa
   const empresaLabel = empresa ? tcEmpresaLabel(empresa.codigo) : "Empresa"
+  const cargosById = new Map(cargosConfig.map((c) => [c.id, c]))
 
   function irDirectorio(params: Record<string, string>) {
     const q = new URLSearchParams(params).toString()
     navigate(`/tc/directorio${q ? `?${q}` : ""}`)
+  }
+
+  function abrirCrear() {
+    setSheetCargo(null)
+    setSheetOpen(true)
+  }
+
+  function abrirEditar(cargoId: number) {
+    const config = cargosById.get(cargoId)
+    if (!config) return
+    setSheetCargo(config)
+    setSheetOpen(true)
   }
 
   return (
@@ -127,59 +162,101 @@ export function TyCEmpresaPage() {
               </button>
             </section>
 
-            {/* Áreas activas */}
+            {/* Áreas y cargos de esta empresa */}
             <section>
-              <SectionLabel>Áreas activas</SectionLabel>
+              <div className="flex items-center justify-between mb-3">
+                <SectionLabel>Áreas y cargos de esta empresa</SectionLabel>
+                {puedeEditar && (
+                  <button
+                    type="button"
+                    onClick={abrirCrear}
+                    className="flex items-center gap-1.5 shrink-0 px-3 py-1.5 rounded-lg bg-teal-500/15 hover:bg-teal-500/25 text-teal-400 text-xs font-semibold transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Nuevo cargo
+                  </button>
+                )}
+              </div>
               {hub.areas.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-border px-6 py-12 text-center text-sm text-muted-foreground">
                   Sin áreas con cargos o personal en esta empresa.
                 </div>
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2">
-                  {hub.areas.map((area) => (
-                    <article
-                      key={area.id ?? "sin-area"}
-                      className="rounded-2xl border border-border bg-muted/5 overflow-hidden transition-colors hover:border-teal-500/30"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => irDirectorio({
-                          empresa: String(sedeId),
-                          ...(area.id != null ? { area: String(area.id) } : {}),
-                        })}
-                        className="w-full flex items-start gap-3 p-4 text-left hover:bg-muted/10 transition-colors"
-                      >
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal-500/10 text-teal-400">
-                          <Layers className="w-4 h-4" />
-                        </span>
-                        <span className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-sm">{area.nombre}</h3>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {area.cargos_count} cargo{area.cargos_count !== 1 ? "s" : ""} activo{area.cargos_count !== 1 ? "s" : ""} · {area.personas_count} persona{area.personas_count !== 1 ? "s" : ""}
-                          </p>
-                        </span>
-                        <ArrowRight className="w-4 h-4 text-muted-foreground/30 shrink-0 mt-0.5" />
-                      </button>
-                      {area.cargos.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 px-4 pb-4">
-                          {area.cargos.map((cargo) => (
-                            <button
-                              key={cargo.id}
-                              type="button"
-                              onClick={() => irDirectorio({ empresa: String(sedeId), cargo: String(cargo.id) })}
-                              className="text-[11px] px-2.5 py-1 rounded-full border border-border bg-background/60 text-foreground/80 hover:border-teal-500/40 hover:text-teal-400 transition-colors"
-                            >
-                              {cargo.nombre} · {cargo.personas_count}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </article>
+                  {hub.areas.map((area, i) => (
+                    <BlurFade key={area.id ?? "sin-area"} delay={i * 0.05} inView>
+                      <article className="rounded-2xl border border-border bg-muted/5 overflow-hidden transition-colors hover:border-teal-500/30">
+                        <button
+                          type="button"
+                          onClick={() => irDirectorio({
+                            empresa: String(sedeId),
+                            ...(area.id != null ? { area: String(area.id) } : {}),
+                          })}
+                          className="w-full flex items-start gap-3 p-4 text-left hover:bg-muted/10 transition-colors"
+                        >
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal-500/10 text-teal-400">
+                            <Layers className="w-4 h-4" />
+                          </span>
+                          <span className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-sm">{area.nombre}</h3>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {area.cargos_count} cargo{area.cargos_count !== 1 ? "s" : ""} activo{area.cargos_count !== 1 ? "s" : ""} · {area.personas_count} persona{area.personas_count !== 1 ? "s" : ""}
+                            </p>
+                          </span>
+                          <ArrowRight className="w-4 h-4 text-muted-foreground/30 shrink-0 mt-0.5" />
+                        </button>
+                        {area.cargos.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 px-4 pb-4">
+                            {area.cargos.map((cargo) => {
+                              const config = cargosById.get(cargo.id)
+                              const transversal = (config?.sede_ids.length ?? 0) > 1
+                              return (
+                                <span
+                                  key={cargo.id}
+                                  className="group inline-flex items-center gap-1 pl-2.5 pr-1 py-1 rounded-full border border-border bg-background/60 hover:border-teal-500/40 transition-colors"
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => irDirectorio({ empresa: String(sedeId), cargo: String(cargo.id) })}
+                                    className="flex items-center gap-1 text-[11px] text-foreground/80 group-hover:text-teal-400 transition-colors"
+                                  >
+                                    {transversal && <Building2 className="w-2.5 h-2.5 text-teal-400/70" aria-label="Transversal" />}
+                                    {cargo.nombre} · {cargo.personas_count}
+                                  </button>
+                                  {puedeEditar && (
+                                    <button
+                                      type="button"
+                                      onClick={() => abrirEditar(cargo.id)}
+                                      aria-label={`Editar ${cargo.nombre}`}
+                                      className="p-1 rounded-full text-muted-foreground/40 hover:text-teal-400 hover:bg-teal-500/10 transition-colors"
+                                    >
+                                      <Pencil className="w-2.5 h-2.5" />
+                                    </button>
+                                  )}
+                                </span>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </article>
+                    </BlurFade>
                   ))}
                 </div>
               )}
             </section>
           </>
+        )}
+
+        {puedeEditar && (
+          <CargoSheet
+            open={sheetOpen}
+            onOpenChange={setSheetOpen}
+            sedeIdActual={Number(sedeId)}
+            areas={areas}
+            sedes={sedes}
+            cargo={sheetCargo}
+            onSaved={cargar}
+          />
         )}
       </div>
     </PageLayout>

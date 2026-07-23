@@ -9,7 +9,7 @@ import {
   CalendarDays, Settings2, GraduationCap, UserX, Building2, UserPlus,
 } from "lucide-react"
 import {
-  TC_EMPRESA_ORDER,
+  tcEmpresaOrderKey,
   tcEmpresaLabel,
   tcEmpresaLogo,
 } from "@/lib/tc-constants"
@@ -53,12 +53,9 @@ export function TyCPage() {
     (stats?.por_empresa ?? []).map((e) => [e.codigo, e.total]),
   )
 
-  const empresasGrid = [
-    ...TC_EMPRESA_ORDER
-      .map((codigo) => empresas.find((e) => e.codigo === codigo))
-      .filter((e): e is Empresa => e != null),
-    ...empresas.filter((e) => !(TC_EMPRESA_ORDER as readonly string[]).includes(e.codigo)),
-  ]
+  const empresasGrid = [...empresas].sort(
+    (a, b) => tcEmpresaOrderKey(a.codigo) - tcEmpresaOrderKey(b.codigo),
+  )
 
   const activePct = stats ? Math.round((stats.activos / Math.max(stats.total, 1)) * 100) : 0
 
