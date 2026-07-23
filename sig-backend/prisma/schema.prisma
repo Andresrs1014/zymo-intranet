@@ -232,3 +232,36 @@ model SigAnalisisProcVsInst {
 
   @@index([procedimientoId])
 }
+
+// ── Reportes de Desarrollo ────────────────────────────────────────────────────
+// Reportes semanales que sube el equipo de desarrollo documentando el trabajo:
+// markdown con flujogramas y especificaciones, % de avance y tiempos estimados.
+// El archivo .md original se conserva como respaldo (mismo patrón que instructivos).
+
+model SigReporteDesarrollo {
+  id          Int      @id @default(autoincrement())
+  titulo      String
+  descripcion String?  @db.VarChar(1000)
+  proyecto    String   // ej. "Helix", "Intranet", "ZymoAlly"
+  contenidoMd String   @db.Text
+  porcentajeAvance     Int     // 0-100
+  tiempoEstimadoHoras  Float?
+  tiempoRealHoras      Float?
+  fechaReporte         DateTime @default(now())
+
+  // Metadatos de quien lo creó
+  autorId     Int
+  autorNombre String
+
+  // Archivo original subido (.md). Solo el filename — el directorio base está en el router.
+  archivoOriginal String? @db.VarChar(500)
+  nombreArchivo   String? @db.VarChar(255)
+  tipoMime        String? @db.VarChar(100)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([proyecto])
+  @@index([autorId])
+  @@index([fechaReporte])
+}

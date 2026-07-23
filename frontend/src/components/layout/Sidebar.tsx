@@ -15,6 +15,7 @@ import {
   Users,
   Ticket,
   Smile,
+  NotebookPen,
 } from "lucide-react"
 import { useAuthStore } from "@/store/authStore"
 import {
@@ -33,6 +34,7 @@ import {
   canSeeTyC,
   canSeeTickets,
   canSeeSAC,
+  canSeeReportesDesarrollo,
 } from "@/lib/permissions"
 import {
   Sidebar as ShadcnSidebar,
@@ -72,6 +74,7 @@ export function Sidebar() {
   const showTickets        = user ? canSeeTickets(user.role, perms) : false
   const showSac            = user ? canSeeSAC(user.role, perms) : false
   const showTyC            = user ? canSeeTyC(user.role, perms) : false
+  const showReportes       = user ? canSeeReportesDesarrollo(user.role, perms) : false
 
   // Derive user initials for the footer avatar
   const initials = user?.full_name
@@ -125,7 +128,7 @@ export function Sidebar() {
 
         {/* ── Section: Módulos ────────────────────────────────────────── */}
         {(showIT || showSGC || showSIG || showOperativo || showAdministrativo ||
-          showMantenimiento || showFinanciero || showGerencial || showExtraccionIA || showTyC) && (
+          showMantenimiento || showFinanciero || showGerencial || showExtraccionIA || showTyC || showReportes) && (
           <SidebarGroup>
             <SidebarGroupLabel>Módulos disponibles</SidebarGroupLabel>
             <SidebarGroupContent>
@@ -215,6 +218,14 @@ export function Sidebar() {
                     label="T&C"
                     icon={<Users className="w-4 h-4" />}
                     active={isActive(["/tc"])}
+                  />
+                )}
+                {showReportes && (
+                  <NavItem
+                    to="/reportes-desarrollo"
+                    label="Reportes Dev"
+                    icon={<NotebookPen className="w-4 h-4" />}
+                    active={isActive(["/reportes-desarrollo"])}
                   />
                 )}
               </SidebarMenu>

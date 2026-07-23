@@ -19,6 +19,7 @@ import {
   canSeeGestionTickets,
   canSeeTickets,
   canSeeSAC,
+  canSeeReportesDesarrollo,
 } from "@/lib/permissions"
 import { useAgentPanelStore } from "@/store/agentPanelStore"
 import { useMinWidth } from "@/hooks/useMinWidth"
@@ -85,6 +86,9 @@ import { TyCEmpresaPage } from "@/pages/tc/TyCEmpresaPage"
 import { TyCNuevoPersonalCalendarioPage } from "@/pages/tc/TyCNuevoPersonalCalendarioPage"
 import { TyCNuevoPersonalNuevoPage } from "@/pages/tc/TyCNuevoPersonalNuevoPage"
 import { TyCNuevoPersonalDiaPage } from "@/pages/tc/TyCNuevoPersonalDiaPage"
+import { ReportesDesarrolloPage } from "@/pages/reportes/ReportesDesarrolloPage"
+import { ReporteDetallePage } from "@/pages/reportes/ReporteDetallePage"
+import { ReporteEditorPageNew, ReporteEditorPageEdit } from "@/pages/reportes/ReporteEditorPage"
 
 // Decodifica el claim `exp` del JWT sin verificar firma (solo para chequeo local de expiración)
 function isTokenExpired(token: string): boolean {
@@ -250,6 +254,15 @@ function TyCRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user)
   if (!user) return <Navigate to="/login" replace />
   if (!canSeeTyC(user.role, user.app_permissions)) return <Navigate to="/dashboard" replace />
+  return <>{children}</>
+}
+
+function ReportesDesarrolloRoute({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user)
+  if (!user) return <Navigate to="/login" replace />
+  if (!canSeeReportesDesarrollo(user.role, user.app_permissions)) {
+    return <Navigate to="/dashboard" replace />
+  }
   return <>{children}</>
 }
 
@@ -762,6 +775,40 @@ export default function App() {
         <Route
           path="/tc/nuevo-personal/:id"
           element={<TyCRoute><TyCNuevoPersonalDiaPage /></TyCRoute>}
+        />
+
+        {/* Reportes de Desarrollo */}
+        <Route
+          path="/reportes-desarrollo"
+          element={
+            <ReportesDesarrolloRoute>
+              <ReportesDesarrolloPage />
+            </ReportesDesarrolloRoute>
+          }
+        />
+        <Route
+          path="/reportes-desarrollo/nuevo"
+          element={
+            <ReportesDesarrolloRoute>
+              <ReporteEditorPageNew />
+            </ReportesDesarrolloRoute>
+          }
+        />
+        <Route
+          path="/reportes-desarrollo/:id/editar"
+          element={
+            <ReportesDesarrolloRoute>
+              <ReporteEditorPageEdit />
+            </ReportesDesarrolloRoute>
+          }
+        />
+        <Route
+          path="/reportes-desarrollo/:id"
+          element={
+            <ReportesDesarrolloRoute>
+              <ReporteDetallePage />
+            </ReportesDesarrolloRoute>
+          }
         />
 
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

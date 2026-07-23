@@ -186,6 +186,20 @@ export function canUseCapCoordinador(role: string, appPerms?: string[]): boolean
   return hasPerm(appPerms, "mod_tc_cap_coordinador")
 }
 
+// Transparencia del equipo — cualquier usuario autenticado puede ver los
+// reportes (el backend no exige ningún permiso extra en el GET). La
+// restricción real es solo para escribir, ver canWriteReportesDesarrollo.
+export function canSeeReportesDesarrollo(_role: string, _appPerms?: string[]): boolean {
+  return true
+}
+
+export function canWriteReportesDesarrollo(role: string, appPerms?: string[]): boolean {
+  if (role === "admin") return true
+  if (role === "gerente") return true
+  if (hasPerm(appPerms, "mod_reportes_desarrollo")) return true
+  return false
+}
+
 export function canSeeMantenimiento(
   role: string,
   appPerms?: string[]

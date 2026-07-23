@@ -9,6 +9,7 @@ export const env = {
     return "change-me-same-as-fastapi"
   })(),
   INTRANET_API_URL: process.env.INTRANET_API_URL ?? "http://backend:8001",
+  INTERNAL_KEY: process.env.INTERNAL_KEY ?? "task-internal-key-dev",
   CORS_ORIGIN: process.env.CORS_ORIGIN,
   // Email para notificaciones de aprobación
   SMTP_HOST: process.env.SMTP_HOST,

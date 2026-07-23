@@ -8,6 +8,7 @@ import procedimientosRouter from "./routers/procedimientos"
 import commitsRouter from "./routers/commits"
 import instructivosRouter from "./routers/instructivos"
 import analisisRouter from "./routers/analisis"
+import reportesDesarrolloRouter from "./routers/reportes-desarrollo"
 
 const app = express()
 
@@ -30,6 +31,7 @@ app.use("/api/procedimientos", procedimientosRouter)
 app.use("/api/commits", commitsRouter)
 app.use("/api/instructivos", instructivosRouter)
 app.use("/api/analisis", analisisRouter)
+app.use("/api/reportes-desarrollo", reportesDesarrolloRouter)
 
 // 404
 app.use((_req: Request, res: Response) => {
