@@ -309,6 +309,69 @@ def set_personas_evento(
     return _evento_dict(ev, db, main_db)
 
 
+def _horas_evento(ev: PtcEvento) -> float:
+    try:
+        inicio = datetime.strptime(ev.hora_inicio, "%H:%M")
+        fin = datetime.strptime(ev.hora_fin, "%H:%M")
+        return round((fin - inicio).total_seconds() / 3600, 1)
+    except Exception:
+        return 0.0
+
+
+def _sync_capacitacion(db: Session, persona_id: int, ev: PtcEvento, asistio: Optional[bool]) -> None:
+    """Refleja la asistencia de Agenda (tipo #1) en el historial de
+    Capacitaciones del perfil de la persona — antes quedaba solo en
+    PtcEventoPersona.asistio, sin aparecer nunca en su perfil. Cubre los 3
+    estados: asistió, no asistió, y "finalizada pero nunca se marcó" (se crea
+    ya en Pendiente al finalizar, antes de que el líder toque la asistencia)."""
+    if asistio is True:
+        estado = "Completado"
+        observaciones = "Asistió a la inducción."
+    elif asistio is False:
+        estado = "No asistió"
+        observaciones = f'Tenía "{ev.titulo}" agendada y no se marcó asistencia.'
+    else:
+        estado = "Pendiente"
+        observaciones = f'Tenía "{ev.titulo}" agendada y no se marcó asistencia.'
+
+    diploma_url = ev.acta_firmada_url or ev.foto_evidencia_url or ""
+
+    existing = db.exec(
+        select(PtcCapacitacion).where(
+            PtcCapacitacion.persona_id == persona_id,
+            PtcCapacitacion.titulo == ev.titulo,
+            PtcCapacitacion.fecha == ev.fecha,
+        )
+    ).first()
+    if existing:
+        existing.estado = estado
+        existing.observaciones = observaciones
+        existing.diploma_url = diploma_url
+        existing.horas = _horas_evento(ev)
+        db.add(existing)
+    else:
+        db.add(PtcCapacitacion(
+            persona_id=persona_id,
+            titulo=ev.titulo,
+            fecha=ev.fecha,
+            horas=_horas_evento(ev),
+            estado=estado,
+            observaciones=observaciones,
+            diploma_url=diploma_url,
+        ))
+
+
+def _sync_capacitaciones_evento(db: Session, ev: PtcEvento) -> None:
+    """Vuelve a sincronizar a todos los asistentes del evento — usado cuando
+    cambia algo del evento mismo (evidencia subida) que debe reflejarse en
+    cada registro de Capacitación ya creado."""
+    asignaciones = db.exec(
+        select(PtcEventoPersona).where(PtcEventoPersona.evento_id == ev.id)
+    ).all()
+    for a in asignaciones:
+        _sync_capacitacion(db, a.persona_id, ev, a.asistio)
+
+
 @router.post("/eventos/{evento_id}/finalizar")
 def finalizar_evento(
     evento_id: int,
@@ -322,42 +385,12 @@ def finalizar_evento(
     _requerir_estado(ev, _EN_CURSO)
     ev.finalizada_en = datetime.utcnow()
     db.add(ev)
+    db.flush()
+    # Crea de una vez el registro "Pendiente" para todos los asistentes —
+    # así queda visible en su perfil aunque el líder nunca marque asistencia.
+    _sync_capacitaciones_evento(db, ev)
     db.commit()
     return _evento_dict(ev, db, main_db)
-
-
-def _horas_evento(ev: PtcEvento) -> float:
-    try:
-        inicio = datetime.strptime(ev.hora_inicio, "%H:%M")
-        fin = datetime.strptime(ev.hora_fin, "%H:%M")
-        return round((fin - inicio).total_seconds() / 3600, 1)
-    except Exception:
-        return 0.0
-
-
-def _sync_capacitacion(db: Session, persona_id: int, ev: PtcEvento, asistio: bool) -> None:
-    """Refleja la asistencia de Agenda (tipo #1) en el historial de
-    Capacitaciones del perfil de la persona — antes quedaba solo en
-    PtcEventoPersona.asistio, sin aparecer nunca en su perfil."""
-    existing = db.exec(
-        select(PtcCapacitacion).where(
-            PtcCapacitacion.persona_id == persona_id,
-            PtcCapacitacion.titulo == ev.titulo,
-            PtcCapacitacion.fecha == ev.fecha,
-        )
-    ).first()
-    if asistio:
-        if not existing:
-            db.add(PtcCapacitacion(
-                persona_id=persona_id,
-                titulo=ev.titulo,
-                fecha=ev.fecha,
-                horas=_horas_evento(ev),
-                estado="Completado",
-                observaciones="Generado automáticamente desde Agenda (inducción).",
-            ))
-    elif existing:
-        db.delete(existing)
 
 
 @router.patch("/eventos/{evento_id}/asistencia")
@@ -441,6 +474,8 @@ async def subir_foto_evidencia(
     ev.foto_evidencia_url = f"/tc-fotos/{fname}"
     ev.updated_at = datetime.utcnow()
     db.add(ev)
+    db.flush()
+    _sync_capacitaciones_evento(db, ev)
     db.commit()
     db.refresh(ev)
     return _evento_dict(ev, db, main_db)
@@ -545,6 +580,8 @@ async def subir_acta_firmada(
     ev.acta_firmada_url = f"/tc-docs/{fname}"
     ev.updated_at = datetime.utcnow()
     db.add(ev)
+    db.flush()
+    _sync_capacitaciones_evento(db, ev)
     db.commit()
     db.refresh(ev)
     return _evento_dict(ev, db, main_db)

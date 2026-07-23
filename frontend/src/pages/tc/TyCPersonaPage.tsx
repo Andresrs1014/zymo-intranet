@@ -530,6 +530,7 @@ function CapacitacionesTab({ personaId, puedeEditar }: { personaId: number; pued
   const ESTADO_COLOR: Record<string, string> = {
     "Completado": "bg-emerald-500/10 text-emerald-500",
     "Pendiente":  "bg-amber-500/10 text-amber-500",
+    "No asistió": "bg-rose-500/10 text-rose-500",
     "Cancelado":  "bg-muted text-muted-foreground",
   }
 
