@@ -65,3 +65,21 @@ export const TC_EMPRESA_PALETTE = [
   { badge: "bg-emerald-500/10 text-emerald-400", text: "text-emerald-400" },
   { badge: "bg-rose-500/10 text-rose-400",     text: "text-rose-400"    },
 ] as const
+
+/** Orden del grid «Empresas del grupo» (Sede.name en PostgreSQL). */
+export const TC_EMPRESA_ORDER = ["LOGIMAT", "IMCCARGO", "IMC Depósito"] as const
+
+/** Marca visual por sede — label corto + escudo (prototipo Directorio). */
+export const TC_EMPRESA_BRAND: Record<string, { label: string; logo: string }> = {
+  LOGIMAT:        { label: "ZYMOLOGI", logo: "/tc/company-logos/zymologi.jpg" },
+  IMCCARGO:       { label: "ZYMOIMCC", logo: "/tc/company-logos/zymoimcc.png" },
+  "IMC Depósito": { label: "ZYMOIMDE", logo: "/tc/company-logos/zymoimde.jpg" },
+}
+
+export function tcEmpresaLabel(codigo: string): string {
+  return TC_EMPRESA_BRAND[codigo]?.label ?? codigo
+}
+
+export function tcEmpresaLogo(codigo: string): string | null {
+  return TC_EMPRESA_BRAND[codigo]?.logo ?? null
+}

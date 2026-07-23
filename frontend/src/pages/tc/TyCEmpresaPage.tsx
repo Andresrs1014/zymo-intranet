@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { api } from "@/lib/api"
+import { tcEmpresaLabel } from "@/lib/tc-constants"
 import { PageLayout } from "@/components/layout/PageLayout"
 import {
   ArrowLeft, ArrowRight, ArrowUpRight, GitBranch, Layers, Users,
@@ -46,6 +47,7 @@ export function TyCEmpresaPage() {
   }, [sedeId])
 
   const empresa = hub?.empresa
+  const empresaLabel = empresa ? tcEmpresaLabel(empresa.codigo) : "Empresa"
 
   function irDirectorio(params: Record<string, string>) {
     const q = new URLSearchParams(params).toString()
@@ -53,7 +55,7 @@ export function TyCEmpresaPage() {
   }
 
   return (
-    <PageLayout title={empresa ? `T&C — ${empresa.nombre}` : "T&C — Empresa"} mainClassName="flex-1 overflow-y-auto">
+    <PageLayout title={empresa ? `T&C — ${empresaLabel}` : "T&C — Empresa"} mainClassName="flex-1 overflow-y-auto">
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">
 
         <button
@@ -81,7 +83,7 @@ export function TyCEmpresaPage() {
               <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-teal-500 mb-2">
                 Empresa del grupo
               </p>
-              <h1 className="text-3xl font-bold tracking-tight">{hub.empresa.nombre}</h1>
+              <h1 className="text-3xl font-bold tracking-tight">{empresaLabel}</h1>
               <p className="text-sm text-muted-foreground mt-1">
                 {hub.kpis.total} colaborador{hub.kpis.total !== 1 ? "es" : ""} registrados
               </p>

@@ -8,8 +8,20 @@ import {
   Users, GitBranch, Upload, FileText, TrendingUp, ArrowUpRight,
   CalendarDays, Settings2, GraduationCap, UserX, Building2, UserPlus,
 } from "lucide-react"
+import {
+  TC_EMPRESA_ORDER,
+  tcEmpresaLabel,
+  tcEmpresaLogo,
+} from "@/lib/tc-constants"
 
-interface Stats { total: number; activos: number; inactivos: number }
+interface Stats {
+  total: number
+  activos: number
+  inactivos: number
+  por_empresa?: { id: number; codigo: string; nombre: string; total: number; activos: number }[]
+}
+
+interface Empresa { id: number; nombre: string; codigo: string }
 
 export function TyCPage() {
   const navigate      = useNavigate()
@@ -21,12 +33,32 @@ export function TyCPage() {
   const puedeCapCoord   = user ? canUseCapCoordinador(user.role, user.app_permissions) : false
 
   const [stats, setStats] = useState<Stats | null>(null)
+  const [empresas, setEmpresas] = useState<Empresa[]>([])
 
   useEffect(() => {
-    api.get("/tc/stats")
-      .then((r) => setStats({ total: r.data.total, activos: r.data.activos, inactivos: r.data.inactivos }))
+    Promise.all([api.get("/tc/stats"), api.get("/tc/empresas")])
+      .then(([statsRes, empresasRes]) => {
+        setStats({
+          total: statsRes.data.total,
+          activos: statsRes.data.activos,
+          inactivos: statsRes.data.inactivos,
+          por_empresa: statsRes.data.por_empresa ?? [],
+        })
+        setEmpresas(Array.isArray(empresasRes.data) ? empresasRes.data : [])
+      })
       .catch(() => {})
   }, [])
+
+  const countByEmpresa = new Map(
+    (stats?.por_empresa ?? []).map((e) => [e.codigo, e.total]),
+  )
+
+  const empresasGrid = [
+    ...TC_EMPRESA_ORDER
+      .map((codigo) => empresas.find((e) => e.codigo === codigo))
+      .filter((e): e is Empresa => e != null),
+    ...empresas.filter((e) => !(TC_EMPRESA_ORDER as readonly string[]).includes(e.codigo)),
+  ]
 
   const activePct = stats ? Math.round((stats.activos / Math.max(stats.total, 1)) * 100) : 0
 
@@ -74,6 +106,24 @@ export function TyCPage() {
           )}
         </div>
       </div>
+
+      {/* ── Empresas del grupo ─────────────────────────────────────────── */}
+      {empresasGrid.length > 0 && (
+        <div className="px-10 pt-8 pb-2 max-w-5xl mx-auto">
+          <SectionLabel>Empresas del grupo</SectionLabel>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {empresasGrid.map((empresa, i) => (
+              <EmpresaGrupoCard
+                key={empresa.id}
+                codigo={empresa.codigo}
+                colaboradores={countByEmpresa.get(empresa.codigo) ?? 0}
+                onClick={() => navigate(`/tc/empresa/${empresa.id}`)}
+                delayMs={i * 70}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── Módulos ───────────────────────────────────────────────────── */}
       <div className="px-10 py-8 max-w-5xl mx-auto space-y-8">
@@ -221,6 +271,43 @@ const COLOR_MAP = {
   indigo: { bg: "bg-indigo-500/10", icon: "text-indigo-400", ring: "hover:border-indigo-500/30" },
   amber:  { bg: "bg-amber-500/10",  icon: "text-amber-400",  ring: "hover:border-amber-500/30"  },
 } as const
+
+function EmpresaGrupoCard({
+  codigo,
+  colaboradores,
+  onClick,
+  delayMs = 0,
+}: {
+  codigo: string
+  colaboradores: number
+  onClick: () => void
+  delayMs?: number
+}) {
+  const label = tcEmpresaLabel(codigo)
+  const logo = tcEmpresaLogo(codigo)
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group w-full text-center rounded-2xl border border-border bg-card/80 px-5 py-6 transition-all duration-200 hover:border-teal-500/35 hover:bg-muted/10 hover:shadow-lg hover:-translate-y-0.5 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:fill-mode-both"
+      style={{ animationDelay: `${delayMs}ms`, animationDuration: "450ms" }}
+    >
+      <span className="mx-auto mb-4 flex h-24 w-24 items-center justify-center overflow-hidden rounded-[18px] border border-teal-500/15 bg-white shadow-[0_12px_28px_rgba(15,23,42,0.12)]">
+        {logo ? (
+          <img src={logo} alt={`Escudo ${label}`} className="h-[82%] w-[82%] object-contain" />
+        ) : (
+          <Building2 className="h-8 w-8 text-muted-foreground/40" aria-hidden />
+        )}
+      </span>
+      <h3 className="text-base font-extrabold tracking-tight">{label}</h3>
+      <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-teal-500/10 px-3 py-1 text-[11px] font-semibold text-teal-400">
+        <Users className="h-3 w-3" aria-hidden />
+        {colaboradores} colaborador{colaboradores !== 1 ? "es" : ""}
+      </span>
+    </button>
+  )
+}
 
 function ModuleCard({
   icon, color, title, description, onClick, primary = false, compact = false,
