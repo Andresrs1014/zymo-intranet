@@ -10,13 +10,11 @@ import { resolveActorName } from "../utils/userNames"
 
 const router = Router()
 
-// TEMPORAL (2026-07-24): mientras se decide el modelo de permisos definitivo,
-// el modulo completo (lectura incluida) queda restringido a admin. Antes
-// cualquier autenticado podia ver los reportes ("transparencia del equipo") --
-// ver mod_reportes_desarrollo en permissions.ts para cuando se reabra a mas roles.
+// Reportes de Desarrollo — módulo exclusivo de admin (decisión definitiva,
+// 2026-07-24). Todo el router queda detrás de este gate, lectura incluida.
 router.use((req: Request, res: Response, next) => {
   if (req.user?.role !== "admin") {
-    res.status(403).json({ error: "Reportes de desarrollo — solo administradores por ahora" })
+    res.status(403).json({ error: "Reportes de desarrollo — solo administradores" })
     return
   }
   next()
@@ -46,17 +44,6 @@ const upload = multer({
     else cb(new Error("Solo se permiten archivos .md, .markdown o .txt"))
   },
 })
-
-// ── Permisos ─────────────────────────────────────────────────────────────────
-// Reportes del equipo de desarrollo: cualquier usuario autenticado puede verlos
-// (transparencia del equipo), pero solo el autor o admin/gerente puede
-// crear/editar/borrar. Se exige `mod_reportes_desarrollo` para escribir.
-
-function canWriteReportes(req: Request): boolean {
-  const role = req.user?.role
-  if (role === "admin" || role === "gerente") return true
-  return req.user?.app_permissions?.includes("mod_reportes_desarrollo") ?? false
-}
 
 // ── GET /api/reportes-desarrollo ──────────────────────────────────────────────
 // Lista reportes. Filtros: ?proyecto=Helix&autorId=42
@@ -111,12 +98,6 @@ const CrearSchema = z.object({
 })
 
 router.post("/", upload.single("archivo"), async (req: Request, res: Response) => {
-  if (!canWriteReportes(req)) {
-    if (req.file) await fs.unlink(req.file.path).catch(() => {})
-    res.status(403).json({ error: "Sin permiso para crear reportes de desarrollo" })
-    return
-  }
-
   try {
     const data = CrearSchema.parse(req.body)
 
@@ -167,7 +148,6 @@ router.post("/", upload.single("archivo"), async (req: Request, res: Response) =
 })
 
 // ── PATCH /api/reportes-desarrollo/:id ────────────────────────────────────────
-// Edita un reporte. Solo el autor o admin/gerente.
 const EditarSchema = z.object({
   titulo: z.string().min(1).max(255).optional(),
   descripcion: z.string().max(1000).optional(),
@@ -188,15 +168,6 @@ router.patch(
     if (!existing) {
       if (req.file) await fs.unlink(req.file.path).catch(() => {})
       res.status(404).json({ error: "Reporte no encontrado" })
-      return
-    }
-
-    const userId = getUserId(req.user!)
-    const isAuthor = existing.autorId === userId
-    const isAdmin = req.user!.role === "admin" || req.user!.role === "gerente"
-    if (!isAuthor && !isAdmin) {
-      if (req.file) await fs.unlink(req.file.path).catch(() => {})
-      res.status(403).json({ error: "Solo el autor o un admin puede editar este reporte" })
       return
     }
 
@@ -250,14 +221,6 @@ router.delete("/:id", async (req: Request, res: Response) => {
   const existing = await prisma.sigReporteDesarrollo.findUnique({ where: { id } })
   if (!existing) {
     res.status(404).json({ error: "Reporte no encontrado" })
-    return
-  }
-
-  const userId = getUserId(req.user!)
-  const isAuthor = existing.autorId === userId
-  const isAdmin = req.user!.role === "admin" || req.user!.role === "gerente"
-  if (!isAuthor && !isAdmin) {
-    res.status(403).json({ error: "Solo el autor o un admin puede borrar este reporte" })
     return
   }
 

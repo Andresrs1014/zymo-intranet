@@ -186,9 +186,8 @@ export function canUseCapCoordinador(role: string, appPerms?: string[]): boolean
   return hasPerm(appPerms, "mod_tc_cap_coordinador")
 }
 
-// TEMPORAL (2026-07-24): restringido solo a admin mientras se decide el
-// modelo de permisos definitivo — el backend también lo exige ahora (antes
-// era abierto a cualquier autenticado, "transparencia del equipo").
+// Reportes de Desarrollo — módulo exclusivo de admin (decisión definitiva,
+// 2026-07-24). El backend también lo exige (sig-backend/routers/reportes-desarrollo.ts).
 export function canSeeReportesDesarrollo(role: string, _appPerms?: string[]): boolean {
   return role === "admin"
 }
