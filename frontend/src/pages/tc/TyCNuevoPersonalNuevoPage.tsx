@@ -58,7 +58,7 @@ export function TyCNuevoPersonalNuevoPage() {
 
   return (
     <PageLayout title="Nueva capacitación — Nuevo personal" mainClassName="flex-1 overflow-y-auto">
-      <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
+      <div className="max-w-5xl mx-auto px-8 py-8 space-y-7">
         <button
           onClick={() => navigate("/tc/nuevo-personal")}
           className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -71,13 +71,13 @@ export function TyCNuevoPersonalNuevoPage() {
         <div className="flex items-center gap-2">
           {PASOS.map((p, i) => (
             <div key={p} className="flex items-center gap-2 flex-1">
-              <div className={`flex items-center gap-2 flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
+              <div className={`flex items-center gap-2.5 flex-1 rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${
                 i === paso ? "bg-teal-500/15 text-teal-400" : i < paso ? "text-emerald-400" : "text-muted-foreground"
               }`}>
-                <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] ${
+                <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs ${
                   i === paso ? "bg-teal-500/25" : i < paso ? "bg-emerald-500/20" : "bg-muted/20"
                 }`}>
-                  {i < paso ? <Check className="w-3 h-3" /> : i + 1}
+                  {i < paso ? <Check className="w-3.5 h-3.5" /> : i + 1}
                 </span>
                 {p}
               </div>
@@ -115,6 +115,15 @@ export function TyCNuevoPersonalNuevoPage() {
           />
         )}
       </div>
+
+      <style>{`
+        .input-base {
+          width: 100%; height: 2.75rem; padding: 0 0.875rem; border-radius: 0.625rem;
+          border: 1px solid hsl(var(--border)); background: hsl(var(--background) / 0.6); font-size: 0.875rem;
+        }
+        textarea.input-base { height: auto; padding: 0.625rem 0.875rem; }
+        .input-base:focus { outline: none; box-shadow: 0 0 0 1px hsl(var(--ring)); }
+      `}</style>
     </PageLayout>
   )
 }
@@ -159,49 +168,49 @@ function PasoPersonas({
   }
 
   return (
-    <div className="space-y-5">
-      <div className="rounded-2xl border border-border bg-muted/5 p-5 space-y-4">
-        <div className="grid grid-cols-2 gap-3">
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-border bg-muted/5 p-7 space-y-5">
+        <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1 block">Fecha</label>
+            <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5 block">Fecha</label>
             <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="input-base" />
           </div>
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1 block">Título</label>
+            <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5 block">Título</label>
             <input value={titulo} onChange={(e) => setTitulo(e.target.value)} className="input-base" />
           </div>
         </div>
         <div>
-          <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1 block">Descripción (opcional)</label>
+          <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5 block">Descripción (opcional)</label>
           <textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} rows={2} className="input-base" />
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border bg-muted/5 p-5 space-y-3">
+      <div className="rounded-2xl border border-border bg-muted/5 p-7 space-y-4">
         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Personas a capacitar</p>
 
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Buscar persona ya creada por nombre o documento…"
-            className="input-base pl-8"
+            className="input-base pl-11"
           />
-          {buscando && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 animate-spin text-muted-foreground" />}
+          {buscando && <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />}
         </div>
 
         {resultados.length > 0 && (
-          <div className="space-y-1 max-h-48 overflow-y-auto border border-border rounded-lg p-1.5">
+          <div className="space-y-1 max-h-56 overflow-y-auto border border-border rounded-xl p-2">
             {resultados.map((p) => (
               <button
                 key={p.id}
                 onClick={() => agregar(p)}
-                className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-muted/10 text-left transition-colors"
+                className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted/10 text-left transition-colors"
               >
-                <Plus className="w-3 h-3 text-teal-400 shrink-0" />
-                <span className="text-xs font-medium">{p.nombre}</span>
-                <span className="text-[10px] text-muted-foreground">{p.cargo_nombre} · {p.empresa_nombre}</span>
+                <Plus className="w-4 h-4 text-teal-400 shrink-0" />
+                <span className="text-sm font-medium">{p.nombre}</span>
+                <span className="text-xs text-muted-foreground">{p.cargo_nombre} · {p.empresa_nombre}</span>
               </button>
             ))}
           </div>
@@ -209,9 +218,9 @@ function PasoPersonas({
 
         <button
           onClick={() => setCrearAbierto((v) => !v)}
-          className="flex items-center gap-1.5 text-xs font-semibold text-teal-400 hover:text-teal-300 transition-colors"
+          className="flex items-center gap-2 text-sm font-semibold text-teal-400 hover:text-teal-300 transition-colors"
         >
-          <UserPlus className="w-3.5 h-3.5" />
+          <UserPlus className="w-4 h-4" />
           Crear persona nueva (ingreso)
         </button>
         {crearAbierto && (
@@ -222,12 +231,12 @@ function PasoPersonas({
         )}
 
         {personas.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 pt-2 border-t border-border">
+          <div className="flex flex-wrap gap-2 pt-3 border-t border-border">
             {personas.map((p) => (
-              <span key={p.id} className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border border-teal-500/30 bg-teal-500/10 text-teal-400">
+              <span key={p.id} className="flex items-center gap-2 text-sm px-3.5 py-2 rounded-full border border-teal-500/30 bg-teal-500/10 text-teal-400">
                 {p.nombre}
                 <button onClick={() => quitar(p.id)} aria-label={`Quitar a ${p.nombre}`}>
-                  <X className="w-3 h-3 hover:text-rose-400" />
+                  <X className="w-3.5 h-3.5 hover:text-rose-400" />
                 </button>
               </span>
             ))}
@@ -239,21 +248,12 @@ function PasoPersonas({
         <button
           onClick={onNext}
           disabled={personas.length === 0 || !fecha || !titulo}
-          className="flex items-center gap-1.5 h-9 px-4 text-sm font-medium rounded-xl bg-teal-500/15 hover:bg-teal-500/25 text-teal-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex items-center gap-2 h-11 px-5 text-sm font-medium rounded-xl bg-teal-500/15 hover:bg-teal-500/25 text-teal-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Siguiente: Líderes
-          <ArrowRight className="w-3.5 h-3.5" />
+          <ArrowRight className="w-4 h-4" />
         </button>
       </div>
-
-      <style>{`
-        .input-base {
-          width: 100%; height: 2.25rem; padding: 0 0.75rem; border-radius: 0.5rem;
-          border: 1px solid hsl(var(--border)); background: hsl(var(--background) / 0.6); font-size: 0.8125rem;
-        }
-        textarea.input-base { height: auto; padding: 0.5rem 0.75rem; }
-        .input-base:focus { outline: none; box-shadow: 0 0 0 1px hsl(var(--ring)); }
-      `}</style>
     </div>
   )
 }
@@ -281,11 +281,11 @@ function CrearPersonaMini({ onCreada, onCancelar }: { onCreada: (p: PersonaOpt) 
   }
 
   return (
-    <div className="rounded-xl border border-teal-500/20 bg-teal-500/5 p-3 space-y-2">
-      <p className="text-[10px] text-muted-foreground">
+    <div className="rounded-xl border border-teal-500/20 bg-teal-500/5 p-5 space-y-3">
+      <p className="text-xs text-muted-foreground">
         Alta mínima — el resto (cargo, área, foto) se completa después desde el Directorio.
       </p>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 gap-3">
         <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre completo" className="input-base col-span-1" />
         <input value={documento} onChange={(e) => setDocumento(e.target.value)} placeholder="Documento (opcional)" className="input-base col-span-1" />
         <select value={empresaId} onChange={(e) => setEmpresaId(e.target.value)} className="input-base col-span-1">
@@ -293,16 +293,16 @@ function CrearPersonaMini({ onCreada, onCancelar }: { onCreada: (p: PersonaOpt) 
           {sedes.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
       </div>
-      {error && <p className="text-[10px] text-destructive">{error}</p>}
+      {error && <p className="text-xs text-destructive">{error}</p>}
       <div className="flex gap-2">
         <button
           onClick={crear}
           disabled={creando}
-          className="h-8 px-3 text-xs font-semibold rounded-lg bg-teal-500 text-white hover:bg-teal-600 transition-colors disabled:opacity-50"
+          className="h-9 px-4 text-sm font-semibold rounded-lg bg-teal-500 text-white hover:bg-teal-600 transition-colors disabled:opacity-50"
         >
           {creando ? "Creando…" : "Crear y agregar"}
         </button>
-        <button onClick={onCancelar} className="h-8 px-3 text-xs rounded-lg border border-border text-muted-foreground hover:text-foreground transition-colors">
+        <button onClick={onCancelar} className="h-9 px-4 text-sm rounded-lg border border-border text-muted-foreground hover:text-foreground transition-colors">
           Cancelar
         </button>
       </div>
@@ -342,21 +342,21 @@ function PasoLideres({
   }
 
   return (
-    <div className="space-y-5">
-      <div className="rounded-2xl border border-border bg-muted/5 p-5 space-y-3">
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-border bg-muted/5 p-7 space-y-4">
         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Elegir líderes</p>
 
         {recientes.length > 0 && (
           <div>
-            <p className="text-[10px] text-muted-foreground mb-1.5">Usados antes:</p>
-            <div className="flex flex-wrap gap-1.5">
+            <p className="text-xs text-muted-foreground mb-2">Usados antes:</p>
+            <div className="flex flex-wrap gap-2">
               {recientes.map((p) => {
                 const activo = bloques.some((b) => b.lider_id === p.id)
                 return (
                   <button
                     key={p.id}
                     onClick={() => onToggleLider(p)}
-                    className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                    className={`text-sm px-3.5 py-1.5 rounded-full border transition-colors ${
                       activo ? "border-teal-500/50 bg-teal-500/15 text-teal-400" : "border-border bg-background/60 text-foreground/80 hover:border-teal-500/40"
                     }`}
                   >
@@ -369,25 +369,25 @@ function PasoLideres({
         )}
 
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Buscar otro líder por nombre…"
-            className="input-base pl-8"
+            className="input-base pl-11"
           />
         </div>
         {resultados.length > 0 && (
-          <div className="space-y-1 max-h-40 overflow-y-auto border border-border rounded-lg p-1.5">
+          <div className="space-y-1 max-h-48 overflow-y-auto border border-border rounded-xl p-2">
             {resultados.map((p) => (
               <button
                 key={p.id}
                 onClick={() => { onToggleLider(p); setQ(""); setResultados([]) }}
-                className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-muted/10 text-left transition-colors"
+                className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted/10 text-left transition-colors"
               >
-                <Plus className="w-3 h-3 text-teal-400 shrink-0" />
-                <span className="text-xs font-medium">{p.nombre}</span>
-                <span className="text-[10px] text-muted-foreground">{p.cargo_nombre}</span>
+                <Plus className="w-4 h-4 text-teal-400 shrink-0" />
+                <span className="text-sm font-medium">{p.nombre}</span>
+                <span className="text-xs text-muted-foreground">{p.cargo_nombre}</span>
               </button>
             ))}
           </div>
@@ -395,35 +395,43 @@ function PasoLideres({
       </div>
 
       {bloques.length > 0 && (
-        <div className="rounded-2xl border border-border bg-muted/5 p-5 space-y-2">
+        <div className="rounded-2xl border border-border bg-muted/5 p-7 space-y-3">
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">
             Horario del día — cada líder con su franja
           </p>
           {bloques.map((b) => (
-            <div key={b.lider_id} className="flex items-center gap-3 p-2.5 rounded-lg bg-background/40 border border-border">
-              <span className="flex-1 min-w-0 text-sm font-medium truncate">{b.lider_nombre}</span>
-              <div className="flex items-center gap-1.5 shrink-0">
-                <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-                <input
-                  type="time"
-                  value={b.hora_inicio}
-                  onChange={(e) => actualizarHorario(b.lider_id, "hora_inicio", e.target.value)}
-                  className="input-base w-24"
-                />
-                <span className="text-xs text-muted-foreground">–</span>
-                <input
-                  type="time"
-                  value={b.hora_fin}
-                  onChange={(e) => actualizarHorario(b.lider_id, "hora_fin", e.target.value)}
-                  className="input-base w-24"
-                />
+            <div key={b.lider_id} className="flex items-center gap-5 p-4 rounded-xl bg-background/40 border border-border">
+              <span className="flex items-center gap-2 flex-1 min-w-0 text-sm font-semibold">
+                <Clock className="w-4 h-4 text-muted-foreground shrink-0" />
+                <span className="truncate">{b.lider_nombre}</span>
+              </span>
+              <div className="flex items-end gap-3 shrink-0">
+                <div>
+                  <label className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground mb-1 block">Desde</label>
+                  <input
+                    type="time"
+                    value={b.hora_inicio}
+                    onChange={(e) => actualizarHorario(b.lider_id, "hora_inicio", e.target.value)}
+                    className="input-base w-44"
+                  />
+                </div>
+                <span className="text-sm text-muted-foreground pb-2.5">–</span>
+                <div>
+                  <label className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground mb-1 block">Hasta</label>
+                  <input
+                    type="time"
+                    value={b.hora_fin}
+                    onChange={(e) => actualizarHorario(b.lider_id, "hora_fin", e.target.value)}
+                    className="input-base w-44"
+                  />
+                </div>
               </div>
               <button
                 onClick={() => setBloques(bloques.filter((x) => x.lider_id !== b.lider_id))}
                 aria-label={`Quitar a ${b.lider_nombre}`}
-                className="text-muted-foreground/50 hover:text-rose-400 shrink-0"
+                className="text-muted-foreground/50 hover:text-rose-400 shrink-0 self-end mb-2.5"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
           ))}
@@ -431,27 +439,19 @@ function PasoLideres({
       )}
 
       <div className="flex justify-between">
-        <button onClick={onBack} className="flex items-center gap-1.5 h-9 px-4 text-sm rounded-xl border border-border text-muted-foreground hover:text-foreground transition-colors">
-          <ArrowLeft className="w-3.5 h-3.5" />
+        <button onClick={onBack} className="flex items-center gap-2 h-11 px-5 text-sm rounded-xl border border-border text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="w-4 h-4" />
           Atrás
         </button>
         <button
           onClick={onNext}
           disabled={bloques.length === 0}
-          className="flex items-center gap-1.5 h-9 px-4 text-sm font-medium rounded-xl bg-teal-500/15 hover:bg-teal-500/25 text-teal-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex items-center gap-2 h-11 px-5 text-sm font-medium rounded-xl bg-teal-500/15 hover:bg-teal-500/25 text-teal-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Siguiente: Confirmar
-          <ArrowRight className="w-3.5 h-3.5" />
+          <ArrowRight className="w-4 h-4" />
         </button>
       </div>
-
-      <style>{`
-        .input-base {
-          height: 2.25rem; padding: 0 0.75rem; border-radius: 0.5rem;
-          border: 1px solid hsl(var(--border)); background: hsl(var(--background) / 0.6); font-size: 0.8125rem;
-        }
-        .input-base:focus { outline: none; box-shadow: 0 0 0 1px hsl(var(--ring)); }
-      `}</style>
     </div>
   )
 }
@@ -467,35 +467,35 @@ function PasoConfirmar({
   onBack: () => void; onConfirmar: () => void
 }) {
   return (
-    <div className="space-y-5">
-      <div className="rounded-2xl border border-border bg-muted/5 p-5 space-y-4">
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-border bg-muted/5 p-7 space-y-5">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Fecha</p>
-          <p className="text-sm font-semibold mt-0.5">{fecha}</p>
+          <p className="text-sm font-semibold mt-1">{fecha}</p>
         </div>
         <div>
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{titulo}</p>
-          {descripcion && <p className="text-xs text-muted-foreground mt-1">{descripcion}</p>}
+          {descripcion && <p className="text-sm text-muted-foreground mt-1">{descripcion}</p>}
         </div>
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">
             {personas.length} persona{personas.length !== 1 ? "s" : ""} a capacitar
           </p>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-2">
             {personas.map((p) => (
-              <span key={p.id} className="text-[11px] px-2 py-0.5 rounded-full border border-border bg-background/60 text-foreground/80">
+              <span key={p.id} className="text-sm px-3 py-1 rounded-full border border-border bg-background/60 text-foreground/80">
                 {p.nombre}
               </span>
             ))}
           </div>
         </div>
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">
             {bloques.length} bloque{bloques.length !== 1 ? "s" : ""} — todas las personas incluidas por default en cada uno
           </p>
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             {bloques.map((b) => (
-              <div key={b.lider_id} className="flex items-center justify-between text-xs rounded-lg bg-background/40 border border-border px-3 py-2">
+              <div key={b.lider_id} className="flex items-center justify-between text-sm rounded-xl bg-background/40 border border-border px-4 py-3">
                 <span className="font-medium">{b.lider_nombre}</span>
                 <span className="text-muted-foreground">{b.hora_inicio} – {b.hora_fin}</span>
               </div>
@@ -505,16 +505,16 @@ function PasoConfirmar({
       </div>
 
       <div className="flex justify-between">
-        <button onClick={onBack} disabled={enviando} className="flex items-center gap-1.5 h-9 px-4 text-sm rounded-xl border border-border text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40">
-          <ArrowLeft className="w-3.5 h-3.5" />
+        <button onClick={onBack} disabled={enviando} className="flex items-center gap-2 h-11 px-5 text-sm rounded-xl border border-border text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40">
+          <ArrowLeft className="w-4 h-4" />
           Atrás
         </button>
         <button
           onClick={onConfirmar}
           disabled={enviando}
-          className="flex items-center gap-1.5 h-9 px-5 text-sm font-medium rounded-xl bg-teal-500 text-white hover:bg-teal-600 transition-colors disabled:opacity-50"
+          className="flex items-center gap-2 h-11 px-6 text-sm font-medium rounded-xl bg-teal-500 text-white hover:bg-teal-600 transition-colors disabled:opacity-50"
         >
-          {enviando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+          {enviando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
           {enviando ? "Creando…" : "Crear capacitación"}
         </button>
       </div>
