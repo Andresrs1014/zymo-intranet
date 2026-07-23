@@ -282,24 +282,19 @@ def hub_empresa(
     if not sede:
         raise HTTPException(status_code=404, detail="Empresa (sede) no encontrada")
 
-    personas_nomina = db.exec(select(PtcPersona).where(PtcPersona.sede_id == sede_id)).all()
+    # El headcount de una plataforma es solo quien tiene esa sede como nómina.
+    # Un cargo transversal (ej. "Auxiliar" en las 3 empresas) normalmente es
+    # gente distinta por sede, no la misma persona repetida — contar por
+    # cargo transversal inflaría el headcount con personal de otras sedes.
+    personas = db.exec(select(PtcPersona).where(PtcPersona.sede_id == sede_id)).all()
 
     cargo_ids_sede = {
         row.cargo_id
         for row in db.exec(select(PtcCargoSede).where(PtcCargoSede.sede_id == sede_id)).all()
     }
-    for p in personas_nomina:
+    for p in personas:
         if p.cargo_id:
             cargo_ids_sede.add(p.cargo_id)
-
-    # Personas con nómina en otra sede pero cuyo cargo es transversal (existe
-    # también en esta sede vía PtcCargoSede) — cuentan igual en esta plataforma,
-    # no solo en la de su nómina.
-    personas_by_id = {p.id: p for p in personas_nomina}
-    if cargo_ids_sede:
-        for p in db.exec(select(PtcPersona).where(col(PtcPersona.cargo_id).in_(cargo_ids_sede))).all():
-            personas_by_id.setdefault(p.id, p)
-    personas = list(personas_by_id.values())
 
     activos = [p for p in personas if p.estado == _ACTIVO]
     con_genero = [p for p in activos if p.genero in _GENEROS_STATS]
