@@ -2,11 +2,11 @@ import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { api } from "@/lib/api"
 import { useAuthStore } from "@/store/authStore"
-import { canConfigTyC, canEditTyC, canImportTyC, canSeeTyCSensible } from "@/lib/permissions"
+import { canConfigTyC, canEditTyC, canImportTyC, canSeeTyCSensible, canUseCapCoordinador } from "@/lib/permissions"
 import { PageLayout } from "@/components/layout/PageLayout"
 import {
   Users, GitBranch, Upload, FileText, TrendingUp, ArrowUpRight,
-  CalendarDays, Settings2, GraduationCap, UserX, Building2,
+  CalendarDays, Settings2, GraduationCap, UserX, Building2, UserPlus,
 } from "lucide-react"
 
 interface Stats { total: number; activos: number; inactivos: number }
@@ -18,6 +18,7 @@ export function TyCPage() {
   const puedeSensible   = user ? canSeeTyCSensible(user.role, user.app_permissions) : false
   const puedeConfigurar = user ? canConfigTyC(user.role, user.app_permissions) : false
   const puedeEditar     = user ? canEditTyC(user.role, user.app_permissions) : false
+  const puedeCapCoord   = user ? canUseCapCoordinador(user.role, user.app_permissions) : false
 
   const [stats, setStats] = useState<Stats | null>(null)
 
@@ -141,10 +142,19 @@ export function TyCPage() {
         </section>
 
         {/* Fila 2: Desarrollo */}
-        {(puedeSensible || puedeImport || puedeConfigurar) && (
+        {(puedeSensible || puedeImport || puedeConfigurar || puedeCapCoord) && (
           <section>
             <SectionLabel>Desarrollo y talento</SectionLabel>
             <div className="grid grid-cols-3 gap-3">
+              {puedeCapCoord && (
+                <ModuleCard
+                  icon={<UserPlus className="w-4 h-4" />}
+                  color="teal"
+                  title="Calendario capacitación nuevo personal"
+                  description="Agenda inducciones y reinducciones con varios líderes por día, cada uno con su propio horario."
+                  onClick={() => navigate("/tc/nuevo-personal")}
+                />
+              )}
               {puedeSensible && (
                 <ModuleCard
                   icon={<TrendingUp className="w-4 h-4" />}

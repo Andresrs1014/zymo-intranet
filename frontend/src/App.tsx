@@ -82,6 +82,9 @@ import { TyCConfigPage } from "@/pages/tc/TyCConfigPage"
 import { TyCRotacionPage } from "@/pages/tc/TyCRotacionPage"
 import { TyCClientesPage } from "@/pages/tc/TyCClientesPage"
 import { TyCEmpresaPage } from "@/pages/tc/TyCEmpresaPage"
+import { TyCNuevoPersonalCalendarioPage } from "@/pages/tc/TyCNuevoPersonalCalendarioPage"
+import { TyCNuevoPersonalNuevoPage } from "@/pages/tc/TyCNuevoPersonalNuevoPage"
+import { TyCNuevoPersonalDiaPage } from "@/pages/tc/TyCNuevoPersonalDiaPage"
 
 // Decodifica el claim `exp` del JWT sin verificar firma (solo para chequeo local de expiración)
 function isTokenExpired(token: string): boolean {
@@ -747,6 +750,18 @@ export default function App() {
         <Route
           path="/tc/clientes"
           element={<TyCRoute><TyCClientesPage /></TyCRoute>}
+        />
+        <Route
+          path="/tc/nuevo-personal"
+          element={<TyCRoute><TyCNuevoPersonalCalendarioPage /></TyCRoute>}
+        />
+        <Route
+          path="/tc/nuevo-personal/nuevo"
+          element={<TyCRoute><TyCNuevoPersonalNuevoPage /></TyCRoute>}
+        />
+        <Route
+          path="/tc/nuevo-personal/:id"
+          element={<TyCRoute><TyCNuevoPersonalDiaPage /></TyCRoute>}
         />
 
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

@@ -179,6 +179,13 @@ export function canUseAgenda(role: string, appPerms?: string[]): boolean {
   return hasPerm(appPerms, "mod_tc_agenda")
 }
 
+// Permiso adicional sobre T&C completo — a diferencia de mod_tc_agenda (líderes,
+// independiente de T&C), este solo tiene sentido para coordinador con T&C completo.
+export function canUseCapCoordinador(role: string, appPerms?: string[]): boolean {
+  if (role === "admin") return true
+  return hasPerm(appPerms, "mod_tc_cap_coordinador")
+}
+
 export function canSeeMantenimiento(
   role: string,
   appPerms?: string[]

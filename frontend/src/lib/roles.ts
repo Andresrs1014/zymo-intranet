@@ -109,6 +109,13 @@ export const INTERNAL_MODULE_GROUPS: ModulePermissionGroup[] = [
         name: "T&C — Importar directorio",
         description: "Importación masiva JSON del directorio legacy",
       },
+      {
+        id: "mod_tc_cap_coordinador",
+        category: "modulo",
+        icon: "🎓",
+        name: "T&C — Coordinador de capacitación (nuevo personal)",
+        description: "Agendar inducciones/reinducciones de nuevo personal con varios líderes por día. Requiere T&C completo (mod_tc + mod_tc_editar) además de este permiso",
+      },
     ],
   },
   {
