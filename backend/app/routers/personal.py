@@ -429,6 +429,52 @@ def set_areas_empresa(
     return {"area_ids": sorted(nuevas)}
 
 
+@router.get("/areas-sedes")
+def listar_areas_sedes(
+    main_db: Session = Depends(get_db),
+    _: User = Depends(require_tc),
+):
+    """Todas las áreas del catálogo con las plataformas (sedes) donde ya están
+    activas — vista área-céntrica, complementaria a /empresa/{id}/areas-activas
+    (sede-céntrica). Deja marcar de una vez en qué plataformas existe un área."""
+    areas = main_db.exec(select(GlobalArea).order_by(col(GlobalArea.name))).all()
+    filas = main_db.exec(select(AreaSede)).all()
+    sedes_por_area: dict[int, list[int]] = {}
+    for f in filas:
+        sedes_por_area.setdefault(f.area_id, []).append(f.sede_id)
+    return [
+        {"area_id": a.id, "area_nombre": a.name, "sede_ids": sedes_por_area.get(a.id, [])}
+        for a in areas
+    ]
+
+
+@router.put("/areas/{area_id}/sedes")
+def set_sedes_area(
+    area_id: int,
+    sede_ids: list[int],
+    main_db: Session = Depends(get_db),
+    _: User = Depends(require_tc_editar),
+):
+    """Reemplaza el set de plataformas (sedes) donde esta área está activa —
+    deja marcar las 3 de una vez sin entrar a cada Hub por separado."""
+    area = main_db.get(GlobalArea, area_id)
+    if not area:
+        raise HTTPException(status_code=404, detail="Área no encontrada")
+    actuales = {
+        row.sede_id: row
+        for row in main_db.exec(select(AreaSede).where(AreaSede.area_id == area_id)).all()
+    }
+    nuevas = set(sede_ids)
+    for sid, row in actuales.items():
+        if sid not in nuevas:
+            main_db.delete(row)
+    for sid in nuevas:
+        if sid not in actuales:
+            main_db.add(AreaSede(area_id=area_id, sede_id=sid))
+    main_db.commit()
+    return {"sede_ids": sorted(nuevas)}
+
+
 # ── Empresas ──────────────────────────────────────────────────────────────────
 
 @router.get("/empresas")

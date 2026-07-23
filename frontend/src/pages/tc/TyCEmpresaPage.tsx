@@ -3,11 +3,11 @@ import { useNavigate, useParams } from "react-router-dom"
 import { api } from "@/lib/api"
 import { useAuthStore } from "@/store/authStore"
 import { canEditTyC } from "@/lib/permissions"
-import { useAreas } from "@/hooks/useAreas"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { BlurFade } from "@/components/ui/blur-fade"
 import { GestionarAreasSheet } from "./components/GestionarAreasSheet"
 import { AreaManagePanel } from "./components/AreaManagePanel"
+import { TodosLosColaboradores } from "./components/TodosLosColaboradores"
 import {
   ArrowLeft, ArrowUpRight, GitBranch, Layers, Users,
   UserCheck, Mars, Venus, Loader2, ChevronDown, ChevronUp, Settings2,
@@ -40,7 +40,6 @@ export function TyCEmpresaPage() {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const puedeEditar = user ? canEditTyC(user.role, user.app_permissions) : false
-  const { data: areas = [] } = useAreas()
 
   const [hub, setHub] = useState<HubData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -213,6 +212,8 @@ export function TyCEmpresaPage() {
                 </div>
               )}
             </section>
+
+            <TodosLosColaboradores sedeId={Number(sedeId)} />
           </>
         )}
 
@@ -220,8 +221,6 @@ export function TyCEmpresaPage() {
           <GestionarAreasSheet
             open={areasSheetOpen}
             onOpenChange={setAreasSheetOpen}
-            sedeId={Number(sedeId)}
-            areas={areas}
             onSaved={cargar}
           />
         )}
