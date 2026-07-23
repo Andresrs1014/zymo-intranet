@@ -26,7 +26,14 @@ from app.database import get_db
 from app.models.area import Area as GlobalArea
 from app.models.sede import Sede
 from app.models.user import User
-from app.personal_database import PtcCargo, PtcEvento, PtcEventoPersona, PtcPersona, get_personal_db
+from app.personal_database import (
+    PtcCapacitacion,
+    PtcCargo,
+    PtcEvento,
+    PtcEventoPersona,
+    PtcPersona,
+    get_personal_db,
+)
 
 router = APIRouter(prefix="/tc", tags=["T&C Agenda"])
 
@@ -319,6 +326,40 @@ def finalizar_evento(
     return _evento_dict(ev, db, main_db)
 
 
+def _horas_evento(ev: PtcEvento) -> float:
+    try:
+        inicio = datetime.strptime(ev.hora_inicio, "%H:%M")
+        fin = datetime.strptime(ev.hora_fin, "%H:%M")
+        return round((fin - inicio).total_seconds() / 3600, 1)
+    except Exception:
+        return 0.0
+
+
+def _sync_capacitacion(db: Session, persona_id: int, ev: PtcEvento, asistio: bool) -> None:
+    """Refleja la asistencia de Agenda (tipo #1) en el historial de
+    Capacitaciones del perfil de la persona — antes quedaba solo en
+    PtcEventoPersona.asistio, sin aparecer nunca en su perfil."""
+    existing = db.exec(
+        select(PtcCapacitacion).where(
+            PtcCapacitacion.persona_id == persona_id,
+            PtcCapacitacion.titulo == ev.titulo,
+            PtcCapacitacion.fecha == ev.fecha,
+        )
+    ).first()
+    if asistio:
+        if not existing:
+            db.add(PtcCapacitacion(
+                persona_id=persona_id,
+                titulo=ev.titulo,
+                fecha=ev.fecha,
+                horas=_horas_evento(ev),
+                estado="Completado",
+                observaciones="Generado automáticamente desde Agenda (inducción).",
+            ))
+    elif existing:
+        db.delete(existing)
+
+
 @router.patch("/eventos/{evento_id}/asistencia")
 def registrar_asistencia(
     evento_id: int,
@@ -340,6 +381,7 @@ def registrar_asistencia(
         raise HTTPException(404, "Persona no asignada a este evento")
     ep.asistio = body.asistio
     db.add(ep)
+    _sync_capacitacion(db, body.persona_id, ev, body.asistio)
     db.commit()
     return {"ok": True}
 
@@ -363,6 +405,7 @@ def marcar_todos_asistieron(
     for a in asignaciones:
         a.asistio = True
         db.add(a)
+        _sync_capacitacion(db, a.persona_id, ev, True)
     db.commit()
     return _evento_dict(ev, db, main_db)
 
