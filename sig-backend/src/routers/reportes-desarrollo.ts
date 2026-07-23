@@ -10,6 +10,18 @@ import { resolveActorName } from "../utils/userNames"
 
 const router = Router()
 
+// TEMPORAL (2026-07-24): mientras se decide el modelo de permisos definitivo,
+// el modulo completo (lectura incluida) queda restringido a admin. Antes
+// cualquier autenticado podia ver los reportes ("transparencia del equipo") --
+// ver mod_reportes_desarrollo en permissions.ts para cuando se reabra a mas roles.
+router.use((req: Request, res: Response, next) => {
+  if (req.user?.role !== "admin") {
+    res.status(403).json({ error: "Reportes de desarrollo — solo administradores por ahora" })
+    return
+  }
+  next()
+})
+
 // ── Multer — almacenamiento de archivos .md originales ────────────────────────
 // Mismo directorio que instructivos/commits para aprovechar el volumen Docker.
 
