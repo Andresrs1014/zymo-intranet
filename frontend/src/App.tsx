@@ -76,6 +76,7 @@ import { TyCOrganigramaPage } from "@/pages/tc/TyCOrganigramaPage"
 import { TyCImportPage } from "@/pages/tc/TyCImportPage"
 import { TyCManualesPage } from "@/pages/tc/TyCManualesPage"
 import { TyCFormatosPage } from "@/pages/tc/TyCFormatosPage"
+import { TyCFormatoAusentismoPage } from "@/pages/tc/TyCFormatoAusentismoPage"
 import { TyCIndicadoresPage } from "@/pages/tc/TyCIndicadoresPage"
 import { TyCAgendaCalendarioPage } from "@/pages/tc/TyCAgendaCalendarioPage"
 import { TyCAgendaEventoPage } from "@/pages/tc/TyCAgendaEventoPage"
@@ -780,6 +781,10 @@ export default function App() {
         <Route
           path="/tc/formatos"
           element={<TyCRoute><TyCFormatosPage /></TyCRoute>}
+        />
+        <Route
+          path="/tc/formatos/ausentismo"
+          element={<TyCRoute><TyCFormatoAusentismoPage /></TyCRoute>}
         />
 
         {/* Reportes de Desarrollo */}

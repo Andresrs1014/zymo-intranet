@@ -1,16 +1,45 @@
+import { useNavigate } from "react-router-dom"
 import { PageLayout } from "@/components/layout/PageLayout"
-import { FileText } from "lucide-react"
+import { FileText, ArrowUpRight } from "lucide-react"
+
+const FORMATOS = [
+  {
+    id: "ausentismo",
+    titulo: "Formato de Ausentismo",
+    descripcion: "Permisos, licencia remunerada y licencia no remunerada.",
+    ruta: "/tc/formatos/ausentismo",
+  },
+]
 
 export function TyCFormatosPage() {
+  const navigate = useNavigate()
+
   return (
     <PageLayout title="Formatos digitales" mainClassName="flex-1 overflow-y-auto">
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 px-8 py-24 text-center">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-500/10 text-teal-400">
-          <FileText className="w-6 h-6" />
-        </div>
-        <div>
-          <h1 className="text-lg font-bold">Formatos digitales</h1>
-          <p className="text-sm text-muted-foreground mt-1">Estamos trabajando en los formatos.</p>
+      <div className="max-w-3xl mx-auto px-8 py-10">
+        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-teal-500 mb-1">T&C · Gestión Humana</p>
+        <h1 className="text-2xl font-bold">Formatos digitales</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Formatos de Gestión Humana digitalizados — permisos, días remotos y demás trámites.
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-8">
+          {FORMATOS.map((f) => (
+            <button
+              key={f.id}
+              onClick={() => navigate(f.ruta)}
+              className="group text-left rounded-2xl border border-border bg-muted/5 hover:bg-muted/10 hover:border-rose-500/30 hover:shadow-lg hover:-translate-y-px transition-all p-5"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-rose-500/10 text-rose-400">
+                  <FileText className="w-4 h-4" />
+                </div>
+                <ArrowUpRight className="w-3.5 h-3.5 text-muted-foreground/20 group-hover:text-muted-foreground/60 transition-colors shrink-0 mt-0.5" />
+              </div>
+              <p className="font-semibold text-sm mt-3">{f.titulo}</p>
+              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{f.descripcion}</p>
+            </button>
+          ))}
         </div>
       </div>
     </PageLayout>
