@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { api } from "@/lib/api"
-import { Building2, Check, ClipboardCheck, Link2, Loader2, Search } from "lucide-react"
+import { Building2, ClipboardCheck, Link2, Loader2, Search } from "lucide-react"
+import { CompartirEnlaceSheet } from "./components/CompartirEnlaceSheet"
 
 interface PersonaEncontrada {
   id: number
@@ -32,7 +33,7 @@ export function TyCFormatoAusentismoPage() {
   const [enviando, setEnviando] = useState(false)
   const [errorEnvio, setErrorEnvio] = useState("")
   const [enviado, setEnviado] = useState(false)
-  const [linkCopiado, setLinkCopiado] = useState(false)
+  const [compartirAbierto, setCompartirAbierto] = useState(false)
 
   async function buscarPorDocumento() {
     const doc = documento.trim()
@@ -51,17 +52,6 @@ export function TyCFormatoAusentismoPage() {
     }
   }
 
-  async function compartirLink() {
-    const url = window.location.href
-    if (navigator.share) {
-      try { await navigator.share({ title: "Formato de Ausentismo", url }); return } catch { /* usuario canceló, cae a copiar */ }
-    }
-    try {
-      await navigator.clipboard.writeText(url)
-      setLinkCopiado(true)
-      setTimeout(() => setLinkCopiado(false), 2000)
-    } catch { /* clipboard no disponible, no hay más que hacer */ }
-  }
 
   const puedeEnviar = !!persona?.firma_url && !!fechaInicio && !!fechaFin && !enviando
 
@@ -103,11 +93,11 @@ export function TyCFormatoAusentismoPage() {
             </div>
             <button
               type="button"
-              onClick={compartirLink}
+              onClick={() => setCompartirAbierto(true)}
               className="shrink-0 flex items-center gap-1.5 rounded-lg bg-white/15 hover:bg-white/25 px-3 py-2 text-xs font-semibold transition-colors"
             >
-              {linkCopiado ? <Check className="w-3.5 h-3.5" /> : <Link2 className="w-3.5 h-3.5" />}
-              <span className="hidden sm:inline">{linkCopiado ? "¡Enlace copiado!" : "Compartir enlace"}</span>
+              <Link2 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Compartir enlace</span>
             </button>
           </div>
 
@@ -258,6 +248,13 @@ export function TyCFormatoAusentismoPage() {
           </div>
         </div>
       </div>
+
+      <CompartirEnlaceSheet
+        open={compartirAbierto}
+        onOpenChange={setCompartirAbierto}
+        url={typeof window !== "undefined" ? window.location.href : ""}
+        titulo="Formato de Ausentismo"
+      />
     </div>
   )
 }
