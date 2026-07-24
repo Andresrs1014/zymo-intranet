@@ -7,7 +7,7 @@ import { PageLayout } from "@/components/layout/PageLayout"
 import { PlataformaConfigSheet } from "./components/PlataformaConfigSheet"
 import {
   Users, GitBranch, Upload, FileText, TrendingUp, ArrowUpRight,
-  CalendarDays, Settings2, GraduationCap, UserX, Building2, UserPlus, Plus, Pencil,
+  CalendarDays, Settings2, GraduationCap, UserX, Building2, UserPlus, Plus, Pencil, FileStack,
 } from "lucide-react"
 
 interface Stats {
@@ -213,6 +213,13 @@ export function TyCPage() {
               title="Clientes"
               description="Consulta la cartera y analistas asignados por sede (solo lectura)."
               onClick={() => navigate("/tc/clientes")}
+            />
+            <ModuleCard
+              icon={<FileStack className="w-4 h-4" />}
+              color="amber"
+              title="Formatos digitales"
+              description="Permisos, días remotos y demás formatos de Gestión Humana, digitalizados."
+              onClick={() => navigate("/tc/formatos")}
             />
           </div>
         </section>
