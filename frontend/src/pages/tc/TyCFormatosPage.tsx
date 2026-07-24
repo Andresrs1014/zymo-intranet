@@ -1,18 +1,30 @@
 import { useNavigate } from "react-router-dom"
 import { PageLayout } from "@/components/layout/PageLayout"
-import { FileText, ArrowUpRight } from "lucide-react"
-
-const FORMATOS = [
-  {
-    id: "ausentismo",
-    titulo: "Formato de Ausentismo",
-    descripcion: "Permisos, licencia remunerada y licencia no remunerada.",
-    ruta: "/tc/formatos/ausentismo",
-  },
-]
+import { useAuthStore } from "@/store/authStore"
+import { canUseEvaluacionesDesempeno } from "@/lib/permissions"
+import { FileText, ClipboardList, ArrowUpRight } from "lucide-react"
 
 export function TyCFormatosPage() {
   const navigate = useNavigate()
+  const user = useAuthStore((s) => s.user)
+  const puedeEvaluar = user ? canUseEvaluacionesDesempeno(user.role, user.app_permissions) : false
+
+  const formatos = [
+    {
+      id: "ausentismo",
+      icon: <FileText className="w-4 h-4" />,
+      titulo: "Formato de Ausentismo",
+      descripcion: "Permisos, licencia remunerada y licencia no remunerada.",
+      ruta: "/tc/formatos/ausentismo",
+    },
+    ...(puedeEvaluar ? [{
+      id: "evaluacion-desempeno",
+      icon: <ClipboardList className="w-4 h-4" />,
+      titulo: "Evaluación de desempeño",
+      descripcion: "Rúbrica semestral para tu equipo — Líderes u Operativo, según a quién evalúes.",
+      ruta: "/tc/evaluaciones",
+    }] : []),
+  ]
 
   return (
     <PageLayout title="Formatos digitales" mainClassName="flex-1 overflow-y-auto">
@@ -24,7 +36,7 @@ export function TyCFormatosPage() {
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-8">
-          {FORMATOS.map((f) => (
+          {formatos.map((f) => (
             <button
               key={f.id}
               onClick={() => navigate(f.ruta)}
@@ -32,7 +44,7 @@ export function TyCFormatosPage() {
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-rose-500/10 text-rose-400">
-                  <FileText className="w-4 h-4" />
+                  {f.icon}
                 </div>
                 <ArrowUpRight className="w-3.5 h-3.5 text-muted-foreground/20 group-hover:text-muted-foreground/60 transition-colors shrink-0 mt-0.5" />
               </div>

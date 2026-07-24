@@ -160,6 +160,32 @@ class PtcEvaluacion(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class PtcEvaluacionDesempeno(SQLModel, table=True):
+    """Evaluación de desempeño semestral — dos rúbricas (operativo/líderes),
+    ambas con el mismo esquema de 6 competencias ponderadas 20/20/20/20/10/10
+    (ver frontend/src/lib/evaluacionDesempenoRubricas.ts). El detalle completo
+    por ítem vive acá para auditoría/exportación; el resumen se refleja además
+    en PtcEvaluacion (perfil) con origen "formato:evaluacion_<tipo>"."""
+    __tablename__ = "ptc_evaluacion_desempeno"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    persona_id: int = Field(foreign_key="ptc_persona.id")
+    evaluador_persona_id: int = Field(foreign_key="ptc_persona.id")
+    tipo: str = Field(max_length=20)  # "operativo" | "lideres"
+    periodo: str = Field(max_length=20)  # "1er semestre" | "2do semestre"
+    anio: int
+    respuestas: str = Field(default="[]")   # JSON [{categoria, item, texto, valor}]
+    categorias: str = Field(default="[]")   # JSON [{nombre, peso, puntaje, total}]
+    puntaje_total: float = 0.0
+    resultado: str = Field(max_length=30, default="")
+    accion_mejora: str = Field(default="", max_length=1000)
+    observaciones_lider: str = Field(default="", max_length=2000)
+    observaciones_liderado: str = Field(default="", max_length=2000)
+    firma_lider_url: str = Field(default="", max_length=500)
+    firma_liderado_url: str = Field(default="", max_length=500)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class PtcSancion(SQLModel, table=True):
     __tablename__ = "ptc_sancion"
 
@@ -346,6 +372,7 @@ class PtcClienteAnalista(SQLModel, table=True):
 _PERSONAL_TABLES = {
     "ptc_area", "ptc_cargo", "ptc_cargo_sede", "ptc_persona",
     "ptc_capacitacion", "ptc_evaluacion", "ptc_sancion", "ptc_novedad",
+    "ptc_evaluacion_desempeno",
     "ptc_evento", "ptc_evento_persona",
     "ptc_cap_dia", "ptc_cap_bloque", "ptc_cap_bloque_persona",
     "ptc_paquete", "ptc_paquete_item", "ptc_smtp_config", "ptc_wa_config",
@@ -357,6 +384,7 @@ def create_personal_tables() -> None:
     from app.personal_database import (  # noqa: F401
         PtcArea, PtcCargo, PtcCargoSede, PtcPersona,
         PtcCapacitacion, PtcEvaluacion, PtcSancion, PtcNovedad,
+        PtcEvaluacionDesempeno,
         PtcEvento, PtcEventoPersona,
         PtcCapDia, PtcCapBloque, PtcCapBloquePersona,
         PtcPaquete, PtcPaqueteItem, PtcSmtpConfig, PtcWaConfig,

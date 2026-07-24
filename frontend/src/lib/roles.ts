@@ -132,6 +132,19 @@ export const INTERNAL_MODULE_GROUPS: ModulePermissionGroup[] = [
     ],
   },
   {
+    title: "Evaluación de Desempeño",
+    subtitle: "Independiente de T&C — aparece dentro de Operativo para el líder, y dentro de T&C para quien ya tiene acceso completo",
+    modules: [
+      {
+        id: "mod_tc_evaluaciones",
+        category: "modulo",
+        icon: "📝",
+        name: "Evaluación de desempeño — Líder de área",
+        description: "Evaluar el desempeño semestral de los colaboradores del área propia. La rúbrica (Líderes u Operativo) se resuelve sola según si la persona tiene gente a cargo",
+      },
+    ],
+  },
+  {
     title: "ZymoAlly — Tickets (PQR)",
     subtitle: "Gestión de tickets y maestros del formulario",
     modules: [

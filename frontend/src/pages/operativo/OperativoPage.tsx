@@ -1,7 +1,7 @@
 import { NavLink, Link } from "react-router-dom"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { useAuthStore } from "@/store/authStore"
-import { canSeeOperClientes, canSeeGestionTickets, canUseAgenda, canSeeTyC } from "@/lib/permissions"
+import { canSeeOperClientes, canSeeGestionTickets, canUseAgenda, canUseEvaluacionesDesempeno, canSeeTyC } from "@/lib/permissions"
 
 // URL del sistema BRP — eventualmente se reemplazará por ruta interna
 const BRP_URL = "https://brp.zymointranet.com"
@@ -13,6 +13,9 @@ export function OperativoPage() {
   // Líder con permiso de Agenda pero sin T&C completo — quien tiene T&C completo entra desde allá.
   const verCapacitaciones = user
     ? canUseAgenda(user.role, user.app_permissions) && !canSeeTyC(user.role, user.app_permissions)
+    : false
+  const verEvaluaciones = user
+    ? canUseEvaluacionesDesempeno(user.role, user.app_permissions) && !canSeeTyC(user.role, user.app_permissions)
     : false
 
   return (
@@ -72,6 +75,14 @@ export function OperativoPage() {
                 icon={<IconCapacitaciones />}
                 label="Capacitaciones"
                 description="Agenda inducciones para tu área, elige asistentes y marca asistencia."
+              />
+            )}
+            {verEvaluaciones && (
+              <InternalCard
+                to="/tc/evaluaciones"
+                icon={<IconEvaluaciones />}
+                label="Evaluación de desempeño"
+                description="Evalúa a tu equipo con la rúbrica semestral — Líderes u Operativo según corresponda."
               />
             )}
           </div>
@@ -223,6 +234,14 @@ function IconCapacitaciones() {
   return (
     <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
       <path fillRule="evenodd" d="M5.75 2a.75.75 0 0 1 .75.75V4h7V2.75a.75.75 0 0 1 1.5 0V4h.25A2.25 2.25 0 0 1 17.5 6.25v8.5A2.25 2.25 0 0 1 15.25 17H4.75A2.25 2.25 0 0 1 2.5 14.75v-8.5A2.25 2.25 0 0 1 4.75 4H5V2.75A.75.75 0 0 1 5.75 2ZM4 8.5v6.25c0 .414.336.75.75.75h10.5a.75.75 0 0 0 .75-.75V8.5H4Z" clipRule="evenodd" />
+    </svg>
+  )
+}
+
+function IconEvaluaciones() {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <path fillRule="evenodd" d="M4 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4Zm3 3.75a.75.75 0 0 1 .75-.75h4.5a.75.75 0 0 1 0 1.5h-4.5A.75.75 0 0 1 7 7.75Zm.75 2.25a.75.75 0 0 0 0 1.5h4.5a.75.75 0 0 0 0-1.5h-4.5ZM7 13.75a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75Z" clipRule="evenodd" />
     </svg>
   )
 }
