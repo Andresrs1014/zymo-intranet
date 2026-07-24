@@ -1622,7 +1622,7 @@ def listar_evaluaciones(
         {
             "id": r.id, "titulo": r.titulo, "puntaje": r.puntaje,
             "cumple_meta": r.cumple_meta, "fecha": r.fecha.isoformat() if r.fecha else None,
-            "observaciones": r.observaciones,
+            "observaciones": r.observaciones, "origen": r.origen,
         }
         for r in rows
     ]
@@ -1650,7 +1650,7 @@ def crear_evaluacion(
     db.refresh(ev)
     return {"id": ev.id, "titulo": ev.titulo, "puntaje": ev.puntaje,
             "cumple_meta": ev.cumple_meta, "fecha": ev.fecha.isoformat() if ev.fecha else None,
-            "observaciones": ev.observaciones}
+            "observaciones": ev.observaciones, "origen": ev.origen}
 
 
 @router.delete("/evaluaciones/{ev_id}", status_code=204)
@@ -1690,7 +1690,7 @@ def listar_sanciones(
     return [
         {
             "id": r.id, "tipo": r.tipo, "descripcion": r.descripcion,
-            "fecha": r.fecha.isoformat() if r.fecha else None,
+            "fecha": r.fecha.isoformat() if r.fecha else None, "origen": r.origen,
         }
         for r in rows
     ]
@@ -1715,7 +1715,7 @@ def crear_sancion(
     db.commit()
     db.refresh(san)
     return {"id": san.id, "tipo": san.tipo, "descripcion": san.descripcion,
-            "fecha": san.fecha.isoformat() if san.fecha else None}
+            "fecha": san.fecha.isoformat() if san.fecha else None, "origen": san.origen}
 
 
 @router.delete("/sanciones/{san_id}", status_code=204)
@@ -1767,7 +1767,7 @@ def listar_novedades(
             "id": r.id, "tipo": r.tipo, "descripcion": r.descripcion,
             "fecha_inicio": r.fecha_inicio.isoformat() if r.fecha_inicio else None,
             "fecha_fin": r.fecha_fin.isoformat() if r.fecha_fin else None,
-            "estado": r.estado,
+            "estado": r.estado, "origen": r.origen,
         }
         for r in rows
     ]
@@ -1797,7 +1797,7 @@ def crear_novedad(
         "id": nov.id, "tipo": nov.tipo, "descripcion": nov.descripcion,
         "fecha_inicio": nov.fecha_inicio.isoformat() if nov.fecha_inicio else None,
         "fecha_fin": nov.fecha_fin.isoformat() if nov.fecha_fin else None,
-        "estado": nov.estado,
+        "estado": nov.estado, "origen": nov.origen,
     }
 
 
@@ -1824,7 +1824,7 @@ def actualizar_novedad(
         "id": nov.id, "tipo": nov.tipo, "descripcion": nov.descripcion,
         "fecha_inicio": nov.fecha_inicio.isoformat() if nov.fecha_inicio else None,
         "fecha_fin": nov.fecha_fin.isoformat() if nov.fecha_fin else None,
-        "estado": nov.estado,
+        "estado": nov.estado, "origen": nov.origen,
     }
 
 

@@ -154,6 +154,9 @@ class PtcEvaluacion(SQLModel, table=True):
     cumple_meta: bool = False
     fecha: Optional[date] = None
     observaciones: str = Field(max_length=500, default="")
+    # "manual" (registrado a mano desde el perfil) o "formato:<slug>" (generado
+    # al diligenciar un formato digital, ej. "formato:ausentismo").
+    origen: str = Field(max_length=60, default="manual")
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -165,6 +168,7 @@ class PtcSancion(SQLModel, table=True):
     tipo: str = Field(max_length=80, default="Llamado de atención")
     descripcion: str = Field(max_length=1000, default="")
     fecha: Optional[date] = None
+    origen: str = Field(max_length=60, default="manual")
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -178,6 +182,7 @@ class PtcNovedad(SQLModel, table=True):
     fecha_inicio: Optional[date] = None
     fecha_fin: Optional[date] = None
     estado: str = Field(max_length=30, default="Pendiente")
+    origen: str = Field(max_length=60, default="manual")
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -408,6 +413,9 @@ def _migrate_personal() -> None:
             "ALTER TABLE ptc_cap_dia ADD COLUMN sede_id INTEGER DEFAULT NULL",
             "ALTER TABLE ptc_evento ADD COLUMN sede_id INTEGER DEFAULT NULL",
             "ALTER TABLE ptc_persona ADD COLUMN firma_url TEXT DEFAULT ''",
+            "ALTER TABLE ptc_evaluacion ADD COLUMN origen TEXT DEFAULT 'manual'",
+            "ALTER TABLE ptc_sancion ADD COLUMN origen TEXT DEFAULT 'manual'",
+            "ALTER TABLE ptc_novedad ADD COLUMN origen TEXT DEFAULT 'manual'",
         ]:
             try:
                 conn.execute(text(sql))

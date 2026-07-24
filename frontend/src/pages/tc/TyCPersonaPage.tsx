@@ -59,7 +59,7 @@ interface Persona {
 
 interface Novedad {
   id: number; tipo: string; descripcion: string
-  fecha_inicio: string | null; fecha_fin: string | null; estado: string
+  fecha_inicio: string | null; fecha_fin: string | null; estado: string; origen: string
 }
 
 interface Capacitacion {
@@ -69,10 +69,10 @@ interface Capacitacion {
 }
 interface Evaluacion {
   id: number; titulo: string; puntaje: number | null
-  cumple_meta: boolean; fecha: string | null; observaciones: string
+  cumple_meta: boolean; fecha: string | null; observaciones: string; origen: string
 }
 interface Sancion {
-  id: number; tipo: string; descripcion: string; fecha: string | null
+  id: number; tipo: string; descripcion: string; fecha: string | null; origen: string
 }
 
 type Tab = "info" | "capacitaciones" | "evaluaciones" | "sanciones" | "novedades"
@@ -690,6 +690,7 @@ function EvaluacionesTab({ personaId }: { personaId: number }) {
                   }`}>
                     {ev.cumple_meta ? "Meta cumplida" : "Meta no cumplida"}
                   </span>
+                  <OrigenBadge origen={ev.origen} />
                 </div>
                 {ev.observaciones && <p className="text-xs text-muted-foreground mt-1 italic">{ev.observaciones}</p>}
               </div>
@@ -787,6 +788,7 @@ function SancionesTab({ personaId }: { personaId: number }) {
                     {s.tipo}
                   </span>
                   {s.fecha && <span className="text-xs text-muted-foreground">{s.fecha}</span>}
+                  <OrigenBadge origen={s.origen} />
                 </div>
                 {s.descripcion && <p className="text-sm mt-1.5 leading-snug">{s.descripcion}</p>}
               </div>
@@ -901,6 +903,7 @@ function NovedadesTab({ personaId }: { personaId: number }) {
                   >
                     {TC_NOVEDAD_ESTADOS.map((e) => <option key={e} value={e}>{e}</option>)}
                   </select>
+                  <OrigenBadge origen={n.origen} />
                 </div>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
                   {n.fecha_inicio && <span className="text-xs text-muted-foreground">Desde: {n.fecha_inicio}</span>}
@@ -1002,6 +1005,16 @@ function TabLoading() {
 
 function TabEmpty({ label }: { label: string }) {
   return <div className="py-8 text-center text-sm text-muted-foreground">{label}</div>
+}
+
+function OrigenBadge({ origen }: { origen: string }) {
+  if (!origen || origen === "manual") return null
+  const label = origen.startsWith("formato:") ? `Formato: ${origen.slice("formato:".length)}` : origen
+  return (
+    <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-400 uppercase tracking-wide">
+      {label}
+    </span>
+  )
 }
 
 function InputField({ label, value, onChange, type = "text", placeholder = "" }: {

@@ -41,6 +41,9 @@ export function TyCFormatoAusentismoPage() {
   const [motivo, setMotivo] = useState("")
   const [reponeTiempo, setReponeTiempo] = useState<"Sí" | "No">("No")
   const [como, setComo] = useState("")
+  const [enviando, setEnviando] = useState(false)
+  const [errorEnvio, setErrorEnvio] = useState("")
+  const [enviado, setEnviado] = useState(false)
 
   useEffect(() => {
     api.get("/tc/plataformas")
@@ -66,6 +69,33 @@ export function TyCFormatoAusentismoPage() {
   }
 
   const plataformaPersona = persona ? plataformas.find((p) => p.sede_id === persona.sede_id) : undefined
+
+  const puedeEnviar = !!persona?.firma_url && !!fechaInicio && !!fechaFin && !enviando
+
+  async function enviar() {
+    if (!persona || !puedeEnviar) return
+    setEnviando(true)
+    setErrorEnvio("")
+    try {
+      await api.post("/tc/formatos-api/ausentismo", {
+        documento: documento.trim(),
+        tipo,
+        fecha_inicio: fechaInicio,
+        hora_inicio: horaInicio,
+        fecha_fin: fechaFin,
+        hora_fin: horaFin,
+        motivo,
+        repone_tiempo: reponeTiempo === "Sí",
+        como,
+      })
+      setEnviado(true)
+    } catch (err) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setErrorEnvio(detail || "No se pudo enviar el formato.")
+    } finally {
+      setEnviando(false)
+    }
+  }
 
   return (
     <PageLayout title="Formato de Ausentismo" mainClassName="flex-1 overflow-y-auto">
@@ -205,14 +235,25 @@ export function TyCFormatoAusentismoPage() {
                 </Seccion>
 
                 <div className="pt-2 border-t border-border/60">
-                  <button
-                    type="button"
-                    disabled
-                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-rose-600/40 text-white/70 text-sm font-semibold py-3 cursor-not-allowed"
-                  >
-                    <ClipboardCheck className="w-4 h-4" />
-                    Vista previa de diseño — envío aún no conectado
-                  </button>
+                  {enviado ? (
+                    <p className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-500/10 text-emerald-500 text-sm font-semibold py-3">
+                      <ClipboardCheck className="w-4 h-4" />
+                      Enviado — quedó registrado como novedad en tu perfil
+                    </p>
+                  ) : (
+                    <>
+                      {errorEnvio && <p className="text-xs text-destructive mb-2">{errorEnvio}</p>}
+                      <button
+                        type="button"
+                        onClick={enviar}
+                        disabled={!puedeEnviar}
+                        className="w-full flex items-center justify-center gap-2 rounded-xl bg-rose-600 text-white text-sm font-semibold py-3 hover:bg-rose-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        {enviando ? <Loader2 className="w-4 h-4 animate-spin" /> : <ClipboardCheck className="w-4 h-4" />}
+                        {enviando ? "Enviando…" : "Enviar formato"}
+                      </button>
+                    </>
+                  )}
                 </div>
               </>
             )}
