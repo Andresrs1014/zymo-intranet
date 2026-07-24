@@ -193,6 +193,7 @@ class PtcEvento(SQLModel, table=True):
     hora_fin: str = Field(max_length=10, default="09:00")
     descripcion: str = Field(max_length=2000, default="")
     area_id: int                                  # auto-resuelto del líder, ver tc_agenda.py
+    sede_id: Optional[int] = Field(default=None)   # plataforma del líder — Sede (Postgres), sin FK; para el acta
     # Evidencia de la capacitación dictada — foto opcional, o acta firmada físicamente y reescaneada.
     foto_evidencia_url: str = Field(default="")
     acta_firmada_url: str = Field(default="")
@@ -404,6 +405,7 @@ def _migrate_personal() -> None:
             "ALTER TABLE ptc_evento ADD COLUMN finalizada_en TEXT DEFAULT NULL",
             # tipo #2 — plataforma (sede) donde se realiza la inducción
             "ALTER TABLE ptc_cap_dia ADD COLUMN sede_id INTEGER DEFAULT NULL",
+            "ALTER TABLE ptc_evento ADD COLUMN sede_id INTEGER DEFAULT NULL",
         ]:
             try:
                 conn.execute(text(sql))

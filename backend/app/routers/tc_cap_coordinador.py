@@ -27,7 +27,6 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlmodel import Session, select
-from weasyprint import HTML
 
 from app.config import settings
 from app.core.deps import require_admin, require_permission
@@ -42,6 +41,7 @@ from app.personal_database import (
     PtcPersona,
     get_personal_db,
 )
+from app.services.tc_acta import render_acta_pdf
 
 router = APIRouter(prefix="/tc/cap-coordinador", tags=["T&C Capacitación Coordinador"])
 
@@ -446,6 +446,7 @@ async def subir_foto_evidencia(
 def descargar_acta(
     bloque_id: int,
     db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
     _: User = Depends(require_tc_cap),
 ):
     b = db.get(PtcCapBloque, bloque_id)
@@ -453,6 +454,7 @@ def descargar_acta(
         raise HTTPException(404, "Bloque no encontrado")
     dia = db.get(PtcCapDia, b.dia_id)
     lider = db.get(PtcPersona, b.lider_persona_id)
+    sede = main_db.get(Sede, dia.sede_id) if dia and dia.sede_id else None
     roster = db.exec(
         select(PtcCapBloquePersona).where(
             PtcCapBloquePersona.bloque_id == bloque_id,
@@ -470,42 +472,18 @@ def descargar_acta(
                 ext = os.path.splitext(fname)[1].lstrip(".") or "jpeg"
                 foto_b64 = f"data:image/{ext};base64,{base64.b64encode(f.read()).decode()}"
 
-    if foto_b64:
-        filas = "".join(f"<tr><td>{nombre}</td></tr>" for nombre in nombres)
-        tabla_head = "<tr><th>Nombre</th></tr>"
-        evidencia_html = f'<img src="{foto_b64}" class="evidencia" />'
-    else:
-        filas = "".join(f'<tr><td>{nombre}</td><td class="firma"></td></tr>' for nombre in nombres)
-        tabla_head = "<tr><th>Nombre</th><th>Firma</th></tr>"
-        evidencia_html = ""
-
-    html = f"""
-    <html><head><meta charset="utf-8"><style>
-      body {{ font-family: sans-serif; font-size: 12px; color: #222; }}
-      h1 {{ font-size: 16px; margin-bottom: 4px; }}
-      .meta {{ margin-bottom: 16px; }}
-      .meta span {{ display: inline-block; margin-right: 18px; }}
-      table {{ width: 100%; border-collapse: collapse; }}
-      th, td {{ border: 1px solid #999; padding: 8px; text-align: left; }}
-      .firma {{ width: 40%; height: 40px; }}
-      .evidencia {{ max-width: 100%; max-height: 260px; margin-bottom: 16px; border: 1px solid #999; }}
-    </style></head>
-    <body>
-      <h1>Acta de asistencia — {dia.titulo if dia else ''}</h1>
-      <div class="meta">
-        <span><strong>Fecha:</strong> {dia.fecha.strftime('%d/%m/%Y') if dia else ''}</span>
-        <span><strong>Hora:</strong> {b.hora_inicio} – {b.hora_fin}</span>
-        <span><strong>Dicta:</strong> {lider.nombre if lider else ''}</span>
-      </div>
-      <p>{dia.descripcion if dia else ''}</p>
-      {evidencia_html}
-      <table>
-        <thead>{tabla_head}</thead>
-        <tbody>{filas}</tbody>
-      </table>
-    </body></html>
-    """
-    pdf_bytes = HTML(string=html).write_pdf()
+    pdf_bytes = render_acta_pdf(
+        nombre_sede=sede.name if sede else None,
+        titulo=dia.titulo if dia else "",
+        fecha_str=dia.fecha.strftime("%d/%m/%Y") if dia else "",
+        hora_inicio=b.hora_inicio,
+        hora_fin=b.hora_fin,
+        contexto_label="Dicta",
+        contexto_valor=lider.nombre if lider else "",
+        descripcion=dia.descripcion if dia else "",
+        nombres=nombres,
+        foto_b64=foto_b64,
+    )
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",

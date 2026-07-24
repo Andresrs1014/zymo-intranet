@@ -18,7 +18,6 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlmodel import Session, select
-from weasyprint import HTML
 
 from app.config import settings
 from app.core.deps import require_admin, require_permission
@@ -34,6 +33,7 @@ from app.personal_database import (
     PtcPersona,
     get_personal_db,
 )
+from app.services.tc_acta import render_acta_pdf
 
 router = APIRouter(prefix="/tc", tags=["T&C Agenda"])
 
@@ -79,16 +79,17 @@ def _parse_date(s: str) -> date:
         raise HTTPException(status_code=400, detail=f"Fecha inválida: {s}")
 
 
-def _resolver_area_lider(user: User, db: Session) -> int:
-    """El área del evento nunca se elige a mano — es la del perfil T&C del
-    líder que agenda. Sin perfil vinculado o sin área asignada, no se puede
-    agendar (hay que arreglar el perfil primero, no adivinar el área)."""
+def _resolver_perfil_lider(user: User, db: Session) -> PtcPersona:
+    """El área (y la plataforma/empresa) del evento nunca se eligen a mano —
+    son las del perfil T&C del líder que agenda. Sin perfil vinculado o sin
+    área asignada, no se puede agendar (hay que arreglar el perfil primero,
+    no adivinar el área)."""
     persona = db.exec(select(PtcPersona).where(PtcPersona.user_id == user.id)).first()
     if not persona:
         raise HTTPException(400, "Tu usuario no tiene un perfil de colaborador vinculado en T&C — no se puede resolver tu área.")
     if not persona.area_id:
         raise HTTPException(400, "Tu perfil de T&C no tiene área asignada — pídele a T&C que la complete antes de agendar.")
-    return persona.area_id
+    return persona
 
 
 def _calcular_estado(ev: PtcEvento) -> str:
@@ -125,6 +126,7 @@ def _evento_dict(ev: PtcEvento, db: Session, main_db: Session) -> dict:
             "asistio": a.asistio,
         })
     area = main_db.get(GlobalArea, ev.area_id)
+    sede = main_db.get(Sede, ev.sede_id) if ev.sede_id else None
     return {
         "id": ev.id,
         "titulo": ev.titulo,
@@ -135,6 +137,8 @@ def _evento_dict(ev: PtcEvento, db: Session, main_db: Session) -> dict:
         "descripcion": ev.descripcion,
         "area_id": ev.area_id,
         "area_nombre": area.name if area else "",
+        "sede_id": ev.sede_id,
+        "sede_nombre": sede.name if sede else "",
         "estado": _calcular_estado(ev),
         "foto_evidencia_url": ev.foto_evidencia_url,
         "acta_firmada_url": ev.acta_firmada_url,
@@ -210,7 +214,7 @@ def crear_evento(
     main_db: Session = Depends(get_db),
     user: User = Depends(require_tc_agenda),
 ):
-    area_id = _resolver_area_lider(user, db)
+    lider = _resolver_perfil_lider(user, db)
 
     ev = PtcEvento(
         titulo=body.titulo,
@@ -218,7 +222,8 @@ def crear_evento(
         hora_inicio=body.hora_inicio,
         hora_fin=body.hora_fin,
         descripcion=body.descripcion,
-        area_id=area_id,
+        area_id=lider.area_id,
+        sede_id=lider.sede_id or None,
     )
     db.add(ev)
     db.flush()
@@ -494,6 +499,7 @@ def descargar_acta(
     if not ev:
         raise HTTPException(404, "Evento no encontrado")
     area = main_db.get(GlobalArea, ev.area_id)
+    sede = main_db.get(Sede, ev.sede_id) if ev.sede_id else None
     asignaciones = db.exec(
         select(PtcEventoPersona).where(PtcEventoPersona.evento_id == evento_id)
     ).all()
@@ -513,42 +519,18 @@ def descargar_acta(
                 ext = os.path.splitext(fname)[1].lstrip(".") or "jpeg"
                 foto_b64 = f"data:image/{ext};base64,{base64.b64encode(f.read()).decode()}"
 
-    if foto_b64:
-        filas = "".join(f"<tr><td>{nombre}</td></tr>" for nombre in nombres)
-        tabla_head = "<tr><th>Nombre</th></tr>"
-        evidencia_html = f'<img src="{foto_b64}" class="evidencia" />'
-    else:
-        filas = "".join(f'<tr><td>{nombre}</td><td class="firma"></td></tr>' for nombre in nombres)
-        tabla_head = "<tr><th>Nombre</th><th>Firma</th></tr>"
-        evidencia_html = ""
-
-    html = f"""
-    <html><head><meta charset="utf-8"><style>
-      body {{ font-family: sans-serif; font-size: 12px; color: #222; }}
-      h1 {{ font-size: 16px; margin-bottom: 4px; }}
-      .meta {{ margin-bottom: 16px; }}
-      .meta span {{ display: inline-block; margin-right: 18px; }}
-      table {{ width: 100%; border-collapse: collapse; }}
-      th, td {{ border: 1px solid #999; padding: 8px; text-align: left; }}
-      .firma {{ width: 40%; height: 40px; }}
-      .evidencia {{ max-width: 100%; max-height: 260px; margin-bottom: 16px; border: 1px solid #999; }}
-    </style></head>
-    <body>
-      <h1>Acta de asistencia — {ev.titulo}</h1>
-      <div class="meta">
-        <span><strong>Fecha:</strong> {ev.fecha.strftime('%d/%m/%Y')}</span>
-        <span><strong>Hora:</strong> {ev.hora_inicio} – {ev.hora_fin}</span>
-        <span><strong>Área:</strong> {area.name if area else ''}</span>
-      </div>
-      <p>{ev.descripcion}</p>
-      {evidencia_html}
-      <table>
-        <thead>{tabla_head}</thead>
-        <tbody>{filas}</tbody>
-      </table>
-    </body></html>
-    """
-    pdf_bytes = HTML(string=html).write_pdf()
+    pdf_bytes = render_acta_pdf(
+        nombre_sede=sede.name if sede else None,
+        titulo=ev.titulo,
+        fecha_str=ev.fecha.strftime("%d/%m/%Y"),
+        hora_inicio=ev.hora_inicio,
+        hora_fin=ev.hora_fin,
+        contexto_label="Área",
+        contexto_valor=area.name if area else "",
+        descripcion=ev.descripcion,
+        nombres=nombres,
+        foto_b64=foto_b64,
+    )
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
