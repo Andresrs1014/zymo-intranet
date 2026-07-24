@@ -316,6 +316,8 @@ export default function App() {
         <Route path="/m/:token" element={<MantenimientoMobilePage mode="jwt" />} />
         {/* Encuesta pública ZymoAlly SAC — sin login, mismo patrón que /m/:token */}
         <Route path="/e/:surveyType" element={<SurveyPage />} />
+        {/* Formato de Ausentismo — público sin login, mismo patrón que /m/:token */}
+        <Route path="/tc/formatos/ausentismo" element={<TyCFormatoAusentismoPage />} />
         <Route
           path="/login"
           element={
@@ -781,10 +783,6 @@ export default function App() {
         <Route
           path="/tc/formatos"
           element={<TyCRoute><TyCFormatosPage /></TyCRoute>}
-        />
-        <Route
-          path="/tc/formatos/ausentismo"
-          element={<TyCRoute><TyCFormatoAusentismoPage /></TyCRoute>}
         />
 
         {/* Reportes de Desarrollo */}
