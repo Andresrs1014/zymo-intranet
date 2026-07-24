@@ -199,6 +199,7 @@ def _persona_dict(p: PtcPersona, db: Session, main_db: Session) -> dict:
         "telefono": p.telefono,
         "telefono_corporativo": p.telefono_corporativo,
         "foto_url": p.foto_url,
+        "firma_url": p.firma_url,
         "fecha_nacimiento": p.fecha_nacimiento.isoformat() if p.fecha_nacimiento else None,
         "edad": p.edad,
         "tipo_contrato": p.tipo_contrato,
@@ -1181,6 +1182,58 @@ async def subir_foto_persona(
     db.commit()
     db.refresh(persona)
     return _persona_dict(persona, db, main_db)
+
+
+@router.post("/personas/{persona_id}/firma")
+async def subir_firma_persona(
+    persona_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
+    _: User = Depends(require_tc_editar),
+):
+    persona = db.get(PtcPersona, persona_id)
+    if not persona:
+        raise HTTPException(status_code=404, detail="Persona no encontrada.")
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Solo se permiten imágenes.")
+
+    content = await file.read()
+    if len(content) > _MAX_FOTO_MB * 1024 * 1024:
+        raise HTTPException(status_code=400, detail=f"La imagen no puede superar los {_MAX_FOTO_MB} MB.")
+
+    ext = {"image/png": "png", "image/webp": "webp"}.get(file.content_type, "jpg")
+    fotos_dir = settings.tc_fotos_dir
+    os.makedirs(fotos_dir, exist_ok=True)
+    fname = f"firma-{persona_id}.{ext}"
+    with open(os.path.join(fotos_dir, fname), "wb") as f:
+        f.write(content)
+
+    persona.firma_url = f"/tc-fotos/{fname}"
+    persona.updated_at = datetime.utcnow()
+    db.add(persona)
+    db.commit()
+    db.refresh(persona)
+    return _persona_dict(persona, db, main_db)
+
+
+@router.delete("/personas/{persona_id}/firma", status_code=status.HTTP_204_NO_CONTENT)
+def eliminar_firma_persona(
+    persona_id: int,
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_tc_editar),
+):
+    persona = db.get(PtcPersona, persona_id)
+    if not persona:
+        raise HTTPException(status_code=404, detail="Persona no encontrada.")
+    if persona.firma_url:
+        fpath = os.path.join(settings.tc_fotos_dir, persona.firma_url.rsplit("/", 1)[-1])
+        if os.path.isfile(fpath):
+            os.remove(fpath)
+    persona.firma_url = ""
+    persona.updated_at = datetime.utcnow()
+    db.add(persona)
+    db.commit()
 
 
 @router.post("/cargos/{cargo_id}/org-image")

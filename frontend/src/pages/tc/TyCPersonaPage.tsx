@@ -12,6 +12,7 @@ import {
   TC_ESTADOS, TC_GENEROS, TC_CONTRATOS, TC_SALIDAS,
   TC_CAP_ESTADOS, TC_SANCION_TIPOS, TC_NOVEDAD_TIPOS, TC_NOVEDAD_ESTADOS,
 } from "@/lib/tc-constants"
+import { FirmaDigitalPanel } from "./components/FirmaDigitalPanel"
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 
@@ -40,6 +41,7 @@ interface Persona {
   telefono: string
   telefono_corporativo: string
   foto_url: string
+  firma_url: string
   tipo_contrato: string
   fecha_ingreso: string | null
   antiguedad_label: string
@@ -459,6 +461,15 @@ export function TyCPersonaPage() {
                   ) : (datos.tipo_salida || "—")}
                 </FieldRow>
               )}
+            </Section>
+
+            <Section title="Firma digital">
+              <FirmaDigitalPanel
+                personaId={persona.id}
+                firmaUrl={persona.firma_url}
+                puedeEditar={puedeEditar}
+                onSaved={(url) => setPersona((prev) => prev ? { ...prev, firma_url: url } : prev)}
+              />
             </Section>
           </div>
         )}

@@ -95,6 +95,7 @@ class PtcPersona(SQLModel, table=True):
     telefono: str = Field(max_length=30, default="")
     telefono_corporativo: str = Field(max_length=30, default="")
     foto_url: str = Field(max_length=500, default="")
+    firma_url: str = Field(max_length=500, default="")
     fecha_nacimiento: Optional[date] = None
     edad: Optional[int] = None
 
@@ -406,6 +407,7 @@ def _migrate_personal() -> None:
             # tipo #2 — plataforma (sede) donde se realiza la inducción
             "ALTER TABLE ptc_cap_dia ADD COLUMN sede_id INTEGER DEFAULT NULL",
             "ALTER TABLE ptc_evento ADD COLUMN sede_id INTEGER DEFAULT NULL",
+            "ALTER TABLE ptc_persona ADD COLUMN firma_url TEXT DEFAULT ''",
         ]:
             try:
                 conn.execute(text(sql))
