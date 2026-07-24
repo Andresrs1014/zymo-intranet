@@ -128,6 +128,7 @@ export function TyCNuevoPersonalNuevoPage() {
         }
         textarea.input-base { height: auto; padding: 0.625rem 0.875rem; }
         .input-base:focus { outline: none; box-shadow: 0 0 0 1px hsl(var(--ring)); }
+        .input-base.pl-11 { padding-left: 2.75rem; }
       `}</style>
     </PageLayout>
   )
