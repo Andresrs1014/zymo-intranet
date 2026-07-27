@@ -20,8 +20,8 @@ model ZymoPqrTicket {
   platform           String?
   supervisor         String?
   supervisorEmail    String?
-  analyst            String?
-  analystEmail       String?
+  analysts           String[]          @default([])
+  analystEmails      String[]          @default([])
   coordinator        String?
   coordinatorEmail   String?
   manager            String?

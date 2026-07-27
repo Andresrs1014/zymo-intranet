@@ -1,8 +1,9 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Search, X } from "lucide-react"
 import { useTickets, useTicketConfigLists, useTicketAreaPrefixes } from "@/hooks/useTickets"
 import { useTicketsUI } from "@/context/TicketsContext"
 import { Combobox, type ComboboxOption } from "@/components/ui/Combobox"
+import { api } from "@/lib/api"
 import { impactAgeStatus, daysOpen, priorityTone, formatSlaHours } from "@/lib/ticketWork"
 import type { Ticket } from "@/types/ticket"
 
@@ -50,6 +51,15 @@ export function ListView() {
     search: filters.search || undefined,
   })
   const { setOpenTicketId } = useTicketsUI()
+
+  // Supervisor ya no es una lista configurable — el filtro se llena con los
+  // nombres reales del Directorio (mismo origen que asigna el ticket al crear).
+  const [personasDirectorio, setPersonasDirectorio] = useState<{ id: number; nombre: string }[]>([])
+  useEffect(() => {
+    api.get("/operativo/personas/lista-simple").then(({ data }) => {
+      setPersonasDirectorio(Array.isArray(data) ? data : [])
+    }).catch(() => setPersonasDirectorio([]))
+  }, [])
 
   function set<K extends keyof typeof filters>(key: K, value: string) {
     setFilters((f) => ({ ...f, [key]: value }))
@@ -108,7 +118,7 @@ export function ListView() {
             label="Supervisor"
             value={filters.supervisor}
             onChange={(v) => set("supervisor", v)}
-            options={(lists?.supervisors ?? []).map((s) => ({ value: s.value, label: s.label }))}
+            options={personasDirectorio.map((p) => ({ value: p.nombre, label: p.nombre }))}
           />
         </div>
 
@@ -159,7 +169,7 @@ export function ListView() {
 function TicketRow({ ticket, onOpen }: { ticket: Ticket; onOpen: () => void }) {
   const tone = priorityTone(ticket.priority)
   const vencido = impactAgeStatus(ticket) === "vencido"
-  const responsable = ticket.supervisor || ticket.coordinator || ticket.analyst
+  const responsable = ticket.supervisor || ticket.coordinator || ticket.analysts.join(", ")
   const slaOverdue = ticket.slaOverdue === true && !/cerrado/i.test(ticket.status)
 
   return (

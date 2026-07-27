@@ -23,7 +23,7 @@ export interface TicketListFilters {
 }
 
 type EditableTicketListType =
-  | "statuses" | "types" | "platforms" | "clients" | "supervisors" | "analysts" | "coordinators" | "managers"
+  | "statuses" | "types" | "platforms" | "managers"
   | "priorities" | "impacts" | "channels" | "managementCriteria"
 
 interface CreateListItemInput {
@@ -119,7 +119,9 @@ export function useCreateTicket() {
       const form = new FormData()
       Object.entries(input).forEach(([key, value]) => {
         if (key === "evidence" || value === undefined || value === null) return
-        form.append(key, String(value))
+        // Los arrays (ej. analysts) viajan como JSON string — el backend los
+        // parsea antes de validar (FormData no soporta arrays nativos).
+        form.append(key, Array.isArray(value) ? JSON.stringify(value) : String(value))
       })
       input.evidence?.forEach((file) => form.append("evidence", file))
       const { data } = await zymoallyApi.post<Ticket>("/api/tickets/pqr", form)

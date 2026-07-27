@@ -23,6 +23,7 @@ from app.services.clientes_cartera import (
     listar_analistas,
     listar_clientes_response,
     listar_clientes_simple,
+    listar_personas_simple,
     listar_sedes_cartera,
     plantilla_path,
     resolver_jerarquia_tickets,
@@ -44,6 +45,15 @@ def get_clientes_simple(
     _: User = Depends(get_current_user),
 ):
     return listar_clientes_simple(db)
+
+
+@router.get("/personas/lista-simple")
+def get_personas_simple(
+    db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    return listar_personas_simple(db, main_db)
 
 
 @router.get("/clientes/{cliente_id}/jerarquia-tickets")

@@ -26,8 +26,8 @@ export interface Ticket {
   platform: string | null
   supervisor: string | null
   supervisorEmail: string | null
-  analyst: string | null
-  analystEmail: string | null
+  analysts: string[]
+  analystEmails: string[]
   coordinator: string | null
   coordinatorEmail: string | null
   manager: string | null
@@ -60,8 +60,11 @@ export interface CreateTicketInput {
   client?: string
   platform?: string
   supervisor?: string
-  analyst?: string
+  supervisorEmail?: string
+  analysts?: string[]
+  analystEmails?: string[]
   coordinator?: string
+  coordinatorEmail?: string
   manager?: string
   phone?: string
   email?: string
@@ -88,11 +91,7 @@ export interface TicketListItem {
 }
 
 export interface TicketConfigLists {
-  clients: TicketListItem[]
   platforms: TicketListItem[]
-  supervisors: TicketListItem[]
-  analysts: TicketListItem[]
-  coordinators: TicketListItem[]
   managers: TicketListItem[]
   generators: TicketListItem[]
   phones: TicketListItem[]

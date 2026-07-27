@@ -33,7 +33,7 @@ ticketsExportRouter.get("/csv", async (_req, res, next) => {
       t.client || "",
       t.platform || "",
       t.supervisor || "",
-      t.analyst || "",
+      t.analysts.join(", "),
       t.coordinator || "",
       t.phone || "",
       t.email || "",

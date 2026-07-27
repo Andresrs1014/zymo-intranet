@@ -102,7 +102,7 @@ export function TicketDrawer() {
               {ticket.channel && <p><strong>Canal:</strong> {ticket.channel}</p>}
               {ticket.platform && <p><strong>Plataforma:</strong> {ticket.platform}</p>}
               {ticket.supervisor && <p><strong>Supervisor:</strong> {ticket.supervisor}</p>}
-              {ticket.analyst && <p><strong>Analista:</strong> {ticket.analyst}</p>}
+              {ticket.analysts.length > 0 && <p><strong>Analista(s):</strong> {ticket.analysts.join(", ")}</p>}
               {ticket.coordinator && <p><strong>Coordinador:</strong> {ticket.coordinator}</p>}
               {ticket.manager && <p><strong>Gestiona:</strong> {ticket.manager}</p>}
               {ticket.phone && <p><strong>Teléfono:</strong> {ticket.phone}</p>}

@@ -69,7 +69,7 @@ export function pqrAlerts(tickets: ZymoPqrTicket[]) {
       title: `Ticket PQR ${ticket.code || "sin codigo"} - ${ticket.client || "Cliente"}`,
       priority: /critica|escalado/i.test(`${ticket.priority} ${ticket.impact} ${ticket.status}`) ? "Critica" : "Alta",
       detail: `Estado ${ticket.status || "Sin estado"}, impacto ${ticket.impact || "Sin impacto"}, ${daysOpen(ticket)} dia(s) sin cerrar. Compromiso: ${ticket.dueDate || "por definir"}.`,
-      target: ticket.supervisor || ticket.analyst || ticket.owner || "Responsable PQR",
+      target: ticket.supervisor || ticket.analysts[0] || ticket.owner || "Responsable PQR",
       source: "Ticket PQR",
       sourceGroup: "pqr" as const,
     }))

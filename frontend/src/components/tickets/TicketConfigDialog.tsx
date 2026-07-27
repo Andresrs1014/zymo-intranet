@@ -5,7 +5,6 @@ import {
   AlertTriangle,
   ArrowDown,
   ArrowUp,
-  Briefcase,
   Building2,
   Check,
   CircleDot,
@@ -16,13 +15,10 @@ import {
   Pencil,
   Plus,
   Radio,
-  Search,
   Settings2,
   Tags,
   Trash2,
   UserCheck,
-  UserCog,
-  Users,
   X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -64,7 +60,7 @@ interface TicketConfigDialogProps {
 }
 
 type EditableListType =
-  | "statuses" | "types" | "platforms" | "clients" | "supervisors" | "analysts" | "coordinators" | "managers"
+  | "statuses" | "types" | "platforms" | "managers"
   | "priorities" | "impacts" | "channels" | "managementCriteria"
 type MoveDirection = -1 | 1
 
@@ -752,10 +748,6 @@ export function TicketConfigDialog({
   const statuses = listsQuery.data?.statuses ?? []
   const types = listsQuery.data?.types ?? []
   const platforms = listsQuery.data?.platforms ?? []
-  const clients = listsQuery.data?.clients ?? []
-  const supervisors = listsQuery.data?.supervisors ?? []
-  const analysts = listsQuery.data?.analysts ?? []
-  const coordinators = listsQuery.data?.coordinators ?? []
   const managers = listsQuery.data?.managers ?? []
   const priorities = listsQuery.data?.priorities ?? []
   const impacts = listsQuery.data?.impacts ?? []
@@ -825,38 +817,6 @@ export function TicketConfigDialog({
                 >
                   <TabLabel icon={<Building2 className="h-4 w-4 shrink-0" />} count={platforms.length}>
                     Plataforma
-                  </TabLabel>
-                </TabsTrigger>
-                <TabsTrigger
-                  value="clients"
-                  className="min-h-10 min-w-0 gap-1.5 px-2 text-xs data-[state=active]:bg-primary data-[state=active]:text-white sm:text-sm"
-                >
-                  <TabLabel icon={<Briefcase className="h-4 w-4 shrink-0" />} count={clients.length}>
-                    Cliente
-                  </TabLabel>
-                </TabsTrigger>
-                <TabsTrigger
-                  value="supervisors"
-                  className="min-h-10 min-w-0 gap-1.5 px-2 text-xs data-[state=active]:bg-primary data-[state=active]:text-white sm:text-sm"
-                >
-                  <TabLabel icon={<UserCog className="h-4 w-4 shrink-0" />} count={supervisors.length}>
-                    Supervisor
-                  </TabLabel>
-                </TabsTrigger>
-                <TabsTrigger
-                  value="analysts"
-                  className="min-h-10 min-w-0 gap-1.5 px-2 text-xs data-[state=active]:bg-primary data-[state=active]:text-white sm:text-sm"
-                >
-                  <TabLabel icon={<Search className="h-4 w-4 shrink-0" />} count={analysts.length}>
-                    Analista
-                  </TabLabel>
-                </TabsTrigger>
-                <TabsTrigger
-                  value="coordinators"
-                  className="min-h-10 min-w-0 gap-1.5 px-2 text-xs data-[state=active]:bg-primary data-[state=active]:text-white sm:text-sm"
-                >
-                  <TabLabel icon={<Users className="h-4 w-4 shrink-0" />} count={coordinators.length}>
-                    Coordinador
                   </TabLabel>
                 </TabsTrigger>
                 <TabsTrigger
@@ -942,54 +902,6 @@ export function TicketConfigDialog({
                   listType="platforms"
                   singular="Plataforma"
                   items={platforms}
-                  isLoading={listsQuery.isLoading}
-                />
-              )}
-            </TabsContent>
-            <TabsContent value="clients" className="mt-0 min-h-0 flex-1 overflow-hidden">
-              {listsQuery.isError ? (
-                <QueryErrorState onRetry={() => void listsQuery.refetch()} />
-              ) : (
-                <ListConfigSection
-                  listType="clients"
-                  singular="Cliente"
-                  items={clients}
-                  isLoading={listsQuery.isLoading}
-                />
-              )}
-            </TabsContent>
-            <TabsContent value="supervisors" className="mt-0 min-h-0 flex-1 overflow-hidden">
-              {listsQuery.isError ? (
-                <QueryErrorState onRetry={() => void listsQuery.refetch()} />
-              ) : (
-                <ListConfigSection
-                  listType="supervisors"
-                  singular="Supervisor"
-                  items={supervisors}
-                  isLoading={listsQuery.isLoading}
-                />
-              )}
-            </TabsContent>
-            <TabsContent value="analysts" className="mt-0 min-h-0 flex-1 overflow-hidden">
-              {listsQuery.isError ? (
-                <QueryErrorState onRetry={() => void listsQuery.refetch()} />
-              ) : (
-                <ListConfigSection
-                  listType="analysts"
-                  singular="Analista"
-                  items={analysts}
-                  isLoading={listsQuery.isLoading}
-                />
-              )}
-            </TabsContent>
-            <TabsContent value="coordinators" className="mt-0 min-h-0 flex-1 overflow-hidden">
-              {listsQuery.isError ? (
-                <QueryErrorState onRetry={() => void listsQuery.refetch()} />
-              ) : (
-                <ListConfigSection
-                  listType="coordinators"
-                  singular="Coordinador"
-                  items={coordinators}
                   isLoading={listsQuery.isLoading}
                 />
               )}

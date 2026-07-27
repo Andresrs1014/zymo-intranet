@@ -42,7 +42,7 @@ async function attachSla<T extends SlaTicketFields>(
 
 interface AssignableTicket {
   supervisorEmail: string | null
-  analystEmail: string | null
+  analystEmails: string[]
   coordinatorEmail: string | null
 }
 
@@ -52,7 +52,7 @@ function canManageTicket(user: AuthPayload | undefined, ticket: AssignableTicket
   const perms = user.app_permissions ?? []
   if (role === "admin" || role === "gerente" || perms.includes("mod_tickets_config")) return true
 
-  const assignedEmails = [ticket.supervisorEmail, ticket.analystEmail, ticket.coordinatorEmail]
+  const assignedEmails = [ticket.supervisorEmail, ...ticket.analystEmails, ticket.coordinatorEmail]
     .filter((e): e is string => Boolean(e))
     .map((e) => e.toLowerCase())
   // Sin ningún email asignado en el ticket (dato incompleto/ticket viejo) — no se
@@ -81,15 +81,19 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage, limits: { fileSize: 15 * 1024 * 1024 } })
 
-// Resuelve el email de contacto guardado en ZymoConfigList (sync de directorio) para
-// el valor elegido en el select — se fija en el ticket al crear, no cambia si la
-// persona rota de cargo después (trazabilidad histórica, ver Fase A del plan de
-// "Gestionar mis tickets").
+// Resuelve el email de contacto guardado en ZymoConfigList (solo queda para
+// "managers" — supervisor/analista/coordinador ahora traen su correo directo
+// del Directorio, ver "personas/lista-simple", el frontend ya lo envía).
 async function resolveContactEmail(listType: string, value: string | undefined): Promise<string | undefined> {
   if (!value) return undefined
   const row = await prisma.zymoConfigList.findFirst({ where: { listType, value }, select: { contactEmail: true } })
   return row?.contactEmail || undefined
 }
+
+const jsonArray = z.preprocess(
+  (v) => (typeof v === "string" ? JSON.parse(v) : v),
+  z.array(z.string()),
+)
 
 const CreateTicketBody = z.object({
   area: z.string().min(1),
@@ -97,8 +101,11 @@ const CreateTicketBody = z.object({
   client: z.string().optional(),
   platform: z.string().optional(),
   supervisor: z.string().optional(),
-  analyst: z.string().optional(),
+  supervisorEmail: z.string().optional(),
+  analysts: jsonArray.optional(),
+  analystEmails: jsonArray.optional(),
   coordinator: z.string().optional(),
+  coordinatorEmail: z.string().optional(),
   manager: z.string().optional(),
   phone: z.string().optional(),
   email: z.string().optional(),
@@ -133,7 +140,7 @@ router.get("/", async (req, res, next) => {
       if (!email) { res.json([]); return }
       where.OR = [
         { supervisorEmail: { equals: email, mode: "insensitive" } },
-        { analystEmail: { equals: email, mode: "insensitive" } },
+        { analystEmails: { has: email.toLowerCase() } },
         { coordinatorEmail: { equals: email, mode: "insensitive" } },
       ]
     }
@@ -147,7 +154,7 @@ router.get("/", async (req, res, next) => {
     const term = (search || "").trim().toLowerCase()
     const filtered = term
       ? tickets.filter((t) =>
-          [t.code, t.client, t.owner, t.description, t.type, t.status, t.impact, t.managementCriteria, t.platform, t.supervisor, t.analyst, t.coordinator]
+          [t.code, t.client, t.owner, t.description, t.type, t.status, t.impact, t.managementCriteria, t.platform, t.supervisor, ...t.analysts, t.coordinator]
             .join(" ")
             .toLowerCase()
             .includes(term)
@@ -204,23 +211,22 @@ router.post("/", upload.array("evidence"), async (req, res, next) => {
     const body = parsed.data
     const files = (req.files as Express.Multer.File[]) || []
 
-    const [supervisorEmail, analystEmail, coordinatorEmail, managerEmail] = await Promise.all([
-      resolveContactEmail("supervisors", body.supervisor),
-      resolveContactEmail("analysts", body.analyst),
-      resolveContactEmail("coordinators", body.coordinator),
-      resolveContactEmail("managers", body.manager),
-    ])
+    // supervisor/analista(s)/coordinador ahora traen su correo directo del
+    // Directorio (el frontend los resuelve contra /operativo/personas/lista-simple
+    // y los envía ya armados) — solo "manager" sigue viniendo de ZymoConfigList.
+    const managerEmail = await resolveContactEmail("managers", body.manager)
+    const analystEmails = (body.analystEmails ?? []).map((e) => e.toLowerCase())
 
     const ticket = await createPqrTicketWithCode(body.date, body.areaPrefix, {
       area: body.area,
       client: body.client,
       platform: body.platform,
       supervisor: body.supervisor,
-      supervisorEmail,
-      analyst: body.analyst,
-      analystEmail,
+      supervisorEmail: body.supervisorEmail,
+      analysts: body.analysts ?? [],
+      analystEmails,
       coordinator: body.coordinator,
-      coordinatorEmail,
+      coordinatorEmail: body.coordinatorEmail,
       manager: body.manager,
       managerEmail,
       phone: body.phone,
@@ -245,7 +251,7 @@ router.post("/", upload.array("evidence"), async (req, res, next) => {
     // problema de correo no debe bloquear ni fallar la creación del ticket. El
     // resultado (incluyendo "no había a quién avisar") queda en la bitácora del
     // propio ticket — visible para Planeación sin necesitar logs del servidor.
-    const recipients = [supervisorEmail, analystEmail, coordinatorEmail].filter((e): e is string => Boolean(e))
+    const recipients = [body.supervisorEmail, ...analystEmails, body.coordinatorEmail].filter((e): e is string => Boolean(e))
     notifyTicketReceived(recipients, {
       code: ticket.code,
       area: ticket.area,

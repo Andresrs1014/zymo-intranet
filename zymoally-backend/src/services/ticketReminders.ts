@@ -30,7 +30,7 @@ export async function runTicketReminders(): Promise<ReminderRunResult> {
 
   let sent = 0
   for (const ticket of tickets) {
-    const recipients = [ticket.supervisorEmail, ticket.analystEmail, ticket.coordinatorEmail].filter(
+    const recipients = [ticket.supervisorEmail, ...ticket.analystEmails, ticket.coordinatorEmail].filter(
       (e): e is string => Boolean(e),
     )
     if (!recipients.length) continue

@@ -36,7 +36,7 @@ function clientLabelFor(type: string): string {
 
 // Mismo Combobox que ya usan los filtros de la lista (buscador propio, scroll
 // normal) en vez del Select de Radix — sin flechas de scroll arriba/abajo en
-// listas largas (Supervisor, Analista con decenas de personas sincronizadas).
+// listas largas (Supervisor/Coordinador con decenas de personas del Directorio).
 function SelectField({
   label, value, onChange, options, placeholder,
 }: {
@@ -69,7 +69,7 @@ const STAGES = [
 
 const EMPTY_FORM = {
   type: "", area: "", areaPrefix: "", client: "", platform: "", supervisor: "",
-  analyst: "", coordinator: "", manager: "", owner: "", phone: "", email: "", date: currentDateValue(),
+  analysts: [] as string[], coordinator: "", manager: "", owner: "", phone: "", email: "", date: currentDateValue(),
   status: "", priority: "", impact: "", channel: "", managementCriteria: "",
   description: "",
 }
@@ -93,8 +93,16 @@ export function TicketDialog() {
   // supervisor automáticamente.
   const [clientesDirectorio, setClientesDirectorio] = useState<{ id: number; nombre: string }[]>([])
   const [clienteId, setClienteId] = useState<number | null>(null)
+
+  // Supervisor/Analista(s)/Coordinador se eligen del Directorio real (no de
+  // listas configurables) — así el correo de contacto siempre existe, sin
+  // depender de que alguien lo llene a mano en otra pantalla. `form.supervisor`/
+  // `form.coordinator`/`form.analysts` guardan el id (string) de la persona
+  // mientras se edita; al enviar se resuelve a nombre+correo (ver handleSubmit).
+  type PersonaDirectorio = { id: number; nombre: string; email: string }
+  const [personasDirectorio, setPersonasDirectorio] = useState<PersonaDirectorio[]>([])
   const [jerarquiaSugerida, setJerarquiaSugerida] = useState<{
-    analistas: { nombre: string }[]; coordinadores: { nombre: string }[]; supervisores: { nombre: string }[]
+    analistas: PersonaDirectorio[]; coordinadores: PersonaDirectorio[]; supervisores: PersonaDirectorio[]
   } | null>(null)
 
   useEffect(() => {
@@ -102,6 +110,9 @@ export function TicketDialog() {
     api.get("/operativo/clientes/lista-simple").then(({ data }) => {
       setClientesDirectorio(Array.isArray(data) ? data : [])
     }).catch(() => setClientesDirectorio([]))
+    api.get("/operativo/personas/lista-simple").then(({ data }) => {
+      setPersonasDirectorio(Array.isArray(data) ? data : [])
+    }).catch(() => setPersonasDirectorio([]))
   }, [dialogOpen])
 
   useEffect(() => {
@@ -110,20 +121,15 @@ export function TicketDialog() {
     api.get(`/operativo/clientes/${clienteId}/jerarquia-tickets`).then(({ data }) => {
       if (cancelled) return
       setJerarquiaSugerida(data)
-      const matchValue = (nombre: string, options: { value: string; label: string }[]) =>
-        options.find((o) => o.label.trim().toLowerCase() === nombre.trim().toLowerCase())?.value
-      const analista = data.analistas[0] && matchValue(data.analistas[0].nombre, lists?.analysts ?? [])
-      const coordinador = data.coordinadores[0] && matchValue(data.coordinadores[0].nombre, lists?.coordinators ?? [])
-      const supervisor = data.supervisores[0] && matchValue(data.supervisores[0].nombre, lists?.supervisors ?? [])
       setForm((f) => ({
         ...f,
-        analyst: analista ?? f.analyst,
-        coordinator: coordinador ?? f.coordinator,
-        supervisor: supervisor ?? f.supervisor,
+        analysts: data.analistas.length ? data.analistas.map((a: PersonaDirectorio) => String(a.id)) : f.analysts,
+        coordinator: data.coordinadores[0] ? String(data.coordinadores[0].id) : f.coordinator,
+        supervisor: data.supervisores[0] ? String(data.supervisores[0].id) : f.supervisor,
       }))
     }).catch(() => { if (!cancelled) setJerarquiaSugerida(null) })
     return () => { cancelled = true }
-  }, [clienteId, lists])
+  }, [clienteId])
 
   function handleClienteChange(idStr: string) {
     const id = idStr ? Number(idStr) : null
@@ -153,11 +159,27 @@ export function TicketDialog() {
 
   const canSubmit = Boolean(form.type && form.area && form.date && form.status && form.priority)
 
+  function personaById(id: string) {
+    return personasDirectorio.find((p) => String(p.id) === id)
+  }
+
   async function handleSubmit() {
     if (!canSubmit) return
     setError(null)
     try {
-      await createTicket.mutateAsync({ ...form, evidence: files })
+      const supervisorPersona = personaById(form.supervisor)
+      const coordinadorPersona = personaById(form.coordinator)
+      const analistaPersonas = form.analysts.map(personaById).filter((p): p is (typeof personasDirectorio)[number] => Boolean(p))
+      await createTicket.mutateAsync({
+        ...form,
+        supervisor: supervisorPersona?.nombre ?? "",
+        supervisorEmail: supervisorPersona?.email,
+        coordinator: coordinadorPersona?.nombre ?? "",
+        coordinatorEmail: coordinadorPersona?.email,
+        analysts: analistaPersonas.map((p) => p.nombre),
+        analystEmails: analistaPersonas.map((p) => p.email),
+        evidence: files,
+      })
       setDialogOpen(false)
       showToast("Ticket creado satisfactoriamente", "success")
     } catch (err) {
@@ -223,29 +245,39 @@ export function TicketDialog() {
                 label="Supervisor"
                 value={form.supervisor}
                 onChange={(v) => set("supervisor", v)}
-                options={(lists?.supervisors ?? []).map((p) => ({ value: p.value, label: p.label }))}
+                options={personasDirectorio.map((p) => ({ value: String(p.id), label: p.nombre }))}
                 placeholder="Sin asignar"
               />
-              <SelectField
-                label="Analista"
-                value={form.analyst}
-                onChange={(v) => set("analyst", v)}
-                options={(lists?.analysts ?? []).map((p) => ({ value: p.value, label: p.label }))}
-                placeholder="Sin asignar"
-              />
+              <div>
+                <label className={LABEL}>Analistas</label>
+                {/* Multi-select nativo — mismo patrón que "Analistas de tickets" en
+                    OperClientesPage.tsx. El Combobox reusado en el resto del form
+                    no soporta selección múltiple. */}
+                <select
+                  multiple
+                  value={form.analysts}
+                  onChange={(e) => set("analysts", Array.from(e.target.selectedOptions).map((o) => o.value))}
+                  size={Math.min(5, Math.max(3, personasDirectorio.length))}
+                  className={`${INPUT} h-auto py-1`}
+                >
+                  {personasDirectorio.map((p) => (
+                    <option key={p.id} value={p.id}>{p.nombre}</option>
+                  ))}
+                </select>
+                <p className="mt-1 text-[10px] text-zinc-400">Ctrl/Cmd + clic para elegir varios</p>
+              </div>
               <SelectField
                 label="Coordinador"
                 value={form.coordinator}
                 onChange={(v) => set("coordinator", v)}
-                options={(lists?.coordinators ?? []).map((p) => ({ value: p.value, label: p.label }))}
+                options={personasDirectorio.map((p) => ({ value: String(p.id), label: p.nombre }))}
                 placeholder="Sin asignar"
               />
               {jerarquiaSugerida && (
                 <p className="col-span-full text-xs text-zinc-500">
-                  Sugerido desde el directorio — analista: <strong>{jerarquiaSugerida.analistas[0]?.nombre ?? "sin asignar"}</strong>,
+                  Sugerido desde el directorio — analista(s): <strong>{jerarquiaSugerida.analistas.map((a) => a.nombre).join(", ") || "sin asignar"}</strong>,
                   {" "}coordinador: <strong>{jerarquiaSugerida.coordinadores[0]?.nombre ?? "sin asignar"}</strong>,
                   {" "}supervisor: <strong>{jerarquiaSugerida.supervisores[0]?.nombre ?? "sin asignar"}</strong>.
-                  {jerarquiaSugerida.analistas.length > 1 && " Hay más de un analista asignado — revisa cuál corresponde."}
                 </p>
               )}
               <SelectField

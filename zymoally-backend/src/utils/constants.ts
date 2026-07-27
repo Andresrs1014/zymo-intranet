@@ -1,11 +1,7 @@
 // Ported from ZymoAlly app.js (defaultPqrConfig, líneas 15-36)
 
 export const PQR_LIST_TYPES = [
-  "clients",
   "platforms",
-  "supervisors",
-  "analysts",
-  "coordinators",
   "managers",
   "generators",
   "phones",
@@ -21,11 +17,7 @@ export const PQR_LIST_TYPES = [
 export type PqrListType = (typeof PQR_LIST_TYPES)[number]
 
 export const defaultPqrConfig: Record<PqrListType, string[]> = {
-  clients: ["Cliente general"],
   platforms: ["CEDI principal", "Operacion transporte", "Ultima milla", "Almacenamiento"],
-  supervisors: ["Supervisor PQR"],
-  analysts: ["Analista PQR"],
-  coordinators: ["Coordinador logistico"],
   managers: [],
   generators: ["Usuario que genera ticket"],
   phones: ["+57 300 000 0000"],

@@ -286,6 +286,18 @@ def listar_clientes_simple(db: Session) -> list[dict]:
     return [{"id": c.id, "nombre": c.nombre} for c in clientes]
 
 
+def listar_personas_simple(db: Session, main_db: Session) -> list[dict]:
+    """Lista liviana (id+nombre+correo) de personas activas del Directorio —
+    fuente real de Supervisor/Analista/Coordinador en el formulario de tickets
+    de Zymo Ally (reemplaza las listas configurables ZymoConfigList, que no
+    tienen forma de asignar un correo de contacto). No requiere mod_tc, mismo
+    criterio que listar_clientes_simple."""
+    personas = db.exec(
+        select(PtcPersona).where(PtcPersona.estado == _ACTIVO).order_by(col(PtcPersona.nombre))
+    ).all()
+    return [_persona_min(p, main_db) for p in personas]
+
+
 def listar_analistas(db: Session) -> list[dict]:
     from app.personal_database import PtcCargo
 
