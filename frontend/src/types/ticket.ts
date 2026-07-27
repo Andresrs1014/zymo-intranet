@@ -66,8 +66,7 @@ export interface CreateTicketInput {
   coordinator?: string
   coordinatorEmail?: string
   manager?: string
-  phone?: string
-  email?: string
+  managerEmail?: string
   owner?: string
   date: string
   dueDate?: string

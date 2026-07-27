@@ -360,6 +360,26 @@ def listar_cargos_simple(db: Session, area_id: Optional[int] = None) -> list[dic
     return [{"id": c.id, "nombre": c.nombre} for c in cargos]
 
 
+def resolver_persona_por_plataforma(db: Session, main_db: Session, plataforma: str, rol: str) -> list[dict]:
+    """Dado el nombre de una Plataforma (= Sede real — los valores de
+    ZymoConfigList listType=platforms en Zymo Ally coinciden por nombre con
+    Sede.name, verificado 2026-07-27), busca entre las personas curadas para
+    `rol` (PtcTicketRol) cuál pertenece a esa sede (PtcPersona.sede_id).
+    Autocompleta "¿Quién gestiona el ticket?" (el supervisor de esa
+    plataforma — el usuario confirmó que hay uno solo) y sugiere Coordinador
+    sin depender de elegir un Cliente."""
+    sede = main_db.exec(select(Sede).where(Sede.name == plataforma)).first()
+    if not sede:
+        return []
+    ids_rol = [r.persona_id for r in db.exec(select(PtcTicketRol).where(PtcTicketRol.rol == rol)).all()]
+    if not ids_rol:
+        return []
+    personas = db.exec(
+        select(PtcPersona).where(col(PtcPersona.id).in_(ids_rol), PtcPersona.sede_id == sede.id)
+    ).all()
+    return [_persona_min(p, main_db) for p in personas]
+
+
 def listar_roles_ticket(db: Session, main_db: Session) -> dict:
     """Personas curadas actualmente, agrupadas por rol de ticket."""
     result: dict[str, list[dict]] = {rol: [] for rol in _ROLES_TICKET}

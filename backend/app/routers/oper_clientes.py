@@ -32,6 +32,7 @@ from app.services.clientes_cartera import (
     listar_sedes_cartera,
     plantilla_path,
     resolver_jerarquia_tickets,
+    resolver_persona_por_plataforma,
 )
 
 router = APIRouter(prefix="/operativo", tags=["Operativo Clientes"])
@@ -61,6 +62,17 @@ def get_personas_simple(
     _: User = Depends(get_current_user),
 ):
     return listar_personas_simple(db, main_db, rol=rol)
+
+
+@router.get("/personas/por-plataforma")
+def get_persona_por_plataforma(
+    plataforma: str = Query(..., min_length=1),
+    rol: str = Query(..., description="supervisor | analista | coordinador"),
+    db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    return resolver_persona_por_plataforma(db, main_db, plataforma, rol)
 
 
 # ── Curación de roles de ticket (Configuración de Tickets, Zymo Ally) ────────

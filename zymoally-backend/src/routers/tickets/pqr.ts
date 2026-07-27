@@ -81,15 +81,6 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage, limits: { fileSize: 15 * 1024 * 1024 } })
 
-// Resuelve el email de contacto guardado en ZymoConfigList (solo queda para
-// "managers" — supervisor/analista/coordinador ahora traen su correo directo
-// del Directorio, ver "personas/lista-simple", el frontend ya lo envía).
-async function resolveContactEmail(listType: string, value: string | undefined): Promise<string | undefined> {
-  if (!value) return undefined
-  const row = await prisma.zymoConfigList.findFirst({ where: { listType, value }, select: { contactEmail: true } })
-  return row?.contactEmail || undefined
-}
-
 const jsonArray = z.preprocess(
   (v) => (typeof v === "string" ? JSON.parse(v) : v),
   z.array(z.string()),
@@ -107,8 +98,7 @@ const CreateTicketBody = z.object({
   coordinator: z.string().optional(),
   coordinatorEmail: z.string().optional(),
   manager: z.string().optional(),
-  phone: z.string().optional(),
-  email: z.string().optional(),
+  managerEmail: z.string().optional(),
   owner: z.string().optional(),
   date: z.string().min(1),
   dueDate: z.string().optional(),
@@ -211,10 +201,10 @@ router.post("/", upload.array("evidence"), async (req, res, next) => {
     const body = parsed.data
     const files = (req.files as Express.Multer.File[]) || []
 
-    // supervisor/analista(s)/coordinador ahora traen su correo directo del
-    // Directorio (el frontend los resuelve contra /operativo/personas/lista-simple
-    // y los envía ya armados) — solo "manager" sigue viniendo de ZymoConfigList.
-    const managerEmail = await resolveContactEmail("managers", body.manager)
+    // supervisor/analista(s)/coordinador/gestiona ahora traen su correo
+    // directo del Directorio (el frontend los resuelve contra
+    // /operativo/personas/lista-simple o /personas/por-plataforma y los
+    // envía ya armados) — el backend ya no resuelve ningún correo aquí.
     const analystEmails = (body.analystEmails ?? []).map((e) => e.toLowerCase())
 
     const ticket = await createPqrTicketWithCode(body.date, body.areaPrefix, {
@@ -228,9 +218,7 @@ router.post("/", upload.array("evidence"), async (req, res, next) => {
       coordinator: body.coordinator,
       coordinatorEmail: body.coordinatorEmail,
       manager: body.manager,
-      managerEmail,
-      phone: body.phone,
-      email: body.email,
+      managerEmail: body.managerEmail,
       owner: body.owner,
       date: body.date,
       dueDate: body.dueDate,
