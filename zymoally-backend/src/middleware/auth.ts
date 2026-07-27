@@ -30,6 +30,15 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
     const payload = jwt.verify(token, env.JWT_SECRET, {
       algorithms: ["HS256"],
     }) as AuthPayload
+    // El backend Python (FastAPI) firma el JWT con create_access_token(subject=user.email, ...)
+    // — el correo vive en el claim estándar "sub", nunca en un campo "email"
+    // literal, pese a que este tipo lo declara. Sin este mapeo, req.user.email
+    // es siempre undefined y canManageTicket()/?asignadoAMi=true fallan para
+    // cualquiera que no sea admin/gerente (ellos bypasan el chequeo de email
+    // por completo, por eso el bug no se notaba probando como admin).
+    if (!payload.email && typeof payload.sub === "string" && payload.sub.includes("@")) {
+      payload.email = payload.sub
+    }
     req.user = payload
     next()
   } catch {
