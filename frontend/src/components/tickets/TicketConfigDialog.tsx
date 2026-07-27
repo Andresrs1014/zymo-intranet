@@ -357,25 +357,50 @@ function RolTicketSection({
 }) {
   const { showToast } = useTicketToast()
   const [query, setQuery] = useState("")
+  const [areas, setAreas] = useState<{ id: number; name: string }[]>([])
+  const [areaId, setAreaId] = useState("")
+  const [cargos, setCargos] = useState<{ id: number; nombre: string }[]>([])
+  const [cargoId, setCargoId] = useState("")
   const [candidatos, setCandidatos] = useState<PersonaCargo[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
 
-  // Buscador por nombre en vez de filtro por área — el filtro por área se
-  // intentó dos veces (persona.area_id, luego con fallback al área del
-  // cargo) y siguió sin encontrar candidatos reales; reconciliar área de
-  // persona vs área de cargo resultó frágil. Buscar por nombre es más simple
-  // y no depende de ese dato.
+  useEffect(() => {
+    api.get("/areas").then(({ data }) => setAreas(Array.isArray(data) ? data : [])).catch(() => setAreas([]))
+  }, [])
+
+  // El cargo se filtra por la lista de cargos de la propia área elegida
+  // (mismo patrón que /tc/cargos?area_id=) — al cambiar de área se limpia el
+  // cargo elegido si ya no aplica.
+  useEffect(() => {
+    api.get("/operativo/cargos/lista-simple", { params: areaId ? { area_id: areaId } : {} })
+      .then(({ data }) => {
+        const lista = Array.isArray(data) ? data : []
+        setCargos(lista)
+        if (cargoId && !lista.some((c: { id: number }) => String(c.id) === cargoId)) setCargoId("")
+      })
+      .catch(() => setCargos([]))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [areaId])
+
+  // Filtro por área y/o cargo, más buscador por nombre/documento — el filtro
+  // por área se había descartado antes por "no encontrar candidatos", pero la
+  // causa real era que nginx no proxeaba estas rutas al backend (devolvía el
+  // HTML de la SPA, no JSON) — ya corregido, así que se restauran los filtros.
   useEffect(() => {
     setLoading(true)
     const timeout = setTimeout(() => {
-      api.get("/operativo/personas/candidatos-cargo", { params: query ? { q: query } : {} })
+      const params: Record<string, string> = {}
+      if (query) params.q = query
+      if (areaId) params.area_id = areaId
+      if (cargoId) params.cargo_id = cargoId
+      api.get("/operativo/personas/candidatos-cargo", { params })
         .then(({ data }) => setCandidatos(Array.isArray(data) ? data : []))
         .catch(() => setCandidatos([]))
         .finally(() => setLoading(false))
     }, 250)
     return () => clearTimeout(timeout)
-  }, [query])
+  }, [query, areaId, cargoId])
 
   const curadosIds = new Set(curados.map((p) => p.id))
 
@@ -396,15 +421,45 @@ function RolTicketSection({
   return (
     <section aria-label={singular} className="flex h-full min-h-0 flex-col">
       <div className="shrink-0 border-b border-zinc-200 bg-zinc-50/80 p-4">
-        <label className="mb-1.5 block text-xs font-semibold text-zinc-600">
-          Buscar persona (nombre o número de documento)
-        </label>
-        <Input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Nombre o cédula…"
-          className="h-10 max-w-xs bg-white"
-        />
+        <div className="flex flex-wrap gap-3">
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-zinc-600">
+              Buscar (nombre o documento)
+            </label>
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Nombre o cédula…"
+              className="h-10 w-56 bg-white"
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-zinc-600">Área</label>
+            <select
+              value={areaId}
+              onChange={(e) => setAreaId(e.target.value)}
+              className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary/30"
+            >
+              <option value="">Todas</option>
+              {areas.map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-zinc-600">Cargo</label>
+            <select
+              value={cargoId}
+              onChange={(e) => setCargoId(e.target.value)}
+              className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary/30"
+            >
+              <option value="">Todos</option>
+              {cargos.map((c) => (
+                <option key={c.id} value={c.id}>{c.nombre}</option>
+              ))}
+            </select>
+          </div>
+        </div>
         <p className="mt-2 text-xs text-zinc-500">
           Marca quiénes pueden aparecer como {singular.toLocaleLowerCase("es")} en el formulario de tickets —
           solo aparecen personas con cargo asignado.
@@ -416,7 +471,7 @@ function RolTicketSection({
           <LoadingRows />
         ) : candidatos.length === 0 ? (
           <p className="px-4 py-10 text-center text-sm text-zinc-500">
-            {query ? "Sin resultados para esa búsqueda." : "No hay personas con cargo asignado."}
+            {query || areaId || cargoId ? "Sin resultados para ese filtro." : "No hay personas con cargo asignado."}
           </p>
         ) : (
           <ul className="divide-y divide-zinc-100">

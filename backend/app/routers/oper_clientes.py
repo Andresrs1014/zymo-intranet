@@ -25,6 +25,7 @@ from app.services.clientes_cartera import (
     listar_analistas,
     listar_clientes_response,
     listar_clientes_simple,
+    listar_cargos_simple,
     listar_personas_con_cargo,
     listar_personas_simple,
     listar_roles_ticket,
@@ -68,12 +69,23 @@ def get_personas_simple(
 
 @router.get("/personas/candidatos-cargo")
 def get_personas_candidatos_cargo(
-    q: Optional[str] = Query(default=None, description="Buscar por nombre"),
+    q: Optional[str] = Query(default=None, description="Buscar por nombre o documento"),
+    area_id: Optional[int] = Query(default=None),
+    cargo_id: Optional[int] = Query(default=None),
     db: Session = Depends(get_personal_db),
     main_db: Session = Depends(get_db),
     _: User = Depends(require_tickets_config),
 ):
-    return listar_personas_con_cargo(db, main_db, q=q)
+    return listar_personas_con_cargo(db, main_db, q=q, area_id=area_id, cargo_id=cargo_id)
+
+
+@router.get("/cargos/lista-simple")
+def get_cargos_simple(
+    area_id: Optional[int] = Query(default=None),
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_tickets_config),
+):
+    return listar_cargos_simple(db, area_id=area_id)
 
 
 @router.get("/personas/roles-ticket")

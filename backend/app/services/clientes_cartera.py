@@ -314,24 +314,27 @@ def listar_personas_simple(db: Session, main_db: Session, rol: Optional[str] = N
     return [_persona_min(p, main_db) for p in personas]
 
 
-def listar_personas_con_cargo(db: Session, main_db: Session, q: Optional[str] = None) -> list[dict]:
+def listar_personas_con_cargo(
+    db: Session, main_db: Session,
+    q: Optional[str] = None, area_id: Optional[int] = None, cargo_id: Optional[int] = None,
+) -> list[dict]:
     """Personas activas CON cargo asignado (empleados reales, no solo un
-    registro suelto en el Directorio), opcionalmente filtradas por nombre o
-    número de documento — candidatos para la pantalla de curación de roles de
-    ticket. Mismo criterio de búsqueda que ya usan los Formatos digitales de
-    T&C (`GET /tc/formatos-api/persona-por-documento`, buscar por cédula).
+    registro suelto en el Directorio) — candidatos para la pantalla de
+    curación de roles de ticket. Combinables: buscar por nombre/documento
+    (mismo criterio que Formatos digitales, `persona-por-documento`), filtrar
+    por área (`PtcPersona.area_id`) y/o por cargo específico.
 
-    Sin filtro de área: se intentó (2026-07-27) resolver "área efectiva" de la
-    persona (propia o, si no, la de su cargo) y siguió fallando contra datos
-    reales — la reconciliación entre PtcPersona.area_id y PtcCargo.area_id no
-    es confiable. Un buscador por nombre/documento es más simple y no depende
-    de esa reconciliación.
+    Nota (2026-07-27): el filtro por área se había descartado antes por
+    "no encontrar candidatos" — la causa real era que nginx no proxeaba
+    `/operativo/personas/*` al backend (devolvía el HTML de la SPA, no JSON),
+    no un problema de este filtro. Ya corregido en nginx.conf.
     """
-    personas = db.exec(
-        select(PtcPersona)
-        .where(PtcPersona.estado == _ACTIVO, col(PtcPersona.cargo_id).is_not(None))
-        .order_by(col(PtcPersona.nombre))
-    ).all()
+    query = select(PtcPersona).where(PtcPersona.estado == _ACTIVO, col(PtcPersona.cargo_id).is_not(None))
+    if area_id is not None:
+        query = query.where(PtcPersona.area_id == area_id)
+    if cargo_id is not None:
+        query = query.where(PtcPersona.cargo_id == cargo_id)
+    personas = db.exec(query.order_by(col(PtcPersona.nombre))).all()
     if q:
         term = q.strip().lower()
         # .documento puede ser NULL en filas viejas/importadas aunque el modelo
@@ -343,6 +346,18 @@ def listar_personas_con_cargo(db: Session, main_db: Session, q: Optional[str] = 
             if term in p.nombre.lower() or term in (p.documento or "").lower()
         ]
     return [_persona_min(p, main_db) for p in personas[:100]]
+
+
+def listar_cargos_simple(db: Session, area_id: Optional[int] = None) -> list[dict]:
+    """Lista liviana (id+nombre) de cargos del Directorio, opcionalmente por
+    área — para el filtro de Cargo en la curación de roles de ticket."""
+    from app.personal_database import PtcCargo
+
+    query = select(PtcCargo)
+    if area_id is not None:
+        query = query.where(PtcCargo.area_id == area_id)
+    cargos = db.exec(query.order_by(col(PtcCargo.nombre))).all()
+    return [{"id": c.id, "nombre": c.nombre} for c in cargos]
 
 
 def listar_roles_ticket(db: Session, main_db: Session) -> dict:
