@@ -19,11 +19,13 @@ from app.personal_database import (
     PtcClienteAnalista,
     PtcClienteAsignacion,
     PtcPersona,
+    PtcTicketRol,
     get_personal_engine,
 )
 from app.routers.personal import _email_corporativo_efectivo
 
 _ACTIVO = "Activo"
+_ROLES_TICKET = ("supervisor", "analista", "coordinador")
 _CONFIG_SEDES_INACTIVAS = "oper_clientes_sedes_inactivas"
 _PLANTILLA_CLIENTES = (
     Path(__file__).resolve().parent.parent / "assets" / "Plantilla_Cargue_Clientes.xlsx"
@@ -57,6 +59,11 @@ class ClienteUpdateBody(BaseModel):
 
 class SedesConfigBody(BaseModel):
     sedes_inactivas: list[int] = Field(default_factory=list)
+
+
+class RolTicketBody(BaseModel):
+    rol: str
+    persona_ids: list[int] = Field(default_factory=list)
 
 
 def get_personal_db():
@@ -286,16 +293,65 @@ def listar_clientes_simple(db: Session) -> list[dict]:
     return [{"id": c.id, "nombre": c.nombre} for c in clientes]
 
 
-def listar_personas_simple(db: Session, main_db: Session) -> list[dict]:
-    """Lista liviana (id+nombre+correo) de personas activas del Directorio —
-    fuente real de Supervisor/Analista/Coordinador en el formulario de tickets
-    de Zymo Ally (reemplaza las listas configurables ZymoConfigList, que no
-    tienen forma de asignar un correo de contacto). No requiere mod_tc, mismo
-    criterio que listar_clientes_simple."""
+def listar_personas_simple(db: Session, main_db: Session, rol: Optional[str] = None) -> list[dict]:
+    """Lista liviana (id+nombre+correo) de personas del Directorio para los
+    selects de Supervisor/Analista/Coordinador del formulario de tickets. Con
+    `rol`, solo devuelve las personas curadas para ese rol (ver PtcTicketRol y
+    la pantalla "Configuración de Tickets" — un admin elige, por área, quién
+    puede aparecer ahí, solo entre personas con cargo asignado). No requiere
+    mod_tc, mismo criterio que listar_clientes_simple."""
+    if rol:
+        ids = [r.persona_id for r in db.exec(select(PtcTicketRol).where(PtcTicketRol.rol == rol)).all()]
+        if not ids:
+            return []
+        personas = db.exec(
+            select(PtcPersona).where(col(PtcPersona.id).in_(ids)).order_by(col(PtcPersona.nombre))
+        ).all()
+        return [_persona_min(p, main_db) for p in personas]
     personas = db.exec(
         select(PtcPersona).where(PtcPersona.estado == _ACTIVO).order_by(col(PtcPersona.nombre))
     ).all()
     return [_persona_min(p, main_db) for p in personas]
+
+
+def listar_personas_con_cargo(db: Session, main_db: Session, area_id: Optional[int] = None) -> list[dict]:
+    """Personas activas CON cargo asignado (empleados reales, no solo un
+    registro suelto en el Directorio), opcionalmente filtradas por área —
+    candidatos para la pantalla de curación de roles de ticket."""
+    query = select(PtcPersona).where(
+        PtcPersona.estado == _ACTIVO,
+        col(PtcPersona.cargo_id).is_not(None),
+    )
+    if area_id is not None:
+        query = query.where(PtcPersona.area_id == area_id)
+    personas = db.exec(query.order_by(col(PtcPersona.nombre))).all()
+    return [_persona_min(p, main_db) for p in personas]
+
+
+def listar_roles_ticket(db: Session, main_db: Session) -> dict:
+    """Personas curadas actualmente, agrupadas por rol de ticket."""
+    result: dict[str, list[dict]] = {rol: [] for rol in _ROLES_TICKET}
+    ids_por_rol: dict[str, list[int]] = {rol: [] for rol in _ROLES_TICKET}
+    for r in db.exec(select(PtcTicketRol)).all():
+        if r.rol in ids_por_rol:
+            ids_por_rol[r.rol].append(r.persona_id)
+    for rol, ids in ids_por_rol.items():
+        if not ids:
+            continue
+        personas = db.exec(select(PtcPersona).where(col(PtcPersona.id).in_(ids))).all()
+        result[rol] = [_persona_min(p, main_db) for p in personas]
+    return result
+
+
+def guardar_rol_ticket(db: Session, rol: str, persona_ids: list[int]) -> None:
+    if rol not in _ROLES_TICKET:
+        raise HTTPException(status_code=400, detail=f"Rol inválido: {rol}")
+    existing = db.exec(select(PtcTicketRol).where(PtcTicketRol.rol == rol)).all()
+    for row in existing:
+        db.delete(row)
+    for persona_id in dict.fromkeys(persona_ids):  # dedupe, conserva orden
+        db.add(PtcTicketRol(persona_id=persona_id, rol=rol))
+    db.commit()
 
 
 def listar_analistas(db: Session) -> list[dict]:

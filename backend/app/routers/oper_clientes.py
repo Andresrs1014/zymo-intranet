@@ -13,17 +13,21 @@ from app.models.user import User
 from app.services.clientes_cartera import (
     ClienteBody,
     ClienteUpdateBody,
+    RolTicketBody,
     SedesConfigBody,
     actualizar_cliente,
     crear_cliente,
     eliminar_cliente,
     get_personal_db,
+    guardar_rol_ticket,
     guardar_sedes_config,
     importar_excel,
     listar_analistas,
     listar_clientes_response,
     listar_clientes_simple,
+    listar_personas_con_cargo,
     listar_personas_simple,
+    listar_roles_ticket,
     listar_sedes_cartera,
     plantilla_path,
     resolver_jerarquia_tickets,
@@ -32,6 +36,7 @@ from app.services.clientes_cartera import (
 router = APIRouter(prefix="/operativo", tags=["Operativo Clientes"])
 
 require_oper_clientes = require_permission("mod_oper_clientes")
+require_tickets_config = require_permission("mod_tickets_config")
 
 
 # ── Lecturas livianas para el formulario de tickets (Zymo Ally) ──────────────
@@ -49,11 +54,45 @@ def get_clientes_simple(
 
 @router.get("/personas/lista-simple")
 def get_personas_simple(
+    rol: Optional[str] = Query(default=None, description="supervisor | analista | coordinador"),
     db: Session = Depends(get_personal_db),
     main_db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    return listar_personas_simple(db, main_db)
+    return listar_personas_simple(db, main_db, rol=rol)
+
+
+# ── Curación de roles de ticket (Configuración de Tickets, Zymo Ally) ────────
+# Gate mod_tickets_config: solo quien administra la configuración de Tickets
+# decide quién puede aparecer como Supervisor/Analista/Coordinador.
+
+@router.get("/personas/candidatos-cargo")
+def get_personas_candidatos_cargo(
+    area_id: Optional[int] = Query(default=None),
+    db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
+    _: User = Depends(require_tickets_config),
+):
+    return listar_personas_con_cargo(db, main_db, area_id=area_id)
+
+
+@router.get("/personas/roles-ticket")
+def get_roles_ticket(
+    db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
+    _: User = Depends(require_tickets_config),
+):
+    return listar_roles_ticket(db, main_db)
+
+
+@router.put("/personas/roles-ticket")
+def put_roles_ticket(
+    body: RolTicketBody,
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_tickets_config),
+):
+    guardar_rol_ticket(db, body.rol, body.persona_ids)
+    return {"ok": True}
 
 
 @router.get("/clientes/{cliente_id}/jerarquia-tickets")

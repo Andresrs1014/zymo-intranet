@@ -53,10 +53,11 @@ export function ListView() {
   const { setOpenTicketId } = useTicketsUI()
 
   // Supervisor ya no es una lista configurable — el filtro se llena con los
-  // nombres reales del Directorio (mismo origen que asigna el ticket al crear).
+  // supervisores curados en Configuración de Tickets (mismo origen que asigna
+  // el ticket al crear, ver TicketDialog.tsx).
   const [personasDirectorio, setPersonasDirectorio] = useState<{ id: number; nombre: string }[]>([])
   useEffect(() => {
-    api.get("/operativo/personas/lista-simple").then(({ data }) => {
+    api.get("/operativo/personas/lista-simple", { params: { rol: "supervisor" } }).then(({ data }) => {
       setPersonasDirectorio(Array.isArray(data) ? data : [])
     }).catch(() => setPersonasDirectorio([]))
   }, [])

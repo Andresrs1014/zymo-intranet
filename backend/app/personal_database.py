@@ -353,6 +353,20 @@ class PtcClienteAsignacion(SQLModel, table=True):
     persona_id: Optional[int] = Field(default=None, foreign_key="ptc_persona.id")
 
 
+class PtcTicketRol(SQLModel, table=True):
+    """Curación de quién puede aparecer como Supervisor/Analista/Coordinador en
+    el formulario de tickets (Zymo Ally) — solo personas con cargo asignado,
+    elegidas por área desde Configuración de Tickets. `rol` es texto libre
+    ("supervisor" | "analista" | "coordinador") en vez de un tercer modelo por
+    rol, para no triplicar la tabla."""
+
+    __tablename__ = "ptc_ticket_rol"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    persona_id: int = Field(foreign_key="ptc_persona.id")
+    rol: str = Field(max_length=20)
+
+
 class PtcClienteAnalista(SQLModel, table=True):
     """Analistas responsables de un cliente para efectos de gestión de tickets
     (Zymo Ally) — deliberadamente separada de PtcClienteAsignacion (Cartera de
@@ -376,7 +390,7 @@ _PERSONAL_TABLES = {
     "ptc_evento", "ptc_evento_persona",
     "ptc_cap_dia", "ptc_cap_bloque", "ptc_cap_bloque_persona",
     "ptc_paquete", "ptc_paquete_item", "ptc_smtp_config", "ptc_wa_config",
-    "ptc_cliente", "ptc_cliente_asignacion", "ptc_cliente_analista",
+    "ptc_cliente", "ptc_cliente_asignacion", "ptc_cliente_analista", "ptc_ticket_rol",
 }
 
 
@@ -388,7 +402,7 @@ def create_personal_tables() -> None:
         PtcEvento, PtcEventoPersona,
         PtcCapDia, PtcCapBloque, PtcCapBloquePersona,
         PtcPaquete, PtcPaqueteItem, PtcSmtpConfig, PtcWaConfig,
-        PtcCliente, PtcClienteAsignacion, PtcClienteAnalista,
+        PtcCliente, PtcClienteAsignacion, PtcClienteAnalista, PtcTicketRol,
     )
     tables = [
         SQLModel.metadata.tables[t]

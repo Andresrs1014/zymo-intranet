@@ -95,12 +95,18 @@ export function TicketDialog() {
   const [clienteId, setClienteId] = useState<number | null>(null)
 
   // Supervisor/Analista(s)/Coordinador se eligen del Directorio real (no de
-  // listas configurables) — así el correo de contacto siempre existe, sin
-  // depender de que alguien lo llene a mano en otra pantalla. `form.supervisor`/
-  // `form.coordinator`/`form.analysts` guardan el id (string) de la persona
-  // mientras se edita; al enviar se resuelve a nombre+correo (ver handleSubmit).
+  // texto libre) — así el correo de contacto siempre existe, sin depender de
+  // que alguien lo llene a mano en otra pantalla. Cada select solo muestra
+  // personas curadas para ese rol específico en Configuración de Tickets
+  // (`?rol=supervisor|analista|coordinador`, con cargo asignado, filtrables
+  // por área ahí) — no cualquier persona activa del Directorio.
+  // `form.supervisor`/`form.coordinator`/`form.analysts` guardan el id
+  // (string) de la persona mientras se edita; al enviar se resuelve a
+  // nombre+correo (ver handleSubmit).
   type PersonaDirectorio = { id: number; nombre: string; email: string }
-  const [personasDirectorio, setPersonasDirectorio] = useState<PersonaDirectorio[]>([])
+  const [supervisoresOptions, setSupervisoresOptions] = useState<PersonaDirectorio[]>([])
+  const [analistasOptions, setAnalistasOptions] = useState<PersonaDirectorio[]>([])
+  const [coordinadoresOptions, setCoordinadoresOptions] = useState<PersonaDirectorio[]>([])
   const [jerarquiaSugerida, setJerarquiaSugerida] = useState<{
     analistas: PersonaDirectorio[]; coordinadores: PersonaDirectorio[]; supervisores: PersonaDirectorio[]
   } | null>(null)
@@ -110,9 +116,15 @@ export function TicketDialog() {
     api.get("/operativo/clientes/lista-simple").then(({ data }) => {
       setClientesDirectorio(Array.isArray(data) ? data : [])
     }).catch(() => setClientesDirectorio([]))
-    api.get("/operativo/personas/lista-simple").then(({ data }) => {
-      setPersonasDirectorio(Array.isArray(data) ? data : [])
-    }).catch(() => setPersonasDirectorio([]))
+    api.get("/operativo/personas/lista-simple", { params: { rol: "supervisor" } }).then(({ data }) => {
+      setSupervisoresOptions(Array.isArray(data) ? data : [])
+    }).catch(() => setSupervisoresOptions([]))
+    api.get("/operativo/personas/lista-simple", { params: { rol: "analista" } }).then(({ data }) => {
+      setAnalistasOptions(Array.isArray(data) ? data : [])
+    }).catch(() => setAnalistasOptions([]))
+    api.get("/operativo/personas/lista-simple", { params: { rol: "coordinador" } }).then(({ data }) => {
+      setCoordinadoresOptions(Array.isArray(data) ? data : [])
+    }).catch(() => setCoordinadoresOptions([]))
   }, [dialogOpen])
 
   useEffect(() => {
@@ -159,17 +171,19 @@ export function TicketDialog() {
 
   const canSubmit = Boolean(form.type && form.area && form.date && form.status && form.priority)
 
-  function personaById(id: string) {
-    return personasDirectorio.find((p) => String(p.id) === id)
+  function personaById(options: PersonaDirectorio[], id: string) {
+    return options.find((p) => String(p.id) === id)
   }
 
   async function handleSubmit() {
     if (!canSubmit) return
     setError(null)
     try {
-      const supervisorPersona = personaById(form.supervisor)
-      const coordinadorPersona = personaById(form.coordinator)
-      const analistaPersonas = form.analysts.map(personaById).filter((p): p is (typeof personasDirectorio)[number] => Boolean(p))
+      const supervisorPersona = personaById(supervisoresOptions, form.supervisor)
+      const coordinadorPersona = personaById(coordinadoresOptions, form.coordinator)
+      const analistaPersonas = form.analysts
+        .map((id) => personaById(analistasOptions, id))
+        .filter((p): p is PersonaDirectorio => Boolean(p))
       await createTicket.mutateAsync({
         ...form,
         supervisor: supervisorPersona?.nombre ?? "",
@@ -245,7 +259,7 @@ export function TicketDialog() {
                 label="Supervisor"
                 value={form.supervisor}
                 onChange={(v) => set("supervisor", v)}
-                options={personasDirectorio.map((p) => ({ value: String(p.id), label: p.nombre }))}
+                options={supervisoresOptions.map((p) => ({ value: String(p.id), label: p.nombre }))}
                 placeholder="Sin asignar"
               />
               <div>
@@ -257,10 +271,10 @@ export function TicketDialog() {
                   multiple
                   value={form.analysts}
                   onChange={(e) => set("analysts", Array.from(e.target.selectedOptions).map((o) => o.value))}
-                  size={Math.min(5, Math.max(3, personasDirectorio.length))}
+                  size={Math.min(5, Math.max(3, analistasOptions.length))}
                   className={`${INPUT} h-auto py-1`}
                 >
-                  {personasDirectorio.map((p) => (
+                  {analistasOptions.map((p) => (
                     <option key={p.id} value={p.id}>{p.nombre}</option>
                   ))}
                 </select>
@@ -270,7 +284,7 @@ export function TicketDialog() {
                 label="Coordinador"
                 value={form.coordinator}
                 onChange={(v) => set("coordinator", v)}
-                options={personasDirectorio.map((p) => ({ value: String(p.id), label: p.nombre }))}
+                options={coordinadoresOptions.map((p) => ({ value: String(p.id), label: p.nombre }))}
                 placeholder="Sin asignar"
               />
               {jerarquiaSugerida && (

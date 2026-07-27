@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import type { ComponentProps, FocusEvent, FormEvent, ReactNode, RefObject } from "react"
 import {
   AlertCircle,
@@ -15,10 +15,13 @@ import {
   Pencil,
   Plus,
   Radio,
+  Search,
   Settings2,
   Tags,
   Trash2,
   UserCheck,
+  UserCog,
+  Users,
   X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -49,6 +52,7 @@ import {
   useUpdateListItem,
 } from "@/hooks/useTickets"
 import { cn } from "@/lib/utils"
+import { api } from "@/lib/api"
 import { extractErrorMessage } from "@/lib/ticketErrors"
 import type { TicketAreaPrefix, TicketListItem } from "@/types/ticket"
 import { useTicketToast } from "./TicketToast"
@@ -329,6 +333,112 @@ interface ListConfigSectionProps {
   items: TicketListItem[]
   isLoading: boolean
   showSlaHours?: boolean
+}
+
+type RolTicket = "supervisor" | "analista" | "coordinador"
+interface PersonaCargo {
+  id: number
+  nombre: string
+  email: string
+}
+
+// Supervisor/Analista/Coordinador ya no son texto libre (ver [[project_directorio_jerarquia_tickets]])
+// — se curan personas reales del Directorio (con cargo asignado) filtrando
+// por área, para que el formulario de tickets solo ofrezca gente relevante y
+// con correo real. `curados`/`onChange` viven en el padre para que el badge
+// de conteo en la pestaña se actualice al marcar/desmarcar.
+function RolTicketSection({
+  rol, singular, curados, onChange,
+}: {
+  rol: RolTicket
+  singular: string
+  curados: PersonaCargo[]
+  onChange: (next: PersonaCargo[]) => void
+}) {
+  const { showToast } = useTicketToast()
+  const [areas, setAreas] = useState<{ id: number; name: string }[]>([])
+  const [areaId, setAreaId] = useState<string>("")
+  const [candidatos, setCandidatos] = useState<PersonaCargo[]>([])
+  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    api.get("/areas").then(({ data }) => setAreas(Array.isArray(data) ? data : [])).catch(() => setAreas([]))
+  }, [])
+
+  useEffect(() => {
+    setLoading(true)
+    api.get("/operativo/personas/candidatos-cargo", { params: areaId ? { area_id: areaId } : {} })
+      .then(({ data }) => setCandidatos(Array.isArray(data) ? data : []))
+      .catch(() => setCandidatos([]))
+      .finally(() => setLoading(false))
+  }, [areaId])
+
+  const curadosIds = new Set(curados.map((p) => p.id))
+
+  async function toggle(persona: PersonaCargo, checked: boolean) {
+    const next = checked ? [...curados, persona] : curados.filter((p) => p.id !== persona.id)
+    onChange(next)
+    setSaving(true)
+    try {
+      await api.put("/operativo/personas/roles-ticket", { rol, persona_ids: next.map((p) => p.id) })
+    } catch (error) {
+      onChange(curados)
+      showToast(extractErrorMessage(error, "No se pudo guardar el cambio."), "error")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <section aria-label={singular} className="flex h-full min-h-0 flex-col">
+      <div className="shrink-0 border-b border-zinc-200 bg-zinc-50/80 p-4">
+        <label className="mb-1.5 block text-xs font-semibold text-zinc-600">
+          Filtrar por área
+        </label>
+        <select
+          value={areaId}
+          onChange={(e) => setAreaId(e.target.value)}
+          className="h-10 w-full max-w-xs rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary/30"
+        >
+          <option value="">Todas las áreas</option>
+          {areas.map((a) => (
+            <option key={a.id} value={a.id}>{a.name}</option>
+          ))}
+        </select>
+        <p className="mt-2 text-xs text-zinc-500">
+          Marca quiénes pueden aparecer como {singular.toLocaleLowerCase("es")} en el formulario de tickets —
+          solo se listan personas con cargo asignado.
+        </p>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        {loading ? (
+          <LoadingRows />
+        ) : candidatos.length === 0 ? (
+          <p className="px-4 py-10 text-center text-sm text-zinc-500">
+            No hay personas con cargo asignado en esta área.
+          </p>
+        ) : (
+          <ul className="divide-y divide-zinc-100">
+            {candidatos.map((p) => (
+              <li key={p.id} className="flex items-center gap-3 px-4 py-2.5">
+                <input
+                  type="checkbox"
+                  checked={curadosIds.has(p.id)}
+                  disabled={saving}
+                  onChange={(e) => void toggle(p, e.target.checked)}
+                  className="h-4 w-4 rounded border-zinc-300"
+                />
+                <span className="text-sm text-zinc-900">{p.nombre}</span>
+                <span className="ml-auto truncate text-xs text-zinc-400">{p.email}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>
+  )
 }
 
 function ListConfigSection({ listType, singular, items, isLoading, showSlaHours }: ListConfigSectionProps) {
@@ -755,6 +865,20 @@ export function TicketConfigDialog({
   const managementCriteria = listsQuery.data?.managementCriteria ?? []
   const areas = areasQuery.data ?? []
 
+  const [rolesTicket, setRolesTicket] = useState<Record<RolTicket, PersonaCargo[]>>({
+    supervisor: [], analista: [], coordinador: [],
+  })
+  useEffect(() => {
+    if (!open) return
+    api.get("/operativo/personas/roles-ticket").then(({ data }) => {
+      setRolesTicket({
+        supervisor: data?.supervisor ?? [],
+        analista: data?.analista ?? [],
+        coordinador: data?.coordinador ?? [],
+      })
+    }).catch(() => {})
+  }, [open])
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -817,6 +941,30 @@ export function TicketConfigDialog({
                 >
                   <TabLabel icon={<Building2 className="h-4 w-4 shrink-0" />} count={platforms.length}>
                     Plataforma
+                  </TabLabel>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="supervisors"
+                  className="min-h-10 min-w-0 gap-1.5 px-2 text-xs data-[state=active]:bg-primary data-[state=active]:text-white sm:text-sm"
+                >
+                  <TabLabel icon={<UserCog className="h-4 w-4 shrink-0" />} count={rolesTicket.supervisor.length}>
+                    Supervisor
+                  </TabLabel>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="analysts"
+                  className="min-h-10 min-w-0 gap-1.5 px-2 text-xs data-[state=active]:bg-primary data-[state=active]:text-white sm:text-sm"
+                >
+                  <TabLabel icon={<Search className="h-4 w-4 shrink-0" />} count={rolesTicket.analista.length}>
+                    Analista
+                  </TabLabel>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="coordinators"
+                  className="min-h-10 min-w-0 gap-1.5 px-2 text-xs data-[state=active]:bg-primary data-[state=active]:text-white sm:text-sm"
+                >
+                  <TabLabel icon={<Users className="h-4 w-4 shrink-0" />} count={rolesTicket.coordinador.length}>
+                    Coordinador
                   </TabLabel>
                 </TabsTrigger>
                 <TabsTrigger
@@ -905,6 +1053,30 @@ export function TicketConfigDialog({
                   isLoading={listsQuery.isLoading}
                 />
               )}
+            </TabsContent>
+            <TabsContent value="supervisors" className="mt-0 min-h-0 flex-1 overflow-hidden">
+              <RolTicketSection
+                rol="supervisor"
+                singular="Supervisor"
+                curados={rolesTicket.supervisor}
+                onChange={(next) => setRolesTicket((r) => ({ ...r, supervisor: next }))}
+              />
+            </TabsContent>
+            <TabsContent value="analysts" className="mt-0 min-h-0 flex-1 overflow-hidden">
+              <RolTicketSection
+                rol="analista"
+                singular="Analista"
+                curados={rolesTicket.analista}
+                onChange={(next) => setRolesTicket((r) => ({ ...r, analista: next }))}
+              />
+            </TabsContent>
+            <TabsContent value="coordinators" className="mt-0 min-h-0 flex-1 overflow-hidden">
+              <RolTicketSection
+                rol="coordinador"
+                singular="Coordinador"
+                curados={rolesTicket.coordinador}
+                onChange={(next) => setRolesTicket((r) => ({ ...r, coordinador: next }))}
+              />
             </TabsContent>
             <TabsContent value="managers" className="mt-0 min-h-0 flex-1 overflow-hidden">
               {listsQuery.isError ? (
