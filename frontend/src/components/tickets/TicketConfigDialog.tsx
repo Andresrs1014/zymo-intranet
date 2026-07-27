@@ -397,12 +397,12 @@ function RolTicketSection({
     <section aria-label={singular} className="flex h-full min-h-0 flex-col">
       <div className="shrink-0 border-b border-zinc-200 bg-zinc-50/80 p-4">
         <label className="mb-1.5 block text-xs font-semibold text-zinc-600">
-          Buscar persona
+          Buscar persona (nombre o número de documento)
         </label>
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Escribe un nombre…"
+          placeholder="Nombre o cédula…"
           className="h-10 max-w-xs bg-white"
         />
         <p className="mt-2 text-xs text-zinc-500">

@@ -316,14 +316,16 @@ def listar_personas_simple(db: Session, main_db: Session, rol: Optional[str] = N
 
 def listar_personas_con_cargo(db: Session, main_db: Session, q: Optional[str] = None) -> list[dict]:
     """Personas activas CON cargo asignado (empleados reales, no solo un
-    registro suelto en el Directorio), opcionalmente filtradas por nombre —
-    candidatos para la pantalla de curación de roles de ticket.
+    registro suelto en el Directorio), opcionalmente filtradas por nombre o
+    número de documento — candidatos para la pantalla de curación de roles de
+    ticket. Mismo criterio de búsqueda que ya usan los Formatos digitales de
+    T&C (`GET /tc/formatos-api/persona-por-documento`, buscar por cédula).
 
     Sin filtro de área: se intentó (2026-07-27) resolver "área efectiva" de la
     persona (propia o, si no, la de su cargo) y siguió fallando contra datos
     reales — la reconciliación entre PtcPersona.area_id y PtcCargo.area_id no
-    es confiable. Un buscador por nombre es más simple y no depende de esa
-    reconciliación.
+    es confiable. Un buscador por nombre/documento es más simple y no depende
+    de esa reconciliación.
     """
     personas = db.exec(
         select(PtcPersona)
@@ -332,7 +334,7 @@ def listar_personas_con_cargo(db: Session, main_db: Session, q: Optional[str] = 
     ).all()
     if q:
         term = q.strip().lower()
-        personas = [p for p in personas if term in p.nombre.lower()]
+        personas = [p for p in personas if term in p.nombre.lower() or term in p.documento.lower()]
     return [_persona_min(p, main_db) for p in personas[:100]]
 
 
