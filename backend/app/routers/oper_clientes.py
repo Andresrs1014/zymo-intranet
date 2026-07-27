@@ -68,12 +68,12 @@ def get_personas_simple(
 
 @router.get("/personas/candidatos-cargo")
 def get_personas_candidatos_cargo(
-    area_id: Optional[int] = Query(default=None),
+    q: Optional[str] = Query(default=None, description="Buscar por nombre"),
     db: Session = Depends(get_personal_db),
     main_db: Session = Depends(get_db),
     _: User = Depends(require_tickets_config),
 ):
-    return listar_personas_con_cargo(db, main_db, area_id=area_id)
+    return listar_personas_con_cargo(db, main_db, q=q)
 
 
 @router.get("/personas/roles-ticket")

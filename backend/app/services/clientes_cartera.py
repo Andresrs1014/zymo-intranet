@@ -15,7 +15,6 @@ from sqlmodel import Session, col, select
 
 from app.models.sede import Sede
 from app.personal_database import (
-    PtcCargo,
     PtcCliente,
     PtcClienteAnalista,
     PtcClienteAsignacion,
@@ -315,34 +314,26 @@ def listar_personas_simple(db: Session, main_db: Session, rol: Optional[str] = N
     return [_persona_min(p, main_db) for p in personas]
 
 
-def listar_personas_con_cargo(db: Session, main_db: Session, area_id: Optional[int] = None) -> list[dict]:
+def listar_personas_con_cargo(db: Session, main_db: Session, q: Optional[str] = None) -> list[dict]:
     """Personas activas CON cargo asignado (empleados reales, no solo un
-    registro suelto en el Directorio), opcionalmente filtradas por área —
+    registro suelto en el Directorio), opcionalmente filtradas por nombre —
     candidatos para la pantalla de curación de roles de ticket.
 
-    El área "efectiva" de una persona es la propia (`PtcPersona.area_id`) si
-    está seteada, o si no la de su cargo (`PtcCargo.area_id`) — muchas
-    personas solo tienen el área asignada a través del cargo, no en su propio
-    registro (son dos campos independientes que no siempre se llenan los dos).
+    Sin filtro de área: se intentó (2026-07-27) resolver "área efectiva" de la
+    persona (propia o, si no, la de su cargo) y siguió fallando contra datos
+    reales — la reconciliación entre PtcPersona.area_id y PtcCargo.area_id no
+    es confiable. Un buscador por nombre es más simple y no depende de esa
+    reconciliación.
     """
     personas = db.exec(
         select(PtcPersona)
         .where(PtcPersona.estado == _ACTIVO, col(PtcPersona.cargo_id).is_not(None))
         .order_by(col(PtcPersona.nombre))
     ).all()
-    if area_id is None:
-        return [_persona_min(p, main_db) for p in personas]
-
-    cargo_ids = {p.cargo_id for p in personas if p.cargo_id is not None}
-    cargos = db.exec(select(PtcCargo).where(col(PtcCargo.id).in_(cargo_ids))).all() if cargo_ids else []
-    area_por_cargo = {c.id: c.area_id for c in cargos}
-
-    result = []
-    for p in personas:
-        area_efectiva = p.area_id if p.area_id is not None else area_por_cargo.get(p.cargo_id)
-        if area_efectiva == area_id:
-            result.append(_persona_min(p, main_db))
-    return result
+    if q:
+        term = q.strip().lower()
+        personas = [p for p in personas if term in p.nombre.lower()]
+    return [_persona_min(p, main_db) for p in personas[:100]]
 
 
 def listar_roles_ticket(db: Session, main_db: Session) -> dict:
