@@ -7,7 +7,6 @@ import type {
   TicketListItem,
   TicketAreaPrefix,
   TicketDashboardResult,
-  SyncMasterDataResult,
 } from "@/types/ticket"
 
 export interface TicketListFilters {
@@ -379,24 +378,6 @@ export function useTicketDashboard(filters: TicketListFilters = {}) {
         `/api/tickets/dashboard?${buildParams(filters)}`
       )
       return data
-    },
-  })
-}
-
-// ─── Sincronización de datos maestros (botón manual, gate mod_tickets_config) ─
-
-export function useSyncMasterData() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async () => {
-      const { data } = await zymoallyApi.post<SyncMasterDataResult>(
-        "/api/tickets/config/sync"
-      )
-      return data
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["tickets-config-lists"] })
-      qc.invalidateQueries({ queryKey: ["tickets-area-prefixes"] })
     },
   })
 }

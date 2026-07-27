@@ -207,7 +207,6 @@ services:
       - PORT=3005
       - DATABASE_URL=postgresql://${ZYMOALLY_DB_USER:-zymoally}:${ZYMOALLY_DB_PASSWORD}@zymoally-db:5432/${ZYMOALLY_DB_NAME:-zymoallydb}
       - INTRANET_API_URL=http://backend:8001
-      - SYNC_SERVICE_EMAIL=${SYNC_SERVICE_EMAIL}
       - UPLOAD_DIR=/app/uploads
       - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:81}
       - PUBLIC_APP_URL=${PUBLIC_APP_URL:-https://zymointranet.com}

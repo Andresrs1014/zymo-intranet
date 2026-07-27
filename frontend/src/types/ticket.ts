@@ -145,20 +145,3 @@ export interface TicketDashboardResult {
    * docs/superpowers/specs/2026-07-17-zymoally-score-gestion-design.md */
   scoreLeaderboards: ScoreLeaderboards
 }
-
-export interface SyncSectionResult {
-  fetched: number
-  created: number
-  updated: number
-}
-
-export interface SyncMasterDataResult {
-  areas: SyncSectionResult
-  platforms: SyncSectionResult
-  clients: SyncSectionResult
-  supervisors: SyncSectionResult
-  analysts: SyncSectionResult
-  coordinators: SyncSectionResult
-  managers: SyncSectionResult
-  ranAt: string
-}
