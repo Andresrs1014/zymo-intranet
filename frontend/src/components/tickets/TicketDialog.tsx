@@ -70,7 +70,7 @@ const STAGES = [
 
 const EMPTY_FORM = {
   type: "", area: "", areaPrefix: "", client: "", platform: "", supervisor: "",
-  analysts: [] as string[], coordinator: "", manager: "", owner: "", date: currentDateValue(),
+  analysts: [] as string[], coordinator: "", owner: "", date: currentDateValue(),
   status: "", priority: "", impact: "", channel: "", managementCriteria: "",
   description: "",
 }
@@ -113,22 +113,12 @@ export function TicketDialog() {
     analistas: PersonaDirectorio[]; coordinadores: PersonaDirectorio[]; supervisores: PersonaDirectorio[]
   } | null>(null)
 
-  // "¿Quién gestiona el ticket?" se sugiere solo al elegir Plataforma (hay
-  // exactamente un supervisor curado por plataforma, confirmado con datos
-  // reales), pero sigue siendo un combobox editable — si trae a alguien
-  // equivocado, se puede cambiar a mano igual que Coordinador. Coordinador
-  // se sugiere igual por plataforma, pero solo si el Cliente (jerarquía) no
-  // propuso uno ya — esa tiene prioridad, ver el efecto de `clienteId` abajo.
+  // Coordinador se sugiere por Plataforma (hay un solo coordinador curado por
+  // plataforma), pero solo si el Cliente (jerarquía) no propuso uno ya — esa
+  // tiene prioridad, ver el efecto de `clienteId` abajo.
   useEffect(() => {
     if (!form.platform) return
     let cancelled = false
-    api.get("/operativo/personas/por-plataforma", { params: { plataforma: form.platform, rol: "supervisor" } })
-      .then(({ data }) => {
-        if (cancelled) return
-        const persona = Array.isArray(data) ? data[0] : null
-        if (persona) setForm((f) => ({ ...f, manager: String(persona.id) }))
-      })
-      .catch(() => {})
     api.get("/operativo/personas/por-plataforma", { params: { plataforma: form.platform, rol: "coordinador" } })
       .then(({ data }) => {
         if (cancelled) return
@@ -212,7 +202,6 @@ export function TicketDialog() {
     try {
       const supervisorPersona = personaById(supervisoresOptions, form.supervisor)
       const coordinadorPersona = personaById(coordinadoresOptions, form.coordinator)
-      const managerPersona = personaById(supervisoresOptions, form.manager)
       const analistaPersonas = form.analysts
         .map((id) => personaById(analistasOptions, id))
         .filter((p): p is PersonaDirectorio => Boolean(p))
@@ -224,8 +213,6 @@ export function TicketDialog() {
         coordinatorEmail: coordinadorPersona?.email,
         analysts: analistaPersonas.map((p) => p.nombre),
         analystEmails: analistaPersonas.map((p) => p.email),
-        manager: managerPersona?.nombre ?? "",
-        managerEmail: managerPersona?.email,
         evidence: files,
       })
       setDialogOpen(false)
@@ -319,13 +306,6 @@ export function TicketDialog() {
                   {" "}supervisor: <strong>{jerarquiaSugerida.supervisores[0]?.nombre ?? "sin asignar"}</strong>.
                 </p>
               )}
-              <SelectField
-                label="¿Quién gestiona el ticket?"
-                value={form.manager}
-                onChange={(v) => set("manager", v)}
-                options={supervisoresOptions.map((p) => ({ value: String(p.id), label: p.nombre }))}
-                placeholder="Se sugiere al elegir plataforma"
-              />
               <div>
                 <label className={LABEL}>Quien genera ticket</label>
                 <input className={`${INPUT} bg-zinc-50 text-zinc-500`} value={form.owner} readOnly />

@@ -157,17 +157,15 @@ interface TicketReminderData extends TicketNotifyData {
   daysOpen: number
 }
 
-/** A partir del día 15 se copia también al responsable de "Gestiona" del
- * ticket (managerEmail) — escalamiento suave, solo visibilidad, sin acción
- * disciplinaria automática (decisión explícita del usuario, 2026-07-16). */
+/** Recordatorio a supervisor/analista(s)/coordinador de un ticket sin cerrar
+ * (día 7/15/22/30). El escalamiento a "Gestiona" que existía aquí se quitó
+ * (2026-07-27) junto con el campo del formulario de creación. */
 export async function notifyTicketReminder(
   recipients: string[],
-  ccManager: string | null,
   data: TicketReminderData,
 ): Promise<NotifyTicketResult> {
   const uniqueRecipients = Array.from(new Set(recipients.filter(Boolean)))
   if (!uniqueRecipients.length) return "no-recipients"
-  const cc = ccManager && !uniqueRecipients.includes(ccManager) ? [ccManager] : []
 
   const body = `
     <h2>Recordatorio: ticket sin cerrar hace ${data.daysOpen} d&iacute;as</h2>
@@ -183,7 +181,6 @@ export async function notifyTicketReminder(
 
   const sent = await sendMailWithFallback({
     to: uniqueRecipients,
-    cc,
     subject: `[ZYMO] Recordatorio (${data.daysOpen}d) — ticket ${data.code} sin cerrar`,
     html: wrapEmail("Recordatorio de gestión", body),
   })

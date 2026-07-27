@@ -39,7 +39,7 @@ export async function runTicketReminders(): Promise<ReminderRunResult> {
     const milestone = reachedMilestone(days, ticket.lastReminderDay)
     if (milestone === null) continue
 
-    const result = await notifyTicketReminder(recipients, milestone >= 15 ? ticket.managerEmail : null, {
+    const result = await notifyTicketReminder(recipients, {
       code: ticket.code,
       area: ticket.area,
       type: ticket.type,
