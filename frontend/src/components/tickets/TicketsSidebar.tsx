@@ -1,5 +1,6 @@
 import { useRef, useState } from "react"
-import { List, Kanban, LayoutDashboard, Settings, Ticket } from "lucide-react"
+import { Link } from "react-router-dom"
+import { ArrowLeft, List, Kanban, LayoutDashboard, Settings, Ticket } from "lucide-react"
 import { useTicketsUI } from "@/context/TicketsContext"
 import type { TicketView } from "@/types/ticket"
 import {
@@ -96,8 +97,25 @@ export function TicketsSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      {canConfig && (
-        <SidebarFooter className="items-end p-2">
+      <SidebarFooter className="gap-1 p-2">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link
+                to="/dashboard"
+                aria-label="Volver a la intranet"
+                className="flex h-8 items-center gap-2 rounded-md px-2 text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+              >
+                <ArrowLeft className="h-4 w-4 shrink-0" />
+                <span className="truncate text-sm group-data-[collapsible=icon]:hidden">
+                  Volver a la intranet
+                </span>
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent side="right">Volver a la intranet</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        {canConfig && (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -109,16 +127,17 @@ export function TicketsSidebar() {
                     setConfigOpen(true)
                   }}
                   aria-label="Configuraci&oacute;n"
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring motion-reduce:transition-none"
+                  className="flex h-8 items-center gap-2 rounded-md px-2 text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring motion-reduce:transition-none"
                 >
-                  <Settings className="h-4 w-4" />
+                  <Settings className="h-4 w-4 shrink-0" />
+                  <span className="truncate text-sm group-data-[collapsible=icon]:hidden">Configuraci&oacute;n</span>
                 </button>
               </TooltipTrigger>
               <TooltipContent side="right">Configuraci&oacute;n</TooltipContent>
             </Tooltip>
           </TooltipProvider>
-        </SidebarFooter>
-      )}
+        )}
+      </SidebarFooter>
       <SidebarRail />
     </Sidebar>
       {canConfig && (
