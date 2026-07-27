@@ -334,7 +334,14 @@ def listar_personas_con_cargo(db: Session, main_db: Session, q: Optional[str] = 
     ).all()
     if q:
         term = q.strip().lower()
-        personas = [p for p in personas if term in p.nombre.lower() or term in p.documento.lower()]
+        # .documento puede ser NULL en filas viejas/importadas aunque el modelo
+        # declare default="" -- sin el `or ""` cualquier persona con documento
+        # nulo revienta el list comprehension entero (AttributeError sobre
+        # NoneType), dejando la búsqueda completa en 0 resultados en silencio.
+        personas = [
+            p for p in personas
+            if term in p.nombre.lower() or term in (p.documento or "").lower()
+        ]
     return [_persona_min(p, main_db) for p in personas[:100]]
 
 
