@@ -3,9 +3,10 @@ import { Paperclip } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Card, CardContent } from "@/components/ui/card"
 import { ShimmerButton } from "@/components/ui/shimmer-button"
-import { Combobox, type ComboboxOption } from "@/components/ui/Combobox"
+import { Combobox, MultiCombobox, type ComboboxOption } from "@/components/ui/Combobox"
 import { StagedAttachmentsPortal } from "@/components/tareas/StagedAttachmentsPortal"
 import { api } from "@/lib/api"
+import { useAuthStore } from "@/store/authStore"
 import { useTicketsUI } from "@/context/TicketsContext"
 import {
   useTicketConfigLists, useTicketAreaPrefixes, useTicketCodePreview, useCreateTicket,
@@ -69,7 +70,7 @@ const STAGES = [
 
 const EMPTY_FORM = {
   type: "", area: "", areaPrefix: "", client: "", platform: "", supervisor: "",
-  analysts: [] as string[], coordinator: "", manager: "", owner: "", phone: "", email: "", date: currentDateValue(),
+  analysts: [] as string[], coordinator: "", manager: "", owner: "", date: currentDateValue(),
   status: "", priority: "", impact: "", channel: "", managementCriteria: "",
   description: "",
 }
@@ -85,6 +86,7 @@ export function TicketDialog() {
   const createTicket = useCreateTicket()
   const { data: preview } = useTicketCodePreview(form.date, form.areaPrefix)
   const { showToast } = useTicketToast()
+  const currentUser = useAuthStore((s) => s.user)
 
   // Cliente real (directorio T&C) — vive en vivo, separado de `form.client`
   // (que sigue guardando el nombre, texto plano, para no romper tickets viejos
@@ -152,12 +154,15 @@ export function TicketDialog() {
 
   useEffect(() => {
     if (dialogOpen) {
-      setForm(EMPTY_FORM)
+      // "Quien genera ticket" ya no se escribe a mano — es quien está
+      // diligenciando el formulario en ese momento.
+      setForm({ ...EMPTY_FORM, owner: currentUser?.full_name || currentUser?.email || "" })
       setFiles([])
       setError(null)
       setClienteId(null)
       setJerarquiaSugerida(null)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dialogOpen])
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
@@ -264,21 +269,12 @@ export function TicketDialog() {
               />
               <div>
                 <label className={LABEL}>Analistas</label>
-                {/* Multi-select nativo — mismo patrón que "Analistas de tickets" en
-                    OperClientesPage.tsx. El Combobox reusado en el resto del form
-                    no soporta selección múltiple. */}
-                <select
-                  multiple
-                  value={form.analysts}
-                  onChange={(e) => set("analysts", Array.from(e.target.selectedOptions).map((o) => o.value))}
-                  size={Math.min(5, Math.max(3, analistasOptions.length))}
-                  className={`${INPUT} h-auto py-1`}
-                >
-                  {analistasOptions.map((p) => (
-                    <option key={p.id} value={p.id}>{p.nombre}</option>
-                  ))}
-                </select>
-                <p className="mt-1 text-[10px] text-zinc-400">Ctrl/Cmd + clic para elegir varios</p>
+                <MultiCombobox
+                  values={form.analysts}
+                  onChange={(vs) => set("analysts", vs.map(String))}
+                  options={analistasOptions.map((p) => ({ value: String(p.id), label: p.nombre }))}
+                  placeholder="Sin asignar"
+                />
               </div>
               <SelectField
                 label="Coordinador"
@@ -303,15 +299,7 @@ export function TicketDialog() {
               />
               <div>
                 <label className={LABEL}>Quien genera ticket</label>
-                <input className={INPUT} value={form.owner} onChange={(e) => set("owner", e.target.value)} />
-              </div>
-              <div>
-                <label className={LABEL}>Teléfono</label>
-                <input className={INPUT} value={form.phone} onChange={(e) => set("phone", e.target.value)} />
-              </div>
-              <div>
-                <label className={LABEL}>Correo</label>
-                <input className={INPUT} value={form.email} onChange={(e) => set("email", e.target.value)} />
+                <input className={`${INPUT} bg-zinc-50 text-zinc-500`} value={form.owner} readOnly />
               </div>
             </div>
           </section>
