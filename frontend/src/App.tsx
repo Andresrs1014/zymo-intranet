@@ -21,6 +21,7 @@ import {
   canSeeTickets,
   canSeeSAC,
   canSeeReportesDesarrollo,
+  canSeeLibertadora,
 } from "@/lib/permissions"
 import { useAgentPanelStore } from "@/store/agentPanelStore"
 import { useMinWidth } from "@/hooks/useMinWidth"
@@ -33,6 +34,7 @@ import { RolesPage } from "@/pages/RolesPage"
 import { AreasPage } from "@/pages/AreasPage"
 import { SmtpConfigPage } from "@/pages/admin/SmtpConfigPage"
 import { WhatsappConfigPage } from "@/pages/admin/WhatsappConfigPage"
+import { UsuariosExternosPage } from "@/pages/admin/UsuariosExternosPage"
 import { AdministrativoPage } from "@/pages/AdministrativoPage"
 import { SolicitudesPage } from "@/pages/oc/SolicitudesPage"
 import { SolicitudDetallePage } from "@/pages/oc/SolicitudDetallePage"
@@ -59,6 +61,8 @@ import { AgentFloatingWindow } from "@/components/agent/AgentFloatingWindow"
 import { GerencialPage } from "@/pages/gerencial/GerencialPage"
 import { ExtraccionIAPage } from "@/pages/admin/ExtraccionIAPage"
 import { HelixPage } from "@/pages/planeacion/helix/HelixPage"
+import { LibertadoraPage } from "@/pages/libertadora/LibertadoraPage"
+import { LibertadoraPartnerPage } from "@/pages/libertadora/partner/LibertadoraPartnerPage"
 import { TicketsPage } from "@/pages/tickets/TicketsPage"
 import { SacPage } from "@/pages/sac/SacPage"
 import { SurveyPage } from "@/pages/survey/SurveyPage"
@@ -227,6 +231,13 @@ function TicketsRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+function LibertadoraRoute({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user)
+  if (!user) return <Navigate to="/login" replace />
+  if (!canSeeLibertadora(user.role, user.app_permissions)) return <Navigate to="/dashboard" replace />
+  return <>{children}</>
+}
+
 function SacRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user)
   if (!user) return <Navigate to="/login" replace />
@@ -328,6 +339,8 @@ export default function App() {
         <Route path="/e/:surveyType" element={<SurveyPage />} />
         {/* Formato de Ausentismo — público sin login, mismo patrón que /m/:token */}
         <Route path="/tc/formatos/ausentismo" element={<TyCFormatoAusentismoPage />} />
+        {/* Panel del socio externo (Skandia) — login propio, sin cuenta en la intranet */}
+        <Route path="/libertadora/socio" element={<LibertadoraPartnerPage />} />
         <Route
           path="/login"
           element={
@@ -393,6 +406,14 @@ export default function App() {
           element={
             <AdminRoute>
               <WhatsappConfigPage />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/configuracion/usuarios-externos"
+          element={
+            <AdminRoute>
+              <UsuariosExternosPage />
             </AdminRoute>
           }
         />
@@ -628,6 +649,16 @@ export default function App() {
             <HelixRoute>
               <HelixPage />
             </HelixRoute>
+          }
+        />
+
+        {/* Comercial — Libertadora Seguros (CRM Skandia CREA) */}
+        <Route
+          path="/libertadora"
+          element={
+            <LibertadoraRoute>
+              <LibertadoraPage />
+            </LibertadoraRoute>
           }
         />
 

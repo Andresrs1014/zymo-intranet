@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom"
-import { Users, ShieldCheck, Building2, Mail, MessageCircle, Webhook, Palette, Sparkles, ChevronRight, LockKeyhole } from "lucide-react"
+import { Users, ShieldCheck, Building2, Mail, MessageCircle, Webhook, Palette, Sparkles, ChevronRight, LockKeyhole, Handshake } from "lucide-react"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { BlurFade } from "@/components/ui/blur-fade"
 
@@ -46,6 +46,13 @@ const CARDS: ConfigCard[] = [
     title: "WhatsApp corporativo",
     description: "Cuenta de WhatsApp Business API compartida para notificaciones — usada hoy por T&C.",
     accent: "#16a34a",
+  },
+  {
+    to: "/admin/configuracion/usuarios-externos",
+    icon: <Handshake className="h-5 w-5" />,
+    title: "Usuarios externos",
+    description: "Cuentas de socios externos (hoy: Skandia en Libertadora Seguros) sin ser usuarios de la intranet.",
+    accent: "#0d9488",
   },
   {
     to: "/admin/configuracion/usuarios?tab=config",

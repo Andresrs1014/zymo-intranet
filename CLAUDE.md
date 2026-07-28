@@ -75,6 +75,7 @@ import { fetchProcCargoIds, type ProcCargoAsignado } from "@/components/sig/..."
 | `task-backend` | 3002 | 3002 | `task-db` | 5434 |
 | `sig-backend` | 3004 | 3003 | `sig-db` | 5436 |
 | `zymoally-backend` | 3005 | 3005 | `zymoally-db` | 5438 |
+| `libertadora-backend` | 3006 | 3006 | `libertadora-db` | 5439 |
 
 ### JWT compartido
 El backend Python emite el JWT (HS256) con claims `{id, role, sede, area, email}`. **Todos los backends Node** validan ese mismo token usando `SECRET_KEY` de `./backend/.env`. El campo `app_permissions` **no está en el JWT** — se resuelve en el frontend vía `GET /auth/me` después del login.
@@ -282,6 +283,32 @@ Migrado desde una app standalone HTML/JS (`C:\Proyectos-indexar\ZymoAlly`, sin b
 
 ### Frontend público (`survey-frontend/`)
 React 19 + Vite + Tailwind standalone (mismo stack que `frontend/`, para que portarlo sea copiar la carpeta `src/`, no rediseñar). Layout responsive único vía breakpoints CSS (`lg:`), sin detección de dispositivo por JS: desktop = split-screen con panel de marca oscuro + stats, mobile = banda de header con degradado. Ruta `/e/:surveyType?t=:token`.
+
+---
+
+## Libertadora — CRM Skandia CREA (`libertadora-backend`)
+
+Migrado desde una app standalone HTML/JS (`C:\Proyectos-indexar\Libertadora`, sin backend, `localStorage`) — CRM comercial de un ejecutivo de Libertadora Seguros para el producto Skandia CREA + ARL Colmena (prospectos, citas, KPIs). A diferencia de ZymoAlly/Helix, este módulo se expone también a un **tercero externo** (Skandia) con lectura y edición completa, no solo a staff interno.
+
+### Modelo de datos (`libertadora-db`, Postgres propia)
+`LibertadoraProspecto`, `LibertadoraCita`, `LibertadoraMeta` (fila única id=1) y `LibertadoraPartnerUser` (una cuenta por persona del socio externo, con contraseña propia).
+
+### Acceso interno vs. acceso público del socio (Skandia)
+Los mismos routers (`prospectos.ts`, `citas.ts`) se montan **dos veces** en `app.ts` con distinto middleware — sin duplicar lógica de negocio:
+- `/api/prospectos`, `/api/citas` — staff interno, `authenticate` + `requireLibertadoraAccess` (permiso `mod_libertadora`, pendiente de crear en Roles y permisos).
+- `/public/prospectos`, `/public/citas` — socio externo, `requireLibertadoraPartnerScope` (JWT `scope=libertadora_partner` obtenido por login).
+
+### Login del socio externo — usuario y contraseña, una cuenta por persona (no un link)
+Primer diseño (descartado antes de desplegar): un link con token sin expiración. El gerente pidió acceso por usuario/contraseña por seguridad — decisión explícita: **una cuenta por persona de Skandia**, contraseña fijada a mano por un admin/gerente interno (sin flujo de recuperación por correo todavía). `LibertadoraPartnerUser` (email + hash `bcryptjs`, igual que `bcrypt` en el backend Python) vive únicamente en `libertadora-db` — deliberadamente separado de `Role`/`app_permissions` de la intranet, nunca pasa por el JWT que emite FastAPI.
+
+`POST /public/login` (email+password) devuelve un JWT `{scope: "libertadora_partner", partnerUserId}` con sesión de 7 días. El middleware `requireLibertadoraPartnerScope` valida el JWT **y además** consulta `active` en `LibertadoraPartnerUser` en cada request — desactivar una cuenta (`PATCH /api/partner-users/:id/desactivar`, solo admin/gerente) corta el acceso al instante, incluso con una sesión ya emitida, sin afectar a otras cuentas ni rotar el `JWT_SECRET` compartido por toda la intranet.
+
+**Frontend:** la gestión de estas cuentas (crear, desactivar, resetear contraseña) va en **Configuración → "Usuarios externos"** de la intranet — sección propia, no escondida dentro de un panel específico de Libertadora, pensada para reusarse si otro módulo necesita el mismo patrón de acceso externo más adelante.
+
+### Respaldo automático hacia SIG (`sig-backend`)
+Decisión explícita del usuario: cada creación/edición/borrado se respalda además en `sig-backend` (`services/sigBackup.ts`), fire-and-forget — nunca bloquea ni rompe la escritura real si `sig-backend` está caído. Se autentica con un JWT de servicio autofirmado (`role: "admin"`, TTL 5 min) usando el mismo `JWT_SECRET` compartido, sin inventar una llave interna nueva. Aterriza en `sig-backend`'s `SigLibertadoraBackup` (tabla append-only, no un espejo en vivo) vía `POST /api/libertadora-backup`.
+
+**Pendiente antes de producción:** agregar el permiso `mod_libertadora` en Roles y permisos (Python backend + UI de Configuración) — hoy nadie lo tiene asignado. Frontend aún no existe (fase solo-backend). Sin esto, el módulo queda desplegado pero inaccesible para staff hasta que un admin asigne el permiso.
 
 ---
 

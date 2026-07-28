@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model LibertadoraProspecto {
+  id        Int      @id @default(autoincrement())
+  empresa   String
+  producto  String   @default("PORTAFOLIO")
+  gestion   String?
+  estado    String   @default("EN_PROCESO")
+  monto     Int      @default(0)
+  prioridad String   @default("MEDIA")
+  accion    String?
+  fecha     String?
+  trimestre String?
+  tipo      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model LibertadoraCita {
+  id        Int      @id @default(autoincrement())
+  cliente   String
+  fecha     String
+  hora      String   @default("09:00")
+  modalidad String   @default("Presencial")
+  producto  String   @default("PORTAFOLIO")
+  estado    String   @default("pending")
+  notas     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Fila única (id=1) — metas comerciales configurables desde Configuración.
+model LibertadoraMeta {
+  id          Int      @id @default(1)
+  metaMensual Int?
+  metaAnual   Int?
+  metaCierres Int?
+  metaCitas   Int?
+  updatedAt   DateTime @updatedAt
+}
+
+// Usuario individual del socio externo (Skandia) — deliberadamente separado
+// del sistema de usuarios de la intranet (no toca Role/app_permissions, no
+// pasa por el JWT que emite el backend Python). Una cuenta por persona;
+// el admin/gerente interno crea la cuenta y fija la contraseña a mano
+// (decisión del usuario, sin flujo de recuperación por correo por ahora).
+model LibertadoraPartnerUser {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  nombre       String?
+  passwordHash String
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  lastLoginAt  DateTime?
+}

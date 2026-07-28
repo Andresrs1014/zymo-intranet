@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom"
-import { ArrowLeft, Building2, Mail, MessageCircle, ShieldCheck, Users } from "lucide-react"
+import { ArrowLeft, Building2, Mail, MessageCircle, ShieldCheck, Users, Handshake } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const LINKS = [
@@ -8,6 +8,7 @@ const LINKS = [
   { to: "/admin/configuracion/areas", label: "Áreas y sedes", icon: Building2 },
   { to: "/admin/configuracion/smtp", label: "SMTP corporativo", icon: Mail },
   { to: "/admin/configuracion/whatsapp", label: "WhatsApp corporativo", icon: MessageCircle },
+  { to: "/admin/configuracion/usuarios-externos", label: "Usuarios externos", icon: Handshake },
 ] as const
 
 export function AdminConfigNav() {

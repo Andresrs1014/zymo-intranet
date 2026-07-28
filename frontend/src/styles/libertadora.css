@@ -1,0 +1,17 @@
+/* Paleta propia de Libertadora Seguros — CRM Skandia CREA. Tomada 1:1 del
+   dashboard original (Dashboard GestionComercial SKANDIA CREA 2026.html),
+   escopeada bajo .libertadora-scope para no chocar con el tema ZYMO del resto
+   de la intranet. El gerente pidió mantener exactamente estos colores. */
+.libertadora-scope {
+  --lib-teal: #009B8E;
+  --lib-teal-d: #007A6F;
+  --lib-teal-l: #D9F5F3;
+  --lib-navy: #1E3A5F;
+  --lib-navy2: #2D5F8A;
+  --lib-orange: #F5821F;
+  --lib-green: #38A169;
+  --lib-warn: #DD6B20;
+  --lib-red: #E53E3E;
+  --lib-blue: #3182CE;
+  --lib-gray: #A0AEC0;
+}

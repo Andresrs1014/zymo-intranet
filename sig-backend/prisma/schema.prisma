@@ -265,3 +265,22 @@ model SigReporteDesarrollo {
   @@index([autorId])
   @@index([fechaReporte])
 }
+
+// ── Respaldo automático de Libertadora (CRM Skandia CREA) ────────────────────
+// Copia de seguridad append-only que envía libertadora-backend en cada
+// creación/edición/borrado de un prospecto o cita — decisión explícita del
+// usuario ("que caiga al SIG... como backup automático, por si se necesita").
+// No es un espejo en vivo ni se consulta desde ningún flujo del SIG todavía,
+// solo respaldo histórico.
+
+model SigLibertadoraBackup {
+  id         Int      @id @default(autoincrement())
+  entity     String   // "prospecto" | "cita"
+  action     String   // "create" | "update" | "delete"
+  externalId Int      // id en la BD propia de libertadora-backend
+  payload    Json
+  createdAt  DateTime @default(now())
+
+  @@index([entity, externalId])
+  @@index([createdAt])
+}

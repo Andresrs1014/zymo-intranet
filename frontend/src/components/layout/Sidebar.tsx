@@ -16,6 +16,7 @@ import {
   Ticket,
   Smile,
   NotebookPen,
+  Handshake,
 } from "lucide-react"
 import { useAuthStore } from "@/store/authStore"
 import {
@@ -35,6 +36,7 @@ import {
   canSeeTickets,
   canSeeSAC,
   canSeeReportesDesarrollo,
+  canSeeLibertadora,
 } from "@/lib/permissions"
 import {
   Sidebar as ShadcnSidebar,
@@ -71,6 +73,7 @@ export function Sidebar() {
     ? canSubmitDevTasks(user.user_tools ?? []) || canManageDevTasks(user.user_tools ?? [])
     : false
   const showHelix          = user ? canSeeHelix(user.role, perms) : false
+  const showLibertadora    = user ? canSeeLibertadora(user.role, perms) : false
   const showTickets        = user ? canSeeTickets(user.role, perms) : false
   const showSac            = user ? canSeeSAC(user.role, perms) : false
   const showTyC            = user ? canSeeTyC(user.role, perms) : false
@@ -292,6 +295,26 @@ export function Sidebar() {
                       active={isActive(["/zymoally/sac"])}
                     />
                   )}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
+        )}
+
+        {/* ── Section: Comercial ─────────────────────────────────────── */}
+        {showLibertadora && (
+          <>
+            <SidebarSeparator />
+            <SidebarGroup>
+              <SidebarGroupLabel>Comercial</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <NavItem
+                    to="/libertadora"
+                    label="Libertadora Seguros"
+                    icon={<Handshake className="w-4 h-4" />}
+                    active={isActive(["/libertadora"])}
+                  />
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>

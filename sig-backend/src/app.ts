@@ -9,6 +9,7 @@ import commitsRouter from "./routers/commits"
 import instructivosRouter from "./routers/instructivos"
 import analisisRouter from "./routers/analisis"
 import reportesDesarrolloRouter from "./routers/reportes-desarrollo"
+import libertadoraBackupRouter from "./routers/libertadora-backup"
 
 const app = express()
 
@@ -32,6 +33,7 @@ app.use("/api/commits", commitsRouter)
 app.use("/api/instructivos", instructivosRouter)
 app.use("/api/analisis", analisisRouter)
 app.use("/api/reportes-desarrollo", reportesDesarrolloRouter)
+app.use("/api/libertadora-backup", libertadoraBackupRouter)
 
 // 404
 app.use((_req: Request, res: Response) => {

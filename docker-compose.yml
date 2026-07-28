@@ -234,6 +234,46 @@ services:
       timeout: 5s
       retries: 10
 
+  # Libertadora Seguros — CRM comercial Skandia CREA (prospectos/citas), con
+  # link publico persistente para el socio externo. BD propia; cada
+  # escritura ademas se respalda (fire-and-forget) en sig-backend via
+  # /api/libertadora-backup.
+  libertadora-backend:
+    build:
+      context: ./libertadora-backend
+      dockerfile: Dockerfile
+    ports:
+      - "3006:3006"
+    env_file:
+      - ./backend/.env          # provee SECRET_KEY (mismo JWT secret que FastAPI)
+    environment:
+      - NODE_ENV=production
+      - PORT=3006
+      - DATABASE_URL=postgresql://${LIBERTADORA_DB_USER:-libertadora}:${LIBERTADORA_DB_PASSWORD}@libertadora-db:5432/${LIBERTADORA_DB_NAME:-libertadoradb}
+      - SIG_BACKEND_URL=http://sig-backend:3003
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:81}
+    depends_on:
+      libertadora-db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  libertadora-db:
+    image: postgres:15-alpine
+    ports:
+      - "5439:5432"
+    environment:
+      - POSTGRES_USER=${LIBERTADORA_DB_USER:-libertadora}
+      - POSTGRES_PASSWORD=${LIBERTADORA_DB_PASSWORD}
+      - POSTGRES_DB=${LIBERTADORA_DB_NAME:-libertadoradb}
+    volumes:
+      - libertadora_db_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${LIBERTADORA_DB_USER:-libertadora} -d ${LIBERTADORA_DB_NAME:-libertadoradb}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   backend_data:
   helix_db_data:
@@ -245,3 +285,4 @@ volumes:
   zymo_db_data:
   zymoally_db_data:
   zymoally_uploads:
+  libertadora_db_data:
