@@ -1,4 +1,4 @@
-import { Printer } from "lucide-react"
+import { Download } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -8,21 +8,15 @@ import type { LibKpis, LibProspecto } from "@/types/libertadora"
 interface InformeContentProps {
   kpis: LibKpis
   prospectos: LibProspecto[]
-  /**
-   * Si se da, el botón abre esta ruta de impresión limpia (sin sidebar/topbar/
-   * pestañas alrededor) en una pestaña nueva, en vez de imprimir directo —
-   * así el PDF nunca sale con el "chrome" de la app ni corta tarjetas a la
-   * mitad. Las páginas de impresión dedicadas (LibertadoraInformePrintPage /
-   * LibertadoraPartnerInformePrintPage) no pasan esta prop: ahí el botón sí
-   * imprime directo porque ya están en la vista limpia.
-   */
-  printHref?: string
+  /** Descarga el PDF real generado en el servidor (sin diálogo de impresión del navegador de por medio). */
+  onDownloadPdf: () => void | Promise<void>
+  downloadingPdf?: boolean
 }
 
 // Ported 1:1 de rInf() — mismo criterio de "contactado" (busca "programar" en
 // el texto libre de gestión), mismo criterio de "prospectos calientes"
 // (interesados primero, luego en proceso de prioridad alta), tope 10 filas.
-export function InformeContent({ kpis, prospectos, printHref }: InformeContentProps) {
+export function InformeContent({ kpis, prospectos, onDownloadPdf, downloadingPdf }: InformeContentProps) {
   const cerrados = prospectos.filter((p) => p.estado === "CERRADO")
 
   const contactados = kpis.tot - prospectos.filter((p) => p.estado === "EN_PROCESO" && (p.gestion ?? "").toLowerCase().includes("programar")).length
@@ -43,14 +37,14 @@ export function InformeContent({ kpis, prospectos, printHref }: InformeContentPr
   const pn = prospectos.filter((p) => p.tipo === "PN").length
 
   return (
-    <div className="space-y-4 print:space-y-3">
-      <div className="rounded-xl p-6 text-white print:break-inside-avoid" style={{ background: "linear-gradient(135deg, var(--lib-navy), var(--lib-teal-d))" }}>
+    <div className="space-y-4">
+      <div className="rounded-xl p-6 text-white" style={{ background: "linear-gradient(135deg, var(--lib-navy), var(--lib-teal-d))" }}>
         <h2 className="text-lg font-bold">Informe ejecutivo de gestión comercial</h2>
         <p className="mt-1 text-sm opacity-80">Producto: <b>SKANDIA CREA</b> · {new Date().toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric" })}</p>
         <p className="mt-1 text-xs opacity-60">Presentado ante: Gerencia General · Libertadora Seguros</p>
       </div>
 
-      <Card className="print:break-inside-avoid">
+      <Card>
         <CardHeader className="pb-2"><CardTitle className="text-xs font-bold text-zinc-800">Embudo de conversión comercial</CardTitle></CardHeader>
         <CardContent className="space-y-2.5 pt-0">
           {steps.map((s) => {
@@ -70,7 +64,7 @@ export function InformeContent({ kpis, prospectos, printHref }: InformeContentPr
         </CardContent>
       </Card>
 
-      <Card className="print:break-inside-avoid">
+      <Card>
         <CardHeader className="pb-2"><CardTitle className="text-xs font-bold text-zinc-800">Cierres exitosos 2026</CardTitle></CardHeader>
         <CardContent className="overflow-x-auto pt-0">
           <table className="w-full text-left text-[12.5px]">
@@ -93,7 +87,7 @@ export function InformeContent({ kpis, prospectos, printHref }: InformeContentPr
         </CardContent>
       </Card>
 
-      <Card className="print:break-inside-avoid">
+      <Card>
         <CardHeader className="pb-2"><CardTitle className="text-xs font-bold text-zinc-800">Top prospectos calientes — acción inmediata requerida</CardTitle></CardHeader>
         <CardContent className="overflow-x-auto pt-0">
           <table className="w-full text-left text-[12.5px]">
@@ -116,7 +110,7 @@ export function InformeContent({ kpis, prospectos, printHref }: InformeContentPr
         </CardContent>
       </Card>
 
-      <Card className="print:break-inside-avoid">
+      <Card>
         <CardHeader className="pb-2"><CardTitle className="text-xs font-bold text-zinc-800">KPIs de efectividad comercial</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-2 gap-3 pt-0 sm:grid-cols-3">
           {[
@@ -136,14 +130,15 @@ export function InformeContent({ kpis, prospectos, printHref }: InformeContentPr
         </CardContent>
       </Card>
 
-      <div className="text-center print:hidden">
+      <div className="text-center">
         <Button
           type="button"
           style={{ background: "var(--lib-teal)" }}
           className="gap-1.5"
-          onClick={() => (printHref ? window.open(printHref, "_blank", "noopener,noreferrer") : window.print())}
+          disabled={downloadingPdf}
+          onClick={() => onDownloadPdf()}
         >
-          <Printer className="h-4 w-4" /> Imprimir / exportar PDF
+          <Download className="h-4 w-4" /> {downloadingPdf ? "Generando PDF…" : "Descargar informe en PDF"}
         </Button>
       </div>
     </div>

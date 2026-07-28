@@ -10,6 +10,8 @@ import dashboardRouter from "./routers/dashboard"
 import partnerUsersRouter from "./routers/partnerUsers"
 import publicLoginRouter from "./routers/public/login"
 import publicMetaRouter from "./routers/public/meta"
+import informePdfRouter from "./routers/informePdf"
+import publicInformePdfRouter from "./routers/public/informePdf"
 
 const app = express()
 
@@ -38,6 +40,8 @@ app.use("/public/prospectos", requireLibertadoraPartnerScope, prospectosRouter)
 app.use("/public/citas", requireLibertadoraPartnerScope, citasRouter)
 // Meta comercial — lectura y edición para Skandia (decisión del gerente, 2026-07-28).
 app.use("/public/meta", requireLibertadoraPartnerScope, publicMetaRouter)
+// PDF real del informe, generado en el servidor (sin diálogo de impresión del navegador).
+app.use("/public/informe/pdf", requireLibertadoraPartnerScope, publicInformePdfRouter)
 
 // --- Staff interno (JWT normal de la intranet) ---
 app.use("/api", authenticate, requireLibertadoraAccess)
@@ -45,6 +49,7 @@ app.use("/api/prospectos", prospectosRouter)
 app.use("/api/citas", citasRouter)
 app.use("/api/meta", metaRouter)
 app.use("/api/dashboard", dashboardRouter)
+app.use("/api/informe/pdf", informePdfRouter)
 // Gestión de cuentas del socio externo — "Usuarios externos" en Configuración
 app.use("/api/partner-users", requireGerente, partnerUsersRouter)
 

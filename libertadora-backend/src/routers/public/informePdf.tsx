@@ -1,0 +1,22 @@
+import { Router } from "express"
+import { renderToBuffer } from "@react-pdf/renderer"
+import { listProspectos, kpis } from "../../services/prospectos"
+import { InformePdfDocument } from "../../services/informePdfDocument"
+
+const router = Router()
+
+// Mismo PDF real que ve el staff -- Skandia tiene lectura+edición completa
+// de prospectos/citas, así que también puede exportar el mismo informe.
+router.get("/", async (_req, res, next) => {
+  try {
+    const [prospectos, resumen] = await Promise.all([listProspectos(), kpis()])
+    const buffer = await renderToBuffer(<InformePdfDocument kpis={resumen} prospectos={prospectos} />)
+    res.setHeader("Content-Type", "application/pdf")
+    res.setHeader("Content-Disposition", 'attachment; filename="Informe_SKANDIA_CREA-Libertadora_Seguros.pdf"')
+    res.send(buffer)
+  } catch (err) {
+    next(err)
+  }
+})
+
+export default router

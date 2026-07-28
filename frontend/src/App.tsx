@@ -62,9 +62,7 @@ import { GerencialPage } from "@/pages/gerencial/GerencialPage"
 import { ExtraccionIAPage } from "@/pages/admin/ExtraccionIAPage"
 import { HelixPage } from "@/pages/planeacion/helix/HelixPage"
 import { LibertadoraPage } from "@/pages/libertadora/LibertadoraPage"
-import { LibertadoraInformePrintPage } from "@/pages/libertadora/LibertadoraInformePrintPage"
 import { LibertadoraPartnerPage } from "@/pages/libertadora/partner/LibertadoraPartnerPage"
-import { LibertadoraPartnerInformePrintPage } from "@/pages/libertadora/partner/LibertadoraPartnerInformePrintPage"
 import { TicketsPage } from "@/pages/tickets/TicketsPage"
 import { SacPage } from "@/pages/sac/SacPage"
 import { SurveyPage } from "@/pages/survey/SurveyPage"
@@ -343,8 +341,6 @@ export default function App() {
         <Route path="/tc/formatos/ausentismo" element={<TyCFormatoAusentismoPage />} />
         {/* Panel del socio externo (Skandia) — login propio, sin cuenta en la intranet */}
         <Route path="/libertadora/socio" element={<LibertadoraPartnerPage />} />
-        {/* Vista de impresión del socio -- limpia, sin chrome, mismo token del panel */}
-        <Route path="/libertadora/socio/informe/imprimir" element={<LibertadoraPartnerInformePrintPage />} />
         <Route
           path="/login"
           element={
@@ -665,16 +661,6 @@ export default function App() {
             </LibertadoraRoute>
           }
         />
-        {/* Vista de impresión del staff -- limpia, sin sidebar/topbar/pestañas */}
-        <Route
-          path="/libertadora/informe/imprimir"
-          element={
-            <LibertadoraRoute>
-              <LibertadoraInformePrintPage />
-            </LibertadoraRoute>
-          }
-        />
-
         {/* Zymo Ally — Tickets (dominio sin relación con Helix, solo comparte posición en el sidebar) */}
         <Route
           path="/zymoally/tickets"
