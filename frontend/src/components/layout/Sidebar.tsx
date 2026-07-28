@@ -36,7 +36,6 @@ import {
   canSeeTickets,
   canSeeSAC,
   canSeeReportesDesarrollo,
-  canSeeLibertadora,
 } from "@/lib/permissions"
 import {
   Sidebar as ShadcnSidebar,
@@ -73,7 +72,10 @@ export function Sidebar() {
     ? canSubmitDevTasks(user.user_tools ?? []) || canManageDevTasks(user.user_tools ?? [])
     : false
   const showHelix          = user ? canSeeHelix(user.role, perms) : false
-  const showLibertadora    = user ? canSeeLibertadora(user.role, perms) : false
+  // Oculto del sidebar a propósito (2026-07-28) — el módulo completo se va a
+  // mudar fuera de la intranet (dominio y proyecto propios, en definición).
+  // La ruta /libertadora y el permiso siguen intactos, solo no se enlaza acá.
+  const showLibertadora    = false
   const showTickets        = user ? canSeeTickets(user.role, perms) : false
   const showSac            = user ? canSeeSAC(user.role, perms) : false
   const showTyC            = user ? canSeeTyC(user.role, perms) : false
