@@ -25,7 +25,7 @@ export function LibertadoraHeader({ action }: { action?: ReactNode }) {
       style={{ background: "linear-gradient(135deg, var(--lib-navy) 0%, var(--lib-navy2) 55%, var(--lib-teal-d) 100%)" }}
     >
       <div className="flex items-center gap-4">
-        <img src={libertadoraLogo} alt="Libertadora Seguros" className="h-14 rounded-md bg-white/95 px-2 py-1" />
+        <img src={libertadoraLogo} alt="Libertadora Seguros" className="h-20 rounded-md bg-white/95 px-2 py-1" />
         <div>
           <h1 className="text-base font-extrabold tracking-wide" style={{ color: "#00E5D4" }}>LIBERTADORA SEGUROS</h1>
           <p className="text-[11px] opacity-75">Sistema de control y seguimiento comercial · 2026</p>
