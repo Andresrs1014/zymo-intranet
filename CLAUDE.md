@@ -308,7 +308,14 @@ Primer diseño (descartado antes de desplegar): un link con token sin expiració
 ### Respaldo automático hacia SIG (`sig-backend`)
 Decisión explícita del usuario: cada creación/edición/borrado se respalda además en `sig-backend` (`services/sigBackup.ts`), fire-and-forget — nunca bloquea ni rompe la escritura real si `sig-backend` está caído. Se autentica con un JWT de servicio autofirmado (`role: "admin"`, TTL 5 min) usando el mismo `JWT_SECRET` compartido, sin inventar una llave interna nueva. Aterriza en `sig-backend`'s `SigLibertadoraBackup` (tabla append-only, no un espejo en vivo) vía `POST /api/libertadora-backup`.
 
-**Pendiente antes de producción:** agregar el permiso `mod_libertadora` en Roles y permisos (Python backend + UI de Configuración) — hoy nadie lo tiene asignado. Frontend aún no existe (fase solo-backend). Sin esto, el módulo queda desplegado pero inaccesible para staff hasta que un admin asigne el permiso.
+### Siembra de datos reales (`prisma/seed.ts`) — idempotente por campo, no por conteo
+`realData.ts` trae los 130 prospectos + 4 citas reales extraídos 1:1 del prototipo original (no son datos de ejemplo). El script (`npm run db:seed`) pasa por los mismos `services/` que usa la API para que también dispare el respaldo hacia SIG.
+
+**Regla general para cualquier script de siembra/migración de datos reales en este repo, no solo este:** nunca uses "si la tabla ya tiene filas, no cargues nada" como única protección contra duplicados — un conteo total no distingue entre "ya se sembró completo", "se cortó a la mitad" y "alguien ya creó datos reales a mano antes de sembrar". La comparación correcta es **fila por fila contra una llave natural** (acá: `empresa` para prospectos, `cliente`+`fecha`+`hora` para citas) y terminar con una aserción que compare el conteo esperado (`antes + insertados`) contra el conteo real después de sembrar — si no cuadra, el script debe fallar ruidosamente, no quedar en silencio.
+
+**Verificado en sandbox aislado (2026-07-28), no solo en teoría:** se insertaron a mano un prospecto que coincidía exactamente con uno del seed y otro que no tenía nada que ver, se corrió el seed encima — resultado: el que coincidía no se duplicó, el que no coincidía quedó intacto, y los 129 restantes se insertaron bien. Correrlo una tercera vez no insertó nada nuevo (0 insertados, todos marcados como "ya existían").
+
+**Pendiente antes de producción:** agregar el permiso `mod_libertadora` en Roles y permisos (Python backend + UI de Configuración) — hoy nadie lo tiene asignado, así que el módulo queda desplegado pero inaccesible para staff hasta que un admin lo asigne. Correr `docker compose exec libertadora-backend npm run db:seed` una sola vez para cargar los datos reales.
 
 ---
 
