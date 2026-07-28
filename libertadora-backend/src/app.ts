@@ -9,6 +9,7 @@ import metaRouter from "./routers/meta"
 import dashboardRouter from "./routers/dashboard"
 import partnerUsersRouter from "./routers/partnerUsers"
 import publicLoginRouter from "./routers/public/login"
+import publicMetaRouter from "./routers/public/meta"
 
 const app = express()
 
@@ -35,6 +36,8 @@ app.use("/public/login", publicLoginRouter)
 // edición completa, decisión explícita del usuario (no solo lectura). ---
 app.use("/public/prospectos", requireLibertadoraPartnerScope, prospectosRouter)
 app.use("/public/citas", requireLibertadoraPartnerScope, citasRouter)
+// Meta comercial — Skandia solo lectura (GET), la edición sigue siendo solo del staff.
+app.use("/public/meta", requireLibertadoraPartnerScope, publicMetaRouter)
 
 // --- Staff interno (JWT normal de la intranet) ---
 app.use("/api", authenticate, requireLibertadoraAccess)

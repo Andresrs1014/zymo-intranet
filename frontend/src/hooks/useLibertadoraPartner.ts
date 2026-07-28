@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { libertadoraApi } from "@/lib/libertadoraApi"
 import { useLibertadoraPartnerStore } from "@/store/libertadoraPartnerStore"
-import type { LibProspecto, LibProspectoInput, LibCita, LibCitaInput } from "@/types/libertadora"
+import type { LibProspecto, LibProspectoInput, LibCita, LibCitaInput, LibMeta } from "@/types/libertadora"
 
 interface LoginResponse {
   token: string
@@ -50,6 +50,16 @@ export function usePartnerDeleteProspecto() {
   return useMutation({
     mutationFn: async (id: number) => { await libertadoraApi.delete(`/public/prospectos/${id}`) },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["lib-partner-prospectos"] }),
+  })
+}
+
+// Solo lectura — Skandia ve la meta comercial pero no la edita (decisión del usuario).
+export function usePartnerMeta() {
+  const token = useLibertadoraPartnerStore((s) => s.token)
+  return useQuery<LibMeta>({
+    queryKey: ["lib-partner-meta"],
+    queryFn: async () => (await libertadoraApi.get<LibMeta>("/public/meta")).data,
+    enabled: Boolean(token),
   })
 }
 

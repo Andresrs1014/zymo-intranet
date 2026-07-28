@@ -1,13 +1,17 @@
 import { useState } from "react"
-import { LogOut, Users, CalendarDays } from "lucide-react"
+import { LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { usePartnerLogin } from "@/hooks/useLibertadoraPartner"
 import { useLibertadoraPartnerStore } from "@/store/libertadoraPartnerStore"
+import { LibertadoraProvider, useLibertadora } from "@/context/LibertadoraContext"
+import { LibertadoraHeader } from "@/components/libertadora/LibertadoraHeader"
+import { LibertadoraTabsBar } from "@/components/libertadora/LibertadoraTabsBar"
+import { PartnerDashboardPanel } from "./PartnerDashboardPanel"
 import { PartnerProspectosPanel } from "./PartnerProspectosPanel"
 import { PartnerCitasPanel } from "./PartnerCitasPanel"
+import { PartnerInformeView } from "./PartnerInformeView"
 import "@/styles/libertadora.css"
 
 function PartnerLoginForm() {
@@ -47,40 +51,41 @@ function PartnerLoginForm() {
   )
 }
 
+function PartnerContent() {
+  const { activeView } = useLibertadora()
+  return (
+    <>
+      {activeView === "dashboard" && <PartnerDashboardPanel />}
+      {activeView === "prospectos" && <PartnerProspectosPanel />}
+      {activeView === "citas" && <PartnerCitasPanel />}
+      {activeView === "informe" && <PartnerInformeView />}
+    </>
+  )
+}
+
 function PartnerPanel() {
-  const { nombre, email, clearSession } = useLibertadoraPartnerStore()
-  const [tab, setTab] = useState<"prospectos" | "citas">("prospectos")
+  const clearSession = useLibertadoraPartnerStore((s) => s.clearSession)
 
   return (
-    <div className="libertadora-scope min-h-screen bg-zinc-50">
-      <header className="flex items-center justify-between px-6 py-4 text-white" style={{ background: "var(--lib-navy)" }}>
-        <div>
-          <h1 className="text-sm font-bold">Libertadora Seguros · Skandia CREA</h1>
-          <p className="text-xs opacity-70">{nombre ?? email}</p>
+    <LibertadoraProvider>
+      <div className="libertadora-scope min-h-screen bg-zinc-50">
+        <div className="relative">
+          <LibertadoraHeader />
+          <Button
+            type="button"
+            variant="ghost"
+            className="absolute right-4 top-4 gap-1.5 text-white hover:bg-white/10 hover:text-white"
+            onClick={() => clearSession()}
+          >
+            <LogOut className="h-4 w-4" /> Salir
+          </Button>
         </div>
-        <Button type="button" variant="ghost" className="gap-1.5 text-white hover:bg-white/10 hover:text-white" onClick={() => clearSession()}>
-          <LogOut className="h-4 w-4" /> Salir
-        </Button>
-      </header>
-
-      <div className="border-b border-zinc-200 bg-white px-6 py-3">
-        <Tabs value={tab} onValueChange={(v) => setTab(v as "prospectos" | "citas")}>
-          <TabsList className="bg-[color:var(--lib-teal-l)]">
-            <TabsTrigger value="prospectos" className="gap-1.5 data-[state=active]:bg-[color:var(--lib-teal)] data-[state=active]:text-white">
-              <Users className="h-4 w-4" /> Prospectos
-            </TabsTrigger>
-            <TabsTrigger value="citas" className="gap-1.5 data-[state=active]:bg-[color:var(--lib-teal)] data-[state=active]:text-white">
-              <CalendarDays className="h-4 w-4" /> Citas
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <LibertadoraTabsBar />
+        <main className="p-6">
+          <PartnerContent />
+        </main>
       </div>
-
-      <main className="p-6">
-        {tab === "prospectos" && <PartnerProspectosPanel />}
-        {tab === "citas" && <PartnerCitasPanel />}
-      </main>
-    </div>
+    </LibertadoraProvider>
   )
 }
 

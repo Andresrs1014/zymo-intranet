@@ -1,14 +1,13 @@
 import { Skeleton } from "@/components/ui/skeleton"
-import { useLibKpis, useLibProspectos, useLibMeta } from "@/hooks/useLibertadora"
-import { KpiGrid } from "./KpiGrid"
-import { MetaComercialCard } from "./MetaComercialCard"
-import { ChartsRow } from "./ChartsRow"
-import { QuarterlySummaryTable } from "./QuarterlySummaryTable"
+import { useLibKpis, useLibProspectos, useLibMeta, useUpdateLibMeta } from "@/hooks/useLibertadora"
+import { DashboardContent } from "./DashboardContent"
+import type { LibMeta } from "@/types/libertadora"
 
 export function DashboardView() {
   const kpisQuery = useLibKpis()
   const prospectosQuery = useLibProspectos()
   const metaQuery = useLibMeta()
+  const updateMeta = useUpdateLibMeta()
 
   if (kpisQuery.isLoading || prospectosQuery.isLoading) {
     return (
@@ -32,15 +31,13 @@ export function DashboardView() {
     )
   }
 
-  const kpis = kpisQuery.data
-  const prospectos = prospectosQuery.data ?? []
-
   return (
-    <div className="space-y-4">
-      <KpiGrid kpis={kpis} />
-      <MetaComercialCard kpis={kpis} />
-      <ChartsRow kpis={kpis} prospectos={prospectos} />
-      <QuarterlySummaryTable prospectos={prospectos} meta={metaQuery.data} />
-    </div>
+    <DashboardContent
+      kpis={kpisQuery.data}
+      prospectos={prospectosQuery.data ?? []}
+      meta={metaQuery.data}
+      canEditMeta
+      onCommitMeta={(field, value) => updateMeta.mutate({ [field]: value } as Partial<LibMeta>)}
+    />
   )
 }
