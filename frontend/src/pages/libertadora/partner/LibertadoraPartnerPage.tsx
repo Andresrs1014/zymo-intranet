@@ -69,17 +69,18 @@ function PartnerPanel() {
   return (
     <LibertadoraProvider>
       <div className="libertadora-scope min-h-screen bg-zinc-50">
-        <div className="relative">
-          <LibertadoraHeader />
-          <Button
-            type="button"
-            variant="ghost"
-            className="absolute right-4 top-4 gap-1.5 text-white hover:bg-white/10 hover:text-white"
-            onClick={() => clearSession()}
-          >
-            <LogOut className="h-4 w-4" /> Salir
-          </Button>
-        </div>
+        <LibertadoraHeader
+          action={
+            <Button
+              type="button"
+              variant="ghost"
+              className="shrink-0 gap-1.5 text-white hover:bg-white/10 hover:text-white"
+              onClick={() => clearSession()}
+            >
+              <LogOut className="h-4 w-4" /> Salir
+            </Button>
+          }
+        />
         <LibertadoraTabsBar />
         <main className="p-6">
           <PartnerContent />

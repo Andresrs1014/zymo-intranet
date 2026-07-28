@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useMemo, type ReactNode } from "react"
 import { Award } from "lucide-react"
 import libertadoraLogo from "@/assets/libertadora-logo.jpg"
 import "@/styles/libertadora.css"
@@ -9,7 +9,11 @@ import "@/styles/libertadora.css"
 // tal cual pidió el usuario. El texto de este componente NO repite esos
 // datos — solo agrega lo que la imagen no trae (marca del módulo, badge del
 // producto, fecha).
-export function LibertadoraHeader() {
+//
+// `action` (ej. botón "Salir" del panel del socio) se renderiza DENTRO del
+// mismo flex row, no superpuesto encima — así nunca choca con el badge/fecha
+// sin importar el ancho de pantalla.
+export function LibertadoraHeader({ action }: { action?: ReactNode }) {
   const today = useMemo(
     () => new Date().toLocaleDateString("es-CO", { weekday: "long", year: "numeric", month: "long", day: "numeric" }),
     []
@@ -29,14 +33,17 @@ export function LibertadoraHeader() {
         </div>
       </div>
 
-      <div className="flex flex-col items-end gap-1 text-right">
-        <span
-          className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold"
-          style={{ background: "linear-gradient(90deg, var(--lib-orange), #e06010)" }}
-        >
-          <Award className="h-3.5 w-3.5" /> SKANDIA · PRODUCTO CREA
-        </span>
-        <span className="text-[10px] capitalize opacity-60">{today}</span>
+      <div className="flex items-center gap-4">
+        <div className="flex flex-col items-end gap-1 text-right">
+          <span
+            className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-[11px] font-bold"
+            style={{ background: "linear-gradient(90deg, var(--lib-orange), #e06010)" }}
+          >
+            <Award className="h-3.5 w-3.5" /> SKANDIA · PRODUCTO CREA
+          </span>
+          <span className="text-[10px] capitalize opacity-60">{today}</span>
+        </div>
+        {action}
       </div>
     </div>
   )
