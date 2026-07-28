@@ -56,7 +56,11 @@ export function KpiGrid({ kpis }: { kpis: LibKpis }) {
       sub: "Cierres vs. total base",
       icon: <TrendingUp className="h-5 w-5" />,
       accent: "var(--lib-orange)",
-      value: <NumberTicker value={kpis.conv} decimalPlaces={1} className="text-[27px] font-extrabold text-zinc-900" />,
+      value: (
+        <span className="inline-flex items-baseline text-[27px] font-extrabold text-zinc-900">
+          <NumberTicker value={kpis.conv} decimalPlaces={1} />%
+        </span>
+      ),
     },
     {
       label: "Monto vendido / mes",

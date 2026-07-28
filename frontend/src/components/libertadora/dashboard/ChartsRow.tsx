@@ -1,10 +1,21 @@
-import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, ResponsiveContainer, Tooltip, Legend } from "recharts"
+import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, Legend } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { productShortLabel } from "@/lib/libertadoraFormat"
 import type { LibKpis, LibProspecto } from "@/types/libertadora"
 
 const FONT = { fontSize: 11, fill: "#64748b", fontFamily: "'DM Sans', sans-serif" }
 const TOOLTIP_STYLE = { background: "#1e293b", border: "1px solid #334155", borderRadius: 8, fontSize: 12 }
+// El tooltip por defecto de Recharts no fija color de texto -- sobre un fondo
+// oscuro queda casi ilegible. Se fuerza blanco/gris claro explicito.
+const TOOLTIP_ITEM_STYLE = { color: "#ffffff" }
+const TOOLTIP_LABEL_STYLE = { color: "#cbd5e1" }
+const GRID_STROKE = "#e2e8f0"
+
+/** Ticks enteros de 1 en 1 (Recharts por defecto puede saltar de 2 en 2 en rangos chicos). */
+function integerTicks(values: number[]): number[] {
+  const max = Math.max(1, ...values)
+  return Array.from({ length: max + 1 }, (_, i) => i)
+}
 
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -51,7 +62,7 @@ export function ChartsRow({ kpis, prospectos }: { kpis: LibKpis; prospectos: Lib
                 <Cell key={entry.name} fill={entry.color} />
               ))}
             </Pie>
-            <Tooltip contentStyle={TOOLTIP_STYLE} />
+            <Tooltip contentStyle={TOOLTIP_STYLE} itemStyle={TOOLTIP_ITEM_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} />
             <Legend wrapperStyle={{ fontSize: 11 }} />
           </PieChart>
         </ResponsiveContainer>
@@ -60,9 +71,10 @@ export function ChartsRow({ kpis, prospectos }: { kpis: LibKpis; prospectos: Lib
       <ChartCard title="Prospectos por producto">
         <ResponsiveContainer width="100%" height={200}>
           <BarChart data={productData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
             <XAxis dataKey="name" tick={FONT} />
-            <YAxis allowDecimals={false} tick={FONT} />
-            <Tooltip contentStyle={TOOLTIP_STYLE} />
+            <YAxis allowDecimals={false} tick={FONT} ticks={integerTicks(productData.map((d) => d.value))} />
+            <Tooltip contentStyle={TOOLTIP_STYLE} itemStyle={TOOLTIP_ITEM_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
             <Bar dataKey="value" radius={[4, 4, 0, 0]}>
               {productData.map((_, i) => (
                 <Cell key={i} fill={PRODUCT_COLORS[i % PRODUCT_COLORS.length]} />
@@ -75,9 +87,10 @@ export function ChartsRow({ kpis, prospectos }: { kpis: LibKpis; prospectos: Lib
       <ChartCard title="Cierres por trimestre">
         <ResponsiveContainer width="100%" height={200}>
           <BarChart data={quarterData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
             <XAxis dataKey="name" tick={FONT} />
-            <YAxis allowDecimals={false} tick={FONT} />
-            <Tooltip contentStyle={TOOLTIP_STYLE} />
+            <YAxis allowDecimals={false} tick={FONT} ticks={integerTicks(quarterData.map((d) => d.value))} />
+            <Tooltip contentStyle={TOOLTIP_STYLE} itemStyle={TOOLTIP_ITEM_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
             <Bar dataKey="value" fill="var(--lib-teal)" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>

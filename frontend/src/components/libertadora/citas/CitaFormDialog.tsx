@@ -43,12 +43,14 @@ export function CitaFormDialog({ open, onOpenChange, cita, prefill, onSubmit, on
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>{cita ? "Editar cita" : "Nueva cita"}</DialogTitle>
+      <DialogContent className="libertadora-scope max-w-md">
+        <DialogHeader className="border-b-2 pb-3" style={{ borderColor: "var(--lib-teal)" }}>
+          <DialogTitle className="text-base font-bold" style={{ color: "var(--lib-navy)" }}>
+            {cita ? "Editar cita" : "Nueva cita"}
+          </DialogTitle>
         </DialogHeader>
 
-        <div className="grid gap-3">
+        <div className="grid gap-4">
           <div className="grid gap-1.5">
             <Label>Cliente / empresa *</Label>
             <Input value={form.cliente} onChange={(e) => set("cliente", e.target.value)} placeholder="Nombre del cliente o empresa" />

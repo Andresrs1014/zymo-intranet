@@ -15,3 +15,14 @@
   --lib-blue: #3182CE;
   --lib-gray: #A0AEC0;
 }
+
+/* Formularios (modales de prospecto/cita) con el acento propio de la
+   herramienta en vez del foco genérico gris/azul de shadcn por defecto. */
+.libertadora-scope input:focus-visible,
+.libertadora-scope textarea:focus-visible,
+.libertadora-scope [role="combobox"]:focus-visible,
+.libertadora-scope button[role="combobox"]:focus-visible {
+  outline: none;
+  border-color: var(--lib-teal) !important;
+  box-shadow: 0 0 0 2px var(--lib-teal-l) !important;
+}

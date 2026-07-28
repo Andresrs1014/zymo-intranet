@@ -49,13 +49,16 @@ export function MetaComercialCard({ kpis, meta, readOnly = false, onCommit }: Me
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="flex items-center gap-2 text-sm font-bold text-zinc-800">
-          <Target className="h-4 w-4" style={{ color: "var(--lib-teal)" }} />
-          Meta comercial 2026
-        </CardTitle>
+      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+        <div>
+          <CardTitle className="flex items-center gap-2 text-sm font-bold text-zinc-800">
+            <Target className="h-4 w-4" style={{ color: "var(--lib-teal)" }} />
+            Meta comercial 2026
+          </CardTitle>
+          <p className="mt-1 text-[11.5px] text-zinc-400">Configura tu meta para medir avance en tiempo real.</p>
+        </div>
         {readOnly && (
-          <span className="flex items-center gap-1 text-[10.5px] font-medium text-zinc-400">
+          <span className="flex shrink-0 items-center gap-1 text-[10.5px] font-medium text-zinc-400">
             <Lock className="h-3 w-3" /> Solo lectura
           </span>
         )}

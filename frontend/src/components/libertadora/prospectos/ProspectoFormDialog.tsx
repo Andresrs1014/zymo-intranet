@@ -42,12 +42,14 @@ export function ProspectoFormDialog({ open, onOpenChange, prospecto, onSubmit, o
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{prospecto ? "Editar prospecto" : "Nuevo prospecto"}</DialogTitle>
+      <DialogContent className="libertadora-scope max-w-lg">
+        <DialogHeader className="border-b-2 pb-3" style={{ borderColor: "var(--lib-teal)" }}>
+          <DialogTitle className="text-base font-bold" style={{ color: "var(--lib-navy)" }}>
+            {prospecto ? "Editar prospecto" : "Nuevo prospecto"}
+          </DialogTitle>
         </DialogHeader>
 
-        <div className="grid gap-3">
+        <div className="grid gap-4">
           <div className="grid gap-1.5">
             <Label>Empresa / cliente *</Label>
             <Input value={form.empresa} onChange={(e) => set("empresa", e.target.value)} placeholder="Nombre de la empresa o cliente" />
