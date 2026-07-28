@@ -36,7 +36,7 @@ app.use("/public/login", publicLoginRouter)
 // edición completa, decisión explícita del usuario (no solo lectura). ---
 app.use("/public/prospectos", requireLibertadoraPartnerScope, prospectosRouter)
 app.use("/public/citas", requireLibertadoraPartnerScope, citasRouter)
-// Meta comercial — Skandia solo lectura (GET), la edición sigue siendo solo del staff.
+// Meta comercial — lectura y edición para Skandia (decisión del gerente, 2026-07-28).
 app.use("/public/meta", requireLibertadoraPartnerScope, publicMetaRouter)
 
 // --- Staff interno (JWT normal de la intranet) ---

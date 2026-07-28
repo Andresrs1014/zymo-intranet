@@ -53,13 +53,23 @@ export function usePartnerDeleteProspecto() {
   })
 }
 
-// Solo lectura — Skandia ve la meta comercial pero no la edita (decisión del usuario).
+// Lectura y edición — cualquier persona con cuenta de socio puede ver y
+// cambiar la meta comercial (decisión del gerente, 2026-07-28).
 export function usePartnerMeta() {
   const token = useLibertadoraPartnerStore((s) => s.token)
   return useQuery<LibMeta>({
     queryKey: ["lib-partner-meta"],
     queryFn: async () => (await libertadoraApi.get<LibMeta>("/public/meta")).data,
     enabled: Boolean(token),
+  })
+}
+
+export function usePartnerUpdateMeta() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (data: Partial<Pick<LibMeta, "metaMensual" | "metaAnual" | "metaCierres" | "metaCitas">>) =>
+      (await libertadoraApi.put<LibMeta>("/public/meta", data)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["lib-partner-meta"] }),
   })
 }
 

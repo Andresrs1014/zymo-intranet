@@ -12,12 +12,23 @@ const PRINT_TITLE = "Informe_SKANDIA_CREA-Libertadora_Seguros"
 export function LibertadoraInformePrintPage() {
   const kpisQuery = useLibKpis()
   const prospectosQuery = useLibProspectos()
+  const ready = Boolean(kpisQuery.data) && Boolean(prospectosQuery.data)
 
   useEffect(() => {
     const previous = document.title
     document.title = PRINT_TITLE
     return () => { document.title = previous }
   }, [])
+
+  // Auto-imprime apenas los datos están listos -- evita que el usuario tenga
+  // que hacer un segundo clic en esta vista además del que ya hizo para
+  // llegar acá. El botón "Imprimir / exportar PDF" sigue visible por si el
+  // navegador bloquea el diálogo automático o el usuario cierra sin imprimir.
+  useEffect(() => {
+    if (!ready) return
+    const timer = setTimeout(() => window.print(), 600)
+    return () => clearTimeout(timer)
+  }, [ready])
 
   return (
     <div className="libertadora-scope min-h-screen bg-zinc-50 px-6 py-8 print:bg-white print:px-0 print:py-0">

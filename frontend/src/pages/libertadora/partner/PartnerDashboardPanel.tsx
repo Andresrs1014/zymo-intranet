@@ -1,11 +1,13 @@
 import { Skeleton } from "@/components/ui/skeleton"
-import { usePartnerProspectos, usePartnerMeta } from "@/hooks/useLibertadoraPartner"
+import { usePartnerProspectos, usePartnerMeta, usePartnerUpdateMeta } from "@/hooks/useLibertadoraPartner"
 import { computeKpisFromProspectos } from "@/lib/libertadoraKpis"
 import { DashboardContent } from "@/components/libertadora/dashboard/DashboardContent"
+import type { LibMeta } from "@/types/libertadora"
 
 export function PartnerDashboardPanel() {
   const prospectosQuery = usePartnerProspectos()
   const metaQuery = usePartnerMeta()
+  const updateMeta = usePartnerUpdateMeta()
 
   if (prospectosQuery.isLoading) {
     return (
@@ -25,6 +27,15 @@ export function PartnerDashboardPanel() {
   const prospectos = prospectosQuery.data
   const kpis = computeKpisFromProspectos(prospectos)
 
-  // canEditMeta=false: Skandia ve la meta comercial, no la edita (decisión del usuario).
-  return <DashboardContent kpis={kpis} prospectos={prospectos} meta={metaQuery.data} canEditMeta={false} />
+  // canEditMeta: cualquier persona con cuenta de socio puede editar la meta
+  // comercial (decisión del gerente, 2026-07-28 -- revierte el "solo lectura" anterior).
+  return (
+    <DashboardContent
+      kpis={kpis}
+      prospectos={prospectos}
+      meta={metaQuery.data}
+      canEditMeta
+      onCommitMeta={(field, value) => updateMeta.mutate({ [field]: value } as Partial<LibMeta>)}
+    />
+  )
 }
