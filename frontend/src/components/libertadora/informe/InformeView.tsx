@@ -11,5 +11,5 @@ export function InformeView() {
     return <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">No se pudo cargar el informe.</p>
   }
 
-  return <InformeContent kpis={kpisQuery.data} prospectos={prospectosQuery.data ?? []} />
+  return <InformeContent kpis={kpisQuery.data} prospectos={prospectosQuery.data ?? []} printHref="/libertadora/informe/imprimir" />
 }
