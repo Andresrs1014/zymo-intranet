@@ -5,7 +5,7 @@ import { computeKpisFromProspectos } from "@/lib/libertadoraKpis"
 import { InformeContent } from "@/components/libertadora/informe/InformeContent"
 import "@/styles/libertadora.css"
 
-const PRINT_TITLE = "Informe SKANDIA CREA - Libertadora Seguros"
+const PRINT_TITLE = "Informe_SKANDIA_CREA-Libertadora_Seguros"
 
 // Vista limpia de solo el informe para el socio externo (Skandia) -- misma
 // idea que LibertadoraInformePrintPage, pero autenticada con el token del

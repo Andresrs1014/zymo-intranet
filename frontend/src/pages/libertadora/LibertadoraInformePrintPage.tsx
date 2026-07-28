@@ -3,7 +3,7 @@ import { useLibKpis, useLibProspectos } from "@/hooks/useLibertadora"
 import { InformeContent } from "@/components/libertadora/informe/InformeContent"
 import "@/styles/libertadora.css"
 
-const PRINT_TITLE = "Informe SKANDIA CREA - Libertadora Seguros"
+const PRINT_TITLE = "Informe_SKANDIA_CREA-Libertadora_Seguros"
 
 // Vista limpia de solo el informe, sin sidebar/topbar/pestañas de la
 // intranet alrededor -- mismo patrón que PrintFacturacionPage.tsx
