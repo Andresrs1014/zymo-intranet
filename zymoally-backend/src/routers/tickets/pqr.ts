@@ -232,7 +232,7 @@ router.post("/", upload.array("evidence"), async (req, res, next) => {
       closedAt: /cerrado/i.test(body.status) ? new Date() : undefined,
       description: body.description,
       actions: body.actionsInitial ? { create: [{ texto: body.actionsInitial }] } : undefined,
-      evidence: files.length ? { create: files.map((f) => ({ filename: f.originalname, url: `/uploads/${f.filename}` })) } : undefined,
+      evidence: files.length ? { create: files.map((f) => ({ filename: f.originalname, url: `/zymoally-uploads/${f.filename}` })) } : undefined,
     })
 
     // Fase D — notificación de recepción al área asignada. Fire-and-forget: un
@@ -376,6 +376,7 @@ router.post("/:id/acciones", async (req, res, next) => {
 })
 
 // POST /:id/evidencia — cargar evidencia (multer, patrón helix-backend actividades.ts)
+// ponytail: prefijo /zymoally-uploads/ obligatorio — nginx enruta /uploads/ genérico a helix-backend, no a este servicio
 router.post("/:id/evidencia", upload.array("evidence"), async (req, res, next) => {
   try {
     const id = Number(req.params.id)
@@ -388,7 +389,7 @@ router.post("/:id/evidencia", upload.array("evidence"), async (req, res, next) =
     const names = files.map((f) => f.originalname)
     await prisma.$transaction([
       prisma.zymoPqrEvidence.createMany({
-        data: files.map((f) => ({ ticketId: id, filename: f.originalname, url: `/uploads/${f.filename}` })),
+        data: files.map((f) => ({ ticketId: id, filename: f.originalname, url: `/zymoally-uploads/${f.filename}` })),
       }),
       prisma.zymoPqrAction.create({
         data: { ticketId: id, texto: `${currentDateValue()} - Evidencia cargada en informe: ${names.join(", ")}` },
