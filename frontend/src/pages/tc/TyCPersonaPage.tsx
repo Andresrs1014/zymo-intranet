@@ -55,6 +55,9 @@ interface Persona {
   user_nombre: string
   fecha_nacimiento?: string | null
   edad?: number | null
+  /** true si además de mod_tc_sensible, el usuario actual es el jefe (directo o
+   * en la cadena hacia arriba) de esta persona — ver _puede_ver_sensible en personal.py. */
+  puede_ver_sensible?: boolean
 }
 
 interface Novedad {
@@ -189,11 +192,15 @@ export function TyCPersonaPage() {
   )
 
   const datos = editando ? { ...persona, ...form } : persona
+  // Además de mod_tc_sensible (T&C/admin, puede gestionar todo), el jefe en la
+  // cadena de esta persona puede ver y agregar — no editar/borrar (ver
+  // _puede_ver_sensible en personal.py, feedback del usuario 2026-07-29).
+  const puedeVerSensible = puedeSensible || !!datos.puede_ver_sensible
 
   const TABS: { key: Tab; label: string; icon?: React.ReactNode; sensible?: boolean }[] = [
     { key: "info", label: "Información" },
     { key: "capacitaciones", label: "Capacitaciones", icon: <BookOpen className="w-3.5 h-3.5" /> },
-    ...(puedeSensible ? [
+    ...(puedeVerSensible ? [
       { key: "evaluaciones" as Tab, label: "Evaluaciones", icon: <ClipboardList className="w-3.5 h-3.5" />, sensible: true },
       { key: "sanciones"   as Tab, label: "Sanciones",    icon: <ShieldAlert className="w-3.5 h-3.5" />, sensible: true },
       { key: "novedades"   as Tab, label: "Novedades",    icon: <FileText className="w-3.5 h-3.5" />, sensible: true },
@@ -478,16 +485,16 @@ export function TyCPersonaPage() {
           <CapacitacionesTab personaId={persona.id} puedeEditar={puedeEditar} />
         )}
 
-        {tab === "evaluaciones" && puedeSensible && (
-          <EvaluacionesTab personaId={persona.id} />
+        {tab === "evaluaciones" && puedeVerSensible && (
+          <EvaluacionesTab personaId={persona.id} puedeGestionar={puedeSensible} />
         )}
 
-        {tab === "sanciones" && puedeSensible && (
-          <SancionesTab personaId={persona.id} />
+        {tab === "sanciones" && puedeVerSensible && (
+          <SancionesTab personaId={persona.id} puedeGestionar={puedeSensible} />
         )}
 
-        {tab === "novedades" && puedeSensible && (
-          <NovedadesTab personaId={persona.id} />
+        {tab === "novedades" && puedeVerSensible && (
+          <NovedadesTab personaId={persona.id} puedeGestionar={puedeSensible} />
         )}
 
       </div>
@@ -618,7 +625,7 @@ function CapacitacionesTab({ personaId, puedeEditar }: { personaId: number; pued
 
 // ── Tab Evaluaciones ──────────────────────────────────────────────────────────
 
-function EvaluacionesTab({ personaId }: { personaId: number }) {
+function EvaluacionesTab({ personaId, puedeGestionar }: { personaId: number; puedeGestionar: boolean }) {
   const [items, setItems]     = useState<Evaluacion[]>([])
   const [loading, setLoading] = useState(true)
   const [adding, setAdding]   = useState(false)
@@ -694,10 +701,12 @@ function EvaluacionesTab({ personaId }: { personaId: number }) {
                 </div>
                 {ev.observaciones && <p className="text-xs text-muted-foreground mt-1 italic">{ev.observaciones}</p>}
               </div>
-              <button onClick={() => eliminar(ev.id)}
-                className="opacity-0 group-hover:opacity-100 p-1 hover:text-destructive transition-all">
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
+              {puedeGestionar && (
+                <button onClick={() => eliminar(ev.id)}
+                  className="opacity-0 group-hover:opacity-100 p-1 hover:text-destructive transition-all">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -725,7 +734,7 @@ function EvaluacionesTab({ personaId }: { personaId: number }) {
 
 // ── Tab Sanciones ─────────────────────────────────────────────────────────────
 
-function SancionesTab({ personaId }: { personaId: number }) {
+function SancionesTab({ personaId, puedeGestionar }: { personaId: number; puedeGestionar: boolean }) {
   const [items, setItems]     = useState<Sancion[]>([])
   const [loading, setLoading] = useState(true)
   const [adding, setAdding]   = useState(false)
@@ -792,10 +801,12 @@ function SancionesTab({ personaId }: { personaId: number }) {
                 </div>
                 {s.descripcion && <p className="text-sm mt-1.5 leading-snug">{s.descripcion}</p>}
               </div>
-              <button onClick={() => eliminar(s.id)}
-                className="opacity-0 group-hover:opacity-100 p-1 hover:text-destructive transition-all">
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
+              {puedeGestionar && (
+                <button onClick={() => eliminar(s.id)}
+                  className="opacity-0 group-hover:opacity-100 p-1 hover:text-destructive transition-all">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -824,7 +835,7 @@ function SancionesTab({ personaId }: { personaId: number }) {
 
 // ── Tab Novedades ─────────────────────────────────────────────────────────────
 
-function NovedadesTab({ personaId }: { personaId: number }) {
+function NovedadesTab({ personaId, puedeGestionar }: { personaId: number; puedeGestionar: boolean }) {
   const [items, setItems]     = useState<Novedad[]>([])
   const [loading, setLoading] = useState(true)
   const [adding, setAdding]   = useState(false)
@@ -896,13 +907,19 @@ function NovedadesTab({ personaId }: { personaId: number }) {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm font-medium">{n.tipo}</span>
-                  <select
-                    value={n.estado}
-                    onChange={(e) => cambiarEstado(n.id, e.target.value)}
-                    className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border-0 outline-none cursor-pointer ${ESTADO_COLOR[n.estado] ?? "bg-muted text-muted-foreground"}`}
-                  >
-                    {TC_NOVEDAD_ESTADOS.map((e) => <option key={e} value={e}>{e}</option>)}
-                  </select>
+                  {puedeGestionar ? (
+                    <select
+                      value={n.estado}
+                      onChange={(e) => cambiarEstado(n.id, e.target.value)}
+                      className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border-0 outline-none cursor-pointer ${ESTADO_COLOR[n.estado] ?? "bg-muted text-muted-foreground"}`}
+                    >
+                      {TC_NOVEDAD_ESTADOS.map((e) => <option key={e} value={e}>{e}</option>)}
+                    </select>
+                  ) : (
+                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${ESTADO_COLOR[n.estado] ?? "bg-muted text-muted-foreground"}`}>
+                      {n.estado}
+                    </span>
+                  )}
                   <OrigenBadge origen={n.origen} />
                 </div>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -911,10 +928,12 @@ function NovedadesTab({ personaId }: { personaId: number }) {
                 </div>
                 {n.descripcion && <p className="text-xs text-muted-foreground mt-1 italic">{n.descripcion}</p>}
               </div>
-              <button onClick={() => eliminar(n.id)}
-                className="opacity-0 group-hover:opacity-100 p-1 hover:text-destructive transition-all">
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
+              {puedeGestionar && (
+                <button onClick={() => eliminar(n.id)}
+                  className="opacity-0 group-hover:opacity-100 p-1 hover:text-destructive transition-all">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           ))}
         </div>

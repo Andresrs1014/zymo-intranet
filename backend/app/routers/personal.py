@@ -15,6 +15,7 @@ from sqlmodel import Session, col, select
 
 from app.config import settings
 from app.core.deps import get_current_user, require_admin, require_permission
+from app.core.permissions import user_has_any_permission
 from app.database import get_db
 from app.models.area import Area as GlobalArea
 from app.models.area_sede import AreaSede
@@ -902,6 +903,43 @@ def _persona_jefe_creates_cycle(
     return False
 
 
+def _es_jefe_en_cadena(candidato_persona_id: int, persona_id: int, db: Session) -> bool:
+    """True si candidato_persona_id es el jefe directo de persona_id, o el jefe
+    de ese jefe, subiendo toda la cadena — mismo recorrido que
+    _persona_jefe_creates_cycle, en la dirección contraria (desde el liderado
+    hacia arriba). ponytail: única regla de "quién ve la info sensible de
+    quién" por ahora — el usuario pidió dejarla configurable a futuro, así que
+    toda la lógica de acceso pasa por _puede_ver_sensible en vez de repetirse
+    endpoint por endpoint."""
+    current_id: Optional[int] = persona_id
+    visited: set[int] = set()
+    while current_id is not None and current_id not in visited:
+        visited.add(current_id)
+        current = db.get(PtcPersona, current_id)
+        if not current or current.jefe_directo_id is None:
+            return False
+        if current.jefe_directo_id == candidato_persona_id:
+            return True
+        current_id = current.jefe_directo_id
+    return False
+
+
+def _puede_ver_sensible(persona_id: int, user: User, db: Session, main_db: Session) -> bool:
+    """Acceso a Evaluaciones/Sanciones/Novedades de una persona: admin,
+    mod_tc_sensible (T&C), o el jefe en la cadena de mando de esa persona."""
+    if user_has_any_permission(main_db, user, ["mod_tc_sensible"]):
+        return True
+    mi_persona = db.exec(select(PtcPersona).where(PtcPersona.user_id == user.id)).first()
+    if not mi_persona:
+        return False
+    return _es_jefe_en_cadena(mi_persona.id, persona_id, db)
+
+
+def _requerir_ver_sensible(persona_id: int, user: User, db: Session, main_db: Session) -> None:
+    if not _puede_ver_sensible(persona_id, user, db, main_db):
+        raise HTTPException(status_code=403, detail="No tienes acceso a la información sensible de esta persona.")
+
+
 def _cargo_parent_creates_cycle(
     db: Session,
     cargo_id: int,
@@ -1023,12 +1061,14 @@ def obtener_persona(
     persona_id: int,
     db: Session = Depends(get_personal_db),
     main_db: Session = Depends(get_db),
-    _: User = Depends(require_tc),
+    user: User = Depends(require_tc),
 ):
     persona = db.get(PtcPersona, persona_id)
     if not persona:
         raise HTTPException(status_code=404, detail="Persona no encontrada.")
-    return _persona_dict(persona, db, main_db)
+    data = _persona_dict(persona, db, main_db)
+    data["puede_ver_sensible"] = _puede_ver_sensible(persona_id, user, db, main_db)
+    return data
 
 
 @router.post("/personas", status_code=status.HTTP_201_CREATED)
@@ -1609,10 +1649,12 @@ class EvaluacionCreate(BaseModel):
 def listar_evaluaciones(
     persona_id: int,
     db: Session = Depends(get_personal_db),
-    _: User = Depends(require_tc_sensible),
+    main_db: Session = Depends(get_db),
+    user: User = Depends(require_tc),
 ):
     if not db.get(PtcPersona, persona_id):
         raise HTTPException(status_code=404, detail="Persona no encontrada")
+    _requerir_ver_sensible(persona_id, user, db, main_db)
     rows = db.exec(
         select(PtcEvaluacion)
         .where(PtcEvaluacion.persona_id == persona_id)
@@ -1633,10 +1675,12 @@ def crear_evaluacion(
     persona_id: int,
     body: EvaluacionCreate,
     db: Session = Depends(get_personal_db),
-    _: User = Depends(require_tc_sensible),
+    main_db: Session = Depends(get_db),
+    user: User = Depends(require_tc),
 ):
     if not db.get(PtcPersona, persona_id):
         raise HTTPException(status_code=404, detail="Persona no encontrada")
+    _requerir_ver_sensible(persona_id, user, db, main_db)
     ev = PtcEvaluacion(
         persona_id=persona_id,
         titulo=body.titulo.strip(),
@@ -1678,10 +1722,12 @@ class SancionCreate(BaseModel):
 def listar_sanciones(
     persona_id: int,
     db: Session = Depends(get_personal_db),
-    _: User = Depends(require_tc_sensible),
+    main_db: Session = Depends(get_db),
+    user: User = Depends(require_tc),
 ):
     if not db.get(PtcPersona, persona_id):
         raise HTTPException(status_code=404, detail="Persona no encontrada")
+    _requerir_ver_sensible(persona_id, user, db, main_db)
     rows = db.exec(
         select(PtcSancion)
         .where(PtcSancion.persona_id == persona_id)
@@ -1701,10 +1747,12 @@ def crear_sancion(
     persona_id: int,
     body: SancionCreate,
     db: Session = Depends(get_personal_db),
-    _: User = Depends(require_tc_sensible),
+    main_db: Session = Depends(get_db),
+    user: User = Depends(require_tc),
 ):
     if not db.get(PtcPersona, persona_id):
         raise HTTPException(status_code=404, detail="Persona no encontrada")
+    _requerir_ver_sensible(persona_id, user, db, main_db)
     san = PtcSancion(
         persona_id=persona_id,
         tipo=body.tipo.strip(),
@@ -1753,10 +1801,12 @@ class NovedadUpdate(BaseModel):
 def listar_novedades(
     persona_id: int,
     db: Session = Depends(get_personal_db),
-    _: User = Depends(require_tc_sensible),
+    main_db: Session = Depends(get_db),
+    user: User = Depends(require_tc),
 ):
     if not db.get(PtcPersona, persona_id):
         raise HTTPException(status_code=404, detail="Persona no encontrada")
+    _requerir_ver_sensible(persona_id, user, db, main_db)
     rows = db.exec(
         select(PtcNovedad)
         .where(PtcNovedad.persona_id == persona_id)
@@ -1778,10 +1828,12 @@ def crear_novedad(
     persona_id: int,
     body: NovedadCreate,
     db: Session = Depends(get_personal_db),
-    _: User = Depends(require_tc_sensible),
+    main_db: Session = Depends(get_db),
+    user: User = Depends(require_tc),
 ):
     if not db.get(PtcPersona, persona_id):
         raise HTTPException(status_code=404, detail="Persona no encontrada")
+    _requerir_ver_sensible(persona_id, user, db, main_db)
     nov = PtcNovedad(
         persona_id=persona_id,
         tipo=body.tipo.strip(),
