@@ -2,7 +2,6 @@
 
 export const PQR_LIST_TYPES = [
   "platforms",
-  "managers",
   "generators",
   "phones",
   "emails",
@@ -18,7 +17,6 @@ export type PqrListType = (typeof PQR_LIST_TYPES)[number]
 
 export const defaultPqrConfig: Record<PqrListType, string[]> = {
   platforms: ["CEDI principal", "Operacion transporte", "Ultima milla", "Almacenamiento"],
-  managers: [],
   generators: ["Usuario que genera ticket"],
   phones: ["+57 300 000 0000"],
   emails: ["servicio@cliente.com"],

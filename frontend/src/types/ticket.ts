@@ -89,7 +89,6 @@ export interface TicketListItem {
 
 export interface TicketConfigLists {
   platforms: TicketListItem[]
-  managers: TicketListItem[]
   generators: TicketListItem[]
   phones: TicketListItem[]
   emails: TicketListItem[]

@@ -19,7 +19,6 @@ import {
   Settings2,
   Tags,
   Trash2,
-  UserCheck,
   UserCog,
   Users,
   X,
@@ -64,7 +63,7 @@ interface TicketConfigDialogProps {
 }
 
 type EditableListType =
-  | "statuses" | "types" | "platforms" | "managers"
+  | "statuses" | "types" | "platforms"
   | "priorities" | "impacts" | "channels" | "managementCriteria"
 type MoveDirection = -1 | 1
 
@@ -912,7 +911,6 @@ export function TicketConfigDialog({
   const statuses = listsQuery.data?.statuses ?? []
   const types = listsQuery.data?.types ?? []
   const platforms = listsQuery.data?.platforms ?? []
-  const managers = listsQuery.data?.managers ?? []
   const priorities = listsQuery.data?.priorities ?? []
   const impacts = listsQuery.data?.impacts ?? []
   const channels = listsQuery.data?.channels ?? []
@@ -1022,14 +1020,6 @@ export function TicketConfigDialog({
                   </TabLabel>
                 </TabsTrigger>
                 <TabsTrigger
-                  value="managers"
-                  className="min-h-10 min-w-0 gap-1.5 px-2 text-xs data-[state=active]:bg-primary data-[state=active]:text-white sm:text-sm"
-                >
-                  <TabLabel icon={<UserCheck className="h-4 w-4 shrink-0" />} count={managers.length}>
-                    Gestiona
-                  </TabLabel>
-                </TabsTrigger>
-                <TabsTrigger
                   value="priorities"
                   className="min-h-10 min-w-0 gap-1.5 px-2 text-xs data-[state=active]:bg-primary data-[state=active]:text-white sm:text-sm"
                 >
@@ -1131,18 +1121,6 @@ export function TicketConfigDialog({
                 curados={rolesTicket.coordinador}
                 onChange={(next) => setRolesTicket((r) => ({ ...r, coordinador: next }))}
               />
-            </TabsContent>
-            <TabsContent value="managers" className="mt-0 min-h-0 flex-1 overflow-hidden">
-              {listsQuery.isError ? (
-                <QueryErrorState onRetry={() => void listsQuery.refetch()} />
-              ) : (
-                <ListConfigSection
-                  listType="managers"
-                  singular="Gestor"
-                  items={managers}
-                  isLoading={listsQuery.isLoading}
-                />
-              )}
             </TabsContent>
             <TabsContent value="priorities" className="mt-0 min-h-0 flex-1 overflow-hidden">
               {listsQuery.isError ? (

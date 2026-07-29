@@ -23,7 +23,7 @@ export interface TicketListFilters {
 }
 
 type EditableTicketListType =
-  | "statuses" | "types" | "platforms" | "managers"
+  | "statuses" | "types" | "platforms"
   | "priorities" | "impacts" | "channels" | "managementCriteria"
 
 interface CreateListItemInput {
