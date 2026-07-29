@@ -3,9 +3,10 @@ import { api } from "@/lib/api"
 import { useAuthStore } from "@/store/authStore"
 import { canEditTyC } from "@/lib/permissions"
 import { PageLayout } from "@/components/layout/PageLayout"
+import { downloadBlob } from "@/lib/downloadBlob"
 import {
   Plus, RefreshCw, Search, X, GraduationCap,
-  BookOpen, Clock, Users, Award,
+  BookOpen, Clock, Users, Award, Download,
 } from "lucide-react"
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
@@ -37,6 +38,8 @@ interface Capacitacion {
   fecha: string
   horas: number
   estado: string
+  tipo: string
+  costo: number | null
 }
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
@@ -49,13 +52,13 @@ const MOCK_STATS: CapStats = {
 const MOCK_CAPS: Capacitacion[] = [
   { id: 1, titulo: "Inducción HSEQ 2026", persona_nombre: "Carlos Pérez",
     persona_id: 1, cargo_nombre: "Auxiliar Logístico", area_nombre: "Operaciones",
-    fecha: "2026-06-10", horas: 8, estado: "Completado" },
+    fecha: "2026-06-10", horas: 8, estado: "Completado", tipo: "Interna", costo: 0 },
   { id: 2, titulo: "Manejo de Montacargas", persona_nombre: "Luisa Ramírez",
     persona_id: 2, cargo_nombre: "Operaria de Bodega", area_nombre: "Bodega",
-    fecha: "2026-06-20", horas: 16, estado: "Pendiente" },
+    fecha: "2026-06-20", horas: 16, estado: "Pendiente", tipo: "Externa", costo: 350000 },
   { id: 3, titulo: "Normativa Aduanera 2026", persona_nombre: "Pedro Gómez",
     persona_id: 3, cargo_nombre: "Analista de Operaciones", area_nombre: "Comercial",
-    fecha: "2026-07-05", horas: 4, estado: "Programado" },
+    fecha: "2026-07-05", horas: 4, estado: "Programado", tipo: "Externa", costo: 180000 },
 ]
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -68,11 +71,30 @@ const ESTADO_BADGE: Record<string, string> = {
 }
 
 const ESTADO_OPTS = ["Todos", "Programado", "Completado", "Pendiente", "Cancelado"]
+const TIPO_OPTS = ["Interna", "Externa"]
+
+const TIPO_BADGE: Record<string, string> = {
+  "Interna": "bg-teal-500/10 text-teal-400",
+  "Externa": "bg-violet-500/10 text-violet-400",
+}
+
+function formatoCosto(v: number | null) {
+  if (v == null) return "—"
+  return `$${v.toLocaleString("es-CO")}`
+}
 
 function coberturaColor(pct: number) {
   if (pct >= 80) return "text-emerald-400"
   if (pct >= 50) return "text-amber-400"
   return "text-red-400"
+}
+
+// "2026-07" -> { desde: "2026-07-01", hasta: "2026-07-31" }
+function rangoDelMes(mes: string): { desde: string; hasta: string } | null {
+  if (!mes) return null
+  const [anio, m] = mes.split("-").map(Number)
+  const hasta = new Date(anio, m, 0).getDate()
+  return { desde: `${mes}-01`, hasta: `${mes}-${String(hasta).padStart(2, "0")}` }
 }
 
 // ── Componente principal ────────────────────────────────────────────────────────
@@ -92,6 +114,9 @@ export function TyCCapacitacionesPage() {
   const [busqueda, setBusqueda]   = useState("")
   const [areaFiltro, setAreaFiltro] = useState("")
   const [estadoFiltro, setEstadoFiltro] = useState("Todos")
+  const [tipoFiltro, setTipoFiltro] = useState("Todos")
+  const [mesFiltro, setMesFiltro] = useState("") // "YYYY-MM", vacío = todos los meses
+  const [exportando, setExportando] = useState(false)
 
   // Modales
   const [modalAgendar, setModalAgendar]     = useState(false)
@@ -104,18 +129,38 @@ export function TyCCapacitacionesPage() {
     } catch { setStats(MOCK_STATS) }
   }, [])
 
+  function filtrosActuales(): Record<string, string> {
+    const params: Record<string, string> = {}
+    if (areaFiltro) params.area_id = areaFiltro
+    if (estadoFiltro !== "Todos") params.estado = estadoFiltro
+    if (tipoFiltro !== "Todos") params.tipo = tipoFiltro
+    const rango = rangoDelMes(mesFiltro)
+    if (rango) { params.fecha_desde = rango.desde; params.fecha_hasta = rango.hasta }
+    return params
+  }
+
   const loadCaps = useCallback(async () => {
     setLoading(true)
     try {
-      const params: Record<string, string> = {}
-      if (areaFiltro) params.area_id = areaFiltro
-      if (estadoFiltro !== "Todos") params.estado = estadoFiltro
-      const { data } = await api.get("/tc/capacitaciones", { params })
+      const { data } = await api.get("/tc/capacitaciones", { params: filtrosActuales() })
       setCaps(Array.isArray(data) ? data : [])
     } catch {
       setCaps(MOCK_CAPS)
     } finally { setLoading(false) }
-  }, [areaFiltro, estadoFiltro])
+  }, [areaFiltro, estadoFiltro, tipoFiltro, mesFiltro])
+
+  async function handleExport() {
+    setExportando(true)
+    try {
+      const res = await api.get("/tc/capacitaciones/exportar", {
+        params: filtrosActuales(),
+        responseType: "blob",
+      })
+      downloadBlob(res.data, "capacitaciones.xlsx")
+    } finally {
+      setExportando(false)
+    }
+  }
 
   const loadAreas = useCallback(async () => {
     try {
@@ -240,12 +285,54 @@ export function TyCCapacitacionesPage() {
             ))}
           </select>
 
+          <select
+            value={tipoFiltro}
+            onChange={(e) => setTipoFiltro(e.target.value)}
+            className="combo"
+          >
+            <option value="Todos">Interna y externa</option>
+            {TIPO_OPTS.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+
+          <input
+            type="month"
+            value={mesFiltro}
+            onChange={(e) => setMesFiltro(e.target.value)}
+            title="Filtrar por mes"
+            className="combo"
+          />
+          {mesFiltro && (
+            <button
+              onClick={() => setMesFiltro("")}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors -ml-1"
+              title="Quitar filtro de mes"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+
           <button
             onClick={() => { loadStats(); loadCaps() }}
             className="flex h-9 w-9 items-center justify-center rounded-lg border border-input hover:bg-accent transition-colors"
             title="Recargar"
           >
             <RefreshCw className="w-3.5 h-3.5 text-muted-foreground" />
+          </button>
+
+          <button
+            onClick={handleExport}
+            disabled={exportando}
+            className="flex items-center gap-1.5 h-9 px-3 rounded-lg border border-input hover:bg-accent transition-colors text-sm disabled:opacity-50"
+            title="Exportar a Excel según los filtros actuales"
+          >
+            {exportando ? (
+              <div className="w-3.5 h-3.5 border border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
+            ) : (
+              <Download className="w-3.5 h-3.5 text-muted-foreground" />
+            )}
+            Exportar
           </button>
         </div>
 
@@ -284,6 +371,12 @@ export function TyCCapacitacionesPage() {
                       Horas
                     </th>
                     <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                      Tipo
+                    </th>
+                    <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">
+                      Costo
+                    </th>
+                    <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
                       Estado
                     </th>
                     <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
@@ -316,6 +409,16 @@ export function TyCCapacitacionesPage() {
                       </td>
                       <td className="px-4 py-2.5">
                         <span className="text-xs text-muted-foreground tabular-nums">{c.horas}h</span>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                          TIPO_BADGE[c.tipo] ?? "bg-muted text-muted-foreground"
+                        }`}>
+                          {c.tipo}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 hidden md:table-cell">
+                        <span className="text-xs text-muted-foreground tabular-nums">{formatoCosto(c.costo)}</span>
                       </td>
                       <td className="px-4 py-2.5">
                         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
@@ -434,9 +537,10 @@ function ModalAgendar({
   const [saving, setSaving]     = useState(false)
   const [error, setError]       = useState("")
   const [form, setForm] = useState({
-    titulo: "", fecha: "", horas: "", observaciones: "",
+    titulo: "", fecha: "", horas: "", tipo: "Interna", costo: "", observaciones: "",
   })
   const [seleccionados, setSeleccionados] = useState<number[]>([])
+  const [busquedaPersona, setBusquedaPersona] = useState("")
 
   useEffect(() => {
     if (personas.length > 0) { setLoading(false); return }
@@ -453,6 +557,13 @@ function ModalAgendar({
       .catch(() => onPersonasLoad([]))
       .finally(() => setLoading(false))
   }, [])
+
+  const term = busquedaPersona.trim().toLowerCase()
+  const personasFiltradas = term
+    ? personas.filter((p) =>
+        p.nombre.toLowerCase().includes(term) || p.cargo_nombre.toLowerCase().includes(term)
+      )
+    : personas
 
   function toggle(id: number) {
     setSeleccionados((prev) =>
@@ -471,6 +582,8 @@ function ModalAgendar({
         titulo: form.titulo.trim(),
         fecha: form.fecha,
         horas: parseFloat(form.horas),
+        tipo: form.tipo,
+        costo: form.costo ? parseFloat(form.costo) : null,
         persona_ids: seleccionados,
         observaciones: form.observaciones.trim(),
       })
@@ -526,6 +639,26 @@ function ModalAgendar({
                 className="input"
               />
             </Field>
+            <Field label="Tipo">
+              <select
+                value={form.tipo}
+                onChange={(e) => setForm((p) => ({ ...p, tipo: e.target.value }))}
+                className="combo w-full"
+              >
+                {TIPO_OPTS.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </Field>
+            <Field label="Costo (COP)">
+              <input
+                type="number"
+                min="0"
+                step="1000"
+                value={form.costo}
+                onChange={(e) => setForm((p) => ({ ...p, costo: e.target.value }))}
+                placeholder="Ej: 350000 (0 si es gratis)"
+                className="input"
+              />
+            </Field>
           </div>
 
           <Field label="Personas *" required>
@@ -536,8 +669,20 @@ function ModalAgendar({
               </div>
             ) : (
               <div className="border border-border rounded-lg overflow-hidden">
-                <div className="max-h-40 overflow-y-auto divide-y divide-border">
-                  {personas.map((p) => (
+                <div className="px-3 py-2 border-b border-border flex items-center justify-between gap-2 bg-muted/10">
+                  <input
+                    type="text"
+                    value={busquedaPersona}
+                    onChange={(e) => setBusquedaPersona(e.target.value)}
+                    placeholder="Buscar por nombre o cargo…"
+                    className="flex-1 min-w-0 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                  />
+                  <span className="text-[10px] text-muted-foreground shrink-0 tabular-nums">
+                    {personasFiltradas.length} de {personas.length}
+                  </span>
+                </div>
+                <div className="max-h-56 overflow-y-auto divide-y divide-border">
+                  {personasFiltradas.map((p) => (
                     <label
                       key={p.id}
                       className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-muted/20 transition-colors"
@@ -556,9 +701,9 @@ function ModalAgendar({
                       </div>
                     </label>
                   ))}
-                  {personas.length === 0 && (
+                  {personasFiltradas.length === 0 && (
                     <div className="px-3 py-4 text-sm text-muted-foreground text-center">
-                      Sin personas disponibles
+                      {personas.length === 0 ? "Sin personas disponibles" : "Sin resultados para esa búsqueda."}
                     </div>
                   )}
                 </div>

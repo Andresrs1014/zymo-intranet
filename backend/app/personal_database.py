@@ -138,6 +138,8 @@ class PtcCapacitacion(SQLModel, table=True):
     fecha: Optional[date] = None
     horas: Optional[float] = None
     estado: str = Field(max_length=30, default="Completado")
+    tipo: str = Field(max_length=20, default="Interna")  # "Interna" | "Externa"
+    costo: Optional[float] = None
     diploma_url: str = Field(max_length=500, default="")
     observaciones: str = Field(max_length=500, default="")
     documentos: str = Field(default="[]")  # ponytail: JSON [{nombre,url}], upgrade to table if attachments needed
@@ -458,6 +460,8 @@ def _migrate_personal() -> None:
             "ALTER TABLE ptc_evaluacion ADD COLUMN origen TEXT DEFAULT 'manual'",
             "ALTER TABLE ptc_sancion ADD COLUMN origen TEXT DEFAULT 'manual'",
             "ALTER TABLE ptc_novedad ADD COLUMN origen TEXT DEFAULT 'manual'",
+            "ALTER TABLE ptc_capacitacion ADD COLUMN tipo TEXT DEFAULT 'Interna'",
+            "ALTER TABLE ptc_capacitacion ADD COLUMN costo REAL DEFAULT NULL",
         ]:
             try:
                 conn.execute(text(sql))

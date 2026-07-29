@@ -5,6 +5,7 @@ Prefijo: /tc  (montado junto a personal.py)
 Endpoints propios:
   GET    /tc/capacitaciones                              — lista global con filtros
   GET    /tc/capacitaciones/stats                        — KPIs globales
+  GET    /tc/capacitaciones/exportar                      — Excel (mismos filtros que la lista)
   POST   /tc/capacitaciones/bulk                         — enrolar múltiples personas
   PATCH  /tc/capacitaciones/{cap_id}/completar           — marcar completada
   PATCH  /tc/capacitaciones/{cap_id}/documentos          — vincular URLs de documentos
@@ -16,6 +17,7 @@ from datetime import date, datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlmodel import Session, col, func, select
 
@@ -41,6 +43,8 @@ class BulkCapacitacionBody(BaseModel):
     titulo: str = Field(min_length=1, max_length=200)
     fecha: Optional[date] = None
     horas: Optional[float] = Field(default=None, ge=0)
+    tipo: str = Field(default="Interna")
+    costo: Optional[float] = Field(default=None, ge=0)
     observaciones: str = Field(default="", max_length=500)
     persona_ids: list[int] = Field(min_length=1, max_length=300)
 
@@ -85,6 +89,8 @@ def _enrich(cap: PtcCapacitacion, db: Session) -> dict:
         "fecha":          cap.fecha.isoformat() if cap.fecha else None,
         "horas":          cap.horas,
         "estado":         cap.estado,
+        "tipo":           cap.tipo,
+        "costo":          cap.costo,
         "observaciones":  cap.observaciones,
         "diploma_url":    cap.diploma_url,
         "documentos":     docs,
@@ -125,40 +131,100 @@ def stats_capacitaciones(_: User = Depends(require_tc)):
     }
 
 
+def _filtrar_capacitaciones(
+    db: Session,
+    area_id: Optional[int],
+    sede_id: Optional[int],
+    estado: Optional[str],
+    tipo: Optional[str],
+    fecha_desde: Optional[date],
+    fecha_hasta: Optional[date],
+) -> list[dict]:
+    q = select(PtcCapacitacion).order_by(col(PtcCapacitacion.created_at).desc())
+
+    if estado:
+        q = q.where(PtcCapacitacion.estado == estado)
+    if tipo:
+        q = q.where(PtcCapacitacion.tipo == tipo)
+    if fecha_desde:
+        q = q.where(PtcCapacitacion.fecha >= fecha_desde)
+    if fecha_hasta:
+        q = q.where(PtcCapacitacion.fecha <= fecha_hasta)
+
+    caps = db.exec(q).all()
+
+    # Filtros por persona (area_id / sede_id) se aplican post-query
+    result = []
+    for cap in caps:
+        persona = db.get(PtcPersona, cap.persona_id)
+        if not persona:
+            continue
+        if area_id is not None and persona.area_id != area_id:
+            continue
+        if sede_id is not None and persona.sede_id != sede_id:
+            continue
+        result.append(_enrich(cap, db))
+    return result
+
+
 @router.get("/capacitaciones")
 def listar_capacitaciones_global(
     area_id:      Optional[int]  = Query(default=None),
     sede_id:      Optional[int]  = Query(default=None),
     estado:       Optional[str]  = Query(default=None),
+    tipo:         Optional[str]  = Query(default=None, description="Interna | Externa"),
     fecha_desde:  Optional[date] = Query(default=None),
     fecha_hasta:  Optional[date] = Query(default=None),
     _: User = Depends(require_tc),
 ):
     with Session(get_personal_engine()) as db:
-        q = select(PtcCapacitacion).order_by(col(PtcCapacitacion.created_at).desc())
+        return _filtrar_capacitaciones(db, area_id, sede_id, estado, tipo, fecha_desde, fecha_hasta)
 
-        if estado:
-            q = q.where(PtcCapacitacion.estado == estado)
-        if fecha_desde:
-            q = q.where(PtcCapacitacion.fecha >= fecha_desde)
-        if fecha_hasta:
-            q = q.where(PtcCapacitacion.fecha <= fecha_hasta)
 
-        caps = db.exec(q).all()
+@router.get("/capacitaciones/exportar")
+def exportar_capacitaciones(
+    area_id:      Optional[int]  = Query(default=None),
+    sede_id:      Optional[int]  = Query(default=None),
+    estado:       Optional[str]  = Query(default=None),
+    tipo:         Optional[str]  = Query(default=None),
+    fecha_desde:  Optional[date] = Query(default=None),
+    fecha_hasta:  Optional[date] = Query(default=None),
+    _: User = Depends(require_tc),
+):
+    """Excel simple (una hoja, encabezado + filas) con las mismas columnas y
+    el mismo filtro que la tabla en pantalla — pedido explícito del usuario:
+    'no tiene que ser muy complicado'."""
+    import io
 
-        # Filtros por persona (area_id / sede_id) se aplican post-query
-        result = []
-        for cap in caps:
-            persona = db.get(PtcPersona, cap.persona_id)
-            if not persona:
-                continue
-            if area_id is not None and persona.area_id != area_id:
-                continue
-            if sede_id is not None and persona.sede_id != sede_id:
-                continue
-            result.append(_enrich(cap, db))
+    import openpyxl
 
-        return result
+    with Session(get_personal_engine()) as db:
+        filas = _filtrar_capacitaciones(db, area_id, sede_id, estado, tipo, fecha_desde, fecha_hasta)
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Capacitaciones"
+
+    encabezados = ["Título", "Persona", "Cargo", "Área", "Fecha", "Horas", "Tipo", "Costo", "Estado", "Observaciones"]
+    ws.append(encabezados)
+    for f in filas:
+        ws.append([
+            f["titulo"], f["persona_nombre"], f["cargo_nombre"], f["area_nombre"],
+            f["fecha"] or "", f["horas"] or "", f["tipo"], f["costo"] or "",
+            f["estado"], f["observaciones"],
+        ])
+    for col, width in zip("ABCDEFGHIJ", [35, 28, 28, 18, 12, 8, 10, 12, 14, 40]):
+        ws.column_dimensions[col].width = width
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="capacitaciones.xlsx"'},
+    )
 
 
 @router.post("/capacitaciones/bulk", status_code=status.HTTP_201_CREATED)
@@ -183,6 +249,8 @@ def enrolar_masivo(
                 fecha=body.fecha,
                 horas=body.horas,
                 estado="Pendiente",
+                tipo=body.tipo,
+                costo=body.costo,
                 observaciones=body.observaciones,
             )
             db.add(cap)
