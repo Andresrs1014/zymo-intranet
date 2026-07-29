@@ -114,61 +114,72 @@ export function UsersView() {
           {isLoading && <Skeleton className="h-40 rounded-lg" />}
           {isError && <p className="text-sm text-red-600">No se pudieron cargar las cuentas.</p>}
           {users && (
-            <table className="w-full text-left text-[13px]">
-              <thead>
-                <tr className="text-[11px] uppercase tracking-wide text-zinc-400">
-                  <th className="py-2 pr-3">Correo</th>
-                  <th className="py-2 pr-3">Nombre</th>
-                  <th className="py-2 pr-3">Rol</th>
-                  <th className="py-2 pr-3">Estado</th>
-                  <th className="py-2 pr-3">Último acceso</th>
-                  <th className="py-2 pr-3" />
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((u) => (
-                  <tr key={u.id} className="border-t border-zinc-100">
-                    <td className="py-2 pr-3 font-medium text-zinc-700">{u.email}</td>
-                    <td className="py-2 pr-3 text-zinc-500">{u.nombre || "—"}</td>
-                    <td className="py-2 pr-3">
-                      <Badge variant={u.isAdmin ? "default" : "outline"}>{u.isAdmin ? "Admin" : "Estándar"}</Badge>
-                    </td>
-                    <td className="py-2 pr-3">
-                      <Badge variant={u.active ? "success" : "destructive"}>{u.active ? "Activa" : "Desactivada"}</Badge>
-                    </td>
-                    <td className="py-2 pr-3 text-zinc-400">{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString("es-CO") : "Nunca"}</td>
-                    <td className="py-2 pr-3">
-                      <div className="flex justify-end gap-1">
-                        <Button type="button" size="sm" variant="ghost" className="gap-1" onClick={() => setResetTarget(u)}>
-                          <KeyRound className="h-3.5 w-3.5" /> Contraseña
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="gap-1"
-                          onClick={() => setAdmin.mutate({ id: u.id, isAdmin: !u.isAdmin })}
-                        >
-                          {u.isAdmin ? <><ShieldOff className="h-3.5 w-3.5" /> Quitar admin</> : <><ShieldCheck className="h-3.5 w-3.5" /> Hacer admin</>}
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="gap-1"
-                          onClick={() => setActive.mutate({ id: u.id, active: !u.active })}
-                        >
-                          {u.active ? <><Ban className="h-3.5 w-3.5" /> Desactivar</> : <><CheckCircle2 className="h-3.5 w-3.5" /> Reactivar</>}
-                        </Button>
-                      </div>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] text-left text-[13px]">
+                <thead>
+                  <tr className="text-[11px] uppercase tracking-wide text-zinc-400">
+                    <th className="py-2 pr-3">Correo</th>
+                    <th className="py-2 pr-3">Nombre</th>
+                    <th className="py-2 pr-3">Rol</th>
+                    <th className="py-2 pr-3">Estado</th>
+                    <th className="py-2 pr-3">Último acceso</th>
+                    <th className="py-2 pr-3 text-right">Acciones</th>
                   </tr>
-                ))}
-                {users.length === 0 && (
-                  <tr><td colSpan={6} className="py-8 text-center text-sm text-zinc-400">Sin cuentas creadas todavía.</td></tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {users.map((u) => (
+                    <tr key={u.id} className="border-t border-zinc-100">
+                      <td className="py-2 pr-3 font-medium text-zinc-700">{u.email}</td>
+                      <td className="py-2 pr-3 text-zinc-500">{u.nombre || "—"}</td>
+                      <td className="py-2 pr-3">
+                        <Badge variant={u.isAdmin ? "default" : "outline"}>{u.isAdmin ? "Admin" : "Estándar"}</Badge>
+                      </td>
+                      <td className="py-2 pr-3">
+                        <Badge variant={u.active ? "success" : "destructive"}>{u.active ? "Activa" : "Desactivada"}</Badge>
+                      </td>
+                      <td className="py-2 pr-3 text-zinc-400">{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString("es-CO") : "Nunca"}</td>
+                      <td className="py-2 pr-3">
+                        <div className="flex justify-end gap-0.5">
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8"
+                            title="Cambiar contraseña"
+                            onClick={() => setResetTarget(u)}
+                          >
+                            <KeyRound className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8"
+                            title={u.isAdmin ? "Quitar admin" : "Hacer admin"}
+                            onClick={() => setAdmin.mutate({ id: u.id, isAdmin: !u.isAdmin })}
+                          >
+                            {u.isAdmin ? <ShieldOff className="h-3.5 w-3.5" /> : <ShieldCheck className="h-3.5 w-3.5" />}
+                          </Button>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8"
+                            title={u.active ? "Desactivar" : "Reactivar"}
+                            onClick={() => setActive.mutate({ id: u.id, active: !u.active })}
+                          >
+                            {u.active ? <Ban className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {users.length === 0 && (
+                    <tr><td colSpan={6} className="py-8 text-center text-sm text-zinc-400">Sin cuentas creadas todavía.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           )}
         </CardContent>
       </Card>
