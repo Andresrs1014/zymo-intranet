@@ -1,0 +1,77 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Paleta propia de Libertadora Seguros — CRM Skandia CREA, 1:1 del
+       dashboard original. Toda la app ES esta marca, sin scope aparte. */
+    --lib-teal: #009B8E;
+    --lib-teal-d: #007A6F;
+    --lib-teal-l: #D9F5F3;
+    --lib-navy: #1E3A5F;
+    --lib-navy2: #2D5F8A;
+    --lib-orange: #F5821F;
+    --lib-green: #38A169;
+    --lib-warn: #DD6B20;
+    --lib-red: #E53E3E;
+    --lib-blue: #3182CE;
+    --lib-gray: #A0AEC0;
+
+    --background: 240 5% 96.1%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 175 100% 30%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 175 60% 94%;
+    --accent-foreground: 175 100% 24%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 175 100% 30%;
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  html, body, #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+@layer components {
+  .input-base {
+    @apply w-full rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 transition-shadow;
+  }
+
+  input:focus-visible,
+  textarea:focus-visible,
+  [role="combobox"]:focus-visible,
+  button[role="combobox"]:focus-visible {
+    outline: none;
+    border-color: var(--lib-teal) !important;
+    box-shadow: 0 0 0 2px var(--lib-teal-l) !important;
+  }
+}
