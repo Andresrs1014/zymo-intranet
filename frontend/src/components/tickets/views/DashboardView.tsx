@@ -148,7 +148,7 @@ export function DashboardView() {
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <Leaderboard title="Por plataforma" entries={scoreLeaderboards.byPlatform} />
-          <Leaderboard title="Por supervisor / coordinador" entries={scoreLeaderboards.byPerson} />
+          <Leaderboard title="Por supervisor / analista / coordinador" entries={scoreLeaderboards.byPerson} />
         </div>
       </div>
 

@@ -117,6 +117,7 @@ export async function scoreLeaderboards(
     const resuelto = isResuelto(ticket)
     if (ticket.supervisor) personEntries.push({ label: ticket.supervisor, score, resuelto })
     if (ticket.coordinator) personEntries.push({ label: ticket.coordinator, score, resuelto })
+    for (const analyst of ticket.analysts) personEntries.push({ label: analyst, score, resuelto })
   }
   const byPerson = buildLeaderboard(personEntries)
 
