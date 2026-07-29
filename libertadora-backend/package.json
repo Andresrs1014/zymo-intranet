@@ -7,7 +7,8 @@
     "start": "node dist/app.js",
     "db:migrate": "prisma migrate deploy",
     "db:generate": "prisma generate",
-    "db:seed": "ts-node prisma/seed.ts"
+    "db:seed": "ts-node prisma/seed.ts",
+    "create-admin": "ts-node prisma/createAdmin.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

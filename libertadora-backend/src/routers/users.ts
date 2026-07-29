@@ -1,34 +1,34 @@
 import { Router } from "express"
-import { z } from "zod"
 import {
-  CreatePartnerUserBody,
+  CreateUserBody,
   ResetPasswordBody,
-  listPartnerUsers,
-  createPartnerUser,
-  setPartnerUserActive,
-  resetPartnerUserPassword,
-} from "../services/partnerUsers"
+  listUsers,
+  createUser,
+  setUserActive,
+  setUserAdmin,
+  resetUserPassword,
+} from "../services/users"
 
 const router = Router()
 
-// GET / — lista de cuentas del socio externo, para Configuración
+// GET / — lista de cuentas (staff + Skandia, todas del mismo tipo)
 router.get("/", async (_req, res, next) => {
   try {
-    res.json(await listPartnerUsers())
+    res.json(await listUsers())
   } catch (err) {
     next(err)
   }
 })
 
-// POST / — crea una cuenta nueva (una por persona de Skandia), contraseña fijada a mano
+// POST / — crea una cuenta nueva, contraseña fijada a mano por un admin
 router.post("/", async (req, res, next) => {
   try {
-    const parsed = CreatePartnerUserBody.safeParse(req.body)
+    const parsed = CreateUserBody.safeParse(req.body)
     if (!parsed.success) {
       res.status(400).json({ error: "Datos inválidos", details: parsed.error.flatten() })
       return
     }
-    res.status(201).json(await createPartnerUser(parsed.data))
+    res.status(201).json(await createUser(parsed.data))
   } catch (err) {
     if (err instanceof Error && err.message.includes("Unique constraint")) {
       res.status(409).json({ error: "Ya existe una cuenta con ese correo" })
@@ -38,19 +38,26 @@ router.post("/", async (req, res, next) => {
   }
 })
 
-// PATCH /:id/desactivar — apaga el acceso de una persona puntual sin tocar las demás cuentas
 router.patch("/:id/desactivar", async (req, res, next) => {
   try {
-    res.json(await setPartnerUserActive(req.params.id, false))
+    res.json(await setUserActive(req.params.id, false))
   } catch (err) {
     next(err)
   }
 })
 
-// PATCH /:id/reactivar
 router.patch("/:id/reactivar", async (req, res, next) => {
   try {
-    res.json(await setPartnerUserActive(req.params.id, true))
+    res.json(await setUserActive(req.params.id, true))
+  } catch (err) {
+    next(err)
+  }
+})
+
+router.patch("/:id/admin", async (req, res, next) => {
+  try {
+    const isAdmin = Boolean(req.body?.isAdmin)
+    res.json(await setUserAdmin(req.params.id, isAdmin))
   } catch (err) {
     next(err)
   }
@@ -64,7 +71,7 @@ router.patch("/:id/contrasena", async (req, res, next) => {
       res.status(400).json({ error: "Datos inválidos", details: parsed.error.flatten() })
       return
     }
-    await resetPartnerUserPassword(req.params.id, parsed.data.password)
+    await resetUserPassword(req.params.id, parsed.data.password)
     res.json({ ok: true })
   } catch (err) {
     next(err)

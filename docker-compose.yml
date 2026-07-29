@@ -234,24 +234,21 @@ services:
       timeout: 5s
       retries: 10
 
-  # Libertadora Seguros — CRM comercial Skandia CREA (prospectos/citas), con
-  # link publico persistente para el socio externo. BD propia; cada
-  # escritura ademas se respalda (fire-and-forget) en sig-backend via
-  # /api/libertadora-backup.
+  # Libertadora Seguros — CRM comercial Skandia CREA (prospectos/citas),
+  # app 100% separada de la intranet (backend + frontend propios, dominio
+  # propio, JWT propio). BD propia.
   libertadora-backend:
     build:
       context: ./libertadora-backend
       dockerfile: Dockerfile
     ports:
       - "3006:3006"
-    env_file:
-      - ./backend/.env          # provee SECRET_KEY (mismo JWT secret que FastAPI)
     environment:
       - NODE_ENV=production
       - PORT=3006
       - DATABASE_URL=postgresql://${LIBERTADORA_DB_USER:-libertadora}:${LIBERTADORA_DB_PASSWORD}@libertadora-db:5432/${LIBERTADORA_DB_NAME:-libertadoradb}
-      - SIG_BACKEND_URL=http://sig-backend:3003
-      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:81}
+      - JWT_SECRET=${LIBERTADORA_JWT_SECRET}
+      - CORS_ORIGIN=${LIBERTADORA_CORS_ORIGIN}
     depends_on:
       libertadora-db:
         condition: service_healthy

@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { prisma } from "../config/prisma"
-import { backupToSig } from "./sigBackup"
 
 // Mismos 5 productos y 5 estados del prototipo original (Dashboard GestionComercial SKANDIA CREA 2026.html)
 export const PRODUCTOS = ["CREA PATRIMONIO PJ", "CREA PATRIMONIO PN", "CREA AHORRO", "ARL COLMENA", "PORTAFOLIO"] as const
@@ -27,21 +26,15 @@ export async function listProspectos() {
 }
 
 export async function createProspecto(data: z.infer<typeof ProspectoBody>) {
-  const prospecto = await prisma.libertadoraProspecto.create({ data })
-  void backupToSig("prospecto", "create", prospecto.id, prospecto)
-  return prospecto
+  return prisma.libertadoraProspecto.create({ data })
 }
 
 export async function updateProspecto(id: number, data: z.infer<typeof ProspectoPatch>) {
-  const prospecto = await prisma.libertadoraProspecto.update({ where: { id }, data })
-  void backupToSig("prospecto", "update", prospecto.id, prospecto)
-  return prospecto
+  return prisma.libertadoraProspecto.update({ where: { id }, data })
 }
 
 export async function deleteProspecto(id: number) {
-  const prospecto = await prisma.libertadoraProspecto.delete({ where: { id } })
-  void backupToSig("prospecto", "delete", prospecto.id, prospecto)
-  return prospecto
+  return prisma.libertadoraProspecto.delete({ where: { id } })
 }
 
 // Ported 1:1 de kpis() en app.js del prototipo original.

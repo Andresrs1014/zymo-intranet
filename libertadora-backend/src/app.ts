@@ -2,16 +2,14 @@ import "dotenv/config"
 import express, { Request, Response, NextFunction } from "express"
 import cors from "cors"
 import { env } from "./config/env"
-import { authenticate, requireLibertadoraAccess, requireGerente, requireLibertadoraPartnerScope } from "./middleware/auth"
+import { requireAuth, requireAdmin } from "./middleware/auth"
+import loginRouter from "./routers/login"
 import prospectosRouter from "./routers/prospectos"
 import citasRouter from "./routers/citas"
 import metaRouter from "./routers/meta"
 import dashboardRouter from "./routers/dashboard"
-import partnerUsersRouter from "./routers/partnerUsers"
-import publicLoginRouter from "./routers/public/login"
-import publicMetaRouter from "./routers/public/meta"
+import usersRouter from "./routers/users"
 import informePdfRouter from "./routers/informePdf"
-import publicInformePdfRouter from "./routers/public/informePdf"
 
 const app = express()
 
@@ -29,29 +27,19 @@ app.get("/health", (_req: Request, res: Response) => {
   res.json({ status: "ok", service: "libertadora-backend" })
 })
 
-// --- Login del socio externo (Skandia) — usuario y contraseña, sin cuenta en
-// la intranet. Se monta antes de requireLibertadoraAccess/authenticate. ---
-app.use("/public/login", publicLoginRouter)
+// --- Login — única puerta de entrada, staff y Skandia por igual (app 100%
+// separada de la intranet, decisión del usuario 2026-07-28). GET /me exige sesión. ---
+app.use("/api/login", loginRouter)
 
-// --- Acceso público del socio externo tras login — mismos routers que el
-// staff interno usa, solo cambia el middleware de autenticación. Lectura +
-// edición completa, decisión explícita del usuario (no solo lectura). ---
-app.use("/public/prospectos", requireLibertadoraPartnerScope, prospectosRouter)
-app.use("/public/citas", requireLibertadoraPartnerScope, citasRouter)
-// Meta comercial — lectura y edición para Skandia (decisión del gerente, 2026-07-28).
-app.use("/public/meta", requireLibertadoraPartnerScope, publicMetaRouter)
-// PDF real del informe, generado en el servidor (sin diálogo de impresión del navegador).
-app.use("/public/informe/pdf", requireLibertadoraPartnerScope, publicInformePdfRouter)
-
-// --- Staff interno (JWT normal de la intranet) ---
-app.use("/api", authenticate, requireLibertadoraAccess)
+// --- Todo lo demás exige sesión vigente ---
+app.use("/api", requireAuth)
 app.use("/api/prospectos", prospectosRouter)
 app.use("/api/citas", citasRouter)
 app.use("/api/meta", metaRouter)
 app.use("/api/dashboard", dashboardRouter)
 app.use("/api/informe/pdf", informePdfRouter)
-// Gestión de cuentas del socio externo — "Usuarios externos" en Configuración
-app.use("/api/partner-users", requireGerente, partnerUsersRouter)
+// Gestión de cuentas — solo administradores
+app.use("/api/users", requireAdmin, usersRouter)
 
 // --- 404 handler ---
 app.use((_req: Request, res: Response) => {
