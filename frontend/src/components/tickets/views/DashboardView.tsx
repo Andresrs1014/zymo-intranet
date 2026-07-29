@@ -33,7 +33,9 @@ function Leaderboard({ title, entries }: { title: string; entries: ScoreLeaderbo
             <span className="w-4 shrink-0 text-xs font-bold text-zinc-400 tabular-nums">{i + 1}</span>
             <div className="min-w-0 flex-1">
               <p className="truncate text-[13px] font-semibold text-zinc-900">{entry.label}</p>
-              <p className="text-[11px] text-zinc-500">{entry.resolved}/{entry.count} resueltos</p>
+              <p className="text-[11px] text-zinc-500">
+                {entry.count - entry.resolved} abiertos ahora · {entry.resolved}/{entry.count} resueltos
+              </p>
             </div>
             <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-bold tabular-nums ${
               i === 0 ? "bg-[#fce9ed] text-[#a8172f]" : "bg-zinc-100 text-zinc-600"
