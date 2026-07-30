@@ -7,7 +7,7 @@ import { PageLayout } from "@/components/layout/PageLayout"
 import { PlataformaConfigSheet } from "./components/PlataformaConfigSheet"
 import {
   Users, GitBranch, Upload, FileText, TrendingUp, ArrowUpRight,
-  CalendarDays, Settings2, GraduationCap, UserX, Building2, UserPlus, Plus, Pencil, FileStack,
+  CalendarDays, Settings2, GraduationCap, UserX, Building2, UserPlus, Plus, Pencil, FileStack, CheckCircle2,
 } from "lucide-react"
 
 interface Stats {
@@ -220,6 +220,13 @@ export function TyCPage() {
               title="Formatos digitales"
               description="Permisos, días remotos y demás formatos de Gestión Humana, digitalizados."
               onClick={() => navigate("/tc/formatos")}
+            />
+            <ModuleCard
+              icon={<CheckCircle2 className="w-4 h-4" />}
+              color="teal"
+              title="Aprobaciones"
+              description="Acepta o rechaza los permisos/novedades que te envía tu gente a cargo por Formato de Ausentismo."
+              onClick={() => navigate("/tc/aprobaciones")}
             />
           </div>
         </section>

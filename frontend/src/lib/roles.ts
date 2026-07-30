@@ -145,6 +145,19 @@ export const INTERNAL_MODULE_GROUPS: ModulePermissionGroup[] = [
     ],
   },
   {
+    title: "Aprobaciones (Formatos digitales)",
+    subtitle: "Independiente de T&C — aparece dentro de Operativo para el jefe, y dentro de T&C para quien ya tiene acceso completo",
+    modules: [
+      {
+        id: "mod_tc_aprobaciones",
+        category: "modulo",
+        icon: "✅",
+        name: "Aprobaciones — Jefe directo",
+        description: "Aceptar o rechazar permisos/novedades enviados por formato digital (Formato de Ausentismo) por la gente a cargo propia. Al aprobar se carga la firma del jefe y se avisa por correo a T&C",
+      },
+    ],
+  },
+  {
     title: "ZymoAlly — Tickets (PQR)",
     subtitle: "Gestión de tickets y maestros del formulario",
     modules: [

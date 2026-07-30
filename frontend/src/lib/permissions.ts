@@ -198,6 +198,13 @@ export function canUseEvaluacionesDesempeno(role: string, appPerms?: string[]): 
   return hasPerm(appPerms, "mod_tc_evaluaciones")
 }
 
+// Independiente de mod_tc — mismo patrón que mod_tc_agenda: el jefe aprueba
+// permisos/novedades de su gente a cargo sin necesitar acceso al resto de T&C.
+export function canUseAprobaciones(role: string, appPerms?: string[]): boolean {
+  if (role === "admin") return true
+  return hasPerm(appPerms, "mod_tc_aprobaciones")
+}
+
 // Reportes de Desarrollo — módulo exclusivo de admin (decisión definitiva,
 // 2026-07-24). El backend también lo exige (sig-backend/routers/reportes-desarrollo.ts).
 export function canSeeReportesDesarrollo(role: string, _appPerms?: string[]): boolean {

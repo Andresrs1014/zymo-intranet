@@ -211,6 +211,12 @@ class PtcNovedad(SQLModel, table=True):
     fecha_fin: Optional[date] = None
     estado: str = Field(max_length=30, default="Pendiente")
     origen: str = Field(max_length=60, default="manual")
+    # Aprobación del jefe directo (ver tc_aprobaciones.py) — firma_aprobador_url
+    # es un snapshot al momento de aprobar, no una referencia viva al perfil del
+    # jefe, mismo patrón que firma_lider_url en PtcEvaluacionDesempeno.
+    aprobador_persona_id: Optional[int] = Field(default=None, foreign_key="ptc_persona.id")
+    firma_aprobador_url: str = Field(max_length=500, default="")
+    aprobado_en: Optional[datetime] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -462,6 +468,9 @@ def _migrate_personal() -> None:
             "ALTER TABLE ptc_novedad ADD COLUMN origen TEXT DEFAULT 'manual'",
             "ALTER TABLE ptc_capacitacion ADD COLUMN tipo TEXT DEFAULT 'Interna'",
             "ALTER TABLE ptc_capacitacion ADD COLUMN costo REAL DEFAULT NULL",
+            "ALTER TABLE ptc_novedad ADD COLUMN aprobador_persona_id INTEGER DEFAULT NULL",
+            "ALTER TABLE ptc_novedad ADD COLUMN firma_aprobador_url TEXT DEFAULT ''",
+            "ALTER TABLE ptc_novedad ADD COLUMN aprobado_en TEXT DEFAULT NULL",
         ]:
             try:
                 conn.execute(text(sql))

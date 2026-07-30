@@ -1,7 +1,7 @@
 import { NavLink, Link } from "react-router-dom"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { useAuthStore } from "@/store/authStore"
-import { canSeeOperClientes, canSeeGestionTickets, canUseAgenda, canUseEvaluacionesDesempeno, canSeeTyC } from "@/lib/permissions"
+import { canSeeOperClientes, canSeeGestionTickets, canUseAgenda, canUseEvaluacionesDesempeno, canUseAprobaciones, canSeeTyC } from "@/lib/permissions"
 
 // URL del sistema BRP — eventualmente se reemplazará por ruta interna
 const BRP_URL = "https://brp.zymointranet.com"
@@ -16,6 +16,9 @@ export function OperativoPage() {
     : false
   const verEvaluaciones = user
     ? canUseEvaluacionesDesempeno(user.role, user.app_permissions) && !canSeeTyC(user.role, user.app_permissions)
+    : false
+  const verAprobaciones = user
+    ? canUseAprobaciones(user.role, user.app_permissions) && !canSeeTyC(user.role, user.app_permissions)
     : false
 
   return (
@@ -83,6 +86,14 @@ export function OperativoPage() {
                 icon={<IconEvaluaciones />}
                 label="Evaluación de desempeño"
                 description="Evalúa a tu equipo con la rúbrica semestral — Líderes u Operativo según corresponda."
+              />
+            )}
+            {verAprobaciones && (
+              <InternalCard
+                to="/tc/aprobaciones"
+                icon={<IconAprobaciones />}
+                label="Aprobaciones"
+                description="Acepta o rechaza permisos y novedades que te envía tu equipo por Formato de Ausentismo."
               />
             )}
           </div>
@@ -242,6 +253,14 @@ function IconEvaluaciones() {
   return (
     <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
       <path fillRule="evenodd" d="M4 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4Zm3 3.75a.75.75 0 0 1 .75-.75h4.5a.75.75 0 0 1 0 1.5h-4.5A.75.75 0 0 1 7 7.75Zm.75 2.25a.75.75 0 0 0 0 1.5h4.5a.75.75 0 0 0 0-1.5h-4.5ZM7 13.75a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75Z" clipRule="evenodd" />
+    </svg>
+  )
+}
+
+function IconAprobaciones() {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z" clipRule="evenodd" />
     </svg>
   )
 }

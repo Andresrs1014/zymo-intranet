@@ -16,6 +16,7 @@ import {
   canSeeTyC,
   canUseAgenda,
   canUseEvaluacionesDesempeno,
+  canUseAprobaciones,
   canSeeOperClientes,
   canSeeGestionTickets,
   canSeeTickets,
@@ -83,6 +84,7 @@ import { TyCManualesPage } from "@/pages/tc/TyCManualesPage"
 import { TyCFormatosPage } from "@/pages/tc/TyCFormatosPage"
 import { TyCFormatoAusentismoPage } from "@/pages/tc/TyCFormatoAusentismoPage"
 import { TyCEvaluacionDesempenoPage } from "@/pages/tc/TyCEvaluacionDesempenoPage"
+import { TyCAprobacionesPage } from "@/pages/tc/TyCAprobacionesPage"
 import { TyCIndicadoresPage } from "@/pages/tc/TyCIndicadoresPage"
 import { TyCAgendaCalendarioPage } from "@/pages/tc/TyCAgendaCalendarioPage"
 import { TyCAgendaEventoPage } from "@/pages/tc/TyCAgendaEventoPage"
@@ -294,6 +296,14 @@ function EvaluacionesDesempenoRoute({ children }: { children: React.ReactNode })
   const user = useAuthStore((s) => s.user)
   if (!user) return <Navigate to="/login" replace />
   if (!canUseEvaluacionesDesempeno(user.role, user.app_permissions)) return <Navigate to="/dashboard" replace />
+  return <>{children}</>
+}
+
+// Independiente de TyCRoute — mismo patrón que AgendaRoute.
+function AprobacionesRoute({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user)
+  if (!user) return <Navigate to="/login" replace />
+  if (!canUseAprobaciones(user.role, user.app_permissions)) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
 
@@ -827,6 +837,10 @@ export default function App() {
         <Route
           path="/tc/evaluaciones"
           element={<EvaluacionesDesempenoRoute><TyCEvaluacionDesempenoPage /></EvaluacionesDesempenoRoute>}
+        />
+        <Route
+          path="/tc/aprobaciones"
+          element={<AprobacionesRoute><TyCAprobacionesPage /></AprobacionesRoute>}
         />
 
         {/* Reportes de Desarrollo */}

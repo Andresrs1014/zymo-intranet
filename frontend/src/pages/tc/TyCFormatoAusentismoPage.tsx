@@ -226,7 +226,7 @@ export function TyCFormatoAusentismoPage() {
                   {enviado ? (
                     <p className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-500/10 text-emerald-500 text-sm font-semibold py-3">
                       <ClipboardCheck className="w-4 h-4" />
-                      Enviado — quedó registrado como novedad en tu perfil
+                      Enviado — tu jefe directo lo recibirá para aprobarlo o rechazarlo
                     </p>
                   ) : (
                     <>

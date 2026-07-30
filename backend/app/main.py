@@ -44,6 +44,7 @@ from app.routers.tc_cap_coordinador import router as tc_cap_coordinador_router
 from app.routers.tc_formatos import router as tc_formatos_router
 from app.routers.tc_evaluaciones import router as tc_evaluaciones_router
 from app.routers.tc_capacitaciones import router as tc_caps_router
+from app.routers.tc_aprobaciones import router as tc_aprobaciones_router
 from app.routers.tc_clientes import router as tc_clientes_router
 from app.routers.oper_clientes import router as oper_clientes_router
 from app.routers.tc_paquetes import router as tc_paquetes_router
@@ -476,6 +477,7 @@ app.include_router(tc_cap_coordinador_router)
 app.include_router(tc_formatos_router)
 app.include_router(tc_evaluaciones_router)
 app.include_router(tc_caps_router)
+app.include_router(tc_aprobaciones_router)
 app.include_router(tc_paquetes_router)
 app.include_router(tc_clientes_router)
 app.include_router(oper_clientes_router)
