@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from fastapi import FastAPI, Request
+from fastapi import BackgroundTasks, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -508,3 +508,18 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.post("/health/bg-echo")
+def bg_echo(background_tasks: BackgroundTasks):
+    """Diagnóstico temporal — confirma si BackgroundTasks corre en este deploy.
+    Borrar una vez resuelto el incidente de correos que no envían (2026-07-30)."""
+    import time
+
+    def _write():
+        logging.getLogger("uvicorn.error").warning(
+            "[bg-echo] BackgroundTask ejecutado OK a las %s", time.time()
+        )
+
+    background_tasks.add_task(_write)
+    return {"scheduled": True}
