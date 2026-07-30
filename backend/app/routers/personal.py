@@ -1198,7 +1198,7 @@ class RetiroNotificacionConfigBody(BaseModel):
 @router.get("/config/retiro-notificacion")
 def get_config_retiro_notificacion(
     db: Session = Depends(get_personal_db),
-    _: User = Depends(require_tc_editar),
+    _: User = Depends(require_admin),
 ):
     cargo_ids = _get_retiro_cargo_ids(db)
     destinatarios: list[dict] = []
@@ -1225,7 +1225,7 @@ def get_config_retiro_notificacion(
 def set_config_retiro_notificacion(
     body: RetiroNotificacionConfigBody,
     db: Session = Depends(get_personal_db),
-    _: User = Depends(require_tc_editar),
+    _: User = Depends(require_admin),
 ):
     _set_retiro_cargo_ids(db, body.cargo_ids)
     return {"cargo_ids": sorted(set(body.cargo_ids))}

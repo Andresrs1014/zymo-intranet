@@ -53,7 +53,7 @@ export function TyCConfigPage() {
 
       <div className="max-w-4xl mx-auto px-8 py-6">
         <div className="animate-fade-in">
-          {tab === "notificaciones" && <NotificacionesTab puedeEditar={puedeEditar} />}
+          {tab === "notificaciones" && <NotificacionesTab />}
           {tab === "paquetes" && <PaquetesTab puedeEditar={puedeEditar} />}
         </div>
       </div>
@@ -263,7 +263,7 @@ function PaqueteCard({
 // El correo y WhatsApp de eventos usan la cuenta corporativa centralizada
 // (Configuración de la intranet) — T&C ya no tiene sus propias credenciales editables acá.
 
-function NotificacionesTab({ puedeEditar }: { puedeEditar: boolean }) {
+function NotificacionesTab() {
   const navigate = useNavigate()
   const esAdmin = useAuthStore((s) => s.user?.role === "admin")
 
@@ -301,11 +301,11 @@ function NotificacionesTab({ puedeEditar }: { puedeEditar: boolean }) {
         )}
       </div>
 
-      {puedeEditar ? (
+      {esAdmin ? (
         <RetiroNotificacionPanel />
       ) : (
         <p className="text-xs text-muted-foreground italic pt-6 border-t border-border">
-          Solo quien puede editar T&C puede configurar los destinatarios de retiro de funcionario.
+          Por ahora, solo un administrador puede configurar los destinatarios de retiro de funcionario.
         </p>
       )}
     </div>
