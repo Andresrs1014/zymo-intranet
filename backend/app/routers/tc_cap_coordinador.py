@@ -198,6 +198,14 @@ def _notificar_lider_bloque(
         log.exception("[cap-coordinador] No se pudo enviar aviso de inducción a %s", lider_email)
 
 
+def _personas_bloque_nombres(db: Session, bloque_id: int) -> list[str]:
+    roster = db.exec(select(PtcCapBloquePersona).where(
+        PtcCapBloquePersona.bloque_id == bloque_id,
+        PtcCapBloquePersona.incluido == True,  # noqa: E712
+    )).all()
+    return [_persona_mini(db, r.persona_id)["nombre"] for r in roster]
+
+
 def _agendar_avisos_bloques(
     background_tasks: BackgroundTasks, bloques: list[tuple[PtcCapBloque, list[str]]],
     dia: PtcCapDia, sede_nombre: str, db: Session, main_db: Session,
@@ -374,18 +382,24 @@ def eliminar_bloque(
 def actualizar_bloque(
     bloque_id: int,
     body: BloqueInput,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
     _: User = Depends(require_tc_cap),
 ):
     b = db.get(PtcCapBloque, bloque_id)
     if not b:
         raise HTTPException(404, "Bloque no encontrado")
-    _requerir_estado(b, db.get(PtcCapDia, b.dia_id), _AGENDADO)
+    dia = db.get(PtcCapDia, b.dia_id)
+    _requerir_estado(b, dia, _AGENDADO)
     b.lider_persona_id = body.lider_persona_id
     b.hora_inicio = body.hora_inicio
     b.hora_fin = body.hora_fin
     db.add(b)
     db.commit()
+    sede = main_db.get(Sede, dia.sede_id) if dia.sede_id else None
+    nombres = _personas_bloque_nombres(db, bloque_id)
+    _agendar_avisos_bloques(background_tasks, [(b, nombres)], dia, sede.name if sede else "", db, main_db)
     return _bloque_dict(b, db)
 
 
@@ -393,20 +407,27 @@ def actualizar_bloque(
 def set_personas_bloque(
     bloque_id: int,
     persona_ids: list[int],
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
     _: User = Depends(require_tc_cap),
 ):
     """persona_ids = las que quedan incluidas en este bloque específico —
     el resto del roster del bloque se marca incluido=False sin borrarse
-    (conserva historial de asistencia si ya se había marcado antes)."""
+    (conserva historial de asistencia si ya se había marcado antes).
+    Solo avisa al líder si hubo gente REALMENTE nueva (evita reenviar el
+    mismo roster completo cada vez que se toca este endpoint)."""
     b = db.get(PtcCapBloque, bloque_id)
     if not b:
         raise HTTPException(404, "Bloque no encontrado")
-    _requerir_estado(b, db.get(PtcCapDia, b.dia_id), _AGENDADO, _EN_CURSO)
+    dia = db.get(PtcCapDia, b.dia_id)
+    _requerir_estado(b, dia, _AGENDADO, _EN_CURSO)
     incluidos = set(persona_ids)
     filas = {bp.persona_id: bp for bp in db.exec(
         select(PtcCapBloquePersona).where(PtcCapBloquePersona.bloque_id == bloque_id)
     ).all()}
+    ya_incluidos_antes = {pid for pid, bp in filas.items() if bp.incluido}
+    nuevos_ids = incluidos - ya_incluidos_antes
     for pid, bp in filas.items():
         bp.incluido = pid in incluidos
         db.add(bp)
@@ -414,6 +435,10 @@ def set_personas_bloque(
         if pid not in filas:
             db.add(PtcCapBloquePersona(bloque_id=bloque_id, persona_id=pid, incluido=True))
     db.commit()
+    if nuevos_ids:
+        sede = main_db.get(Sede, dia.sede_id) if dia.sede_id else None
+        nombres_nuevos = [_persona_mini(db, pid)["nombre"] for pid in nuevos_ids]
+        _agendar_avisos_bloques(background_tasks, [(b, nombres_nuevos)], dia, sede.name if sede else "", db, main_db)
     return _bloque_dict(b, db)
 
 
