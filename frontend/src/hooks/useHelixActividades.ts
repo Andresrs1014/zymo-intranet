@@ -2,9 +2,20 @@ import { useState, useEffect, useCallback, useRef } from "react"
 import { helixApi } from "@/lib/helixApi"
 import type { HelixActividad, HelixEstado } from "@/types/helix"
 
+export interface HelixSubactividadCreate {
+  nombre: string
+  responsableId?: number | null
+  responsableNombre?: string | null
+  estado?: string
+}
+
 export interface HelixActividadCreate {
   subproyectoId: number
+  numeroActividad?: string
   responsableId: number
+  responsableNombre: string
+  responsableInitials: string
+  responsableColor?: string
   nombre: string
   estado?: string
   prioridad?: string
@@ -16,7 +27,10 @@ export interface HelixActividadCreate {
   costoOptimizacion?: number
   costoEjecucion?: number
   bloqueada?: boolean
-  dependenciaId?: number
+  dependenciaId?: number | null
+  // Solo al crear — al editar, subactividades y comentarios van por sus propios endpoints
+  subactividades?: HelixSubactividadCreate[]
+  comentarioInicial?: string
 }
 
 interface UseHelixActividadesOptions {

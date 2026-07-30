@@ -88,6 +88,7 @@ export function GanttChart({
       type: "header",
       subproyecto: {
         id: -1,
+        proyectoId: -1,
         nombre: "Sin subproyecto",
         inversionEst: 0,
         retornoEsp: 0,

@@ -1,7 +1,8 @@
 import { useState, type CSSProperties } from "react"
 import { Plus, Pencil, Trash2, ChevronDown, ChevronUp } from "lucide-react"
 import { useHelixSubproyectos } from "@/hooks/useHelixSubproyectos"
-import type { HelixSubproyecto, HelixSubproyectoForm } from "@/types/helix"
+import { useHelixProyectos } from "@/hooks/useHelixProyectos"
+import type { HelixProyecto, HelixSubproyecto, HelixSubproyectoForm } from "@/types/helix"
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
@@ -144,6 +145,7 @@ const badgeInactiveStyle: CSSProperties = {
 // ─── Empty form ───────────────────────────────────────────────────────────────
 
 const EMPTY_FORM: HelixSubproyectoForm = {
+  proyectoId: 0,
   nombre: "",
   objetivo: "",
   cliente: "",
@@ -155,21 +157,44 @@ const EMPTY_FORM: HelixSubproyectoForm = {
 
 interface SubprojectFormProps {
   initial: HelixSubproyectoForm
+  proyectos: HelixProyecto[]
+  onCreateProyecto: (nombre: string) => Promise<HelixProyecto>
   onSave: (data: HelixSubproyectoForm) => Promise<void>
   onCancel: () => void
 }
 
-function SubprojectForm({ initial, onSave, onCancel }: SubprojectFormProps) {
+function SubprojectForm({ initial, proyectos, onCreateProyecto, onSave, onCancel }: SubprojectFormProps) {
   const [form, setForm] = useState<HelixSubproyectoForm>(initial)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [nuevoProyectoNombre, setNuevoProyectoNombre] = useState("")
+  const [creandoProyecto, setCreandoProyecto] = useState(false)
 
   function handleChange(field: keyof HelixSubproyectoForm, value: string | number) {
     setForm((prev) => ({ ...prev, [field]: value }))
   }
 
+  async function handleCreateProyecto() {
+    const nombre = nuevoProyectoNombre.trim()
+    if (!nombre) return
+    setCreandoProyecto(true)
+    try {
+      const proyecto = await onCreateProyecto(nombre)
+      handleChange("proyectoId", proyecto.id)
+      setNuevoProyectoNombre("")
+    } catch {
+      setFormError("Error al crear el proyecto principal.")
+    } finally {
+      setCreandoProyecto(false)
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!form.proyectoId) {
+      setFormError("Selecciona o crea un proyecto principal")
+      return
+    }
     if (!form.nombre.trim()) {
       setFormError("El nombre es requerido")
       return
@@ -190,6 +215,36 @@ function SubprojectForm({ initial, onSave, onCancel }: SubprojectFormProps) {
       style={{ padding: "16px", borderTop: "1px solid var(--helix-line)", background: "var(--helix-surface-2)" }}
     >
       <div style={formGridStyle}>
+        <div style={{ gridColumn: "1 / -1" }}>
+          <label style={fieldLabelStyle}>Proyecto principal *</label>
+          <select
+            style={inputStyle}
+            value={form.proyectoId || ""}
+            onChange={(e) => handleChange("proyectoId", Number(e.target.value))}
+          >
+            <option value="">Seleccionar...</option>
+            {proyectos.map((p) => (
+              <option key={p.id} value={p.id}>{p.nombre}</option>
+            ))}
+          </select>
+          <div style={{ display: "flex", gap: "8px", marginTop: "6px" }}>
+            <input
+              style={{ ...inputStyle, flex: 1 }}
+              type="text"
+              value={nuevoProyectoNombre}
+              onChange={(e) => setNuevoProyectoNombre(e.target.value)}
+              placeholder="+ Crear nuevo proyecto principal"
+            />
+            <button
+              type="button"
+              style={btnCancelStyle}
+              onClick={handleCreateProyecto}
+              disabled={creandoProyecto || !nuevoProyectoNombre.trim()}
+            >
+              {creandoProyecto ? "Creando..." : "Crear"}
+            </button>
+          </div>
+        </div>
         <div style={{ gridColumn: "1 / -1" }}>
           <label style={fieldLabelStyle}>Nombre *</label>
           <input
@@ -263,13 +318,14 @@ function SubprojectForm({ initial, onSave, onCancel }: SubprojectFormProps) {
 
 interface SubprojectRowProps {
   subproyecto: HelixSubproyecto
+  proyectoNombre?: string
   onEdit: () => void
   onDelete: () => void
   expanded: boolean
   onToggle: () => void
 }
 
-function SubprojectRow({ subproyecto, onEdit, onDelete, expanded, onToggle }: SubprojectRowProps) {
+function SubprojectRow({ subproyecto, proyectoNombre, onEdit, onDelete, expanded, onToggle }: SubprojectRowProps) {
   const { nombre, objetivo, cliente, inversionEst, retornoEsp, activo } = subproyecto
 
   return (
@@ -300,6 +356,20 @@ function SubprojectRow({ subproyecto, onEdit, onDelete, expanded, onToggle }: Su
         >
           {nombre}
         </span>
+
+        {/* Proyecto principal */}
+        {proyectoNombre && (
+          <span
+            style={{
+              fontSize: "var(--helix-text-caption)",
+              color: "var(--helix-accent)",
+              fontWeight: 600,
+              flexShrink: 0,
+            }}
+          >
+            {proyectoNombre}
+          </span>
+        )}
 
         {/* Cliente */}
         {cliente && (
@@ -377,6 +447,12 @@ function SubprojectRow({ subproyecto, onEdit, onDelete, expanded, onToggle }: Su
 export function SubprojectsPanel() {
   const { subproyectos, loading, error, createSubproyecto, updateSubproyecto, deleteSubproyecto } =
     useHelixSubproyectos()
+  const { proyectos, createProyecto } = useHelixProyectos()
+  const proyectoNombrePorId = new Map(proyectos.map((p) => [p.id, p.nombre]))
+
+  async function handleCreateProyecto(nombre: string) {
+    return createProyecto({ nombre })
+  }
 
   const [editingId, setEditingId] = useState<number | "new" | null>(null)
   const [expandedId, setExpandedId] = useState<number | null>(null)
@@ -450,6 +526,8 @@ export function SubprojectsPanel() {
           </div>
           <SubprojectForm
             initial={EMPTY_FORM}
+            proyectos={proyectos}
+            onCreateProyecto={handleCreateProyecto}
             onSave={handleCreate}
             onCancel={() => setEditingId(null)}
           />
@@ -475,6 +553,7 @@ export function SubprojectsPanel() {
               <>
                 <SubprojectRow
                   subproyecto={sub}
+                  proyectoNombre={proyectoNombrePorId.get(sub.proyectoId)}
                   onEdit={() => setEditingId(null)}
                   onDelete={() => handleDelete(sub)}
                   expanded={expandedId === sub.id}
@@ -482,12 +561,15 @@ export function SubprojectsPanel() {
                 />
                 <SubprojectForm
                   initial={{
+                    proyectoId: sub.proyectoId,
                     nombre: sub.nombre,
                     objetivo: sub.objetivo ?? "",
                     cliente: sub.cliente ?? "",
                     inversionEst: sub.inversionEst,
                     retornoEsp: sub.retornoEsp,
                   }}
+                  proyectos={proyectos}
+                  onCreateProyecto={handleCreateProyecto}
                   onSave={(data) => handleUpdate(sub.id, data)}
                   onCancel={() => setEditingId(null)}
                 />
@@ -495,6 +577,7 @@ export function SubprojectsPanel() {
             ) : (
               <SubprojectRow
                 subproyecto={sub}
+                proyectoNombre={proyectoNombrePorId.get(sub.proyectoId)}
                 onEdit={() => setEditingId(sub.id)}
                 onDelete={() => handleDelete(sub)}
                 expanded={expandedId === sub.id}

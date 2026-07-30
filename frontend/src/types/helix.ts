@@ -3,14 +3,44 @@
 export type HelixEstado = "Backlog" | "Planificado" | "En curso" | "Revision" | "Terminado"
 export type HelixPrioridad = "Alta" | "Media" | "Baja"
 
+export interface HelixProyecto {
+  id: number
+  nombre: string
+  createdAt: string
+  updatedAt: string
+}
+
 export interface HelixSubproyecto {
   id: number
+  proyectoId: number
   nombre: string
   objetivo?: string
   cliente?: string
   inversionEst: number
   retornoEsp: number
   activo: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export type HelixDependenciaTipo = "Interna" | "Externa" | "Cliente" | "Tecnologia" | "Proveedor"
+
+export interface HelixDependencia {
+  id: number
+  nombre: string
+  tipo: HelixDependenciaTipo
+  responsableArea?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface HelixSubactividad {
+  id: number
+  actividadId: number
+  nombre: string
+  responsableId?: number
+  responsableNombre?: string
+  estado: HelixEstado
   createdAt: string
   updatedAt: string
 }
@@ -38,6 +68,7 @@ export interface HelixEvidencia {
 export interface HelixActividad {
   id: number
   subproyectoId: number
+  numeroActividad?: string
   responsableId: number
   responsableNombre: string
   responsableInitials: string
@@ -55,6 +86,7 @@ export interface HelixActividad {
   bloqueada: boolean
   dependenciaId?: number
   completadaEn?: string
+  subactividades?: HelixSubactividad[]
   comentarios?: HelixComentario[]
   evidencias?: HelixEvidencia[]
   createdAt: string
