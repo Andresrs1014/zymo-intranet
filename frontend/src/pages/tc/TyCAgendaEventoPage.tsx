@@ -26,12 +26,21 @@ interface Evento {
   hora_inicio: string
   hora_fin: string
   descripcion: string
+  modalidad: "Interna" | "Externa"
+  costo: number | null
   area_nombre: string
   estado: EstadoEvento
   foto_evidencia_url: string
   acta_firmada_url: string
   total_personas: number
   personas: EventoPersona[]
+}
+
+const MODALIDAD_OPTS = ["Interna", "Externa"] as const
+
+function formatoCosto(v: number | null): string {
+  if (v == null) return "—"
+  return `$${v.toLocaleString("es-CO")}`
 }
 
 type Tab = "info" | "personas" | "asistencia" | "acta"
@@ -104,6 +113,8 @@ export function TyCAgendaEventoPage() {
   const [horaInicio, setHoraInicio] = useState("08:00")
   const [horaFin, setHoraFin] = useState("09:00")
   const [descripcion, setDescripcion] = useState("")
+  const [modalidad, setModalidad] = useState<"Interna" | "Externa">("Interna")
+  const [costo, setCosto] = useState("")
   const [seleccionados, setSeleccionados] = useState<Set<number>>(new Set())
   const [creando, setCreando] = useState(false)
 
@@ -126,6 +137,8 @@ export function TyCAgendaEventoPage() {
   const [editHoraInicio, setEditHoraInicio] = useState("")
   const [editHoraFin, setEditHoraFin] = useState("")
   const [editDescripcion, setEditDescripcion] = useState("")
+  const [editModalidad, setEditModalidad] = useState<"Interna" | "Externa">("Interna")
+  const [editCosto, setEditCosto] = useState("")
   const [guardandoInfo, setGuardandoInfo] = useState(false)
 
   const load = useCallback(() => {
@@ -209,7 +222,8 @@ export function TyCAgendaEventoPage() {
     try {
       const { data } = await api.post("/tc/eventos", {
         titulo, fecha, hora_inicio: horaInicio, hora_fin: horaFin,
-        descripcion, persona_ids: [...seleccionados],
+        descripcion, modalidad, costo: costo ? parseFloat(costo) : null,
+        persona_ids: [...seleccionados],
       })
       navigate(`/tc/eventos/${data.id}`, { replace: true })
     } catch (e: any) {
@@ -253,6 +267,8 @@ export function TyCAgendaEventoPage() {
     setEditHoraInicio(evento.hora_inicio)
     setEditHoraFin(evento.hora_fin)
     setEditDescripcion(evento.descripcion)
+    setEditModalidad(evento.modalidad)
+    setEditCosto(evento.costo != null ? String(evento.costo) : "")
     setEditandoInfo(true)
   }
 
@@ -264,6 +280,7 @@ export function TyCAgendaEventoPage() {
         titulo: editTitulo, fecha: editFecha,
         hora_inicio: editHoraInicio, hora_fin: editHoraFin,
         descripcion: editDescripcion,
+        modalidad: editModalidad, costo: editCosto ? parseFloat(editCosto) : null,
       })
       setEvento(data)
       setEditandoInfo(false)
@@ -345,6 +362,24 @@ export function TyCAgendaEventoPage() {
             <div>
               <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1 block">Hora fin</label>
               <input type="time" value={horaFin} onChange={(e) => setHoraFin(e.target.value)} className="input-base" />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1 block">Modalidad</label>
+              <select value={modalidad} onChange={(e) => setModalidad(e.target.value as "Interna" | "Externa")} className="input-base">
+                {MODALIDAD_OPTS.map((m) => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1 block">Costo (COP)</label>
+              <input
+                type="number"
+                min="0"
+                step="1000"
+                value={costo}
+                onChange={(e) => setCosto(e.target.value)}
+                placeholder="0 si es gratis"
+                className="input-base"
+              />
             </div>
             <div className="col-span-2">
               <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1 block">Descripción (opcional)</label>
@@ -513,6 +548,26 @@ export function TyCAgendaEventoPage() {
                     <input type="time" value={editHoraFin} onChange={(e) => setEditHoraFin(e.target.value)} className="input-base" />
                   </div>
                 </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1 block">Modalidad</label>
+                    <select value={editModalidad} onChange={(e) => setEditModalidad(e.target.value as "Interna" | "Externa")} className="input-base">
+                      {MODALIDAD_OPTS.map((m) => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1 block">Costo (COP)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1000"
+                      value={editCosto}
+                      onChange={(e) => setEditCosto(e.target.value)}
+                      placeholder="0 si es gratis"
+                      className="input-base"
+                    />
+                  </div>
+                </div>
                 <div>
                   <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1 block">Descripción</label>
                   <textarea value={editDescripcion} onChange={(e) => setEditDescripcion(e.target.value)} rows={4} className="input-base" />
@@ -536,7 +591,12 @@ export function TyCAgendaEventoPage() {
             ) : (
               <>
                 <div className="flex items-start justify-between gap-3 mb-4">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Descripción</p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-400">
+                      {evento.modalidad}
+                    </span>
+                    <span className="text-xs text-muted-foreground tabular-nums">{formatoCosto(evento.costo)}</span>
+                  </div>
                   {evento.estado === "Agendada" && (
                     <button
                       onClick={iniciarEdicionInfo}
@@ -546,6 +606,7 @@ export function TyCAgendaEventoPage() {
                     </button>
                   )}
                 </div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Descripción</p>
                 {evento.descripcion ? (
                   <p className="text-sm text-foreground/90 leading-relaxed">{evento.descripcion}</p>
                 ) : (

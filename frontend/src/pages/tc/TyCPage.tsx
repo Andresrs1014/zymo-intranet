@@ -7,7 +7,7 @@ import { PageLayout } from "@/components/layout/PageLayout"
 import { PlataformaConfigSheet } from "./components/PlataformaConfigSheet"
 import {
   Users, GitBranch, Upload, FileText, TrendingUp, ArrowUpRight,
-  CalendarDays, Settings2, GraduationCap, UserX, Building2, UserPlus, Plus, Pencil, FileStack, CheckCircle2,
+  CalendarDays, Settings2, UserX, Building2, UserPlus, Plus, Pencil, FileStack, CheckCircle2,
 } from "lucide-react"
 
 interface Stats {
@@ -154,10 +154,10 @@ export function TyCPage() {
       {/* ── Módulos ───────────────────────────────────────────────────── */}
       <div className="px-10 py-8 max-w-5xl mx-auto space-y-8">
 
-        {/* Fila 1: Directorio + Organigrama + Manuales + Agenda + Capacitaciones */}
+        {/* Fila 1: Directorio + Organigrama + Agenda (incluye registro de Capacitaciones) */}
         <section>
           <SectionLabel>Personal y estructura</SectionLabel>
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div className="col-span-1">
               <ModuleCard
                 icon={<Users className="w-5 h-5" />}
@@ -179,15 +179,8 @@ export function TyCPage() {
               icon={<CalendarDays className="w-4 h-4" />}
               color="teal"
               title="Agenda"
-              description="Inducciones agendadas por el líder de cada área, con acta de asistencia."
+              description="Inducciones agendadas por el líder de cada área, con acta de asistencia y el registro completo de capacitaciones."
               onClick={() => navigate("/tc/calendario")}
-            />
-            <ModuleCard
-              icon={<GraduationCap className="w-4 h-4" />}
-              color="indigo"
-              title="Capacitaciones"
-              description="Historial de formación, paquetes de inducción y seguimiento por área."
-              onClick={() => navigate("/tc/formacion")}
             />
           </div>
           <div className="grid grid-cols-4 gap-3 mt-3">

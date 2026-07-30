@@ -54,6 +54,8 @@ class EventoCreate(BaseModel):
     hora_inicio: str = "08:00"
     hora_fin: str = "09:00"
     descripcion: str = ""
+    modalidad: str = "Interna"  # "Interna" | "Externa"
+    costo: Optional[float] = None
     persona_ids: list[int] = []
 
 
@@ -63,6 +65,8 @@ class EventoUpdate(BaseModel):
     hora_inicio: str
     hora_fin: str
     descripcion: str = ""
+    modalidad: str = "Interna"
+    costo: Optional[float] = None
 
 
 class AsistenciaUpdate(BaseModel):
@@ -131,6 +135,8 @@ def _evento_dict(ev: PtcEvento, db: Session, main_db: Session) -> dict:
         "id": ev.id,
         "titulo": ev.titulo,
         "tipo": ev.tipo,
+        "modalidad": ev.modalidad,
+        "costo": ev.costo,
         "fecha": ev.fecha.isoformat() if ev.fecha else None,
         "hora_inicio": ev.hora_inicio,
         "hora_fin": ev.hora_fin,
@@ -222,6 +228,8 @@ def crear_evento(
         hora_inicio=body.hora_inicio,
         hora_fin=body.hora_fin,
         descripcion=body.descripcion,
+        modalidad=body.modalidad,
+        costo=body.costo,
         area_id=lider.area_id,
         sede_id=lider.sede_id or None,
     )
@@ -282,6 +290,8 @@ def actualizar_evento(
     ev.hora_inicio = body.hora_inicio
     ev.hora_fin = body.hora_fin
     ev.descripcion = body.descripcion
+    ev.modalidad = body.modalidad
+    ev.costo = body.costo
     ev.updated_at = datetime.utcnow()
     db.add(ev)
     db.commit()
@@ -353,6 +363,8 @@ def _sync_capacitacion(db: Session, persona_id: int, ev: PtcEvento, asistio: Opt
         existing.observaciones = observaciones
         existing.diploma_url = diploma_url
         existing.horas = _horas_evento(ev)
+        existing.tipo = ev.modalidad
+        existing.costo = ev.costo
         db.add(existing)
     else:
         db.add(PtcCapacitacion(
@@ -363,6 +375,8 @@ def _sync_capacitacion(db: Session, persona_id: int, ev: PtcEvento, asistio: Opt
             estado=estado,
             observaciones=observaciones,
             diploma_url=diploma_url,
+            tipo=ev.modalidad,
+            costo=ev.costo,
         ))
 
 

@@ -88,7 +88,6 @@ import { TyCAprobacionesPage } from "@/pages/tc/TyCAprobacionesPage"
 import { TyCIndicadoresPage } from "@/pages/tc/TyCIndicadoresPage"
 import { TyCAgendaCalendarioPage } from "@/pages/tc/TyCAgendaCalendarioPage"
 import { TyCAgendaEventoPage } from "@/pages/tc/TyCAgendaEventoPage"
-import { TyCCapacitacionesPage } from "@/pages/tc/TyCCapacitacionesPage"
 import { TyCConfigPage } from "@/pages/tc/TyCConfigPage"
 import { TyCRotacionPage } from "@/pages/tc/TyCRotacionPage"
 import { TyCClientesPage } from "@/pages/tc/TyCClientesPage"
@@ -804,7 +803,7 @@ export default function App() {
         />
         <Route
           path="/tc/formacion"
-          element={<TyCRoute><TyCCapacitacionesPage /></TyCRoute>}
+          element={<Navigate to="/tc/calendario" replace />}
         />
         <Route
           path="/tc/ajustes"

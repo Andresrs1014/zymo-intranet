@@ -1,7 +1,10 @@
 import { useEffect, useState, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { api } from "@/lib/api"
+import { useAuthStore } from "@/store/authStore"
+import { canSeeTyC } from "@/lib/permissions"
 import { PageLayout } from "@/components/layout/PageLayout"
+import { CapacitacionesRegistro } from "./CapacitacionesRegistro"
 import { Plus, ChevronLeft, ChevronRight, Calendar, Users, Clock } from "lucide-react"
 
 interface Evento {
@@ -34,8 +37,14 @@ function getFirstDayOfMonth(year: number, month: number) {
   return new Date(year, month, 1).getDay()
 }
 
+type Tab = "calendario" | "registro"
+
 export function TyCAgendaCalendarioPage() {
   const navigate = useNavigate()
+  const user = useAuthStore((s) => s.user)
+  const puedeVerRegistro = user ? canSeeTyC(user.role, user.app_permissions) : false
+  const [tab, setTab] = useState<Tab>("calendario")
+
   const hoy = new Date()
   const [year, setYear]   = useState(hoy.getFullYear())
   const [month, setMonth] = useState(hoy.getMonth())
@@ -88,16 +97,39 @@ export function TyCAgendaCalendarioPage() {
               Click en un día para agendar esa fecha, o usa "Nueva agenda" para elegirla a mano.
             </p>
           </div>
-          <button
-            onClick={() => navigate("/tc/eventos/nuevo")}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-500/15 hover:bg-teal-500/25 text-teal-400 text-xs font-semibold transition-colors"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Nueva agenda
-          </button>
+          {tab === "calendario" && (
+            <button
+              onClick={() => navigate("/tc/eventos/nuevo")}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-500/15 hover:bg-teal-500/25 text-teal-400 text-xs font-semibold transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Nueva agenda
+            </button>
+          )}
         </div>
+
+        {puedeVerRegistro && (
+          <div className="max-w-6xl mx-auto flex gap-1 mt-5 -mb-px">
+            {(["calendario", "registro"] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
+                  tab === t ? "border-teal-500 text-teal-400" : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {t === "calendario" ? "Calendario" : "Registro de capacitaciones"}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
+      {tab === "registro" && puedeVerRegistro ? (
+        <div className="px-8 py-6">
+          <CapacitacionesRegistro />
+        </div>
+      ) : (
       <div className="max-w-6xl mx-auto px-8 py-6 flex gap-6">
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-4">
@@ -198,6 +230,7 @@ export function TyCAgendaCalendarioPage() {
           ))}
         </div>
       </div>
+      )}
     </PageLayout>
   )
 }

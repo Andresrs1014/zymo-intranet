@@ -228,6 +228,11 @@ class PtcEvento(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     titulo: str = Field(max_length=200)
     tipo: str = Field(max_length=40, default="induccion")  # único tipo soportado por ahora
+    # Interna | Externa — no confundir con "tipo" de arriba (categoría de evento).
+    # Es la clasificación de la capacitación misma; se refleja en el registro
+    # (ptc_capacitacion.tipo/costo) vía _sync_capacitacion en tc_agenda.py.
+    modalidad: str = Field(max_length=20, default="Interna")
+    costo: Optional[float] = None
     fecha: date
     hora_inicio: str = Field(max_length=10, default="08:00")  # "HH:MM"
     hora_fin: str = Field(max_length=10, default="09:00")
@@ -471,6 +476,10 @@ def _migrate_personal() -> None:
             "ALTER TABLE ptc_novedad ADD COLUMN aprobador_persona_id INTEGER DEFAULT NULL",
             "ALTER TABLE ptc_novedad ADD COLUMN firma_aprobador_url TEXT DEFAULT ''",
             "ALTER TABLE ptc_novedad ADD COLUMN aprobado_en TEXT DEFAULT NULL",
+            # tipo/costo de la capacitación viven en el evento real (Agenda),
+            # no en un formulario aparte — ver _sync_capacitacion en tc_agenda.py.
+            "ALTER TABLE ptc_evento ADD COLUMN modalidad TEXT DEFAULT 'Interna'",
+            "ALTER TABLE ptc_evento ADD COLUMN costo REAL DEFAULT NULL",
         ]:
             try:
                 conn.execute(text(sql))

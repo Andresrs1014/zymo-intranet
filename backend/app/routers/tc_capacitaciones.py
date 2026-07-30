@@ -1,27 +1,32 @@
 """
-Router T&C — Gestión gerencial de capacitaciones.
+Router T&C — Registro de capacitaciones (solo lectura).
 
 Prefijo: /tc  (montado junto a personal.py)
+
+La creación/edición real vive en Agenda (tc_agenda.py, PtcEvento) — cada
+inducción agendada ahí genera/actualiza su fila de PtcCapacitacion vía
+_sync_capacitacion, incluyendo tipo (modalidad Interna/Externa) y costo.
+Este router NO crea ni completa capacitaciones — solo las expone como
+reporte (lista, KPIs, export) para no duplicar la lógica de agendamiento.
+
 Endpoints propios:
   GET    /tc/capacitaciones                              — lista global con filtros
   GET    /tc/capacitaciones/stats                        — KPIs globales
   GET    /tc/capacitaciones/exportar                      — Excel (mismos filtros que la lista)
-  POST   /tc/capacitaciones/bulk                         — enrolar múltiples personas
-  PATCH  /tc/capacitaciones/{cap_id}/completar           — marcar completada
   PATCH  /tc/capacitaciones/{cap_id}/documentos          — vincular URLs de documentos
 """
 from __future__ import annotations
 
 import json
-from datetime import date, datetime
+from datetime import date
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlmodel import Session, col, func, select
 
-from app.core.deps import get_current_user, require_permission
+from app.core.deps import require_permission
 from app.models.user import User
 from app.personal_database import (
     PtcArea,
@@ -38,21 +43,6 @@ require_tc_editar = require_permission("mod_tc_editar")
 
 
 # ── Schemas ──────────────────────────────────────────────────────────────────
-
-class BulkCapacitacionBody(BaseModel):
-    titulo: str = Field(min_length=1, max_length=200)
-    fecha: Optional[date] = None
-    horas: Optional[float] = Field(default=None, ge=0)
-    tipo: str = Field(default="Interna")
-    costo: Optional[float] = Field(default=None, ge=0)
-    observaciones: str = Field(default="", max_length=500)
-    persona_ids: list[int] = Field(min_length=1, max_length=300)
-
-
-class CompletarBody(BaseModel):
-    score: Optional[float] = Field(default=None, ge=0, le=100)
-    diploma_url: Optional[str] = Field(default=None, max_length=500)
-
 
 class DocLink(BaseModel):
     nombre: str = Field(max_length=200)
@@ -225,70 +215,6 @@ def exportar_capacitaciones(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": 'attachment; filename="capacitaciones.xlsx"'},
     )
-
-
-@router.post("/capacitaciones/bulk", status_code=status.HTTP_201_CREATED)
-def enrolar_masivo(
-    body: BulkCapacitacionBody,
-    _: User = Depends(require_tc_editar),
-):
-    creadas = []
-    with Session(get_personal_engine()) as db:
-        # Verificar que las personas existen
-        personas = db.exec(
-            select(PtcPersona).where(col(PtcPersona.id).in_(body.persona_ids))
-        ).all()
-        ids_validos = {p.id for p in personas}
-
-        for pid in body.persona_ids:
-            if pid not in ids_validos:
-                continue
-            cap = PtcCapacitacion(
-                persona_id=pid,
-                titulo=body.titulo,
-                fecha=body.fecha,
-                horas=body.horas,
-                estado="Pendiente",
-                tipo=body.tipo,
-                costo=body.costo,
-                observaciones=body.observaciones,
-            )
-            db.add(cap)
-            db.flush()
-            creadas.append(cap.id)
-
-        db.commit()
-
-    return {"creadas": len(creadas), "ids": creadas}
-
-
-@router.patch("/capacitaciones/{cap_id}/completar")
-def completar_capacitacion(
-    cap_id: int,
-    body: CompletarBody,
-    _: User = Depends(require_tc_editar),
-):
-    with Session(get_personal_engine()) as db:
-        cap = db.get(PtcCapacitacion, cap_id)
-        if not cap:
-            raise HTTPException(status_code=404, detail="Capacitación no encontrada")
-
-        cap.estado = "Completado"
-
-        obs_parts = [cap.observaciones] if cap.observaciones else []
-        if body.score is not None:
-            obs_parts.append(f"Score: {body.score}/100")
-        if obs_parts:
-            cap.observaciones = " | ".join(obs_parts)
-
-        if body.diploma_url:
-            cap.diploma_url = body.diploma_url
-
-        db.add(cap)
-        db.commit()
-        db.refresh(cap)
-
-        return _enrich(cap, db)
 
 
 @router.patch("/capacitaciones/{cap_id}/documentos")
