@@ -5,7 +5,7 @@ const router = Router()
 
 router.get("/", async (req, res, next) => {
   try {
-    const response = await fetch(`${env.INTRANET_API_URL}/api/admin/usuarios`, {
+    const response = await fetch(`${env.INTRANET_API_URL}/api/tasks-v2/users`, {
       headers: {
         Authorization: req.headers.authorization ?? "",
       },
