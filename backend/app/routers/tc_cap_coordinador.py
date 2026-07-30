@@ -19,11 +19,12 @@ from __future__ import annotations
 
 import base64
 import io
+import logging
 import os
 from datetime import date, datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlmodel import Session, select
@@ -41,7 +42,11 @@ from app.personal_database import (
     PtcPersona,
     get_personal_db,
 )
+from app.routers.personal import _email_corporativo_efectivo
 from app.services.tc_acta import render_acta_pdf
+from app.services.tc_email import build_evento_email, send_email
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/tc/cap-coordinador", tags=["T&C Capacitación Coordinador"])
 
@@ -165,6 +170,60 @@ def _dia_dict(d: PtcCapDia, db: Session, main_db: Session) -> dict:
     }
 
 
+# ── Notificación a líderes ──────────────────────────────────────────────────────
+
+def _notificar_lider_bloque(
+    lider_email: str, lider_nombre: str, fecha_str: str, hora_str: str,
+    titulo: str, sede_nombre: str, personas: list[str],
+) -> None:
+    """Corre en background tras crear/agregar un bloque — nunca bloquea el
+    guardado si el correo falla (mismo patrón que _notificar_retiro)."""
+    try:
+        from app.services.global_smtp import get_smtp_candidates
+        candidates = get_smtp_candidates()
+        if not candidates:
+            log.warning("[cap-coordinador] SMTP no configurado — omitiendo aviso a %s", lider_email)
+            return
+        smtp = candidates[0]
+        subject, body = build_evento_email(
+            lider_nombre=lider_nombre, fecha=fecha_str, hora=hora_str,
+            evento_titulo=titulo, lugar=sede_nombre, personas=personas,
+        )
+        send_email(
+            host=smtp["smtp_host"], port=smtp["smtp_port"], usuario=smtp["smtp_user"],
+            password=smtp["smtp_password"], from_email=smtp["smtp_from"], from_nombre="T&C Zymo",
+            to=lider_email, subject=subject, body_html=body,
+        )
+    except Exception:
+        log.exception("[cap-coordinador] No se pudo enviar aviso de inducción a %s", lider_email)
+
+
+def _agendar_avisos_bloques(
+    background_tasks: BackgroundTasks, bloques: list[tuple[PtcCapBloque, list[str]]],
+    dia: PtcCapDia, sede_nombre: str, db: Session, main_db: Session,
+) -> None:
+    """Por cada bloque, resuelve el correo del líder (corporativo del directorio,
+    con fallback al correo de login de la intranet — mismo criterio que la
+    notificación de retiro) y agenda su aviso. Silencioso si no hay correo."""
+    fecha_str = dia.fecha.strftime("%d/%m/%Y") if dia.fecha else ""
+    for bloque, nombres_personas in bloques:
+        lider = db.get(PtcPersona, bloque.lider_persona_id)
+        if not lider:
+            continue
+        lider_email = _email_corporativo_efectivo(lider, main_db)
+        if not lider_email:
+            log.warning(
+                "[cap-coordinador] Líder '%s' sin correo corporativo ni de login — omitiendo aviso",
+                lider.nombre,
+            )
+            continue
+        background_tasks.add_task(
+            _notificar_lider_bloque,
+            lider_email, lider.nombre, fecha_str, f"{bloque.hora_inicio} - {bloque.hora_fin}",
+            dia.titulo, sede_nombre, nombres_personas,
+        )
+
+
 # ── Días ──────────────────────────────────────────────────────────────────────
 
 @router.get("/dias")
@@ -188,11 +247,13 @@ def listar_dias(
 @router.post("/dias", status_code=201)
 def crear_dia(
     body: DiaCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_personal_db),
     main_db: Session = Depends(get_db),
     _: User = Depends(require_tc_cap),
 ):
-    if not main_db.get(Sede, body.sede_id):
+    sede = main_db.get(Sede, body.sede_id)
+    if not sede:
         raise HTTPException(400, "La plataforma (sede) seleccionada no existe.")
     if not body.bloques:
         raise HTTPException(400, "Agrega al menos un bloque (líder + horario).")
@@ -203,6 +264,8 @@ def crear_dia(
     db.add(dia)
     db.flush()
 
+    nombres_personas = [_persona_mini(db, pid)["nombre"] for pid in body.persona_ids]
+    bloques_creados: list[PtcCapBloque] = []
     for binp in body.bloques:
         bloque = PtcCapBloque(
             dia_id=dia.id,
@@ -214,9 +277,13 @@ def crear_dia(
         db.flush()
         for pid in body.persona_ids:
             db.add(PtcCapBloquePersona(bloque_id=bloque.id, persona_id=pid, incluido=True))
+        bloques_creados.append(bloque)
 
     db.commit()
     db.refresh(dia)
+    _agendar_avisos_bloques(
+        background_tasks, [(b, nombres_personas) for b in bloques_creados], dia, sede.name, db, main_db,
+    )
     return _dia_dict(dia, db, main_db)
 
 
@@ -254,6 +321,7 @@ def eliminar_dia(
 def agregar_bloque(
     dia_id: int,
     body: BloqueInput,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_personal_db),
     main_db: Session = Depends(get_db),
     _: User = Depends(require_tc_cap),
@@ -264,6 +332,7 @@ def agregar_bloque(
     dia = db.get(PtcCapDia, dia_id)
     if not dia:
         raise HTTPException(404, "Día no encontrado")
+    personas_dia = _personas_del_dia(db, dia_id)
     bloque = PtcCapBloque(
         dia_id=dia_id,
         lider_persona_id=body.lider_persona_id,
@@ -272,9 +341,14 @@ def agregar_bloque(
     )
     db.add(bloque)
     db.flush()
-    for pid in _personas_del_dia(db, dia_id):
+    for pid in personas_dia:
         db.add(PtcCapBloquePersona(bloque_id=bloque.id, persona_id=pid, incluido=True))
     db.commit()
+    sede = main_db.get(Sede, dia.sede_id) if dia.sede_id else None
+    nombres_personas = [_persona_mini(db, pid)["nombre"] for pid in personas_dia]
+    _agendar_avisos_bloques(
+        background_tasks, [(bloque, nombres_personas)], dia, sede.name if sede else "", db, main_db,
+    )
     return _dia_dict(dia, db, main_db)
 
 
