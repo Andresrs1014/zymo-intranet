@@ -1789,14 +1789,6 @@ class NovedadCreate(BaseModel):
     estado: str = "Pendiente"
 
 
-class NovedadUpdate(BaseModel):
-    tipo: Optional[str] = None
-    descripcion: Optional[str] = None
-    fecha_inicio: Optional[str] = None
-    fecha_fin: Optional[str] = None
-    estado: Optional[str] = None
-
-
 @router.get("/personas/{persona_id}/novedades")
 def listar_novedades(
     persona_id: int,
@@ -1842,33 +1834,6 @@ def crear_novedad(
         fecha_fin=_parse_date(body.fecha_fin),
         estado=body.estado,
     )
-    db.add(nov)
-    db.commit()
-    db.refresh(nov)
-    return {
-        "id": nov.id, "tipo": nov.tipo, "descripcion": nov.descripcion,
-        "fecha_inicio": nov.fecha_inicio.isoformat() if nov.fecha_inicio else None,
-        "fecha_fin": nov.fecha_fin.isoformat() if nov.fecha_fin else None,
-        "estado": nov.estado, "origen": nov.origen,
-    }
-
-
-@router.put("/novedades/{nov_id}")
-def actualizar_novedad(
-    nov_id: int,
-    body: NovedadUpdate,
-    db: Session = Depends(get_personal_db),
-    _: User = Depends(require_tc_sensible),
-):
-    nov = db.get(PtcNovedad, nov_id)
-    if not nov:
-        raise HTTPException(status_code=404, detail="Novedad no encontrada")
-    upd = body.model_dump(exclude_unset=True)
-    for field, value in upd.items():
-        if field in ("fecha_inicio", "fecha_fin"):
-            setattr(nov, field, _parse_date(value))
-        else:
-            setattr(nov, field, value)
     db.add(nov)
     db.commit()
     db.refresh(nov)

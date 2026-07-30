@@ -115,6 +115,9 @@ export function TyCAprobacionesPage() {
                         </span>
                       )}
                     </div>
+                    <p className="text-[10px] text-muted-foreground/70 mt-1">
+                      Solicitado el {new Date(it.created_at).toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    </p>
                   </div>
                 </div>
 

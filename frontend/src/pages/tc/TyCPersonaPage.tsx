@@ -886,11 +886,6 @@ function NovedadesTab({ personaId, puedeGestionar }: { personaId: number; puedeG
     "Rechazado":  "bg-red-500/10 text-red-500",
   }
 
-  async function cambiarEstado(novId: number, estado: string) {
-    await api.put(`/tc/novedades/${novId}`, { estado })
-    load()
-  }
-
   return (
     <TabShell
       icon={<FileText className="w-4 h-4 text-violet-500" />}
@@ -907,19 +902,11 @@ function NovedadesTab({ personaId, puedeGestionar }: { personaId: number; puedeG
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm font-medium">{n.tipo}</span>
-                  {puedeGestionar ? (
-                    <select
-                      value={n.estado}
-                      onChange={(e) => cambiarEstado(n.id, e.target.value)}
-                      className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border-0 outline-none cursor-pointer ${ESTADO_COLOR[n.estado] ?? "bg-muted text-muted-foreground"}`}
-                    >
-                      {TC_NOVEDAD_ESTADOS.map((e) => <option key={e} value={e}>{e}</option>)}
-                    </select>
-                  ) : (
-                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${ESTADO_COLOR[n.estado] ?? "bg-muted text-muted-foreground"}`}>
-                      {n.estado}
-                    </span>
-                  )}
+                  {/* Aprobar/rechazar vive solo en /tc/aprobaciones (jefe directo) —
+                      aquí es de solo lectura para no tener dos caminos que mutan el mismo estado. */}
+                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${ESTADO_COLOR[n.estado] ?? "bg-muted text-muted-foreground"}`}>
+                    {n.estado}
+                  </span>
                   <OrigenBadge origen={n.origen} />
                 </div>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
