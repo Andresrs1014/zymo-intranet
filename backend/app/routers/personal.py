@@ -1161,15 +1161,18 @@ def actualizar_persona(
 # ── Notificación automática de retiro ──────────────────────────────────────────
 # Cuando alguien pasa a Inactivo desde Rotación, se avisa por correo a los
 # cargos configurados aquí (líderes elegidos a mano por T&C, no auto-detectados
-# por nombre de cargo — decisión explícita del usuario: más simple y ya se
-# reutiliza el mismo filtro de cargo que existe en Directorio).
+# por persona específica — decisión explícita del usuario: el cargo es solo
+# un filtro en pantalla para encontrarlas más rápido (reutiliza el filtro de
+# Directorio/GET /tc/personas?cargo_id=), lo que se guarda es la persona.
+# Así, si alguien nuevo entra a ese cargo después, no empieza a recibir el
+# aviso solo — hay que agregarlo a mano.
 
-_RETIRO_CARGOS_CONFIG_KEY = "retiro_notificacion_cargo_ids"
+_RETIRO_PERSONAS_CONFIG_KEY = "retiro_notificacion_persona_ids"
 
 
-def _get_retiro_cargo_ids(db: Session) -> list[int]:
+def _get_retiro_persona_ids(db: Session) -> list[int]:
     row = db.execute(
-        text("SELECT value FROM ptc_config WHERE key=:k"), {"k": _RETIRO_CARGOS_CONFIG_KEY}
+        text("SELECT value FROM ptc_config WHERE key=:k"), {"k": _RETIRO_PERSONAS_CONFIG_KEY}
     ).first()
     if not row or not row[0]:
         return []
@@ -1182,17 +1185,39 @@ def _get_retiro_cargo_ids(db: Session) -> list[int]:
     return []
 
 
-def _set_retiro_cargo_ids(db: Session, cargo_ids: list[int]) -> None:
-    payload = json.dumps(sorted(set(cargo_ids)))
+def _set_retiro_persona_ids(db: Session, persona_ids: list[int]) -> None:
+    payload = json.dumps(sorted(set(persona_ids)))
     db.execute(
         text("INSERT OR REPLACE INTO ptc_config (key, value) VALUES (:k, :v)"),
-        {"k": _RETIRO_CARGOS_CONFIG_KEY, "v": payload},
+        {"k": _RETIRO_PERSONAS_CONFIG_KEY, "v": payload},
     )
     db.commit()
 
 
 class RetiroNotificacionConfigBody(BaseModel):
-    cargo_ids: list[int]
+    persona_ids: list[int]
+
+
+def _destinatarios_desde_personas(db: Session, persona_ids: list[int]) -> list[dict]:
+    destinatarios: list[dict] = []
+    if not persona_ids:
+        return destinatarios
+    personas = db.exec(
+        select(PtcPersona).where(
+            col(PtcPersona.id).in_(persona_ids),
+            PtcPersona.estado == _ACTIVO,
+        )
+    ).all()
+    for p in personas:
+        email = p.email_corporativo or p.email
+        if not email:
+            continue
+        cargo = db.get(PtcCargo, p.cargo_id) if p.cargo_id else None
+        destinatarios.append({
+            "persona_id": p.id, "nombre": p.nombre, "email": email,
+            "cargo_id": p.cargo_id, "cargo_nombre": cargo.nombre if cargo else "",
+        })
+    return destinatarios
 
 
 @router.get("/config/retiro-notificacion")
@@ -1200,25 +1225,8 @@ def get_config_retiro_notificacion(
     db: Session = Depends(get_personal_db),
     _: User = Depends(require_admin),
 ):
-    cargo_ids = _get_retiro_cargo_ids(db)
-    destinatarios: list[dict] = []
-    if cargo_ids:
-        personas = db.exec(
-            select(PtcPersona).where(
-                col(PtcPersona.cargo_id).in_(cargo_ids),
-                PtcPersona.estado == _ACTIVO,
-            )
-        ).all()
-        for p in personas:
-            email = p.email_corporativo or p.email
-            if not email:
-                continue
-            cargo = db.get(PtcCargo, p.cargo_id) if p.cargo_id else None
-            destinatarios.append({
-                "persona_id": p.id, "nombre": p.nombre, "email": email,
-                "cargo_id": p.cargo_id, "cargo_nombre": cargo.nombre if cargo else "",
-            })
-    return {"cargo_ids": cargo_ids, "destinatarios": destinatarios}
+    persona_ids = _get_retiro_persona_ids(db)
+    return {"persona_ids": persona_ids, "destinatarios": _destinatarios_desde_personas(db, persona_ids)}
 
 
 @router.put("/config/retiro-notificacion")
@@ -1227,21 +1235,20 @@ def set_config_retiro_notificacion(
     db: Session = Depends(get_personal_db),
     _: User = Depends(require_admin),
 ):
-    _set_retiro_cargo_ids(db, body.cargo_ids)
-    return {"cargo_ids": sorted(set(body.cargo_ids))}
+    _set_retiro_persona_ids(db, body.persona_ids)
+    return {"persona_ids": sorted(set(body.persona_ids))}
 
 
-def _resolver_destinatarios_retiro(db: Session) -> list[str]:
-    cargo_ids = _get_retiro_cargo_ids(db)
-    if not cargo_ids:
-        return []
-    personas = db.exec(
-        select(PtcPersona).where(
-            col(PtcPersona.cargo_id).in_(cargo_ids),
-            PtcPersona.estado == _ACTIVO,
-        )
-    ).all()
-    return sorted({(p.email_corporativo or p.email) for p in personas if (p.email_corporativo or p.email)})
+def _resolver_destinatarios_retiro(db: Session, respaldo_email: Optional[str] = None) -> list[str]:
+    """respaldo_email: correo de quien dispara la acción (jefe/admin logueado) —
+    siempre se agrega además de las personas configuradas, para que quien
+    aprueba/prueba el envío tenga su propia copia como respaldo, incluso si
+    la configuración de destinatarios está vacía o mal armada."""
+    persona_ids = _get_retiro_persona_ids(db)
+    emails: set[str] = {d["email"] for d in _destinatarios_desde_personas(db, persona_ids)}
+    if respaldo_email:
+        emails.add(respaldo_email)
+    return sorted(emails)
 
 
 def _construir_email_retiro(retirados: list[dict], sede_names: list[str], es_prueba: bool = False) -> tuple[str, str]:
@@ -1311,16 +1318,17 @@ def _enviar_correo_retiro(emails: list[str], subject: str, body: str) -> None:
         )
 
 
-def _notificar_retiro(retirados: list[dict]) -> None:
+def _notificar_retiro(retirados: list[dict], actor_email: Optional[str] = None) -> None:
     """Corre en background tras el commit de bulk-estado — un fallo de correo
     nunca debe afectar el cambio de estado ya guardado. Abre sus propias
     sesiones (personal + main) en vez de reusar las del request, mismo patrón
-    que _notificar_tc en tc_aprobaciones.py."""
+    que _notificar_tc en tc_aprobaciones.py. actor_email: quien marcó el
+    retiro en Rotación, siempre recibe copia de respaldo."""
     try:
         from app.database import get_engine
 
         with Session(get_personal_engine()) as db:
-            emails = _resolver_destinatarios_retiro(db)
+            emails = _resolver_destinatarios_retiro(db, respaldo_email=actor_email)
         if not emails:
             log.warning("[retiro] Sin destinatarios configurados (o sin correo) — omitiendo envío")
             return
@@ -1345,9 +1353,9 @@ def _notificar_retiro(retirados: list[dict]) -> None:
 @router.post("/config/retiro-notificacion/prueba")
 def enviar_prueba_retiro_notificacion(
     db: Session = Depends(get_personal_db),
-    _: User = Depends(require_admin),
+    user: User = Depends(require_admin),
 ):
-    emails = _resolver_destinatarios_retiro(db)
+    emails = _resolver_destinatarios_retiro(db, respaldo_email=user.email)
     if not emails:
         raise HTTPException(400, "No hay destinatarios configurados — guarda al menos un cargo primero.")
 

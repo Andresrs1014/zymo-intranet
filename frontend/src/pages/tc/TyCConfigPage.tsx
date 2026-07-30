@@ -16,6 +16,7 @@ interface Paquete { id: number; nombre: string; descripcion: string; activo: boo
 
 interface Cargo { id: number; nombre: string }
 interface Destinatario { persona_id: number; nombre: string; email: string; cargo_nombre: string }
+interface PersonaCandidata { id: number; nombre: string; cargo_nombre: string }
 
 type Tab = "notificaciones" | "paquetes"
 
@@ -318,6 +319,10 @@ function NotificacionesTab() {
 
 function RetiroNotificacionPanel() {
   const [cargos, setCargos] = useState<Cargo[]>([])
+  const [cargoFiltro, setCargoFiltro] = useState("")
+  const [candidatos, setCandidatos] = useState<PersonaCandidata[]>([])
+  const [cargandoCandidatos, setCargandoCandidatos] = useState(false)
+
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [destinatarios, setDestinatarios] = useState<Destinatario[]>([])
   const [loading, setLoading] = useState(true)
@@ -326,22 +331,33 @@ function RetiroNotificacionPanel() {
   const [probando, setProbando] = useState(false)
   const [pruebaMsg, setPruebaMsg] = useState<{ ok: boolean; texto: string } | null>(null)
 
+  // Carga inicial: cargos (solo para el filtro) + configuración ya guardada
   useEffect(() => {
     Promise.all([
       api.get("/tc/cargos"),
       api.get("/tc/config/retiro-notificacion"),
     ]).then(([cargosRes, configRes]) => {
       setCargos(Array.isArray(cargosRes.data) ? cargosRes.data : [])
-      setSelected(new Set(configRes.data.cargo_ids ?? []))
+      setSelected(new Set(configRes.data.persona_ids ?? []))
       setDestinatarios(configRes.data.destinatarios ?? [])
     }).finally(() => setLoading(false))
   }, [])
 
-  function toggle(cargoId: number) {
+  // El cargo es solo un filtro para encontrar personas más rápido — lo que
+  // se guarda es la persona puntual, no "todo el cargo".
+  useEffect(() => {
+    setCargandoCandidatos(true)
+    api.get("/tc/personas", { params: { estado: "Activo", limit: 500, ...(cargoFiltro ? { cargo_id: cargoFiltro } : {}) } })
+      .then((r) => setCandidatos(Array.isArray(r.data.items) ? r.data.items : []))
+      .catch(() => setCandidatos([]))
+      .finally(() => setCargandoCandidatos(false))
+  }, [cargoFiltro])
+
+  function toggle(personaId: number) {
     setSaved(false)
     setSelected((prev) => {
       const next = new Set(prev)
-      if (next.has(cargoId)) next.delete(cargoId); else next.add(cargoId)
+      if (next.has(personaId)) next.delete(personaId); else next.add(personaId)
       return next
     })
   }
@@ -349,10 +365,10 @@ function RetiroNotificacionPanel() {
   async function guardar() {
     setSaving(true)
     try {
-      const { data } = await api.put("/tc/config/retiro-notificacion", { cargo_ids: [...selected] })
+      const { data } = await api.put("/tc/config/retiro-notificacion", { persona_ids: [...selected] })
       const configRes = await api.get("/tc/config/retiro-notificacion")
       setDestinatarios(configRes.data.destinatarios ?? [])
-      setSelected(new Set(data.cargo_ids ?? []))
+      setSelected(new Set(data.persona_ids ?? []))
       setSaved(true)
       setPruebaMsg(null)
     } finally {
@@ -365,7 +381,11 @@ function RetiroNotificacionPanel() {
     setPruebaMsg(null)
     try {
       const { data } = await api.post("/tc/config/retiro-notificacion/prueba")
-      setPruebaMsg({ ok: true, texto: `Correo de prueba enviado a ${data.enviados} destinatario${data.enviados !== 1 ? "s" : ""}.` })
+      const destinos = (data.destinatarios ?? []).join(", ")
+      setPruebaMsg({
+        ok: true,
+        texto: `Enviado a ${data.enviados} destinatario${data.enviados !== 1 ? "s" : ""}: ${destinos}`,
+      })
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
       setPruebaMsg({ ok: false, texto: detail || "No se pudo enviar el correo de prueba." })
@@ -381,26 +401,47 @@ function RetiroNotificacionPanel() {
         <h3 className="text-sm font-semibold">Destinatarios — Retiro de funcionario</h3>
       </div>
       <p className="text-xs text-muted-foreground">
-        Cuando alguien se marca Inactivo en Rotación, se avisa automáticamente por correo a
-        todas las personas de los cargos que marques aquí.
+        Cuando alguien se marca Inactivo en Rotación, se avisa automáticamente por correo a las
+        personas puntuales que selecciones abajo. El cargo es solo un filtro para encontrarlas
+        más rápido — si alguien nuevo entra a ese cargo después, no queda agregado solo.
       </p>
 
       {loading ? (
-        <p className="text-xs text-muted-foreground py-4">Cargando cargos…</p>
+        <p className="text-xs text-muted-foreground py-4">Cargando…</p>
       ) : (
-        <div className="max-h-56 overflow-y-auto rounded-xl border border-border divide-y divide-border/60">
-          {cargos.map((c) => (
-            <label key={c.id} className="flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer hover:bg-muted/10 transition-colors">
-              <input
-                type="checkbox"
-                checked={selected.has(c.id)}
-                onChange={() => toggle(c.id)}
-                className="rounded border-input accent-teal-500"
-              />
-              {c.nombre}
-            </label>
-          ))}
-        </div>
+        <>
+          <select
+            value={cargoFiltro}
+            onChange={(e) => setCargoFiltro(e.target.value)}
+            className="w-full h-9 px-2.5 text-sm bg-muted/20 border border-input rounded-lg focus:outline-none focus:ring-1 focus:ring-ring"
+          >
+            <option value="">Todos los cargos</option>
+            {cargos.map((c) => (
+              <option key={c.id} value={c.id}>{c.nombre}</option>
+            ))}
+          </select>
+
+          <div className="max-h-56 overflow-y-auto rounded-xl border border-border divide-y divide-border/60">
+            {cargandoCandidatos ? (
+              <p className="text-xs text-muted-foreground px-3 py-3">Cargando personas…</p>
+            ) : candidatos.length === 0 ? (
+              <p className="text-xs text-muted-foreground px-3 py-3">Sin personas para ese cargo.</p>
+            ) : (
+              candidatos.map((p) => (
+                <label key={p.id} className="flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer hover:bg-muted/10 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(p.id)}
+                    onChange={() => toggle(p.id)}
+                    className="rounded border-input accent-teal-500"
+                  />
+                  <span className="flex-1">{p.nombre}</span>
+                  <span className="text-[10px] text-muted-foreground">{p.cargo_nombre}</span>
+                </label>
+              ))
+            )}
+          </div>
+        </>
       )}
 
       <div className="flex items-center gap-3">
@@ -414,11 +455,11 @@ function RetiroNotificacionPanel() {
         {saved && <span className="text-xs text-emerald-400">Guardado.</span>}
       </div>
 
-      {destinatarios.length > 0 && (
-        <div className="pt-2">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5">
-            Recibirán el aviso ({destinatarios.length})
-          </p>
+      <div className="pt-2">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5">
+          Seleccionados ({selected.size})
+        </p>
+        {destinatarios.length > 0 ? (
           <div className="flex flex-wrap gap-1.5">
             {destinatarios.map((d) => (
               <span key={d.persona_id} className="text-[10px] px-2 py-0.5 rounded-full bg-muted/20 text-muted-foreground">
@@ -426,24 +467,27 @@ function RetiroNotificacionPanel() {
               </span>
             ))}
           </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">Nadie guardado todavía.</p>
+        )}
 
-          <div className="flex items-center gap-3 pt-3">
-            <button
-              onClick={enviarPrueba}
-              disabled={probando}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border hover:bg-muted/10 text-xs font-semibold transition-colors disabled:opacity-50"
-            >
-              <Send className="w-3.5 h-3.5 text-amber-400" /> {probando ? "Enviando…" : "Enviar correo de prueba"}
-            </button>
-          </div>
-          <p className="text-[10px] text-muted-foreground">
-            Manda el correo con datos de ejemplo a los destinatarios ya guardados arriba — guarda primero si acabas de cambiar la selección.
-          </p>
-          {pruebaMsg && (
-            <p className={`text-xs ${pruebaMsg.ok ? "text-emerald-400" : "text-destructive"}`}>{pruebaMsg.texto}</p>
-          )}
+        <div className="flex items-center gap-3 pt-3">
+          <button
+            onClick={enviarPrueba}
+            disabled={probando}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border hover:bg-muted/10 text-xs font-semibold transition-colors disabled:opacity-50"
+          >
+            <Send className="w-3.5 h-3.5 text-amber-400" /> {probando ? "Enviando…" : "Enviar correo de prueba"}
+          </button>
         </div>
-      )}
+        <p className="text-[10px] text-muted-foreground">
+          Manda el correo con datos de ejemplo a los destinatarios ya guardados arriba (más tu
+          propio correo, como respaldo) — guarda primero si acabas de cambiar la selección.
+        </p>
+        {pruebaMsg && (
+          <p className={`text-xs ${pruebaMsg.ok ? "text-emerald-400" : "text-destructive"}`}>{pruebaMsg.texto}</p>
+        )}
+      </div>
     </div>
   )
 }
