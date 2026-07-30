@@ -5,6 +5,7 @@ import { prisma } from "../config/prisma"
 const router = Router()
 
 const SubproyectoBody = z.object({
+  proyectoId: z.number().int().positive(),
   nombre: z.string().min(1).max(100),
   objetivo: z.string().optional(),
   cliente: z.string().optional(),
@@ -33,6 +34,11 @@ router.post("/", async (req, res, next) => {
       res.status(400).json({ error: "Datos inválidos", details: parsed.error.flatten() })
       return
     }
+    const proyecto = await prisma.helixProyecto.findUnique({ where: { id: parsed.data.proyectoId } })
+    if (!proyecto) {
+      res.status(400).json({ error: "El proyecto principal seleccionado no existe" })
+      return
+    }
     const item = await prisma.helixSubproyecto.create({ data: parsed.data })
     res.status(201).json(item)
   } catch (err) {
@@ -56,6 +62,11 @@ router.put("/:id", async (req, res, next) => {
     const existing = await prisma.helixSubproyecto.findUnique({ where: { id } })
     if (!existing) {
       res.status(404).json({ error: "No encontrado" })
+      return
+    }
+    const proyecto = await prisma.helixProyecto.findUnique({ where: { id: parsed.data.proyectoId } })
+    if (!proyecto) {
+      res.status(400).json({ error: "El proyecto principal seleccionado no existe" })
       return
     }
     const item = await prisma.helixSubproyecto.update({

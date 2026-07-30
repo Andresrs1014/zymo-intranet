@@ -7,8 +7,18 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model HelixProyecto {
+  id           Int                @id @default(autoincrement())
+  nombre       String
+  subproyectos HelixSubproyecto[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+}
+
 model HelixSubproyecto {
   id           Int               @id @default(autoincrement())
+  proyectoId   Int
+  proyecto     HelixProyecto     @relation(fields: [proyectoId], references: [id])
   nombre       String
   objetivo     String?
   cliente      String?
@@ -21,33 +31,58 @@ model HelixSubproyecto {
   updatedAt    DateTime          @updatedAt
 }
 
+// Catálogo de dependencias externas (bloqueo informativo: cliente, proveedor, etc.)
+// Distinto de HelixActividad.bloqueada, que marca bloqueo real de la actividad.
+model HelixDependencia {
+  id              Int              @id @default(autoincrement())
+  nombre          String
+  tipo            String           @default("Interna") // Interna | Externa | Cliente | Tecnologia | Proveedor
+  responsableArea String?
+  actividades     HelixActividad[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
 model HelixActividad {
-  id                  Int              @id @default(autoincrement())
+  id                  Int               @id @default(autoincrement())
   subproyectoId       Int
-  subproyecto         HelixSubproyecto @relation(fields: [subproyectoId], references: [id], onDelete: Cascade)
+  subproyecto         HelixSubproyecto  @relation(fields: [subproyectoId], references: [id], onDelete: Cascade)
+  numeroActividad     String?
   responsableId       Int
   responsableNombre   String
   responsableInitials String
-  responsableColor    String           @default("#5461c8")
+  responsableColor    String            @default("#5461c8")
   nombre              String
-  estado              String           @default("Backlog")
-  prioridad           String           @default("Media")
+  estado              String            @default("Backlog")
+  prioridad           String            @default("Media")
   fechaInicio         DateTime
   fechaFin            DateTime
-  avance              Int              @default(0)
-  puntos              Int              @default(3)
-  costoInversion      Float            @default(0)
-  costoOptimizacion   Float            @default(0)
-  costoEjecucion      Float            @default(0)
-  bloqueada           Boolean          @default(false)
+  avance              Int               @default(0)
+  puntos              Int               @default(3)
+  costoInversion      Float             @default(0)
+  costoOptimizacion   Float             @default(0)
+  costoEjecucion      Float             @default(0)
+  bloqueada           Boolean           @default(false)
   dependenciaId       Int?
-  dependencia         HelixActividad?  @relation("Dependencia", fields: [dependenciaId], references: [id])
-  dependientes        HelixActividad[] @relation("Dependencia")
+  dependencia         HelixDependencia? @relation(fields: [dependenciaId], references: [id])
   completadaEn        DateTime?
+  subactividades      HelixSubactividad[]
   comentarios         HelixComentario[]
   evidencias          HelixEvidencia[]
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+}
+
+model HelixSubactividad {
+  id                Int            @id @default(autoincrement())
+  actividadId       Int
+  actividad         HelixActividad @relation(fields: [actividadId], references: [id], onDelete: Cascade)
+  nombre            String
+  responsableId     Int?
+  responsableNombre String?
+  estado            String         @default("Planificado")
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 }
 
 model HelixComentario {

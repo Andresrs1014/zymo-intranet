@@ -4,9 +4,12 @@ import cors from "cors";
 import path from "path";
 import { env } from "./config/env";
 import { authenticate } from "./middleware/auth";
+import proyectosRouter from "./routers/proyectos";
 import subproyectosRouter from "./routers/subproyectos";
 import actividadesRouter from "./routers/actividades";
 import comentariosRouter from "./routers/comentarios";
+import subactividadesRouter from "./routers/subactividades";
+import dependenciasRouter from "./routers/dependencias";
 import usuariosRouter from "./routers/usuarios";
 import aiRouter from "./routers/ai"
 import encuestasRouter from "./routers/encuestas"
@@ -37,9 +40,12 @@ app.get("/health", (_req: Request, res: Response) => {
 
 // --- API Routers ---
 app.use("/api", authenticate);
+app.use("/api/proyectos", proyectosRouter);
 app.use("/api/subproyectos", subproyectosRouter);
+app.use("/api/dependencias", dependenciasRouter);
 app.use("/api/actividades", actividadesRouter);
 app.use("/api", comentariosRouter);
+app.use("/api", subactividadesRouter);
 app.use("/api/usuarios", usuariosRouter);
 app.use("/api/ai", aiRouter)
 app.use("/api/encuestas", encuestasRouter)

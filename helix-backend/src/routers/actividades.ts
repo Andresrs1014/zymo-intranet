@@ -6,6 +6,9 @@ import multer from "multer"
 import path from "path"
 import fs from "fs"
 import { env } from "../config/env"
+import { getUserId } from "../middleware/auth"
+import { crearActividadCompleta, actualizarActividad, ActividadValidationError } from "../services/actividadService"
+import { COLUMNS, PRIORITIES } from "../utils/constants"
 
 const router = Router()
 
@@ -32,17 +35,16 @@ const upload = multer({
   },
 })
 
-const ActividadBody = z.object({
+const ActividadBase = {
   subproyectoId: z.number().int().positive(),
+  numeroActividad: z.string().max(30).nullable().optional(),
   responsableId: z.number().int().positive(),
   responsableNombre: z.string().min(1),
   responsableInitials: z.string().min(1).max(3),
   responsableColor: z.string().default("#5461c8"),
   nombre: z.string().min(1).max(100),
-  estado: z
-    .enum(["Backlog", "Planificado", "En curso", "Revision", "Terminado"])
-    .default("Backlog"),
-  prioridad: z.enum(["Alta", "Media", "Baja"]).default("Media"),
+  estado: z.enum(COLUMNS).default("Backlog"),
+  prioridad: z.enum(PRIORITIES).default("Media"),
   fechaInicio: z.string().refine((d) => !isNaN(Date.parse(d)), "Fecha inválida"),
   fechaFin: z.string().refine((d) => !isNaN(Date.parse(d)), "Fecha inválida"),
   avance: z.number().int().min(0).max(100).default(0),
@@ -52,10 +54,31 @@ const ActividadBody = z.object({
   costoEjecucion: z.number().min(0).default(0),
   bloqueada: z.boolean().default(false),
   dependenciaId: z.number().int().positive().nullable().optional(),
+}
+
+// POST body — the "Gestión de proyecto" form covers actividad + subactividades +
+// comentario inicial in one submit, matching the original single-form intent.
+const ActividadCreateBody = z.object({
+  ...ActividadBase,
+  subactividades: z
+    .array(
+      z.object({
+        nombre: z.string().min(1).max(150),
+        responsableId: z.number().int().positive().nullable().optional(),
+        responsableNombre: z.string().max(100).nullable().optional(),
+        estado: z.enum(COLUMNS).default("Planificado"),
+      })
+    )
+    .optional(),
+  comentarioInicial: z.string().max(2000).optional(),
 })
 
+// PUT body — only the actividad's own fields. Subactividades/comentarios/evidencias
+// are edited afterward through their own dedicated endpoints, not re-embedded here.
+const ActividadUpdateBody = z.object(ActividadBase)
+
 const EstadoBody = z.object({
-  estado: z.enum(["Backlog", "Planificado", "En curso", "Revision", "Terminado"]),
+  estado: z.enum(COLUMNS),
 })
 
 const AvanceBody = z.object({
@@ -74,8 +97,7 @@ router.get("/", async (req, res, next) => {
       if (!isNaN(parsed)) where.subproyectoId = parsed
     }
     if (estado !== undefined) {
-      const estadoValid = ["Backlog", "Planificado", "En curso", "Revision", "Terminado"]
-      if (estadoValid.includes(estado as string)) {
+      if ((COLUMNS as readonly string[]).includes(estado as string)) {
         where.estado = estado as string
       }
       // silently ignore invalid estado values
@@ -98,25 +120,25 @@ router.get("/", async (req, res, next) => {
   }
 })
 
-// POST / — create actividad
+// POST / — create actividad (+ subactividades + comentario inicial, opcional)
 router.post("/", async (req, res, next) => {
   try {
-    const parsed = ActividadBody.safeParse(req.body)
+    const parsed = ActividadCreateBody.safeParse(req.body)
     if (!parsed.success) {
       res.status(400).json({ error: "Datos inválidos", details: parsed.error.flatten() })
       return
     }
 
-    const { fechaInicio, fechaFin, ...rest } = parsed.data
-    const item = await prisma.helixActividad.create({
-      data: {
-        ...rest,
-        fechaInicio: new Date(fechaInicio),
-        fechaFin: new Date(fechaFin),
-      },
-    })
+    const autorId = getUserId(req.user!)
+    const autorNombre = req.user!.full_name ?? req.user!.email ?? "Usuario"
+
+    const item = await crearActividadCompleta(parsed.data, { id: autorId, nombre: autorNombre })
     res.status(201).json(item)
   } catch (err) {
+    if (err instanceof ActividadValidationError) {
+      res.status(400).json({ error: err.message })
+      return
+    }
     next(err)
   }
 })
@@ -132,6 +154,7 @@ router.get("/:id", async (req, res, next) => {
     const item = await prisma.helixActividad.findUnique({
       where: { id },
       include: {
+        subactividades: { orderBy: { createdAt: "asc" } },
         comentarios: { orderBy: { createdAt: "asc" } },
         evidencias: { orderBy: { createdAt: "asc" } },
       },
@@ -146,7 +169,8 @@ router.get("/:id", async (req, res, next) => {
   }
 })
 
-// PUT /:id — full update of actividad
+// PUT /:id — update actividad's own fields (subactividades/comentarios/evidencias
+// are managed through their own endpoints, not through this one)
 router.put("/:id", async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10)
@@ -154,35 +178,23 @@ router.put("/:id", async (req, res, next) => {
       res.status(400).json({ error: "ID inválido" })
       return
     }
-    const parsed = ActividadBody.safeParse(req.body)
+    const parsed = ActividadUpdateBody.safeParse(req.body)
     if (!parsed.success) {
       res.status(400).json({ error: "Datos inválidos", details: parsed.error.flatten() })
       return
     }
-    const existing = await prisma.helixActividad.findUnique({ where: { id } })
-    if (!existing) {
+
+    const item = await actualizarActividad(id, parsed.data)
+    if (!item) {
       res.status(404).json({ error: "No encontrado" })
       return
     }
-
-    const { fechaInicio, fechaFin, ...rest } = parsed.data
-    // Auto-set completadaEn if transitioning to Terminado
-    const completadaEn =
-      rest.estado === "Terminado" && existing.estado !== "Terminado"
-        ? new Date()
-        : existing.completadaEn ?? undefined
-
-    const item = await prisma.helixActividad.update({
-      where: { id },
-      data: {
-        ...rest,
-        fechaInicio: new Date(fechaInicio),
-        fechaFin: new Date(fechaFin),
-        completadaEn,
-      },
-    })
     res.json(item)
   } catch (err) {
+    if (err instanceof ActividadValidationError) {
+      res.status(400).json({ error: err.message })
+      return
+    }
     next(err)
   }
 })
