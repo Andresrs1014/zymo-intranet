@@ -17,8 +17,13 @@ model HelixProyecto {
 
 model HelixSubproyecto {
   id           Int               @id @default(autoincrement())
-  proyectoId   Int
-  proyecto     HelixProyecto     @relation(fields: [proyectoId], references: [id])
+  // Requerido cuando tipo="Subproyecto" (iniciativa real, con caso de negocio).
+  // Nulo cuando tipo="PlanDeTrabajo" — es una herramienta táctica rápida, no
+  // pertenece a un Proyecto principal ni carga ROI (regla de negocio en el
+  // service, no en el schema — ver actividadService/planTrabajoService).
+  proyectoId   Int?
+  proyecto     HelixProyecto?    @relation(fields: [proyectoId], references: [id])
+  tipo         String            @default("Subproyecto") // Subproyecto | PlanDeTrabajo
   nombre       String
   objetivo     String?
   cliente      String?

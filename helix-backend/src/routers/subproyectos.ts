@@ -4,14 +4,29 @@ import { prisma } from "../config/prisma"
 
 const router = Router()
 
+const TIPOS = ["Subproyecto", "PlanDeTrabajo"] as const
+
 const SubproyectoBody = z.object({
-  proyectoId: z.number().int().positive(),
+  // Requerido solo cuando tipo="Subproyecto" — un Plan de trabajo no
+  // pertenece a un Proyecto principal (ver validación en POST/PUT).
+  proyectoId: z.number().int().positive().nullable().optional(),
+  tipo: z.enum(TIPOS).default("Subproyecto"),
   nombre: z.string().min(1).max(100),
   objetivo: z.string().optional(),
   cliente: z.string().optional(),
   inversionEst: z.number().min(0).max(9_999_999_999).default(0),
   retornoEsp: z.number().min(0).max(9_999_999_999).default(0),
 })
+
+async function validarProyectoSegunTipo(
+  data: z.infer<typeof SubproyectoBody>
+): Promise<string | null> {
+  if (data.tipo === "PlanDeTrabajo") return null
+  if (!data.proyectoId) return "Selecciona un proyecto principal"
+  const proyecto = await prisma.helixProyecto.findUnique({ where: { id: data.proyectoId } })
+  if (!proyecto) return "El proyecto principal seleccionado no existe"
+  return null
+}
 
 // GET / — list all active subproyectos
 router.get("/", async (_req, res, next) => {
@@ -34,9 +49,9 @@ router.post("/", async (req, res, next) => {
       res.status(400).json({ error: "Datos inválidos", details: parsed.error.flatten() })
       return
     }
-    const proyecto = await prisma.helixProyecto.findUnique({ where: { id: parsed.data.proyectoId } })
-    if (!proyecto) {
-      res.status(400).json({ error: "El proyecto principal seleccionado no existe" })
+    const proyectoError = await validarProyectoSegunTipo(parsed.data)
+    if (proyectoError) {
+      res.status(400).json({ error: proyectoError })
       return
     }
     const item = await prisma.helixSubproyecto.create({ data: parsed.data })
@@ -64,9 +79,9 @@ router.put("/:id", async (req, res, next) => {
       res.status(404).json({ error: "No encontrado" })
       return
     }
-    const proyecto = await prisma.helixProyecto.findUnique({ where: { id: parsed.data.proyectoId } })
-    if (!proyecto) {
-      res.status(400).json({ error: "El proyecto principal seleccionado no existe" })
+    const proyectoError = await validarProyectoSegunTipo(parsed.data)
+    if (proyectoError) {
+      res.status(400).json({ error: proyectoError })
       return
     }
     const item = await prisma.helixSubproyecto.update({
@@ -110,6 +125,16 @@ router.get("/:id/roi", async (req, res, next) => {
     const subproyecto = await prisma.helixSubproyecto.findUnique({ where: { id } })
     if (!subproyecto) {
       res.status(404).json({ error: "No encontrado" })
+      return
+    }
+
+    if (subproyecto.tipo === "PlanDeTrabajo") {
+      res.json({
+        id: subproyecto.id,
+        nombre: subproyecto.nombre,
+        roi: null,
+        clasificacion: "No aplica (Plan de trabajo)",
+      })
       return
     }
 

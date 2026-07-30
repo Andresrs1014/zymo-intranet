@@ -10,6 +10,7 @@ import actividadesRouter from "./routers/actividades";
 import comentariosRouter from "./routers/comentarios";
 import subactividadesRouter from "./routers/subactividades";
 import dependenciasRouter from "./routers/dependencias";
+import planesTrabajoRouter from "./routers/planesTrabajo";
 import usuariosRouter from "./routers/usuarios";
 import aiRouter from "./routers/ai"
 import encuestasRouter from "./routers/encuestas"
@@ -43,6 +44,7 @@ app.use("/api", authenticate);
 app.use("/api/proyectos", proyectosRouter);
 app.use("/api/subproyectos", subproyectosRouter);
 app.use("/api/dependencias", dependenciasRouter);
+app.use("/api/planes-trabajo", planesTrabajoRouter);
 app.use("/api/actividades", actividadesRouter);
 app.use("/api", comentariosRouter);
 app.use("/api", subactividadesRouter);
