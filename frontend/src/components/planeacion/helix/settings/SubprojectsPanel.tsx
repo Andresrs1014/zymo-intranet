@@ -146,6 +146,7 @@ const badgeInactiveStyle: CSSProperties = {
 
 const EMPTY_FORM: HelixSubproyectoForm = {
   proyectoId: 0,
+  tipo: "Subproyecto",
   nombre: "",
   objetivo: "",
   cliente: "",
@@ -445,8 +446,11 @@ function SubprojectRow({ subproyecto, proyectoNombre, onEdit, onDelete, expanded
 // ─── SubprojectsPanel ─────────────────────────────────────────────────────────
 
 export function SubprojectsPanel() {
-  const { subproyectos, loading, error, createSubproyecto, updateSubproyecto, deleteSubproyecto } =
+  const { subproyectos: todos, loading, error, createSubproyecto, updateSubproyecto, deleteSubproyecto } =
     useHelixSubproyectos()
+  // Los Planes de trabajo se crean y gestionan desde su propio diálogo (botón
+  // "Plan de trabajo") — este panel es solo para Subproyectos reales.
+  const subproyectos = todos.filter((s) => s.tipo === "Subproyecto")
   const { proyectos, createProyecto } = useHelixProyectos()
   const proyectoNombrePorId = new Map(proyectos.map((p) => [p.id, p.nombre]))
 
@@ -553,7 +557,7 @@ export function SubprojectsPanel() {
               <>
                 <SubprojectRow
                   subproyecto={sub}
-                  proyectoNombre={proyectoNombrePorId.get(sub.proyectoId)}
+                  proyectoNombre={sub.proyectoId != null ? proyectoNombrePorId.get(sub.proyectoId) : undefined}
                   onEdit={() => setEditingId(null)}
                   onDelete={() => handleDelete(sub)}
                   expanded={expandedId === sub.id}
@@ -562,6 +566,7 @@ export function SubprojectsPanel() {
                 <SubprojectForm
                   initial={{
                     proyectoId: sub.proyectoId,
+                    tipo: sub.tipo,
                     nombre: sub.nombre,
                     objetivo: sub.objetivo ?? "",
                     cliente: sub.cliente ?? "",
@@ -577,7 +582,7 @@ export function SubprojectsPanel() {
             ) : (
               <SubprojectRow
                 subproyecto={sub}
-                proyectoNombre={proyectoNombrePorId.get(sub.proyectoId)}
+                proyectoNombre={sub.proyectoId != null ? proyectoNombrePorId.get(sub.proyectoId) : undefined}
                 onEdit={() => setEditingId(sub.id)}
                 onDelete={() => handleDelete(sub)}
                 expanded={expandedId === sub.id}

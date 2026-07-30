@@ -4,6 +4,7 @@ import { helixApi } from "@/lib/helixApi"
 import { useHelixActividades } from "@/hooks/useHelixActividades"
 import { WhatsAppDialog, type AlertaGenerada } from "./dialogs/WhatsAppDialog"
 import { TaskDialog } from "./dialogs/TaskDialog"
+import { WorkPlanDialog } from "./dialogs/WorkPlanDialog"
 import { useHelixToast } from "./HelixToast"
 
 const VIEW_TITLES: Record<HelixView, string> = {
@@ -59,6 +60,7 @@ export function HelixTopbar() {
   const [whatsAppDialogOpen, setWhatsAppDialogOpen] = useState(false)
   const [whatsAppAlertas, setWhatsAppAlertas] = useState<AlertaGenerada[]>([])
   const [taskDialogOpen, setTaskDialogOpen] = useState(false)
+  const [workPlanDialogOpen, setWorkPlanDialogOpen] = useState(false)
 
   function handleEmailAlert() {
     helixApi.post("/api/alertas/email").catch(() => undefined)
@@ -148,6 +150,12 @@ export function HelixTopbar() {
           </button>
           <button
             style={PRIMARY_BTN}
+            onClick={() => setWorkPlanDialogOpen(true)}
+          >
+            Plan de trabajo
+          </button>
+          <button
+            style={PRIMARY_BTN}
             onClick={() => setTaskDialogOpen(true)}
           >
             Gestión de proyecto
@@ -170,6 +178,12 @@ export function HelixTopbar() {
         }}
         createActividad={createActividad}
         updateActividad={updateActividad}
+      />
+
+      <WorkPlanDialog
+        open={workPlanDialogOpen}
+        onClose={() => setWorkPlanDialogOpen(false)}
+        onSaved={bumpActivityVersion}
       />
     </>
   )

@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useMemo, type FormEvent, type ChangeEvent } from "react"
 import { z } from "zod"
-import { Plus, Trash2 } from "lucide-react"
 import type { HelixActividad, HelixEvidencia } from "@/types/helix"
 import type { HelixActividadCreate, HelixSubactividadCreate } from "@/hooks/useHelixActividades"
 import { useHelixProyectos } from "@/hooks/useHelixProyectos"
@@ -8,8 +7,9 @@ import { useHelixSubproyectos } from "@/hooks/useHelixSubproyectos"
 import { useHelixUsuarios } from "@/hooks/useHelixUsuarios"
 import { useHelixDependencias } from "@/hooks/useHelixDependencias"
 import { helixApi } from "@/lib/helixApi"
+import { HELIX_ESTADOS, HELIX_PRIORIDADES } from "@/lib/helixConstants"
 import { useHelixToast } from "../HelixToast"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -19,6 +19,7 @@ import { Slider } from "@/components/ui/slider"
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { BlurFade } from "@/components/ui/blur-fade"
+import { SubactividadesEditor, emptySubactividadRow, type SubactividadRow } from "./SubactividadesEditor"
 
 interface TaskDialogProps {
   open: boolean
@@ -29,8 +30,8 @@ interface TaskDialogProps {
   updateActividad: (id: number, data: Partial<HelixActividadCreate>) => Promise<void>
 }
 
-const ESTADOS = ["Backlog", "Planificado", "En curso", "Revision", "Terminado"] as const
-const PRIORIDADES = ["Alta", "Media", "Baja"] as const
+const ESTADOS = HELIX_ESTADOS
+const PRIORIDADES = HELIX_PRIORIDADES
 
 const TaskSchema = z.object({
   nombre: z.string().min(1, "El nombre es requerido").max(100, "Máximo 100 caracteres"),
@@ -55,17 +56,6 @@ function initialsOf(fullName: string): string {
   const parts = fullName.trim().split(/\s+/)
   const initials = (parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")
   return initials.toUpperCase() || "NA"
-}
-
-interface SubactividadRow {
-  key: string
-  nombre: string
-  responsableId: string
-  estado: string
-}
-
-function emptySubactividadRow(): SubactividadRow {
-  return { key: crypto.randomUUID(), nombre: "", responsableId: "", estado: "Planificado" }
 }
 
 interface FormState {
@@ -347,6 +337,9 @@ export function TaskDialog({ open, onClose, actividad, onSaved, createActividad,
       <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>
+            Proyecto, responsable, fechas, costos y subactividades en un solo formulario.
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
@@ -557,52 +550,13 @@ export function TaskDialog({ open, onClose, actividad, onSaved, createActividad,
 
           {!isEdit && (
             <BlurFade duration={0.3} delay={0.09}>
-              <div className="flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Subactividades</p>
-                  <Button type="button" variant="outline" size="sm" onClick={addSubactividadRow}>
-                    <Plus className="h-3.5 w-3.5" /> Adicionar
-                  </Button>
-                </div>
-
-                {subactividades.map((row) => (
-                  <div key={row.key} className="grid grid-cols-[1fr_140px_130px_auto] items-center gap-2">
-                    <Input
-                      value={row.nombre}
-                      onChange={(e) => updateSubactividadRow(row.key, { nombre: e.target.value })}
-                      placeholder="Ej. Validar entregable"
-                      aria-label="Nombre de la subactividad"
-                    />
-                    <Select
-                      value={row.responsableId || "none"}
-                      onValueChange={(v) => updateSubactividadRow(row.key, { responsableId: v === "none" ? "" : v })}
-                    >
-                      <SelectTrigger aria-label="Responsable de la subactividad"><SelectValue placeholder="Sin responsable" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Sin responsable</SelectItem>
-                        {usuarios.map((u) => (
-                          <SelectItem key={u.id} value={String(u.id)}>{u.full_name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Select value={row.estado} onValueChange={(v) => updateSubactividadRow(row.key, { estado: v })}>
-                      <SelectTrigger aria-label="Estado de la subactividad"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {ESTADOS.map((e) => <SelectItem key={e} value={e}>{e}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeSubactividadRow(row.key)}
-                      aria-label="Eliminar subactividad"
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
+              <SubactividadesEditor
+                rows={subactividades}
+                usuarios={usuarios}
+                onAdd={addSubactividadRow}
+                onUpdate={updateSubactividadRow}
+                onRemove={removeSubactividadRow}
+              />
             </BlurFade>
           )}
 

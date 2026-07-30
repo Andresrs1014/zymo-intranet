@@ -10,9 +10,13 @@ export interface HelixProyecto {
   updatedAt: string
 }
 
+export type HelixSubproyectoTipo = "Subproyecto" | "PlanDeTrabajo"
+
 export interface HelixSubproyecto {
   id: number
-  proyectoId: number
+  // Nulo cuando tipo="PlanDeTrabajo" — no pertenece a un Proyecto principal.
+  proyectoId: number | null
+  tipo: HelixSubproyectoTipo
   nombre: string
   objetivo?: string
   cliente?: string
