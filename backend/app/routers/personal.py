@@ -1231,6 +1231,86 @@ def set_config_retiro_notificacion(
     return {"cargo_ids": sorted(set(body.cargo_ids))}
 
 
+def _resolver_destinatarios_retiro(db: Session) -> list[str]:
+    cargo_ids = _get_retiro_cargo_ids(db)
+    if not cargo_ids:
+        return []
+    personas = db.exec(
+        select(PtcPersona).where(
+            col(PtcPersona.cargo_id).in_(cargo_ids),
+            PtcPersona.estado == _ACTIVO,
+        )
+    ).all()
+    return sorted({(p.email_corporativo or p.email) for p in personas if (p.email_corporativo or p.email)})
+
+
+def _construir_email_retiro(retirados: list[dict], sede_names: list[str], es_prueba: bool = False) -> tuple[str, str]:
+    """retirados: [{nombre, documento, tarjeta}]. Única fuente del template —
+    la usan tanto el envío real (_notificar_retiro) como el botón de prueba,
+    para no tener dos copias del mismo correo que se puedan desincronizar."""
+    empresas_txt = (
+        sede_names[0] if len(sede_names) <= 1
+        else f"{', '.join(sede_names[:-1])} y {sede_names[-1]}"
+    ) if sede_names else ""
+    funcionarios_html = "".join(
+        "<p style='margin:4px 0'><strong>CC. " + (r.get("documento") or "s/d") + "</strong> - "
+        + r["nombre"].upper()
+        + (f"<br>TARJETA: {r['tarjeta']}" if r.get("tarjeta") else "")
+        + "</p>"
+        for r in retirados
+    )
+    prefijo = "[PRUEBA] " if es_prueba else ""
+    subject = f"{prefijo}RETIRO DE FUNCIONARIO — {empresas_txt}" if empresas_txt else f"{prefijo}RETIRO DE FUNCIONARIO"
+    banner_prueba = (
+        "<p style='background:#fef3c7;color:#92400e;font-size:12px;padding:8px 12px;"
+        "border-radius:6px;margin-bottom:16px'>Este es un envío de PRUEBA con datos de "
+        "ejemplo — no corresponde a un retiro real.</p>"
+        if es_prueba else ""
+    )
+    body = f"""
+    <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:20px">
+      {banner_prueba}
+      <p style="color:#374151;font-size:14px">Buen día,</p>
+      <p style="color:#374151;font-size:14px">Informamos que los funcionarios:</p>
+      <div style="margin:12px 0">{funcionarios_html}</div>
+      <p style="color:#374151;font-size:14px">
+        NO laboran en la compañía{"s" if len(sede_names) > 1 else ""}
+        <strong>{empresas_txt or "reportada"}</strong> y no tienen permitida la autorización
+        por parte nuestra para ingresar a las instalaciones de Zona Franca, a menos que el
+        área de Talento y Cultura o Control lo autoricen.
+      </p>
+      <p style="color:#374151;font-size:14px">
+        Agradecemos por favor también desactivar los carnés que estaban asignados a los funcionarios.
+      </p>
+      <p style="color:#374151;font-size:14px">Muchas gracias por su atención.</p>
+      <p style="color:#9ca3af;font-size:11px;margin-top:24px;border-top:1px solid #e5e7eb;padding-top:12px">
+        Enviado automáticamente desde la Intranet ZYMO — Talento y Cultura.
+      </p>
+    </div>
+    """
+    return subject, body
+
+
+def _enviar_correo_retiro(emails: list[str], subject: str, body: str) -> None:
+    """Puede lanzar RuntimeError si no hay SMTP configurado — el envío real
+    (_notificar_retiro) lo atrapa y solo loguea; el botón de prueba lo deja
+    subir para devolverle el motivo exacto al admin."""
+    from app.services.global_smtp import get_smtp_candidates
+    from app.services.tc_email import send_email
+
+    candidates = get_smtp_candidates()
+    if not candidates:
+        raise RuntimeError("SMTP corporativo no configurado (Configuración de la intranet → SMTP).")
+    smtp = candidates[0]
+    for to in emails:
+        send_email(
+            host=smtp["smtp_host"], port=smtp["smtp_port"],
+            usuario=smtp["smtp_user"], password=smtp["smtp_password"],
+            from_email=smtp["smtp_from"], from_nombre="T&C Zymo",
+            to=to, subject=subject, body_html=body,
+        )
+
+
 def _notificar_retiro(retirados: list[dict]) -> None:
     """Corre en background tras el commit de bulk-estado — un fallo de correo
     nunca debe afectar el cambio de estado ya guardado. Abre sus propias
@@ -1238,31 +1318,12 @@ def _notificar_retiro(retirados: list[dict]) -> None:
     que _notificar_tc en tc_aprobaciones.py."""
     try:
         from app.database import get_engine
-        from app.services.global_smtp import get_smtp_candidates
-        from app.services.tc_email import send_email
 
         with Session(get_personal_engine()) as db:
-            cargo_ids = _get_retiro_cargo_ids(db)
-            if not cargo_ids:
-                log.warning("[retiro] Sin cargos configurados para notificar — omitiendo envío")
-                return
-            personas = db.exec(
-                select(PtcPersona).where(
-                    col(PtcPersona.cargo_id).in_(cargo_ids),
-                    PtcPersona.estado == _ACTIVO,
-                )
-            ).all()
-            emails = sorted({(p.email_corporativo or p.email) for p in personas if (p.email_corporativo or p.email)})
-
+            emails = _resolver_destinatarios_retiro(db)
         if not emails:
-            log.warning("[retiro] Ningún destinatario configurado tiene correo — omitiendo envío")
+            log.warning("[retiro] Sin destinatarios configurados (o sin correo) — omitiendo envío")
             return
-
-        candidates = get_smtp_candidates()
-        if not candidates:
-            log.warning("[retiro] SMTP corporativo no configurado — omitiendo envío")
-            return
-        smtp = candidates[0]
 
         sede_names: list[str] = []
         with Session(get_engine()) as main_db:
@@ -1275,47 +1336,32 @@ def _notificar_retiro(retirados: list[dict]) -> None:
                 if nombre and nombre not in sede_names:
                     sede_names.append(nombre)
 
-        empresas_txt = (
-            sede_names[0] if len(sede_names) <= 1
-            else f"{', '.join(sede_names[:-1])} y {sede_names[-1]}"
-        )
-        funcionarios_html = "".join(
-            "<p style='margin:4px 0'><strong>CC. " + (r["documento"] or "s/d") + "</strong> - "
-            + r["nombre"].upper()
-            + (f"<br>TARJETA: {r['tarjeta']}" if r.get("tarjeta") else "")
-            + "</p>"
-            for r in retirados
-        )
-        subject = f"RETIRO DE FUNCIONARIO — {empresas_txt}" if empresas_txt else "RETIRO DE FUNCIONARIO"
-        body = f"""
-        <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:20px">
-          <p style="color:#374151;font-size:14px">Buen día,</p>
-          <p style="color:#374151;font-size:14px">Informamos que los funcionarios:</p>
-          <div style="margin:12px 0">{funcionarios_html}</div>
-          <p style="color:#374151;font-size:14px">
-            NO laboran en la compañía{"s" if len(sede_names) > 1 else ""}
-            <strong>{empresas_txt or "reportada"}</strong> y no tienen permitida la autorización
-            por parte nuestra para ingresar a las instalaciones de Zona Franca, a menos que el
-            área de Talento y Cultura o Control lo autoricen.
-          </p>
-          <p style="color:#374151;font-size:14px">
-            Agradecemos por favor también desactivar los carnés que estaban asignados a los funcionarios.
-          </p>
-          <p style="color:#374151;font-size:14px">Muchas gracias por su atención.</p>
-          <p style="color:#9ca3af;font-size:11px;margin-top:24px;border-top:1px solid #e5e7eb;padding-top:12px">
-            Enviado automáticamente desde la Intranet ZYMO — Talento y Cultura.
-          </p>
-        </div>
-        """
-        for to in emails:
-            send_email(
-                host=smtp["smtp_host"], port=smtp["smtp_port"],
-                usuario=smtp["smtp_user"], password=smtp["smtp_password"],
-                from_email=smtp["smtp_from"], from_nombre="T&C Zymo",
-                to=to, subject=subject, body_html=body,
-            )
+        subject, body = _construir_email_retiro(retirados, sede_names)
+        _enviar_correo_retiro(emails, subject, body)
     except Exception:
         log.exception("[retiro] No se pudo enviar la notificación de retiro")
+
+
+@router.post("/config/retiro-notificacion/prueba")
+def enviar_prueba_retiro_notificacion(
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_admin),
+):
+    emails = _resolver_destinatarios_retiro(db)
+    if not emails:
+        raise HTTPException(400, "No hay destinatarios configurados — guarda al menos un cargo primero.")
+
+    retirado_ejemplo = [{
+        "nombre": "Empleado de Prueba",
+        "documento": "0000000000",
+        "tarjeta": "0000000000 (ejemplo)",
+    }]
+    subject, body = _construir_email_retiro(retirado_ejemplo, ["Empresa de prueba SAS"], es_prueba=True)
+    try:
+        _enviar_correo_retiro(emails, subject, body)
+    except RuntimeError as e:
+        raise HTTPException(400, str(e))
+    return {"enviados": len(emails), "destinatarios": emails}
 
 
 @router.patch("/personas/bulk-estado")

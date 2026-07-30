@@ -6,7 +6,7 @@ import { canEditTyC } from "@/lib/permissions"
 import { PageLayout } from "@/components/layout/PageLayout"
 import {
   Plus, Trash2, Save, ChevronDown, ChevronRight,
-  Package, Bell, ArrowRight, Mail, MessageCircle, UserX,
+  Package, Bell, ArrowRight, Mail, MessageCircle, UserX, Send,
 } from "lucide-react"
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
@@ -323,6 +323,8 @@ function RetiroNotificacionPanel() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [probando, setProbando] = useState(false)
+  const [pruebaMsg, setPruebaMsg] = useState<{ ok: boolean; texto: string } | null>(null)
 
   useEffect(() => {
     Promise.all([
@@ -352,8 +354,23 @@ function RetiroNotificacionPanel() {
       setDestinatarios(configRes.data.destinatarios ?? [])
       setSelected(new Set(data.cargo_ids ?? []))
       setSaved(true)
+      setPruebaMsg(null)
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function enviarPrueba() {
+    setProbando(true)
+    setPruebaMsg(null)
+    try {
+      const { data } = await api.post("/tc/config/retiro-notificacion/prueba")
+      setPruebaMsg({ ok: true, texto: `Correo de prueba enviado a ${data.enviados} destinatario${data.enviados !== 1 ? "s" : ""}.` })
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setPruebaMsg({ ok: false, texto: detail || "No se pudo enviar el correo de prueba." })
+    } finally {
+      setProbando(false)
     }
   }
 
@@ -409,6 +426,22 @@ function RetiroNotificacionPanel() {
               </span>
             ))}
           </div>
+
+          <div className="flex items-center gap-3 pt-3">
+            <button
+              onClick={enviarPrueba}
+              disabled={probando}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border hover:bg-muted/10 text-xs font-semibold transition-colors disabled:opacity-50"
+            >
+              <Send className="w-3.5 h-3.5 text-amber-400" /> {probando ? "Enviando…" : "Enviar correo de prueba"}
+            </button>
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            Manda el correo con datos de ejemplo a los destinatarios ya guardados arriba — guarda primero si acabas de cambiar la selección.
+          </p>
+          {pruebaMsg && (
+            <p className={`text-xs ${pruebaMsg.ok ? "text-emerald-400" : "text-destructive"}`}>{pruebaMsg.texto}</p>
+          )}
         </div>
       )}
     </div>
