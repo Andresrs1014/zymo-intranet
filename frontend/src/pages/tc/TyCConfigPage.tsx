@@ -6,13 +6,16 @@ import { canEditTyC } from "@/lib/permissions"
 import { PageLayout } from "@/components/layout/PageLayout"
 import {
   Plus, Trash2, Save, ChevronDown, ChevronRight,
-  Package, Bell, ArrowRight, Mail, MessageCircle,
+  Package, Bell, ArrowRight, Mail, MessageCircle, UserX,
 } from "lucide-react"
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
 interface PaqueteItem { id?: number; titulo: string; horas: number | null; orden: number }
 interface Paquete { id: number; nombre: string; descripcion: string; activo: boolean; items: PaqueteItem[] }
+
+interface Cargo { id: number; nombre: string }
+interface Destinatario { persona_id: number; nombre: string; email: string; cargo_nombre: string }
 
 type Tab = "notificaciones" | "paquetes"
 
@@ -50,7 +53,7 @@ export function TyCConfigPage() {
 
       <div className="max-w-4xl mx-auto px-8 py-6">
         <div className="animate-fade-in">
-          {tab === "notificaciones" && <NotificacionesTab />}
+          {tab === "notificaciones" && <NotificacionesTab puedeEditar={puedeEditar} />}
           {tab === "paquetes" && <PaquetesTab puedeEditar={puedeEditar} />}
         </div>
       </div>
@@ -260,40 +263,153 @@ function PaqueteCard({
 // El correo y WhatsApp de eventos usan la cuenta corporativa centralizada
 // (Configuración de la intranet) — T&C ya no tiene sus propias credenciales editables acá.
 
-function NotificacionesTab() {
+function NotificacionesTab({ puedeEditar }: { puedeEditar: boolean }) {
   const navigate = useNavigate()
   const esAdmin = useAuthStore((s) => s.user?.role === "admin")
 
   return (
-    <div className="max-w-xl space-y-4">
-      <p className="text-sm text-muted-foreground">
-        El correo y el WhatsApp para notificar al líder del área ahora usan la
-        <strong className="text-foreground"> cuenta corporativa centralizada</strong> — la misma
-        que comparten Tickets y Gestión de Tareas.
+    <div className="max-w-xl space-y-8">
+      <div className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+          El correo y el WhatsApp para notificar al líder del área ahora usan la
+          <strong className="text-foreground"> cuenta corporativa centralizada</strong> — la misma
+          que comparten Tickets y Gestión de Tareas.
+        </p>
+
+        {esAdmin ? (
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={() => navigate("/admin/configuracion/smtp")}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-muted/5 hover:bg-muted/10 hover:border-teal-500/30 transition-all text-sm font-medium"
+            >
+              <Mail className="w-4 h-4 text-sky-400" /> SMTP corporativo
+              <ArrowRight className="w-3.5 h-3.5 text-muted-foreground" />
+            </button>
+            <button
+              onClick={() => navigate("/admin/configuracion/whatsapp")}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-muted/5 hover:bg-muted/10 hover:border-teal-500/30 transition-all text-sm font-medium"
+            >
+              <MessageCircle className="w-4 h-4 text-[#25D366]" /> WhatsApp corporativo
+              <ArrowRight className="w-3.5 h-3.5 text-muted-foreground" />
+            </button>
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground italic">
+            Solo un administrador puede editar esa cuenta compartida — pídele a un admin que
+            entre a Configuración de la intranet si algo no está llegando.
+          </p>
+        )}
+      </div>
+
+      {puedeEditar ? (
+        <RetiroNotificacionPanel />
+      ) : (
+        <p className="text-xs text-muted-foreground italic pt-6 border-t border-border">
+          Solo quien puede editar T&C puede configurar los destinatarios de retiro de funcionario.
+        </p>
+      )}
+    </div>
+  )
+}
+
+// ── Panel: destinatarios de "Retiro de funcionario" ────────────────────────────
+// Se dispara solo cuando alguien pasa a Inactivo desde Rotación. Selección por
+// cargo (no por persona individual) — mismo filtro que ya existe en Directorio.
+
+function RetiroNotificacionPanel() {
+  const [cargos, setCargos] = useState<Cargo[]>([])
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [destinatarios, setDestinatarios] = useState<Destinatario[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    Promise.all([
+      api.get("/tc/cargos"),
+      api.get("/tc/config/retiro-notificacion"),
+    ]).then(([cargosRes, configRes]) => {
+      setCargos(Array.isArray(cargosRes.data) ? cargosRes.data : [])
+      setSelected(new Set(configRes.data.cargo_ids ?? []))
+      setDestinatarios(configRes.data.destinatarios ?? [])
+    }).finally(() => setLoading(false))
+  }, [])
+
+  function toggle(cargoId: number) {
+    setSaved(false)
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(cargoId)) next.delete(cargoId); else next.add(cargoId)
+      return next
+    })
+  }
+
+  async function guardar() {
+    setSaving(true)
+    try {
+      const { data } = await api.put("/tc/config/retiro-notificacion", { cargo_ids: [...selected] })
+      const configRes = await api.get("/tc/config/retiro-notificacion")
+      setDestinatarios(configRes.data.destinatarios ?? [])
+      setSelected(new Set(data.cargo_ids ?? []))
+      setSaved(true)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="space-y-3 pt-6 border-t border-border">
+      <div className="flex items-center gap-2">
+        <UserX className="w-4 h-4 text-amber-400" />
+        <h3 className="text-sm font-semibold">Destinatarios — Retiro de funcionario</h3>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Cuando alguien se marca Inactivo en Rotación, se avisa automáticamente por correo a
+        todas las personas de los cargos que marques aquí.
       </p>
 
-      {esAdmin ? (
-        <div className="flex flex-col sm:flex-row gap-3">
-          <button
-            onClick={() => navigate("/admin/configuracion/smtp")}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-muted/5 hover:bg-muted/10 hover:border-teal-500/30 transition-all text-sm font-medium"
-          >
-            <Mail className="w-4 h-4 text-sky-400" /> SMTP corporativo
-            <ArrowRight className="w-3.5 h-3.5 text-muted-foreground" />
-          </button>
-          <button
-            onClick={() => navigate("/admin/configuracion/whatsapp")}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-muted/5 hover:bg-muted/10 hover:border-teal-500/30 transition-all text-sm font-medium"
-          >
-            <MessageCircle className="w-4 h-4 text-[#25D366]" /> WhatsApp corporativo
-            <ArrowRight className="w-3.5 h-3.5 text-muted-foreground" />
-          </button>
-        </div>
+      {loading ? (
+        <p className="text-xs text-muted-foreground py-4">Cargando cargos…</p>
       ) : (
-        <p className="text-xs text-muted-foreground italic">
-          Solo un administrador puede editar esa cuenta compartida — pídele a un admin que
-          entre a Configuración de la intranet si algo no está llegando.
-        </p>
+        <div className="max-h-56 overflow-y-auto rounded-xl border border-border divide-y divide-border/60">
+          {cargos.map((c) => (
+            <label key={c.id} className="flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer hover:bg-muted/10 transition-colors">
+              <input
+                type="checkbox"
+                checked={selected.has(c.id)}
+                onChange={() => toggle(c.id)}
+                className="rounded border-input accent-teal-500"
+              />
+              {c.nombre}
+            </label>
+          ))}
+        </div>
+      )}
+
+      <div className="flex items-center gap-3">
+        <button
+          onClick={guardar}
+          disabled={saving || loading}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-500/15 hover:bg-teal-500/25 text-teal-400 text-xs font-semibold transition-colors disabled:opacity-50"
+        >
+          <Save className="w-3.5 h-3.5" /> {saving ? "Guardando…" : "Guardar destinatarios"}
+        </button>
+        {saved && <span className="text-xs text-emerald-400">Guardado.</span>}
+      </div>
+
+      {destinatarios.length > 0 && (
+        <div className="pt-2">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5">
+            Recibirán el aviso ({destinatarios.length})
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {destinatarios.map((d) => (
+              <span key={d.persona_id} className="text-[10px] px-2 py-0.5 rounded-full bg-muted/20 text-muted-foreground">
+                {d.nombre} · {d.cargo_nombre}
+              </span>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   )

@@ -27,7 +27,7 @@ interface KpiCharts {
 
 interface KpiData {
   headcount: { total: number; activos: number; inactivos: number; antiguedad_anios?: number }
-  rotacion: { salidas_12m: number; tasa_pct: number }
+  rotacion: { salidas_12m: number; tasa_pct: number; ingresos_12m: number; indice_shrm_pct: number }
   capacitacion: {
     total_registros: number
     completadas: number
@@ -148,6 +148,13 @@ export function TyCIndicadoresPage() {
                 target="≤ 10%"
               />
               <KpiCard label="Salidas últimos 12 meses" value={data.rotacion.salidas_12m} sub="personas desvinculadas" />
+              <KpiCard
+                label="Índice de rotación (SHRM)"
+                value={`${data.rotacion.indice_shrm_pct}%`}
+                sub="[(Ingresos + Salidas) ÷ 2] / plantilla promedio"
+                status={data.rotacion.indice_shrm_pct <= 15 ? "good" : data.rotacion.indice_shrm_pct <= 25 ? "watch" : "bad"}
+                target="≤ 15% anual"
+              />
               {charts && (
                 <KpiCard
                   label="Rotación temprana (&lt;60 días)"

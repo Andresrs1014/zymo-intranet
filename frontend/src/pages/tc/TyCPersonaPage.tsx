@@ -36,6 +36,7 @@ interface Persona {
   jefe_directo_nombre: string
   genero: string
   rh: string
+  tarjeta: string
   email: string
   email_corporativo: string
   telefono: string
@@ -413,6 +414,11 @@ export function TyCPersonaPage() {
               </FieldRow>
               <FieldRow label="RH">
                 {editando ? <TextInput value={datos.rh} onChange={(v) => setField("rh", v)} placeholder="O+" /> : (datos.rh || "—")}
+              </FieldRow>
+              <FieldRow label="Tarjeta (carné de acceso)">
+                {editando ? (
+                  <TextInput value={datos.tarjeta} onChange={(v) => setField("tarjeta", v)} placeholder="Ej. 0007480710 114, 09606" />
+                ) : (datos.tarjeta || "—")}
               </FieldRow>
               <FieldRow label="Fecha de nacimiento">
                 {editando ? (

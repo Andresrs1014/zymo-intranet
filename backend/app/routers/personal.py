@@ -4,13 +4,16 @@ Router módulo T&C — Talento y Cultura (Personal).
 Prefijo: /tc
 Acceso: admin, talento_cultura (mod_tc)
 """
+import json
+import logging
 from datetime import datetime
 from typing import Optional
 
 import os
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel
+from sqlalchemy import text
 from sqlmodel import Session, col, select
 
 from app.config import settings
@@ -32,7 +35,10 @@ from app.personal_database import (
     PtcPersona,
     PtcSancion,
     get_personal_db,
+    get_personal_engine,
 )
+
+log = logging.getLogger(__name__)
 from app.services.tc_manual_extraction import (
     cargo_manual_flags,
     extraer_desde_archivo,
@@ -68,6 +74,7 @@ class PersonaCreate(BaseModel):
     cargo_id: Optional[int] = None
     genero: str = ""
     rh: str = ""
+    tarjeta: str = ""
     email: str = ""
     email_corporativo: str = ""
     telefono: str = ""
@@ -93,6 +100,7 @@ class PersonaUpdate(BaseModel):
     cargo_id: Optional[int] = None
     genero: Optional[str] = None
     rh: Optional[str] = None
+    tarjeta: Optional[str] = None
     email: Optional[str] = None
     email_corporativo: Optional[str] = None
     telefono: Optional[str] = None
@@ -194,6 +202,7 @@ def _persona_dict(p: PtcPersona, db: Session, main_db: Session) -> dict:
         "jefe_directo_nombre": jefe.nombre if jefe else "",
         "genero": p.genero,
         "rh": p.rh,
+        "tarjeta": p.tarjeta,
         "email": p.email,
         "email_corporativo": p.email_corporativo,
         "email_corporativo_efectivo": _email_corporativo_efectivo(p, main_db),
@@ -1093,6 +1102,7 @@ def crear_persona(
         cargo_id=body.cargo_id,
         genero=body.genero,
         rh=body.rh,
+        tarjeta=body.tarjeta,
         email=body.email,
         email_corporativo=body.email_corporativo,
         telefono=body.telefono,
@@ -1148,9 +1158,170 @@ def actualizar_persona(
     return _persona_dict(persona, db, main_db)
 
 
+# ── Notificación automática de retiro ──────────────────────────────────────────
+# Cuando alguien pasa a Inactivo desde Rotación, se avisa por correo a los
+# cargos configurados aquí (líderes elegidos a mano por T&C, no auto-detectados
+# por nombre de cargo — decisión explícita del usuario: más simple y ya se
+# reutiliza el mismo filtro de cargo que existe en Directorio).
+
+_RETIRO_CARGOS_CONFIG_KEY = "retiro_notificacion_cargo_ids"
+
+
+def _get_retiro_cargo_ids(db: Session) -> list[int]:
+    row = db.execute(
+        text("SELECT value FROM ptc_config WHERE key=:k"), {"k": _RETIRO_CARGOS_CONFIG_KEY}
+    ).first()
+    if not row or not row[0]:
+        return []
+    try:
+        data = json.loads(row[0])
+        if isinstance(data, list):
+            return [int(x) for x in data]
+    except (TypeError, ValueError, json.JSONDecodeError):
+        pass
+    return []
+
+
+def _set_retiro_cargo_ids(db: Session, cargo_ids: list[int]) -> None:
+    payload = json.dumps(sorted(set(cargo_ids)))
+    db.execute(
+        text("INSERT OR REPLACE INTO ptc_config (key, value) VALUES (:k, :v)"),
+        {"k": _RETIRO_CARGOS_CONFIG_KEY, "v": payload},
+    )
+    db.commit()
+
+
+class RetiroNotificacionConfigBody(BaseModel):
+    cargo_ids: list[int]
+
+
+@router.get("/config/retiro-notificacion")
+def get_config_retiro_notificacion(
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_tc_editar),
+):
+    cargo_ids = _get_retiro_cargo_ids(db)
+    destinatarios: list[dict] = []
+    if cargo_ids:
+        personas = db.exec(
+            select(PtcPersona).where(
+                col(PtcPersona.cargo_id).in_(cargo_ids),
+                PtcPersona.estado == _ACTIVO,
+            )
+        ).all()
+        for p in personas:
+            email = p.email_corporativo or p.email
+            if not email:
+                continue
+            cargo = db.get(PtcCargo, p.cargo_id) if p.cargo_id else None
+            destinatarios.append({
+                "persona_id": p.id, "nombre": p.nombre, "email": email,
+                "cargo_id": p.cargo_id, "cargo_nombre": cargo.nombre if cargo else "",
+            })
+    return {"cargo_ids": cargo_ids, "destinatarios": destinatarios}
+
+
+@router.put("/config/retiro-notificacion")
+def set_config_retiro_notificacion(
+    body: RetiroNotificacionConfigBody,
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_tc_editar),
+):
+    _set_retiro_cargo_ids(db, body.cargo_ids)
+    return {"cargo_ids": sorted(set(body.cargo_ids))}
+
+
+def _notificar_retiro(retirados: list[dict]) -> None:
+    """Corre en background tras el commit de bulk-estado — un fallo de correo
+    nunca debe afectar el cambio de estado ya guardado. Abre sus propias
+    sesiones (personal + main) en vez de reusar las del request, mismo patrón
+    que _notificar_tc en tc_aprobaciones.py."""
+    try:
+        from app.database import get_engine
+        from app.services.global_smtp import get_smtp_candidates
+        from app.services.tc_email import send_email
+
+        with Session(get_personal_engine()) as db:
+            cargo_ids = _get_retiro_cargo_ids(db)
+            if not cargo_ids:
+                log.warning("[retiro] Sin cargos configurados para notificar — omitiendo envío")
+                return
+            personas = db.exec(
+                select(PtcPersona).where(
+                    col(PtcPersona.cargo_id).in_(cargo_ids),
+                    PtcPersona.estado == _ACTIVO,
+                )
+            ).all()
+            emails = sorted({(p.email_corporativo or p.email) for p in personas if (p.email_corporativo or p.email)})
+
+        if not emails:
+            log.warning("[retiro] Ningún destinatario configurado tiene correo — omitiendo envío")
+            return
+
+        candidates = get_smtp_candidates()
+        if not candidates:
+            log.warning("[retiro] SMTP corporativo no configurado — omitiendo envío")
+            return
+        smtp = candidates[0]
+
+        sede_names: list[str] = []
+        with Session(get_engine()) as main_db:
+            for r in retirados:
+                if not r["sede_id"]:
+                    continue
+                perfil = main_db.get(PlataformaPerfil, r["sede_id"])
+                sede = main_db.get(Sede, r["sede_id"])
+                nombre = perfil.nombre if perfil and perfil.nombre else (sede.name if sede else None)
+                if nombre and nombre not in sede_names:
+                    sede_names.append(nombre)
+
+        empresas_txt = (
+            sede_names[0] if len(sede_names) <= 1
+            else f"{', '.join(sede_names[:-1])} y {sede_names[-1]}"
+        )
+        funcionarios_html = "".join(
+            "<p style='margin:4px 0'><strong>CC. " + (r["documento"] or "s/d") + "</strong> - "
+            + r["nombre"].upper()
+            + (f"<br>TARJETA: {r['tarjeta']}" if r.get("tarjeta") else "")
+            + "</p>"
+            for r in retirados
+        )
+        subject = f"RETIRO DE FUNCIONARIO — {empresas_txt}" if empresas_txt else "RETIRO DE FUNCIONARIO"
+        body = f"""
+        <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:20px">
+          <p style="color:#374151;font-size:14px">Buen día,</p>
+          <p style="color:#374151;font-size:14px">Informamos que los funcionarios:</p>
+          <div style="margin:12px 0">{funcionarios_html}</div>
+          <p style="color:#374151;font-size:14px">
+            NO laboran en la compañía{"s" if len(sede_names) > 1 else ""}
+            <strong>{empresas_txt or "reportada"}</strong> y no tienen permitida la autorización
+            por parte nuestra para ingresar a las instalaciones de Zona Franca, a menos que el
+            área de Talento y Cultura o Control lo autoricen.
+          </p>
+          <p style="color:#374151;font-size:14px">
+            Agradecemos por favor también desactivar los carnés que estaban asignados a los funcionarios.
+          </p>
+          <p style="color:#374151;font-size:14px">Muchas gracias por su atención.</p>
+          <p style="color:#9ca3af;font-size:11px;margin-top:24px;border-top:1px solid #e5e7eb;padding-top:12px">
+            Enviado automáticamente desde la Intranet ZYMO — Talento y Cultura.
+          </p>
+        </div>
+        """
+        for to in emails:
+            send_email(
+                host=smtp["smtp_host"], port=smtp["smtp_port"],
+                usuario=smtp["smtp_user"], password=smtp["smtp_password"],
+                from_email=smtp["smtp_from"], from_nombre="T&C Zymo",
+                to=to, subject=subject, body_html=body,
+            )
+    except Exception:
+        log.exception("[retiro] No se pudo enviar la notificación de retiro")
+
+
 @router.patch("/personas/bulk-estado")
 def actualizar_estado_personas(
     body: BulkEstadoBody,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_personal_db),
     _: User = Depends(require_tc_editar),
 ) -> dict:
@@ -1159,6 +1330,7 @@ def actualizar_estado_personas(
 
     updated = 0
     errors = []
+    nuevos_retirados: list[dict] = []
     for item in body.items:
         if item.estado not in (_ACTIVO, _INACTIVO):
             errors.append({"id": item.id, "detail": "Estado inválido."})
@@ -1177,6 +1349,7 @@ def actualizar_estado_personas(
             )
             continue
 
+        estaba_activo = persona.estado == _ACTIVO
         persona.estado = item.estado
         if item.estado == _ACTIVO:
             persona.tipo_salida = ""
@@ -1184,11 +1357,22 @@ def actualizar_estado_personas(
         else:
             persona.tipo_salida = item.tipo_salida
             persona.fecha_salida = _parse_date(item.fecha_salida)
+            if estaba_activo:
+                nuevos_retirados.append({
+                    "nombre": persona.nombre,
+                    "documento": persona.documento,
+                    "tarjeta": persona.tarjeta,
+                    "sede_id": persona.sede_id,
+                })
         persona.updated_at = datetime.utcnow()
         db.add(persona)
         updated += 1
 
     db.commit()
+
+    if nuevos_retirados:
+        background_tasks.add_task(_notificar_retiro, nuevos_retirados)
+
     return {"updated": updated, "errors": errors}
 
 
@@ -2033,6 +2217,19 @@ def kpis(
     ).one()
     rotacion_pct = round((salidas_12m / max(activos, 1)) * 100, 1)
 
+    # Índice de rotación anualizado (fórmula SHRM) — a diferencia de rotacion_pct
+    # (solo salidas/activos), promedia ingresos y salidas contra la plantilla
+    # promedio del período, para poder comparar áreas/sedes/años entre sí.
+    ingresos_12m = db.exec(
+        select(sqlfunc.count(PtcPersona.id)).where(
+            col(PtcPersona.fecha_ingreso).is_not(None),
+            PtcPersona.fecha_ingreso >= hace_12m,
+        )
+    ).one()
+    headcount_inicio_periodo = max(activos - ingresos_12m + salidas_12m, 0)
+    plantilla_promedio = (headcount_inicio_periodo + activos) / 2
+    indice_shrm_pct = round(((ingresos_12m + salidas_12m) / 2 / max(plantilla_promedio, 1)) * 100, 1)
+
     # Capacitación
     total_caps = db.exec(select(sqlfunc.count(PtcCapacitacion.id))).one()
     completadas = db.exec(
@@ -2086,7 +2283,12 @@ def kpis(
             "inactivos": inactivos,
             "antiguedad_anios": _antiguedad_promedio(db),
         },
-        "rotacion": {"salidas_12m": salidas_12m, "tasa_pct": rotacion_pct},
+        "rotacion": {
+            "salidas_12m": salidas_12m,
+            "tasa_pct": rotacion_pct,
+            "ingresos_12m": ingresos_12m,
+            "indice_shrm_pct": indice_shrm_pct,
+        },
         "capacitacion": {
             "total_registros": total_caps,
             "completadas": completadas,

@@ -90,6 +90,7 @@ class PtcPersona(SQLModel, table=True):
     # Datos personales
     genero: str = Field(max_length=20, default="")
     rh: str = Field(max_length=10, default="")
+    tarjeta: str = Field(max_length=200, default="")  # carné(s) de acceso a instalaciones
     email: str = Field(max_length=150, default="")
     email_corporativo: str = Field(max_length=150, default="")
     telefono: str = Field(max_length=30, default="")
@@ -480,6 +481,7 @@ def _migrate_personal() -> None:
             # no en un formulario aparte — ver _sync_capacitacion en tc_agenda.py.
             "ALTER TABLE ptc_evento ADD COLUMN modalidad TEXT DEFAULT 'Interna'",
             "ALTER TABLE ptc_evento ADD COLUMN costo REAL DEFAULT NULL",
+            "ALTER TABLE ptc_persona ADD COLUMN tarjeta TEXT DEFAULT ''",
         ]:
             try:
                 conn.execute(text(sql))
