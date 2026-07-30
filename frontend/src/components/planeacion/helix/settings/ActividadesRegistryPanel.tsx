@@ -1,4 +1,5 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useHelix } from "@/context/HelixContext"
 import { useHelixActividades } from "@/hooks/useHelixActividades"
 import { TaskDialog } from "../dialogs/TaskDialog"
 import { useHelixToast } from "../HelixToast"
@@ -44,6 +45,12 @@ const TD: React.CSSProperties = {
 
 export function ActividadesRegistryPanel() {
   const { actividades, loading, error, refetch, createActividad, updateActividad } = useHelixActividades()
+  const { activityVersion } = useHelix()
+
+  useEffect(() => {
+    refetch()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activityVersion])
   const { showToast } = useHelixToast()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<HelixActividad | undefined>()

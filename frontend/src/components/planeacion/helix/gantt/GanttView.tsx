@@ -1,4 +1,5 @@
-import { useState, useRef, type CSSProperties } from "react"
+import { useState, useEffect, useRef, type CSSProperties } from "react"
+import { useHelix } from "@/context/HelixContext"
 import { useHelixActividades } from "@/hooks/useHelixActividades"
 import { useHelixSubproyectos } from "@/hooks/useHelixSubproyectos"
 import type { HelixActividad, HelixSubproyecto } from "@/types/helix"
@@ -44,6 +45,12 @@ export function GanttView() {
     useHelixActividades()
   const { subproyectos, loading: loadingSub, error: errorSub } =
     useHelixSubproyectos()
+  const { activityVersion } = useHelix()
+
+  useEffect(() => {
+    refetch()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activityVersion])
 
   const [rangeStart] = useState<Date>(getDefaultRangeStart)
   const [rangeEnd] = useState<Date>(getDefaultRangeEnd)

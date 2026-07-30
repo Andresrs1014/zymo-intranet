@@ -13,8 +13,12 @@ export type HelixView =
 interface HelixContextValue {
   activeView: HelixView
   setActiveView: (v: HelixView) => void
-  onNewTask: () => void
-  setOnNewTask: (fn: () => void) => void
+  /** Se incrementa cada vez que una actividad se crea desde un punto global
+   * (el botón "Gestión de proyecto" de la topbar, siempre montado) — las
+   * vistas que mantienen su propia lista de actividades (Scrum, Gantt,
+   * Actividades) lo observan para refrescarse sin un estado compartido más pesado. */
+  activityVersion: number
+  bumpActivityVersion: () => void
 }
 
 const HelixContext = createContext<HelixContextValue | null>(null)
@@ -25,14 +29,14 @@ interface HelixContextProviderProps {
 
 export function HelixContextProvider({ children }: HelixContextProviderProps) {
   const [activeView, setActiveView] = useState<HelixView>("dashboard")
-  const [onNewTask, setOnNewTaskState] = useState<() => void>(() => () => undefined)
+  const [activityVersion, setActivityVersion] = useState(0)
 
-  const setOnNewTask = useCallback((fn: () => void) => {
-    setOnNewTaskState(() => fn)
+  const bumpActivityVersion = useCallback(() => {
+    setActivityVersion((v) => v + 1)
   }, [])
 
   return (
-    <HelixContext.Provider value={{ activeView, setActiveView, onNewTask, setOnNewTask }}>
+    <HelixContext.Provider value={{ activeView, setActiveView, activityVersion, bumpActivityVersion }}>
       {children}
     </HelixContext.Provider>
   )

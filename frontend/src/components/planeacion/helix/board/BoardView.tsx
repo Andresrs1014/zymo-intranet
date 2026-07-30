@@ -1,4 +1,5 @@
 import { useState, useEffect, type CSSProperties } from "react"
+import { useHelix } from "@/context/HelixContext"
 import {
   DndContext,
   DragOverlay,
@@ -30,6 +31,12 @@ const ESTADOS: HelixEstado[] = [
 export function BoardView() {
   const { actividades, loading, error, updateEstado, refetch, createActividad, updateActividad } = useHelixActividades()
   const { showToast } = useHelixToast()
+  const { activityVersion } = useHelix()
+
+  useEffect(() => {
+    refetch()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activityVersion])
   const {
     filters,
     setSearch,

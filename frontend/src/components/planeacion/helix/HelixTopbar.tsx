@@ -1,7 +1,10 @@
 import { useState, type CSSProperties } from "react"
 import { useHelix, type HelixView } from "@/context/HelixContext"
 import { helixApi } from "@/lib/helixApi"
+import { useHelixActividades } from "@/hooks/useHelixActividades"
 import { WhatsAppDialog, type AlertaGenerada } from "./dialogs/WhatsAppDialog"
+import { TaskDialog } from "./dialogs/TaskDialog"
+import { useHelixToast } from "./HelixToast"
 
 const VIEW_TITLES: Record<HelixView, string> = {
   dashboard: "Panel de control",
@@ -48,11 +51,14 @@ const PRIMARY_BTN: CSSProperties = {
 }
 
 export function HelixTopbar() {
-  const { activeView, onNewTask } = useHelix()
+  const { activeView, bumpActivityVersion } = useHelix()
   const title = VIEW_TITLES[activeView]
+  const { createActividad, updateActividad } = useHelixActividades()
+  const { showToast } = useHelixToast()
 
   const [whatsAppDialogOpen, setWhatsAppDialogOpen] = useState(false)
   const [whatsAppAlertas, setWhatsAppAlertas] = useState<AlertaGenerada[]>([])
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false)
 
   function handleEmailAlert() {
     helixApi.post("/api/alertas/email").catch(() => undefined)
@@ -142,9 +148,9 @@ export function HelixTopbar() {
           </button>
           <button
             style={PRIMARY_BTN}
-            onClick={onNewTask}
+            onClick={() => setTaskDialogOpen(true)}
           >
-            Nueva tarea
+            Gestión de proyecto
           </button>
         </div>
       </header>
@@ -153,6 +159,17 @@ export function HelixTopbar() {
         open={whatsAppDialogOpen}
         onClose={() => setWhatsAppDialogOpen(false)}
         alertas={whatsAppAlertas}
+      />
+
+      <TaskDialog
+        open={taskDialogOpen}
+        onClose={() => setTaskDialogOpen(false)}
+        onSaved={() => {
+          bumpActivityVersion()
+          showToast("Actividad creada", "success")
+        }}
+        createActividad={createActividad}
+        updateActividad={updateActividad}
       />
     </>
   )
