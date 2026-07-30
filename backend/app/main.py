@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from fastapi import BackgroundTasks, FastAPI, Request
+from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -494,6 +494,12 @@ _TC_DOCS_DIR = "/app/data/tc_docs"
 os.makedirs(_TC_DOCS_DIR, exist_ok=True)
 app.mount("/tc-docs", StaticFiles(directory=_TC_DOCS_DIR), name="tc_docs")
 
+# Logos de plataforma para correos OC — antes se incrustaban base64 en el HTML
+# (penalizado por filtros de spam), ahora se sirven como archivo real.
+_OC_LOGOS_DIR = os.path.join(os.path.dirname(__file__), "platforms")
+if os.path.isdir(_OC_LOGOS_DIR):
+    app.mount("/oc-logos", StaticFiles(directory=_OC_LOGOS_DIR), name="oc_logos")
+
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
@@ -510,16 +516,3 @@ def health():
     return {"status": "ok"}
 
 
-@app.post("/health/bg-echo")
-def bg_echo(background_tasks: BackgroundTasks):
-    """Diagnóstico temporal — confirma si BackgroundTasks corre en este deploy.
-    Borrar una vez resuelto el incidente de correos que no envían (2026-07-30)."""
-    import time
-
-    def _write():
-        logging.getLogger("uvicorn.error").warning(
-            "[bg-echo] BackgroundTask ejecutado OK a las %s", time.time()
-        )
-
-    background_tasks.add_task(_write)
-    return {"scheduled": True}

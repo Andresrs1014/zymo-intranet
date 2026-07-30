@@ -22,9 +22,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType
 
-import base64 as _base64
 import json as _json
-import mimetypes as _mimetypes
 from pathlib import Path as _Path
 
 from app.config import settings
@@ -93,9 +91,13 @@ def _load_platform_branding(plataforma: str | None) -> dict[str, str]:
         return {}
 
 
-def _logo_base64(plataforma: str | None) -> str:
-    """Retorna el logo de la plataforma como data URI base64 para incrustar en HTML.
+def _logo_url(plataforma: str | None) -> str:
+    """Retorna la URL pública del logo de la plataforma para usar en <img src>.
 
+    Antes se incrustaba como data URI base64 — muchos filtros de spam penalizan
+    imágenes base64 inline en HTML, y era una causa real de que los correos
+    automáticos (OC) cayeran a spam (incidente 2026-07-30). Ahora se sirve como
+    archivo estático real vía /oc-logos/ (ver main.py + nginx.conf).
     Retorna string vacío si no se encuentra o no se reconoce la plataforma.
     """
     if not plataforma:
@@ -114,12 +116,9 @@ def _logo_base64(plataforma: str | None) -> str:
         logo_path = _PLATFORMS_DIR_EMAIL / slug / logo_filename
         if not logo_path.exists():
             return ""
-        mime, _ = _mimetypes.guess_type(str(logo_path))
-        mime = mime or "image/jpeg"
-        data = _base64.b64encode(logo_path.read_bytes()).decode()
-        return f"data:{mime};base64,{data}"
+        return f"{settings.intranet_url}/oc-logos/{slug}/{logo_filename}"
     except Exception as exc:
-        log.warning("[email] No se pudo cargar logo para '%s': %s", slug, exc)
+        log.warning("[email] No se pudo resolver logo para '%s': %s", slug, exc)
         return ""
 
 
@@ -581,7 +580,7 @@ async def send_en_gestion(s: "SolicitudOC") -> None:
         log.warning("[email] Flujo 1: solicitud %s sin email de solicitante", s.consecutivo_os)
         return
 
-    logo_uri = _logo_base64(s.plataforma)
+    logo_uri = _logo_url(s.plataforma)
     prefijo = _b(cfg, "email_prefijo")
     await _send_html(
         cfg,
@@ -602,7 +601,7 @@ async def send_cotizacion_lista(s: "SolicitudOC") -> None:
         log.warning("[email] Flujo 2: solicitud %s sin email de solicitante", s.consecutivo_os)
         return
 
-    logo_uri = _logo_base64(s.plataforma)
+    logo_uri = _logo_url(s.plataforma)
     prefijo = _b(cfg, "email_prefijo")
     await _send_html(
         cfg,
@@ -646,7 +645,7 @@ async def send_aprobacion_directora(
             valor_total, email_gerente,
         )
 
-    logo_uri = _logo_base64(s.plataforma)
+    logo_uri = _logo_url(s.plataforma)
     prefijo = _b(cfg, "email_prefijo")
     sufijo_asunto = " — ⚠️ Compra mayor a $2.5M" if requiere_gerente else ""
     await _send_html(
@@ -691,7 +690,7 @@ async def send_oc_a_proveedor(
         filter(None, [s.solicitante_email, auxiliar_email])
     ))
 
-    logo_uri = _logo_base64(s.plataforma)
+    logo_uri = _logo_url(s.plataforma)
     nombre_empresa = _b(cfg, "empresa_nombre")
     msg = MessageSchema(
         subject=f"Orden de Compra {numero_oc} — {nombre_empresa}",
@@ -722,7 +721,7 @@ async def send_oc_enviada(s: "SolicitudOC") -> None:
         log.warning("[email] Flujo 4: solicitud %s sin email de solicitante", s.consecutivo_os)
         return
 
-    logo_uri = _logo_base64(s.plataforma)
+    logo_uri = _logo_url(s.plataforma)
     prefijo = _b(cfg, "email_prefijo")
     await _send_html(
         cfg,
@@ -767,7 +766,7 @@ async def send_entrega_confirmada(s: "SolicitudOC") -> None:
         log.warning("[email] Entrega confirmada: solicitud %s sin email de solicitante", s.consecutivo_os)
         return
 
-    logo_uri = _logo_base64(s.plataforma)
+    logo_uri = _logo_url(s.plataforma)
     prefijo = _b(cfg, "email_prefijo")
     await _send_html(
         cfg,
@@ -819,7 +818,7 @@ async def send_solicitud_rechazada(s: "SolicitudOC", motivo: str, usuario_rechaz
         log.warning("[email] Rechazo solicitud: %s sin email de solicitante", s.consecutivo_os)
         return
 
-    logo_uri = _logo_base64(s.plataforma)
+    logo_uri = _logo_url(s.plataforma)
     prefijo = _b(cfg, "email_prefijo")
     await _send_html(
         cfg,
@@ -862,7 +861,7 @@ async def send_rechazo_cotizacion(s: "SolicitudOC", motivo: str, auxiliar_email:
         log.warning("[email] Rechazo cotización: solicitud %s sin email de auxiliar", s.consecutivo_os)
         return
 
-    logo_uri = _logo_base64(s.plataforma)
+    logo_uri = _logo_url(s.plataforma)
     prefijo = _b(cfg, "email_prefijo")
     await _send_html(
         cfg,
@@ -930,7 +929,7 @@ async def send_en_plataforma_financiero(
         )
         return
 
-    logo_uri = _logo_base64(s.plataforma)
+    logo_uri = _logo_url(s.plataforma)
     prefijo = _b(cfg, "email_prefijo")
     await _send_html(
         cfg,
@@ -988,7 +987,7 @@ async def send_en_plataforma_solicitante(s: "SolicitudOC") -> None:
         )
         return
 
-    logo_uri = _logo_base64(s.plataforma)
+    logo_uri = _logo_url(s.plataforma)
     prefijo = _b(cfg, "email_prefijo")
     await _send_html(
         cfg,
@@ -1064,7 +1063,7 @@ async def send_proforma_financiero(
         )
         return
 
-    logo_uri = _logo_base64(s.plataforma)
+    logo_uri = _logo_url(s.plataforma)
     prefijo = _b(cfg, "email_prefijo")
 
     # Verificar si existe archivo de proforma para adjuntar
@@ -1192,7 +1191,7 @@ async def send_correccion_directivo(
         log.warning("[email] SMTP no configurado — omitiendo notificación corrección directiva")
         return
 
-    logo_uri = _logo_base64(s.plataforma)
+    logo_uri = _logo_url(s.plataforma)
     prefijo = _b(cfg, "email_prefijo")
 
     if auxiliar_email:
@@ -1242,7 +1241,7 @@ async def send_alerta_correccion_post_cierre(
     if not cfg["_smtp_configured"]:
         log.warning("[email] SMTP no configurado — omitiendo alerta post-cierre")
         return
-    logo_uri = _logo_data_uri(cfg)
+    logo_uri = _logo_url(s.plataforma)
     cuerpo = f"""
     <p>Hola <strong>{corrector_nombre}</strong>,</p>
     <p>Este es un aviso de seguridad automático. Se ha realizado una corrección sobre la solicitud
@@ -1287,7 +1286,7 @@ async def send_nueva_solicitud_interna(s: "SolicitudOC") -> None:
         log.warning("[email] Flujo Interno: email_compras no configurado")
         return
 
-    logo_uri = _logo_base64(s.plataforma)
+    logo_uri = _logo_url(s.plataforma)
     intranet_url = cfg.get("intranet_url") or settings.intranet_url
     prefijo = _b(cfg, "email_prefijo")
     await _send_html(
