@@ -185,12 +185,17 @@ export function TicketDrawer() {
               </a>
             ))}
             <div className="flex gap-2">
-              <input type="file" multiple onChange={(e) => setNewFiles(Array.from(e.target.files ?? []))} />
+              <input
+                type="file"
+                multiple
+                onChange={(e) => setNewFiles(Array.from(e.target.files ?? []))}
+                className="min-w-0 flex-1 text-sm"
+              />
               <button
                 type="button"
                 disabled={!newFiles.length || uploadEvidence.isPending}
                 onClick={handleUploadEvidence}
-                className="rounded-md bg-primary px-3 text-sm font-bold text-primary-foreground disabled:opacity-50"
+                className="shrink-0 rounded-md bg-primary px-3 text-sm font-bold text-primary-foreground disabled:opacity-50"
               >
                 {uploadEvidence.isPending ? "Subiendo…" : "Subir"}
               </button>
