@@ -8,7 +8,8 @@ import { env } from "../../config/env"
 import { createPqrTicketWithCode, previewNextCode } from "../../services/pqrCode"
 import { currentDateValue } from "../../utils/formatters"
 import { businessHoursBetween } from "../../utils/businessHours"
-import { notifyTicketReceived } from "../../services/emailService"
+import { notifyTicketReceived, notifyTicketAssigned } from "../../services/emailService"
+import { ticketQualityScore } from "../../services/scoreMetrics"
 import type { AuthPayload } from "../../middleware/auth"
 
 const router = Router()
@@ -65,6 +66,37 @@ function canManageTicket(user: AuthPayload | undefined, ticket: AssignableTicket
 
 function denyManage(res: import("express").Response): void {
   res.status(403).json({ error: "Solo el supervisor/analista/coordinador asignado (o un admin) puede gestionar este ticket" })
+}
+
+function hasOverride(user: AuthPayload | undefined): boolean {
+  if (!user) return false
+  const perms = user.app_permissions ?? []
+  return user.role === "admin" || perms.includes("mod_tickets_config") || perms.includes("mod_tickets_gerencia")
+}
+
+// ─── Flujo por etapas: asignación (supervisor), listo (analista), validación (gerencia) ───
+
+/** Solo el supervisor asignado al ticket puede formalizar la asignación de analistas. */
+function canAssignTicket(user: AuthPayload | undefined, ticket: { supervisorEmail: string | null }): boolean {
+  if (!user) return false
+  if (hasOverride(user)) return true
+  const userEmail = (user.email ?? "").toLowerCase()
+  return Boolean(ticket.supervisorEmail) && ticket.supervisorEmail!.toLowerCase() === userEmail
+}
+
+/** Solo un analista asignado al ticket puede marcarlo listo para validación. */
+function canMarkReady(user: AuthPayload | undefined, ticket: { analystEmails: string[] }): boolean {
+  if (!user) return false
+  if (hasOverride(user)) return true
+  const userEmail = (user.email ?? "").toLowerCase()
+  return ticket.analystEmails.map((e) => e.toLowerCase()).includes(userEmail)
+}
+
+/** Validar/cerrar es supervisión independiente — no depende de quién esté asignado al ticket. */
+function canValidateTicket(user: AuthPayload | undefined): boolean {
+  if (!user) return false
+  const perms = user.app_permissions ?? []
+  return user.role === "admin" || perms.includes("mod_tickets_gerencia")
 }
 
 const storage = multer.diskStorage({
@@ -151,7 +183,12 @@ router.get("/", async (req, res, next) => {
         )
       : tickets
 
-    res.json(await attachSla(filtered))
+    const withSla = await attachSla(filtered)
+    // qualityScore por ticket (reusa el mismo cálculo del leaderboard agregado
+    // de /tickets/dashboard) — necesario para la vista "todos los tickets" de
+    // la gerencia (mod_tickets_gerencia), estilo partidas de OP.GG.
+    const withScore = withSla.map((t) => ({ ...t, qualityScore: ticketQualityScore(t, t.slaLimitHours) }))
+    res.json(withScore)
   } catch (err) {
     next(err)
   }
@@ -235,11 +272,13 @@ router.post("/", upload.array("evidence"), async (req, res, next) => {
       evidence: files.length ? { create: files.map((f) => ({ filename: f.originalname, url: `/zymoally-uploads/${f.filename}` })) } : undefined,
     })
 
-    // Fase D — notificación de recepción al área asignada. Fire-and-forget: un
+    // Fase D — notificación de recepción, ahora solo al supervisor/coordinador
+    // (flujo por etapas): el analista se entera recién cuando el supervisor lo
+    // asigna formalmente vía POST /:id/asignar, no antes. Fire-and-forget: un
     // problema de correo no debe bloquear ni fallar la creación del ticket. El
     // resultado (incluyendo "no había a quién avisar") queda en la bitácora del
     // propio ticket — visible para Planeación sin necesitar logs del servidor.
-    const recipients = [body.supervisorEmail, ...analystEmails, body.coordinatorEmail].filter((e): e is string => Boolean(e))
+    const recipients = [body.supervisorEmail, body.coordinatorEmail].filter((e): e is string => Boolean(e))
     notifyTicketReceived(recipients, {
       code: ticket.code,
       area: ticket.area,
@@ -250,7 +289,7 @@ router.post("/", upload.array("evidence"), async (req, res, next) => {
       .then((result) => {
         if (result === "sent") return
         const texto = result === "no-recipients"
-          ? "Notificación de recepción NO enviada: el supervisor/analista/coordinador asignado no tiene correo corporativo registrado en el directorio."
+          ? "Notificación de recepción NO enviada: el supervisor/coordinador asignado no tiene correo corporativo registrado en el directorio."
           : "Notificación de recepción NO enviada: falló el envío por ambos SMTP configurados (ver Configuración de la intranet · SMTP corporativo)."
         return prisma.zymoPqrAction.create({ data: { ticketId: ticket.id, texto: `${currentDateValue()} - ${texto}` } })
       })
@@ -401,6 +440,143 @@ router.post("/:id/evidencia", upload.array("evidence"), async (req, res, next) =
       include: { actions: { orderBy: { createdAt: "asc" } }, evidence: { orderBy: { createdAt: "asc" } } },
     })
     res.status(201).json(updated)
+  } catch (err) {
+    next(err)
+  }
+})
+
+// ─── Flujo por etapas ────────────────────────────────────────────────────────
+
+const AsignarBody = z.object({
+  analysts: z.array(z.string()).min(1, "Selecciona al menos un analista"),
+  analystEmails: z.array(z.string()).min(1, "Selecciona al menos un analista"),
+})
+
+// POST /:id/asignar — el supervisor formaliza (o modifica) la asignación de
+// analistas. Solo la PRIMERA vez fija originalAnalyst* (auditoría inmutable).
+router.post("/:id/asignar", async (req, res, next) => {
+  try {
+    const id = Number(req.params.id)
+    const parsed = AsignarBody.safeParse(req.body)
+    if (!parsed.success) {
+      res.status(400).json({ error: "Datos inválidos", details: parsed.error.flatten() })
+      return
+    }
+    const { analysts, analystEmails } = parsed.data
+    const normalizedEmails = analystEmails.map((e) => e.toLowerCase())
+
+    const existing = await prisma.zymoPqrTicket.findUnique({ where: { id } })
+    if (!existing) { res.status(404).json({ error: "Ticket no encontrado" }); return }
+    if (!canAssignTicket(req.user, existing)) {
+      res.status(403).json({ error: "Solo el supervisor asignado (o un admin) puede asignar analistas a este ticket" })
+      return
+    }
+
+    const esPrimeraAsignacion = existing.originalAnalysts.length === 0
+    const nuevos = normalizedEmails.filter((e) => !existing.analystEmails.map((x) => x.toLowerCase()).includes(e))
+
+    const ticket = await prisma.zymoPqrTicket.update({
+      where: { id },
+      data: {
+        analysts,
+        analystEmails: normalizedEmails,
+        ...(esPrimeraAsignacion ? { originalAnalysts: analysts, originalAnalystEmails: normalizedEmails, assignedAt: new Date() } : {}),
+        status: existing.status === "Abierto" || existing.status === "En analisis" ? "En gestion" : existing.status,
+        actions: { create: [{ texto: `${currentDateValue()} - Analista(s) asignado(s): ${analysts.join(", ")}` }] },
+      },
+      include: { actions: true, evidence: true },
+    })
+
+    if (nuevos.length) {
+      notifyTicketAssigned(nuevos, {
+        code: ticket.code, area: ticket.area, type: ticket.type, priority: ticket.priority, description: ticket.description,
+      }).catch((err) => console.error("[email] notifyTicketAssigned failed:", err))
+    }
+
+    res.json(ticket)
+  } catch (err) {
+    next(err)
+  }
+})
+
+// PATCH /:id/marcar-listo — el analista pasa el ticket a validación gerencial.
+// Bloqueado si no hay evidencia cargada (obligatoria, no opcional en este paso).
+router.patch("/:id/marcar-listo", async (req, res, next) => {
+  try {
+    const id = Number(req.params.id)
+    const existing = await prisma.zymoPqrTicket.findUnique({ where: { id }, include: { evidence: true } })
+    if (!existing) { res.status(404).json({ error: "Ticket no encontrado" }); return }
+    if (!canMarkReady(req.user, existing)) { denyManage(res); return }
+    if (!existing.evidence.length) {
+      res.status(400).json({ error: "Debes subir evidencia antes de marcar el ticket como listo para validación" })
+      return
+    }
+
+    const ticket = await prisma.zymoPqrTicket.update({
+      where: { id },
+      data: {
+        status: "Pendiente validacion",
+        readyForValidationAt: new Date(),
+        actions: { create: [{ texto: `${currentDateValue()} - Analista marcó el ticket listo para validación gerencial` }] },
+      },
+      include: { actions: true, evidence: true },
+    })
+    res.json(ticket)
+  } catch (err) {
+    next(err)
+  }
+})
+
+const ValidarCierreBody = z.object({
+  accion: z.enum(["cerrar", "regresar"]),
+  comentario: z.string().optional(),
+})
+
+// PATCH /:id/validar-cierre — la gerencia (mod_tickets_gerencia) valida y
+// cierra, o regresa el ticket al analista si la evidencia no está completa.
+router.patch("/:id/validar-cierre", async (req, res, next) => {
+  try {
+    const id = Number(req.params.id)
+    const parsed = ValidarCierreBody.safeParse(req.body)
+    if (!parsed.success) {
+      res.status(400).json({ error: "Datos inválidos", details: parsed.error.flatten() })
+      return
+    }
+    if (!canValidateTicket(req.user)) {
+      res.status(403).json({ error: "Solo la gerencia de operaciones (o un admin) puede validar el cierre de tickets" })
+      return
+    }
+    const existing = await prisma.zymoPqrTicket.findUnique({ where: { id } })
+    if (!existing) { res.status(404).json({ error: "Ticket no encontrado" }); return }
+    if (existing.status !== "Pendiente validacion") {
+      res.status(409).json({ error: `El ticket no está pendiente de validación (estado actual: ${existing.status})` })
+      return
+    }
+
+    const { accion, comentario } = parsed.data
+    const nombre = req.user?.full_name || req.user?.email || "Gerencia"
+    const ticket = accion === "cerrar"
+      ? await prisma.zymoPqrTicket.update({
+          where: { id },
+          data: {
+            status: "Cerrado",
+            closedDate: currentDateValue(),
+            closedAt: new Date(),
+            validatedBy: nombre,
+            validatedByEmail: req.user?.email ?? null,
+            actions: { create: [{ texto: `${currentDateValue()} - Cierre validado por ${nombre}` }] },
+          },
+          include: { actions: true, evidence: true },
+        })
+      : await prisma.zymoPqrTicket.update({
+          where: { id },
+          data: {
+            status: "En gestion",
+            actions: { create: [{ texto: `${currentDateValue()} - ${nombre} regresó el ticket a gestión${comentario ? `: ${comentario}` : ""}` }] },
+          },
+          include: { actions: true, evidence: true },
+        })
+    res.json(ticket)
   } catch (err) {
     next(err)
   }

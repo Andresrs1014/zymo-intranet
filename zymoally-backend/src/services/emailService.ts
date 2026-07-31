@@ -151,6 +151,34 @@ export async function notifyTicketReceived(recipients: string[], data: TicketNot
   return sent ? "sent" : "send-failed"
 }
 
+// ─── Notificación de asignación de analista (flujo por etapas) ──────────────
+
+export async function notifyTicketAssigned(recipients: string[], data: TicketNotifyData): Promise<NotifyTicketResult> {
+  const uniqueRecipients = Array.from(new Set(recipients.filter(Boolean)))
+  if (!uniqueRecipients.length) return "no-recipients"
+
+  const body = `
+    <h2>Te asignaron un ticket para gestionar</h2>
+    <p>El supervisor te asignó el siguiente ticket. Revisa la información y comienza a gestionarlo.</p>
+    <div class="meta">
+      <div class="meta-row"><span class="meta-label">Ticket</span><span class="meta-value">${data.code}</span></div>
+      <div class="meta-row"><span class="meta-label">Área</span><span class="meta-value">${data.area}</span></div>
+      <div class="meta-row"><span class="meta-label">Tipo</span><span class="meta-value">${data.type}</span></div>
+      <div class="meta-row"><span class="meta-label">Prioridad</span><span class="meta-value">${data.priority}</span></div>
+    </div>
+    ${data.description ? `<p>${data.description}</p>` : ""}
+    <p>Recuerda que necesitas subir evidencia del cambio antes de poder marcarlo listo para validación.</p>
+    <a href="${BASE_URL}/operativo/gestionar-tickets" class="cta">Ver ticket</a>
+  `
+
+  const sent = await sendMailWithFallback({
+    to: uniqueRecipients,
+    subject: `[ZYMO] Ticket asignado — ${data.code}`,
+    html: wrapEmail("Ticket asignado", body),
+  })
+  return sent ? "sent" : "send-failed"
+}
+
 // ─── Recordatorios de gestión — Fase F (día 7/15/22/30 sin cerrar) ──────────
 
 interface TicketReminderData extends TicketNotifyData {

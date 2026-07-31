@@ -26,7 +26,7 @@ export const defaultPqrConfig: Record<PqrListType, string[]> = {
     "Novedad de proceso", "Faltante o inconsistencia", "Mantenimiento de instalaciones",
     "Capacitación de personal", "Corrección de procedimiento", "OKR",
   ],
-  statuses: ["Abierto", "En analisis", "En gestion", "Escalado", "Cerrado"],
+  statuses: ["Abierto", "En analisis", "En gestion", "Pendiente validacion", "Escalado", "Cerrado"],
   priorities: ["Baja", "Media", "Alta", "Critica"],
   channels: ["WhatsApp", "Correo", "Llamada", "Visita de experiencia", "Mesa de ayuda"],
   managementCriteria: ["Contencion inicial", "Causa raiz", "Plan de accion", "Validacion cliente", "Cierre documentado"],
@@ -39,7 +39,7 @@ export const defaultPqrConfig: Record<PqrListType, string[]> = {
 // esa detección deja de funcionar en silencio para los tickets nuevos. Ver
 // memoria project_zymoally ("Análisis de lógica ported").
 export const PROTECTED_LIST_VALUES: Partial<Record<PqrListType, string[]>> = {
-  statuses: ["Cerrado", "Escalado"],
+  statuses: ["Cerrado", "Escalado", "Pendiente validacion"],
   priorities: ["Critica", "Alta"],
   impacts: ["Critico", "Alto", "Medio"],
 }

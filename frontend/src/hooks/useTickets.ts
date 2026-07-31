@@ -72,7 +72,7 @@ function buildParams(filters: TicketListFilters): URLSearchParams {
 
 // ─── Listar / detalle ───────────────────────────────────────────────────────
 
-export function useTickets(filters: TicketListFilters = {}) {
+export function useTickets(filters: TicketListFilters = {}, options: { enabled?: boolean } = {}) {
   return useQuery<Ticket[]>({
     queryKey: ["tickets", filters],
     queryFn: async () => {
@@ -81,6 +81,7 @@ export function useTickets(filters: TicketListFilters = {}) {
       )
       return data
     },
+    enabled: options.enabled ?? true,
   })
 }
 
@@ -194,6 +195,74 @@ export function useUpdateTicketFechaCompromiso() {
       const { data } = await zymoallyApi.patch<Ticket>(
         `/api/tickets/pqr/${ticketId}/fecha-compromiso`,
         { dueDate }
+      )
+      return data
+    },
+    onSuccess: (_data, { ticketId }) => {
+      qc.invalidateQueries({ queryKey: ["ticket", ticketId] })
+      qc.invalidateQueries({ queryKey: ["tickets"] })
+    },
+  })
+}
+
+// ─── Flujo por etapas ───────────────────────────────────────────────────────
+
+export function useAssignTicket() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      ticketId,
+      analysts,
+      analystEmails,
+    }: {
+      ticketId: number
+      analysts: string[]
+      analystEmails: string[]
+    }) => {
+      const { data } = await zymoallyApi.post<Ticket>(
+        `/api/tickets/pqr/${ticketId}/asignar`,
+        { analysts, analystEmails }
+      )
+      return data
+    },
+    onSuccess: (_data, { ticketId }) => {
+      qc.invalidateQueries({ queryKey: ["ticket", ticketId] })
+      qc.invalidateQueries({ queryKey: ["tickets"] })
+    },
+  })
+}
+
+export function useMarkTicketReady() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (ticketId: number) => {
+      const { data } = await zymoallyApi.patch<Ticket>(
+        `/api/tickets/pqr/${ticketId}/marcar-listo`
+      )
+      return data
+    },
+    onSuccess: (_data, ticketId) => {
+      qc.invalidateQueries({ queryKey: ["ticket", ticketId] })
+      qc.invalidateQueries({ queryKey: ["tickets"] })
+    },
+  })
+}
+
+export function useValidateTicketClosure() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      ticketId,
+      accion,
+      comentario,
+    }: {
+      ticketId: number
+      accion: "cerrar" | "regresar"
+      comentario?: string
+    }) => {
+      const { data } = await zymoallyApi.patch<Ticket>(
+        `/api/tickets/pqr/${ticketId}/validar-cierre`,
+        { accion, comentario }
       )
       return data
     },

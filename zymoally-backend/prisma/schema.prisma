@@ -40,6 +40,16 @@ model ZymoPqrTicket {
   closedDate         String?
   closedAt           DateTime?
   description        String?
+  // Flujo por etapas (supervisor asigna -> analista gestiona -> gerencia
+  // valida). originalAnalyst* es un snapshot inmutable del primer analista
+  // asignado — analysts/analystEmails de arriba sigue siendo la lista VIVA,
+  // editable por el supervisor (puede sumar/quitar gente después).
+  originalAnalysts      String[]  @default([])
+  originalAnalystEmails String[]  @default([])
+  assignedAt            DateTime?
+  readyForValidationAt  DateTime?
+  validatedBy           String?
+  validatedByEmail      String?
   // Fase F — recordatorios de 1 mes sin gestionar (día 7/15/22/30 desde
   // createdAt). Guarda el último hito ya notificado para no re-enviar y para
   // seguir alcanzando el siguiente hito aunque el cron se salte un día.

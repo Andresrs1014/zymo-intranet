@@ -1,17 +1,23 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { FormSelect } from "@/components/tareas/FormSelect"
+import { MultiCombobox } from "@/components/ui/Combobox"
+import { api } from "@/lib/api"
+import { useAuthStore } from "@/store/authStore"
+import { canSeeTicketsGerencia } from "@/lib/permissions"
 import {
   useTicket, useTicketConfigLists, useUpdateTicketStatus, useUpdateTicketCriterio,
   useUpdateTicketFechaCompromiso, useAddTicketAction, useUploadTicketEvidence,
+  useAssignTicket, useMarkTicketReady, useValidateTicketClosure,
 } from "@/hooks/useTickets"
 import { extractErrorMessage } from "@/lib/ticketErrors"
 import { formatSlaHours } from "@/lib/ticketWork"
 
 type Tab = "detalle" | "bitacora" | "evidencias"
+type PersonaDirectorio = { id: number; nombre: string; email: string }
 
 export function TicketManageSheet({ ticketId, onClose }: { ticketId: number | null; onClose: () => void }) {
   const [tab, setTab] = useState<Tab>("detalle")
@@ -22,12 +28,74 @@ export function TicketManageSheet({ ticketId, onClose }: { ticketId: number | nu
   const updateFecha = useUpdateTicketFechaCompromiso()
   const addAction = useAddTicketAction()
   const uploadEvidence = useUploadTicketEvidence()
+  const assignTicket = useAssignTicket()
+  const markReady = useMarkTicketReady()
+  const validateClosure = useValidateTicketClosure()
   const [newAction, setNewAction] = useState("")
   const [newFiles, setNewFiles] = useState<File[]>([])
   const [fechaCompromiso, setFechaCompromiso] = useState("")
   const [error, setError] = useState<string | null>(null)
+  const [analistasOptions, setAnalistasOptions] = useState<PersonaDirectorio[]>([])
+  const [analistasSeleccionados, setAnalistasSeleccionados] = useState<string[]>([])
+  const [comentarioGerencia, setComentarioGerencia] = useState("")
+
+  const user = useAuthStore((s) => s.user)
+  const userEmail = (user?.email ?? "").toLowerCase()
+  const isOverride = user?.role === "admin" || Boolean(user?.app_permissions?.includes("mod_tickets_config"))
+  const isGerencia = canSeeTicketsGerencia(user?.role ?? "", user?.app_permissions) || isOverride
+
+  useEffect(() => {
+    if (!ticketId) return
+    api.get("/operativo/personas/lista-simple", { params: { rol: "analista" } })
+      .then(({ data }) => setAnalistasOptions(Array.isArray(data) ? data : []))
+      .catch(() => setAnalistasOptions([]))
+  }, [ticketId])
+
+  useEffect(() => {
+    if (!ticket) return
+    setAnalistasSeleccionados(
+      analistasOptions.filter((p) => ticket.analystEmails.map((e) => e.toLowerCase()).includes(p.email.toLowerCase())).map((p) => String(p.id))
+    )
+  }, [ticket, analistasOptions])
 
   if (!ticket) return null
+
+  const isSupervisor = Boolean(ticket.supervisorEmail && ticket.supervisorEmail.toLowerCase() === userEmail) || isOverride || isGerencia
+  const isAnalyst = ticket.analystEmails.map((e) => e.toLowerCase()).includes(userEmail) || isOverride || isGerencia
+  const pendienteAsignacion = ticket.status === "Abierto" || ticket.status === "En analisis"
+  const enGestion = ticket.status === "En gestion"
+  const pendienteValidacion = ticket.status === "Pendiente validacion"
+
+  function handleAsignar() {
+    if (!analistasSeleccionados.length || assignTicket.isPending) return
+    const personas = analistasSeleccionados
+      .map((id) => analistasOptions.find((p) => String(p.id) === id))
+      .filter((p): p is PersonaDirectorio => Boolean(p))
+    setError(null)
+    assignTicket.mutate(
+      { ticketId: ticket!.id, analysts: personas.map((p) => p.nombre), analystEmails: personas.map((p) => p.email) },
+      { onError: (err) => setError(extractErrorMessage(err)) },
+    )
+  }
+
+  function handleMarcarListo() {
+    if (markReady.isPending) return
+    setError(null)
+    markReady.mutate(ticket!.id, { onError: (err) => setError(extractErrorMessage(err)) })
+  }
+
+  function handleValidar(accion: "cerrar" | "regresar") {
+    if (validateClosure.isPending) return
+    if (accion === "regresar" && !comentarioGerencia.trim()) {
+      setError("Escribe un comentario explicando qué falta antes de regresar el ticket.")
+      return
+    }
+    setError(null)
+    validateClosure.mutate(
+      { ticketId: ticket!.id, accion, comentario: comentarioGerencia.trim() || undefined },
+      { onSuccess: () => setComentarioGerencia(""), onError: (err) => setError(extractErrorMessage(err)) },
+    )
+  }
 
   function handleStatusChange(status: string) {
     if (updateStatus.isPending) return
@@ -117,12 +185,81 @@ export function TicketManageSheet({ ticketId, onClose }: { ticketId: number | nu
               {ticket.description && <p className="mt-2 whitespace-pre-wrap">{ticket.description}</p>}
             </div>
 
-            <FormSelect
-              label="Estado"
-              value={ticket.status}
-              onChange={handleStatusChange}
-              options={(lists?.statuses ?? []).map((s) => ({ value: s.value, label: s.label }))}
-            />
+            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-zinc-500">Estado</span>
+                <Badge variant={ticket.status === "Cerrado" ? "default" : "secondary"}>{ticket.status}</Badge>
+              </div>
+
+              {isSupervisor && pendienteAsignacion && (
+                <div className="space-y-2">
+                  <p className="text-[13px] text-zinc-600">Analiza el ticket y asígnalo al analista correspondiente.</p>
+                  <MultiCombobox
+                    options={analistasOptions.map((p) => ({ value: String(p.id), label: p.nombre }))}
+                    values={analistasSeleccionados}
+                    onChange={(v) => setAnalistasSeleccionados(v.map(String))}
+                    placeholder="Seleccionar analista(s)..."
+                  />
+                  <Button type="button" size="sm" disabled={!analistasSeleccionados.length || assignTicket.isPending} onClick={handleAsignar}>
+                    {assignTicket.isPending ? "Asignando…" : "Asignar"}
+                  </Button>
+                </div>
+              )}
+
+              {isAnalyst && enGestion && (
+                <div className="space-y-2">
+                  <p className="text-[13px] text-zinc-600">
+                    Sube la evidencia del cambio en la pestaña "Evidencias" y luego marca el ticket como listo.
+                  </p>
+                  <Button
+                    type="button" size="sm" disabled={!ticket.evidence.length || markReady.isPending}
+                    title={!ticket.evidence.length ? "Sube al menos un archivo de evidencia primero" : undefined}
+                    onClick={handleMarcarListo}
+                  >
+                    {markReady.isPending ? "Enviando…" : "Marcar listo para validación"}
+                  </Button>
+                </div>
+              )}
+
+              {isGerencia && pendienteValidacion && (
+                <div className="space-y-2">
+                  <p className="text-[13px] text-zinc-600">Revisa la evidencia y valida el cierre, o regresa el ticket con un comentario.</p>
+                  <textarea
+                    value={comentarioGerencia}
+                    onChange={(e) => setComentarioGerencia(e.target.value)}
+                    placeholder="Comentario (obligatorio solo si regresas el ticket)"
+                    className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-primary"
+                    rows={2}
+                  />
+                  <div className="flex gap-2">
+                    <Button type="button" size="sm" disabled={validateClosure.isPending} onClick={() => handleValidar("cerrar")}>
+                      {validateClosure.isPending ? "Guardando…" : "Validar y cerrar"}
+                    </Button>
+                    <Button type="button" size="sm" variant="outline" disabled={validateClosure.isPending} onClick={() => handleValidar("regresar")}>
+                      Regresar a gestión
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {!pendienteAsignacion && !enGestion && !pendienteValidacion && ticket.status !== "Escalado" && (
+                <p className="text-[13px] text-zinc-600">
+                  {ticket.validatedBy ? `Cerrado y validado por ${ticket.validatedBy}.` : "Este ticket está cerrado."}
+                </p>
+              )}
+
+              {(isSupervisor || isAnalyst) && ticket.status !== "Escalado" && !/cerrado/i.test(ticket.status) && (
+                <button
+                  type="button"
+                  className="text-[12px] text-zinc-500 underline hover:text-zinc-700"
+                  disabled={updateStatus.isPending}
+                  onClick={() => handleStatusChange("Escalado")}
+                >
+                  Escalar ticket
+                </button>
+              )}
+            </div>
+
             <FormSelect
               label="Criterio de gestión"
               value={ticket.managementCriteria ?? ""}

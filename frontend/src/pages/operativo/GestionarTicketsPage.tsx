@@ -4,14 +4,26 @@ import { BlurFade } from "@/components/ui/blur-fade"
 import { AnimatedGridPattern } from "@/components/ui/animated-grid-pattern"
 import { cn } from "@/lib/utils"
 import { useAuthStore } from "@/store/authStore"
+import { canSeeTicketsGerencia } from "@/lib/permissions"
 import { useTickets } from "@/hooks/useTickets"
 import { TicketScorePanel } from "@/components/operativo/gestion-tickets/TicketScorePanel"
 import { TicketHistoryRow } from "@/components/operativo/gestion-tickets/TicketHistoryRow"
+import { TicketGerenciaRow } from "@/components/operativo/gestion-tickets/TicketGerenciaRow"
 import { TicketManageSheet } from "@/components/operativo/gestion-tickets/TicketManageSheet"
+
+type Vista = "mis" | "todos"
 
 export function GestionarTicketsPage() {
   const user = useAuthStore((s) => s.user)
-  const { data: tickets = [], isLoading } = useTickets({ asignadoAMi: true })
+  const esGerencia = canSeeTicketsGerencia(user?.role ?? "", user?.app_permissions)
+  const [vista, setVista] = useState<Vista>("mis")
+
+  const enVistaTotal = esGerencia && vista === "todos"
+  const { data: misTickets = [], isLoading: cargandoMis } = useTickets({ asignadoAMi: true }, { enabled: !enVistaTotal })
+  const { data: todosTickets = [], isLoading: cargandoTodos } = useTickets({}, { enabled: enVistaTotal })
+  const tickets = enVistaTotal ? todosTickets : misTickets
+  const isLoading = enVistaTotal ? cargandoTodos : cargandoMis
+
   const [search, setSearch] = useState("")
   const [openTicketId, setOpenTicketId] = useState<number | null>(null)
 
@@ -19,7 +31,7 @@ export function GestionarTicketsPage() {
     const term = search.trim().toLowerCase()
     if (!term) return tickets
     return tickets.filter((t) =>
-      [t.code, t.area, t.platform, t.description, t.status]
+      [t.code, t.area, t.platform, t.description, t.status, t.supervisor, ...t.analysts]
         .join(" ")
         .toLowerCase()
         .includes(term)
@@ -69,8 +81,33 @@ export function GestionarTicketsPage() {
           <TicketScorePanel tickets={tickets} userName={user?.full_name ?? user?.email ?? "—"} />
         </div>
 
-        {/* Columna principal — historial de tickets asignados */}
+        {/* Columna principal — historial de tickets asignados, o vista total (gerencia) */}
         <div className="min-w-0 space-y-6">
+          {esGerencia && (
+            <div className="inline-flex rounded-lg border border-border bg-background/80 p-1 backdrop-blur-sm">
+              <button
+                type="button"
+                onClick={() => setVista("mis")}
+                className={cn(
+                  "rounded-md px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition-colors",
+                  vista === "mis" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Mis tickets
+              </button>
+              <button
+                type="button"
+                onClick={() => setVista("todos")}
+                className={cn(
+                  "rounded-md px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition-colors",
+                  vista === "todos" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Todos los tickets
+              </button>
+            </div>
+          )}
+
           <input
             type="text"
             name="buscar-tickets"
@@ -78,7 +115,7 @@ export function GestionarTicketsPage() {
             aria-label="Buscar tickets"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por código, área, plataforma…"
+            placeholder="Buscar por código, área, plataforma, supervisor, analista…"
             className="w-full rounded-lg border border-border bg-background/80 px-3 py-2 text-sm text-foreground backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
 
@@ -86,7 +123,7 @@ export function GestionarTicketsPage() {
 
           {!isLoading && filtered.length === 0 && (
             <div className="rounded-xl border border-dashed border-border py-16 text-center text-sm text-muted-foreground">
-              No tienes tickets asignados todavía.
+              {enVistaTotal ? "No hay tickets registrados todavía." : "No tienes tickets asignados todavía."}
             </div>
           )}
 
@@ -98,7 +135,9 @@ export function GestionarTicketsPage() {
               <div className="space-y-2">
                 {pendientes.map((t, i) => (
                   <BlurFade key={t.id} duration={0.3} delay={Math.min(0.05 * i, 0.4)}>
-                    <TicketHistoryRow ticket={t} onClick={() => setOpenTicketId(t.id)} />
+                    {enVistaTotal
+                      ? <TicketGerenciaRow ticket={t} onClick={() => setOpenTicketId(t.id)} />
+                      : <TicketHistoryRow ticket={t} onClick={() => setOpenTicketId(t.id)} />}
                   </BlurFade>
                 ))}
               </div>
@@ -113,7 +152,9 @@ export function GestionarTicketsPage() {
               <div className="space-y-2">
                 {cerrados.map((t, i) => (
                   <BlurFade key={t.id} duration={0.3} delay={Math.min(0.05 * i, 0.4)}>
-                    <TicketHistoryRow ticket={t} onClick={() => setOpenTicketId(t.id)} />
+                    {enVistaTotal
+                      ? <TicketGerenciaRow ticket={t} onClick={() => setOpenTicketId(t.id)} />
+                      : <TicketHistoryRow ticket={t} onClick={() => setOpenTicketId(t.id)} />}
                   </BlurFade>
                 ))}
               </div>

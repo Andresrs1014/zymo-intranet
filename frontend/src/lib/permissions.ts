@@ -143,6 +143,12 @@ export function canConfigTickets(role: string, appPerms?: string[]): boolean {
   return hasPerm(appPerms, "mod_tickets_config")
 }
 
+/** Vista gerencial de tickets — ve TODOS los tickets (no solo los propios) con su score, estilo OP.GG. */
+export function canSeeTicketsGerencia(role: string, appPerms?: string[]): boolean {
+  if (role === "admin") return true
+  return hasPerm(appPerms, "mod_tickets_gerencia")
+}
+
 export function canSeeSAC(role: string, appPerms?: string[]): boolean {
   if (role === "admin") return true
   return hasPerm(appPerms, "mod_sac")

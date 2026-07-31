@@ -52,6 +52,16 @@ export interface Ticket {
   slaLimitHours: number | null
   slaElapsedHours: number
   slaOverdue: boolean | null
+  /** Calculado en el backend, mismo motor del leaderboard agregado (scoreMetrics.ts). */
+  qualityScore: number
+  // Flujo por etapas — snapshot inmutable del primer analista asignado, y
+  // marcas de tiempo/autoría de cada transición.
+  originalAnalysts: string[]
+  originalAnalystEmails: string[]
+  assignedAt: string | null
+  readyForValidationAt: string | null
+  validatedBy: string | null
+  validatedByEmail: string | null
 }
 
 export interface CreateTicketInput {

@@ -175,6 +175,13 @@ export const INTERNAL_MODULE_GROUPS: ModulePermissionGroup[] = [
         name: "Tickets — Configurar listas",
         description: "Editar maestros del formulario y sincronizar datos del directorio",
       },
+      {
+        id: "mod_tickets_gerencia",
+        category: "modulo",
+        icon: "📊",
+        name: "Tickets — Vista gerencial (todos + score)",
+        description: "Ver TODOS los tickets con su score de gestión (estilo OP.GG) y validar/cerrar los que estén pendientes de validación, en Operativo → Gestionar tickets",
+      },
     ],
   },
   {
