@@ -3,9 +3,10 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { FormSelect } from "@/components/tareas/FormSelect"
 import { useTicketsUI } from "@/context/TicketsContext"
+import { useAuthStore } from "@/store/authStore"
 import {
   useTicket, useTicketConfigLists, useUpdateTicketStatus, useUpdateTicketCriterio,
-  useAddTicketAction, useUploadTicketEvidence,
+  useAddTicketAction, useUploadTicketEvidence, useDeleteTicket,
 } from "@/hooks/useTickets"
 import { extractErrorMessage } from "@/lib/ticketErrors"
 
@@ -20,11 +21,21 @@ export function TicketDrawer() {
   const updateCriterio = useUpdateTicketCriterio()
   const addAction = useAddTicketAction()
   const uploadEvidence = useUploadTicketEvidence()
+  const deleteTicket = useDeleteTicket()
   const [newAction, setNewAction] = useState("")
   const [newFiles, setNewFiles] = useState<File[]>([])
   const [error, setError] = useState<string | null>(null)
+  const user = useAuthStore((s) => s.user)
+  const canDelete = user?.role === "admin" || Boolean(user?.app_permissions?.includes("mod_tickets_config"))
 
   if (!ticket) return null
+
+  function handleDelete() {
+    if (deleteTicket.isPending) return
+    if (!window.confirm(`¿Borrar definitivamente el ticket ${ticket!.code}? Esta acción no se puede deshacer.`)) return
+    setError(null)
+    deleteTicket.mutate(ticket!.id, { onSuccess: () => setOpenTicketId(null), onError: (err) => setError(extractErrorMessage(err)) })
+  }
 
   function handleStatusChange(status: string) {
     if (updateStatus.isPending) return
@@ -78,6 +89,17 @@ export function TicketDrawer() {
         <SheetHeader>
           <SheetTitle className="font-mono text-base">{ticket.code}</SheetTitle>
         </SheetHeader>
+
+        {canDelete && (
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={deleteTicket.isPending}
+            className="mt-2 text-[11px] text-destructive/70 underline hover:text-destructive disabled:opacity-50"
+          >
+            {deleteTicket.isPending ? "Borrando…" : "Borrar ticket definitivamente"}
+          </button>
+        )}
 
         {error && (
           <p className="mt-2 rounded-md bg-[#fce9ed] px-3 py-2 text-sm text-[#a8172f]">{error}</p>

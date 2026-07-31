@@ -11,7 +11,7 @@ import { canSeeTicketsGerencia } from "@/lib/permissions"
 import {
   useTicket, useTicketConfigLists, useUpdateTicketStatus, useUpdateTicketCriterio,
   useUpdateTicketFechaCompromiso, useAddTicketAction, useUploadTicketEvidence,
-  useAssignTicket, useMarkTicketReady, useValidateTicketClosure,
+  useAssignTicket, useMarkTicketReady, useValidateTicketClosure, useDeleteTicket,
 } from "@/hooks/useTickets"
 import { extractErrorMessage } from "@/lib/ticketErrors"
 import { formatSlaHours } from "@/lib/ticketWork"
@@ -31,6 +31,7 @@ export function TicketManageSheet({ ticketId, onClose }: { ticketId: number | nu
   const assignTicket = useAssignTicket()
   const markReady = useMarkTicketReady()
   const validateClosure = useValidateTicketClosure()
+  const deleteTicket = useDeleteTicket()
   const [newAction, setNewAction] = useState("")
   const [newFiles, setNewFiles] = useState<File[]>([])
   const [fechaCompromiso, setFechaCompromiso] = useState("")
@@ -97,6 +98,13 @@ export function TicketManageSheet({ ticketId, onClose }: { ticketId: number | nu
     )
   }
 
+  function handleDelete() {
+    if (deleteTicket.isPending) return
+    if (!window.confirm(`¿Borrar definitivamente el ticket ${ticket!.code}? Esta acción no se puede deshacer.`)) return
+    setError(null)
+    deleteTicket.mutate(ticket!.id, { onSuccess: onClose, onError: (err) => setError(extractErrorMessage(err)) })
+  }
+
   function handleStatusChange(status: string) {
     if (updateStatus.isPending) return
     const enteringClosed = /cerrado/i.test(status) && !/cerrado/i.test(ticket!.status)
@@ -151,6 +159,17 @@ export function TicketManageSheet({ ticketId, onClose }: { ticketId: number | nu
             {overdue && <Badge variant="destructive" className="text-[10px]">Vencido SLA</Badge>}
           </SheetTitle>
         </SheetHeader>
+
+        {isOverride && (
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={deleteTicket.isPending}
+            className="mt-2 text-[11px] text-destructive/70 underline hover:text-destructive disabled:opacity-50"
+          >
+            {deleteTicket.isPending ? "Borrando…" : "Borrar ticket definitivamente"}
+          </button>
+        )}
 
         {error && (
           <p role="alert" aria-live="polite" className="mt-2 rounded-md bg-[#fce9ed] px-3 py-2 text-sm text-[#a8172f]">

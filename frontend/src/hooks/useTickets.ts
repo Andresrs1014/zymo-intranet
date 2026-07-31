@@ -70,6 +70,19 @@ function buildParams(filters: TicketListFilters): URLSearchParams {
   return params
 }
 
+export function useDeleteTicket() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (ticketId: number) => {
+      await zymoallyApi.delete(`/api/tickets/pqr/${ticketId}`)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tickets"] })
+      qc.invalidateQueries({ queryKey: ["tickets-dashboard"] })
+    },
+  })
+}
+
 // ─── Listar / detalle ───────────────────────────────────────────────────────
 
 export function useTickets(filters: TicketListFilters = {}, options: { enabled?: boolean } = {}) {

@@ -227,6 +227,26 @@ router.get("/:id", async (req, res, next) => {
   }
 })
 
+// DELETE /:id — borrado definitivo (admin/mod_tickets_config). Cascada a
+// actions/evidence vía onDelete: Cascade del schema.
+router.delete("/:id", async (req, res, next) => {
+  try {
+    const id = Number(req.params.id)
+    if (!Number.isFinite(id)) { res.status(400).json({ error: "ID inválido" }); return }
+    const perms = req.user?.app_permissions ?? []
+    if (req.user?.role !== "admin" && !perms.includes("mod_tickets_config")) {
+      res.status(403).json({ error: "Solo un admin o la configuración de Tickets puede borrar un ticket" })
+      return
+    }
+    const existing = await prisma.zymoPqrTicket.findUnique({ where: { id } })
+    if (!existing) { res.status(404).json({ error: "Ticket no encontrado" }); return }
+    await prisma.zymoPqrTicket.delete({ where: { id } })
+    res.status(204).end()
+  } catch (err) {
+    next(err)
+  }
+})
+
 // POST / — crear ticket (código autogenerado transaccional)
 router.post("/", upload.array("evidence"), async (req, res, next) => {
   try {
@@ -554,7 +574,9 @@ router.patch("/:id/validar-cierre", async (req, res, next) => {
     }
 
     const { accion, comentario } = parsed.data
-    const nombre = req.user?.full_name || req.user?.email || "Gerencia"
+    // req.user.full_name NUNCA viene poblado (el JWT del backend Python no lo
+    // incluye, ver gotcha documentado en CLAUDE.md) — usar solo el correo.
+    const nombre = req.user?.email || "Gerencia"
     const ticket = accion === "cerrar"
       ? await prisma.zymoPqrTicket.update({
           where: { id },
