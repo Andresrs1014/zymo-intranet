@@ -11,7 +11,7 @@ from typing import Optional
 
 import os
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Header, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlmodel import Session, col, select
@@ -1031,6 +1031,56 @@ def eliminar_cargo(
 
 
 # ── Personas ──────────────────────────────────────────────────────────────────
+
+def _valid_internal_key(key: Optional[str]) -> bool:
+    return bool(key and settings.internal_key and key == settings.internal_key)
+
+
+class PersonaBuscarOut(BaseModel):
+    id: int
+    nombre: str
+    cargo: str
+    plataforma: str
+
+
+@router.get("/personas/buscar", response_model=list[PersonaBuscarOut])
+def buscar_personas_publico(
+    q: str = Query(min_length=2, description="Nombre a buscar"),
+    x_internal_key: Optional[str] = Header(default=None),
+    db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
+):
+    """
+    Búsqueda mínima de personas activas, solo nombre/cargo/plataforma —
+    pensada para autocompletar formularios externos sin login (ej.
+    postulación pública de WOW Olimpiadas). Servicio-a-servicio únicamente
+    (X-Internal-Key) — ningún navegador la llama directo, la consume el
+    backend Node del proyecto que la necesite.
+    """
+    if not _valid_internal_key(x_internal_key):
+        raise HTTPException(status_code=403, detail="Requiere X-Internal-Key válida.")
+
+    term = f"%{q.lower()}%"
+    personas = db.exec(
+        select(PtcPersona)
+        .where(col(PtcPersona.nombre).ilike(term))
+        .where(PtcPersona.estado == "Activo")
+        .order_by(col(PtcPersona.nombre))
+        .limit(15)
+    ).all()
+
+    result = []
+    for p in personas:
+        sede = main_db.get(Sede, p.sede_id) if p.sede_id else None
+        cargo = db.get(PtcCargo, p.cargo_id) if p.cargo_id else None
+        result.append(PersonaBuscarOut(
+            id=p.id,
+            nombre=p.nombre,
+            cargo=cargo.nombre if cargo else "",
+            plataforma=sede.name if sede else "",
+        ))
+    return result
+
 
 @router.get("/personas")
 def listar_personas(
