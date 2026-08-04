@@ -12,7 +12,6 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlmodel import Session, func, select
 from jinja2 import Environment, FileSystemLoader
-from weasyprint import HTML
 
 from app.core.deps import get_current_user, require_compras
 from app.core.permissions import user_has_permission
@@ -128,6 +127,12 @@ def _generar_pdf(
             "aprueba": aprobador_nombre,
         },
     }
+
+    # Import perezoso: WeasyPrint requiere librerías nativas GTK/Pango que no
+    # están disponibles en todos los entornos de desarrollo (ej. Windows sin
+    # GTK) — cargar aquí evita que falte en el arranque de todo el backend
+    # cuando solo se necesitan otros módulos.
+    from weasyprint import HTML
 
     env = Environment(loader=FileSystemLoader(str(_TEMPLATES_DIR)))
     html_content = env.get_template("template_oc.html").render(**context)

@@ -14,7 +14,6 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from jinja2 import Environment, FileSystemLoader
-from weasyprint import HTML
 import io
 
 from app.core.deps import get_current_user
@@ -233,6 +232,9 @@ async def generar_pdf_procedimiento(
     html = env.get_template("template_sig.html").render(**context)
 
     # ── 5. Generar PDF en memoria ─────────────────────────────────────────
+    # Import perezoso — ver documentos.py para el motivo (GTK/Pango no siempre disponible).
+    from weasyprint import HTML
+
     pdf_bytes = HTML(
         string=html,
         base_url=str(_PLATFORMS_DIR / slug),

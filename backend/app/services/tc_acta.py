@@ -6,8 +6,6 @@ import json
 from pathlib import Path
 from typing import Optional
 
-from weasyprint import HTML
-
 from app.services.platform_empresa import SLUG_MAP
 
 _PLATFORMS_DIR = Path(__file__).resolve().parent.parent / "platforms"
@@ -116,4 +114,7 @@ def render_acta_pdf(
       </div>
     </body></html>
     """
+    # Import perezoso — ver documentos.py para el motivo (GTK/Pango no siempre disponible).
+    from weasyprint import HTML
+
     return HTML(string=html, base_url=str(_PLATFORMS_DIR)).write_pdf()
