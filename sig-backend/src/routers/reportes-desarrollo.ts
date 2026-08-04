@@ -86,14 +86,17 @@ router.get("/:id", async (req: Request, res: Response) => {
 // Crea un reporte. Acepta upload de archivo .md (campo "archivo") opcional.
 // Si se sube archivo, su contenido se copia a contenidoMd.
 // Si no se sube archivo pero llega contenidoMd en el body, se usa ese.
+// Llega como multipart/form-data — todo campo aparece como string en
+// req.body, incluidos los numéricos. z.coerce.number() los convierte antes
+// de validar (z.number() a secas siempre rechazaba "0", "50", etc.).
 const CrearSchema = z.object({
   titulo: z.string().min(1).max(255),
   descripcion: z.string().max(1000).optional(),
   proyecto: z.string().min(1).max(100),
   contenidoMd: z.string().optional(),
-  porcentajeAvance: z.number().int().min(0).max(100),
-  tiempoEstimadoHoras: z.number().positive().optional(),
-  tiempoRealHoras: z.number().positive().optional(),
+  porcentajeAvance: z.coerce.number().int().min(0).max(100),
+  tiempoEstimadoHoras: z.coerce.number().positive().optional(),
+  tiempoRealHoras: z.coerce.number().positive().optional(),
   fechaReporte: z.string().datetime().optional(),
 })
 
@@ -153,9 +156,9 @@ const EditarSchema = z.object({
   descripcion: z.string().max(1000).optional(),
   proyecto: z.string().min(1).max(100).optional(),
   contenidoMd: z.string().optional(),
-  porcentajeAvance: z.number().int().min(0).max(100).optional(),
-  tiempoEstimadoHoras: z.number().positive().optional(),
-  tiempoRealHoras: z.number().positive().optional(),
+  porcentajeAvance: z.coerce.number().int().min(0).max(100).optional(),
+  tiempoEstimadoHoras: z.coerce.number().positive().optional(),
+  tiempoRealHoras: z.coerce.number().positive().optional(),
   fechaReporte: z.string().datetime().optional(),
 })
 
