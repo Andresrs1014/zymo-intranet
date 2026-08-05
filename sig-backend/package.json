@@ -6,7 +6,8 @@
     "build": "tsc",
     "start": "node dist/app.js",
     "db:migrate": "prisma migrate deploy",
-    "db:generate": "prisma generate"
+    "db:generate": "prisma generate",
+    "reset:procedimientos": "ts-node scripts/reset-procedimientos.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
