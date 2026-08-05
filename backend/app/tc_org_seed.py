@@ -222,23 +222,10 @@ def _walk_forest(
         _upsert_node(db, context=context, node=node, parent_id=None, sede_id=sede_id)
 
 
-def _resolve_sede_ids(main_db: Session) -> dict[str, int]:
-    from app.models.sede import Sede
-
-    out: dict[str, int] = {}
-    for s in main_db.exec(select(Sede)).all():
-        name = (s.name or "").upper()
-        if "LOGI" in name or "ZYMOLOGI" in name:
-            out.setdefault("logi", s.id)
-        if "IMCC" in name or "CARGO" in name:
-            out.setdefault("imcc", s.id)
-        if "IMDE" in name or "DEPOSITO" in name or "DEPÓSITO" in name:
-            out.setdefault("imde", s.id)
-    return out
-
-
 def seed_organigrama_if_needed(main_db: Session) -> None:
     from sqlalchemy import text
+
+    from app.models.sede import Sede
 
     engine = get_personal_engine()
     with engine.connect() as conn:
@@ -246,24 +233,22 @@ def seed_organigrama_if_needed(main_db: Session) -> None:
             return
 
     with Session(engine) as db:
-        sedes = _resolve_sede_ids(main_db)
         _walk_forest(db, CORPORATIVO, "corporativo", None)
 
-        if "imcc" in sedes:
-            tree = [
-                {
-                    "key": "gg",
-                    "label": "Gerente General",
-                    "number": "",
-                    "children": list(IMCC_EXTRA),
-                }
-            ]
-            _walk_forest(db, tree, f"sede:{sedes['imcc']}", sedes["imcc"])
-
-        for slug, sid in sedes.items():
-            if slug == "imcc":
-                continue
-            _walk_forest(db, SEDE_GG_ONLY, f"sede:{sid}", sid)
+        # Antes esto resolvía solo 3 "slots" (logi/imcc/imde) por palabra clave en
+        # el nombre — si dos sedes coincidían con la misma palabra (LOGIMAT y
+        # LOGIMAT 2) la segunda se perdía en silencio, y una sede que no coincidía
+        # con ninguna palabra (Transversal) nunca recibía organigrama. Ahora se
+        # recorren TODAS las sedes reales, cada una con su propio nodo — la única
+        # que recibe el árbol completo es la que coincide con "IMCC".
+        for s in main_db.exec(select(Sede)).all():
+            es_imcc = "IMCC" in (s.name or "").upper()
+            tree = (
+                [{"key": "gg", "label": "Gerente General", "number": "", "children": list(IMCC_EXTRA)}]
+                if es_imcc
+                else SEDE_GG_ONLY
+            )
+            _walk_forest(db, tree, f"sede:{s.id}", s.id)
 
         db.commit()
 

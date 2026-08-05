@@ -632,7 +632,12 @@ def listar_cargos(
     db: Session = Depends(get_personal_db),
     _: User = Depends(require_tc),
 ):
-    q = select(PtcCargo)
+    # org_key solo lo trae un cargo sembrado por el organigrama (un nodo visual
+    # por sede, ej. "Gerente General" x N) — nunca es un cargo real/asignable.
+    # Excluirlos aquí evita que los selectores de asignación (persona, manual,
+    # área, SIG) muestren el mismo nombre repetido sin poder distinguir cuál es
+    # el cargo de verdad.
+    q = select(PtcCargo).where(col(PtcCargo.org_key) == "")
     if sede_id is not None:
         cargo_ids_sede = select(PtcCargoSede.cargo_id).where(PtcCargoSede.sede_id == sede_id)
         q = q.where(col(PtcCargo.id).in_(cargo_ids_sede))
@@ -668,7 +673,9 @@ def listar_cargos_sig(
     _: User = Depends(require_tc_or_sig),
 ):
     """Lectura mínima de cargos para asignación en SIG — no requiere mod_tc."""
-    cargos = db.exec(select(PtcCargo).order_by(col(PtcCargo.nombre))).all()
+    cargos = db.exec(
+        select(PtcCargo).where(col(PtcCargo.org_key) == "").order_by(col(PtcCargo.nombre))
+    ).all()
     return [
         {
             "id": c.id,
