@@ -171,6 +171,46 @@ router.get("/cargos", async (req: Request, res: Response) => {
   res.json(analisis)
 })
 
+// ── POST /api/analisis/completo — análisis por rúbrica, hoy solo vía MCP ──────
+router.post("/completo", requireSigAccess, async (req: Request, res: Response) => {
+  const Schema = z.object({
+    procedimientoId:     z.number().int().positive(),
+    findings:            z.array(z.any()).default([]),
+    proposals:           z.array(z.any()).default([]),
+    markdownNormalizado: z.string().nullable().optional(),
+    flujogramaMmd:       z.string().nullable().optional(),
+    tokensUsados:        z.number().optional(),
+    modeloUsado:         z.string().optional(),
+  })
+
+  const parsed = Schema.safeParse(req.body)
+  if (!parsed.success) {
+    res.status(422).json({ error: parsed.error.flatten() })
+    return
+  }
+
+  const autorId     = getUserId(req.user!)
+  const autorNombre = req.user!.full_name ?? req.user!.email ?? "Desconocido"
+
+  const result = await prisma.sigAnalisisCompleto.create({
+    data: { ...parsed.data, autorId, autorNombre },
+  })
+  res.status(201).json(result)
+})
+
+// ── GET /api/analisis/completo?procedimientoId= ────────────────────────────────
+router.get("/completo", async (req: Request, res: Response) => {
+  const { procedimientoId } = req.query
+  const analisis = await prisma.sigAnalisisCompleto.findMany({
+    where: procedimientoId
+      ? { procedimientoId: parseInt(procedimientoId as string) }
+      : {},
+    orderBy: { createdAt: "desc" },
+    take: 10,
+  })
+  res.json(analisis)
+})
+
 // ── GET /api/analisis/historial — todos los tipos combinados ──────────────────
 router.get("/historial", async (req: Request, res: Response) => {
   const { tipo, procedimientoId, limit } = req.query
@@ -187,7 +227,7 @@ router.get("/historial", async (req: Request, res: Response) => {
     },
   }
 
-  const [coherencias, mejoras, procVsInst, cargos] = await Promise.all([
+  const [coherencias, mejoras, procVsInst, cargos, completos] = await Promise.all([
     (!tipo || tipo === "coherencia")
       ? prisma.sigAnalisisCoherencia.findMany({ where: pidFilter, orderBy: { createdAt: "desc" }, take, include })
       : Promise.resolve([]),
@@ -200,6 +240,9 @@ router.get("/historial", async (req: Request, res: Response) => {
     (!tipo || tipo === "cargos")
       ? prisma.sigAnalisisCargos.findMany({ where: pidFilter, orderBy: { createdAt: "desc" }, take, include })
       : Promise.resolve([]),
+    (!tipo || tipo === "completo")
+      ? prisma.sigAnalisisCompleto.findMany({ where: pidFilter, orderBy: { createdAt: "desc" }, take, include })
+      : Promise.resolve([]),
   ])
 
   const combined = [
@@ -207,6 +250,7 @@ router.get("/historial", async (req: Request, res: Response) => {
     ...mejoras.map((a)    => ({ ...a, tipo: "mejoras"    as const })),
     ...procVsInst.map((a) => ({ ...a, tipo: "proc-vs-inst" as const })),
     ...cargos.map((a)     => ({ ...a, tipo: "cargos"      as const })),
+    ...completos.map((a)  => ({ ...a, tipo: "completo"    as const })),
   ]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, take)

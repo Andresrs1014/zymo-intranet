@@ -33,10 +33,12 @@ model SigProcedimiento {
   updatedAt   DateTime               @updatedAt
   commits              SigCommit[]
   instructivos         SigInstructivo[]
+  docAnexos            SigDocAnexo[]
   analisisCoherencia   SigAnalisisCoherencia[]
   analisisMejoras      SigAnalisisMejoras[]
   analisisProcVsInst   SigAnalisisProcVsInst[]
   analisisCargos       SigAnalisisCargos[]
+  analisisCompleto     SigAnalisisCompleto[]
   cargosInvolucrados   SigProcedimientoCargo[]
 
   @@index([areaId])
@@ -120,8 +122,52 @@ model SigInstructivo {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  formatos SigFormato[]
+
   @@index([procedimientoId])
   @@index([codigo])
+}
+
+// ── Formato — plantilla/formulario que cuelga de un instructivo puntual ───────
+
+model SigFormato {
+  id             Int            @id @default(autoincrement())
+  instructivoId  Int
+  instructivo    SigInstructivo @relation(fields: [instructivoId], references: [id], onDelete: Cascade)
+
+  nombre  String
+  archivo String @db.VarChar(500)
+  nombreArchivo String @db.VarChar(255)
+  tipoMime      String? @db.VarChar(100)
+
+  autorId     Int
+  autorNombre String
+
+  createdAt DateTime @default(now())
+
+  @@index([instructivoId])
+}
+
+// ── Doc Anexo — documento adicional libre a nivel de procedimiento ────────────
+// Sin categoría fija: cualquier documento adicional que el procedimiento
+// necesite adjuntar y que no encaje como instructivo ni formato.
+
+model SigDocAnexo {
+  id              Int              @id @default(autoincrement())
+  procedimientoId Int
+  procedimiento   SigProcedimiento @relation(fields: [procedimientoId], references: [id], onDelete: Cascade)
+
+  nombre  String
+  archivo String @db.VarChar(500)
+  nombreArchivo String @db.VarChar(255)
+  tipoMime      String? @db.VarChar(100)
+
+  autorId     Int
+  autorNombre String
+
+  createdAt DateTime @default(now())
+
+  @@index([procedimientoId])
 }
 
 // ── Análisis de Coherencia ────────────────────────────────────────────────────
@@ -222,6 +268,29 @@ model SigAnalisisProcVsInst {
   coherente      Boolean
   resumen        String  @db.Text
   conflictos     Json    @default("[]")
+
+  autorId      Int
+  autorNombre  String
+  tokensUsados Int?
+  modeloUsado  String @default("claude-sonnet-4-6")
+
+  createdAt DateTime @default(now())
+
+  @@index([procedimientoId])
+}
+
+// ── Análisis Completo (rúbrica) — hoy solo lo dispara el MCP (sig_analyze_full),
+// sin botón en la UI por costo/complejidad de la API key, decisión del usuario.
+
+model SigAnalisisCompleto {
+  id              Int              @id @default(autoincrement())
+  procedimientoId Int
+  procedimiento   SigProcedimiento @relation(fields: [procedimientoId], references: [id], onDelete: Cascade)
+
+  findings          Json    @default("[]")
+  proposals         Json    @default("[]")
+  markdownNormalizado String? @db.Text
+  flujogramaMmd     String? @db.Text
 
   autorId      Int
   autorNombre  String

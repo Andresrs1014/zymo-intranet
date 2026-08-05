@@ -22,6 +22,7 @@ import { SigAnalisisInspector } from "@/components/sig/SigAnalisisInspector"
 import { SigCargarModal, type PreselectedProc } from "@/components/sig/SigCargarModal"
 import { SigInstructivosPanel, type SigInstructivo, InstructivoArchivoView, PROSE as INST_PROSE } from "@/components/sig/SigInstructivosPanel"
 import { SigProcedimientoCargosPanel } from "@/components/sig/SigProcedimientoCargosPanel"
+import { SigAnexoPanel } from "@/components/sig/SigAnexoPanel"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -435,11 +436,13 @@ function ProcedureFileView({
   const [commitMsg, setCommitMsg] = useState("")
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState("")
-  const [contentTab, setContentTab] = useState<"doc" | "archivo" | "soporte" | "cargos">("doc")
+  // ponytail: pestaña "Documento" oculta a pedido del usuario (2026-08-05) — subir a true para restaurarla
+  const SHOW_DOC_TAB = false
+  const [contentTab, setContentTab] = useState<"doc" | "archivo" | "soporte" | "formatos" | "docanexos" | "cargos">(SHOW_DOC_TAB ? "doc" : "archivo")
   const [selectedInst, setSelectedInst] = useState<SigInstructivo | null>(null)
   const [indexingRag, setIndexingRag] = useState(false)
   const runAnalysis = useRunAnalysis()
-  function switchTab(tab: "doc" | "archivo" | "soporte" | "cargos") {
+  function switchTab(tab: "doc" | "archivo" | "soporte" | "formatos" | "docanexos" | "cargos") {
     setContentTab(tab)
     if (tab !== "soporte") setSelectedInst(null)
   }
@@ -471,7 +474,7 @@ function ProcedureFileView({
     },
   })
 
-  const { data: instructivosSnap = [] } = useQuery<{ id: number }[]>({
+  const { data: instructivosSnap = [] } = useQuery<{ id: number; codigo: string; titulo: string }[]>({
     queryKey: ["sig", "instructivos", id],
     queryFn: () => sigApi.get(`/api/instructivos?procedimientoId=${id}&activo=true`).then((r) => r.data),
   })
@@ -497,6 +500,12 @@ function ProcedureFileView({
     queryFn: async () => (await sigApi.get(`/api/commits/${contentCommit!.id}`)).data,
     enabled: !!contentCommit,
   })
+
+  const hasFile = !!(content?.archivoOriginal)
+  const isMdTxt = content?.tipoMime?.startsWith("text/") ?? false
+  const showArchivoTab = hasFile && !isMdTxt
+  // ponytail: si el default "archivo" no aplica (sin archivo original / es texto plano), cae a Soporte
+  const effectiveTab = contentTab === "archivo" && !showArchivoTab ? "soporte" : contentTab
 
   // Cuando entra al modo edición, prefill con el contenido actual
   function enterEdit() {
@@ -700,54 +709,76 @@ function ProcedureFileView({
             )}
 
             {/* Content tabs */}
-            {(() => {
-              const hasFile = !!(content?.archivoOriginal)
-              const isMdTxt = content?.tipoMime?.startsWith("text/") ?? false
-              const showArchivoTab = hasFile && !isMdTxt
-              return (
+            {(
                 <div className="shrink-0 flex items-center border-b border-zinc-200 bg-zinc-50">
-                  <button
-                    onClick={() => switchTab("doc")}
-                    className={cn(
-                      "flex items-center gap-1.5 px-4 h-8 text-[11px] font-mono border-b-2 transition-colors",
-                      contentTab === "doc"
-                        ? "border-helix-accent text-zinc-800 bg-white"
-                        : "border-transparent text-zinc-400 hover:text-zinc-600",
-                    )}
-                  >
-                    <FileText className="h-3 w-3" />
-                    Documento
-                  </button>
+                  {SHOW_DOC_TAB && (
+                    <button
+                      onClick={() => switchTab("doc")}
+                      className={cn(
+                        "flex items-center gap-1.5 px-4 h-8 text-[11px] font-mono border-b-2 transition-colors",
+                        contentTab === "doc"
+                          ? "border-helix-accent text-zinc-800 bg-white"
+                          : "border-transparent text-zinc-400 hover:text-zinc-600",
+                      )}
+                    >
+                      <FileText className="h-3 w-3" />
+                      Documento
+                    </button>
+                  )}
                   {showArchivoTab && (
                     <button
                       onClick={() => switchTab("archivo")}
                       className={cn(
                         "flex items-center gap-1.5 px-4 h-8 text-[11px] font-mono border-b-2 transition-colors",
-                        contentTab === "archivo"
+                        effectiveTab === "archivo"
                           ? "border-helix-accent text-zinc-800 bg-white"
                           : "border-transparent text-zinc-400 hover:text-zinc-600",
                       )}
                     >
                       <Paperclip className="h-3 w-3" />
-                      Archivo original
+                      Procedimiento
                     </button>
                   )}
                   <button
                     onClick={() => switchTab("soporte")}
                     className={cn(
                       "flex items-center gap-1.5 px-4 h-8 text-[11px] font-mono border-b-2 transition-colors",
-                      contentTab === "soporte"
+                      effectiveTab === "soporte"
                         ? "border-helix-accent text-zinc-800 bg-white"
                         : "border-transparent text-zinc-400 hover:text-zinc-600",
                     )}
                   >
                     <BookOpen className="h-3 w-3" />
-                    Soporte
+                    Instructivos
                     {instructivosSnap.length > 0 && (
                       <span className="ml-0.5 text-[9px] px-1.5 py-px rounded-full bg-helix-accent/10 text-helix-accent font-semibold tabular-nums">
                         {instructivosSnap.length}
                       </span>
                     )}
+                  </button>
+                  <button
+                    onClick={() => switchTab("formatos")}
+                    className={cn(
+                      "flex items-center gap-1.5 px-4 h-8 text-[11px] font-mono border-b-2 transition-colors",
+                      contentTab === "formatos"
+                        ? "border-helix-accent text-zinc-800 bg-white"
+                        : "border-transparent text-zinc-400 hover:text-zinc-600",
+                    )}
+                  >
+                    <FileText className="h-3 w-3" />
+                    Formatos
+                  </button>
+                  <button
+                    onClick={() => switchTab("docanexos")}
+                    className={cn(
+                      "flex items-center gap-1.5 px-4 h-8 text-[11px] font-mono border-b-2 transition-colors",
+                      contentTab === "docanexos"
+                        ? "border-helix-accent text-zinc-800 bg-white"
+                        : "border-transparent text-zinc-400 hover:text-zinc-600",
+                    )}
+                  >
+                    <Paperclip className="h-3 w-3" />
+                    Doc Anexos
                   </button>
                   <button
                     onClick={() => switchTab("cargos")}
@@ -770,11 +801,10 @@ function ProcedureFileView({
                     </span>
                   </button>
                 </div>
-              )
-            })()}
+            )}
 
             {/* Doc tab */}
-            {contentTab === "doc" && (
+            {SHOW_DOC_TAB && contentTab === "doc" && (
               <div className="flex-1 overflow-auto bg-white">
                 <div className="max-w-3xl mx-auto px-8 py-8">
 
@@ -882,12 +912,42 @@ function ProcedureFileView({
             )}
 
             {/* Archivo original tab */}
-            {contentTab === "archivo" && content?.archivoOriginal && (
+            {effectiveTab === "archivo" && content?.archivoOriginal && (
               <ArchivoOriginalView commitId={content.id} tipoMime={content.tipoMime} nombreArchivo={content.nombreArchivo} />
             )}
 
+            {/* Formatos tab — cuelgan de un instructivo, agregados a nivel de procedimiento */}
+            {effectiveTab === "formatos" && (
+              <SigAnexoPanel
+                title="Formatos"
+                emptyText="Plantillas o formularios que usan los instructivos de este procedimiento. Primero necesitas al menos un instructivo creado."
+                listUrl={`/api/formatos?procedimientoId=${id}`}
+                uploadUrl="/api/formatos/upload"
+                deleteUrlBase="/api/formatos"
+                archivoUrlBase="/sig-api/api/formatos"
+                queryKey={["sig", "formatos", id]}
+                canEdit={canEditSig}
+                instructivoOptions={instructivosSnap}
+              />
+            )}
+
+            {/* Doc Anexos tab — documentos adicionales libres a nivel de procedimiento */}
+            {effectiveTab === "docanexos" && (
+              <SigAnexoPanel
+                title="Documentos anexados/adicionales"
+                emptyText="Documentos anexados/adicionales que no encajan como instructivo ni formato."
+                listUrl={`/api/doc-anexos?procedimientoId=${id}`}
+                uploadUrl="/api/doc-anexos/upload"
+                deleteUrlBase="/api/doc-anexos"
+                archivoUrlBase="/sig-api/api/doc-anexos"
+                queryKey={["sig", "doc-anexos", id]}
+                canEdit={canEditSig}
+                extraField={{ name: "procedimientoId", value: String(id) }}
+              />
+            )}
+
             {/* Cargos tab */}
-            {contentTab === "cargos" && (
+            {effectiveTab === "cargos" && (
               <div className="flex-1 overflow-auto bg-white">
                 <div className="max-w-3xl mx-auto px-8 py-8">
                   <SigProcedimientoCargosPanel procedimientoId={id} canEdit={canEditSig} />
@@ -896,7 +956,7 @@ function ProcedureFileView({
             )}
 
             {/* Soporte tab — list */}
-            {contentTab === "soporte" && !selectedInst && (
+            {effectiveTab === "soporte" && !selectedInst && (
               <div className="flex-1 overflow-auto bg-white">
                 <div className="max-w-3xl mx-auto px-8 py-8">
                   <SigInstructivosPanel
@@ -910,7 +970,7 @@ function ProcedureFileView({
             )}
 
             {/* Soporte tab — detail */}
-            {contentTab === "soporte" && selectedInst && (
+            {effectiveTab === "soporte" && selectedInst && (
               <InstructivoDetailView
                 inst={selectedInst}
                 onBack={() => setSelectedInst(null)}
@@ -982,7 +1042,7 @@ function InstructivoDetailView({ inst, onBack }: { inst: SigInstructivo; onBack:
           className="flex items-center gap-1 text-[11px] font-mono text-zinc-400 hover:text-zinc-700 transition-colors"
         >
           <ChevronLeft className="h-3 w-3" />
-          Soporte
+          Instructivos
         </button>
         <ChevronRight className="h-3 w-3 text-zinc-300" />
         <Paperclip className="h-3 w-3 text-zinc-400" />

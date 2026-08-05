@@ -7,6 +7,8 @@ import areasRouter from "./routers/areas"
 import procedimientosRouter from "./routers/procedimientos"
 import commitsRouter from "./routers/commits"
 import instructivosRouter from "./routers/instructivos"
+import formatosRouter from "./routers/formatos"
+import docAnexosRouter from "./routers/doc-anexos"
 import analisisRouter from "./routers/analisis"
 import reportesDesarrolloRouter from "./routers/reportes-desarrollo"
 import libertadoraBackupRouter from "./routers/libertadora-backup"
@@ -31,6 +33,8 @@ app.use("/api/areas", areasRouter)
 app.use("/api/procedimientos", procedimientosRouter)
 app.use("/api/commits", commitsRouter)
 app.use("/api/instructivos", instructivosRouter)
+app.use("/api/formatos", formatosRouter)
+app.use("/api/doc-anexos", docAnexosRouter)
 app.use("/api/analisis", analisisRouter)
 app.use("/api/reportes-desarrollo", reportesDesarrolloRouter)
 app.use("/api/libertadora-backup", libertadoraBackupRouter)
