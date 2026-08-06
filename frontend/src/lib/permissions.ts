@@ -133,11 +133,6 @@ export function canSeeLibertadora(role: string, appPerms?: string[]): boolean {
   return hasPerm(appPerms, "mod_libertadora")
 }
 
-export function canSeeWow(role: string, appPerms?: string[]): boolean {
-  if (role === "admin") return true
-  return hasPerm(appPerms, "mod_wow")
-}
-
 export function canSeeTickets(role: string, appPerms?: string[]): boolean {
   if (role === "admin") return true
   return hasPerm(appPerms, "mod_tickets")

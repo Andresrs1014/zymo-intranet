@@ -264,13 +264,6 @@ export const INTERNAL_MODULE_GROUPS: ModulePermissionGroup[] = [
         name: "Módulo IT",
         description: "Reservado — sin pantalla en la intranet aún",
       },
-      {
-        id: "mod_wow",
-        category: "modulo",
-        icon: "🏆",
-        name: "WOW Olimpiadas",
-        description: "Programa de reconocimiento interno — postulaciones, evaluaciones y comités",
-      },
     ],
   },
 ]
