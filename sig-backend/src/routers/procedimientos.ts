@@ -225,6 +225,7 @@ router.get("/:id/sync", async (req: Request, res: Response) => {
           id: true,
           contenidoAgente: true,
           flujogramaMmd: true,
+          flujogramaImagenUrl: true,
           mensaje: true,
           autorNombre: true,
           aprobadoNombre: true,
@@ -248,6 +249,9 @@ router.get("/:id/sync", async (req: Request, res: Response) => {
       commitId:        latest.id,
       contenidoAgente: latest.contenidoAgente,
       flujogramaMmd:   latest.flujogramaMmd,
+      flujogramaImagenUrl: latest.flujogramaImagenUrl
+        ? `/sig-api/api/commits/${latest.id}/flujograma-imagen`
+        : null,
       mensaje:         latest.mensaje,
       autorNombre:     latest.autorNombre,
       aprobadoNombre:  latest.aprobadoNombre,

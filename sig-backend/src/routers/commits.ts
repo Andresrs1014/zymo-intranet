@@ -145,6 +145,35 @@ router.get("/:id/archivo", async (req: Request, res: Response) => {
   stream.pipe(res)
 })
 
+// ── GET /api/commits/:id/flujograma-imagen — imagen original del flujograma ──
+
+router.get("/:id/flujograma-imagen", async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id)
+  const commit = await prisma.sigCommit.findUnique({
+    where: { id },
+    select: { flujogramaImagenUrl: true },
+  })
+
+  if (!commit?.flujogramaImagenUrl) {
+    res.status(404).json({ error: "Este commit no tiene imagen de flujograma extraída" })
+    return
+  }
+
+  const filePath = path.join(UPLOADS_DIR, "flujogramas", commit.flujogramaImagenUrl)
+  try {
+    await fs.access(filePath)
+  } catch {
+    res.status(404).json({ error: "Archivo de flujograma no encontrado en el servidor" })
+    return
+  }
+
+  const ext = path.extname(commit.flujogramaImagenUrl).slice(1).toLowerCase()
+  res.setHeader("Content-Type", `image/${ext === "jpg" ? "jpeg" : ext}`)
+  res.setHeader("Content-Disposition", `inline; filename="${commit.flujogramaImagenUrl}"`)
+  const stream = fsSync.createReadStream(filePath)
+  stream.pipe(res)
+})
+
 // ── POST /api/commits/upload — upload desde web con archivo binario ──────────
 
 router.post(
@@ -175,7 +204,8 @@ router.post(
     }
 
     // Extracción de texto en el servidor (autoritativa)
-    const { text: extractedText, warnings } = await extractText(req.file.path, req.file.originalname)
+    const extraccion = await extractText(req.file.path, req.file.originalname)
+    const { text: extractedText, warnings } = extraccion
 
     // contenidoOriginal = última versión aprobada (o vacío si es el primer commit)
     const prevCommit = await prisma.sigCommit.findFirst({
@@ -195,6 +225,7 @@ router.post(
         procedimientoId,
         contenidoOriginal,
         contenidoAgente:  extractedText,
+        flujogramaImagenUrl: extraccion.flujogramaImagenUrl,
         sinCambios:       false,
         mensaje,
         autorId:          userId,
@@ -338,12 +369,36 @@ router.post("/:id/reextract", requireSigAccess, async (req: Request, res: Respon
     return
   }
 
-  const { text, warnings } = await extractText(filePath, commit.nombreArchivo)
+  const { text, warnings, flujogramaImagenUrl } = await extractText(filePath, commit.nombreArchivo)
   const updated = await prisma.sigCommit.update({
     where: { id },
-    data: { contenidoAgente: text },
+    data: {
+      contenidoAgente: text,
+      ...(flujogramaImagenUrl ? { flujogramaImagenUrl } : {}),
+    },
   })
   res.json({ updated, warnings })
+})
+
+// ── PATCH /api/commits/:id/flujograma-mmd — transcripción IA del flujograma ──
+// Usado por el MCP: genera el mermaid a partir del texto + imagen original y
+// lo persiste aquí para que sig_analyze_full lo devuelva en llamadas futuras
+// y quede disponible para diffear contra el flujograma del texto (coherencia).
+
+router.patch("/:id/flujograma-mmd", requireSigAccess, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id)
+  const parsed = z.object({ flujogramaMmd: z.string().min(1) }).safeParse(req.body)
+  if (!parsed.success) { res.status(422).json({ error: parsed.error.flatten() }); return }
+
+  try {
+    const updated = await prisma.sigCommit.update({
+      where: { id },
+      data: { flujogramaMmd: parsed.data.flujogramaMmd },
+    })
+    res.json(updated)
+  } catch {
+    res.status(404).json({ error: "Commit no encontrado" })
+  }
 })
 
 // ── POST /api/commits/:id/rechazar ────────────────────────────────────────────

@@ -10,11 +10,12 @@ import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import {
   FileText, GitCommit, Inbox, X,
-  GitBranchPlus, Clock, ChevronRight, ChevronLeft, Check, Circle, Download,
+  GitBranchPlus, GitBranch, Clock, ChevronRight, ChevronLeft, Check, Circle, Download,
   Pencil, Eye, Sparkles, Save, XCircle, Loader, AlertCircle,
   FlaskConical, RefreshCw, History, UploadCloud, BookOpen, Paperclip, Users, Database,
 } from "lucide-react"
 import { SigAiEditorPanel } from "@/components/sig/SigAiEditorPanel"
+import { MermaidDiagram } from "@/components/reportes/MermaidDiagram"
 import { SigAnalisisPanel, useRunAnalysis } from "@/components/sig/SigAnalisisPanel"
 import { SigAnalisisSyncView } from "@/components/sig/SigAnalisisSyncView"
 import { SigAnalisisQueue } from "@/components/sig/SigAnalisisQueue"
@@ -404,6 +405,8 @@ interface CommitFull {
   archivoOriginal: string | null
   nombreArchivo:   string | null
   tipoMime:        string | null
+  flujogramaImagenUrl: string | null
+  flujogramaMmd:       string | null
 }
 
 type EditorMode = "view" | "edit" | "ai"
@@ -438,11 +441,11 @@ function ProcedureFileView({
   const [saveError, setSaveError] = useState("")
   // ponytail: pestaña "Documento" oculta a pedido del usuario (2026-08-05) — subir a true para restaurarla
   const SHOW_DOC_TAB = false
-  const [contentTab, setContentTab] = useState<"doc" | "archivo" | "soporte" | "formatos" | "docanexos" | "cargos">(SHOW_DOC_TAB ? "doc" : "archivo")
+  const [contentTab, setContentTab] = useState<"doc" | "archivo" | "soporte" | "formatos" | "docanexos" | "cargos" | "flujograma">(SHOW_DOC_TAB ? "doc" : "archivo")
   const [selectedInst, setSelectedInst] = useState<SigInstructivo | null>(null)
   const [indexingRag, setIndexingRag] = useState(false)
   const runAnalysis = useRunAnalysis()
-  function switchTab(tab: "doc" | "archivo" | "soporte" | "formatos" | "docanexos" | "cargos") {
+  function switchTab(tab: "doc" | "archivo" | "soporte" | "formatos" | "docanexos" | "cargos" | "flujograma") {
     setContentTab(tab)
     if (tab !== "soporte") setSelectedInst(null)
   }
@@ -800,6 +803,18 @@ function ProcedureFileView({
                       {procCargosCount}
                     </span>
                   </button>
+                  <button
+                    onClick={() => switchTab("flujograma")}
+                    className={cn(
+                      "flex items-center gap-1.5 px-4 h-8 text-[11px] font-mono border-b-2 transition-colors",
+                      contentTab === "flujograma"
+                        ? "border-helix-accent text-zinc-800 bg-white"
+                        : "border-transparent text-zinc-400 hover:text-zinc-600",
+                    )}
+                  >
+                    <GitBranch className="h-3 w-3" />
+                    Flujograma
+                  </button>
                 </div>
             )}
 
@@ -951,6 +966,19 @@ function ProcedureFileView({
               <div className="flex-1 overflow-auto bg-white">
                 <div className="max-w-3xl mx-auto px-8 py-8">
                   <SigProcedimientoCargosPanel procedimientoId={id} canEdit={canEditSig} />
+                </div>
+              </div>
+            )}
+
+            {/* Flujograma tab — imagen original extraída del docx + mermaid transcrito (MCP) */}
+            {contentTab === "flujograma" && (
+              <div className="flex-1 overflow-auto bg-white">
+                <div className="max-w-3xl mx-auto px-8 py-8">
+                  <FlujogramaView
+                    commitId={content?.id}
+                    tieneImagen={!!content?.flujogramaImagenUrl}
+                    flujogramaMmd={content?.flujogramaMmd ?? null}
+                  />
                 </div>
               </div>
             )}
@@ -1248,6 +1276,80 @@ function ArchivoOriginalView({
           <Download className="h-3.5 w-3.5" />
           Descargar {nombreArchivo}
         </a>
+      )}
+    </div>
+  )
+}
+
+// ── Flujograma tab — imagen original extraída del docx + mermaid transcrito por IA ──
+
+function FlujogramaView({
+  commitId, tieneImagen, flujogramaMmd,
+}: { commitId: number | undefined; tieneImagen: boolean; flujogramaMmd: string | null }) {
+  const [objectUrl, setObjectUrl] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!commitId || !tieneImagen) return
+    let blobUrl: string | null = null
+    setError(null)
+    setObjectUrl(null)
+
+    sigApi.get(`/api/commits/${commitId}/flujograma-imagen`, { responseType: "blob" })
+      .then((res) => {
+        blobUrl = URL.createObjectURL(res.data as Blob)
+        setObjectUrl(blobUrl)
+      })
+      .catch(() => setError("No se pudo cargar la imagen del flujograma."))
+
+    return () => { if (blobUrl) URL.revokeObjectURL(blobUrl) }
+  }, [commitId, tieneImagen])
+
+  if (!tieneImagen && !flujogramaMmd) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+        <GitBranch className="h-8 w-8 text-zinc-300" />
+        <div>
+          <p className="text-sm text-zinc-500 font-mono">Sin flujograma</p>
+          <p className="text-[11px] text-zinc-400 mt-1 max-w-sm">
+            Este documento no tenía una imagen de flujograma detectable, o el
+            texto no incluía una sección "Flujograma".
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-8">
+      {tieneImagen && (
+        <div>
+          <h3 className="text-[11px] font-mono font-semibold text-zinc-400 uppercase tracking-wide mb-3">
+            Imagen original (extraída del documento)
+          </h3>
+          {error && <p className="text-[11px] text-red-500 font-mono">{error}</p>}
+          {!error && !objectUrl && (
+            <div className="flex items-center gap-2 text-zinc-400">
+              <div className="h-3 w-3 rounded-full border border-zinc-300 border-t-zinc-600 animate-spin" />
+              <span className="text-xs font-mono">Cargando imagen…</span>
+            </div>
+          )}
+          {objectUrl && (
+            <img src={objectUrl} alt="Flujograma original" className="max-w-full rounded-lg border border-zinc-200" />
+          )}
+        </div>
+      )}
+      {flujogramaMmd ? (
+        <div>
+          <h3 className="text-[11px] font-mono font-semibold text-zinc-400 uppercase tracking-wide mb-3">
+            Transcrito por IA (usado para verificar coherencia contra el texto)
+          </h3>
+          <MermaidDiagram code={flujogramaMmd} />
+        </div>
+      ) : (
+        <p className="text-[11px] text-zinc-400 font-mono">
+          Todavía no hay una versión mermaid transcrita — se genera al correr un "Análisis completo" vía MCP.
+        </p>
       )}
     </div>
   )

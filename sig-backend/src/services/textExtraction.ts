@@ -3,20 +3,35 @@ import mammoth from "mammoth"
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const pdfParse = require("pdf-parse") as (buffer: Buffer) => Promise<{ text: string; numpages: number }>
 import fs from "fs/promises"
+import fsSync from "fs"
 import os from "os"
+import path from "path"
 import { execFile } from "child_process"
 import { promisify } from "util"
 
 const execFileAsync = promisify(execFile)
 
+// Imágenes embebidas en el .docx (flujogramas, tablas escaneadas) se guardan
+// aquí en vez de inlinearse como base64 en el texto extraído -- un solo
+// flujograma pesaba ~2M caracteres embebido, reventando cualquier consumidor
+// de texto (incluido el MCP). Ver convertImage más abajo.
+const FLUJOGRAMA_DIR = path.join(process.cwd(), "uploads", "sig", "flujogramas")
+fsSync.mkdirSync(FLUJOGRAMA_DIR, { recursive: true })
+
 export interface ExtractionResult {
   text: string
   warnings: string[]
+  flujogramaImagenUrl?: string
 }
 
 interface MammothResult {
   value: string
   messages: Array<{ type: string; message: string }>
+}
+
+interface MammothImageElement {
+  contentType: string
+  readAsBuffer: () => Promise<Buffer>
 }
 
 export async function extractText(filePath: string, fileName: string): Promise<ExtractionResult> {
@@ -29,10 +44,14 @@ export async function extractText(filePath: string, fileName: string): Promise<E
 
   if (lower.endsWith(".docx")) {
     const buffer = await fs.readFile(filePath)
+
+    const images: Array<{ index: number; buffer: Buffer; ext: string }> = []
+    let imageCounter = 0
+
     const result: MammothResult = await (mammoth as unknown as {
       convertToMarkdown: (
         input: { buffer: Buffer },
-        options?: { styleMap?: string[] },
+        options?: { styleMap?: string[]; convertImage?: unknown },
       ) => Promise<MammothResult>
     }).convertToMarkdown(
       { buffer },
@@ -44,12 +63,45 @@ export async function extractText(filePath: string, fileName: string): Promise<E
           "p[style-name='List Paragraph'] => li",
           "table => table",
         ],
+        // No inlinear imágenes como base64 -- se guardan aparte y se referencian
+        // con un marcador liviano que se resuelve después de convertToMarkdown.
+        convertImage: mammoth.images.imgElement(async (element: MammothImageElement) => {
+          imageCounter += 1
+          const index = imageCounter
+          const ext = (element.contentType.split("/")[1] || "png").replace("jpeg", "jpg")
+          const imgBuffer = await element.readAsBuffer()
+          images.push({ index, buffer: imgBuffer, ext })
+          return { src: `sig-image:${index}` }
+        }),
       },
     )
     const warnings = result.messages
       .filter((m) => m.type === "warning")
       .map((m) => m.message)
-    return { text: result.value.trim(), warnings }
+
+    // El flujograma es la imagen que aparece justo después de la palabra
+    // "FLUJOGRAMA" en el documento -- patrón confirmado en los 12 procedimientos
+    // SIG reales (bullet en negrita, no un heading real de Word).
+    let flujogramaImagenUrl: string | undefined
+    const flujogramaMatch = result.value.match(/FLUJOGRAMA[\s\S]{0,300}?sig-image:(\d+)/i)
+    if (flujogramaMatch) {
+      const img = images.find((i) => i.index === parseInt(flujogramaMatch[1], 10))
+      if (img) {
+        const filename = `flujo_${Date.now()}_${img.index}.${img.ext}`
+        await fs.writeFile(path.join(FLUJOGRAMA_DIR, filename), img.buffer)
+        flujogramaImagenUrl = filename
+      }
+    }
+
+    // Cualquier otra imagen (ej. tablas escaneadas) no se persiste todavía --
+    // ponytail: solo se necesita el flujograma hoy, se omite el resto del
+    // texto para no volver a embeber base64. Ampliar a una galería genérica
+    // si en el futuro se necesita ver esas imágenes desde la intranet.
+    const text = result.value
+      .replace(/!\[[^\]]*\]\(sig-image:\d+\)/g, "[Imagen omitida]")
+      .trim()
+
+    return { text, warnings, flujogramaImagenUrl }
   }
 
   if (lower.endsWith(".pdf")) {

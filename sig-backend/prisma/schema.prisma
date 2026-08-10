@@ -62,6 +62,7 @@ model SigCommit {
   contenidoOriginal String            @db.Text
   contenidoAgente   String            @db.Text
   flujogramaMmd     String?           @db.Text
+  flujogramaImagenUrl String?         @db.VarChar(255) // imagen original del flujograma extraída del docx (ver textExtraction.ts)
   sinCambios        Boolean           @default(false)
 
   // Metadata del commit
