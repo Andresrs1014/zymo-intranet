@@ -132,6 +132,24 @@ CORPUS_RULES = [
     "No incluir datos personales identificables innecesarios (NIT, cédulas)",
 ]
 
+
+@router.get("/rubrica")
+async def get_rubrica(_user: User = Depends(get_current_user)) -> dict[str, Any]:
+    """
+    Expone la rúbrica de análisis "completo" (7 categorías) sin invocar ningún LLM —
+    la usa el MCP para que el agente que llama (Claude Code/Codex, con su propia
+    suscripción) haga el análisis él mismo en vez de consumir el ANTHROPIC_API_KEY
+    del servidor. Único endpoint de solo-lectura de la rúbrica.
+    """
+    return {
+        "version": RUBRIC_VERSION,
+        "categorias": RUBRIC_CATEGORIES,
+        "reglasMarkdown": MARKDOWN_RULES,
+        "reglasFlujograma": FLOWCHART_RULES,
+        "reglasCorpus": CORPUS_RULES,
+    }
+
+
 # ── Schemas de request / response ─────────────────────────────────────────────
 
 def _strip_base64_blobs(text: str) -> str:

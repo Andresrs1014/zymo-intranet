@@ -12,7 +12,7 @@ import {
   FileText, GitCommit, Inbox, X,
   GitBranchPlus, Clock, ChevronRight, ChevronLeft, Check, Circle, Download,
   Pencil, Eye, Sparkles, Save, XCircle, Loader, AlertCircle,
-  FlaskConical, RefreshCw, UploadCloud, BookOpen, Paperclip, Users, Database,
+  FlaskConical, RefreshCw, History, UploadCloud, BookOpen, Paperclip, Users, Database,
 } from "lucide-react"
 import { SigAiEditorPanel } from "@/components/sig/SigAiEditorPanel"
 import { SigAnalisisPanel, useRunAnalysis } from "@/components/sig/SigAnalisisPanel"
@@ -121,7 +121,7 @@ export function SigPage() {
   }, [openTab])
 
   const openAnalisisSync = useCallback(() => {
-    openTab({ kind: "analisis-sync" }, { key: "analisis-sync", icon: "sync", title: "Sincronización" })
+    openTab({ kind: "analisis-sync" }, { key: "analisis-sync", icon: "sync", title: "Historial de análisis" })
   }, [openTab])
 
   // ── Derived state ─────────────────────────────────────────────────────────────
@@ -257,8 +257,8 @@ function TitleBar({
           onClick={onOpenSync}
           className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded border border-zinc-200 text-zinc-500 hover:border-zinc-400 hover:text-zinc-700 transition-colors font-mono"
         >
-          <RefreshCw className="h-3 w-3" />
-          Sincronización
+          <History className="h-3 w-3" />
+          Historial de análisis
         </button>
         {isGerente && pendingCount > 0 && (
           <button
@@ -281,7 +281,7 @@ const TAB_ICON: Record<TabIcon, React.ReactNode> = {
   diff:    <GitCommit     className="h-3.5 w-3.5 text-helix-ai/80" />,
   queue:   <Inbox         className="h-3.5 w-3.5 text-amber-500/70" />,
   analisis:<FlaskConical  className="h-3.5 w-3.5 text-violet-500/80" />,
-  sync:    <RefreshCw     className="h-3.5 w-3.5 text-zinc-400" />,
+  sync:    <History       className="h-3.5 w-3.5 text-zinc-400" />,
 }
 
 function TabBar({
@@ -1478,7 +1478,7 @@ function StatusBar({
     : activeView.kind === "commit"     ? "diff"
     : activeView.kind === "queue"      ? "queue"
     : activeView.kind === "analisis"   ? "análisis ia"
-    : activeView.kind === "analisis-sync" ? "sincronización"
+    : activeView.kind === "analisis-sync" ? "historial de análisis"
     : ""
 
   return (

@@ -13,9 +13,14 @@
 // eso nunca se borra la carpeta completa, solo las rutas exactas que ya
 // estaban guardadas en la BD para las filas que se están borrando.
 //
+// También reinicia las secuencias de Postgres de las tablas que quedan en 0
+// (DELETE no toca la secuencia -- sin esto, el próximo id sigue donde iba,
+// ej. 62, en vez de volver a 1). Si el script ya se corrió antes y las tablas
+// ya están vacías, correrlo de nuevo con --confirmar solo reinicia secuencias.
+//
 // Uso:
-//   npx ts-node scripts/reset-procedimientos.ts              -> dry-run, no borra nada
-//   npx ts-node scripts/reset-procedimientos.ts --confirmar  -> borra de verdad
+//   npx ts-node scripts/reset-procedimientos.ts              -> dry-run, no borra ni reinicia nada
+//   npx ts-node scripts/reset-procedimientos.ts --confirmar  -> borra (si hay datos) y reinicia secuencias
 
 import fs from "fs/promises"
 import prisma from "../src/config/prisma"
@@ -26,6 +31,35 @@ const DEBE_QUEDAR_EN_CERO = [
   "analisisCoherencia", "analisisMejoras", "analisisProcVsInst", "analisisCargos",
   "analisisCompleto", "procedimientoCargo",
 ] as const
+
+const TABLA_SQL: Record<typeof DEBE_QUEDAR_EN_CERO[number], string> = {
+  procedimientos:      "SigProcedimiento",
+  commits:              "SigCommit",
+  instructivos:         "SigInstructivo",
+  formatos:             "SigFormato",
+  docAnexos:            "SigDocAnexo",
+  analisisCoherencia:   "SigAnalisisCoherencia",
+  analisisMejoras:      "SigAnalisisMejoras",
+  analisisProcVsInst:   "SigAnalisisProcVsInst",
+  analisisCargos:       "SigAnalisisCargos",
+  analisisCompleto:     "SigAnalisisCompleto",
+  procedimientoCargo:   "SigProcedimientoCargo",
+}
+
+async function resetSecuencias(counts: Record<string, number>) {
+  console.log("\n=== Reiniciando secuencias ===")
+  for (const key of DEBE_QUEDAR_EN_CERO) {
+    if (counts[key] !== 0) {
+      console.warn(`  ⚠ "${key}" no está vacía (${counts[key]} filas) — se deja su secuencia intacta.`)
+      continue
+    }
+    const tabla = TABLA_SQL[key]
+    await prisma.$executeRawUnsafe(
+      `SELECT setval(pg_get_serial_sequence('"${tabla}"', 'id'), 1, false)`,
+    )
+    console.log(`  ✓ "${tabla}" — el próximo id insertado será 1.`)
+  }
+}
 
 async function snapshot() {
   return {
@@ -55,7 +89,12 @@ async function main() {
   console.table(antes)
 
   if (antes.procedimientos === 0) {
-    console.log("No hay procedimientos cargados. Nada que hacer.")
+    console.log("No hay procedimientos cargados — nada que borrar, solo se revisan/reinician secuencias.")
+    if (!confirmar) {
+      console.log("DRY-RUN — corre con --confirmar para reiniciar las secuencias de las tablas vacías.")
+      return
+    }
+    await resetSecuencias(antes)
     return
   }
 
@@ -111,7 +150,8 @@ async function main() {
   }
 
   if (ok) {
-    console.log("\n✓ Reset completo — procedimientos y todo lo que colgaba de ellos en 0, el resto de las tablas intacto.")
+    await resetSecuencias(despues)
+    console.log("\n✓ Reset completo — procedimientos y todo lo que colgaba de ellos en 0, secuencias reiniciadas, el resto de las tablas intacto.")
   } else {
     console.error("\n✗ Algo no cuadró — revisa manualmente antes de seguir usando el módulo.")
     process.exitCode = 1
