@@ -7,7 +7,8 @@
     "start": "node dist/app.js",
     "db:migrate": "prisma migrate deploy",
     "db:generate": "prisma generate",
-    "reset:procedimientos": "ts-node scripts/reset-procedimientos.ts"
+    "reset:procedimientos": "ts-node scripts/reset-procedimientos.ts",
+    "renumerar:procedimientos": "ts-node scripts/renumerar-procedimientos.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
