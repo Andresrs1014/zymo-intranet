@@ -7,6 +7,7 @@ import fsSync from "fs"
 import prisma from "../config/prisma"
 import { requireSigAccess, getUserId } from "../middleware/auth"
 import { extractText } from "../services/textExtraction"
+import { resolveActorName } from "../utils/userNames"
 
 const router = Router()
 
@@ -140,7 +141,7 @@ router.post(
         : "application/octet-stream")
 
     const autorId = getUserId(req.user!)
-    const autorNombre = req.user!.full_name ?? req.user!.email ?? "Desconocido"
+    const autorNombre = await resolveActorName(autorId, req.user!.full_name)
 
     const created = await prisma.sigInstructivo.create({
       data: {
@@ -170,7 +171,7 @@ router.post("/", requireSigAccess, async (req: Request, res: Response) => {
   const items = isBulk ? req.body : [req.body]
 
   const autorId = getUserId(req.user!)
-  const autorNombre = req.user!.full_name ?? req.user!.email ?? "Desconocido"
+  const autorNombre = await resolveActorName(autorId, req.user!.full_name)
 
   const results = []
   const errors  = []

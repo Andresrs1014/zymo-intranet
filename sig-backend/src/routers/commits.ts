@@ -9,6 +9,7 @@ import prisma from "../config/prisma"
 import { getUserId, requireSigAccess, requireGerente } from "../middleware/auth"
 import { sendAprobacionEmail } from "../services/email"
 import { extractText } from "../services/textExtraction"
+import { resolveActorName } from "../utils/userNames"
 
 const router = Router()
 
@@ -185,7 +186,7 @@ router.post(
     const contenidoOriginal = prevCommit?.contenidoAgente ?? ""
 
     const userId = getUserId(req.user!)
-    const userName = req.user!.full_name ?? req.user!.email ?? "Usuario"
+    const userName = await resolveActorName(userId, req.user!.full_name)
     const isGerente = req.user!.role === "gerente" || req.user!.role === "admin"
     const estadoFinal = isGerente ? "APROBADO" : "PENDIENTE_REVISION"
 
@@ -230,7 +231,7 @@ router.post("/", requireSigAccess, async (req: Request, res: Response) => {
   if (!parsed.success) { res.status(422).json({ error: parsed.error.flatten() }); return }
 
   const userId = getUserId(req.user!)
-  const userName = req.user!.full_name ?? req.user!.email ?? "Usuario"
+  const userName = await resolveActorName(userId, req.user!.full_name)
 
   const proc = await prisma.sigProcedimiento.findUnique({
     where: { id: parsed.data.procedimientoId },
@@ -281,7 +282,7 @@ router.post("/", requireSigAccess, async (req: Request, res: Response) => {
 router.post("/:id/aprobar", requireGerente, async (req: Request, res: Response) => {
   const id = parseInt(req.params.id)
   const userId = getUserId(req.user!)
-  const userName = req.user!.full_name ?? req.user!.email ?? "Gerente"
+  const userName = await resolveActorName(userId, req.user!.full_name)
 
   const commit = await prisma.sigCommit.findUnique({
     where: { id },
@@ -350,7 +351,7 @@ router.post("/:id/reextract", requireSigAccess, async (req: Request, res: Respon
 router.post("/:id/rechazar", requireGerente, async (req: Request, res: Response) => {
   const id = parseInt(req.params.id)
   const userId = getUserId(req.user!)
-  const userName = req.user!.full_name ?? req.user!.email ?? "Gerente"
+  const userName = await resolveActorName(userId, req.user!.full_name)
 
   const { comentario } = z.object({ comentario: z.string().min(1).max(1000) }).parse(req.body)
 

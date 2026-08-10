@@ -6,6 +6,7 @@ import fs from "fs/promises"
 import fsSync from "fs"
 import prisma from "../config/prisma"
 import { requireSigAccess, getUserId } from "../middleware/auth"
+import { resolveActorName } from "../utils/userNames"
 
 const router = Router()
 
@@ -85,6 +86,7 @@ router.post(
       return
     }
 
+    const autorId = getUserId(req.user!)
     const created = await prisma.sigDocAnexo.create({
       data: {
         procedimientoId: parsed.data.procedimientoId,
@@ -92,8 +94,8 @@ router.post(
         archivo: req.file.path,
         nombreArchivo: req.file.originalname,
         tipoMime: req.file.mimetype || "application/octet-stream",
-        autorId: getUserId(req.user!),
-        autorNombre: req.user!.full_name ?? req.user!.email ?? "Desconocido",
+        autorId,
+        autorNombre: await resolveActorName(autorId, req.user!.full_name),
       },
     })
     res.status(201).json(created)

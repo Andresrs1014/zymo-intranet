@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express"
 import { z } from "zod"
 import prisma from "../config/prisma"
 import { requireSigAccess, getUserId } from "../middleware/auth"
+import { resolveActorName } from "../utils/userNames"
 
 const router = Router()
 
@@ -26,7 +27,7 @@ router.post("/coherencia", requireSigAccess, async (req: Request, res: Response)
   }
 
   const autorId     = getUserId(req.user!)
-  const autorNombre = req.user!.full_name ?? req.user!.email ?? "Desconocido"
+  const autorNombre = await resolveActorName(autorId, req.user!.full_name)
 
   const result = await prisma.sigAnalisisCoherencia.create({
     data: { ...parsed.data, autorId, autorNombre },
@@ -66,7 +67,7 @@ router.post("/mejoras", requireSigAccess, async (req: Request, res: Response) =>
   }
 
   const autorId     = getUserId(req.user!)
-  const autorNombre = req.user!.full_name ?? req.user!.email ?? "Desconocido"
+  const autorNombre = await resolveActorName(autorId, req.user!.full_name)
 
   const result = await prisma.sigAnalisisMejoras.create({
     data: { ...parsed.data, autorId, autorNombre },
@@ -110,7 +111,7 @@ router.post("/proc-vs-inst", requireSigAccess, async (req: Request, res: Respons
   }
 
   const autorId     = getUserId(req.user!)
-  const autorNombre = req.user!.full_name ?? req.user!.email ?? "Desconocido"
+  const autorNombre = await resolveActorName(autorId, req.user!.full_name)
 
   const result = await prisma.sigAnalisisProcVsInst.create({
     data: { ...parsed.data, autorId, autorNombre },
@@ -150,7 +151,7 @@ router.post("/cargos", requireSigAccess, async (req: Request, res: Response) => 
   }
 
   const autorId     = getUserId(req.user!)
-  const autorNombre = req.user!.full_name ?? req.user!.email ?? "Desconocido"
+  const autorNombre = await resolveActorName(autorId, req.user!.full_name)
 
   const result = await prisma.sigAnalisisCargos.create({
     data: { ...parsed.data, autorId, autorNombre },
@@ -190,7 +191,7 @@ router.post("/completo", requireSigAccess, async (req: Request, res: Response) =
   }
 
   const autorId     = getUserId(req.user!)
-  const autorNombre = req.user!.full_name ?? req.user!.email ?? "Desconocido"
+  const autorNombre = await resolveActorName(autorId, req.user!.full_name)
 
   const result = await prisma.sigAnalisisCompleto.create({
     data: { ...parsed.data, autorId, autorNombre },
