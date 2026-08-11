@@ -56,6 +56,7 @@ export function SigAnexoPanel({
   const [error, setError] = useState("")
   const [deleting, setDeleting] = useState<number | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
+  const [downloading, setDownloading] = useState<number | null>(null)
 
   const { data: items = [], isLoading } = useQuery<SigAnexoItem[]>({
     queryKey,
@@ -93,6 +94,25 @@ export function SigAnexoPanel({
       setError(getErr(e, "No se pudo guardar."))
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  async function handleDownload(item: SigAnexoItem) {
+    setDownloading(item.id)
+    try {
+      const res = await sigApi.get(`${archivoUrlBase}/${item.id}/archivo`, { responseType: "blob" })
+      const url = URL.createObjectURL(new Blob([res.data]))
+      const a = document.createElement("a")
+      a.href = url
+      a.download = item.nombreArchivo
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch {
+      setError("No se pudo descargar el archivo.")
+    } finally {
+      setDownloading(null)
     }
   }
 
@@ -259,6 +279,12 @@ export function SigAnexoPanel({
 
       {!isLoading && items.length > 0 && (
         <div className="space-y-2">
+          {error && !visible && (
+            <div className="flex items-start gap-2 px-2.5 py-2 rounded-lg bg-red-50 border border-red-200" aria-live="polite">
+              <AlertCircle className="h-3.5 w-3.5 text-red-500 shrink-0 mt-0.5" />
+              <p className="text-[11px] text-red-600">{error}</p>
+            </div>
+          )}
           {items.map((item) => (
             <div
               key={item.id}
@@ -269,15 +295,18 @@ export function SigAnexoPanel({
                 <span className="text-[12px] font-mono font-semibold text-zinc-700">{item.nombre}</span>
                 <p className="text-[11px] text-zinc-400 truncate mt-0.5">{item.nombreArchivo}</p>
               </div>
-              <a
-                href={`${archivoUrlBase}/${item.id}/archivo`}
-                target="_blank"
-                rel="noreferrer"
-                className="shrink-0 p-1.5 rounded text-zinc-300 hover:text-helix-accent hover:bg-helix-accent/5 transition-all"
+              <button
+                onClick={() => void handleDownload(item)}
+                disabled={downloading === item.id}
+                className="shrink-0 p-1.5 rounded text-zinc-300 hover:text-helix-accent hover:bg-helix-accent/5 transition-colors disabled:opacity-40"
                 title="Descargar"
+                aria-label={`Descargar ${item.nombre}`}
               >
-                <Download className="h-3.5 w-3.5" />
-              </a>
+                {downloading === item.id
+                  ? <Loader className="h-3.5 w-3.5 animate-spin" />
+                  : <Download className="h-3.5 w-3.5" />
+                }
+              </button>
               {canEdit && (
                 confirmDeleteId === item.id ? (
                   <div className="flex items-center gap-1 shrink-0">
