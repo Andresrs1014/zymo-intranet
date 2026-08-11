@@ -125,7 +125,7 @@ services:
   task-db:
     image: postgres:15-alpine
     ports:
-      - "5434:5432"
+      - "127.0.0.1:5434:5432"
     environment:
       - POSTGRES_USER=${TASK_DB_USER:-task}
       - POSTGRES_PASSWORD=${TASK_DB_PASSWORD}
@@ -163,7 +163,7 @@ services:
   sig-db:
     image: postgres:15-alpine
     ports:
-      - "5436:5432"
+      - "127.0.0.1:5436:5432"
     environment:
       - POSTGRES_USER=${SIG_DB_USER:-sig}
       - POSTGRES_PASSWORD=${SIG_DB_PASSWORD}
@@ -180,7 +180,7 @@ services:
   zymo-db:
     image: postgres:15-alpine
     ports:
-      - "5437:5432"
+      - "127.0.0.1:5437:5432"
     environment:
       - POSTGRES_USER=${ZYMO_DB_USER:-zymo}
       - POSTGRES_PASSWORD=${ZYMO_DB_PASSWORD}
@@ -220,7 +220,7 @@ services:
   zymoally-db:
     image: postgres:15-alpine
     ports:
-      - "5438:5432"
+      - "127.0.0.1:5438:5432"
     environment:
       - POSTGRES_USER=${ZYMOALLY_DB_USER:-zymoally}
       - POSTGRES_PASSWORD=${ZYMOALLY_DB_PASSWORD}
@@ -257,7 +257,7 @@ services:
   libertadora-db:
     image: postgres:15-alpine
     ports:
-      - "5439:5432"
+      - "127.0.0.1:5439:5432"
     environment:
       - POSTGRES_USER=${LIBERTADORA_DB_USER:-libertadora}
       - POSTGRES_PASSWORD=${LIBERTADORA_DB_PASSWORD}

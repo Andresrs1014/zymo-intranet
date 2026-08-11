@@ -68,17 +68,27 @@ import { fetchProcCargoIds, type ProcCargoAsignado } from "@/components/sig/..."
 
 | Servicio | Puerto externo | Puerto interno | BD | Puerto BD |
 |---|---|---|---|---|
-| `backend` (Python/FastAPI) | 8001 | 8001 | SQLite / PostgreSQL | — |
+| `backend` (Python/FastAPI) | 8001 | 8001 | SQLite (OC/mantenimiento) + `zymo-db` (Postgres principal) | 5437 (solo `zymo-db`) |
 | `frontend` (React/Nginx) | 81 | 80 | — | — |
-| `zymo-worker` | — | — | (comparte backend_data) | — |
-| `helix-backend` | 3001 | 3001 | `helix-db` | 5433 |
+| `zymo-worker` | — | — | (comparte backend_data + `zymo-db`) | — |
+| `helix-backend` | 3001 | 3001 | `helix-db` | sin exponer al host (solo red interna de docker compose) |
 | `task-backend` | 3002 | 3002 | `task-db` | 5434 |
 | `sig-backend` | 3004 | 3003 | `sig-db` | 5436 |
 | `zymoally-backend` | 3005 | 3005 | `zymoally-db` | 5438 |
 | `libertadora-backend` | 3006 | 3006 | `libertadora-db` | 5439 |
 
+Corregido 2026-08-03: la fila `backend` decía "SQLite / PostgreSQL, Puerto BD —"; en realidad usa Postgres (`zymo-db`, host 5437) desde hace tiempo, y `helix-db` no tiene puerto de host expuesto (a diferencia de las demás BD, que sí lo tienen) — "5433" no existe en `docker-compose.yml`.
+
 ### JWT compartido
-El backend Python emite el JWT (HS256) con claims `{id, role, sede, area, email}`. **Todos los backends Node** validan ese mismo token usando `SECRET_KEY` de `./backend/.env`. El campo `app_permissions` **no está en el JWT** — se resuelve en el frontend vía `GET /auth/me` después del login.
+El backend Python emite el JWT (HS256) vía `create_access_token(subject=user.email, extra={role, sede, area, id, app_permissions})` (`backend/app/core/security.py` + `routers/auth.py:137-146`). **Todos los backends Node** validan ese mismo token usando `SECRET_KEY` de `./backend/.env`. **`app_permissions` SÍ viene en el JWT** (corregido 2026-08-03 — esta nota decía lo contrario; no hace falta un `GET /auth/me` aparte para leerlo desde un backend Node, `req.user.app_permissions` ya viene poblado).
+
+**Gotcha — el correo vive en `sub`, nunca en un campo `email` literal:** el claim estándar `sub` es el `subject` (= `user.email`) — no existe ningún campo `email` propio en el payload, pese a que varios `AuthPayload` de backends Node lo declaran como si existiera. Sin mapear `sub`→`email` a mano dentro de `authenticate()`, `req.user.email` es siempre `undefined`. Esto ya rompió `canManageTicket()`/`?asignadoAMi=true` en `zymoally-backend` para cualquiera que no fuera admin/gerente (ellos bypasan el chequeo, por eso no se notaba probando como admin) hasta corregirse el 2026-07-27. Fix de una línea en `authenticate()`:
+```ts
+if (!payload.email && typeof payload.sub === "string" && payload.sub.includes("@")) {
+  payload.email = payload.sub
+}
+```
+Aplicar este mismo mapeo en cualquier backend Node nuevo que vaya a usar `req.user.email` para lógica real (no solo texto de fallback) — no asumir que el campo viene poblado solo porque el tipo lo declara.
 
 **Gotcha `full_name` tampoco está en el JWT:** ningún backend Node debe leer `user.full_name` del payload decodificado para mostrar el nombre de quien ejecuta una acción (creador de una tarea, quien sube un adjunto, etc.) — ese campo siempre es `undefined` en runtime y cualquier fallback tipo `` `Usuario ${userId}` `` queda grabado permanentemente en la fila si se usa al crear/loguear. Resolver el nombre real contra `GET /api/tasks-v2/users` del backend Python (acepta `X-Internal-Key` o JWT). Patrón de referencia: `task-backend/src/utils/userNames.ts` (`resolveActorName`, `enrichUserNames`) — reusar ese archivo en vez de reinventar la resolución en cada backend nuevo. `task-backend` también autorepara nombres viejos guardados como "Usuario N" al leer (`listTasks`/`getTask`/`getTaskHistory`), mismo patrón que ya existía en `eventService.listEvents`.
 
@@ -164,7 +174,7 @@ El query param `procedimientoId` es opcional. Sin él retorna todos los instruct
 | `rag1` | Jarvis | `/app/data/lightrag` | Empresa tal como opera hoy |
 | `rag2` | Ultron | `/app/data/lightrag_rag2` | Empresa con procedimientos corregidos |
 
-- LLM de extracción: **Gemini 2.0 Flash** (`settings.gemini_api_key`)
+- LLM de extracción: **Gemini 2.5 Flash** (`settings.gemini_model`, `backend/app/config.py:75` — corregido 2026-08-03, decía 2.0)
 - Embeddings: **Ollama `nomic-embed-text`** (768 dims, local en servidor, sin cuota)
 - `get_rag(rag_id)` — singleton lazy por instancia, con lock asyncio para evitar init concurrente
 - `indexar_texto(texto, rag_id)` y `buscar_conocimiento(query, modo, rag_id)` son la API pública
@@ -197,8 +207,8 @@ Servidor MCP en `C:\Gestion_documental\mcps\mcp001-intranet` que expone 15 herra
 - `oc/` — flujo completo de órdenes de compra
 - `mantenimiento/` — FSM de mantenimiento (ver sección abajo)
 - `personal.py` — directorio T&C (164 personas), sin base de datos propia: lee `_persona_dict` desde `main_db`
-- `agentes.py` — endpoints del agente ZYMO conversacional
-- `zymo.py` — workers y orquestación de agentes
+- `agentes.py` — agente **administrativo** (Sonia/compras: `/administrativo/estado`, `/chat`, `/bienvenida`, `/sugerencias`) + endpoints de documentos RAG. Corregido 2026-08-03: esta línea decía "agente ZYMO conversacional", pero ese chat vive en `zymo.py` (línea de abajo), no aquí.
+- `zymo.py` — workers, orquestación de agentes, y el chat conversacional ZYMO real (`POST /chat` → `chat_zymo`)
 
 ### Modelo de permisos
 `Role.app_permissions: list[str]` en PostgreSQL. Los permisos siguen el patrón `mod_<modulo>_<accion>` (ej. `mod_oc_aprobar`, `mod_sig`, `mod_gh_admin`). El admin siempre bypasa los permisos vía `if role === "admin" return true`.
@@ -226,15 +236,20 @@ for col_def in [
 ## Mantenimiento — arquitectura FSM
 
 ### Estados y transiciones
+
+Corregido 2026-08-03 — la cadena de abajo no coincidía con `_TRANSICIONES_MANT` real (`backend/app/routers/mantenimiento/solicitudes.py:31-38`):
+
 ```
-solicitud → evaluacion → programado → ejecucion → completado → cerrado
-                                                              ↘ cancelado
+solicitud → programado → ejecucion → completado
+    ↘ cancelado    ↘ cancelado
 ```
+
+`evaluacion` es un estado **legacy**: el dict le define transiciones salientes hacia `programado`/`cancelado` (para no romper solicitudes viejas que ya estaban ahí), pero ninguna transición de ningún otro estado apunta *hacia* `evaluacion` — ninguna solicitud nueva entra ahí. `cerrado` está definido como estado terminal (sin transiciones salientes) pero tampoco es alcanzable hoy: ningún estado transiciona hacia él en `_TRANSICIONES_MANT` — `completado` es, en la práctica, el final real del flujo.
 
 ### Gates que bloquean transiciones
 | Transición | Condición bloqueante |
 |---|---|
-| `evaluacion → programado` | `monto_estimado > 2_000_000` y menos de 3 aprobaciones en `mnt_aprobaciones` |
+| `solicitud → programado` | `monto_estimado > 2_000_000` y menos de 3 aprobaciones en `mnt_aprobaciones` (`solicitudes.py:506`) |
 | `ejecucion → completado` | `evidencia_url` es NULL |
 
 ### Magic link (auxiliar sin laptop)
@@ -265,7 +280,7 @@ Router `tc_agenda.py`. Permiso propio `mod_tc_agenda`, **independiente** de `mod
 
 **Gotcha — descargas de PDF sin auth:** cualquier link de descarga de archivo servido por un endpoint autenticado (no estático) debe usar `openAuthenticatedApiBlob()` de `lib/api.ts`, nunca un `<a href>` plano — un `window.open`/navegación directa no adjunta el header `Authorization`, igual que el gotcha ya conocido en OC/Financiero.
 
-**Gotcha — nginx:** cualquier router nuevo bajo `/tc/` (incluye `/tc/agenda/*`, `/tc/eventos/*`) debe añadirse a la regex de proxy en `frontend/nginx.conf` (~línea 134) o cae al fallback del SPA y devuelve HTML donde el frontend espera JSON (`.forEach`/`.map` truena con un error genérico, no un 404 obvio).
+**Gotcha — nginx:** cualquier router nuevo bajo `/tc/` (incluye `/tc/agenda/*`, `/tc/eventos/*`) debe añadirse a la regex de proxy en `frontend/nginx.conf` (~línea 154, corregido 2026-08-03 — decía 134, que hoy son los bloques estáticos `/tc-manuales/`/`/tc-fotos/`/`/tc-docs/`, no el regex de la API) o cae al fallback del SPA y devuelve HTML donde el frontend espera JSON (`.forEach`/`.map` truena con un error genérico, no un 404 obvio).
 
 ---
 
@@ -276,7 +291,7 @@ Migrado desde una app standalone HTML/JS (`C:\Proyectos-indexar\ZymoAlly`, sin b
 - **SAC** = Fidelización de clientes (NPS), Diseñando la Experiencia, Reporte de visita (`mod_sac` / `mod_sac_config`).
 
 ### Opciones de formulario configurables
-`ZymoConfigList` (tabla genérica `{listType, value, label, sortOrder, isActive}`) sirve ambos dominios sin necesitar migración de esquema por cada lista nueva: los 14 maestros de PQR (`clients`, `platforms`, `impacts`...) y las 5 choice-lists de SAC (`surveyValueChoices`, `surveyIssues`, `experienceFitChoices`, `experienceClarityChoices`, `visitOutcomes`) viven en la misma tabla, filtradas por `listType`. Cada dominio expone `GET .../listas` (agrupado), `POST/PATCH/DELETE`, y `POST .../reset` (restaura defaults de `utils/constants.ts`).
+`ZymoConfigList` (tabla genérica `{listType, value, label, sortOrder, isActive}`) sirve ambos dominios sin necesitar migración de esquema por cada lista nueva: los 10 maestros de PQR (`PQR_LIST_TYPES` en `utils/constants.ts:3-14`: `platforms, generators, phones, emails, impacts, types, statuses, priorities, channels, managementCriteria` — corregido 2026-08-03, decía "14" y citaba `clients`, que no existe como listType) y las 5 choice-lists de SAC (`surveyValueChoices`, `surveyIssues`, `experienceFitChoices`, `experienceClarityChoices`, `visitOutcomes`) viven en la misma tabla, filtradas por `listType`. Cada dominio expone `GET .../listas` (agrupado), `POST/PATCH/DELETE`, y `POST .../reset` (restaura defaults de `utils/constants.ts`).
 
 ### Encuestas públicas — magic-link sin login
 `POST /api/sac/surveys/magic-link` (staff) genera un JWT `scope=survey_client` (TTL 30 días) — mismo patrón que `scope=mnt_mobile` de Mantenimiento. Las rutas públicas (`src/routers/public/survey.ts`) se montan ANTES de `app.use("/api", authenticate)` en `app.ts`: `GET /public/survey/config` (sin auth, solo etiquetas) y `POST /public/survey/{client,experience}` (validan únicamente el `scope` vía `requireSurveyScope`, nunca `app_permissions` — el cliente final no tiene cuenta en la intranet).
@@ -286,36 +301,38 @@ React 19 + Vite + Tailwind standalone (mismo stack que `frontend/`, para que por
 
 ---
 
-## Libertadora — CRM Skandia CREA (`libertadora-backend`)
+## Libertadora — CRM Skandia CREA (`libertadora-backend` + `libertadora-frontend`)
 
-Migrado desde una app standalone HTML/JS (`C:\Proyectos-indexar\Libertadora`, sin backend, `localStorage`) — CRM comercial de un ejecutivo de Libertadora Seguros para el producto Skandia CREA + ARL Colmena (prospectos, citas, KPIs). A diferencia de ZymoAlly/Helix, este módulo se expone también a un **tercero externo** (Skandia) con lectura y edición completa, no solo a staff interno.
+**Sección reescrita 2026-08-03 — la arquitectura documentada aquí antes (acceso dual interno/socio, `LibertadoraPartnerUser`, respaldo a SIG) quedó obsoleta por una decisión posterior del usuario, fechada 2026-07-28 en los propios comentarios del código.** Migrado originalmente desde una app standalone HTML/JS (`C:\Proyectos-indexar\Libertadora`, sin backend, `localStorage`) — CRM comercial de un ejecutivo de Libertadora Seguros para el producto Skandia CREA + ARL Colmena (prospectos, citas, KPIs).
+
+### Arquitectura actual: 100% standalone, ya no comparte nada con la intranet
+Decisión explícita 2026-07-28 (comentarios en `libertadora-backend/src/app.ts:30-31`, `config/env.ts:5-7`, `prisma/schema.prisma:49-54`): se abandonó el diseño de "staff interno vs. socio externo Skandia" con dos tipos de cuenta y dos mounts de router. Ahora:
+- **Un solo modelo de usuario**, `LibertadoraUser` (staff y Skandia por igual, sin distinción de rol de la intranet) — `LibertadoraPartnerUser` ya no existe.
+- **Un solo mount de cada router** en `app.ts:36-42` (`/api/prospectos`, `/api/citas`, `/api/meta`, `/api/dashboard`, `/api/informe/pdf`, `/api/users` con `requireAdmin`) — no hay `/public/prospectos` ni `/public/citas`.
+- **Un solo login**, `POST /api/login` (no `/public/login`), devuelve `{scope: "libertadora_session", userId}` (no `libertadora_partner`), sesión de 7 días. `GET /api/login/me` confirma sesión vigente.
+- **JWT_SECRET propio**, ya NO es el mismo que usa el resto de la intranet (`config/env.ts:5-13`) — `libertadora-backend` no valida ni emite ningún token relacionado con FastAPI. Es una isla de autenticación completamente separada.
+- Hay un **frontend standalone dedicado**, `libertadora-frontend/` (creado 2026-07-29, un día después del pivote del backend) — es lo que realmente se despliega hoy para este módulo.
 
 ### Modelo de datos (`libertadora-db`, Postgres propia)
-`LibertadoraProspecto`, `LibertadoraCita`, `LibertadoraMeta` (fila única id=1) y `LibertadoraPartnerUser` (una cuenta por persona del socio externo, con contraseña propia).
+`LibertadoraProspecto`, `LibertadoraCita`, `LibertadoraMeta` (fila única id=1) y `LibertadoraUser` (`isAdmin` booleano controla quién puede crear/desactivar/resetear contraseña de otras cuentas; contraseña fijada a mano, sin flujo de recuperación por correo todavía).
 
-### Acceso interno vs. acceso público del socio (Skandia)
-Los mismos routers (`prospectos.ts`, `citas.ts`) se montan **dos veces** en `app.ts` con distinto middleware — sin duplicar lógica de negocio:
-- `/api/prospectos`, `/api/citas` — staff interno, `authenticate` + `requireLibertadoraAccess` (permiso `mod_libertadora`, pendiente de crear en Roles y permisos).
-- `/public/prospectos`, `/public/citas` — socio externo, `requireLibertadoraPartnerScope` (JWT `scope=libertadora_partner` obtenido por login).
+### Respaldo hacia SIG — nunca se construyó el lado emisor
+La versión anterior de esta sección describía un `services/sigBackup.ts` fire-and-forget hacia `sig-backend`. **Ese archivo no existe** en `libertadora-backend` — nada en su código llama a `sig-backend`. El lado receptor sí sigue ahí (`sig-backend`: modelo `SigLibertadoraBackup`, endpoint `POST /api/libertadora-backup`) pero es código muerto, nunca se invoca. Si se quiere retomar ese respaldo, hay que construirlo desde cero del lado de `libertadora-backend`.
 
-### Login del socio externo — usuario y contraseña, una cuenta por persona (no un link)
-Primer diseño (descartado antes de desplegar): un link con token sin expiración. El gerente pidió acceso por usuario/contraseña por seguridad — decisión explícita: **una cuenta por persona de Skandia**, contraseña fijada a mano por un admin/gerente interno (sin flujo de recuperación por correo todavía). `LibertadoraPartnerUser` (email + hash `bcryptjs`, igual que `bcrypt` en el backend Python) vive únicamente en `libertadora-db` — deliberadamente separado de `Role`/`app_permissions` de la intranet, nunca pasa por el JWT que emite FastAPI.
-
-`POST /public/login` (email+password) devuelve un JWT `{scope: "libertadora_partner", partnerUserId}` con sesión de 7 días. El middleware `requireLibertadoraPartnerScope` valida el JWT **y además** consulta `active` en `LibertadoraPartnerUser` en cada request — desactivar una cuenta (`PATCH /api/partner-users/:id/desactivar`, solo admin/gerente) corta el acceso al instante, incluso con una sesión ya emitida, sin afectar a otras cuentas ni rotar el `JWT_SECRET` compartido por toda la intranet.
-
-**Frontend:** la gestión de estas cuentas (crear, desactivar, resetear contraseña) va en **Configuración → "Usuarios externos"** de la intranet — sección propia, no escondida dentro de un panel específico de Libertadora, pensada para reusarse si otro módulo necesita el mismo patrón de acceso externo más adelante.
-
-### Respaldo automático hacia SIG (`sig-backend`)
-Decisión explícita del usuario: cada creación/edición/borrado se respalda además en `sig-backend` (`services/sigBackup.ts`), fire-and-forget — nunca bloquea ni rompe la escritura real si `sig-backend` está caído. Se autentica con un JWT de servicio autofirmado (`role: "admin"`, TTL 5 min) usando el mismo `JWT_SECRET` compartido, sin inventar una llave interna nueva. Aterriza en `sig-backend`'s `SigLibertadoraBackup` (tabla append-only, no un espejo en vivo) vía `POST /api/libertadora-backup`.
+### ⚠️ Brecha real encontrada (no solo documentación) — código embebido en `zymo-intranet/frontend` quedó roto
+`frontend/src/components/libertadora/*`, `frontend/src/pages/libertadora/*` y `frontend/src/lib/libertadoraApi.ts` **siguen en el repo de la intranet** y datan de antes del pivote del 2026-07-28 — nunca se actualizaron ni se borraron:
+- `libertadoraApi.ts` decide el token a enviar por el path (`/public/...` → store del "partner"; `/api/...` → JWT normal de la intranet, `useAuthStore`) — pero `libertadora-backend` ya no acepta el JWT de la intranet en absoluto (secreto distinto) ni expone ningún `/public/...`. Cualquier llamada desde este código embebido a `/api/prospectos`, `/api/citas`, `/api/dashboard`, etc. recibe 401.
+- `pages/admin/UsuariosExternosPage.tsx` y sus hooks (`useLibPartnerUsers`, etc., en `hooks/useLibertadora.ts`) llaman a `/api/partner-users`, endpoint que **ya no existe** — el real hoy es `/api/users` (`libertadora-backend/src/routers/users.ts`).
+- Ya existía como pendiente en memoria del proyecto ("limpiar código embebido en zymo-intranet"), pero vale la pena decirlo explícito aquí: este código no es solo redundante, está **roto** contra el backend actual. Decisión pendiente del usuario: ¿se borra ya de `frontend/` (dado que `libertadora-frontend/` ya lo reemplaza), o se deja hasta migrar el dominio/hosting propio?
 
 ### Siembra de datos reales (`prisma/seed.ts`) — idempotente por campo, no por conteo
-`realData.ts` trae los 130 prospectos + 4 citas reales extraídos 1:1 del prototipo original (no son datos de ejemplo). El script (`npm run db:seed`) pasa por los mismos `services/` que usa la API para que también dispare el respaldo hacia SIG.
+`realData.ts` trae los 130 prospectos + 4 citas reales extraídos 1:1 del prototipo original (no son datos de ejemplo). El script (`npm run db:seed`) pasa por los mismos `services/` que usa la API. Corregido 2026-08-03: la versión anterior decía que esto "dispara el respaldo hacia SIG" — ya no aplica, ese respaldo nunca se construyó del lado emisor (ver arriba).
 
 **Regla general para cualquier script de siembra/migración de datos reales en este repo, no solo este:** nunca uses "si la tabla ya tiene filas, no cargues nada" como única protección contra duplicados — un conteo total no distingue entre "ya se sembró completo", "se cortó a la mitad" y "alguien ya creó datos reales a mano antes de sembrar". La comparación correcta es **fila por fila contra una llave natural** (acá: `empresa` para prospectos, `cliente`+`fecha`+`hora` para citas) y terminar con una aserción que compare el conteo esperado (`antes + insertados`) contra el conteo real después de sembrar — si no cuadra, el script debe fallar ruidosamente, no quedar en silencio.
 
 **Verificado en sandbox aislado (2026-07-28), no solo en teoría:** se insertaron a mano un prospecto que coincidía exactamente con uno del seed y otro que no tenía nada que ver, se corrió el seed encima — resultado: el que coincidía no se duplicó, el que no coincidía quedó intacto, y los 129 restantes se insertaron bien. Correrlo una tercera vez no insertó nada nuevo (0 insertados, todos marcados como "ya existían").
 
-**Pendiente antes de producción:** agregar el permiso `mod_libertadora` en Roles y permisos (Python backend + UI de Configuración) — hoy nadie lo tiene asignado, así que el módulo queda desplegado pero inaccesible para staff hasta que un admin lo asigne. Correr `docker compose exec libertadora-backend npm run db:seed` una sola vez para cargar los datos reales.
+**Pendiente antes de producción:** `mod_libertadora` sigue sin existir en Roles y permisos del backend Python — pero dado que el módulo ya es 100% standalone (login propio, sin depender de `app_permissions` de la intranet), vale la pena confirmar con el usuario si ese permiso todavía tiene sentido o quedó obsoleto por el cambio de arquitectura del 2026-07-28. Correr `docker compose exec libertadora-backend npm run db:seed` una sola vez para cargar los datos reales.
 
 ---
 
@@ -376,7 +393,7 @@ Un cambio está listo solo si:
 ## Documentación de referencia
 - **`docs/config-intranet/`** — Configuración admin, permisos, directorio como fuente de verdad (handoff agentes)
 - `docs/ADMIN_DB_PLAN.md`
-- `Master_plan/ZYMO_MASTER_PLAN_v2.md`
+- `valido/Master_plan/ZYMO_MASTER_PLAN_v2.1.md` (corregido 2026-08-03 — la ruta vieja `Master_plan/ZYMO_MASTER_PLAN_v2.md` no existe; solo queda una copia marcada inválida bajo `no_valido/`)
 - `docs/superpowers/specs/`
 - `plans/helix_zymo/PLAN_IMPLEMENTACION_INTRANET.md`
 - `C:\Users\andres.quintero\OneDrive - IMC CARGO INTERNATIONAL SAS\Documentos\Diagramas\GH_DIRECTORIO_PLAN\` — plan técnico y ejecutivo del módulo GH (Gestión Humana)
