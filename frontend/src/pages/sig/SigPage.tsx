@@ -978,6 +978,10 @@ function ProcedureFileView({
                     commitId={content?.id}
                     tieneImagen={!!content?.flujogramaImagenUrl}
                     flujogramaMmd={content?.flujogramaMmd ?? null}
+                    tieneArchivoOriginal={!!content?.archivoOriginal}
+                    onReextraer={() => content && reextractCommitMut.mutate(content.id)}
+                    reextrayendo={reextractCommitMut.isPending}
+                    reextractErr={reextractErr}
                   />
                 </div>
               </div>
@@ -1284,8 +1288,16 @@ function ArchivoOriginalView({
 // ── Flujograma tab — imagen original extraída del docx + mermaid transcrito por IA ──
 
 function FlujogramaView({
-  commitId, tieneImagen, flujogramaMmd,
-}: { commitId: number | undefined; tieneImagen: boolean; flujogramaMmd: string | null }) {
+  commitId, tieneImagen, flujogramaMmd, tieneArchivoOriginal, onReextraer, reextrayendo, reextractErr,
+}: {
+  commitId: number | undefined
+  tieneImagen: boolean
+  flujogramaMmd: string | null
+  tieneArchivoOriginal: boolean
+  onReextraer: () => void
+  reextrayendo: boolean
+  reextractErr: string | null
+}) {
   const [objectUrl, setObjectUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -1305,6 +1317,21 @@ function FlujogramaView({
     return () => { if (blobUrl) URL.revokeObjectURL(blobUrl) }
   }, [commitId, tieneImagen])
 
+  // Re-extraer solo tiene sentido si hay un archivo original guardado del cual
+  // volver a sacar la imagen -- procedimientos cargados antes del fix de
+  // textExtraction.ts (que antes embebía la imagen como base64 en vez de
+  // guardarla aparte) son justo el caso que este botón resuelve.
+  const reextraerBtn = tieneArchivoOriginal && (
+    <button
+      onClick={onReextraer}
+      disabled={reextrayendo}
+      className="flex items-center gap-1.5 rounded border border-zinc-200 px-3 py-1.5 text-[11px] font-mono text-zinc-600 hover:border-zinc-400 hover:text-zinc-900 transition-colors disabled:opacity-50"
+    >
+      <RefreshCw className={cn("h-3 w-3", reextrayendo && "animate-spin")} />
+      {reextrayendo ? "Re-extrayendo…" : "Re-extraer imagen del documento original"}
+    </button>
+  )
+
   if (!tieneImagen && !flujogramaMmd) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
@@ -1316,6 +1343,8 @@ function FlujogramaView({
             texto no incluía una sección "Flujograma".
           </p>
         </div>
+        {reextractErr && <p className="text-[11px] text-red-500 font-mono max-w-sm">{reextractErr}</p>}
+        {reextraerBtn}
       </div>
     )
   }
@@ -1324,9 +1353,13 @@ function FlujogramaView({
     <div className="space-y-8">
       {tieneImagen && (
         <div>
-          <h3 className="text-[11px] font-mono font-semibold text-zinc-400 uppercase tracking-wide mb-3">
-            Imagen original (extraída del documento)
-          </h3>
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <h3 className="text-[11px] font-mono font-semibold text-zinc-400 uppercase tracking-wide">
+              Imagen original (extraída del documento)
+            </h3>
+            {reextraerBtn}
+          </div>
+          {reextractErr && <p className="text-[11px] text-red-500 font-mono mb-2">{reextractErr}</p>}
           {error && <p className="text-[11px] text-red-500 font-mono">{error}</p>}
           {!error && !objectUrl && (
             <div className="flex items-center gap-2 text-zinc-400">
@@ -1337,6 +1370,21 @@ function FlujogramaView({
           {objectUrl && (
             <img src={objectUrl} alt="Flujograma original" className="max-w-full rounded-lg border border-zinc-200" />
           )}
+        </div>
+      )}
+      {!tieneImagen && (
+        <div>
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <h3 className="text-[11px] font-mono font-semibold text-zinc-400 uppercase tracking-wide">
+              Imagen original
+            </h3>
+            {reextraerBtn}
+          </div>
+          {reextractErr && <p className="text-[11px] text-red-500 font-mono mb-2">{reextractErr}</p>}
+          <p className="text-[11px] text-zinc-400 font-mono">
+            Este documento no tiene imagen de flujograma guardada todavía.
+            {tieneArchivoOriginal ? " Si el documento original sí trae una, usa \"Re-extraer\"." : ""}
+          </p>
         </div>
       )}
       {flujogramaMmd ? (
