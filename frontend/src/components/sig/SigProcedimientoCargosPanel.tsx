@@ -35,6 +35,8 @@ function asArray<T>(value: unknown): T[] {
 export function SigProcedimientoCargosPanel({ procedimientoId, canEdit }: Props) {
   const qc = useQueryClient()
   const [search, setSearch] = useState("")
+  const [searchOpen, setSearchOpen] = useState(false)
+  const searchBoxRef = useRef<HTMLDivElement>(null)
   const [draft, setDraft] = useState<Set<number> | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
   const [viewingManual, setViewingManual] = useState<TcCargo | null>(null)
@@ -57,12 +59,34 @@ export function SigProcedimientoCargosPanel({ procedimientoId, canEdit }: Props)
 
   const tcById = useMemo(() => new Map(tcCargos.map((c) => [c.id, c])), [tcCargos])
 
-  const filtered = useMemo(() => {
+  // Solo cargos NO seleccionados — el buscador es para agregar, no para ver los que ya están.
+  const searchResults = useMemo(() => {
     const q = search.trim().toLowerCase()
-    const list = [...tcCargos].sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))
+    const list = tcCargos
+      .filter((c) => !selected.has(c.id))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))
     if (!q) return list
     return list.filter((c) => c.nombre.toLowerCase().includes(q))
-  }, [tcCargos, search])
+  }, [tcCargos, search, selected])
+
+  const selectedCargos = useMemo(
+    () =>
+      Array.from(selected)
+        .map((id) => tcById.get(id))
+        .filter((c): c is TcCargo => !!c)
+        .sort((a, b) => a.nombre.localeCompare(b.nombre, "es")),
+    [selected, tcById],
+  )
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (searchBoxRef.current && !searchBoxRef.current.contains(e.target as Node)) {
+        setSearchOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", onClickOutside)
+    return () => document.removeEventListener("mousedown", onClickOutside)
+  }, [])
 
   const saveMutation = useMutation({
     mutationFn: async (cargoIds: number[]) => {
@@ -162,16 +186,37 @@ export function SigProcedimientoCargosPanel({ procedimientoId, canEdit }: Props)
       )}
 
       {canEdit && (
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" aria-hidden />
+        <div className="relative" ref={searchBoxRef}>
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 z-10" aria-hidden />
           <input
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar cargo…"
-            aria-label="Buscar cargo"
+            onFocus={() => setSearchOpen(true)}
+            placeholder="Buscar cargo para agregar…"
+            aria-label="Buscar cargo para agregar"
             className="w-full h-8 pl-8 pr-3 text-[11px] font-mono border border-zinc-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-helix-accent text-zinc-700"
           />
+          {searchOpen && (
+            <div className="absolute z-20 mt-1 w-full max-h-64 overflow-y-auto border border-zinc-200 rounded-lg divide-y divide-zinc-100 bg-white shadow-lg">
+              {searchResults.length === 0 && (
+                <p className="text-[11px] text-zinc-400 font-mono px-3 py-3 text-center">
+                  {search.trim() ? "Sin coincidencias" : "Todos los cargos ya están agregados"}
+                </p>
+              )}
+              {searchResults.map((cargo) => (
+                <button
+                  key={cargo.id}
+                  type="button"
+                  onClick={() => { toggle(cargo.id); setSearch(""); setSearchOpen(false) }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-zinc-50 transition-colors"
+                >
+                  <span className="flex-1 min-w-0 text-[12px] text-zinc-700 truncate">{cargo.nombre}</span>
+                  <span className="shrink-0 text-[11px] text-helix-accent font-mono">+ agregar</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -180,13 +225,13 @@ export function SigProcedimientoCargosPanel({ procedimientoId, canEdit }: Props)
           <Loader className="h-3.5 w-3.5 animate-spin" />
           <span className="text-[11px] font-mono">Cargando cargos…</span>
         </div>
+      ) : selectedCargos.length === 0 ? (
+        <p className="text-[11px] text-zinc-400 font-mono px-3 py-4 text-center border border-dashed border-zinc-200 rounded-lg">
+          Sin cargos seleccionados — usa el buscador de arriba para agregar.
+        </p>
       ) : (
-        <div className="max-h-80 overflow-y-auto border border-zinc-200 rounded-lg divide-y divide-zinc-100 bg-white">
-          {filtered.length === 0 && (
-            <p className="text-[11px] text-zinc-400 font-mono px-3 py-4 text-center">Sin coincidencias</p>
-          )}
-          {filtered.map((cargo) => {
-            const checked = selected.has(cargo.id)
+        <div className="border border-zinc-200 rounded-lg divide-y divide-zinc-100 bg-white">
+          {selectedCargos.map((cargo) => {
             const tieneArchivo = cargo.tiene_archivo ?? !!cargo.manual_url
             const tieneManual = !!cargo.tiene_manual
             const badge =
@@ -194,26 +239,22 @@ export function SigProcedimientoCargosPanel({ procedimientoId, canEdit }: Props)
               : tieneArchivo ? "archivo sin texto"
               : "sin manual"
             return (
-              <label
-                key={cargo.id}
-                className={cn(
-                  "flex items-center gap-2.5 px-3 py-2 cursor-pointer transition-colors",
-                  canEdit ? "hover:bg-zinc-50" : "cursor-default",
-                  checked && "bg-rose-50/60",
+              <div key={cargo.id} className="flex items-center gap-2.5 px-3 py-2">
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => toggle(cargo.id)}
+                    title="Quitar cargo"
+                    className="shrink-0 text-zinc-300 hover:text-rose-600 transition-colors"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
                 )}
-              >
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  disabled={!canEdit}
-                  onChange={() => toggle(cargo.id)}
-                  className="rounded border-zinc-300 text-rose-600 focus:ring-rose-500"
-                />
                 <span className="flex-1 min-w-0 text-[12px] text-zinc-700 truncate">{cargo.nombre}</span>
                 {tieneManual ? (
                   <button
                     type="button"
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewingManual(cargo) }}
+                    onClick={() => setViewingManual(cargo)}
                     title="Ver manual de funciones"
                     className="shrink-0 text-[11px] px-1.5 py-0.5 rounded border font-mono max-w-[140px] truncate text-emerald-700 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 transition-colors"
                   >
@@ -232,7 +273,7 @@ export function SigProcedimientoCargosPanel({ procedimientoId, canEdit }: Props)
                     {badge}
                   </span>
                 )}
-              </label>
+              </div>
             )
           })}
         </div>
