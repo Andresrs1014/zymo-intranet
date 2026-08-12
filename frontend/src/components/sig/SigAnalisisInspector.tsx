@@ -159,7 +159,7 @@ function InspectorHeader({
           {proc?.codigo ?? `Proc #${procId}`}
         </span>
         {proc?.titulo && (
-          <span className="text-[9px] text-zinc-400 font-mono truncate block mt-0.5">
+          <span className="text-[11px] text-zinc-400 font-mono truncate block mt-0.5">
             {proc.titulo}
           </span>
         )}
@@ -224,7 +224,7 @@ function InspectorBody({
               key={tab.type}
               onClick={() => onTabChange(tab.type)}
               className={cn(
-                "flex-1 flex flex-col items-center gap-0.5 py-2 text-[9px] font-mono transition-colors border-r last:border-r-0 border-zinc-200",
+                "flex-1 flex flex-col items-center gap-0.5 py-2 text-[11px] font-mono transition-colors border-r last:border-r-0 border-zinc-200",
                 isActive
                   ? "bg-white text-zinc-800 shadow-[inset_0_-1px_0_0_white]"
                   : "text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100",
@@ -312,7 +312,7 @@ function AnalysisTabContent({
     <div className="flex flex-col h-full">
       {/* Analyze button */}
       <div className="shrink-0 flex items-center justify-between px-3 py-2 border-b border-zinc-100 bg-zinc-50/50">
-        <span className={cn("flex items-center gap-1 text-[10px] font-mono", tab.color)}>
+        <span className={cn("flex items-center gap-1 text-[11px] font-mono", tab.color)}>
           {tab.icon}
           {tab.label}
         </span>
@@ -326,7 +326,7 @@ function AnalysisTabContent({
           }}
           disabled={!isRunning && loading}
           className={cn(
-            "flex items-center gap-1 text-[10px] px-2.5 py-1 rounded border font-mono transition-colors",
+            "flex items-center gap-1 text-[11px] px-2.5 py-1 rounded border font-mono transition-colors",
             isRunning
               ? "border-red-200 text-red-500 hover:bg-red-50"
               : loading
@@ -358,7 +358,7 @@ function AnalysisTabContent({
             <span className="text-[11px] font-mono text-zinc-400">
               Sin análisis aún.
             </span>
-            <span className="text-[10px] text-zinc-300 font-mono">
+            <span className="text-[11px] text-zinc-300 font-mono">
               Pulsa "Analizar" para ejecutar.
             </span>
           </div>
@@ -381,8 +381,8 @@ function ResultView({ type, result }: { type: AnalysisType; result: AnalisisResu
     <div className="space-y-3">
       {/* Timestamp */}
       <div className="flex items-center justify-between">
-        <span className="text-[9px] font-mono text-zinc-400">Último análisis</span>
-        <span className="text-[9px] font-mono text-zinc-400">{date}</span>
+        <span className="text-[11px] font-mono text-zinc-400">Último análisis</span>
+        <span className="text-[11px] font-mono text-zinc-400">{date}</span>
       </div>
 
       {type === "coherencia" && (
@@ -404,7 +404,7 @@ function ResultView({ type, result }: { type: AnalysisType; result: AnalisisResu
       {/* Resumen */}
       {result.resumen && (
         <div className="mt-2 pt-2 border-t border-zinc-100">
-          <p className="text-[10px] text-zinc-400 font-mono leading-relaxed">{result.resumen}</p>
+          <p className="text-[11px] text-zinc-400 font-mono leading-relaxed">{result.resumen}</p>
         </div>
       )}
     </div>
@@ -434,7 +434,7 @@ function CoherenciaResult({ result }: { result: AnalisisResult }) {
         </div>
         {score != null && (
           <span className={cn("text-[18px] font-mono font-bold tabular-nums", scoreColor)}>
-            {score}<span className="text-[10px] font-normal text-zinc-400">/100</span>
+            {score}<span className="text-[11px] font-normal text-zinc-400">/100</span>
           </span>
         )}
       </div>
@@ -442,14 +442,14 @@ function CoherenciaResult({ result }: { result: AnalisisResult }) {
       {/* Issues */}
       {issues.length > 0 && (
         <div>
-          <p className="text-[9px] font-mono text-zinc-400 uppercase tracking-wider mb-1.5">
+          <p className="text-[11px] font-mono text-zinc-400 uppercase tracking-wider mb-1.5">
             Hallazgos ({issues.length})
           </p>
           <div className="space-y-1">
             {issues.slice(0, 5).map((issue, i) => (
-              <div key={i} className="flex items-start gap-1.5 text-[10px]">
+              <div key={i} className="flex items-start gap-1.5 text-[11px]">
                 <span className={cn(
-                  "shrink-0 mt-0.5 px-1 py-0.5 rounded text-[8px] font-mono font-semibold",
+                  "shrink-0 mt-0.5 px-1 py-0.5 rounded text-[11px] font-mono font-semibold",
                   issue.severidad === "ALTA"   ? "bg-red-100 text-red-600" :
                   issue.severidad === "MEDIA"  ? "bg-amber-100 text-amber-600" :
                                                   "bg-zinc-100 text-zinc-500",
@@ -460,14 +460,14 @@ function CoherenciaResult({ result }: { result: AnalisisResult }) {
               </div>
             ))}
             {issues.length > 5 && (
-              <p className="text-[9px] text-zinc-400 font-mono">+{issues.length - 5} más…</p>
+              <p className="text-[11px] text-zinc-400 font-mono">+{issues.length - 5} más…</p>
             )}
           </div>
         </div>
       )}
 
       {issues.length === 0 && (
-        <p className="text-[10px] text-emerald-600 font-mono">Sin hallazgos — procedimiento coherente.</p>
+        <p className="text-[11px] text-emerald-600 font-mono">Sin hallazgos — procedimiento coherente.</p>
       )}
     </div>
   )
@@ -484,22 +484,22 @@ function MejorasResult({ result }: { result: AnalisisResult }) {
         <span>propuesta{proposals.length !== 1 ? "s" : ""} de mejora</span>
       </div>
       {proposals.length === 0 && (
-        <p className="text-[10px] text-zinc-400 font-mono">Sin propuestas identificadas.</p>
+        <p className="text-[11px] text-zinc-400 font-mono">Sin propuestas identificadas.</p>
       )}
       <div className="space-y-1.5">
         {proposals.slice(0, 6).map((p, i) => (
-          <div key={i} className="flex items-start gap-2 text-[10px]">
+          <div key={i} className="flex items-start gap-2 text-[11px]">
             <span className="shrink-0 font-mono text-amber-500 font-bold mt-0.5">{i + 1}.</span>
             <div>
               <span className="text-zinc-600 leading-tight">{p.descripcion}</span>
               {p.categoria && (
-                <span className="ml-1.5 text-[9px] text-zinc-400 font-mono">({p.categoria})</span>
+                <span className="ml-1.5 text-[11px] text-zinc-400 font-mono">({p.categoria})</span>
               )}
             </div>
           </div>
         ))}
         {proposals.length > 6 && (
-          <p className="text-[9px] text-zinc-400 font-mono">+{proposals.length - 6} más…</p>
+          <p className="text-[11px] text-zinc-400 font-mono">+{proposals.length - 6} más…</p>
         )}
       </div>
     </div>
@@ -518,13 +518,13 @@ function ProcVsInstResult({ result }: { result: AnalisisResult }) {
         }
       </div>
       {conflictos.length === 0 && result.coherente && (
-        <p className="text-[10px] text-emerald-600 font-mono">Sin conflictos detectados.</p>
+        <p className="text-[11px] text-emerald-600 font-mono">Sin conflictos detectados.</p>
       )}
       <div className="space-y-1.5">
         {conflictos.slice(0, 5).map((c, i) => (
-          <div key={i} className="flex items-start gap-1.5 text-[10px]">
+          <div key={i} className="flex items-start gap-1.5 text-[11px]">
             <span className={cn(
-              "shrink-0 mt-0.5 px-1 py-0.5 rounded text-[8px] font-mono font-semibold",
+              "shrink-0 mt-0.5 px-1 py-0.5 rounded text-[11px] font-mono font-semibold",
               c.severidad === "ALTA"   ? "bg-red-100 text-red-600" :
               c.severidad === "MEDIA"  ? "bg-amber-100 text-amber-600" :
                                           "bg-zinc-100 text-zinc-500",
@@ -532,13 +532,13 @@ function ProcVsInstResult({ result }: { result: AnalisisResult }) {
               {c.severidad}
             </span>
             <div>
-              <span className="text-violet-600 font-mono text-[9px]">{c.instructivoCodigo}</span>
+              <span className="text-violet-600 font-mono text-[11px]">{c.instructivoCodigo}</span>
               <span className="text-zinc-600 ml-1">— {c.descripcion}</span>
             </div>
           </div>
         ))}
         {conflictos.length > 5 && (
-          <p className="text-[9px] text-zinc-400 font-mono">+{conflictos.length - 5} más…</p>
+          <p className="text-[11px] text-zinc-400 font-mono">+{conflictos.length - 5} más…</p>
         )}
       </div>
     </div>
@@ -560,7 +560,7 @@ function CargosResult({ result }: { result: AnalisisResult }) {
   const legacyCargos  = comparaciones.length === 0 ? (result.cargos ?? []) : []
 
   if (comparaciones.length === 0 && legacyCargos.length === 0) {
-    return <p className="text-[10px] text-zinc-400 font-mono">Sin cargos identificados.</p>
+    return <p className="text-[11px] text-zinc-400 font-mono">Sin cargos identificados.</p>
   }
 
   // ── New format ────────────────────────────────────────────────────────────
@@ -573,10 +573,10 @@ function CargosResult({ result }: { result: AnalisisResult }) {
       <div className="space-y-2.5">
         {/* Summary pills */}
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-[10px] font-mono text-zinc-500">{comparaciones.length} cargos analizados</span>
-          {acorde > 0       && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">{acorde} acorde{acorde !== 1 ? "s" : ""}</span>}
-          {incompleto > 0   && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">{incompleto} incompleto{incompleto !== 1 ? "s" : ""}</span>}
-          {discrepancia > 0 && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">{discrepancia} discrepancia{discrepancia !== 1 ? "s" : ""}</span>}
+          <span className="text-[11px] font-mono text-zinc-500">{comparaciones.length} cargos analizados</span>
+          {acorde > 0       && <span className="text-[11px] font-mono px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">{acorde} acorde{acorde !== 1 ? "s" : ""}</span>}
+          {incompleto > 0   && <span className="text-[11px] font-mono px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">{incompleto} incompleto{incompleto !== 1 ? "s" : ""}</span>}
+          {discrepancia > 0 && <span className="text-[11px] font-mono px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">{discrepancia} discrepancia{discrepancia !== 1 ? "s" : ""}</span>}
         </div>
 
         {/* Comparison cards */}
@@ -587,7 +587,7 @@ function CargosResult({ result }: { result: AnalisisResult }) {
               <div key={i} className={`rounded-lg border p-2.5 ${cfg.bg} ${cfg.border}`}>
                 <div className="flex items-center justify-between gap-2 mb-1.5">
                   <p className={`text-[11px] font-mono font-semibold ${cfg.text}`}>{c.cargo}</p>
-                  <span className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded-full border ${cfg.border} ${cfg.text}`}>
+                  <span className={`text-[11px] font-mono font-bold px-1.5 py-0.5 rounded-full border ${cfg.border} ${cfg.text}`}>
                     {cfg.label}
                   </span>
                 </div>
@@ -595,10 +595,10 @@ function CargosResult({ result }: { result: AnalisisResult }) {
                 {/* Funciones en procedimiento */}
                 {c.funciones_en_procedimiento?.length > 0 && (
                   <div className="mt-1">
-                    <p className="text-[9px] font-mono text-zinc-400 uppercase tracking-wide mb-0.5">En procedimiento</p>
+                    <p className="text-[11px] font-mono text-zinc-400 uppercase tracking-wide mb-0.5">En procedimiento</p>
                     <ul className="space-y-0.5">
                       {c.funciones_en_procedimiento.slice(0, 3).map((f, j) => (
-                        <li key={j} className="flex items-start gap-1 text-[10px] text-zinc-600">
+                        <li key={j} className="flex items-start gap-1 text-[11px] text-zinc-600">
                           <span className="shrink-0 text-zinc-300 mt-0.5">→</span>{f}
                         </li>
                       ))}
@@ -609,10 +609,10 @@ function CargosResult({ result }: { result: AnalisisResult }) {
                 {/* Brechas */}
                 {c.brechas?.length > 0 && (
                   <div className="mt-1.5">
-                    <p className="text-[9px] font-mono text-amber-600 uppercase tracking-wide mb-0.5">Brechas</p>
+                    <p className="text-[11px] font-mono text-amber-600 uppercase tracking-wide mb-0.5">Brechas</p>
                     <ul className="space-y-0.5">
                       {c.brechas.slice(0, 3).map((b, j) => (
-                        <li key={j} className="flex items-start gap-1 text-[10px] text-amber-700">
+                        <li key={j} className="flex items-start gap-1 text-[11px] text-amber-700">
                           <span className="shrink-0 mt-0.5">⚠</span>{b}
                         </li>
                       ))}
@@ -622,7 +622,7 @@ function CargosResult({ result }: { result: AnalisisResult }) {
 
                 {/* Observaciones */}
                 {c.observaciones && (
-                  <p className="mt-1.5 text-[10px] text-zinc-500 italic leading-snug">{c.observaciones}</p>
+                  <p className="mt-1.5 text-[11px] text-zinc-500 italic leading-snug">{c.observaciones}</p>
                 )}
               </div>
             )
@@ -632,10 +632,10 @@ function CargosResult({ result }: { result: AnalisisResult }) {
         {/* Cargos sin manual */}
         {sinManual.length > 0 && (
           <div className="mt-1">
-            <p className="text-[9px] font-mono text-zinc-400 uppercase tracking-wide mb-1">Sin manual en T&C</p>
+            <p className="text-[11px] font-mono text-zinc-400 uppercase tracking-wide mb-1">Sin manual en T&C</p>
             <div className="flex flex-wrap gap-1">
               {sinManual.map((nombre, i) => (
-                <span key={i} className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-500 border border-zinc-200">
+                <span key={i} className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-500 border border-zinc-200">
                   {nombre}
                 </span>
               ))}
@@ -661,7 +661,7 @@ function CargosResult({ result }: { result: AnalisisResult }) {
             {c.funciones.length > 0 && (
               <ul className="mt-1.5 space-y-0.5">
                 {c.funciones.slice(0, 4).map((f, j) => (
-                  <li key={j} className="flex items-start gap-1 text-[10px] text-zinc-600">
+                  <li key={j} className="flex items-start gap-1 text-[11px] text-zinc-600">
                     <span className="shrink-0 text-rose-400 mt-0.5">•</span>{f}
                   </li>
                 ))}
@@ -680,7 +680,7 @@ function LightRAGResult({ result }: { result: AnalisisResult }) {
       <CheckCircle2 className="h-6 w-6 text-emerald-500" />
       <div>
         <p className="text-[11px] font-mono text-zinc-600 font-semibold">Indexado en LightRAG</p>
-        <p className="text-[10px] text-zinc-400 font-mono mt-1">
+        <p className="text-[11px] text-zinc-400 font-mono mt-1">
           {result.resumen || "El procedimiento fue indexado correctamente en el grafo de conocimiento."}
         </p>
       </div>

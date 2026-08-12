@@ -104,7 +104,7 @@ export function SigExplorer({
   }
 
   return (
-    <div className="flex flex-col shrink-0 w-52 xl:w-64 border-r border-zinc-200 bg-zinc-50 overflow-hidden min-w-[180px]">
+    <div className="flex flex-col shrink-0 w-52 xl:w-64 border-r border-zinc-200 bg-zinc-50 overflow-hidden min-w-[180px] shadow-sm">
       {/* Explorer header */}
       <div className="flex items-center justify-between px-3 h-9 shrink-0 border-b border-zinc-200">
         <span className="text-[11px] font-semibold text-helix-accent/80 tracking-widest uppercase">Explorador</span>
@@ -136,7 +136,7 @@ export function SigExplorer({
             <Inbox className="h-3.5 w-3.5 shrink-0" />
             <span className="text-[12px] flex-1">Cola de revisión</span>
             {pendingCount > 0 && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-600 font-mono font-bold tabular-nums border border-amber-300">
+              <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-600 font-mono font-bold tabular-nums border border-amber-300">
                 {pendingCount}
               </span>
             )}
@@ -150,13 +150,13 @@ export function SigExplorer({
         {/* Section label */}
         {areas.length > 0 && (
           <div className="px-3 pt-1 pb-0.5">
-            <span className="text-[10px] text-helix-accent/60 font-mono uppercase tracking-widest">Áreas</span>
+            <span className="text-[11px] text-helix-accent/60 uppercase tracking-widest">Áreas</span>
           </div>
         )}
 
         {/* Area tree */}
         {areas.length === 0 && (
-          <div className="px-4 py-4 text-[11px] text-zinc-400 italic">
+          <div className="px-4 py-4 text-[11px] text-zinc-600 italic">
             {isAdmin ? "Crea un área con +" : "Sin áreas configuradas"}
           </div>
         )}
@@ -183,7 +183,7 @@ export function SigExplorer({
       {/* New area form */}
       {showNewArea && isAdmin && (
         <div className="border-t border-zinc-200 bg-white p-3 shrink-0">
-          <p className="text-[10px] text-helix-accent/60 font-mono mb-2 uppercase tracking-widest">Nueva área</p>
+          <p className="text-[11px] text-helix-accent/60 mb-2 uppercase tracking-widest">Nueva área</p>
 
           <input
             autoFocus
@@ -193,7 +193,7 @@ export function SigExplorer({
               if (e.key === "Enter" && newAreaForm.nombre.trim()) createArea.mutate(newAreaForm)
               if (e.key === "Escape") { setShowNewArea(false); setFormError(null) }
             }}
-            className="w-full bg-zinc-50 border border-zinc-300 rounded px-2.5 py-1.5 text-xs text-zinc-900 font-mono focus:outline-none focus:ring-1 focus:ring-helix-accent/40 placeholder:text-zinc-400 mb-2"
+            className="w-full bg-zinc-50 border border-zinc-300 rounded px-2.5 py-1.5 text-xs text-zinc-900 focus:outline-none focus:ring-1 focus:ring-helix-accent/40 placeholder:text-zinc-400 mb-2"
             placeholder="Nombre del área"
           />
 
@@ -213,19 +213,19 @@ export function SigExplorer({
             ))}
           </div>
 
-          {formError && <p className="text-[10px] text-red-500 font-mono mb-2">{formError}</p>}
+          {formError && <p className="text-[11px] text-red-500 mb-2">{formError}</p>}
 
           <div className="flex gap-1.5">
             <button
               onClick={() => { setShowNewArea(false); setFormError(null) }}
-              className="flex-1 text-[10px] py-1.5 rounded text-zinc-400 hover:text-zinc-600 transition-colors font-mono"
+              className="flex-1 text-[11px] py-1.5 rounded text-zinc-600 hover:text-zinc-800 transition-colors"
             >
               Cancelar
             </button>
             <button
               disabled={!newAreaForm.nombre.trim() || createArea.isPending}
               onClick={() => createArea.mutate(newAreaForm)}
-              className="flex-1 text-[10px] py-1.5 rounded bg-helix-accent/80 hover:bg-helix-accent text-white disabled:opacity-40 transition-colors font-mono"
+              className="flex-1 text-[11px] py-1.5 rounded bg-helix-accent/80 hover:bg-helix-accent text-white disabled:opacity-40 transition-colors"
             >
               Crear
             </button>
@@ -312,7 +312,7 @@ function AreaNode({
               : <Folder className="h-3.5 w-3.5 shrink-0" style={{ color: area.color }} />
             }
             <span className="text-[12px] text-zinc-700 flex-1 truncate">{area.nombre}</span>
-            <span className="text-[10px] text-zinc-400 font-mono tabular-nums pr-1">
+            <span className="text-[11px] text-zinc-400 font-mono tabular-nums pr-1">
               {area._count.procedimientos}
             </span>
           </button>
@@ -332,7 +332,7 @@ function AreaNode({
       {expanded && (
         <div className="pl-5">
           {procs.length === 0 && (
-            <div className="px-3 py-1 text-[11px] text-zinc-400 italic">Sin procedimientos</div>
+            <div className="px-3 py-1 text-[11px] text-zinc-600 italic">Sin procedimientos</div>
           )}
           {procs.map((proc) => (
             <ProcNode
@@ -470,13 +470,13 @@ function ProcNode({
               <button
                 onClick={(e) => { e.stopPropagation(); deleteMutation.mutate() }}
                 disabled={deleteMutation.isPending}
-                className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors font-mono"
+                className="text-[11px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
               >
                 {deleteMutation.isPending ? "…" : "Sí"}
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); setConfirmDelete(false) }}
-                className="text-[9px] px-1 py-0.5 rounded text-zinc-400 hover:text-zinc-600 transition-colors font-mono"
+                className="text-[11px] px-1 py-0.5 rounded text-zinc-600 hover:text-zinc-800 transition-colors"
               >
                 No
               </button>
@@ -497,7 +497,7 @@ function ProcNode({
       {expanded && (
         <div className="pl-5">
           {commits.length === 0 && (
-            <div className="px-3 py-1 text-[11px] text-zinc-400 italic">Sin commits</div>
+            <div className="px-3 py-1 text-[11px] text-zinc-600 italic">Sin commits</div>
           )}
           {commits.map((c) => (
             <CommitNode

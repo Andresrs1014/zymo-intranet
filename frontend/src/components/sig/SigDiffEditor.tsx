@@ -248,7 +248,7 @@ export function SigDiffEditor({ commitId, isGerente, onOpenProcedure }: Props) {
               </div>
             )}
             {!isPending && commit.aprobadoNombre && (
-              <span className="text-[10px] text-zinc-400 font-mono">
+              <span className="text-[11px] text-zinc-400 font-mono">
                 {commit.estado === "APROBADO" ? "✓" : "✗"} {commit.aprobadoNombre}
                 {commit.aprobadoEn && " · " + new Date(commit.aprobadoEn).toLocaleDateString("es-CO")}
               </span>
@@ -268,47 +268,45 @@ export function SigDiffEditor({ commitId, isGerente, onOpenProcedure }: Props) {
         {actionError && <p className="mt-2 text-[11px] text-red-500 font-mono">{actionError}</p>}
       </div>
 
-      {/* Toolbar — Split | Inline | Documento */}
+      {/* Toolbar — Split | Inline | Documento (Split/Inline solo si hay algo que comparar) */}
       <div className="shrink-0 flex items-center justify-between px-4 h-8 border-b border-zinc-200 bg-zinc-50">
         <div className="flex items-center gap-0.5">
-          <button
-            onClick={() => setMode("split")}
-            disabled={!hasDiff}
-            className={cn(
-              "flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded transition-colors font-mono",
-              mode === "split" ? "bg-zinc-200 text-zinc-800"
-              : !hasDiff ? "text-zinc-300 cursor-not-allowed"
-              : "text-zinc-400 hover:text-zinc-700",
-            )}
-          >
-            <SplitSquareHorizontal className="h-3 w-3" /> Split
-          </button>
-          <button
-            onClick={() => setMode("inline")}
-            disabled={!hasDiff}
-            className={cn(
-              "flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded transition-colors font-mono",
-              mode === "inline" ? "bg-zinc-200 text-zinc-800"
-              : !hasDiff ? "text-zinc-300 cursor-not-allowed"
-              : "text-zinc-400 hover:text-zinc-700",
-            )}
-          >
-            <AlignLeft className="h-3 w-3" /> Inline
-          </button>
+          {hasDiff && (
+            <>
+              <button
+                onClick={() => setMode("split")}
+                className={cn(
+                  "flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded transition-colors",
+                  mode === "split" ? "bg-zinc-200 text-zinc-800" : "text-zinc-400 hover:text-zinc-700",
+                )}
+              >
+                <SplitSquareHorizontal className="h-3 w-3" /> Split
+              </button>
+              <button
+                onClick={() => setMode("inline")}
+                className={cn(
+                  "flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded transition-colors",
+                  mode === "inline" ? "bg-zinc-200 text-zinc-800" : "text-zinc-400 hover:text-zinc-700",
+                )}
+              >
+                <AlignLeft className="h-3 w-3" /> Inline
+              </button>
+            </>
+          )}
           <button
             onClick={() => setMode("documento")}
             className={cn(
-              "flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded transition-colors font-mono",
-              mode === "documento" ? "bg-zinc-200 text-zinc-800" : "text-zinc-400 hover:text-zinc-700",
+              "flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded transition-colors",
+              mode === "documento" || !hasDiff ? "bg-zinc-200 text-zinc-800" : "text-zinc-400 hover:text-zinc-700",
             )}
           >
             <FileText className="h-3 w-3" /> Documento
           </button>
         </div>
-        <span className="text-[10px] text-zinc-400 font-mono">
+        <span className="text-[11px] text-zinc-500">
           {hasDiff
             ? `${rows.length} líneas · +${additions} −${deletions}`
-            : "sin cambios"
+            : commit.sinCambios ? "sin cambios" : "primera versión"
           }
         </span>
       </div>
@@ -317,10 +315,8 @@ export function SigDiffEditor({ commitId, isGerente, onOpenProcedure }: Props) {
       <div className="flex-1 overflow-hidden">
         {mode === "documento"
           ? <DocumentoView content={commit.contenidoAgente || commit.contenidoOriginal} />
-          : commit.sinCambios
-          ? <NoChangesView onViewDoc={() => setMode("documento")} firstVersion={false} />
           : !hasDiff
-          ? <NoChangesView onViewDoc={() => setMode("documento")} firstVersion />
+          ? <NoChangesView onViewDoc={() => setMode("documento")} firstVersion={!commit.sinCambios} />
           : mode === "split"
           ? <SplitDiff rows={rows} />
           : <InlineDiff rows={flattenForInline(rows)} />
@@ -382,7 +378,7 @@ function DocumentoView({ content }: { content: string }) {
   return (
     <div className="h-full overflow-auto bg-white">
       <div className="max-w-3xl mx-auto px-8 py-6">
-        <div className="prose prose-sm max-w-none
+        <div className="prose prose-base max-w-none
           prose-headings:font-mono prose-headings:text-zinc-800 prose-headings:font-semibold
           prose-p:text-zinc-600 prose-p:leading-relaxed
           prose-code:text-helix-ai prose-code:bg-zinc-100 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-[11px]
@@ -442,10 +438,10 @@ function SplitDiff({ rows }: { rows: DiffRow[] }) {
       {/* Header */}
       <div className="sticky top-0 z-10 flex border-b border-zinc-200">
         <div className="flex-1 flex items-center h-7 px-3 bg-zinc-50 border-r border-zinc-200">
-          <span className="text-[10px] text-zinc-500 tracking-widest uppercase">Original</span>
+          <span className="text-[11px] text-zinc-500 tracking-widest uppercase">Original</span>
         </div>
         <div className="flex-1 flex items-center h-7 px-3 bg-zinc-50">
-          <span className="text-[10px] text-helix-ai tracking-widest uppercase">Procesado por IA</span>
+          <span className="text-[11px] text-helix-ai tracking-widest uppercase">Procesado por IA</span>
         </div>
       </div>
 
@@ -453,7 +449,7 @@ function SplitDiff({ rows }: { rows: DiffRow[] }) {
         if (row.kind === "hunk") {
           return (
             <div key={i} className="flex bg-sky-50 border-y border-sky-200 h-7 items-center px-3">
-              <span className="text-[10px] text-sky-500 font-mono w-full">{row.hunkHeader}</span>
+              <span className="text-[11px] text-sky-500 font-mono w-full">{row.hunkHeader}</span>
             </div>
           )
         }
@@ -523,7 +519,7 @@ function InlineDiff({ rows }: { rows: InlineRow[] }) {
   return (
     <div className="h-full overflow-auto font-mono text-[12px] leading-[1.65]">
       <div className="sticky top-0 z-10 flex items-center h-7 px-3 bg-zinc-50 border-b border-zinc-200">
-        <span className="text-[10px] text-zinc-500 tracking-widest uppercase">Diff inline</span>
+        <span className="text-[11px] text-zinc-500 tracking-widest uppercase">Diff inline</span>
       </div>
 
       {rows.map((item, i) => {
@@ -531,7 +527,7 @@ function InlineDiff({ rows }: { rows: InlineRow[] }) {
         if (kind === "hunk") {
           return (
             <div key={i} className="flex bg-sky-50 border-y border-sky-200 h-7 items-center px-3">
-              <span className="text-[10px] text-sky-500">{row.hunkHeader}</span>
+              <span className="text-[11px] text-sky-500">{row.hunkHeader}</span>
             </div>
           )
         }
@@ -605,7 +601,7 @@ function EstadoBadge({ estado }: { estado: string }) {
     RECHAZADO: "rechazado",
   }
   return (
-    <span className={cn("text-[10px] px-2 py-0.5 rounded border font-mono tracking-wide", map[estado] ?? "")}>
+    <span className={cn("text-[11px] px-2 py-0.5 rounded border font-mono tracking-wide", map[estado] ?? "")}>
       {labels[estado] ?? estado}
     </span>
   )

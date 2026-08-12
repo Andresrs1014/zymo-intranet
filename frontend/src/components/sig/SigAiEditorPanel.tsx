@@ -168,7 +168,7 @@ export function SigAiEditorPanel({
       <div className="shrink-0 flex items-center gap-2 px-4 h-8 border-b border-zinc-200 bg-zinc-50">
         <Sparkles className="h-3.5 w-3.5 text-violet-500" />
         <span className="text-[11px] text-zinc-600 font-mono font-medium">Editar con IA</span>
-        <span className="text-[10px] text-zinc-400">— instrucción quirúrgica</span>
+        <span className="text-[11px] text-zinc-400">— instrucción quirúrgica</span>
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
@@ -191,7 +191,7 @@ export function SigAiEditorPanel({
                          placeholder:text-zinc-400 resize-none"
             />
             <div className="flex items-center justify-between">
-              <span className="text-[10px] text-zinc-400 font-mono">Ctrl+Enter para enviar</span>
+              <span className="text-[11px] text-zinc-400 font-mono">Ctrl+Enter para enviar</span>
               <button
                 onClick={handleSend}
                 disabled={!canSend}
@@ -213,7 +213,7 @@ export function SigAiEditorPanel({
                 <AlertCircle className="h-3.5 w-3.5 text-red-500 shrink-0 mt-0.5" />
                 <div>
                   <p className="text-[11px] text-red-600 font-mono">{errorMsg}</p>
-                  <button onClick={handleReset} className="text-[10px] text-red-400 underline mt-1">
+                  <button onClick={handleReset} className="text-[11px] text-red-400 underline mt-1">
                     Reintentar
                   </button>
                 </div>
@@ -233,11 +233,11 @@ export function SigAiEditorPanel({
               <p className="text-[12px] text-zinc-600 font-mono">
                 {phase === "sending" ? "Enviando instrucción…" : "Aplicando edición con IA…"}
               </p>
-              <p className="text-[10px] text-zinc-400 mt-1">
+              <p className="text-[11px] text-zinc-400 mt-1">
                 {phase === "polling" ? "Esto puede tomar 15-30 segundos" : ""}
               </p>
             </div>
-            <div className="text-[10px] text-zinc-400 font-mono italic max-w-xs text-center">
+            <div className="text-[11px] text-zinc-400 font-mono italic max-w-xs text-center">
               "{instruccion.slice(0, 100)}{instruccion.length > 100 ? "…" : ""}"
             </div>
           </div>
@@ -259,7 +259,7 @@ export function SigAiEditorPanel({
             {/* Changes list */}
             {result.cambios?.length > 0 && (
               <div>
-                <p className="text-[10px] text-zinc-400 font-mono uppercase tracking-widest mb-2">
+                <p className="text-[11px] text-zinc-400 font-mono uppercase tracking-widest mb-2">
                   Cambios aplicados
                 </p>
                 <div className="space-y-1.5">
@@ -270,7 +270,7 @@ export function SigAiEditorPanel({
                         <span className="font-mono font-medium text-zinc-700">{c.seccion}</span>
                         <span className="text-zinc-400 mx-1">·</span>
                         <span className={cn(
-                          "text-[10px] px-1.5 py-0.5 rounded font-mono",
+                          "text-[11px] px-1.5 py-0.5 rounded font-mono",
                           c.tipo === "adicion"     ? "bg-emerald-50 text-emerald-600"  :
                           c.tipo === "eliminacion" ? "bg-red-50 text-red-500"          :
                                                      "bg-amber-50 text-amber-600"
@@ -288,7 +288,7 @@ export function SigAiEditorPanel({
             {/* Diff toggle */}
             <button
               onClick={() => setShowDiff(p => !p)}
-              className="w-full text-left flex items-center gap-1.5 text-[10px] text-zinc-400 font-mono hover:text-zinc-600 transition-colors"
+              className="w-full text-left flex items-center gap-1.5 text-[11px] text-zinc-400 font-mono hover:text-zinc-600 transition-colors"
             >
               <ChevronRight className={cn("h-3 w-3 transition-transform", showDiff && "rotate-90")} />
               {showDiff ? "Ocultar" : "Ver"} texto editado
@@ -296,10 +296,10 @@ export function SigAiEditorPanel({
 
             {showDiff && (
               <div className="rounded-lg border border-zinc-200 bg-zinc-50 max-h-64 overflow-y-auto">
-                <div className="px-3 py-2 border-b border-zinc-200 text-[10px] text-zinc-400 font-mono">
+                <div className="px-3 py-2 border-b border-zinc-200 text-[11px] text-zinc-400 font-mono">
                   Contenido editado (preview)
                 </div>
-                <pre className="px-3 py-3 text-[10px] font-mono text-zinc-600 whitespace-pre-wrap break-words">
+                <pre className="px-3 py-3 text-[11px] font-mono text-zinc-600 whitespace-pre-wrap break-words">
                   {result.contenidoEditado}
                 </pre>
               </div>
@@ -342,13 +342,13 @@ export function SigAiEditorPanel({
               </div>
 
               {commitMutation.isError && (
-                <p className="text-[10px] text-red-500 font-mono">{errorMsg}</p>
+                <p className="text-[11px] text-red-500 font-mono">{errorMsg}</p>
               )}
             </div>
 
             {/* Meta */}
             {result.tokensUsados && (
-              <p className="text-[9px] text-zinc-400 font-mono">
+              <p className="text-[11px] text-zinc-400 font-mono">
                 {result.tokensUsados.toLocaleString()} tokens · {result.modeloUsado}
               </p>
             )}

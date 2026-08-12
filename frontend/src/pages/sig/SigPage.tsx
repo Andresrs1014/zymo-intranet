@@ -6,17 +6,21 @@ import { sigApi } from "@/lib/sigApi"
 import { api } from "@/lib/api"
 import { SigExplorer, type ProcedureOpenInfo, type CommitOpenInfo } from "@/components/sig/SigExplorer"
 import { SigDiffEditor } from "@/components/sig/SigDiffEditor"
+import { SigDiffMobileView } from "@/components/sig/SigDiffMobileView"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import {
   FileText, GitCommit, Inbox, X,
   GitBranchPlus, GitBranch, Clock, ChevronRight, ChevronLeft, Check, Circle, Download,
   Pencil, Eye, Sparkles, Save, XCircle, Loader, AlertCircle,
-  FlaskConical, RefreshCw, History, UploadCloud, BookOpen, Paperclip, Users, Database,
+  ClipboardCheck, RefreshCw, History, UploadCloud, BookOpen, Paperclip, Users, Database,
+  Smartphone,
 } from "lucide-react"
 import { SigAiEditorPanel } from "@/components/sig/SigAiEditorPanel"
 import { MermaidDiagram } from "@/components/reportes/MermaidDiagram"
-import { SigAnalisisPanel, useRunAnalysis } from "@/components/sig/SigAnalisisPanel"
+import { useRunAnalysis } from "@/components/sig/SigAnalisisPanel"
+import { SigRubricaPanel } from "@/components/sig/SigRubricaPanel"
+import { SigRagPanel } from "@/components/sig/SigRagPanel"
 import { SigAnalisisSyncView } from "@/components/sig/SigAnalisisSyncView"
 import { SigAnalisisQueue } from "@/components/sig/SigAnalisisQueue"
 import { SigAnalisisInspector } from "@/components/sig/SigAnalisisInspector"
@@ -27,7 +31,7 @@ import { SigAnexoPanel } from "@/components/sig/SigAnexoPanel"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-type TabIcon = "file" | "diff" | "queue" | "analisis" | "sync"
+type TabIcon = "file" | "diff" | "queue" | "rubrica" | "sync" | "rag" | "mobile"
 
 interface TabMeta {
   key: string
@@ -41,8 +45,10 @@ type ActiveView =
   | { kind: "procedure"; id: number }
   | { kind: "commit"; id: number }
   | { kind: "queue" }
-  | { kind: "analisis" }
+  | { kind: "rubrica" }
+  | { kind: "rag" }
   | { kind: "analisis-sync" }
+  | { kind: "mobile-preview" }
 
 // ── SigPage ────────────────────────────────────────────────────────────────────
 
@@ -117,12 +123,20 @@ export function SigPage() {
     openTab({ kind: "queue" }, { key: "queue", icon: "queue", title: "Cola de revisión" })
   }, [openTab])
 
-  const openAnalisis = useCallback(() => {
-    openTab({ kind: "analisis" }, { key: "analisis", icon: "analisis", title: "Análisis IA" })
+  const openRubrica = useCallback(() => {
+    openTab({ kind: "rubrica" }, { key: "rubrica", icon: "rubrica", title: "Análisis" })
+  }, [openTab])
+
+  const openRag = useCallback(() => {
+    openTab({ kind: "rag" }, { key: "rag", icon: "rag", title: "Grafo de conocimiento" })
   }, [openTab])
 
   const openAnalisisSync = useCallback(() => {
     openTab({ kind: "analisis-sync" }, { key: "analisis-sync", icon: "sync", title: "Historial de análisis" })
+  }, [openTab])
+
+  const openMobilePreview = useCallback(() => {
+    openTab({ kind: "mobile-preview" }, { key: "mobile-preview", icon: "mobile", title: "Cola de revisión (mobile)" })
   }, [openTab])
 
   // ── Derived state ─────────────────────────────────────────────────────────────
@@ -139,8 +153,10 @@ export function SigPage() {
         canEditSig={canEditSig}
         pendingCount={pendingCount}
         onOpenQueue={openQueue}
-        onOpenAnalisis={openAnalisis}
+        onOpenRubrica={openRubrica}
+        onOpenRag={openRag}
         onOpenSync={openAnalisisSync}
+        onOpenMobilePreview={openMobilePreview}
         onCargar={() => openCargar(null)}
       />
 
@@ -190,8 +206,10 @@ export function SigPage() {
             {activeView.kind === "queue" && (
               <ReviewQueueView onOpenCommit={openCommit} />
             )}
-            {activeView.kind === "analisis" && <SigAnalisisPanel />}
+            {activeView.kind === "rubrica" && <SigRubricaPanel />}
+            {activeView.kind === "rag" && <SigRagPanel />}
             {activeView.kind === "analisis-sync" && <SigAnalisisSyncView />}
+            {activeView.kind === "mobile-preview" && <SigMobilePreviewView isGerente={isGerente} />}
           </div>
         </div>
       </div>
@@ -219,15 +237,17 @@ export function SigPage() {
 // ── Title bar ──────────────────────────────────────────────────────────────────
 
 function TitleBar({
-  isGerente, canEditSig, pendingCount, onOpenQueue, onOpenAnalisis, onOpenSync, onCargar,
+  isGerente, canEditSig, pendingCount, onOpenQueue, onOpenRubrica, onOpenRag, onOpenSync, onOpenMobilePreview, onCargar,
 }: {
-  isGerente:      boolean
-  canEditSig:     boolean
-  pendingCount:   number
-  onOpenQueue:    () => void
-  onOpenAnalisis: () => void
-  onOpenSync:     () => void
-  onCargar:       () => void
+  isGerente:            boolean
+  canEditSig:           boolean
+  pendingCount:         number
+  onOpenQueue:          () => void
+  onOpenRubrica:        () => void
+  onOpenRag:            () => void
+  onOpenSync:           () => void
+  onOpenMobilePreview:  () => void
+  onCargar:             () => void
 }) {
   return (
     <div className="h-10 shrink-0 flex items-center justify-between px-4 border-b border-zinc-200 bg-white">
@@ -248,11 +268,18 @@ function TitleBar({
           </button>
         )}
         <button
-          onClick={onOpenAnalisis}
-          className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded border border-violet-200 text-violet-600 hover:bg-violet-50 transition-colors font-mono"
+          onClick={onOpenRubrica}
+          className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded border border-violet-200 text-violet-600 hover:bg-violet-50 transition-colors"
         >
-          <FlaskConical className="h-3 w-3" />
-          Análisis IA
+          <ClipboardCheck className="h-3 w-3" />
+          Análisis
+        </button>
+        <button
+          onClick={onOpenRag}
+          className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded border border-emerald-200 text-emerald-600 hover:bg-emerald-50 transition-colors"
+        >
+          <Database className="h-3 w-3" />
+          Grafo de conocimiento
         </button>
         <button
           onClick={onOpenSync}
@@ -260,6 +287,13 @@ function TitleBar({
         >
           <History className="h-3 w-3" />
           Historial de análisis
+        </button>
+        <button
+          onClick={onOpenMobilePreview}
+          className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded border border-sky-200 text-sky-600 hover:bg-sky-50 transition-colors"
+        >
+          <Smartphone className="h-3 w-3" />
+          Cola de revisión (mobile)
         </button>
         {isGerente && pendingCount > 0 && (
           <button
@@ -278,11 +312,13 @@ function TitleBar({
 // ── Tab bar ────────────────────────────────────────────────────────────────────
 
 const TAB_ICON: Record<TabIcon, React.ReactNode> = {
-  file:    <FileText      className="h-3.5 w-3.5 text-zinc-400" />,
-  diff:    <GitCommit     className="h-3.5 w-3.5 text-helix-ai/80" />,
-  queue:   <Inbox         className="h-3.5 w-3.5 text-amber-500/70" />,
-  analisis:<FlaskConical  className="h-3.5 w-3.5 text-violet-500/80" />,
-  sync:    <History       className="h-3.5 w-3.5 text-zinc-400" />,
+  file:    <FileText       className="h-3.5 w-3.5 text-zinc-400" />,
+  diff:    <GitCommit      className="h-3.5 w-3.5 text-helix-ai/80" />,
+  queue:   <Inbox          className="h-3.5 w-3.5 text-amber-500/70" />,
+  rubrica: <ClipboardCheck className="h-3.5 w-3.5 text-violet-500/80" />,
+  rag:     <Database        className="h-3.5 w-3.5 text-emerald-500/80" />,
+  sync:    <History        className="h-3.5 w-3.5 text-zinc-400" />,
+  mobile:  <Smartphone      className="h-3.5 w-3.5 text-sky-500/80" />,
 }
 
 function TabBar({
@@ -591,7 +627,7 @@ function ProcedureFileView({
           <FileText className="h-3 w-3 text-zinc-400" />
           <span className="text-[11px] text-zinc-700 font-mono font-medium">{proc.codigo}</span>
           <div className="ml-1">
-            <span className={cn("text-[9px] px-1.5 py-0.5 rounded border font-mono", ESTADO_PROC_BADGE[proc.estado])}>
+            <span className={cn("text-[11px] px-1.5 py-0.5 rounded border font-mono", ESTADO_PROC_BADGE[proc.estado])}>
               {proc.estado.toLowerCase()}
             </span>
           </div>
@@ -604,21 +640,21 @@ function ProcedureFileView({
                   onClick={handleIndexRag}
                   disabled={indexingRag}
                   title="Indexar este procedimiento en el grafo de conocimiento LightRAG"
-                  className="flex items-center gap-1 text-[10px] px-2 py-1 rounded border border-emerald-200 text-emerald-600 hover:bg-emerald-50 transition-colors font-mono disabled:opacity-40"
+                  className="flex items-center gap-1 text-[11px] px-2 py-1 rounded border border-emerald-200 text-emerald-600 hover:bg-emerald-50 transition-colors font-mono disabled:opacity-40"
                 >
                   {indexingRag ? <Loader className="h-3 w-3 animate-spin" /> : <Database className="h-3 w-3" />}
                   RAG
                 </button>
                 <button
                   onClick={enterEdit}
-                  className="flex items-center gap-1 text-[10px] px-2 py-1 rounded border border-zinc-200 text-zinc-500 hover:border-zinc-300 hover:text-zinc-700 transition-colors font-mono"
+                  className="flex items-center gap-1 text-[11px] px-2 py-1 rounded border border-zinc-200 text-zinc-500 hover:border-zinc-300 hover:text-zinc-700 transition-colors font-mono"
                 >
                   <Pencil className="h-3 w-3" />
                   Editar
                 </button>
                 <button
                   onClick={() => setEditorMode("ai")}
-                  className="flex items-center gap-1 text-[10px] px-2 py-1 rounded border border-violet-200 text-violet-600 hover:bg-violet-50 transition-colors font-mono"
+                  className="flex items-center gap-1 text-[11px] px-2 py-1 rounded border border-violet-200 text-violet-600 hover:bg-violet-50 transition-colors font-mono"
                 >
                   <Sparkles className="h-3 w-3" />
                   Editar con IA
@@ -628,7 +664,7 @@ function ProcedureFileView({
             {(editorMode === "edit" || editorMode === "ai") && (
               <button
                 onClick={() => setEditorMode("view")}
-                className="flex items-center gap-1 text-[10px] px-2 py-1 rounded border border-zinc-200 text-zinc-500 hover:text-zinc-700 transition-colors font-mono"
+                className="flex items-center gap-1 text-[11px] px-2 py-1 rounded border border-zinc-200 text-zinc-500 hover:text-zinc-700 transition-colors font-mono"
               >
                 <Eye className="h-3 w-3" />
                 Vista
@@ -670,7 +706,7 @@ function ProcedureFileView({
                 placeholder="Mensaje descriptivo de los cambios…"
                 className="flex-1 text-[12px] font-mono px-3 py-1.5 border border-zinc-200 rounded focus:outline-none focus:ring-1 focus:ring-helix-accent text-zinc-700 bg-white"
               />
-              {saveError && <span className="text-[10px] text-red-500 font-mono">{saveError}</span>}
+              {saveError && <span className="text-[11px] text-red-500 font-mono">{saveError}</span>}
               <button
                 onClick={handleSaveEdit}
                 disabled={!commitMsg.trim() || saving}
@@ -703,7 +739,7 @@ function ProcedureFileView({
                 {latestPending && (
                   <button
                     onClick={() => onOpenCommit(latestPending.id, { mensaje: latestPending.mensaje, codigo: proc.codigo })}
-                    className="ml-auto text-[10px] text-amber-600 hover:text-amber-800 underline font-mono transition-colors"
+                    className="ml-auto text-[11px] text-amber-600 hover:text-amber-800 underline font-mono transition-colors"
                   >
                     Ver diff #{String(latestPending.id).padStart(4, "0")}
                   </button>
@@ -754,7 +790,7 @@ function ProcedureFileView({
                     <BookOpen className="h-3 w-3" />
                     Instructivos
                     {instructivosSnap.length > 0 && (
-                      <span className="ml-0.5 text-[9px] px-1.5 py-px rounded-full bg-helix-accent/10 text-helix-accent font-semibold tabular-nums">
+                      <span className="ml-0.5 text-[11px] px-1.5 py-px rounded-full bg-helix-accent/10 text-helix-accent font-semibold tabular-nums">
                         {instructivosSnap.length}
                       </span>
                     )}
@@ -795,7 +831,7 @@ function ProcedureFileView({
                     <Users className="h-3 w-3" />
                     Cargos
                     <span className={cn(
-                      "ml-0.5 text-[9px] px-1.5 py-px rounded-full font-semibold tabular-nums",
+                      "ml-0.5 text-[11px] px-1.5 py-px rounded-full font-semibold tabular-nums",
                       procCargosCount > 0
                         ? "bg-rose-100 text-rose-600"
                         : "bg-amber-100 text-amber-700",
@@ -831,7 +867,7 @@ function ProcedureFileView({
                         <h1 className="text-lg font-bold text-zinc-900 font-mono tracking-tight">{proc.codigo}</h1>
                         <p className="text-[14px] text-zinc-600 mt-1.5 leading-snug">{proc.titulo}</p>
                       </div>
-                      <span className={cn("shrink-0 text-[10px] px-2 py-1 rounded border font-mono mt-0.5", ESTADO_PROC_BADGE[proc.estado])}>
+                      <span className={cn("shrink-0 text-[11px] px-2 py-1 rounded border font-mono mt-0.5", ESTADO_PROC_BADGE[proc.estado])}>
                         {proc.estado.toLowerCase()}
                       </span>
                     </div>
@@ -1016,7 +1052,7 @@ function ProcedureFileView({
       <div className="w-64 shrink-0 border-l border-zinc-200 flex flex-col bg-zinc-50">
         <div className="flex items-center gap-2 px-3 h-7 border-b border-zinc-200 shrink-0">
           <Clock className="h-3 w-3 text-helix-ai/50" />
-          <span className="text-[10px] text-helix-ai/60 font-mono uppercase tracking-widest">
+          <span className="text-[11px] text-helix-ai/60 font-mono uppercase tracking-widest">
             Historial
           </span>
         </div>
@@ -1446,7 +1482,7 @@ function CommitHistoryRow({
   return (
     <div className="border-b border-zinc-200/60 group">
       {pdfError && (
-        <div className="px-3 pt-1.5 pb-0.5 text-[10px] text-red-500 font-mono flex items-center gap-1">
+        <div className="px-3 pt-1.5 pb-0.5 text-[11px] text-red-500 font-mono flex items-center gap-1">
           <AlertCircle className="h-3 w-3 shrink-0" />
           {pdfError}
         </div>
@@ -1468,9 +1504,9 @@ function CommitHistoryRow({
               {commit.mensaje}
             </p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-[10px] text-zinc-400 font-mono">#{String(commit.id).padStart(4, "0")}</span>
-              <span className="text-[10px] text-zinc-400">·</span>
-              <span className="text-[10px] text-zinc-400 font-mono">
+              <span className="text-[11px] text-zinc-400 font-mono">#{String(commit.id).padStart(4, "0")}</span>
+              <span className="text-[11px] text-zinc-400">·</span>
+              <span className="text-[11px] text-zinc-400 font-mono">
                 {new Date(commit.createdAt).toLocaleDateString("es-CO", { day: "2-digit", month: "short" })}
               </span>
             </div>
@@ -1563,7 +1599,7 @@ function ReviewQueueView({
 
         {commits.length > 0 && (
           <div className="max-w-2xl">
-            <p className="text-[10px] text-zinc-400 font-mono uppercase tracking-widest mb-3">
+            <p className="text-[11px] text-zinc-400 font-mono uppercase tracking-widest mb-3">
               Pendientes de revisión
             </p>
             <div className="space-y-1">
@@ -1585,16 +1621,16 @@ function ReviewQueueView({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
                       <span className="text-[11px] text-zinc-500 font-mono">{commit.procedimiento.codigo}</span>
-                      <span className="text-[10px] text-zinc-300">·</span>
+                      <span className="text-[11px] text-zinc-300">·</span>
                       <span className="text-[11px] text-zinc-400">{commit.procedimiento.area.nombre}</span>
                     </div>
                     <p className="text-[12px] text-zinc-600 group-hover:text-zinc-900 transition-colors truncate font-mono">
                       {commit.mensaje}
                     </p>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-[10px] text-zinc-400">por {commit.autorNombre}</span>
-                      <span className="text-[10px] text-zinc-300">·</span>
-                      <span className="text-[10px] text-zinc-400 font-mono">
+                      <span className="text-[11px] text-zinc-400">por {commit.autorNombre}</span>
+                      <span className="text-[11px] text-zinc-300">·</span>
+                      <span className="text-[11px] text-zinc-400 font-mono">
                         {new Date(commit.createdAt).toLocaleString("es-CO", {
                           day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
                         })}
@@ -1603,13 +1639,100 @@ function ReviewQueueView({
                   </div>
 
                   <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="text-[10px] text-amber-500/70 font-mono">
+                    <span className="text-[11px] text-amber-500/70 font-mono">
                       #{String(commit.id).padStart(4, "0")}
                     </span>
                     <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
                   </div>
                 </button>
               ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Mobile preview — cola de revisión dentro de un marco de celular ────────────
+// Sandbox no tiene routing/magic-link real: esto es solo para que el gerente vea
+// cómo se comportaría la aprobación desde el celular, sin salir del escritorio.
+
+function SigMobilePreviewView({ isGerente }: { isGerente: boolean }) {
+  const [selectedId, setSelectedId] = useState<number | null>(null)
+
+  const { data: commits = [], isLoading } = useQuery<PendingCommit[]>({
+    queryKey: ["sig", "commits", "pendientes-detail"],
+    queryFn: async () => (await sigApi.get("/api/commits?estado=PENDIENTE_REVISION")).data,
+    refetchInterval: 30_000,
+  })
+
+  return (
+    <div className="h-full overflow-auto bg-zinc-900 flex items-center justify-center py-8 px-4">
+      <div className="relative w-full max-w-[390px] h-[780px] max-h-full rounded-[2.5rem] border-[10px] border-zinc-800 bg-white shadow-2xl overflow-hidden flex flex-col">
+        {/* Notch — solo decorativo, refuerza que esto es un marco de celular */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-5 bg-zinc-800 rounded-b-2xl z-30" />
+
+        {selectedId == null ? (
+          <div className="flex flex-col h-full pt-6">
+            <div className="shrink-0 flex items-center gap-2 px-4 pb-3 border-b border-zinc-200">
+              <Smartphone className="h-3.5 w-3.5 text-sky-500" />
+              <span className="text-[13px] font-semibold text-zinc-800">Cola de revisión</span>
+              {commits.length > 0 && (
+                <span className="ml-auto text-[11px] font-mono text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
+                  {commits.length}
+                </span>
+              )}
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {isLoading && (
+                <p className="px-4 py-6 text-[13px] text-zinc-400 text-center">Cargando…</p>
+              )}
+              {!isLoading && commits.length === 0 && (
+                <div className="flex flex-col items-center justify-center h-full gap-2 px-6 text-center">
+                  <Check className="h-6 w-6 text-emerald-400" />
+                  <p className="text-[13px] text-zinc-500">Sin pendientes</p>
+                </div>
+              )}
+              {commits.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setSelectedId(c.id)}
+                  className="w-full flex items-center gap-3 px-4 py-3 border-b border-zinc-100 text-left active:bg-zinc-50 transition-colors"
+                >
+                  <span className="h-8 w-0.5 rounded-full shrink-0" style={{ backgroundColor: c.procedimiento.area.color }} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <span className="text-[11px] font-mono text-zinc-500">{c.procedimiento.codigo}</span>
+                      <span className="text-[11px] text-zinc-300">·</span>
+                      <span className="text-[11px] text-zinc-400 truncate">{c.procedimiento.area.nombre}</span>
+                    </div>
+                    <p className="text-[13px] text-zinc-800 truncate">{c.mensaje}</p>
+                    <p className="text-[11px] text-zinc-400 mt-0.5">{c.autorNombre}</p>
+                  </div>
+                  <ChevronRight className="h-3.5 w-3.5 text-zinc-300 shrink-0" />
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col h-full pt-6">
+            <div className="shrink-0 flex items-center gap-2 px-3 h-9 border-b border-zinc-200">
+              <button
+                onClick={() => setSelectedId(null)}
+                className="flex items-center gap-1 text-[12px] text-zinc-500 active:text-zinc-800 transition-colors"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+                Cola
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <SigDiffMobileView
+                key={selectedId}
+                commitId={selectedId}
+                isGerente={isGerente}
+                onActioned={() => setSelectedId(null)}
+              />
             </div>
           </div>
         )}
@@ -1627,8 +1750,10 @@ function StatusBar({
     activeView.kind === "procedure"    ? "procedure"
     : activeView.kind === "commit"     ? "diff"
     : activeView.kind === "queue"      ? "queue"
-    : activeView.kind === "analisis"   ? "análisis ia"
+    : activeView.kind === "rubrica"    ? "análisis"
+    : activeView.kind === "rag"        ? "grafo de conocimiento"
     : activeView.kind === "analisis-sync" ? "historial de análisis"
+    : activeView.kind === "mobile-preview" ? "vista mobile"
     : ""
 
   return (

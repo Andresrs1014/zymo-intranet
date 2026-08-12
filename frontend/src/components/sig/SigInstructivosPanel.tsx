@@ -58,11 +58,11 @@ function getErr(e: unknown, fallback: string): string {
   return fallback
 }
 
-export const PROSE = `prose prose-sm max-w-none
-  prose-headings:font-mono prose-headings:text-zinc-700 prose-headings:font-semibold prose-headings:text-[13px]
-  prose-p:text-zinc-600 prose-p:text-[13px] prose-p:leading-relaxed
+export const PROSE = `prose prose-base max-w-none
+  prose-headings:font-mono prose-headings:text-zinc-700 prose-headings:font-semibold
+  prose-p:text-zinc-600 prose-p:leading-relaxed
   prose-strong:text-zinc-800 prose-strong:font-semibold
-  prose-li:text-zinc-600 prose-li:text-[13px] prose-li:leading-relaxed
+  prose-li:text-zinc-600 prose-li:leading-relaxed
   prose-ul:space-y-1.5 prose-ol:space-y-1.5 prose-ul:my-3 prose-ol:my-3
   prose-code:text-helix-ai prose-code:bg-zinc-100 prose-code:px-1 prose-code:rounded prose-code:text-[11px]
   prose-table:text-[12px] prose-th:text-zinc-600 prose-th:font-mono prose-th:font-semibold prose-th:text-[11px] prose-th:border prose-th:border-zinc-200 prose-th:px-3 prose-th:py-1.5 prose-th:bg-zinc-50
@@ -209,7 +209,7 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
             <BookOpen className="h-4 w-4 text-zinc-400" />
             <span className="text-[13px] font-mono font-semibold text-zinc-600">Documentos de soporte</span>
             {instructivos.length > 0 && (
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-zinc-200 text-zinc-400">
+              <span className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-zinc-200 text-zinc-400">
                 {instructivos.length}
               </span>
             )}
@@ -243,7 +243,7 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
               style={{ width: `${(instructivos.length / MAX_INSTRUCTIVOS) * 100}%` }}
             />
           </div>
-          <span className="text-[10px] text-zinc-400 font-mono tabular-nums">
+          <span className="text-[11px] text-zinc-400 font-mono tabular-nums">
             {instructivos.length} / {MAX_INSTRUCTIVOS}
           </span>
         </div>
@@ -295,7 +295,7 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
             <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white border border-zinc-200">
               <FolderOpen className="h-3 w-3 text-zinc-400 shrink-0" />
               <span className="text-[11px] text-zinc-600 truncate font-mono">{form.fileName}</span>
-              <span className="ml-auto text-[10px] text-zinc-400 font-mono tabular-nums">
+              <span className="ml-auto text-[11px] text-zinc-400 font-mono tabular-nums">
                 {(form.file?.size ? (form.file.size / 1024).toFixed(0) : "?")} KB
               </span>
             </div>
@@ -408,14 +408,14 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-[12px] font-mono font-semibold text-zinc-700">{inst.codigo}</span>
-                  <span className="text-[10px] font-mono text-zinc-400">v{inst.versionDoc}</span>
+                  <span className="text-[11px] font-mono text-zinc-400">v{inst.versionDoc}</span>
                   {inst.archivoOriginal && !inst.tipoMime?.startsWith("text/") && (
-                    <span className="text-[9px] font-mono px-1.5 py-px rounded bg-zinc-100 text-zinc-500">
+                    <span className="text-[11px] font-mono px-1.5 py-px rounded bg-zinc-100 text-zinc-500">
                       {inst.tipoMime === "application/pdf" ? "PDF" : inst.tipoMime?.includes("docx") ? "DOCX" : "DOC"}
                     </span>
                   )}
                   {!inst.contenido.trim() && (
-                    <span className="text-[9px] font-mono px-1.5 py-px rounded bg-amber-100 text-amber-600">sin texto</span>
+                    <span className="text-[11px] font-mono px-1.5 py-px rounded bg-amber-100 text-amber-600">sin texto</span>
                   )}
                 </div>
                 <p className="text-[12px] text-zinc-500 truncate mt-0.5">{inst.titulo}</p>
@@ -427,7 +427,7 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
                   onClick={(e) => { e.stopPropagation(); reextractMutation.mutate(inst.id) }}
                   disabled={reextractMutation.isPending}
                   title="Re-extraer texto del archivo"
-                  className="shrink-0 flex items-center gap-1 px-2 py-1 rounded border border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100 text-[10px] font-mono transition-colors"
+                  className="shrink-0 flex items-center gap-1 px-2 py-1 rounded border border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100 text-[11px] font-mono transition-colors"
                 >
                   <RefreshCw className={cn("h-3 w-3", reextractMutation.isPending && "animate-spin")} />
                   Re-extraer
@@ -445,13 +445,13 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
                     <button
                       onClick={() => void handleDelete(inst.id)}
                       disabled={deleting === inst.id}
-                      className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-500 border border-red-200 hover:bg-red-500/20 font-mono"
+                      className="text-[11px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-500 border border-red-200 hover:bg-red-500/20 font-mono"
                     >
                       {deleting === inst.id ? "…" : "Sí"}
                     </button>
                     <button
                       onClick={() => setConfirmDeleteId(null)}
-                      className="text-[9px] px-1 py-0.5 rounded text-zinc-400 hover:text-zinc-600 font-mono"
+                      className="text-[11px] px-1 py-0.5 rounded text-zinc-400 hover:text-zinc-600 font-mono"
                     >
                       No
                     </button>
@@ -483,7 +483,7 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
       )}
 
       {canEdit && (
-        <p className="text-[10px] text-zinc-400 text-center mt-4 font-mono opacity-70">
+        <p className="text-[11px] text-zinc-400 text-center mt-4 font-mono opacity-70">
           Formatos: MD · TXT · DOCX · PDF · DOC
         </p>
       )}
@@ -602,7 +602,7 @@ const inputCls =
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="text-[10px] text-zinc-400 uppercase tracking-widest font-mono block mb-1">{label}</label>
+      <label className="text-[11px] text-zinc-400 uppercase tracking-widest font-mono block mb-1">{label}</label>
       {children}
     </div>
   )

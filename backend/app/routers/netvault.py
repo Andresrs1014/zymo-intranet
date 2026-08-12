@@ -17,9 +17,12 @@ from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from pydantic import BaseModel, Field, field_validator
+from sqlmodel import Session, select
 
 from app.config import settings
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, require_permission
+from app.database import get_db
+from app.models.rubrica import RubricaCategoria
 from app.models.user import User
 from app.services.tc_manual_extraction import cargo_manual_flags
 
@@ -27,83 +30,13 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/netvault", tags=["netvault"])
 
-# ── Rúbrica embebida (sincronizada con resources/rubrica/rubrica-agent.json) ──
+# ── Rúbrica ────────────────────────────────────────────────────────────────────
+# Las 7 categorías ya NO están hardcodeadas acá — viven en la tabla
+# `rubrica_categorias` (backend/app/models/rubrica.py), editable desde la página
+# "Análisis" del SIG. La semilla inicial (mismos valores que había acá antes)
+# está en `_DEFAULT_RUBRICA_CATEGORIAS` (backend/app/main.py, _seed_rubrica()).
 
 RUBRIC_VERSION = "1.0.0"
-
-RUBRIC_CATEGORIES = [
-    {
-        "id": "claridad", "name": "Claridad", "weight": 1.2,
-        "description": "El texto es comprensible, sin ambigüedades ni jerga innecesaria.",
-        "checks": [
-            "Cada paso tiene un verbo de acción explícito",
-            "No hay términos sin definir en el primer uso",
-            "Las condiciones (si/entonces) están explícitas",
-            "Un lector nuevo puede ejecutar el proceso sin preguntar",
-        ],
-    },
-    {
-        "id": "completitud", "name": "Completitud", "weight": 1.2,
-        "description": "Cubre inicio, desarrollo, cierre, excepciones y entregables.",
-        "checks": [
-            "Existe disparador claro de inicio",
-            "Todos los pasos intermedios están documentados",
-            "Hay cierre formal con entregables",
-            "Se documentan excepciones y qué hacer ante ellas",
-            "Referencias a formularios/sistemas están nombrados",
-        ],
-    },
-    {
-        "id": "responsabilidades", "name": "Responsabilidades", "weight": 1.0,
-        "description": "Define quién hace qué, con roles y escalamiento.",
-        "checks": [
-            "Cada actividad tiene responsable (rol o cargo)",
-            "Existe escalamiento ante bloqueos",
-            "Aprobaciones tienen autoridad nombrada",
-            "No hay pasos huérfanos sin dueño",
-        ],
-    },
-    {
-        "id": "riesgos", "name": "Riesgos", "weight": 1.0,
-        "description": "Identifica riesgos operacionales, legales y de cumplimiento.",
-        "checks": [
-            "Riesgos por paso o por fase están nombrados",
-            "Existen controles o mitigaciones",
-            "Datos sensibles tienen manejo indicado",
-            "Impacto de error está considerado",
-        ],
-    },
-    {
-        "id": "tiempos", "name": "Tiempos", "weight": 0.8,
-        "description": "Plazos, SLAs y duración por actividad cuando aplique.",
-        "checks": [
-            "Actividades con SLA o plazo tienen valor numérico",
-            "Unidades de tiempo son consistentes",
-            "Tiempos de espera entre áreas están indicados",
-            "Plazos legales o contractuales están citados si aplican",
-        ],
-    },
-    {
-        "id": "cumplimiento", "name": "Cumplimiento", "weight": 1.0,
-        "description": "Alineación con normativa interna, políticas y trazabilidad.",
-        "checks": [
-            "Referencia a políticas o normas internas cuando aplica",
-            "Registros/evidencias de cumplimiento están definidos",
-            "Versionado y vigencia del documento son coherentes",
-            "Separación de funciones en aprobaciones sensibles",
-        ],
-    },
-    {
-        "id": "mejora_continua", "name": "Mejora continua", "weight": 0.8,
-        "description": "Oportunidades de automatización, eliminación de pasos y mejoras.",
-        "checks": [
-            "Pasos manuales redundantes identificados",
-            "Oportunidades de integración con intranet/sistemas",
-            "Métricas o KPIs del proceso mencionados o sugeridos",
-            "Propuestas son accionables y priorizadas",
-        ],
-    },
-]
 
 MARKDOWN_RULES = [
     "Título H1 con código y nombre del procedimiento",
@@ -134,20 +67,57 @@ CORPUS_RULES = [
 
 
 @router.get("/rubrica")
-async def get_rubrica(_user: User = Depends(get_current_user)) -> dict[str, Any]:
+async def get_rubrica(
+    _user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
     """
     Expone la rúbrica de análisis "completo" (7 categorías) sin invocar ningún LLM —
     la usa el MCP para que el agente que llama (Claude Code/Codex, con su propia
     suscripción) haga el análisis él mismo en vez de consumir el ANTHROPIC_API_KEY
-    del servidor. Único endpoint de solo-lectura de la rúbrica.
+    del servidor. Las categorías se leen de la tabla `rubrica_categorias`
+    (editable desde la página "Análisis" del SIG).
     """
+    categorias = db.exec(select(RubricaCategoria).order_by(RubricaCategoria.orden)).all()
     return {
         "version": RUBRIC_VERSION,
-        "categorias": RUBRIC_CATEGORIES,
+        "categorias": [c.model_dump(exclude={"orden"}) for c in categorias],
         "reglasMarkdown": MARKDOWN_RULES,
         "reglasFlujograma": FLOWCHART_RULES,
         "reglasCorpus": CORPUS_RULES,
     }
+
+
+class RubricaCategoriaUpdate(BaseModel):
+    weight: float | None = None
+    description: str | None = None
+    checks: list[str] | None = None
+
+
+@router.patch("/rubrica/{categoria_id}")
+async def update_rubrica_categoria(
+    categoria_id: str,
+    payload: RubricaCategoriaUpdate,
+    _user: User = Depends(require_permission("mod_sig")),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Edita el peso, la descripción o los puntos a revisar de una categoría de
+    la rúbrica. Requiere permiso mod_sig (mismo permiso que edita el resto del SIG)."""
+    categoria = db.get(RubricaCategoria, categoria_id)
+    if not categoria:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Categoría no encontrada.")
+
+    if payload.weight is not None:
+        categoria.weight = payload.weight
+    if payload.description is not None:
+        categoria.description = payload.description.strip() or categoria.description
+    if payload.checks is not None:
+        categoria.checks = [c.strip() for c in payload.checks if c.strip()]
+
+    db.add(categoria)
+    db.commit()
+    db.refresh(categoria)
+    return categoria.model_dump(exclude={"orden"})
 
 
 # ── Schemas de request / response ─────────────────────────────────────────────

@@ -269,7 +269,7 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
             </span>
             {selectedArea && (
               <span
-                className="flex items-center gap-1.5 text-[10px] px-2 py-0.5 rounded-full border font-mono shrink-0"
+                className="flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full border font-mono shrink-0"
                 style={{ color: selectedArea.color, borderColor: `${selectedArea.color}40`, backgroundColor: `${selectedArea.color}10` }}
               >
                 <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: selectedArea.color }} />
@@ -297,10 +297,10 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
               {/* Área */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-[10px] text-zinc-400 uppercase tracking-widest font-mono">Área</label>
+                  <label className="text-[11px] text-zinc-400 uppercase tracking-widest font-mono">Área</label>
                   <button
                     onClick={() => { setError(""); setStep("create-area") }}
-                    className="flex items-center gap-1 text-[10px] text-helix-accent hover:opacity-80 transition-opacity font-mono"
+                    className="flex items-center gap-1 text-[11px] text-helix-accent hover:opacity-80 transition-opacity font-mono"
                   >
                     <Plus className="h-2.5 w-2.5" /> Nueva área
                   </button>
@@ -320,7 +320,7 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
               {/* Procedimiento */}
               {areaId != null && (
                 <div>
-                  <label className="text-[10px] text-zinc-400 uppercase tracking-widest font-mono block mb-1.5">Procedimiento</label>
+                  <label className="text-[11px] text-zinc-400 uppercase tracking-widest font-mono block mb-1.5">Procedimiento</label>
                   <select
                     value={proc?.id ?? ""}
                     onChange={(e) => {
@@ -363,7 +363,7 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
                 />
               </Field>
               <div>
-                <label className="text-[10px] text-zinc-400 uppercase tracking-widest font-mono block mb-2">Color</label>
+                <label className="text-[11px] text-zinc-400 uppercase tracking-widest font-mono block mb-2">Color</label>
                 <div className="flex gap-2 flex-wrap">
                   {COLORS.map((c) => (
                     <button
@@ -463,7 +463,7 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
                   <>
                     <FileText className="h-5 w-5 text-helix-done" />
                     <span className="text-xs text-helix-done font-mono font-medium">{fileName}</span>
-                    <span className="text-[10px] text-zinc-400 font-mono">
+                    <span className="text-[11px] text-zinc-400 font-mono">
                       {serverExtract
                         ? "el texto se extraerá en el servidor · click para cambiar"
                         : `${content.length.toLocaleString()} caracteres · click para cambiar`}
@@ -494,13 +494,13 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
                 <div>
                   <button
                     onClick={() => setShowPreview((v) => !v)}
-                    className="flex items-center gap-1.5 text-[10px] text-zinc-400 hover:text-zinc-600 transition-colors mb-1.5 font-mono"
+                    className="flex items-center gap-1.5 text-[11px] text-zinc-400 hover:text-zinc-600 transition-colors mb-1.5 font-mono"
                   >
                     {showPreview ? <EyeOff className="h-2.5 w-2.5" /> : <Eye className="h-2.5 w-2.5" />}
                     {showPreview ? "Ocultar vista previa" : "Ver contenido extraído"}
                   </button>
                   {showPreview && (
-                    <pre className="bg-zinc-50 border border-zinc-200 rounded-lg px-3 py-2 text-[10px] text-zinc-500 font-mono leading-relaxed overflow-auto max-h-40 whitespace-pre-wrap">
+                    <pre className="bg-zinc-50 border border-zinc-200 rounded-lg px-3 py-2 text-[11px] text-zinc-500 font-mono leading-relaxed overflow-auto max-h-40 whitespace-pre-wrap">
                       {content.slice(0, 1200)}{content.length > 1200 ? "\n…" : ""}
                     </pre>
                   )}
@@ -525,12 +525,12 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
                   <div className="w-1 self-stretch rounded-full shrink-0" style={{ backgroundColor: selectedArea.color }} />
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="text-[10px] text-zinc-400 uppercase tracking-widest font-mono mb-0.5">Procedimiento destino</p>
+                  <p className="text-[11px] text-zinc-400 uppercase tracking-widest font-mono mb-0.5">Procedimiento destino</p>
                   <p className="text-xs font-mono text-helix-accent font-semibold">{proc.codigo}</p>
                   <p className="text-xs text-zinc-500 truncate mt-0.5">{proc.titulo}</p>
                 </div>
                 {fileName && (
-                  <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-helix-warning/10 text-helix-warning border border-helix-warning/20 font-mono max-w-[110px] truncate">
+                  <span className="shrink-0 text-[11px] px-1.5 py-0.5 rounded bg-helix-warning/10 text-helix-warning border border-helix-warning/20 font-mono max-w-[110px] truncate">
                     {fileName}
                   </span>
                 )}
@@ -618,7 +618,7 @@ function StepTitle({ icon, label, hint }: { icon: React.ReactNode; label: string
         {icon}
       </div>
       <span className="text-xs font-medium text-zinc-700 font-mono">{label}</span>
-      {hint && <span className="text-[10px] text-zinc-400 font-mono">{hint}</span>}
+      {hint && <span className="text-[11px] text-zinc-400 font-mono">{hint}</span>}
     </div>
   )
 }
@@ -626,7 +626,7 @@ function StepTitle({ icon, label, hint }: { icon: React.ReactNode; label: string
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="text-[10px] text-zinc-400 uppercase tracking-widest font-mono block mb-1.5">{label}</label>
+      <label className="text-[11px] text-zinc-400 uppercase tracking-widest font-mono block mb-1.5">{label}</label>
       {children}
     </div>
   )

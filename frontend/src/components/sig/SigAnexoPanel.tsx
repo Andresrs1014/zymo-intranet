@@ -147,7 +147,7 @@ export function SigAnexoPanel({
           <Paperclip className="h-4 w-4 text-zinc-400" />
           <span className="text-[13px] font-mono font-semibold text-zinc-600">{title}</span>
           {items.length > 0 && (
-            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-zinc-200 text-zinc-400">
+            <span className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-zinc-200 text-zinc-400">
               {items.length}
             </span>
           )}
@@ -185,7 +185,7 @@ export function SigAnexoPanel({
             <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white border border-zinc-200">
               <Paperclip className="h-3 w-3 text-zinc-400 shrink-0" />
               <span className="text-[11px] text-zinc-600 truncate font-mono">{file.name}</span>
-              <span className="ml-auto text-[10px] text-zinc-400 font-mono tabular-nums">
+              <span className="ml-auto text-[11px] text-zinc-400 font-mono tabular-nums">
                 {(file.size / 1024).toFixed(0)} KB
               </span>
             </div>
@@ -193,7 +193,7 @@ export function SigAnexoPanel({
 
           {instructivoOptions && (
             <div>
-              <label className="text-[10px] text-zinc-400 uppercase tracking-widest font-mono block mb-1">
+              <label className="text-[11px] text-zinc-400 uppercase tracking-widest font-mono block mb-1">
                 Instructivo *
               </label>
               <select
@@ -210,7 +210,7 @@ export function SigAnexoPanel({
           )}
 
           <div>
-            <label className="text-[10px] text-zinc-400 uppercase tracking-widest font-mono block mb-1">
+            <label className="text-[11px] text-zinc-400 uppercase tracking-widest font-mono block mb-1">
               Nombre *
             </label>
             <input
@@ -314,13 +314,13 @@ export function SigAnexoPanel({
                     <button
                       onClick={() => void handleDelete(item.id)}
                       disabled={deleting === item.id}
-                      className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-500 border border-red-200 hover:bg-red-500/20 font-mono"
+                      className="text-[11px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-500 border border-red-200 hover:bg-red-500/20 font-mono"
                     >
                       {deleting === item.id ? "…" : "Sí"}
                     </button>
                     <button
                       onClick={() => setConfirmDeleteId(null)}
-                      className="text-[9px] px-1 py-0.5 rounded text-zinc-400 hover:text-zinc-600 font-mono"
+                      className="text-[11px] px-1 py-0.5 rounded text-zinc-400 hover:text-zinc-600 font-mono"
                     >
                       No
                     </button>

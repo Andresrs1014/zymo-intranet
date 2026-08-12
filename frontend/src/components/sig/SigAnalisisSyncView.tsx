@@ -226,7 +226,7 @@ export function SigAnalisisSyncView() {
               key={String(opt.value)}
               onClick={() => setTipoFilter(opt.value)}
               className={cn(
-                "flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-mono border transition-all",
+                "flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-mono border transition-all",
                 tipoFilter === opt.value
                   ? "bg-zinc-900 text-white border-zinc-900"
                   : "bg-white text-zinc-500 border-zinc-200 hover:border-zinc-400 hover:text-zinc-700",
@@ -241,7 +241,7 @@ export function SigAnalisisSyncView() {
         {historial.length > 0 && (
           <button
             onClick={() => downloadAllMarkdown(historial)}
-            className="ml-auto flex items-center gap-1.5 text-[10px] px-3 py-1.5 rounded border border-zinc-200 text-zinc-500 hover:border-zinc-400 hover:text-zinc-700 font-mono transition-all"
+            className="ml-auto flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded border border-zinc-200 text-zinc-500 hover:border-zinc-400 hover:text-zinc-700 font-mono transition-all"
           >
             <Download className="h-3 w-3" />
             Descargar todo ({historial.length})
@@ -313,7 +313,7 @@ function HistorialRow({ item, onDownload }: { item: HistorialItem; onDownload: (
 
       {/* Tipo chip */}
       <div className={cn(
-        "flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-mono shrink-0",
+        "flex items-center gap-1 px-2 py-0.5 rounded border text-[11px] font-mono shrink-0",
         TIPO_CHIP[item.tipo],
       )}>
         {TIPO_ICON[item.tipo]}
@@ -324,14 +324,14 @@ function HistorialRow({ item, onDownload }: { item: HistorialItem; onDownload: (
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="text-[12px] font-mono font-medium text-zinc-700">{item.procedimiento.codigo}</span>
-          <span className="text-[10px] text-zinc-400 truncate">{item.procedimiento.titulo}</span>
+          <span className="text-[11px] text-zinc-400 truncate">{item.procedimiento.titulo}</span>
         </div>
         <div className="flex items-center gap-2 mt-0.5">
-          <span className="text-[10px] text-zinc-400 font-mono">
+          <span className="text-[11px] text-zinc-400 font-mono">
             {new Date(item.createdAt).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" })}
           </span>
-          <span className="text-[10px] text-zinc-300">·</span>
-          <span className="text-[10px] text-zinc-400">{item.autorNombre}</span>
+          <span className="text-[11px] text-zinc-300">·</span>
+          <span className="text-[11px] text-zinc-400">{item.autorNombre}</span>
         </div>
       </div>
 
@@ -339,11 +339,11 @@ function HistorialRow({ item, onDownload }: { item: HistorialItem; onDownload: (
       <div className="shrink-0 text-right min-w-[70px]">
         {item.tipo === "coherencia" && score != null && (
           <span className={cn("text-[13px] font-mono font-bold", scoreColor)}>
-            {score}<span className="text-[10px] font-normal text-zinc-400">/100</span>
+            {score}<span className="text-[11px] font-normal text-zinc-400">/100</span>
           </span>
         )}
         {item.tipo === "coherencia" && score == null && (
-          <span className="text-[10px] font-mono text-zinc-400">sin puntaje</span>
+          <span className="text-[11px] font-mono text-zinc-400">sin puntaje</span>
         )}
         {item.tipo === "mejoras" && (
           <span className="text-[11px] font-mono text-zinc-600">
@@ -353,12 +353,12 @@ function HistorialRow({ item, onDownload }: { item: HistorialItem; onDownload: (
         )}
         {item.tipo === "proc-vs-inst" && (
           item.coherente ? (
-            <span className="flex items-center justify-end gap-1 text-[10px] font-mono text-emerald-600">
+            <span className="flex items-center justify-end gap-1 text-[11px] font-mono text-emerald-600">
               <CheckCircle2 className="h-3 w-3" />
               Alineado
             </span>
           ) : (
-            <span className="flex items-center justify-end gap-1 text-[10px] font-mono text-amber-600">
+            <span className="flex items-center justify-end gap-1 text-[11px] font-mono text-amber-600">
               <AlertTriangle className="h-3 w-3" />
               {conflictos.length} conflict.
             </span>
@@ -371,7 +371,7 @@ function HistorialRow({ item, onDownload }: { item: HistorialItem; onDownload: (
           </span>
         )}
         {item.tipo === "coherencia" && (
-          <div className="text-[9px] font-mono text-zinc-400 mt-0.5">{issues.length} hallazgos</div>
+          <div className="text-[11px] font-mono text-zinc-400 mt-0.5">{issues.length} hallazgos</div>
         )}
         {item.tipo === "completo" && (
           <span className="text-[11px] font-mono text-zinc-600">

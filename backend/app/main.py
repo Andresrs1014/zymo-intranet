@@ -59,6 +59,7 @@ from app.routers.netvault import router as netvault_router
 from app.routers.mantenimiento.router import router as mantenimiento_router
 from app.routers.sig_pdf import router as sig_pdf_router
 from app.models.mantenimiento import SolicitudMantenimiento, TipoMantenimientoConfig, HistorialMantenimiento  # noqa: F401
+from app.models.rubrica import RubricaCategoria
 
 
 _DEFAULT_ROLES = [
@@ -261,6 +262,97 @@ def _seed_areas_sedes() -> None:
     print("[seed] Áreas y sedes verificadas.")
 
 
+# Semilla inicial de la rúbrica de análisis completo (MCP-001 / sig_analyze_full).
+# Antes vivía hardcodeada en netvault.py — se movió a tabla (rubrica_categorias)
+# para que se pueda editar desde la página "Análisis" del SIG. Estos valores solo
+# se usan para poblar la tabla la primera vez; después de eso la fuente de verdad
+# es la BD, no este diccionario.
+_DEFAULT_RUBRICA_CATEGORIAS = [
+    {
+        "id": "claridad", "name": "Claridad", "weight": 1.2, "orden": 0,
+        "description": "El texto es comprensible, sin ambigüedades ni jerga innecesaria.",
+        "checks": [
+            "Cada paso tiene un verbo de acción explícito",
+            "No hay términos sin definir en el primer uso",
+            "Las condiciones (si/entonces) están explícitas",
+            "Un lector nuevo puede ejecutar el proceso sin preguntar",
+        ],
+    },
+    {
+        "id": "completitud", "name": "Completitud", "weight": 1.2, "orden": 1,
+        "description": "Cubre inicio, desarrollo, cierre, excepciones y entregables.",
+        "checks": [
+            "Existe disparador claro de inicio",
+            "Todos los pasos intermedios están documentados",
+            "Hay cierre formal con entregables",
+            "Se documentan excepciones y qué hacer ante ellas",
+            "Referencias a formularios/sistemas están nombrados",
+        ],
+    },
+    {
+        "id": "responsabilidades", "name": "Responsabilidades", "weight": 1.0, "orden": 2,
+        "description": "Define quién hace qué, con roles y escalamiento.",
+        "checks": [
+            "Cada actividad tiene responsable (rol o cargo)",
+            "Existe escalamiento ante bloqueos",
+            "Aprobaciones tienen autoridad nombrada",
+            "No hay pasos huérfanos sin dueño",
+        ],
+    },
+    {
+        "id": "riesgos", "name": "Riesgos", "weight": 1.0, "orden": 3,
+        "description": "Identifica riesgos operacionales, legales y de cumplimiento.",
+        "checks": [
+            "Riesgos por paso o por fase están nombrados",
+            "Existen controles o mitigaciones",
+            "Datos sensibles tienen manejo indicado",
+            "Impacto de error está considerado",
+        ],
+    },
+    {
+        "id": "tiempos", "name": "Tiempos", "weight": 0.8, "orden": 4,
+        "description": "Plazos, SLAs y duración por actividad cuando aplique.",
+        "checks": [
+            "Actividades con SLA o plazo tienen valor numérico",
+            "Unidades de tiempo son consistentes",
+            "Tiempos de espera entre áreas están indicados",
+            "Plazos legales o contractuales están citados si aplican",
+        ],
+    },
+    {
+        "id": "cumplimiento", "name": "Cumplimiento", "weight": 1.0, "orden": 5,
+        "description": "Alineación con normativa interna, políticas y trazabilidad.",
+        "checks": [
+            "Referencia a políticas o normas internas cuando aplica",
+            "Registros/evidencias de cumplimiento están definidos",
+            "Versionado y vigencia del documento son coherentes",
+            "Separación de funciones en aprobaciones sensibles",
+        ],
+    },
+    {
+        "id": "mejora_continua", "name": "Mejora continua", "weight": 0.8, "orden": 6,
+        "description": "Oportunidades de automatización, eliminación de pasos y mejoras.",
+        "checks": [
+            "Pasos manuales redundantes identificados",
+            "Oportunidades de integración con intranet/sistemas",
+            "Métricas o KPIs del proceso mencionados o sugeridos",
+            "Propuestas son accionables y priorizadas",
+        ],
+    },
+]
+
+
+def _seed_rubrica() -> None:
+    """Idempotente por clave natural (id de categoría), no por conteo — si ya
+    existe una fila con ese id no se toca (puede tener ediciones del usuario)."""
+    with Session(get_engine()) as session:
+        for cat in _DEFAULT_RUBRICA_CATEGORIAS:
+            if not session.get(RubricaCategoria, cat["id"]):
+                session.add(RubricaCategoria(**cat))
+        session.commit()
+    print("[seed] Rúbrica de análisis verificada.")
+
+
 def _seed_admin() -> None:
     with Session(get_engine()) as session:
         existing = session.exec(
@@ -404,6 +496,7 @@ async def lifespan(app: FastAPI):
     _migrate_db()
     _seed_roles()
     _seed_areas_sedes()
+    _seed_rubrica()
     _seed_admin()
     create_oc_tables()
     _migrate_oc_db()

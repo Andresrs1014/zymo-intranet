@@ -289,7 +289,7 @@ function RagStatusBadge({ onOpen }: { onOpen: () => void }) {
         <Database className="h-3 w-3 text-emerald-600" />
         <span className="text-[11px] font-mono font-semibold text-emerald-700">LightRAG</span>
       </div>
-      <div className="flex items-center gap-2 text-[10px] font-mono text-zinc-400">
+      <div className="flex items-center gap-2 text-[11px] font-mono text-zinc-400">
         <span>·</span>
         <span className="text-emerald-600">Jarvis</span>
         <span>·</span>
@@ -297,7 +297,7 @@ function RagStatusBadge({ onOpen }: { onOpen: () => void }) {
       </div>
       <button
         onClick={onOpen}
-        className="ml-auto flex items-center gap-1 text-[10px] font-mono px-2.5 py-1 rounded border border-emerald-200 text-emerald-700 hover:bg-emerald-50 transition-colors"
+        className="ml-auto flex items-center gap-1 text-[11px] font-mono px-2.5 py-1 rounded border border-emerald-200 text-emerald-700 hover:bg-emerald-50 transition-colors"
       >
         Ver estado del grafo →
       </button>
@@ -333,12 +333,12 @@ function SigRagModal({ onClose }: { onClose: () => void }) {
           <Database className="h-4 w-4 text-emerald-400 shrink-0" />
           <div>
             <p className="text-sm font-mono font-bold text-white">LightRAG — Grafo de conocimiento ZYMO</p>
-            <p className="text-[10px] text-zinc-500 font-mono mt-0.5">Gemini 2.0 Flash · Ollama nomic-embed-text · 768 dims</p>
+            <p className="text-[11px] text-zinc-500 font-mono mt-0.5">Gemini 2.0 Flash · Ollama nomic-embed-text · 768 dims</p>
           </div>
           <div className="ml-auto flex items-center gap-2">
             <button
               onClick={() => { void refetch() }}
-              className="flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded border border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:border-zinc-500 transition-colors"
+              className="flex items-center gap-1 text-[11px] font-mono px-2 py-1 rounded border border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:border-zinc-500 transition-colors"
             >
               <Loader className={cn("h-2.5 w-2.5", isLoading && "animate-spin")} />
               Refrescar
@@ -367,7 +367,7 @@ function SigRagModal({ onClose }: { onClose: () => void }) {
               >
                 <span className={cn("h-2 w-2 rounded-full", a.badge)} />
                 {a.nombre}
-                <span className="text-[9px] font-normal opacity-60">{a.rol}</span>
+                <span className="text-[11px] font-normal opacity-60">{a.rol}</span>
               </button>
             )
           })}
@@ -385,16 +385,16 @@ function SigRagModal({ onClose }: { onClose: () => void }) {
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline gap-2 mb-1">
                   <span className={cn("text-sm font-mono font-bold", agent.text)}>{agent.nombre}</span>
-                  <span className="text-[10px] font-mono text-zinc-500">{agent.rol} · activo</span>
+                  <span className="text-[11px] font-mono text-zinc-500">{agent.rol} · activo</span>
                 </div>
                 <p className="text-[12px] text-zinc-300 leading-relaxed">{agent.desc}</p>
                 <div className="mt-2.5 flex items-start gap-1.5">
-                  <span className="text-[10px] font-mono text-zinc-600 shrink-0">Responde a:</span>
-                  <span className={cn("text-[10px] font-mono italic", agent.text)}>"{agent.pregunta}"</span>
+                  <span className="text-[11px] font-mono text-zinc-600 shrink-0">Responde a:</span>
+                  <span className={cn("text-[11px] font-mono italic", agent.text)}>"{agent.pregunta}"</span>
                 </div>
               </div>
             </div>
-            <div className="mt-3 pt-3 border-t border-zinc-700/60 grid grid-cols-2 gap-2 text-[10px] font-mono text-zinc-500">
+            <div className="mt-3 pt-3 border-t border-zinc-700/60 grid grid-cols-2 gap-2 text-[11px] font-mono text-zinc-500">
               <div><span className="text-zinc-600">LLM extracción:</span> <span className="text-zinc-300">{agent.llm}</span></div>
               <div><span className="text-zinc-600">Embeddings:</span> <span className="text-zinc-300">{agent.embed}</span></div>
             </div>
@@ -419,7 +419,7 @@ function SigRagModal({ onClose }: { onClose: () => void }) {
             <>
               {/* Pipeline visual */}
               <div>
-                <p className="text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-widest mb-3">Pipeline de indexación</p>
+                <p className="text-[11px] font-mono font-bold text-zinc-500 uppercase tracking-widest mb-3">Pipeline de indexación</p>
                 <div className="flex items-center gap-2 font-mono">
                   <PipelineNode value={s.documentos_indexados} label="docs" color={agent.text} />
                   <PipelineArrow label="chunking" />
@@ -441,7 +441,7 @@ function SigRagModal({ onClose }: { onClose: () => void }) {
                 ]).map(({ k, v }) => (
                   <div key={k} className="rounded-lg border border-zinc-800 bg-zinc-800/40 p-3 text-center">
                     <p className={cn("text-xl font-mono font-bold tabular-nums", agent.text)}>{v}</p>
-                    <p className="text-[10px] font-mono text-zinc-500 mt-0.5">{k}</p>
+                    <p className="text-[11px] font-mono text-zinc-500 mt-0.5">{k}</p>
                   </div>
                 ))}
               </div>
@@ -451,7 +451,7 @@ function SigRagModal({ onClose }: { onClose: () => void }) {
           {/* Fuentes indexadas */}
           {!isLoading && ragData?.fuentes && ragData.fuentes.length > 0 && (
             <div>
-              <p className="text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-widest mb-2">
+              <p className="text-[11px] font-mono font-bold text-zinc-500 uppercase tracking-widest mb-2">
                 Fuentes indexadas ({ragData.fuentes.length})
               </p>
               <div className="rounded-xl border border-zinc-800 bg-zinc-800/30 divide-y divide-zinc-800 max-h-48 overflow-y-auto">
@@ -461,7 +461,7 @@ function SigRagModal({ onClose }: { onClose: () => void }) {
                     <div key={i} className="flex items-center gap-2.5 px-3 py-2">
                       <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", agent.badge)} />
                       <span className="text-[11px] font-mono text-zinc-300 truncate flex-1" title={f}>{name}</span>
-                      <span className="text-[10px] font-mono text-zinc-600 shrink-0 truncate max-w-[200px]" title={f}>{f}</span>
+                      <span className="text-[11px] font-mono text-zinc-600 shrink-0 truncate max-w-[200px]" title={f}>{f}</span>
                     </div>
                   )
                 })}
@@ -472,14 +472,14 @@ function SigRagModal({ onClose }: { onClose: () => void }) {
           {/* Archivos internos del grafo */}
           {!isLoading && files.length > 0 && (
             <div>
-              <p className="text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-widest mb-2">
+              <p className="text-[11px] font-mono font-bold text-zinc-500 uppercase tracking-widest mb-2">
                 Archivos internos del grafo
               </p>
               <div className="space-y-1">
                 {KEY_FILES.map(({ file, label }) => {
                   const exists = files.includes(file)
                   return (
-                    <div key={file} className="flex items-center gap-2 text-[10px] font-mono">
+                    <div key={file} className="flex items-center gap-2 text-[11px] font-mono">
                       <span className={exists ? "text-emerald-500" : "text-zinc-700"}>
                         {exists ? "✓" : "○"}
                       </span>
@@ -489,7 +489,7 @@ function SigRagModal({ onClose }: { onClose: () => void }) {
                   )
                 })}
                 {files.filter((f) => !KEY_FILES.some((k) => k.file === f)).length > 0 && (
-                  <p className="text-[10px] font-mono text-zinc-700 pt-1">
+                  <p className="text-[11px] font-mono text-zinc-700 pt-1">
                     +{files.filter((f) => !KEY_FILES.some((k) => k.file === f)).length} archivos adicionales
                   </p>
                 )}
@@ -507,7 +507,7 @@ function PipelineNode({ value, label, color }: { value: number; label: string; c
   return (
     <div className="flex flex-col items-center">
       <span className={cn("text-base font-bold tabular-nums font-mono", color)}>{value}</span>
-      <span className="text-[9px] text-zinc-600">{label}</span>
+      <span className="text-[11px] text-zinc-600">{label}</span>
     </div>
   )
 }
@@ -517,9 +517,9 @@ function PipelineArrow({ label }: { label: string }) {
     <div className="flex flex-col items-center gap-0.5 flex-1 min-w-0">
       <div className="flex items-center w-full gap-0.5">
         <div className="flex-1 h-px bg-zinc-700" />
-        <span className="text-zinc-600 text-[10px]">▶</span>
+        <span className="text-zinc-600 text-[11px]">▶</span>
       </div>
-      <span className="text-[8px] font-mono text-zinc-700 truncate">{label}</span>
+      <span className="text-[11px] font-mono text-zinc-700 truncate">{label}</span>
     </div>
   )
 }
@@ -627,7 +627,7 @@ function AreaChip({
     <button
       onClick={onClick}
       className={cn(
-        "shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-mono transition-all border",
+        "shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-mono transition-all border",
         active
           ? "bg-zinc-900 text-white border-zinc-900"
           : "bg-white text-zinc-500 border-zinc-200 hover:border-zinc-400 hover:text-zinc-700",
@@ -721,9 +721,9 @@ function ProcAnalisisCard({ proc }: { proc: ProcListItem }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-[12px] font-mono font-semibold text-zinc-700">{proc.codigo}</span>
-            <span className="text-[10px] text-zinc-400">{proc.area.nombre}</span>
+            <span className="text-[11px] text-zinc-400">{proc.area.nombre}</span>
             <span className={cn(
-              "text-[9px] px-1.5 py-0.5 rounded border font-mono ml-auto",
+              "text-[11px] px-1.5 py-0.5 rounded border font-mono ml-auto",
               proc.estado === "VIGENTE"  ? "text-emerald-600 border-emerald-200 bg-emerald-50" :
               proc.estado === "OBSOLETO" ? "text-zinc-400 border-zinc-200 bg-zinc-50" :
                                            "text-zinc-500 border-zinc-300 bg-zinc-100",
@@ -733,7 +733,7 @@ function ProcAnalisisCard({ proc }: { proc: ProcListItem }) {
           {hasInstWarning && (
             <div className="flex items-center gap-1.5 mt-1.5 px-2 py-1 rounded bg-amber-50 border border-amber-200">
               <AlertTriangle className="h-3 w-3 text-amber-500 shrink-0" />
-              <span className="text-[10px] text-amber-700 font-mono">
+              <span className="text-[11px] text-amber-700 font-mono">
                 {emptyContentInst.length} instructivo{emptyContentInst.length !== 1 ? "s" : ""} sin texto extraíble
                 ({emptyContentInst.map((i) => i.codigo).join(", ")}) — el análisis Proc/Inst lo reportará como no verificable
               </span>
@@ -742,7 +742,7 @@ function ProcAnalisisCard({ proc }: { proc: ProcListItem }) {
           {sinCargosAsignados && (
             <div className="flex items-center gap-1.5 mt-1.5 px-2 py-1 rounded bg-rose-50 border border-rose-200">
               <AlertTriangle className="h-3 w-3 text-rose-500 shrink-0" />
-              <span className="text-[10px] text-rose-700 font-mono">
+              <span className="text-[11px] text-rose-700 font-mono">
                 Sin cargos T&amp;C asignados — abre el procedimiento → pestaña Cargos y selecciona los roles involucrados.
               </span>
             </div>
@@ -778,7 +778,7 @@ function ProcAnalisisCard({ proc }: { proc: ProcListItem }) {
                     : `Ejecutar análisis de ${label}`
               }
               className={cn(
-                "flex items-center gap-1 px-2 py-1 rounded border text-[10px] font-mono transition-all",
+                "flex items-center gap-1 px-2 py-1 rounded border text-[11px] font-mono transition-all",
                 blocked ? "opacity-40 cursor-not-allowed border-zinc-200 text-zinc-400 bg-zinc-50" :
                 running ? "border-zinc-300 text-zinc-500 bg-zinc-50" : color,
                 !blocked && !jobForType && !!loading && loading !== type ? "opacity-50 cursor-not-allowed" : "",
@@ -805,7 +805,7 @@ function ProcAnalisisCard({ proc }: { proc: ProcListItem }) {
           onClick={handleRunAll}
           disabled={!!loading}
           className={cn(
-            "flex items-center gap-1 text-[10px] px-2.5 py-1 rounded border font-mono transition-colors",
+            "flex items-center gap-1 text-[11px] px-2.5 py-1 rounded border font-mono transition-colors",
             loading === "all"
               ? "border-zinc-300 text-zinc-400"
               : "border-zinc-200 text-zinc-500 hover:border-violet-300 hover:text-violet-600",
@@ -820,7 +820,7 @@ function ProcAnalisisCard({ proc }: { proc: ProcListItem }) {
         {/* Ver análisis — abre inspector flotante */}
         <button
           onClick={() => openInspector(proc.id)}
-          className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded border border-zinc-200 text-zinc-500 hover:border-zinc-400 hover:text-zinc-800 font-mono transition-colors"
+          className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded border border-zinc-200 text-zinc-500 hover:border-zinc-400 hover:text-zinc-800 font-mono transition-colors"
         >
           Ver análisis ↗
         </button>
