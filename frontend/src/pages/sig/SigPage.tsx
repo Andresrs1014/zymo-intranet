@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react"
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query"
 import { useAuthStore } from "@/store/authStore"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
 import { sigApi } from "@/lib/sigApi"
 import { api } from "@/lib/api"
@@ -14,7 +15,6 @@ import {
   GitBranchPlus, GitBranch, Clock, ChevronRight, ChevronLeft, Check, Circle, Download,
   Pencil, Eye, Sparkles, Save, XCircle, Loader, AlertCircle,
   ClipboardCheck, RefreshCw, History, UploadCloud, BookOpen, Paperclip, Users, Database,
-  Smartphone,
 } from "lucide-react"
 import { SigAiEditorPanel } from "@/components/sig/SigAiEditorPanel"
 import { MermaidDiagram } from "@/components/reportes/MermaidDiagram"
@@ -31,7 +31,7 @@ import { SigAnexoPanel } from "@/components/sig/SigAnexoPanel"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-type TabIcon = "file" | "diff" | "queue" | "rubrica" | "sync" | "rag" | "mobile"
+type TabIcon = "file" | "diff" | "queue" | "rubrica" | "sync" | "rag"
 
 interface TabMeta {
   key: string
@@ -48,11 +48,17 @@ type ActiveView =
   | { kind: "rubrica" }
   | { kind: "rag" }
   | { kind: "analisis-sync" }
-  | { kind: "mobile-preview" }
 
 // ── SigPage ────────────────────────────────────────────────────────────────────
 
 export function SigPage() {
+  const isMobile = useIsMobile()
+  return isMobile ? <SigMobileEntry /> : <SigDesktopView />
+}
+
+// ── Vista de escritorio — árbol + tabs + toolbar completa ──────────────────────
+
+function SigDesktopView() {
   const user = useAuthStore((s) => s.user)
   const isGerente = user?.role === "admin" || user?.role === "gerente"
   const canEditSig = isGerente || (user?.app_permissions?.includes("mod_sig") ?? false)
@@ -135,10 +141,6 @@ export function SigPage() {
     openTab({ kind: "analisis-sync" }, { key: "analisis-sync", icon: "sync", title: "Historial de análisis" })
   }, [openTab])
 
-  const openMobilePreview = useCallback(() => {
-    openTab({ kind: "mobile-preview" }, { key: "mobile-preview", icon: "mobile", title: "Cola de revisión (mobile)" })
-  }, [openTab])
-
   // ── Derived state ─────────────────────────────────────────────────────────────
 
   const activeView: ActiveView = (activeKey && views[activeKey]) || { kind: "welcome" }
@@ -156,7 +158,6 @@ export function SigPage() {
         onOpenRubrica={openRubrica}
         onOpenRag={openRag}
         onOpenSync={openAnalisisSync}
-        onOpenMobilePreview={openMobilePreview}
         onCargar={() => openCargar(null)}
       />
 
@@ -209,7 +210,6 @@ export function SigPage() {
             {activeView.kind === "rubrica" && <SigRubricaPanel />}
             {activeView.kind === "rag" && <SigRagPanel />}
             {activeView.kind === "analisis-sync" && <SigAnalisisSyncView />}
-            {activeView.kind === "mobile-preview" && <SigMobilePreviewView isGerente={isGerente} />}
           </div>
         </div>
       </div>
@@ -237,7 +237,7 @@ export function SigPage() {
 // ── Title bar ──────────────────────────────────────────────────────────────────
 
 function TitleBar({
-  isGerente, canEditSig, pendingCount, onOpenQueue, onOpenRubrica, onOpenRag, onOpenSync, onOpenMobilePreview, onCargar,
+  isGerente, canEditSig, pendingCount, onOpenQueue, onOpenRubrica, onOpenRag, onOpenSync, onCargar,
 }: {
   isGerente:            boolean
   canEditSig:           boolean
@@ -246,7 +246,6 @@ function TitleBar({
   onOpenRubrica:        () => void
   onOpenRag:            () => void
   onOpenSync:           () => void
-  onOpenMobilePreview:  () => void
   onCargar:             () => void
 }) {
   return (
@@ -288,13 +287,6 @@ function TitleBar({
           <History className="h-3 w-3" />
           Historial de análisis
         </button>
-        <button
-          onClick={onOpenMobilePreview}
-          className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded border border-sky-200 text-sky-600 hover:bg-sky-50 transition-colors"
-        >
-          <Smartphone className="h-3 w-3" />
-          Cola de revisión (mobile)
-        </button>
         {isGerente && pendingCount > 0 && (
           <button
             onClick={onOpenQueue}
@@ -318,7 +310,6 @@ const TAB_ICON: Record<TabIcon, React.ReactNode> = {
   rubrica: <ClipboardCheck className="h-3.5 w-3.5 text-violet-500/80" />,
   rag:     <Database        className="h-3.5 w-3.5 text-emerald-500/80" />,
   sync:    <History        className="h-3.5 w-3.5 text-zinc-400" />,
-  mobile:  <Smartphone      className="h-3.5 w-3.5 text-sky-500/80" />,
 }
 
 function TabBar({
@@ -1654,11 +1645,13 @@ function ReviewQueueView({
   )
 }
 
-// ── Mobile preview — cola de revisión dentro de un marco de celular ────────────
-// Sandbox no tiene routing/magic-link real: esto es solo para que el gerente vea
-// cómo se comportaría la aprobación desde el celular, sin salir del escritorio.
+// ── Entrada mobile — automática cuando el viewport es angosto (ver useIsMobile
+// en SigPage arriba), no un botón manual. Pantalla completa real, sin marco de
+// celular decorativo — eso era solo para probar el diseño desde escritorio.
 
-function SigMobilePreviewView({ isGerente }: { isGerente: boolean }) {
+function SigMobileEntry() {
+  const user = useAuthStore((s) => s.user)
+  const isGerente = user?.role === "admin" || user?.role === "gerente"
   const [selectedId, setSelectedId] = useState<number | null>(null)
 
   const { data: commits = [], isLoading } = useQuery<PendingCommit[]>({
@@ -1667,75 +1660,70 @@ function SigMobilePreviewView({ isGerente }: { isGerente: boolean }) {
     refetchInterval: 30_000,
   })
 
-  return (
-    <div className="h-full overflow-auto bg-zinc-900 flex items-center justify-center py-8 px-4">
-      <div className="relative w-full max-w-[390px] h-[780px] max-h-full rounded-[2.5rem] border-[10px] border-zinc-800 bg-white shadow-2xl overflow-hidden flex flex-col">
-        {/* Notch — solo decorativo, refuerza que esto es un marco de celular */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-5 bg-zinc-800 rounded-b-2xl z-30" />
+  if (selectedId != null) {
+    return (
+      <div className="h-dvh flex flex-col bg-white">
+        <div className="shrink-0 flex items-center gap-2 px-3 h-11 border-b border-zinc-200">
+          <button
+            onClick={() => setSelectedId(null)}
+            className="flex items-center gap-1 text-[13px] text-zinc-500 active:text-zinc-800 transition-colors"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Cola de revisión
+          </button>
+        </div>
+        <div className="flex-1 overflow-hidden">
+          <SigDiffMobileView
+            key={selectedId}
+            commitId={selectedId}
+            isGerente={isGerente}
+            onActioned={() => setSelectedId(null)}
+          />
+        </div>
+      </div>
+    )
+  }
 
-        {selectedId == null ? (
-          <div className="flex flex-col h-full pt-6">
-            <div className="shrink-0 flex items-center gap-2 px-4 pb-3 border-b border-zinc-200">
-              <Smartphone className="h-3.5 w-3.5 text-sky-500" />
-              <span className="text-[13px] font-semibold text-zinc-800">Cola de revisión</span>
-              {commits.length > 0 && (
-                <span className="ml-auto text-[11px] font-mono text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
-                  {commits.length}
-                </span>
-              )}
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              {isLoading && (
-                <p className="px-4 py-6 text-[13px] text-zinc-400 text-center">Cargando…</p>
-              )}
-              {!isLoading && commits.length === 0 && (
-                <div className="flex flex-col items-center justify-center h-full gap-2 px-6 text-center">
-                  <Check className="h-6 w-6 text-emerald-400" />
-                  <p className="text-[13px] text-zinc-500">Sin pendientes</p>
-                </div>
-              )}
-              {commits.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => setSelectedId(c.id)}
-                  className="w-full flex items-center gap-3 px-4 py-3 border-b border-zinc-100 text-left active:bg-zinc-50 transition-colors"
-                >
-                  <span className="h-8 w-0.5 rounded-full shrink-0" style={{ backgroundColor: c.procedimiento.area.color }} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                      <span className="text-[11px] font-mono text-zinc-500">{c.procedimiento.codigo}</span>
-                      <span className="text-[11px] text-zinc-300">·</span>
-                      <span className="text-[11px] text-zinc-400 truncate">{c.procedimiento.area.nombre}</span>
-                    </div>
-                    <p className="text-[13px] text-zinc-800 truncate">{c.mensaje}</p>
-                    <p className="text-[11px] text-zinc-400 mt-0.5">{c.autorNombre}</p>
-                  </div>
-                  <ChevronRight className="h-3.5 w-3.5 text-zinc-300 shrink-0" />
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col h-full pt-6">
-            <div className="shrink-0 flex items-center gap-2 px-3 h-9 border-b border-zinc-200">
-              <button
-                onClick={() => setSelectedId(null)}
-                className="flex items-center gap-1 text-[12px] text-zinc-500 active:text-zinc-800 transition-colors"
-              >
-                <ChevronLeft className="h-3.5 w-3.5" />
-                Cola
-              </button>
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <SigDiffMobileView
-                key={selectedId}
-                commitId={selectedId}
-                isGerente={isGerente}
-                onActioned={() => setSelectedId(null)}
-              />
-            </div>
+  return (
+    <div className="h-dvh flex flex-col bg-white">
+      <div className="shrink-0 flex items-center gap-2 px-4 h-11 border-b border-zinc-200">
+        <span className="text-xs font-bold tracking-[0.18em] text-helix-accent font-mono uppercase">SIG</span>
+        <span className="text-[13px] font-semibold text-zinc-800 ml-1">Cola de revisión</span>
+        {commits.length > 0 && (
+          <span className="ml-auto text-[11px] font-mono text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
+            {commits.length}
+          </span>
+        )}
+      </div>
+      <div className="flex-1 overflow-y-auto">
+        {isLoading && (
+          <p className="px-4 py-6 text-[13px] text-zinc-400 text-center">Cargando…</p>
+        )}
+        {!isLoading && commits.length === 0 && (
+          <div className="flex flex-col items-center justify-center h-full gap-2 px-6 text-center">
+            <Check className="h-6 w-6 text-emerald-400" />
+            <p className="text-[13px] text-zinc-500">Sin pendientes</p>
           </div>
         )}
+        {commits.map((c) => (
+          <button
+            key={c.id}
+            onClick={() => setSelectedId(c.id)}
+            className="w-full flex items-center gap-3 px-4 py-3 border-b border-zinc-100 text-left active:bg-zinc-50 transition-colors"
+          >
+            <span className="h-8 w-0.5 rounded-full shrink-0" style={{ backgroundColor: c.procedimiento.area.color }} />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <span className="text-[11px] font-mono text-zinc-500">{c.procedimiento.codigo}</span>
+                <span className="text-[11px] text-zinc-300">·</span>
+                <span className="text-[11px] text-zinc-400 truncate">{c.procedimiento.area.nombre}</span>
+              </div>
+              <p className="text-[13px] text-zinc-800 truncate">{c.mensaje}</p>
+              <p className="text-[11px] text-zinc-400 mt-0.5">{c.autorNombre}</p>
+            </div>
+            <ChevronRight className="h-3.5 w-3.5 text-zinc-300 shrink-0" />
+          </button>
+        ))}
       </div>
     </div>
   )
@@ -1753,7 +1741,6 @@ function StatusBar({
     : activeView.kind === "rubrica"    ? "análisis"
     : activeView.kind === "rag"        ? "grafo de conocimiento"
     : activeView.kind === "analisis-sync" ? "historial de análisis"
-    : activeView.kind === "mobile-preview" ? "vista mobile"
     : ""
 
   return (
