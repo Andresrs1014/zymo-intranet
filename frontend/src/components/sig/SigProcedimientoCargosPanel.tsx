@@ -325,11 +325,16 @@ function CargoManualModal({ cargo, onClose }: { cargo: TcCargo; onClose: () => v
   const ext = (cargo.manual_filename ?? url).split(".").pop()?.toLowerCase() ?? ""
   const isPdf = ext === "pdf"
   const isDocx = ext === "docx"
+  const isDocOld = ext === "doc"
+  const isExcel = ext === "xlsx" || ext === "xls" || ext === "xlsm"
 
-  const [loading, setLoading] = useState(isDocx)
+  const [loading, setLoading] = useState(isDocx || isDocOld || isExcel)
   const [error, setError] = useState<string | null>(null)
   const docxRef = useRef<HTMLDivElement>(null)
+  const [sheet, setSheet] = useState<string[][] | null>(null)
+  const [docText, setDocText] = useState<string | null>(null)
 
+  // .docx nuevo — se renderiza con el archivo real
   useEffect(() => {
     if (!isDocx || !url) return
     setLoading(true)
@@ -348,6 +353,39 @@ function CargoManualModal({ cargo, onClose }: { cargo: TcCargo; onClose: () => v
       .catch(() => setError("No se pudo cargar el documento."))
       .finally(() => setLoading(false))
   }, [url, isDocx])
+
+  // Excel viejo (.xls) y nuevo (.xlsx/.xlsm) — se parsea en el navegador, misma librería para ambos
+  useEffect(() => {
+    if (!isExcel || !url) return
+    setLoading(true)
+    setError(null)
+    fetch(url)
+      .then((r) => {
+        if (!r.ok) throw new Error()
+        return r.arrayBuffer()
+      })
+      .then(async (buf) => {
+        const XLSX = await import("xlsx")
+        const wb = XLSX.read(buf, { type: "array" })
+        const firstSheet = wb.Sheets[wb.SheetNames[0]]
+        const rows = XLSX.utils.sheet_to_json<string[]>(firstSheet, { header: 1, raw: false, blankrows: false })
+        setSheet(rows.map((r) => r.map((cell) => cell ?? "")))
+      })
+      .catch(() => setError("No se pudo leer el archivo de Excel."))
+      .finally(() => setLoading(false))
+  }, [url, isExcel])
+
+  // .doc viejo (binario) — el navegador no lo puede abrir; se usa el texto que
+  // el backend ya extrajo con antiword al subir el manual (tc_manual_extraction.py)
+  useEffect(() => {
+    if (!isDocOld) return
+    setLoading(true)
+    setError(null)
+    api.get(`/tc/cargos/${cargo.id}/manual-texto`)
+      .then((r) => setDocText(r.data?.texto || ""))
+      .catch(() => setError("No se pudo leer el documento."))
+      .finally(() => setLoading(false))
+  }, [cargo.id, isDocOld])
 
   return (
     <div
@@ -397,7 +435,48 @@ function CargoManualModal({ cargo, onClose }: { cargo: TcCargo; onClose: () => v
             </div>
           )}
 
-          {!loading && !error && !isPdf && !isDocx && (
+          {!loading && !error && isDocOld && (
+            docText ? (
+              <div className="h-full overflow-auto p-6">
+                <pre className="max-w-3xl mx-auto whitespace-pre-wrap font-sans text-[14px] text-zinc-700 leading-relaxed">
+                  {docText}
+                </pre>
+              </div>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center gap-2 text-center px-6">
+                <AlertTriangle className="h-5 w-5 text-zinc-300" />
+                <p className="text-sm text-zinc-500">
+                  Este .doc no tiene texto extraído todavía — en T&amp;C, usa «Re-extraer texto» sobre este cargo.
+                </p>
+              </div>
+            )
+          )}
+
+          {!loading && !error && isExcel && (
+            sheet && sheet.length > 0 ? (
+              <div className="h-full overflow-auto p-4">
+                <table className="min-w-full text-[12px] border-collapse">
+                  <tbody>
+                    {sheet.map((row, ri) => (
+                      <tr key={ri}>
+                        {row.map((cell, ci) => (
+                          <td key={ci} className="border border-zinc-200 px-2 py-1 text-zinc-700 whitespace-nowrap">
+                            {cell}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="h-full flex items-center justify-center text-sm text-zinc-400">
+                Archivo de Excel vacío
+              </div>
+            )
+          )}
+
+          {!loading && !error && !isPdf && !isDocx && !isDocOld && !isExcel && (
             <div className="h-full flex flex-col items-center justify-center gap-4">
               <Paperclip className="h-8 w-8 text-zinc-300" />
               <div className="text-center">

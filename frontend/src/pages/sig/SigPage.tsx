@@ -21,7 +21,9 @@ import { MermaidDiagram } from "@/components/reportes/MermaidDiagram"
 import { useRunAnalysis } from "@/components/sig/SigAnalisisPanel"
 import { SigRubricaPanel } from "@/components/sig/SigRubricaPanel"
 import { SigRagPanel } from "@/components/sig/SigRagPanel"
-import { SigAnalisisSyncView } from "@/components/sig/SigAnalisisSyncView"
+import {
+  SigAnalisisSyncView, AnalisisDetailModal, TIPO_ICON, TIPO_LABEL, type HistorialItem,
+} from "@/components/sig/SigAnalisisSyncView"
 import { SigAnalisisQueue } from "@/components/sig/SigAnalisisQueue"
 import { SigAnalisisInspector } from "@/components/sig/SigAnalisisInspector"
 import { SigCargarModal, type PreselectedProc } from "@/components/sig/SigCargarModal"
@@ -484,6 +486,12 @@ function ProcedureFileView({
       return Array.isArray(res.data) ? res.data.length : 0
     },
   })
+
+  const { data: analisisHistorial = [] } = useQuery<HistorialItem[]>({
+    queryKey: ["sig", "analisis", "historial", "proc", id],
+    queryFn: () => sigApi.get("/api/analisis/historial", { params: { procedimientoId: id, limit: 50 } }).then((r) => r.data),
+  })
+  const [openAnalisisItem, setOpenAnalisisItem] = useState<HistorialItem | null>(null)
 
   const qc = useQueryClient()
   const [reextractErr, setReextractErr] = useState<string | null>(null)
@@ -1063,8 +1071,41 @@ function ProcedureFileView({
             />
           ))}
         </div>
+
+        {/* Historial de análisis del procedimiento */}
+        <div className="flex items-center gap-2 px-3 h-7 border-b border-t border-zinc-200 shrink-0">
+          <ClipboardCheck className="h-3 w-3 text-helix-ai/50" />
+          <span className="text-[11px] text-helix-ai/60 font-mono uppercase tracking-widest">
+            Análisis
+          </span>
+        </div>
+        <div className="shrink-0 max-h-64 overflow-y-auto py-1">
+          {analisisHistorial.length === 0 && (
+            <div className="px-4 py-6 text-[11px] text-zinc-400 italic text-center">
+              Sin análisis aún
+            </div>
+          )}
+          {analisisHistorial.map((item) => (
+            <button
+              key={`${item.tipo}-${item.id}`}
+              onClick={() => setOpenAnalisisItem(item)}
+              className="w-full flex items-center gap-2 px-3 py-2 border-b border-zinc-200/60 hover:bg-zinc-100 transition-colors text-left"
+            >
+              <span className="text-zinc-400 shrink-0">{TIPO_ICON[item.tipo]}</span>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs text-zinc-600 truncate leading-tight">{TIPO_LABEL[item.tipo]}</p>
+                <span className="text-[11px] text-zinc-400 font-mono">
+                  {new Date(item.createdAt).toLocaleDateString("es-CO", { day: "2-digit", month: "short" })}
+                </span>
+              </div>
+            </button>
+          ))}
+        </div>
       </div>
 
+      {openAnalisisItem && (
+        <AnalisisDetailModal item={openAnalisisItem} onClose={() => setOpenAnalisisItem(null)} />
+      )}
     </div>
   )
 }

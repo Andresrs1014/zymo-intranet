@@ -686,6 +686,21 @@ def listar_cargos_sig(
     ]
 
 
+@router.get("/cargos/{cargo_id}/manual-texto")
+def obtener_manual_texto(
+    cargo_id: int,
+    db: Session = Depends(get_personal_db),
+    _: User = Depends(require_tc_or_sig),
+):
+    """Texto ya extraído del manual (antiword/openpyxl, ver tc_manual_extraction.py).
+    Único fallback para formatos que el navegador no puede previsualizar directo
+    (.doc binario viejo) — PDF y .docx se muestran con el archivo real, esto no."""
+    cargo = db.get(PtcCargo, cargo_id)
+    if not cargo:
+        raise HTTPException(status_code=404, detail="Cargo no encontrado.")
+    return {"texto": cargo.manual_text or ""}
+
+
 @router.post("/cargos", status_code=status.HTTP_201_CREATED)
 def crear_cargo(
     body: CargoCreate,
