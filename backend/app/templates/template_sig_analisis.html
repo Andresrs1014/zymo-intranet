@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    :root {
+      --red:        #E31E24;
+      --red-dark:   #B71C1C;
+      --red-light:  #FFF5F5;
+      --red-mid:    #FECACA;
+      --navy:       #1C1C1E;
+      --slate:      #52525B;
+      --border:     #D4D4D8;
+      --bg:         #FAFAFA;
+      --white:      #FFFFFF;
+      --area:       {{ area_color }};
+    }
+
+    @page {
+      size: A4 portrait;
+      margin: 1.2cm 1.6cm 1.4cm 1.6cm;
+      @bottom-center {
+        content: counter(page) " / " counter(pages);
+        font-size: 7pt;
+        color: #A1A1AA;
+        font-family: Arial, sans-serif;
+      }
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 9.5pt;
+      color: var(--navy);
+      margin: 0;
+      padding: 0;
+      background: var(--white);
+    }
+
+    .top-bar { background: var(--red); height: 6px; }
+
+    .header {
+      display: table;
+      width: 100%;
+      border: 1px solid var(--border);
+      border-top: none;
+    }
+    .header-logo {
+      display: table-cell;
+      width: 22%;
+      vertical-align: middle;
+      padding: 8px 12px;
+      border-right: 1px solid var(--border);
+    }
+    .header-logo img { max-width: 120px; max-height: 52px; }
+    .header-title {
+      display: table-cell;
+      vertical-align: middle;
+      text-align: center;
+      padding: 8px 12px;
+      border-right: 1px solid var(--border);
+    }
+    .header-title .doc-type {
+      font-size: 7.5pt; color: var(--slate); text-transform: uppercase;
+      letter-spacing: 0.8px; font-weight: 700;
+    }
+    .header-title .doc-name { font-size: 10pt; font-weight: 700; color: var(--navy); margin-top: 2px; }
+    .header-meta { display: table-cell; width: 26%; vertical-align: middle; }
+    .header-meta table { width: 100%; margin: 0; border-collapse: collapse; }
+    .header-meta td { border-bottom: 1px solid var(--border); padding: 3px 8px; font-size: 7.5pt; }
+    .header-meta td:last-child { border-bottom: none; }
+    .header-meta .mlabel { font-weight: 700; color: var(--slate); background: var(--bg); width: 50%; border-right: 1px solid var(--border); }
+    .header-meta .mvalue { color: var(--navy); }
+    .header-meta .mvalue.code { font-weight: 700; color: var(--red); font-size: 8.5pt; }
+
+    /* Banda de portada — color del área, como la "hoja" del modal in-app */
+    .cover-band {
+      background: var(--area);
+      color: var(--white);
+      padding: 16px 16px 18px 16px;
+      margin-top: 0;
+    }
+    .cover-band .cover-eyebrow {
+      font-size: 7.5pt; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+      opacity: 0.85; margin-bottom: 6px;
+    }
+    .cover-band .cover-tipo { font-size: 9pt; font-weight: 600; opacity: 0.95; margin-bottom: 3px; }
+    .cover-band .cover-titulo { font-size: 15pt; font-weight: 700; line-height: 1.25; }
+    .cover-band .cover-meta { font-size: 8pt; opacity: 0.85; margin-top: 6px; }
+
+    /* Tarjetas de sección — estructura tipo Libertadora (banda + card por bloque) */
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 14px;
+      margin-top: 10px;
+      page-break-inside: avoid;
+    }
+    .card-title {
+      font-size: 8pt; font-weight: 700; color: var(--slate);
+      text-transform: uppercase; letter-spacing: 0.6px;
+      margin-bottom: 8px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid var(--red-light);
+    }
+    .card p.resumen { font-size: 9.5pt; line-height: 1.5; color: var(--navy); margin: 0; }
+
+    /* Score */
+    .score-row { display: table; width: 100%; }
+    .score-box { display: table-cell; width: 90px; text-align: center; vertical-align: middle; }
+    .score-num { font-size: 26pt; font-weight: 700; }
+    .score-num.ok { color: #16A34A; }
+    .score-num.warn { color: #D97706; }
+    .score-num.bad { color: var(--red); }
+    .score-sub { font-size: 6.5pt; color: var(--slate); text-transform: uppercase; letter-spacing: 0.5px; }
+    .score-label { display: table-cell; vertical-align: middle; padding-left: 14px; font-size: 10pt; font-weight: 700; }
+
+    /* Listas de hallazgos/propuestas/conflictos */
+    .item-row { padding: 6px 0; border-bottom: 1px solid var(--bg); font-size: 9pt; line-height: 1.45; }
+    .item-row:last-child { border-bottom: none; }
+    .badge {
+      display: inline-block; font-size: 6.5pt; font-weight: 700; text-transform: uppercase;
+      padding: 1px 6px; border-radius: 8px; margin-right: 6px; letter-spacing: 0.3px;
+    }
+    .badge.alta, .badge.high { background: var(--red-light); color: var(--red-dark); border: 1px solid var(--red-mid); }
+    .badge.media, .badge.medium { background: #FFFBEB; color: #B45309; border: 1px solid #FDE68A; }
+    .badge.baja, .badge.low { background: var(--bg); color: var(--slate); border: 1px solid var(--border); }
+    .item-num {
+      display: inline-block; width: 16px; height: 16px; line-height: 16px; text-align: center;
+      background: var(--red-light); color: var(--red-dark); border-radius: 50%;
+      font-size: 7.5pt; font-weight: 700; margin-right: 6px;
+    }
+    .item-code { font-family: 'Courier New', monospace; font-size: 8pt; color: var(--slate); }
+    .cargo-block { margin-top: 8px; }
+    .cargo-block:first-child { margin-top: 0; }
+    .cargo-nombre { font-size: 9.5pt; font-weight: 700; color: var(--navy); margin-bottom: 3px; }
+    .cargo-block ul { margin: 0; padding-left: 16px; }
+    .cargo-block li { font-size: 8.5pt; line-height: 1.5; }
+
+    .flujograma-box { text-align: center; padding: 6px 0; }
+    .flujograma-box svg { max-width: 100%; height: auto; }
+
+    .content-block { font-size: 9pt; line-height: 1.5; color: var(--navy); }
+    .content-block p { margin: 0 0 5px 0; }
+    .content-block ul { margin: 4px 0; padding-left: 18px; }
+    .content-block li { margin-bottom: 2px; }
+
+    .empty-note { font-size: 8.5pt; color: #A1A1AA; font-style: italic; }
+
+    .nota-block {
+      background: var(--red-light);
+      border: 1px solid var(--red-mid);
+      border-left: 3px solid var(--red);
+      padding: 7px 10px;
+      font-size: 8pt;
+      color: var(--slate);
+      margin-top: 12px;
+      line-height: 1.4;
+    }
+    .nota-block strong { color: var(--red-dark); }
+
+    .footer-bar { background: var(--red); height: 3px; margin-top: 16px; }
+    .footer-text { font-size: 7pt; color: var(--slate); text-align: center; margin-top: 4px; }
+    .footer-confidential { font-size: 6.5pt; color: #A1A1AA; text-align: center; margin-top: 2px; }
+  </style>
+</head>
+<body>
+
+  <div class="top-bar"></div>
+
+  <div class="header">
+    <div class="header-logo">
+      {% if logo_url %}
+      <img src="{{ logo_url }}" alt="Logo {{ empresa_nombre }}">
+      {% else %}
+      <div style="font-size:11pt;font-weight:700;color:var(--red);">{{ empresa_nombre }}</div>
+      {% endif %}
+    </div>
+    <div class="header-title">
+      <div class="doc-type">Sistema Integrado de Gestión</div>
+      <div class="doc-name">Informe de Análisis</div>
+    </div>
+    <div class="header-meta">
+      <table>
+        <tr><td class="mlabel">Código</td><td class="mvalue code">{{ codigo }}</td></tr>
+        <tr><td class="mlabel">Tipo</td><td class="mvalue">{{ tipo_label }}</td></tr>
+        <tr><td class="mlabel">Fecha</td><td class="mvalue">{{ fecha_analisis }}</td></tr>
+        <tr><td class="mlabel">Área</td><td class="mvalue">{{ area }}</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- PORTADA -->
+  <div class="cover-band">
+    <div class="cover-eyebrow">ZYMO · SIG · {{ area }}</div>
+    <div class="cover-tipo">Análisis de {{ tipo_label }}</div>
+    <div class="cover-titulo">{{ codigo }} — {{ titulo }}</div>
+    <div class="cover-meta">{{ fecha_analisis }} · Analizado por {{ autor_nombre }}</div>
+  </div>
+
+  {% if resumen %}
+  <div class="card"><p class="resumen">{{ resumen }}</p></div>
+  {% endif %}
+
+  {% if tipo == "coherencia" %}
+  <div class="card">
+    <div class="card-title">Resultado</div>
+    <div class="score-row">
+      <div class="score-box">
+        <div class="score-num {{ 'ok' if score is not none and score >= 80 else ('warn' if score is not none and score >= 60 else 'bad') }}">{{ score if score is not none else "—" }}</div>
+        <div class="score-sub">de 100</div>
+      </div>
+      <div class="score-label">{{ "Coherente" if coherente else "Con problemas de coherencia" }}<br>
+        <span style="font-weight:400;font-size:8pt;color:var(--slate);">{{ issues|length }} hallazgo(s)</span>
+      </div>
+    </div>
+  </div>
+  {% if issues %}
+  <div class="card">
+    <div class="card-title">Hallazgos ({{ issues|length }})</div>
+    {% for i in issues %}
+    <div class="item-row"><span class="badge {{ (i.severidad or '')|lower }}">{{ i.severidad or "—" }}</span>{{ i.descripcion }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endif %}
+
+  {% if tipo == "mejoras" %}
+  <div class="card">
+    <div class="card-title">Propuestas de mejora ({{ proposals|length }})</div>
+    {% if proposals %}
+      {% for p in proposals %}
+      <div class="item-row"><span class="item-num">{{ loop.index }}</span>{{ p.descripcion }}{% if p.categoria %} <span style="color:var(--slate);font-size:8pt;">({{ p.categoria }})</span>{% endif %}</div>
+      {% endfor %}
+    {% else %}<span class="empty-note">Sin propuestas</span>{% endif %}
+  </div>
+  {% endif %}
+
+  {% if tipo == "proc-vs-inst" %}
+  <div class="card">
+    <div class="card-title">Resultado</div>
+    <p class="resumen">{{ "Alineado con los instructivos" if coherente else (conflictos|length ~ " conflicto(s) encontrados") }}</p>
+  </div>
+  {% if conflictos %}
+  <div class="card">
+    <div class="card-title">Conflictos ({{ conflictos|length }})</div>
+    {% for c in conflictos %}
+    <div class="item-row"><span class="badge {{ (c.severidad or '')|lower }}">{{ c.severidad or "—" }}</span><span class="item-code">{{ c.instructivoCodigo }}</span> — {{ c.descripcion }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endif %}
+
+  {% if tipo == "cargos" %}
+  <div class="card">
+    <div class="card-title">Cargos y funciones ({{ cargos|length }})</div>
+    {% if cargos %}
+      {% for c in cargos %}
+      <div class="cargo-block">
+        <div class="cargo-nombre">{{ c.cargo }}</div>
+        <ul>{% for f in c.funciones %}<li>{{ f }}</li>{% endfor %}</ul>
+      </div>
+      {% endfor %}
+    {% else %}<span class="empty-note">Sin cargos identificados</span>{% endif %}
+  </div>
+  {% endif %}
+
+  {% if tipo == "completo" %}
+  {% if findings %}
+  <div class="card">
+    <div class="card-title">Hallazgos por rúbrica ({{ findings|length }})</div>
+    {% for f in findings %}
+    <div class="item-row">
+      {% if f.severidad %}<span class="badge {{ f.severidad|lower }}">{{ f.severidad }}</span>{% endif %}
+      {% if f.categoria %}<strong>{{ f.categoria }}:</strong> {% endif %}{{ f.descripcion }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if flujograma_svg %}
+  <div class="card">
+    <div class="card-title">Flujograma</div>
+    <div class="flujograma-box">{{ flujograma_svg | safe }}</div>
+  </div>
+  {% endif %}
+  {% if markdown_normalizado_html %}
+  <div class="card">
+    <div class="card-title">Documento normalizado</div>
+    <div class="content-block">{{ markdown_normalizado_html | safe }}</div>
+  </div>
+  {% endif %}
+  {% endif %}
+
+  <div class="nota-block">
+    <strong>Trazabilidad SIG:</strong> Análisis de {{ tipo_label }} sobre {{ codigo }} — {{ titulo }}.
+    Analizado por {{ autor_nombre }} el {{ fecha_analisis }}. PDF generado por {{ generado_por }} el {{ fecha_generacion }}.
+  </div>
+
+  <div class="footer-bar"></div>
+  <div class="footer-text">
+    {{ empresa_nombre }}
+    {% if empresa_nit %}&nbsp;·&nbsp; NIT {{ empresa_nit }}{% endif %}
+    {% if empresa_ciudad %}&nbsp;·&nbsp; {{ empresa_ciudad }}{% endif %}
+  </div>
+  <div class="footer-confidential">
+    Documento interno — {{ codigo }} — Sistema Integrado de Gestión — Historial de Análisis
+  </div>
+
+</body>
+</html>

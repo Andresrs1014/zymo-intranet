@@ -14,6 +14,8 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from jinja2 import Environment, FileSystemLoader
+from pydantic import BaseModel
+from typing import Any
 import io
 
 from app.core.deps import get_current_user
@@ -241,6 +243,102 @@ async def generar_pdf_procedimiento(
     ).write_pdf()
 
     filename = f"{proc.get('codigo', 'SIG')}_v{context['version']}.pdf"
+
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Length": str(len(pdf_bytes)),
+        },
+    )
+
+
+# ── PDF de análisis (historial) ─────────────────────────────────────────────
+
+_TIPO_LABEL = {
+    "coherencia": "Coherencia", "mejoras": "Mejoras", "proc-vs-inst": "Procedimiento vs. Instructivos",
+    "cargos": "Cargos y Funciones", "completo": "Análisis Completo (Rúbrica)",
+}
+
+
+class AnalisisPdfRequest(BaseModel):
+    tipo: str
+    autorNombre: str
+    createdAt: str
+    resumen: str | None = None
+    coherente: bool | None = None
+    puntaje: float | None = None
+    issues: list[dict[str, Any]] = []
+    proposals: list[dict[str, Any]] = []
+    conflictos: list[dict[str, Any]] = []
+    cargos: list[dict[str, Any]] = []
+    findings: list[dict[str, Any]] = []
+    markdownNormalizado: str | None = None
+    flujogramaSvg: str | None = None
+    procedimiento: dict[str, Any]
+
+
+@router.post("/pdf/analisis")
+async def generar_pdf_analisis(
+    payload: AnalisisPdfRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Genera el PDF de un análisis del historial (coherencia/mejoras/proc-vs-inst/cargos/completo).
+    Recibe el item ya cargado por el frontend (viene completo desde /api/analisis/historial) —
+    no hace falta re-consultar sig-backend. El flujograma, si existe, llega como SVG ya
+    renderizado por el navegador (no hay renderer de Mermaid en el servidor).
+    """
+    slug    = _DEFAULT_PLATFORM_SLUG
+    empresa = _load_platform(slug)
+    logo_url = _logo_url(slug, empresa)
+    proc    = payload.procedimiento
+    area    = proc.get("area", {}) or {}
+    ahora   = datetime.now(_BOGOTA_TZ)
+
+    context = {
+        "empresa_nombre": empresa.get("nombre", "LOGIMAT S.A.S."),
+        "empresa_nit":    empresa.get("nit", ""),
+        "empresa_ciudad": empresa.get("ciudad", ""),
+        "logo_url":       logo_url,
+
+        "codigo":   proc.get("codigo", "—"),
+        "titulo":   proc.get("titulo", "—"),
+        "area":     area.get("nombre", "—"),
+        "area_color": area.get("color") or "#E31E24",
+
+        "tipo":       payload.tipo,
+        "tipo_label": _TIPO_LABEL.get(payload.tipo, payload.tipo),
+        "resumen":    payload.resumen or "",
+
+        "score":      round(payload.puntaje * 100) if payload.puntaje is not None else None,
+        "coherente":  payload.coherente,
+        "issues":     payload.issues,
+        "proposals":  payload.proposals,
+        "conflictos": payload.conflictos,
+        "cargos":     payload.cargos,
+        "findings":   payload.findings,
+        "markdown_normalizado_html": _md_to_html(payload.markdownNormalizado or ""),
+        "flujograma_svg": payload.flujogramaSvg or "",
+
+        "autor_nombre": payload.autorNombre,
+        "fecha_analisis": _fmt_date(payload.createdAt),
+        "fecha_generacion": ahora.strftime("%d/%m/%Y %H:%M"),
+        "generado_por": current_user.full_name or current_user.username,
+    }
+
+    env  = Environment(loader=FileSystemLoader(str(_TEMPLATES_DIR)))
+    html = env.get_template("template_sig_analisis.html").render(**context)
+
+    from weasyprint import HTML
+
+    pdf_bytes = HTML(
+        string=html,
+        base_url=str(_PLATFORMS_DIR / slug),
+    ).write_pdf()
+
+    filename = f"{proc.get('codigo', 'SIG')}_analisis_{payload.tipo}_{ahora.strftime('%Y%m%d')}.pdf"
 
     return StreamingResponse(
         io.BytesIO(pdf_bytes),

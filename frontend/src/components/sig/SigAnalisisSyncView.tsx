@@ -1,13 +1,14 @@
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { cn } from "@/lib/utils"
 import { sigApi } from "@/lib/sigApi"
+import { api } from "@/lib/api"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { MermaidDiagram } from "@/components/reportes/MermaidDiagram"
 import {
   Download, Target, Lightbulb, GitCompare, Database, Users, CheckCircle2, AlertTriangle,
-  ClipboardCheck, ChevronLeft, ChevronRight, Folder, X, Info,
+  ClipboardCheck, ChevronLeft, ChevronRight, Folder, X, Info, FileText, Loader2,
 } from "lucide-react"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -370,12 +371,58 @@ function SeverityBadge({ severidad }: { severidad: string }) {
   return <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full border font-medium uppercase shrink-0", cls)}>{severidad}</span>
 }
 
+async function downloadAnalisisPdf(item: HistorialItem, flujogramaSvg: string | null) {
+  const payload = {
+    tipo: item.tipo,
+    autorNombre: item.autorNombre,
+    createdAt: item.createdAt,
+    resumen: item.resumen ?? null,
+    coherente: item.coherente ?? null,
+    puntaje: item.puntaje ?? null,
+    issues: item.issues ?? [],
+    proposals: item.proposals ?? [],
+    conflictos: item.conflictos ?? [],
+    cargos: item.cargos ?? [],
+    findings: item.findings ?? [],
+    markdownNormalizado: item.markdownNormalizado ?? null,
+    flujogramaSvg: flujogramaSvg,
+    procedimiento: item.procedimiento,
+  }
+  const res = await api.post("/api/sig/pdf/analisis", payload, { responseType: "blob" })
+  const url = URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }))
+  const a = document.createElement("a")
+  a.href = url
+  a.download = `${item.procedimiento.codigo}_analisis_${item.tipo}_${new Date(item.createdAt).toISOString().split("T")[0]}.pdf`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
 // Vista a pantalla completa, tipo informe — pensada para leerse en una reunión
 // de comité, no para un vistazo rápido. Tipografía de lectura real (15-16px,
 // nunca la densidad compacta que usa el resto del SIG) y harto espacio.
 
 export function AnalisisDetailModal({ item, onClose }: { item: HistorialItem; onClose: () => void }) {
   const score = item.puntaje != null ? Math.round(item.puntaje * 100) : null
+  const flujogramaRef = useRef<HTMLDivElement>(null)
+  const [downloadingPdf, setDownloadingPdf] = useState(false)
+  const [pdfError, setPdfError] = useState<string | null>(null)
+
+  async function handleDownloadPdf() {
+    setDownloadingPdf(true)
+    setPdfError(null)
+    try {
+      // El SVG del flujograma, si existe, ya está renderizado en el DOM por <MermaidDiagram> —
+      // no hay renderer de mermaid en el servidor, así que se captura tal cual desde acá.
+      const svg = flujogramaRef.current?.querySelector("svg")?.outerHTML ?? null
+      await downloadAnalisisPdf(item, svg)
+    } catch {
+      setPdfError("No se pudo generar el PDF — revisa logs del servidor.")
+    } finally {
+      setDownloadingPdf(false)
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-[100] flex flex-col bg-zinc-800">
@@ -394,7 +441,7 @@ export function AnalisisDetailModal({ item, onClose }: { item: HistorialItem; on
 
       {/* "Hoja" del informe, centrada, scrolleable */}
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto my-8 bg-white rounded-2xl shadow-2xl overflow-hidden">
+        <div className="w-[94%] max-w-[960px] mx-auto my-8 bg-white rounded-2xl shadow-2xl overflow-hidden">
 
           {/* Portada / banda superior */}
           <div className="px-10 py-10" style={{ backgroundColor: item.procedimiento.area.color }}>
@@ -527,7 +574,9 @@ export function AnalisisDetailModal({ item, onClose }: { item: HistorialItem; on
                 {item.flujogramaMmd && (
                   <section>
                     <h2 className="text-[12px] font-semibold text-zinc-400 uppercase tracking-wide mb-3">Flujograma</h2>
-                    <MermaidDiagram code={item.flujogramaMmd} />
+                    <div ref={flujogramaRef}>
+                      <MermaidDiagram code={item.flujogramaMmd} />
+                    </div>
                   </section>
                 )}
                 {item.markdownNormalizado && (
@@ -542,14 +591,27 @@ export function AnalisisDetailModal({ item, onClose }: { item: HistorialItem; on
 
           {/* Pie del informe */}
           <div className="flex items-center justify-between px-10 py-5 border-t border-zinc-100 bg-zinc-50">
-            <span className="text-[11px] text-zinc-400">Generado por la intranet ZYMO — SIG</span>
-            <button
-              onClick={() => downloadMarkdown(item)}
-              className="flex items-center gap-1.5 text-[13px] px-3.5 py-2 rounded-lg border border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-white transition-colors"
-            >
-              <Download className="h-4 w-4" />
-              Descargar .md
-            </button>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[11px] text-zinc-400">Generado por la intranet ZYMO — SIG</span>
+              {pdfError && <span className="text-[11px] text-red-500">{pdfError}</span>}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => downloadMarkdown(item)}
+                className="flex items-center gap-1.5 text-[13px] px-3.5 py-2 rounded-lg border border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-white transition-colors"
+              >
+                <Download className="h-4 w-4" />
+                Descargar .md
+              </button>
+              <button
+                onClick={handleDownloadPdf}
+                disabled={downloadingPdf}
+                className="flex items-center gap-1.5 text-[13px] px-3.5 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-60"
+              >
+                {downloadingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+                {downloadingPdf ? "Generando…" : "Descargar PDF"}
+              </button>
+            </div>
           </div>
         </div>
       </div>
