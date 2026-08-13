@@ -1324,7 +1324,11 @@ function ArchivoOriginalView({
   if (isDocx) {
     return (
       <div className="flex-1 overflow-auto bg-white p-6">
-        <div ref={docxRef} className="max-w-3xl mx-auto" />
+        {/* Sin max-w — docx-preview dibuja el ancho real de tabla del .docx original;
+            forzarlo a un contenedor angosto (pensado para prosa) corta las tablas anchas
+            del encabezado institucional. El overflow-auto del padre ya resuelve el scroll
+            cuando la tabla es mas ancha que el panel. */}
+        <div ref={docxRef} />
       </div>
     )
   }
