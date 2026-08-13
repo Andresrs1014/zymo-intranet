@@ -680,6 +680,8 @@ def listar_cargos_sig(
         {
             "id": c.id,
             "nombre": c.nombre,
+            "manual_url": c.manual_url,
+            "manual_filename": c.manual_filename,
             **cargo_manual_flags(c.manual_url, c.manual_text),
         }
         for c in cargos

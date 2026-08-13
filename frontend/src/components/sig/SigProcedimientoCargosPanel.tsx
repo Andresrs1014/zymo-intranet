@@ -392,7 +392,7 @@ function CargoManualModal({ cargo, onClose }: { cargo: TcCargo; onClose: () => v
       className="fixed inset-0 z-[100] flex items-center justify-center bg-zinc-900/50 backdrop-blur-[1px]"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="relative w-full max-w-3xl h-[85vh] flex flex-col rounded-xl border border-zinc-200 bg-white shadow-xl overflow-hidden">
+      <div className="relative w-full max-w-6xl h-[90vh] flex flex-col rounded-xl border border-zinc-200 bg-white shadow-xl overflow-hidden">
 
         <div className="shrink-0 flex items-center gap-2.5 px-5 py-3.5 border-b border-zinc-200">
           <div className="h-7 w-7 rounded-md bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0">
@@ -431,14 +431,14 @@ function CargoManualModal({ cargo, onClose }: { cargo: TcCargo; onClose: () => v
 
           {!loading && !error && isDocx && (
             <div className="h-full overflow-auto p-6">
-              <div ref={docxRef} className="max-w-3xl mx-auto" />
+              <div ref={docxRef} className="max-w-5xl mx-auto" />
             </div>
           )}
 
           {!loading && !error && isDocOld && (
             docText ? (
               <div className="h-full overflow-auto p-6">
-                <pre className="max-w-3xl mx-auto whitespace-pre-wrap font-sans text-[14px] text-zinc-700 leading-relaxed">
+                <pre className="max-w-5xl mx-auto whitespace-pre-wrap font-sans text-[14px] text-zinc-700 leading-relaxed">
                   {docText}
                 </pre>
               </div>
