@@ -79,4 +79,15 @@
     opacity: 0.08;
     pointer-events: none;
   }
+
+  /* docx-preview reserva el header/footer al alto completo de la pagina (para
+     que la marca de agua quepa en cualquier posicion), lo que deja un bloque
+     en blanco enorme antes del contenido real. El contenido del header ya es
+     position:absolute, asi que colapsar su alto no lo oculta, solo evita que
+     empuje el resto del documento hacia abajo. */
+  .docx-render header,
+  .docx-render footer {
+    height: 0;
+    overflow: visible;
+  }
 }
