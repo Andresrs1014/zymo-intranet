@@ -259,4 +259,32 @@ router.get("/historial", async (req: Request, res: Response) => {
   res.json(combined)
 })
 
+// ── DELETE /api/analisis/:tipo/:id — borra un análisis guardado ───────────────
+const DELEGATE_BY_TIPO = {
+  coherencia:     prisma.sigAnalisisCoherencia,
+  mejoras:        prisma.sigAnalisisMejoras,
+  "proc-vs-inst": prisma.sigAnalisisProcVsInst,
+  cargos:         prisma.sigAnalisisCargos,
+  completo:       prisma.sigAnalisisCompleto,
+} as const
+
+router.delete("/:tipo/:id", requireSigAccess, async (req: Request, res: Response) => {
+  const tipo = req.params.tipo as keyof typeof DELEGATE_BY_TIPO
+  const id = parseInt(req.params.id, 10)
+
+  const delegate = DELEGATE_BY_TIPO[tipo]
+  if (!delegate || Number.isNaN(id)) {
+    res.status(400).json({ error: "Tipo de análisis o id inválido." })
+    return
+  }
+
+  try {
+    // @ts-expect-error — los 5 delegates comparten la forma { id } como PK, TS no lo infiere por la unión
+    await delegate.delete({ where: { id } })
+    res.status(204).end()
+  } catch {
+    res.status(404).json({ error: "Análisis no encontrado." })
+  }
+})
+
 export default router

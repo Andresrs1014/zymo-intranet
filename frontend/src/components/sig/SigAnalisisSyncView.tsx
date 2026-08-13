@@ -1,14 +1,15 @@
 import { useMemo, useRef, useState } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query"
 import { cn } from "@/lib/utils"
 import { sigApi } from "@/lib/sigApi"
 import { api } from "@/lib/api"
+import { useAuthStore } from "@/store/authStore"
 import ReactMarkdown, { type Components } from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { MermaidDiagram } from "@/components/reportes/MermaidDiagram"
 import {
   Download, Target, Lightbulb, GitCompare, Database, Users, CheckCircle2, AlertTriangle,
-  ClipboardCheck, ChevronLeft, ChevronRight, Folder, X, Info, FileText, Loader2,
+  ClipboardCheck, ChevronLeft, ChevronRight, Folder, X, Info, FileText, Loader2, Trash2, AlertOctagon,
 } from "lucide-react"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -331,9 +332,27 @@ export function SigAnalisisSyncView() {
   )
 }
 
+// ── Eliminar análisis — mismo permiso que editar el SIG ────────────────────────
+
+function useCanEditSig(): boolean {
+  const user = useAuthStore((s) => s.user)
+  return user?.role === "admin" || user?.role === "gerente" || (user?.app_permissions?.includes("mod_sig") ?? false)
+}
+
+function useDeleteAnalisis() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ tipo, id }: { tipo: AnalysisTipo; id: number }) => sigApi.delete(`/api/analisis/${tipo}/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["sig", "analisis", "historial"] }),
+  })
+}
+
 // ── Historial row — clickeable, con preview al pasar el mouse ─────────────────
 
 function HistorialRow({ item, onOpen, onDownload }: { item: HistorialItem; onOpen: () => void; onDownload: () => void }) {
+  const canEditSig = useCanEditSig()
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const deleteMut = useDeleteAnalisis()
   const score = item.puntaje != null ? Math.round(item.puntaje * 100) : null
   const scoreColor = score == null ? "" : score >= 80 ? "text-emerald-600" : score >= 60 ? "text-amber-600" : "text-red-600"
   const proposals = item.proposals ?? []
@@ -390,6 +409,34 @@ function HistorialRow({ item, onOpen, onDownload }: { item: HistorialItem; onOpe
         >
           <Download className="h-3.5 w-3.5" />
         </button>
+
+        {canEditSig && (
+          confirmDelete ? (
+            <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => deleteMut.mutate({ tipo: item.tipo, id: item.id })}
+                disabled={deleteMut.isPending}
+                className="text-[11px] px-1.5 py-1 rounded bg-red-50 text-red-600 hover:bg-red-100 transition-colors font-medium"
+              >
+                {deleteMut.isPending ? "…" : "Sí, borrar"}
+              </button>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="text-[11px] px-1.5 py-1 rounded text-zinc-400 hover:text-zinc-600 transition-colors"
+              >
+                No
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={(e) => { e.stopPropagation(); setConfirmDelete(true) }}
+              title="Eliminar análisis"
+              className="h-7 w-7 rounded flex items-center justify-center text-zinc-300 hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          )
+        )}
       </button>
 
       {/* Preview al pasar el mouse — metadatos, no un resumen de texto */}
@@ -474,6 +521,13 @@ export function AnalisisDetailModal({ item, onClose }: { item: HistorialItem; on
   const flujogramaRef = useRef<HTMLDivElement>(null)
   const [downloadingPdf, setDownloadingPdf] = useState(false)
   const [pdfError, setPdfError] = useState<string | null>(null)
+  const canEditSig = useCanEditSig()
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const deleteMut = useDeleteAnalisis()
+
+  function handleDelete() {
+    deleteMut.mutate({ tipo: item.tipo, id: item.id }, { onSuccess: onClose })
+  }
 
   async function handleDownloadPdf() {
     setDownloadingPdf(true)
@@ -671,6 +725,35 @@ export function AnalisisDetailModal({ item, onClose }: { item: HistorialItem; on
               {pdfError && <span className="text-[11px] text-red-500">{pdfError}</span>}
             </div>
             <div className="flex items-center gap-2">
+              {canEditSig && (
+                confirmDelete ? (
+                  <div className="flex items-center gap-1.5 mr-1 text-[12px]">
+                    <AlertOctagon className="h-3.5 w-3.5 text-red-500" />
+                    <span className="text-zinc-500">¿Eliminar este análisis?</span>
+                    <button
+                      onClick={handleDelete}
+                      disabled={deleteMut.isPending}
+                      className="px-2 py-1 rounded bg-red-600 text-white font-medium hover:bg-red-700 transition-colors disabled:opacity-60"
+                    >
+                      {deleteMut.isPending ? "…" : "Sí, borrar"}
+                    </button>
+                    <button
+                      onClick={() => setConfirmDelete(false)}
+                      className="px-2 py-1 rounded text-zinc-500 hover:text-zinc-700 transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setConfirmDelete(true)}
+                    className="flex items-center gap-1.5 text-[13px] px-3.5 py-2 rounded-lg border border-zinc-200 text-zinc-400 hover:border-red-200 hover:text-red-500 transition-colors"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Eliminar
+                  </button>
+                )
+              )}
               <button
                 onClick={() => downloadMarkdown(item)}
                 className="flex items-center gap-1.5 text-[13px] px-3.5 py-2 rounded-lg border border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-white transition-colors"
