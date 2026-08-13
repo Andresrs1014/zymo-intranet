@@ -70,4 +70,13 @@
   .org-nodo-item {
     animation: organodo-in 300ms ease-out both;
   }
+
+  /* docx-preview no conserva la transparencia/rotación real de las marcas de
+     agua de Word (quedan como texto solido tapando el encabezado) — se
+     atenúan para que se vean como marca de agua real, no como texto encima. */
+  .docx-render header svg,
+  .docx-render footer svg {
+    opacity: 0.08;
+    pointer-events: none;
+  }
 }
