@@ -328,12 +328,16 @@ function CargoManualModal({ cargo, onClose }: { cargo: TcCargo; onClose: () => v
   const isDocOld = ext === "doc"
   const isExcel = ext === "xlsx" || ext === "xls" || ext === "xlsm"
 
-  const [loading, setLoading] = useState(isDocx || isDocOld || isExcel)
+  const [docTab, setDocTab] = useState<"original" | "funciones">("original")
+
+  const [loading, setLoading] = useState(isDocx || isExcel)
   const [error, setError] = useState<string | null>(null)
   const docxRef = useRef<HTMLDivElement>(null)
   const [sheet, setSheet] = useState<string[][] | null>(null)
+
+  const [textLoading, setTextLoading] = useState(true)
+  const [textError, setTextError] = useState<string | null>(null)
   const [docText, setDocText] = useState<string | null>(null)
-  const [docTab, setDocTab] = useState<"funciones" | "original">("funciones")
 
   // .docx nuevo — se renderiza con el archivo real
   useEffect(() => {
@@ -376,17 +380,16 @@ function CargoManualModal({ cargo, onClose }: { cargo: TcCargo; onClose: () => v
       .finally(() => setLoading(false))
   }, [url, isExcel])
 
-  // .doc viejo (binario) — el navegador no lo puede abrir; se usa el texto que
-  // el backend ya extrajo con antiword al subir el manual (tc_manual_extraction.py)
+  // Texto extraído (pestaña "Funciones") — el backend lo saca de CUALQUIER
+  // formato al subir el manual (pdf/docx/doc/xlsx), no solo de .doc viejo.
   useEffect(() => {
-    if (!isDocOld) return
-    setLoading(true)
-    setError(null)
+    setTextLoading(true)
+    setTextError(null)
     api.get(`/tc/cargos/${cargo.id}/manual-texto`)
       .then((r) => setDocText(r.data?.texto || ""))
-      .catch(() => setError("No se pudo leer el documento."))
-      .finally(() => setLoading(false))
-  }, [cargo.id, isDocOld])
+      .catch(() => setTextError("No se pudo leer el texto del documento."))
+      .finally(() => setTextLoading(false))
+  }, [cargo.id])
 
   return (
     <div
@@ -411,82 +414,93 @@ function CargoManualModal({ cargo, onClose }: { cargo: TcCargo; onClose: () => v
           </button>
         </div>
 
+        <div className="shrink-0 flex items-center gap-1 px-5 pt-2.5 border-b border-zinc-200">
+          <button
+            type="button"
+            onClick={() => setDocTab("original")}
+            className={cn(
+              "px-3 py-1.5 text-[12px] font-medium rounded-t-md border border-b-0",
+              docTab === "original"
+                ? "border-zinc-200 bg-white text-zinc-800"
+                : "border-transparent text-zinc-400 hover:text-zinc-600",
+            )}
+          >
+            Documento original
+          </button>
+          <button
+            type="button"
+            onClick={() => setDocTab("funciones")}
+            className={cn(
+              "px-3 py-1.5 text-[12px] font-medium rounded-t-md border border-b-0",
+              docTab === "funciones"
+                ? "border-zinc-200 bg-white text-zinc-800"
+                : "border-transparent text-zinc-400 hover:text-zinc-600",
+            )}
+          >
+            Funciones
+          </button>
+        </div>
+
         <div className="flex-1 overflow-hidden">
-          {loading && (
-            <div className="h-full flex items-center justify-center gap-2 text-zinc-400">
-              <Loader className="h-4 w-4 animate-spin" />
-              <span className="text-xs">Cargando documento…</span>
-            </div>
-          )}
+          {docTab === "original" ? (
+            <>
+              {loading && (
+                <div className="h-full flex items-center justify-center gap-2 text-zinc-400">
+                  <Loader className="h-4 w-4 animate-spin" />
+                  <span className="text-xs">Cargando documento…</span>
+                </div>
+              )}
 
-          {!loading && error && (
-            <div className="h-full flex flex-col items-center justify-center gap-2 text-center px-6">
-              <AlertTriangle className="h-5 w-5 text-zinc-300" />
-              <p className="text-sm text-zinc-500">{error}</p>
-            </div>
-          )}
+              {!loading && error && (
+                <div className="h-full flex flex-col items-center justify-center gap-2 text-center px-6">
+                  <AlertTriangle className="h-5 w-5 text-zinc-300" />
+                  <p className="text-sm text-zinc-500">{error}</p>
+                </div>
+              )}
 
-          {!loading && !error && isPdf && (
-            <iframe src={url} className="w-full h-full border-0" title={cargo.manual_filename ?? "Manual de funciones"} />
-          )}
+              {!loading && !error && isPdf && (
+                <iframe src={url} className="w-full h-full border-0" title={cargo.manual_filename ?? "Manual de funciones"} />
+              )}
 
-          {!loading && !error && isDocx && (
-            <div className="h-full overflow-auto p-6">
-              <div ref={docxRef} className="max-w-5xl mx-auto" />
-            </div>
-          )}
+              {!loading && !error && isDocx && (
+                <div className="h-full overflow-auto p-6">
+                  <div ref={docxRef} className="max-w-5xl mx-auto" />
+                </div>
+              )}
 
-          {!loading && !error && isDocOld && (
-            <div className="h-full flex flex-col">
-              <div className="shrink-0 flex items-center gap-1 px-6 pt-3 border-b border-zinc-200">
-                <button
-                  type="button"
-                  onClick={() => setDocTab("funciones")}
-                  className={cn(
-                    "px-3 py-1.5 text-[12px] font-medium rounded-t-md border border-b-0",
-                    docTab === "funciones"
-                      ? "border-zinc-200 bg-white text-zinc-800"
-                      : "border-transparent text-zinc-400 hover:text-zinc-600",
-                  )}
-                >
-                  Funciones
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDocTab("original")}
-                  className={cn(
-                    "px-3 py-1.5 text-[12px] font-medium rounded-t-md border border-b-0",
-                    docTab === "original"
-                      ? "border-zinc-200 bg-white text-zinc-800"
-                      : "border-transparent text-zinc-400 hover:text-zinc-600",
-                  )}
-                >
-                  Documento original
-                </button>
-              </div>
-
-              {docTab === "funciones" ? (
-                docText ? (
-                  <div className="flex-1 overflow-auto p-6">
-                    <pre className="max-w-5xl mx-auto whitespace-pre-wrap font-sans text-[14px] text-zinc-700 leading-relaxed">
-                      {docText}
-                    </pre>
+              {!loading && !error && isExcel && (
+                sheet && sheet.length > 0 ? (
+                  <div className="h-full overflow-auto p-4">
+                    <table className="min-w-full text-[12px] border-collapse">
+                      <tbody>
+                        {sheet.map((row, ri) => (
+                          <tr key={ri}>
+                            {row.map((cell, ci) => (
+                              <td key={ci} className="border border-zinc-200 px-2 py-1 text-zinc-700 whitespace-nowrap">
+                                {cell}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 ) : (
-                  <div className="flex-1 flex flex-col items-center justify-center gap-2 text-center px-6">
-                    <AlertTriangle className="h-5 w-5 text-zinc-300" />
-                    <p className="text-sm text-zinc-500">
-                      Este .doc no tiene texto extraído todavía — en T&amp;C, usa «Re-extraer texto» sobre este cargo.
-                    </p>
+                  <div className="h-full flex items-center justify-center text-sm text-zinc-400">
+                    Archivo de Excel vacío
                   </div>
                 )
-              ) : (
-                <div className="flex-1 flex flex-col items-center justify-center gap-4">
+              )}
+
+              {!loading && !error && (isDocOld || (!isPdf && !isDocx && !isExcel)) && (
+                <div className="h-full flex flex-col items-center justify-center gap-4">
                   <Paperclip className="h-8 w-8 text-zinc-300" />
                   <div className="text-center">
                     <p className="text-sm text-zinc-600">{cargo.manual_filename ?? "Documento"}</p>
                     <p className="text-[11px] text-zinc-400 mt-1">
-                      Formato .doc antiguo — el navegador no puede mostrarlo. Descárgalo para abrirlo en Word.
+                      {isDocOld
+                        ? "Formato .doc antiguo — el navegador no puede mostrarlo. Descárgalo para abrirlo en Word."
+                        : "Este formato no puede mostrarse acá — descárgalo para verlo."}
                     </p>
                   </div>
                   <a
@@ -498,48 +512,40 @@ function CargoManualModal({ cargo, onClose }: { cargo: TcCargo; onClose: () => v
                   </a>
                 </div>
               )}
-            </div>
-          )}
+            </>
+          ) : (
+            <>
+              {textLoading && (
+                <div className="h-full flex items-center justify-center gap-2 text-zinc-400">
+                  <Loader className="h-4 w-4 animate-spin" />
+                  <span className="text-xs">Cargando texto…</span>
+                </div>
+              )}
 
-          {!loading && !error && isExcel && (
-            sheet && sheet.length > 0 ? (
-              <div className="h-full overflow-auto p-4">
-                <table className="min-w-full text-[12px] border-collapse">
-                  <tbody>
-                    {sheet.map((row, ri) => (
-                      <tr key={ri}>
-                        {row.map((cell, ci) => (
-                          <td key={ci} className="border border-zinc-200 px-2 py-1 text-zinc-700 whitespace-nowrap">
-                            {cell}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="h-full flex items-center justify-center text-sm text-zinc-400">
-                Archivo de Excel vacío
-              </div>
-            )
-          )}
+              {!textLoading && textError && (
+                <div className="h-full flex flex-col items-center justify-center gap-2 text-center px-6">
+                  <AlertTriangle className="h-5 w-5 text-zinc-300" />
+                  <p className="text-sm text-zinc-500">{textError}</p>
+                </div>
+              )}
 
-          {!loading && !error && !isPdf && !isDocx && !isDocOld && !isExcel && (
-            <div className="h-full flex flex-col items-center justify-center gap-4">
-              <Paperclip className="h-8 w-8 text-zinc-300" />
-              <div className="text-center">
-                <p className="text-sm text-zinc-600">{cargo.manual_filename ?? "Documento"}</p>
-                <p className="text-[11px] text-zinc-400 mt-1">Este formato no puede mostrarse acá — descargalo para verlo.</p>
-              </div>
-              <a
-                href={url}
-                download={cargo.manual_filename}
-                className="flex items-center gap-1.5 text-[11px] px-3 py-2 rounded border border-zinc-200 text-zinc-600 hover:border-zinc-400 hover:text-zinc-900 transition-colors"
-              >
-                Descargar
-              </a>
-            </div>
+              {!textLoading && !textError && (
+                docText ? (
+                  <div className="h-full overflow-auto p-6">
+                    <pre className="max-w-5xl mx-auto whitespace-pre-wrap font-sans text-[14px] text-zinc-700 leading-relaxed">
+                      {docText}
+                    </pre>
+                  </div>
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center gap-2 text-center px-6">
+                    <AlertTriangle className="h-5 w-5 text-zinc-300" />
+                    <p className="text-sm text-zinc-500">
+                      Este documento no tiene texto extraído todavía — en T&amp;C, usa «Re-extraer texto» sobre este cargo.
+                    </p>
+                  </div>
+                )
+              )}
+            </>
           )}
         </div>
       </div>
