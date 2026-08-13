@@ -963,7 +963,7 @@ function ProcedureFileView({
 
             {/* Archivo original tab */}
             {effectiveTab === "archivo" && content?.archivoOriginal && (
-              <ArchivoOriginalView commitId={content.id} tipoMime={content.tipoMime} nombreArchivo={content.nombreArchivo} />
+              <ArchivoOriginalView commitId={content.id} tipoMime={content.tipoMime} nombreArchivo={content.nombreArchivo} contenidoAgente={content.contenidoAgente} />
             )}
 
             {/* Formatos tab — cuelgan de un instructivo, agregados a nivel de procedimiento */}
@@ -1248,8 +1248,8 @@ function InstructivoDetailView({ inst, onBack }: { inst: SigInstructivo; onBack:
 // ── Archivo original view ─────────────────────────────────────────────────────
 
 function ArchivoOriginalView({
-  commitId, tipoMime, nombreArchivo,
-}: { commitId: number; tipoMime: string | null; nombreArchivo: string | null }) {
+  commitId, tipoMime, nombreArchivo, contenidoAgente,
+}: { commitId: number; tipoMime: string | null; nombreArchivo: string | null; contenidoAgente?: string }) {
   const [objectUrl, setObjectUrl] = useState<string | null>(null)
   const [arrayBuffer, setArrayBuffer] = useState<ArrayBuffer | null>(null)
   const [loading, setLoading] = useState(true)
@@ -1334,7 +1334,34 @@ function ArchivoOriginalView({
     )
   }
 
-  // .doc u otro — descarga
+  // .doc viejo u otro formato sin visor nativo — no hay libreria que lo dibuje
+  // pixel-perfect en el navegador (docx-preview solo soporta .docx), pero el
+  // texto ya se extrajo con antiword al subir el documento — se muestra ese
+  // texto real en vez de forzar solo la descarga.
+  if (contenidoAgente?.trim()) {
+    return (
+      <div className="flex-1 overflow-auto bg-white p-6">
+        <div className="max-w-3xl mx-auto">
+          <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+            <AlertCircle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+            <p className="text-[11px] text-amber-700">
+              Formato sin vista previa exacta ({nombreArchivo}) — se muestra el texto extraído del documento original.
+            </p>
+          </div>
+          <div className="prose max-w-none
+              prose-headings:font-mono prose-headings:text-zinc-800 prose-headings:font-bold prose-headings:tracking-tight
+              prose-p:text-zinc-600 prose-p:leading-relaxed prose-p:text-[13px]
+              prose-strong:text-zinc-800 prose-strong:font-semibold
+              prose-li:text-zinc-600 prose-li:text-[13px] prose-li:leading-relaxed
+              prose-table:text-[12px] prose-table:w-full"
+          >
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{cleanProcContent(contenidoAgente)}</ReactMarkdown>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-4">
       <Paperclip className="h-8 w-8 text-zinc-300" />
@@ -2097,7 +2124,7 @@ function SigProcedureMobileView({
         )}
 
         {effectiveTab === "archivo" && content?.archivoOriginal && (
-          <ArchivoOriginalView commitId={content.id} tipoMime={content.tipoMime} nombreArchivo={content.nombreArchivo} />
+          <ArchivoOriginalView commitId={content.id} tipoMime={content.tipoMime} nombreArchivo={content.nombreArchivo} contenidoAgente={content.contenidoAgente} />
         )}
 
         {effectiveTab === "instructivos" && (
