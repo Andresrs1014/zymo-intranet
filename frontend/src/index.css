@@ -71,20 +71,16 @@
     animation: organodo-in 300ms ease-out both;
   }
 
-  /* docx-preview no conserva la transparencia/rotación real de las marcas de
-     agua de Word (quedan como texto solido tapando el encabezado) — se
-     atenúan para que se vean como marca de agua real, no como texto encima. */
-  .docx-render header svg,
-  .docx-render footer svg {
-    opacity: 0.08;
-    pointer-events: none;
-  }
-
   /* docx-preview reserva el header/footer al alto completo de la pagina (para
-     que la marca de agua quepa en cualquier posicion), lo que deja un bloque
-     en blanco enorme antes del contenido real. El contenido del header ya es
-     position:absolute, asi que colapsar su alto no lo oculta, solo evita que
-     empuje el resto del documento hacia abajo. */
+     que quepa en cualquier posicion), lo que deja un bloque en blanco enorme
+     antes del contenido real. El contenido del header ya es position:absolute,
+     asi que colapsar su alto no lo oculta, solo evita que empuje el resto del
+     documento hacia abajo.
+     Nota: se probo tambien atenuar la opacidad del header pensando que era
+     una marca de agua — en la mayoria de los procedimientos NO lo es (es el
+     logo + codigo/version/fecha real), asi que atenuarlo dejaba informacion
+     real ilegible. Ver commit anterior si un documento puntual sí trae una
+     marca de agua genuina y hay que tratarlo aparte. */
   .docx-render header,
   .docx-render footer {
     height: 0;
