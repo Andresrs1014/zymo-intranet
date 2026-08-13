@@ -17,6 +17,7 @@ export interface SigAnexoItem {
   tipoMime: string | null
   autorNombre: string
   createdAt: string
+  instructivo?: { codigo: string; titulo: string } | null
 }
 
 interface InstructivoOption { id: number; codigo: string; titulo: string }
@@ -73,7 +74,6 @@ export function SigAnexoPanel({
   async function handleSave() {
     if (!file) { setError("Selecciona un archivo primero."); return }
     if (!nombre.trim()) { setError("El nombre es obligatorio."); return }
-    if (instructivoOptions && !instructivoId) { setError("Elige a qué instructivo pertenece."); return }
 
     setSubmitting(true)
     setError("")
@@ -82,7 +82,7 @@ export function SigAnexoPanel({
       fd.append("file", file)
       fd.append("nombre", nombre.trim())
       if (extraField) fd.append(extraField.name, extraField.value)
-      if (instructivoOptions) fd.append("instructivoId", instructivoId)
+      if (instructivoOptions && instructivoId) fd.append("instructivoId", instructivoId)
 
       await sigApi.post(uploadUrl, fd, { headers: { "Content-Type": "multipart/form-data" } })
       qc.invalidateQueries({ queryKey })
@@ -194,14 +194,14 @@ export function SigAnexoPanel({
           {instructivoOptions && (
             <div>
               <label className="text-[11px] text-zinc-400 uppercase tracking-widest font-mono block mb-1">
-                Instructivo *
+                Instructivo (opcional)
               </label>
               <select
                 value={instructivoId}
                 onChange={(e) => setInstructivoId(e.target.value)}
                 className="w-full bg-white border border-zinc-200 rounded-lg px-2.5 py-1.5 text-[12px] text-zinc-700 font-mono focus:outline-none focus:ring-1 focus:ring-helix-accent/40"
               >
-                <option value="">— Seleccionar —</option>
+                <option value="">— Sin instructivo —</option>
                 {instructivoOptions.map((i) => (
                   <option key={i.id} value={i.id}>{i.codigo} — {i.titulo}</option>
                 ))}
@@ -292,7 +292,17 @@ export function SigAnexoPanel({
             >
               <FileText className="h-4 w-4 text-zinc-400 shrink-0" />
               <div className="flex-1 min-w-0">
-                <span className="text-[12px] font-mono font-semibold text-zinc-700">{item.nombre}</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[12px] font-mono font-semibold text-zinc-700">{item.nombre}</span>
+                  {item.instructivo && (
+                    <span
+                      title={item.instructivo.titulo}
+                      className="text-[10px] font-mono px-1.5 py-px rounded bg-zinc-100 text-zinc-500 truncate max-w-[140px]"
+                    >
+                      {item.instructivo.codigo}
+                    </span>
+                  )}
+                </div>
                 <p className="text-[11px] text-zinc-400 truncate mt-0.5">{item.nombreArchivo}</p>
               </div>
               <button

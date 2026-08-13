@@ -33,6 +33,7 @@ model SigProcedimiento {
   updatedAt   DateTime               @updatedAt
   commits              SigCommit[]
   instructivos         SigInstructivo[]
+  formatos             SigFormato[]
   docAnexos            SigDocAnexo[]
   analisisCoherencia   SigAnalisisCoherencia[]
   analisisMejoras      SigAnalisisMejoras[]
@@ -129,12 +130,15 @@ model SigInstructivo {
   @@index([codigo])
 }
 
-// ── Formato — plantilla/formulario que cuelga de un instructivo puntual ───────
+// ── Formato — plantilla/formulario a nivel de procedimiento; puede asociarse
+// a un instructivo puntual para más contexto, pero no es obligatorio ──────────
 
 model SigFormato {
-  id             Int            @id @default(autoincrement())
-  instructivoId  Int
-  instructivo    SigInstructivo @relation(fields: [instructivoId], references: [id], onDelete: Cascade)
+  id              Int              @id @default(autoincrement())
+  procedimientoId Int
+  procedimiento   SigProcedimiento @relation(fields: [procedimientoId], references: [id], onDelete: Cascade)
+  instructivoId   Int?
+  instructivo     SigInstructivo?  @relation(fields: [instructivoId], references: [id], onDelete: SetNull)
 
   nombre  String
   archivo String @db.VarChar(500)
@@ -147,6 +151,7 @@ model SigFormato {
   createdAt DateTime @default(now())
 
   @@index([instructivoId])
+  @@index([procedimientoId])
 }
 
 // ── Doc Anexo — documento adicional libre a nivel de procedimiento ────────────

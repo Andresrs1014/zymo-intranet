@@ -333,6 +333,7 @@ function CargoManualModal({ cargo, onClose }: { cargo: TcCargo; onClose: () => v
   const docxRef = useRef<HTMLDivElement>(null)
   const [sheet, setSheet] = useState<string[][] | null>(null)
   const [docText, setDocText] = useState<string | null>(null)
+  const [docTab, setDocTab] = useState<"funciones" | "original">("funciones")
 
   // .docx nuevo — se renderiza con el archivo real
   useEffect(() => {
@@ -436,20 +437,68 @@ function CargoManualModal({ cargo, onClose }: { cargo: TcCargo; onClose: () => v
           )}
 
           {!loading && !error && isDocOld && (
-            docText ? (
-              <div className="h-full overflow-auto p-6">
-                <pre className="max-w-5xl mx-auto whitespace-pre-wrap font-sans text-[14px] text-zinc-700 leading-relaxed">
-                  {docText}
-                </pre>
+            <div className="h-full flex flex-col">
+              <div className="shrink-0 flex items-center gap-1 px-6 pt-3 border-b border-zinc-200">
+                <button
+                  type="button"
+                  onClick={() => setDocTab("funciones")}
+                  className={cn(
+                    "px-3 py-1.5 text-[12px] font-medium rounded-t-md border border-b-0",
+                    docTab === "funciones"
+                      ? "border-zinc-200 bg-white text-zinc-800"
+                      : "border-transparent text-zinc-400 hover:text-zinc-600",
+                  )}
+                >
+                  Funciones
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDocTab("original")}
+                  className={cn(
+                    "px-3 py-1.5 text-[12px] font-medium rounded-t-md border border-b-0",
+                    docTab === "original"
+                      ? "border-zinc-200 bg-white text-zinc-800"
+                      : "border-transparent text-zinc-400 hover:text-zinc-600",
+                  )}
+                >
+                  Documento original
+                </button>
               </div>
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center gap-2 text-center px-6">
-                <AlertTriangle className="h-5 w-5 text-zinc-300" />
-                <p className="text-sm text-zinc-500">
-                  Este .doc no tiene texto extraído todavía — en T&amp;C, usa «Re-extraer texto» sobre este cargo.
-                </p>
-              </div>
-            )
+
+              {docTab === "funciones" ? (
+                docText ? (
+                  <div className="flex-1 overflow-auto p-6">
+                    <pre className="max-w-5xl mx-auto whitespace-pre-wrap font-sans text-[14px] text-zinc-700 leading-relaxed">
+                      {docText}
+                    </pre>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center gap-2 text-center px-6">
+                    <AlertTriangle className="h-5 w-5 text-zinc-300" />
+                    <p className="text-sm text-zinc-500">
+                      Este .doc no tiene texto extraído todavía — en T&amp;C, usa «Re-extraer texto» sobre este cargo.
+                    </p>
+                  </div>
+                )
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center gap-4">
+                  <Paperclip className="h-8 w-8 text-zinc-300" />
+                  <div className="text-center">
+                    <p className="text-sm text-zinc-600">{cargo.manual_filename ?? "Documento"}</p>
+                    <p className="text-[11px] text-zinc-400 mt-1">
+                      Formato .doc antiguo — el navegador no puede mostrarlo. Descárgalo para abrirlo en Word.
+                    </p>
+                  </div>
+                  <a
+                    href={url}
+                    download={cargo.manual_filename}
+                    className="flex items-center gap-1.5 text-[11px] px-3 py-2 rounded border border-zinc-200 text-zinc-600 hover:border-zinc-400 hover:text-zinc-900 transition-colors"
+                  >
+                    Descargar documento original
+                  </a>
+                </div>
+              )}
+            </div>
           )}
 
           {!loading && !error && isExcel && (

@@ -970,7 +970,7 @@ function ProcedureFileView({
             {effectiveTab === "formatos" && (
               <SigAnexoPanel
                 title="Formatos"
-                emptyText="Plantillas o formularios que usan los instructivos de este procedimiento. Primero necesitas al menos un instructivo creado."
+                emptyText="Plantillas o formularios de este procedimiento. Opcionalmente puedes asociarlos a un instructivo puntual."
                 listUrl={`/api/formatos?procedimientoId=${id}`}
                 uploadUrl="/api/formatos/upload"
                 deleteUrlBase="/api/formatos"
@@ -978,6 +978,7 @@ function ProcedureFileView({
                 queryKey={["sig", "formatos", id]}
                 canEdit={canEditSig}
                 instructivoOptions={instructivosSnap}
+                extraField={{ name: "procedimientoId", value: String(id) }}
               />
             )}
 
@@ -2133,7 +2134,7 @@ function SigProcedureMobileView({
         {effectiveTab === "formatos" && (
           <SigAnexoPanel
             title="Formatos"
-            emptyText="Plantillas o formularios que usan los instructivos de este procedimiento. Primero necesitas al menos un instructivo creado."
+            emptyText="Plantillas o formularios de este procedimiento. Opcionalmente puedes asociarlos a un instructivo puntual."
             listUrl={`/api/formatos?procedimientoId=${id}`}
             uploadUrl="/api/formatos/upload"
             deleteUrlBase="/api/formatos"
@@ -2141,6 +2142,7 @@ function SigProcedureMobileView({
             queryKey={["sig", "formatos", id]}
             canEdit={canEditSig}
             instructivoOptions={instructivosSnap}
+            extraField={{ name: "procedimientoId", value: String(id) }}
           />
         )}
 

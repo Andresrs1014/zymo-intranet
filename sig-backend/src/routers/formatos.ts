@@ -34,9 +34,7 @@ router.get("/", async (req: Request, res: Response) => {
   const formatos = await prisma.sigFormato.findMany({
     where: {
       ...(instructivoId ? { instructivoId: parseInt(instructivoId as string) } : {}),
-      ...(procedimientoId
-        ? { instructivo: { procedimientoId: parseInt(procedimientoId as string) } }
-        : {}),
+      ...(procedimientoId ? { procedimientoId: parseInt(procedimientoId as string) } : {}),
     },
     include: { instructivo: { select: { codigo: true, titulo: true } } },
     orderBy: { createdAt: "asc" },
@@ -77,7 +75,8 @@ router.post(
     }
 
     const BodySchema = z.object({
-      instructivoId: z.coerce.number().int().positive(),
+      procedimientoId: z.coerce.number().int().positive(),
+      instructivoId: z.coerce.number().int().positive().optional(),
       nombre: z.string().min(1).max(255),
     })
     const parsed = BodySchema.safeParse(req.body)
@@ -87,17 +86,27 @@ router.post(
       return
     }
 
-    const inst = await prisma.sigInstructivo.findUnique({ where: { id: parsed.data.instructivoId } })
-    if (!inst) {
+    const proc = await prisma.sigProcedimiento.findUnique({ where: { id: parsed.data.procedimientoId } })
+    if (!proc) {
       await fs.unlink(req.file.path).catch(() => {})
-      res.status(404).json({ error: "Instructivo no encontrado" })
+      res.status(404).json({ error: "Procedimiento no encontrado" })
       return
+    }
+
+    if (parsed.data.instructivoId) {
+      const inst = await prisma.sigInstructivo.findUnique({ where: { id: parsed.data.instructivoId } })
+      if (!inst || inst.procedimientoId !== parsed.data.procedimientoId) {
+        await fs.unlink(req.file.path).catch(() => {})
+        res.status(404).json({ error: "Instructivo no encontrado en este procedimiento" })
+        return
+      }
     }
 
     const autorId = getUserId(req.user!)
     const created = await prisma.sigFormato.create({
       data: {
-        instructivoId: parsed.data.instructivoId,
+        procedimientoId: parsed.data.procedimientoId,
+        instructivoId: parsed.data.instructivoId ?? null,
         nombre: parsed.data.nombre,
         archivo: req.file.path,
         nombreArchivo: req.file.originalname,
