@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query"
 import { cn } from "@/lib/utils"
 import { sigApi } from "@/lib/sigApi"
 import { api } from "@/lib/api"
-import ReactMarkdown from "react-markdown"
+import ReactMarkdown, { type Components } from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { MermaidDiagram } from "@/components/reportes/MermaidDiagram"
 import {
@@ -25,10 +25,14 @@ export interface HistorialItem {
   coherente?:     boolean
   puntaje?:       number | null
   issues?:        Array<{ tipo?: string; severidad: string; descripcion: string }>
-  proposals?:     Array<{ descripcion: string; categoria?: string }>
+  // proposals/findings: la forma real guardada por el MCP no siempre coincide con estos
+  // nombres (hay registros con hallazgo/criticidad/porque o propuesta/prioridad/detalle
+  // en vez de descripcion/severidad/categoria) — se leen siempre a través de los
+  // normalizadores findingTexto/findingSeveridad/proposalTexto/proposalCategoria de abajo.
+  proposals?:     Array<Record<string, unknown>>
   conflictos?:    Array<{ instructivoCodigo: string; descripcion: string; severidad: string }>
   cargos?:        Array<{ cargo: string; funciones: string[] }>
-  findings?:            Array<{ categoria?: string; severidad?: string; descripcion: string }>
+  findings?:      Array<Record<string, unknown>>
   markdownNormalizado?: string | null
   flujogramaMmd?:       string | null
   procedimiento: {
@@ -36,6 +40,43 @@ export interface HistorialItem {
     titulo: string
     area:   { nombre: string; color: string }
   }
+}
+
+// ── Normalizadores de hallazgos/propuestas ──────────────────────────────────────
+// Distintas corridas de análisis (vía MCP) guardaron los mismos datos con nombres
+// de campo distintos (descripcion/hallazgo/titulo, severidad/criticidad,
+// categoria/prioridad, propuesta/detalle...) — sin esto, el texto real queda
+// invisible aunque el dato exista en la BD.
+
+function firstText(obj: Record<string, unknown>, keys: string[]): string {
+  for (const k of keys) {
+    const v = obj[k]
+    if (typeof v === "string" && v.trim()) return v.trim()
+  }
+  return ""
+}
+
+function findingTexto(f: Record<string, unknown>): string {
+  const principal = firstText(f, ["descripcion", "hallazgo", "titulo"])
+  const porque = firstText(f, ["porque", "por_que"])
+  if (porque && !principal.includes(porque)) {
+    return principal ? `${principal} Por qué: ${porque}` : `Por qué: ${porque}`
+  }
+  return principal
+}
+function findingSeveridad(f: Record<string, unknown>): string | undefined {
+  return firstText(f, ["severidad", "criticidad"]) || undefined
+}
+function proposalTexto(p: Record<string, unknown>): string {
+  const principal = firstText(p, ["descripcion", "propuesta", "titulo"])
+  const detalle = firstText(p, ["detalle"])
+  if (detalle && !principal.includes(detalle)) {
+    return principal ? `${principal} ${detalle}` : detalle
+  }
+  return principal
+}
+function proposalCategoria(p: Record<string, unknown>): string | undefined {
+  return firstText(p, ["categoria", "prioridad"]) || undefined
 }
 
 // ── Markdown export (se mantiene — sigue siendo útil para pegar en otro lado) ──
@@ -73,7 +114,10 @@ function buildMarkdown(item: HistorialItem): string {
     const props = item.proposals ?? []
     return header + [
       `## Propuestas de mejora (${props.length})`, ``,
-      props.length === 0 ? "_Sin propuestas_" : props.map((p, i) => `${i + 1}. ${p.descripcion}${p.categoria ? ` _(${p.categoria})_` : ""}`).join("\n"),
+      props.length === 0 ? "_Sin propuestas_" : props.map((p, i) => {
+        const cat = proposalCategoria(p)
+        return `${i + 1}. ${proposalTexto(p)}${cat ? ` _(${cat})_` : ""}`
+      }).join("\n"),
     ].join("\n")
   }
   if (item.tipo === "proc-vs-inst") {
@@ -96,7 +140,11 @@ function buildMarkdown(item: HistorialItem): string {
     const findings = item.findings ?? []
     return header + [
       `## Hallazgos por rúbrica (${findings.length})`, ``,
-      findings.length === 0 ? "_Sin hallazgos_" : findings.map((f) => `- **[${f.categoria ?? "general"}${f.severidad ? `/${f.severidad}` : ""}]** ${f.descripcion}`).join("\n"),
+      findings.length === 0 ? "_Sin hallazgos_" : findings.map((f) => {
+        const sev = findingSeveridad(f)
+        const cat = firstText(f, ["categoria"]) || "general"
+        return `- **[${cat}${sev ? `/${sev}` : ""}]** ${findingTexto(f)}`
+      }).join("\n"),
       ``,
       item.markdownNormalizado ? `## Markdown normalizado\n\n${item.markdownNormalizado}` : "",
       item.flujogramaMmd ? `## Flujograma\n\n\`\`\`mermaid\n${item.flujogramaMmd}\n\`\`\`` : "",
@@ -380,10 +428,16 @@ async function downloadAnalisisPdf(item: HistorialItem, flujogramaSvg: string | 
     coherente: item.coherente ?? null,
     puntaje: item.puntaje ?? null,
     issues: item.issues ?? [],
-    proposals: item.proposals ?? [],
+    // Normalizados a {descripcion, categoria} — la forma cruda tiene nombres de
+    // campo inconsistentes entre corridas de análisis (ver findingTexto/proposalTexto).
+    proposals: (item.proposals ?? []).map((p) => ({ descripcion: proposalTexto(p), categoria: proposalCategoria(p) ?? null })),
     conflictos: item.conflictos ?? [],
     cargos: item.cargos ?? [],
-    findings: item.findings ?? [],
+    findings: (item.findings ?? []).map((f) => ({
+      descripcion: findingTexto(f),
+      categoria: firstText(f, ["categoria"]) || null,
+      severidad: findingSeveridad(f) ?? null,
+    })),
     markdownNormalizado: item.markdownNormalizado ?? null,
     flujogramaSvg: flujogramaSvg,
     procedimiento: item.procedimiento,
@@ -397,6 +451,18 @@ async function downloadAnalisisPdf(item: HistorialItem, flujogramaSvg: string | 
   a.click()
   document.body.removeChild(a)
   URL.revokeObjectURL(url)
+}
+
+// Algunos análisis guardados incrustaron el flujograma como un bloque ```mermaid
+// dentro del markdown normalizado en vez de usar el campo flujogramaMmd dedicado —
+// sin este override, ReactMarkdown lo muestra como código plano en vez de dibujarlo.
+const MARKDOWN_MERMAID_COMPONENTS: Components = {
+  code({ className, children, ...rest }) {
+    if (/language-mermaid/.test(className || "")) {
+      return <MermaidDiagram code={String(children).replace(/\n$/, "")} />
+    }
+    return <code className={className} {...rest}>{children}</code>
+  },
 }
 
 // Vista a pantalla completa, tipo informe — pensada para leerse en una reunión
@@ -414,7 +480,9 @@ export function AnalisisDetailModal({ item, onClose }: { item: HistorialItem; on
     setPdfError(null)
     try {
       // El SVG del flujograma, si existe, ya está renderizado en el DOM por <MermaidDiagram> —
-      // no hay renderer de mermaid en el servidor, así que se captura tal cual desde acá.
+      // sea el del campo dedicado o uno incrustado como ```mermaid dentro del documento
+      // normalizado (ver MARKDOWN_MERMAID_COMPONENTS). No hay renderer de mermaid en el
+      // servidor, así que se captura tal cual desde acá (el primero que aparezca en el reporte).
       const svg = flujogramaRef.current?.querySelector("svg")?.outerHTML ?? null
       await downloadAnalisisPdf(item, svg)
     } catch {
@@ -506,15 +574,18 @@ export function AnalisisDetailModal({ item, onClose }: { item: HistorialItem; on
               <section>
                 <h2 className="text-[12px] font-semibold text-zinc-400 uppercase tracking-wide mb-3">Propuestas de mejora</h2>
                 <div className="space-y-4">
-                  {(item.proposals ?? []).map((p, idx) => (
-                    <div key={idx} className="flex items-start gap-3">
-                      <span className="h-6 w-6 rounded-full bg-amber-50 text-amber-600 text-[12px] font-semibold flex items-center justify-center shrink-0 mt-0.5">{idx + 1}</span>
-                      <div>
-                        <p className="text-[15px] text-zinc-700 leading-relaxed">{p.descripcion}</p>
-                        {p.categoria && <p className="text-[12px] text-zinc-400 mt-1">{p.categoria}</p>}
+                  {(item.proposals ?? []).map((p, idx) => {
+                    const cat = proposalCategoria(p)
+                    return (
+                      <div key={idx} className="flex items-start gap-3">
+                        <span className="h-6 w-6 rounded-full bg-amber-50 text-amber-600 text-[12px] font-semibold flex items-center justify-center shrink-0 mt-0.5">{idx + 1}</span>
+                        <div>
+                          <p className="text-[15px] text-zinc-700 leading-relaxed">{proposalTexto(p)}</p>
+                          {cat && <p className="text-[12px] text-zinc-400 mt-1">{cat}</p>}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </section>
             )}
@@ -554,38 +625,42 @@ export function AnalisisDetailModal({ item, onClose }: { item: HistorialItem; on
             ))}
 
             {item.tipo === "completo" && (
-              <>
+              <div ref={flujogramaRef}>
                 {(item.findings ?? []).length > 0 && (
                   <section>
                     <h2 className="text-[12px] font-semibold text-zinc-400 uppercase tracking-wide mb-3">Hallazgos por rúbrica</h2>
                     <div className="space-y-3">
-                      {(item.findings ?? []).map((f, idx) => (
-                        <div key={idx} className="flex items-start gap-3 pb-3 border-b border-zinc-100 last:border-0 last:pb-0">
-                          {f.severidad && <SeverityBadge severidad={f.severidad} />}
-                          <p className="text-[15px] text-zinc-700 leading-relaxed">
-                            {f.categoria && <span className="text-zinc-400 font-medium">{f.categoria}: </span>}
-                            {f.descripcion}
-                          </p>
-                        </div>
-                      ))}
+                      {(item.findings ?? []).map((f, idx) => {
+                        const sev = findingSeveridad(f)
+                        const cat = firstText(f, ["categoria"])
+                        return (
+                          <div key={idx} className="flex items-start gap-3 pb-3 border-b border-zinc-100 last:border-0 last:pb-0">
+                            {sev && <SeverityBadge severidad={sev} />}
+                            <p className="text-[15px] text-zinc-700 leading-relaxed">
+                              {cat && <span className="text-zinc-400 font-medium">{cat}: </span>}
+                              {findingTexto(f)}
+                            </p>
+                          </div>
+                        )
+                      })}
                     </div>
                   </section>
                 )}
                 {item.flujogramaMmd && (
                   <section>
                     <h2 className="text-[12px] font-semibold text-zinc-400 uppercase tracking-wide mb-3">Flujograma</h2>
-                    <div ref={flujogramaRef}>
-                      <MermaidDiagram code={item.flujogramaMmd} />
-                    </div>
+                    <MermaidDiagram code={item.flujogramaMmd} />
                   </section>
                 )}
                 {item.markdownNormalizado && (
                   <section className="prose prose-base max-w-none prose-headings:text-zinc-800 prose-p:text-zinc-700 prose-p:leading-relaxed">
                     <h2 className="text-[12px] font-semibold text-zinc-400 uppercase tracking-wide not-prose mb-3">Documento normalizado</h2>
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{item.markdownNormalizado}</ReactMarkdown>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_MERMAID_COMPONENTS}>
+                      {item.markdownNormalizado}
+                    </ReactMarkdown>
                   </section>
                 )}
-              </>
+              </div>
             )}
           </div>
 
