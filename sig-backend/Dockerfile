@@ -1,5 +1,5 @@
 FROM node:20-alpine
-RUN apk add --no-cache openssl antiword
+RUN apk add --no-cache openssl antiword graphicsmagick
 WORKDIR /app
 COPY package*.json ./
 RUN npm install

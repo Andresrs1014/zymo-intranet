@@ -1,7 +1,5 @@
 import mammoth from "mammoth"
-// pdf-parse ESM workaround: tipos no coinciden con el export real
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require("pdf-parse") as (buffer: Buffer) => Promise<{ text: string; numpages: number }>
+import { PDFParse } from "pdf-parse"
 import fs from "fs/promises"
 import fsSync from "fs"
 import os from "os"
@@ -106,8 +104,11 @@ export async function extractText(filePath: string, fileName: string): Promise<E
 
   if (lower.endsWith(".pdf")) {
     const buffer = await fs.readFile(filePath)
+    // pdf-parse v2 expone una clase (PDFParse), no la función callable de v1 --
+    // el parser debe destruirse explicitamente, no lo recolecta el GC solo.
+    const parser = new PDFParse({ data: buffer })
     try {
-      const data = await pdfParse(buffer)
+      const data = await parser.getText()
       const text = data.text.trim()
       if (text) return { text, warnings: [] }
 
@@ -124,7 +125,7 @@ export async function extractText(filePath: string, fileName: string): Promise<E
         height: 3508,
       })
 
-      const pageCount = data.numpages || 1
+      const pageCount = data.total || 1
       const worker = await createWorker("spa")
       const ocrTexts: string[] = []
 
@@ -160,6 +161,8 @@ export async function extractText(filePath: string, fileName: string): Promise<E
         text: "",
         warnings: ["No se pudo procesar el PDF. El archivo puede estar corrupto o protegido."],
       }
+    } finally {
+      await parser.destroy()
     }
   }
 
