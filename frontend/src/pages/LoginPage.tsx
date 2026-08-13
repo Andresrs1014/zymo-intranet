@@ -1,20 +1,23 @@
 import { useState, type FormEvent } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useLocation, type Location } from "react-router-dom"
 import { useLogin } from "@/hooks/useAuth"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 
 export function LoginPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { mutate: login, isPending, error } = useLogin()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    const from = (location.state as { from?: Location } | null)?.from
+    const dest = from ? `${from.pathname}${from.search}${from.hash}` : "/dashboard"
     login(
       { email, password },
-      { onSuccess: () => navigate("/dashboard", { replace: true }) },
+      { onSuccess: () => navigate(dest, { replace: true }) },
     )
   }
 

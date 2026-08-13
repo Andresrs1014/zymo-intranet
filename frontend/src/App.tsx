@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom"
 import { useEffect } from "react"
 import { useAuthStore } from "@/store/authStore"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
@@ -26,6 +26,7 @@ import {
 } from "@/lib/permissions"
 import { useAgentPanelStore } from "@/store/agentPanelStore"
 import { useMinWidth } from "@/hooks/useMinWidth"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { useMe } from "@/hooks/useAuth"
 import { LoginPage } from "@/pages/LoginPage"
 import { DashboardPage } from "@/pages/DashboardPage"
@@ -213,7 +214,13 @@ function ExtraccionIARoute({ children }: { children: React.ReactNode }) {
 
 function SigRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user)
-  if (!user) return <Navigate to="/login" replace />
+  const location = useLocation()
+  const isMobile = useIsMobile()
+  if (!user) {
+    // El "volver a /sig tras loguearse" es a propósito solo para celular (link
+    // directo al SIG mobile) — en PC el login sigue mandando al dashboard normal.
+    return <Navigate to="/login" state={isMobile ? { from: location } : undefined} replace />
+  }
   if (!canSeeSIG(user.role, user.app_permissions)) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }

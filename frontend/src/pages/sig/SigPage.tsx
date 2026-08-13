@@ -1689,11 +1689,21 @@ function ReviewQueueView({
 // ── Entrada mobile — automática cuando el viewport es angosto (ver useIsMobile
 // en SigPage arriba), no un botón manual. Pantalla completa real, sin marco de
 // celular decorativo — eso era solo para probar el diseño desde escritorio.
+// Shell con 4 pestañas inferiores: reutiliza los mismos paneles del escritorio
+// (ya son de una sola columna / max-w-3xl centrado) en vez de duplicar UI.
+
+type MobileTab = "cola" | "procedimientos" | "analisis" | "grafo"
 
 function SigMobileEntry() {
   const user = useAuthStore((s) => s.user)
   const isGerente = user?.role === "admin" || user?.role === "gerente"
-  const [selectedId, setSelectedId] = useState<number | null>(null)
+  const canEditSig = isGerente || (user?.app_permissions?.includes("mod_sig") ?? false)
+
+  const [tab, setTab] = useState<MobileTab>("cola")
+  const [colaSelectedId, setColaSelectedId] = useState<number | null>(null)
+  const [openProcId, setOpenProcId] = useState<number | null>(null)
+  const [openCommitId, setOpenCommitId] = useState<number | null>(null)
+  const [analisisSub, setAnalisisSub] = useState<"historial" | "catalogo">("historial")
 
   const { data: commits = [], isLoading } = useQuery<PendingCommit[]>({
     queryKey: ["sig", "commits", "pendientes-detail"],
@@ -1701,32 +1711,132 @@ function SigMobileEntry() {
     refetchInterval: 30_000,
   })
 
-  if (selectedId != null) {
-    return (
-      <div className="h-dvh flex flex-col bg-white">
-        <div className="shrink-0 flex items-center gap-2 px-3 h-11 border-b border-zinc-200">
-          <button
-            onClick={() => setSelectedId(null)}
-            className="flex items-center gap-1 text-[13px] text-zinc-500 active:text-zinc-800 transition-colors"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Cola de revisión
-          </button>
-        </div>
-        <div className="flex-1 overflow-hidden">
-          <SigDiffMobileView
-            key={selectedId}
-            commitId={selectedId}
-            isGerente={isGerente}
-            onActioned={() => setSelectedId(null)}
-          />
-        </div>
-      </div>
-    )
-  }
+  const drilled =
+    (tab === "cola" && colaSelectedId != null) ||
+    (tab === "procedimientos" && (openProcId != null || openCommitId != null))
 
   return (
     <div className="h-dvh flex flex-col bg-white">
+      <div className="flex-1 overflow-hidden flex flex-col">
+
+        {tab === "cola" && (
+          colaSelectedId != null ? (
+            <div className="h-full flex flex-col">
+              <div className="shrink-0 flex items-center gap-2 px-3 h-11 border-b border-zinc-200">
+                <button
+                  onClick={() => setColaSelectedId(null)}
+                  className="flex items-center gap-1 text-[13px] text-zinc-500 active:text-zinc-800 transition-colors"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Cola de revisión
+                </button>
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <SigDiffMobileView
+                  key={colaSelectedId}
+                  commitId={colaSelectedId}
+                  isGerente={isGerente}
+                  onActioned={() => setColaSelectedId(null)}
+                />
+              </div>
+            </div>
+          ) : (
+            <MobileColaList commits={commits} isLoading={isLoading} onSelect={setColaSelectedId} />
+          )
+        )}
+
+        {tab === "procedimientos" && (
+          openCommitId != null ? (
+            <div className="h-full flex flex-col">
+              <div className="shrink-0 flex items-center gap-2 px-3 h-11 border-b border-zinc-200">
+                <button
+                  onClick={() => setOpenCommitId(null)}
+                  className="flex items-center gap-1 text-[13px] text-zinc-500 active:text-zinc-800 transition-colors"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Volver
+                </button>
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <SigDiffMobileView
+                  key={openCommitId}
+                  commitId={openCommitId}
+                  isGerente={isGerente}
+                  onActioned={() => setOpenCommitId(null)}
+                />
+              </div>
+            </div>
+          ) : openProcId != null ? (
+            <SigProcedureMobileView
+              id={openProcId}
+              canEditSig={canEditSig}
+              onBack={() => setOpenProcId(null)}
+              onOpenCommit={setOpenCommitId}
+            />
+          ) : (
+            <div className="h-full flex flex-col bg-white">
+              <div className="shrink-0 flex items-center gap-2 px-4 h-11 border-b border-zinc-200">
+                <span className="text-xs font-bold tracking-[0.18em] text-helix-accent font-mono uppercase">SIG</span>
+                <span className="text-[13px] font-semibold text-zinc-800 ml-1">Procedimientos</span>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                <SigExplorer
+                  activeKey={null}
+                  isGerente={isGerente}
+                  canEditSig={canEditSig}
+                  pendingCount={commits.length}
+                  onSelectProcedure={(id) => setOpenProcId(id)}
+                  onSelectCommit={(id) => setOpenCommitId(id)}
+                  onOpenQueue={() => setTab("cola")}
+                />
+              </div>
+            </div>
+          )
+        )}
+
+        {tab === "analisis" && (
+          <div className="h-full flex flex-col bg-white">
+            <div className="shrink-0 flex items-center gap-1.5 px-4 h-11 border-b border-zinc-200">
+              <button
+                onClick={() => setAnalisisSub("historial")}
+                className={cn(
+                  "text-[12px] px-2.5 py-1 rounded-full transition-colors",
+                  analisisSub === "historial" ? "bg-zinc-800 text-white" : "text-zinc-500",
+                )}
+              >
+                Historial
+              </button>
+              <button
+                onClick={() => setAnalisisSub("catalogo")}
+                className={cn(
+                  "text-[12px] px-2.5 py-1 rounded-full transition-colors",
+                  analisisSub === "catalogo" ? "bg-zinc-800 text-white" : "text-zinc-500",
+                )}
+              >
+                Catálogo
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              {analisisSub === "historial" ? <SigAnalisisSyncView /> : <SigRubricaPanel />}
+            </div>
+          </div>
+        )}
+
+        {tab === "grafo" && <SigRagPanel />}
+      </div>
+
+      {!drilled && <MobileTabBar tab={tab} onChange={setTab} pendingCount={commits.length} />}
+    </div>
+  )
+}
+
+// ── Cola de revisión — lista (mobile) ───────────────────────────────────────────
+
+function MobileColaList({
+  commits, isLoading, onSelect,
+}: { commits: PendingCommit[]; isLoading: boolean; onSelect: (id: number) => void }) {
+  return (
+    <div className="h-full flex flex-col bg-white">
       <div className="shrink-0 flex items-center gap-2 px-4 h-11 border-b border-zinc-200">
         <span className="text-xs font-bold tracking-[0.18em] text-helix-accent font-mono uppercase">SIG</span>
         <span className="text-[13px] font-semibold text-zinc-800 ml-1">Cola de revisión</span>
@@ -1749,7 +1859,7 @@ function SigMobileEntry() {
         {commits.map((c) => (
           <button
             key={c.id}
-            onClick={() => setSelectedId(c.id)}
+            onClick={() => onSelect(c.id)}
             className="w-full flex items-center gap-3 px-4 py-3 border-b border-zinc-100 text-left active:bg-zinc-50 transition-colors"
           >
             <span className="h-8 w-0.5 rounded-full shrink-0" style={{ backgroundColor: c.procedimiento.area.color }} />
@@ -1766,6 +1876,339 @@ function SigMobileEntry() {
           </button>
         ))}
       </div>
+    </div>
+  )
+}
+
+// ── Barra de pestañas inferior ──────────────────────────────────────────────────
+
+function MobileTabBar({
+  tab, onChange, pendingCount,
+}: { tab: MobileTab; onChange: (t: MobileTab) => void; pendingCount: number }) {
+  const items: { key: MobileTab; label: string; icon: React.ReactNode; badge?: number }[] = [
+    { key: "cola", label: "Cola", icon: <Inbox className="h-4 w-4" />, badge: pendingCount },
+    { key: "procedimientos", label: "Procedimientos", icon: <FileText className="h-4 w-4" /> },
+    { key: "analisis", label: "Análisis", icon: <ClipboardCheck className="h-4 w-4" /> },
+    { key: "grafo", label: "Grafo", icon: <Database className="h-4 w-4" /> },
+  ]
+  return (
+    <div
+      className="shrink-0 flex items-stretch border-t border-zinc-200 bg-white"
+      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+    >
+      {items.map((it) => (
+        <button
+          key={it.key}
+          onClick={() => onChange(it.key)}
+          className={cn(
+            "flex-1 flex flex-col items-center justify-center gap-0.5 py-2 transition-colors",
+            tab === it.key ? "text-helix-accent" : "text-zinc-400",
+          )}
+        >
+          <div className="relative">
+            {it.icon}
+            {!!it.badge && (
+              <span className="absolute -top-1.5 -right-2 h-3.5 min-w-3.5 px-0.5 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
+                {it.badge}
+              </span>
+            )}
+          </div>
+          <span className="text-[10px] font-medium">{it.label}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// ── Procedimiento — visor mobile de solo lectura (contenido/instructivos/cargos/
+// flujograma/formatos/doc anexos/historial), con pestañas horizontales scrolleables.
+// No incluye edición manual ni "Editar con IA" — un textarea no es cómodo en celular
+// y la edición real de contenido se sigue haciendo desde escritorio.
+
+type ProcMobileTab = "contenido" | "archivo" | "instructivos" | "cargos" | "flujograma" | "formatos" | "docanexos" | "historial"
+
+function SigProcedureMobileView({
+  id, canEditSig, onBack, onOpenCommit,
+}: { id: number; canEditSig: boolean; onBack: () => void; onOpenCommit: (id: number) => void }) {
+  const [tab, setTab] = useState<ProcMobileTab>("contenido")
+  const [selectedInst, setSelectedInst] = useState<SigInstructivo | null>(null)
+  const [openAnalisisItem, setOpenAnalisisItem] = useState<HistorialItem | null>(null)
+  const qc = useQueryClient()
+  const [reextractErr, setReextractErr] = useState<string | null>(null)
+
+  const reextractCommitMut = useMutation({
+    mutationFn: (commitId: number) => sigApi.post(`/api/commits/${commitId}/reextract`),
+    onSuccess: (res) => {
+      setReextractErr(null)
+      qc.invalidateQueries({ queryKey: ["sig", "commit", res.data.updated.id] })
+      qc.invalidateQueries({ queryKey: ["sig", "procedimiento", id] })
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+        ?? "No se pudo re-extraer el texto."
+      setReextractErr(msg)
+    },
+  })
+
+  const { data: proc, isLoading: procLoading } = useQuery<ProcDetail>({
+    queryKey: ["sig", "procedimiento", id],
+    queryFn: async () => (await sigApi.get(`/api/procedimientos/${id}`)).data,
+  })
+
+  const { data: instructivosSnap = [] } = useQuery<{ id: number; codigo: string; titulo: string }[]>({
+    queryKey: ["sig", "instructivos", id],
+    queryFn: () => sigApi.get(`/api/instructivos?procedimientoId=${id}&activo=true`).then((r) => r.data),
+  })
+
+  const { data: analisisHistorial = [] } = useQuery<HistorialItem[]>({
+    queryKey: ["sig", "analisis", "historial", "proc", id],
+    queryFn: () => sigApi.get("/api/analisis/historial", { params: { procedimientoId: id, limit: 50 } }).then((r) => r.data),
+  })
+
+  const sortedCommits  = [...(proc?.commits ?? [])].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  )
+  const latestApproved = sortedCommits.find((c) => c.estado === "APROBADO")
+  const latestPending  = sortedCommits.find((c) => c.estado === "PENDIENTE_REVISION")
+  const contentCommit  = latestApproved ?? latestPending
+  const isPreview      = !latestApproved && !!latestPending
+
+  const { data: content } = useQuery<CommitFull>({
+    queryKey: ["sig", "commit", contentCommit?.id],
+    queryFn: async () => (await sigApi.get(`/api/commits/${contentCommit!.id}`)).data,
+    enabled: !!contentCommit,
+  })
+
+  const hasFile = !!(content?.archivoOriginal)
+  const isMdTxt = content?.tipoMime?.startsWith("text/") ?? false
+  const showArchivoTab = hasFile && !isMdTxt
+  const currentContent = content?.contenidoAgente ?? ""
+
+  if (procLoading) {
+    return (
+      <div className="flex items-center justify-center h-full bg-white">
+        <div className="flex items-center gap-2 text-zinc-400">
+          <div className="h-3 w-3 rounded-full border border-zinc-300 border-t-zinc-500 animate-spin" />
+          <span className="text-xs font-mono">Cargando...</span>
+        </div>
+      </div>
+    )
+  }
+  if (!proc) {
+    return (
+      <div className="flex items-center justify-center h-full bg-white">
+        <span className="text-xs text-zinc-400 font-mono">Procedimiento no encontrado</span>
+      </div>
+    )
+  }
+
+  if (selectedInst) {
+    return <InstructivoDetailView inst={selectedInst} onBack={() => setSelectedInst(null)} />
+  }
+
+  const procArea = proc.area
+  const effectiveTab = tab === "archivo" && !showArchivoTab ? "contenido" : tab
+
+  const TABS: { key: ProcMobileTab; label: string; show: boolean }[] = [
+    { key: "contenido", label: "Contenido", show: true },
+    { key: "archivo", label: "Procedimiento", show: showArchivoTab },
+    { key: "instructivos", label: `Instructivos${instructivosSnap.length > 0 ? ` (${instructivosSnap.length})` : ""}`, show: true },
+    { key: "cargos", label: "Cargos", show: true },
+    { key: "flujograma", label: "Flujograma", show: true },
+    { key: "formatos", label: "Formatos", show: true },
+    { key: "docanexos", label: "Doc Anexos", show: true },
+    { key: "historial", label: "Historial", show: true },
+  ]
+
+  return (
+    <div className="h-full flex flex-col bg-white">
+      {/* Header */}
+      <div className="shrink-0 flex items-center gap-2 px-3 h-11 border-b border-zinc-200 bg-zinc-50">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-1 text-[13px] text-zinc-500 active:text-zinc-800 transition-colors shrink-0"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: procArea.color }} />
+        <span className="text-[12px] font-mono font-semibold text-zinc-800 truncate">{proc.codigo}</span>
+        <span className={cn("shrink-0 text-[10px] px-1.5 py-0.5 rounded border font-mono ml-auto", ESTADO_PROC_BADGE[proc.estado])}>
+          {proc.estado.toLowerCase()}
+        </span>
+      </div>
+      <div className="shrink-0 px-3 py-2 border-b border-zinc-100">
+        <p className="text-[13px] text-zinc-700 leading-snug">{proc.titulo}</p>
+      </div>
+
+      {/* Tabs — scroll horizontal */}
+      <div className="shrink-0 flex items-center border-b border-zinc-200 bg-zinc-50 overflow-x-auto">
+        {TABS.filter((t) => t.show).map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={cn(
+              "shrink-0 px-3.5 h-9 text-[12px] font-mono border-b-2 whitespace-nowrap transition-colors",
+              effectiveTab === t.key
+                ? "border-helix-accent text-zinc-800 bg-white"
+                : "border-transparent text-zinc-400",
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto">
+        {effectiveTab === "contenido" && (
+          <div className="px-5 py-6">
+            {isPreview && !!currentContent && (
+              <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-lg border border-amber-200 bg-amber-50">
+                <Clock className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                <span className="text-[11px] text-amber-700">Vista previa — versión pendiente de aprobación</span>
+              </div>
+            )}
+            {proc.descripcion && (
+              <p className="text-[12px] text-zinc-400 mb-4 leading-relaxed border-l-2 border-zinc-200 pl-3 italic">{proc.descripcion}</p>
+            )}
+            {currentContent ? (
+              <div className="prose prose-base max-w-none
+                  prose-headings:font-mono prose-headings:text-zinc-800 prose-headings:font-bold
+                  prose-p:text-zinc-700 prose-p:leading-relaxed prose-p:text-[15px]
+                  prose-li:text-zinc-700 prose-li:text-[15px] prose-li:leading-relaxed
+                  prose-strong:text-zinc-800
+                  prose-code:text-helix-ai prose-code:bg-zinc-100 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-[13px]
+                  prose-table:text-[13px] prose-a:text-helix-ai"
+              >
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{cleanProcContent(currentContent)}</ReactMarkdown>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-16 gap-2 text-center">
+                <FileText className="h-6 w-6 text-zinc-300" />
+                <p className="text-[13px] text-zinc-500">Sin contenido publicado</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {effectiveTab === "archivo" && content?.archivoOriginal && (
+          <ArchivoOriginalView commitId={content.id} tipoMime={content.tipoMime} nombreArchivo={content.nombreArchivo} />
+        )}
+
+        {effectiveTab === "instructivos" && (
+          <div className="px-5 py-6">
+            <SigInstructivosPanel
+              procedimientoId={id}
+              procCodigo={proc.codigo}
+              canEdit={canEditSig}
+              onSelectInst={(inst) => setSelectedInst(inst)}
+            />
+          </div>
+        )}
+
+        {effectiveTab === "cargos" && (
+          <div className="px-5 py-6">
+            <SigProcedimientoCargosPanel procedimientoId={id} canEdit={canEditSig} />
+          </div>
+        )}
+
+        {effectiveTab === "flujograma" && (
+          <div className="px-5 py-6">
+            <FlujogramaView
+              commitId={content?.id}
+              tieneImagen={!!content?.flujogramaImagenUrl}
+              flujogramaMmd={content?.flujogramaMmd ?? null}
+              tieneArchivoOriginal={!!content?.archivoOriginal}
+              onReextraer={() => content && reextractCommitMut.mutate(content.id)}
+              reextrayendo={reextractCommitMut.isPending}
+              reextractErr={reextractErr}
+            />
+          </div>
+        )}
+
+        {effectiveTab === "formatos" && (
+          <SigAnexoPanel
+            title="Formatos"
+            emptyText="Plantillas o formularios que usan los instructivos de este procedimiento. Primero necesitas al menos un instructivo creado."
+            listUrl={`/api/formatos?procedimientoId=${id}`}
+            uploadUrl="/api/formatos/upload"
+            deleteUrlBase="/api/formatos"
+            archivoUrlBase="/sig-api/api/formatos"
+            queryKey={["sig", "formatos", id]}
+            canEdit={canEditSig}
+            instructivoOptions={instructivosSnap}
+          />
+        )}
+
+        {effectiveTab === "docanexos" && (
+          <SigAnexoPanel
+            title="Documentos anexados/adicionales"
+            emptyText="Documentos anexados/adicionales que no encajan como instructivo ni formato."
+            listUrl={`/api/doc-anexos?procedimientoId=${id}`}
+            uploadUrl="/api/doc-anexos/upload"
+            deleteUrlBase="/api/doc-anexos"
+            archivoUrlBase="/sig-api/api/doc-anexos"
+            queryKey={["sig", "doc-anexos", id]}
+            canEdit={canEditSig}
+            extraField={{ name: "procedimientoId", value: String(id) }}
+          />
+        )}
+
+        {effectiveTab === "historial" && (
+          <div className="px-3 py-4 space-y-5">
+            <div>
+              <h3 className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wide px-2 mb-2">Versiones</h3>
+              {proc.commits.length === 0 && (
+                <p className="text-[12px] text-zinc-400 italic px-2">Sin commits aún</p>
+              )}
+              <div className="space-y-1">
+                {sortedCommits.map((commit) => (
+                  <button
+                    key={commit.id}
+                    onClick={() => onOpenCommit(commit.id)}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg border border-zinc-100 active:bg-zinc-50 transition-colors text-left"
+                  >
+                    <Circle className={cn("h-2.5 w-2.5 shrink-0", COMMIT_STATE_DOT[commit.estado])} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[12.5px] text-zinc-700 truncate">{commit.mensaje}</p>
+                      <p className="text-[11px] text-zinc-400 mt-0.5">
+                        {commit.autorNombre} · {new Date(commit.createdAt).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" })}
+                      </p>
+                    </div>
+                    <ChevronRight className="h-3.5 w-3.5 text-zinc-300 shrink-0" />
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <h3 className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wide px-2 mb-2">Análisis</h3>
+              {analisisHistorial.length === 0 && (
+                <p className="text-[12px] text-zinc-400 italic px-2">Sin análisis aún</p>
+              )}
+              <div className="space-y-1">
+                {analisisHistorial.map((item) => (
+                  <button
+                    key={`${item.tipo}-${item.id}`}
+                    onClick={() => setOpenAnalisisItem(item)}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg border border-zinc-100 active:bg-zinc-50 transition-colors text-left"
+                  >
+                    <span className="text-zinc-400 shrink-0">{TIPO_ICON[item.tipo]}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[12.5px] text-zinc-700 truncate">{TIPO_LABEL[item.tipo]}</p>
+                      <p className="text-[11px] text-zinc-400 mt-0.5">
+                        {new Date(item.createdAt).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" })}
+                      </p>
+                    </div>
+                    <ChevronRight className="h-3.5 w-3.5 text-zinc-300 shrink-0" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {openAnalisisItem && <AnalisisDetailModal item={openAnalisisItem} onClose={() => setOpenAnalisisItem(null)} />}
     </div>
   )
 }
