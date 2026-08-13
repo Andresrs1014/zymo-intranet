@@ -13,7 +13,6 @@
       --border:     #D4D4D8;
       --bg:         #FAFAFA;
       --white:      #FFFFFF;
-      --area:       {{ area_color }};
     }
 
     @page {
@@ -74,9 +73,9 @@
     .header-meta .mvalue { color: var(--navy); }
     .header-meta .mvalue.code { font-weight: 700; color: var(--red); font-size: 8.5pt; }
 
-    /* Banda de portada — color del área, como la "hoja" del modal in-app */
+    /* Banda de portada — siempre color de marca ZYMO, no el color del área */
     .cover-band {
-      background: var(--area);
+      background: var(--red);
       color: var(--white);
       padding: 16px 16px 18px 16px;
       margin-top: 0;
@@ -93,16 +92,17 @@
     .card {
       border: 1px solid var(--border);
       border-radius: 6px;
-      padding: 10px 14px;
-      margin-top: 10px;
+      padding: 12px 16px;
+      margin-top: 14px;
       page-break-inside: avoid;
     }
+    /* Encabezados de sección — estilo APA 7 (Times New Roman, negrita, sin versalitas) */
     .card-title {
-      font-size: 8pt; font-weight: 700; color: var(--slate);
-      text-transform: uppercase; letter-spacing: 0.6px;
-      margin-bottom: 8px;
-      padding-bottom: 6px;
-      border-bottom: 2px solid var(--red-light);
+      font-family: 'Times New Roman', Times, Georgia, serif;
+      font-size: 12.5pt; font-weight: 700; color: var(--navy);
+      margin-bottom: 10px;
+      padding-bottom: 7px;
+      border-bottom: 2px solid var(--red);
     }
     .card p.resumen { font-size: 9.5pt; line-height: 1.5; color: var(--navy); margin: 0; }
 

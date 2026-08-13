@@ -306,7 +306,6 @@ async def generar_pdf_analisis(
         "codigo":   proc.get("codigo", "—"),
         "titulo":   proc.get("titulo", "—"),
         "area":     area.get("nombre", "—"),
-        "area_color": area.get("color") or "#E31E24",
 
         "tipo":       payload.tipo,
         "tipo_label": _TIPO_LABEL.get(payload.tipo, payload.tipo),
