@@ -942,17 +942,17 @@ export function AnalisisDetailModal({ item, onClose }: { item: HistorialItem; on
       )}
 
       {/* Pie fijo — visible sin importar en qué página del libro se esté */}
-      <div className="shrink-0 flex items-center justify-between px-10 py-2.5 border-t border-white/10 bg-zinc-900">
+      <div className="shrink-0 flex items-center justify-between px-10 py-2.5 border-t border-zinc-200 bg-white">
         <div className="flex flex-col gap-0.5">
-          <span className="text-[11px] text-white/40">Generado por la intranet ZYMO — SIG</span>
-          {pdfError && <span className="text-[11px] text-red-400">{pdfError}</span>}
+          <span className="text-[11px] text-zinc-400">Generado por la intranet ZYMO — SIG</span>
+          {pdfError && <span className="text-[11px] text-red-500">{pdfError}</span>}
         </div>
         <div className="flex items-center gap-2">
           {canEditSig && (
             confirmDelete ? (
               <div className="flex items-center gap-1.5 mr-1 text-[12px]">
-                <AlertOctagon className="h-3.5 w-3.5 text-red-400" />
-                <span className="text-white/60">¿Eliminar este análisis?</span>
+                <AlertOctagon className="h-3.5 w-3.5 text-red-500" />
+                <span className="text-zinc-500">¿Eliminar este análisis?</span>
                 <button
                   onClick={handleDelete}
                   disabled={deleteMut.isPending}
@@ -962,7 +962,7 @@ export function AnalisisDetailModal({ item, onClose }: { item: HistorialItem; on
                 </button>
                 <button
                   onClick={() => setConfirmDelete(false)}
-                  className="px-2 py-1 rounded text-white/60 hover:text-white transition-colors"
+                  className="px-2 py-1 rounded text-zinc-500 hover:text-zinc-800 transition-colors"
                 >
                   Cancelar
                 </button>
@@ -970,7 +970,7 @@ export function AnalisisDetailModal({ item, onClose }: { item: HistorialItem; on
             ) : (
               <button
                 onClick={() => setConfirmDelete(true)}
-                className="flex items-center gap-1.5 text-[13px] px-3.5 py-2 rounded-lg border border-white/10 text-white/50 hover:border-red-400/40 hover:text-red-400 transition-colors"
+                className="flex items-center gap-1.5 text-[13px] px-3.5 py-2 rounded-lg border border-zinc-200 text-zinc-400 hover:border-red-300 hover:text-red-500 transition-colors"
               >
                 <Trash2 className="h-4 w-4" />
                 Eliminar
@@ -979,7 +979,7 @@ export function AnalisisDetailModal({ item, onClose }: { item: HistorialItem; on
           )}
           <button
             onClick={() => downloadMarkdown(item)}
-            className="flex items-center gap-1.5 text-[13px] px-3.5 py-2 rounded-lg border border-white/10 text-white/70 hover:border-white/20 hover:text-white transition-colors"
+            className="flex items-center gap-1.5 text-[13px] px-3.5 py-2 rounded-lg border border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50 transition-colors"
           >
             <Download className="h-4 w-4" />
             Descargar .md
