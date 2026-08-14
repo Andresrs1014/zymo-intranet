@@ -110,14 +110,24 @@
        página nueva (page-break-before) en vez de dejar que el contenido fluya
        y se corte donde alcance. Portada aparte con page-break-after. */
     .cover-page-completo { page-break-after: always; padding: 70px 20px 40px; }
-    .page-section { page-break-before: always; }
+    .page-section { page-break-before: always; padding-top: 12px; }
     .page-title {
       font-family: 'Times New Roman', Times, Georgia, serif;
-      font-size: 16pt; font-weight: 700; color: var(--navy);
-      margin-bottom: 14px;
-      padding-bottom: 8px;
+      font-size: 22pt; font-weight: 700; color: var(--navy);
+      margin-bottom: 22px;
+      padding-bottom: 12px;
       border-bottom: 2px solid var(--red);
     }
+    /* Tipografia mas grande dentro del libro paginado -- cada pagina ahora trae
+       MENOS contenido que antes (se reparte en 6 en vez de vivir todo junto en
+       un solo reporte continuo), asi que el tamaño de letra "denso" original
+       (pensado para una sola pagina larga) dejaba cada pagina casi vacia con
+       texto diminuto perdido en el medio. */
+    .page-section p.resumen { font-size: 13pt; line-height: 1.6; margin-bottom: 22px; }
+    .page-section .item-row { font-size: 12.5pt; line-height: 1.65; padding: 11px 0; }
+    .page-section .badge { font-size: 8.5pt; padding: 2px 8px; }
+    .page-section .empty-note { font-size: 13pt; }
+    .page-section .content-block { font-size: 12pt; line-height: 1.7; }
 
     /* Score */
     .score-row { display: table; width: 100%; }
@@ -152,11 +162,12 @@
     .cargo-block li { font-size: 8.5pt; line-height: 1.5; }
 
     .flujograma-box { text-align: center; padding: 6px 0; }
-    /* max-height acotado a lo que cabe en una pagina A4 (271mm util menos titulo/padding
-       de .card) -- sin esto, un flujograma mas alto que una pagina queda cortado: .card
-       tiene page-break-inside:avoid, y una imagen no se puede partir entre paginas, asi
-       que si no cabe entera simplemente se recorta en el borde de la pagina. */
-    .flujograma-box img { max-width: 100%; max-height: 230mm; width: auto; height: auto; }
+    /* width:100% para que el diagrama siempre llene el ancho de la pagina en vez de
+       quedarse a su resolucion nativa (un diagrama chico se veia diminuto y perdido
+       en una pagina A4 entera) -- max-height sigue acotando a lo que cabe en una
+       pagina (271mm util menos titulo) para que uno alto no se corte: .card tiene
+       page-break-inside:avoid y una imagen no se puede partir entre paginas. */
+    .flujograma-box img { width: 100%; max-height: 230mm; height: auto; }
 
     .content-block { font-size: 9pt; line-height: 1.5; color: var(--navy); }
     .content-block p { margin: 0 0 5px 0; }
@@ -328,8 +339,8 @@
   <div class="page-section">
     <div class="page-title">Conclusiones</div>
     {% if proposals %}
-      <p class="resumen" style="margin-bottom:2px;"><strong>Propuestas de mejora</strong></p>
-      <p style="font-size:8pt; color:var(--slate); margin:0 0 10px 0;">Son sugerencias para evaluar, no cambios obligatorios.</p>
+      <p class="resumen" style="margin-bottom:3px;"><strong>Propuestas de mejora</strong></p>
+      <p style="font-size:10.5pt; color:var(--slate); margin:0 0 14px 0;">Son sugerencias para evaluar, no cambios obligatorios.</p>
       {% for p in proposals %}
       <div class="item-row"><span class="item-num">{{ loop.index }}</span>{{ p.descripcion }}{% if p.categoria %} <span style="color:var(--slate);font-size:8pt;">({{ p.categoria }})</span>{% endif %}</div>
       {% endfor %}
