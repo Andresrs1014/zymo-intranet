@@ -6,6 +6,7 @@ import os from "os"
 import path from "path"
 import { execFile } from "child_process"
 import { promisify } from "util"
+import { randomUUID } from "crypto"
 
 const execFileAsync = promisify(execFile)
 
@@ -85,7 +86,12 @@ export async function extractText(filePath: string, fileName: string): Promise<E
     if (flujogramaMatch) {
       const img = images.find((i) => i.index === parseInt(flujogramaMatch[1], 10))
       if (img) {
-        const filename = `flujo_${Date.now()}_${img.index}.${img.ext}`
+        // randomUUID en vez de Date.now(): dos extracciones concurrentes con el
+        // mismo índice de imagen (ej. reextract masivo de varios procedimientos
+        // a la vez) generaban el mismo nombre de archivo y una pisaba a la otra
+        // en disco -- el commit de un procedimiento quedaba apuntando al
+        // flujograma de otro. Ver zymointranet.md / hallazgo 2026-08-14.
+        const filename = `flujo_${randomUUID()}.${img.ext}`
         await fs.writeFile(path.join(FLUJOGRAMA_DIR, filename), img.buffer)
         flujogramaImagenUrl = filename
       }
