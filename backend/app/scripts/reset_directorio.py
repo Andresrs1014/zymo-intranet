@@ -70,6 +70,35 @@ class FilaPersona:
     es_temporal: bool = False
 
 
+# Alias confirmados con el usuario 2026-08-14: nombres del Excel que no
+# coinciden literal con el catalogo de Sede/Area pero se refieren a lo mismo.
+PLATAFORMA_ALIAS = {
+    "IMC CARGO": "IMCCARGO",
+    "LOGI1": "LOGIMAT",
+    "DEPOSITO": "IMC Depósito",
+    "BRAKE": "LOGIMAT 2",
+    "TELETRABAJO": "Teletrabajo",
+}
+
+AREA_ALIAS_SIMPLE = {
+    "ADMINISTRACIÓN TALENTO Y CULTURA": "Talento y Cultura",
+    "PLANEACIÓN Y CONSULTORIA LOGISTICA": "Planeación y consultoria",
+    "TECNOLOGIA": "IT",
+    "CONTROL": "Control y Seguridad",
+    "PROYECTOS Y NEGOCIOS": "Comercial",
+}
+
+# "Operaciones y Desarrollo" es una sola area en el Excel pero en el catalogo
+# esta partida por plataforma -- el usuario confirmo que el area real depende
+# de en que sede quedo la persona.
+AREA_OPERACIONES_POR_SEDE = {
+    "IMCCARGO": "Operaciones IMCCARGO",
+    "LOGIMAT": "Operaciones Logimat",
+    "LOGIMAT 2": "Operaciones Logimat",
+    "IMC Depósito": "Operaciones IMC DEPOSITO",
+}
+
+
 def _norm_documento(v) -> str:
     if v is None:
         return ""
@@ -119,11 +148,21 @@ def leer_excel(path: str) -> tuple[list[FilaPersona], dict]:
         if not documento:
             continue
         carnet, carnet_fecha = carnet_por_doc.get(documento, ("", None))
+
+        plataforma_raw = str(row[5] or "").strip()
+        plataforma = PLATAFORMA_ALIAS.get(plataforma_raw.upper(), plataforma_raw)
+
+        area_raw = str(row[6] or "").strip()
+        if area_raw.upper() == "OPERACIONES Y DESARROLLO":
+            area = AREA_OPERACIONES_POR_SEDE.get(plataforma, area_raw)
+        else:
+            area = AREA_ALIAS_SIMPLE.get(area_raw.upper(), area_raw)
+
         filas.append(FilaPersona(
             documento=documento,
             nombre=str(row[4] or "").strip(),
-            plataforma=str(row[5] or "").strip(),
-            area=str(row[6] or "").strip(),
+            plataforma=plataforma,
+            area=area,
             cargo=str(row[7] or "").strip(),
             rh=str(row[8] or "").strip(),
             genero=str(row[9] or "").strip().upper(),
