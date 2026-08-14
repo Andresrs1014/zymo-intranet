@@ -75,6 +75,7 @@ class PersonaCreate(BaseModel):
     genero: str = ""
     rh: str = ""
     tarjeta: str = ""
+    tarjeta_fecha_asignacion: Optional[str] = None  # ISO "YYYY-MM-DD"
     email: str = ""
     email_corporativo: str = ""
     telefono: str = ""
@@ -101,6 +102,7 @@ class PersonaUpdate(BaseModel):
     genero: Optional[str] = None
     rh: Optional[str] = None
     tarjeta: Optional[str] = None
+    tarjeta_fecha_asignacion: Optional[str] = None  # ISO "YYYY-MM-DD"
     email: Optional[str] = None
     email_corporativo: Optional[str] = None
     telefono: Optional[str] = None
@@ -203,6 +205,7 @@ def _persona_dict(p: PtcPersona, db: Session, main_db: Session) -> dict:
         "genero": p.genero,
         "rh": p.rh,
         "tarjeta": p.tarjeta,
+        "tarjeta_fecha_asignacion": p.tarjeta_fecha_asignacion.isoformat() if p.tarjeta_fecha_asignacion else None,
         "email": p.email,
         "email_corporativo": p.email_corporativo,
         "email_corporativo_efectivo": _email_corporativo_efectivo(p, main_db),
@@ -1177,6 +1180,7 @@ def crear_persona(
         genero=body.genero,
         rh=body.rh,
         tarjeta=body.tarjeta,
+        tarjeta_fecha_asignacion=_parse_date(body.tarjeta_fecha_asignacion),
         email=body.email,
         email_corporativo=body.email_corporativo,
         telefono=body.telefono,
@@ -1220,7 +1224,7 @@ def actualizar_persona(
         if _persona_jefe_creates_cycle(db, persona_id, data["jefe_directo_id"]):
             raise HTTPException(status_code=400, detail="Esa jerarquía crearía un ciclo (A es jefe de B que es jefe de A).")
     for field, value in data.items():
-        if field in ("fecha_ingreso", "fecha_salida", "fecha_nacimiento"):
+        if field in ("fecha_ingreso", "fecha_salida", "fecha_nacimiento", "tarjeta_fecha_asignacion"):
             setattr(persona, field, _parse_date(value))
         else:
             setattr(persona, field, value)

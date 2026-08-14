@@ -27,6 +27,7 @@ export function PersonaFormModal({ empresas, onCreada, onCerrar }: Props) {
     cargo_id: "" as number | "",
     genero: "",
     rh: "",
+    tarjeta: "",
     email: "",
     telefono: "",
     tipo_contrato: TC_CONTRATOS[0],
@@ -113,6 +114,10 @@ export function PersonaFormModal({ empresas, onCreada, onCerrar }: Props) {
 
           <FormGroup label="Cédula / Documento">
             <Input value={form.documento} onChange={(v) => setField("documento", v)} placeholder="12345678" />
+          </FormGroup>
+
+          <FormGroup label="Tarjeta (carné de acceso)">
+            <Input value={form.tarjeta} onChange={(v) => setField("tarjeta", v)} placeholder="Ej. 0007480710 114, 09606" />
           </FormGroup>
 
           <FormGroup label="Cargo">

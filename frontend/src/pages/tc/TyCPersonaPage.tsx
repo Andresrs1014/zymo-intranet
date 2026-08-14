@@ -37,6 +37,7 @@ interface Persona {
   genero: string
   rh: string
   tarjeta: string
+  tarjeta_fecha_asignacion: string | null
   email: string
   email_corporativo: string
   telefono: string
@@ -419,6 +420,11 @@ export function TyCPersonaPage() {
                 {editando ? (
                   <TextInput value={datos.tarjeta} onChange={(v) => setField("tarjeta", v)} placeholder="Ej. 0007480710 114, 09606" />
                 ) : (datos.tarjeta || "—")}
+              </FieldRow>
+              <FieldRow label="Fecha de asignación de tarjeta">
+                {editando ? (
+                  <TextInput value={datos.tarjeta_fecha_asignacion ?? ""} onChange={(v) => setField("tarjeta_fecha_asignacion", v || null)} type="date" />
+                ) : (datos.tarjeta_fecha_asignacion || "—")}
               </FieldRow>
               <FieldRow label="Fecha de nacimiento">
                 {editando ? (
