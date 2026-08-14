@@ -17,33 +17,41 @@ function ensureMermaidInit() {
   mermaidInitialized = true
 }
 
-// Ancho/alto útil de una página A4 del PDF (ver template_sig_analisis.html: @page
-// margin 1.2/1.6cm y el tope de 230mm ya usado para el flujograma). Un diagrama cuya
-// proporción sea más alta que esto, escalado a ancho completo de página, no entra en
-// una sola hoja -- forzarlo a caber ahí es lo que lo dejaba diminuto e ilegible.
+// Ancho útil de una página A4 del PDF (ver template_sig_analisis.html: @page margin
+// 1.2/1.6cm => 210mm - 3.2cm = 178mm). El flujograma siempre se muestra a este ancho
+// completo, así que se rasteriza apuntando a ESE ancho en px -- no a la dimensión más
+// grande del diagrama, que es lo que lo dejaba borroso en diagramas altos (la escala
+// terminaba fijada por la altura, dejando el ancho real muy por debajo de lo nítido).
 const PDF_PAGE_W_MM = 178
-const PDF_PAGE_H_MM = 230
+const TARGET_WIDTH_PX = 2000
+
+export interface FlujogramaRaster {
+  dataUrl: string
+  /** Alto en mm que debe tener LA PÁGINA del PDF para que quepa este diagrama entero,
+   * a ancho completo de página, sin cortarlo ni encogerlo. Ver @page nombrada en el
+   * backend (template_sig_analisis.html) -- la página del flujograma no usa el tamaño
+   * A4 fijo del resto del documento, se dimensiona a la medida de cada diagrama. */
+  altoPaginaMm: number
+}
 
 /**
- * Rasteriza un <svg> ya renderizado a una o más "tiras" PNG (data URL) -- WeasyPrint
- * (motor del PDF de análisis) no soporta el bloque <style> con clases CSS que Mermaid
- * embebe en el SVG exportado, así que los <text> quedan sin color y el diagrama sale
- * vacío. El navegador sí renderiza el SVG completo, así que se convierte a imagen acá
- * y el PDF solo recibe <img> -- evita depender del soporte SVG/CSS de WeasyPrint.
+ * Rasteriza un <svg> ya renderizado a PNG (data URL) -- WeasyPrint (motor del PDF de
+ * análisis) no soporta el bloque <style> con clases CSS que Mermaid embebe en el SVG
+ * exportado, así que los <text> quedan sin color y el diagrama sale vacío. El navegador
+ * sí renderiza el SVG completo, así que se convierte a imagen acá y el PDF solo recibe
+ * un <img> -- evita depender del soporte SVG/CSS de WeasyPrint por completo.
  *
- * Si el diagrama es más alto de lo que cabe legible en una página (a ancho completo),
- * se corta en varias tiras horizontales -- cada una es una página del PDF a tamaño
- * legible, en vez de una sola página con todo encogido hasta ser ilegible.
+ * No se encoge para caber en una página A4 fija: en cambio devuelve el alto que la
+ * PÁGINA debe tener para que el diagrama quepa entero y nítido (ver altoPaginaMm) --
+ * intentar recortarlo o achicarlo para forzarlo en 230mm es lo que lo dejaba
+ * ilegible (o, cortado en tiras, borroso y lento).
  */
-export async function svgToPngSlices(svg: SVGSVGElement, maxDimension = 1600): Promise<string[]> {
+export async function svgToPngDataUrl(svg: SVGSVGElement): Promise<FlujogramaRaster> {
   const bbox = svg.getBBox()
   const width = svg.viewBox.baseVal.width || bbox.width || svg.clientWidth || 800
   const height = svg.viewBox.baseVal.height || bbox.height || svg.clientHeight || 400
 
-  // Escala acotada por maxDimension en vez de un factor fijo -- diagramas grandes no
-  // ganan nitidez rasterizando a x3 (canvases de decenas de millones de px trababan el
-  // navegador y engordaban el PDF). Diagramas chicos siguen saliendo nítidos (hasta x3).
-  const scale = Math.min(3, maxDimension / Math.max(width, height))
+  const scale = Math.min(4, TARGET_WIDTH_PX / width)
 
   const clone = svg.cloneNode(true) as SVGSVGElement
   clone.setAttribute("width", String(width))
@@ -59,34 +67,21 @@ export async function svgToPngSlices(svg: SVGSVGElement, maxDimension = 1600): P
     img.src = dataUrl
   })
 
-  const fullCanvas = document.createElement("canvas")
-  fullCanvas.width = Math.round(width * scale)
-  fullCanvas.height = Math.round(height * scale)
-  const fullCtx = fullCanvas.getContext("2d")
-  if (!fullCtx) throw new Error("No se pudo crear el canvas de rasterizado.")
-  fullCtx.fillStyle = "#ffffff"
-  fullCtx.fillRect(0, 0, fullCanvas.width, fullCanvas.height)
-  fullCtx.scale(scale, scale)
-  fullCtx.drawImage(img, 0, 0, width, height)
+  const canvas = document.createElement("canvas")
+  canvas.width = Math.round(width * scale)
+  canvas.height = Math.round(height * scale)
+  const ctx = canvas.getContext("2d")
+  if (!ctx) throw new Error("No se pudo crear el canvas de rasterizado.")
+  ctx.fillStyle = "#ffffff"
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  ctx.scale(scale, scale)
+  ctx.drawImage(img, 0, 0, width, height)
 
-  // Altura de una tira, en px del canvas, tal que al escalarla a ancho completo de
-  // pagina (PDF_PAGE_W_MM) quepa en la altura util de una pagina (PDF_PAGE_H_MM).
-  const sliceHeightPx = Math.max(1, Math.round((fullCanvas.width * PDF_PAGE_H_MM) / PDF_PAGE_W_MM))
-  const numSlices = Math.max(1, Math.ceil(fullCanvas.height / sliceHeightPx))
+  // Alto de página proporcional al ancho fijo de 178mm, con un piso para que la
+  // página no quede más baja que el título "Flujograma" + margenes.
+  const altoPaginaMm = Math.max(120, Math.round((PDF_PAGE_W_MM * canvas.height) / canvas.width))
 
-  const slices: string[] = []
-  for (let i = 0; i < numSlices; i++) {
-    const sliceStart = i * sliceHeightPx
-    const sliceH = Math.min(sliceHeightPx, fullCanvas.height - sliceStart)
-    const sliceCanvas = document.createElement("canvas")
-    sliceCanvas.width = fullCanvas.width
-    sliceCanvas.height = sliceH
-    const sctx = sliceCanvas.getContext("2d")
-    if (!sctx) throw new Error("No se pudo crear el canvas de rasterizado.")
-    sctx.drawImage(fullCanvas, 0, sliceStart, fullCanvas.width, sliceH, 0, 0, fullCanvas.width, sliceH)
-    slices.push(sliceCanvas.toDataURL("image/png"))
-  }
-  return slices
+  return { dataUrl: canvas.toDataURL("image/png"), altoPaginaMm }
 }
 
 /** Renderiza un bloque ```mermaid del markdown como diagrama SVG real. */

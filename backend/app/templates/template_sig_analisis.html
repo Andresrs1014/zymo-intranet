@@ -26,6 +26,23 @@
       }
     }
 
+    {% if flujograma_png %}
+    /* Pagina nombrada solo para el flujograma -- NO usa el A4 fijo de arriba. Se
+       dimensiona exacto a la medida de ESTE diagrama (calculada en el navegador,
+       ver MermaidDiagram.tsx) para que quepa entero, a ancho completo y nitido, sin
+       cortarlo en tiras ni encogerlo hasta ser ilegible. */
+    @page flujograma-page {
+      size: 210mm {{ flujograma_alto_pagina_mm }}mm;
+      margin: 1.2cm 1.6cm 1.4cm 1.6cm;
+      @bottom-center {
+        content: counter(page) " / " counter(pages);
+        font-size: 7pt;
+        color: #A1A1AA;
+        font-family: Arial, sans-serif;
+      }
+    }
+    {% endif %}
+
     * { box-sizing: border-box; }
 
     body {
@@ -165,15 +182,10 @@
     .cargo-block li { font-size: 8.5pt; line-height: 1.5; }
 
     .flujograma-box { text-align: center; padding: 6px 0; }
-    /* max-height acotado a lo que cabe en una pagina A4 (271mm util menos titulo/padding
-       de .card) -- sin esto, un flujograma mas alto que una pagina queda cortado: .card
-       tiene page-break-inside:avoid, y una imagen no se puede partir entre paginas, asi
-       que si no cabe entera simplemente se recorta en el borde de la pagina. */
-    .flujograma-box img { max-width: 100%; max-height: 230mm; width: auto; height: auto; }
-    /* Cuando el flujograma viene cortado en varias tiras (diagrama alto), cada tira ya
-       fue medida en el navegador para llenar el ancho de pagina y caber en una hoja --
-       forzar width:100% en vez de dejarla a su tamaño nativo es lo que la hace legible. */
-    .flujograma-box img.wide { width: 100%; height: auto; max-height: 230mm; }
+    /* La pagina (@page flujograma-page, ver <head>) ya viene dimensionada exacta al
+       diagrama -- la imagen solo necesita llenar el ancho de pagina, sin ningun tope
+       de alto: la altura la resuelve el tamaño de la propia pagina, no un max-height. */
+    .flujograma-box img.wide { width: 100%; height: auto; }
 
     .content-block { font-size: 9pt; line-height: 1.5; color: var(--navy); }
     .content-block p { margin: 0 0 5px 0; }
@@ -320,16 +332,13 @@
     {% else %}<span class="empty-note">Sin hallazgos de procedimiento</span>{% endif %}
   </div>
 
-  <!-- Página: Flujograma -- si el diagrama es muy alto para caber legible en una sola
-       hoja, viene cortado en varias tiras desde el navegador; cada una es su propia
-       página en vez de encoger todo hasta que el texto no se pueda leer. -->
-  {% if flujograma_pngs %}
-  {% for img in flujograma_pngs %}
-  <div class="page-section">
-    <div class="page-title">{{ "Flujograma" if loop.first else "Flujograma (continuación)" }}</div>
-    <div class="flujograma-box"><img src="{{ img }}" alt="Flujograma" class="{{ 'wide' if flujograma_pngs|length > 1 else '' }}"></div>
+  <!-- Página: Flujograma -- página propia de tamaño hecho a la medida del diagrama
+       (ver @page flujograma-page en el <head>), no el A4 fijo del resto del documento. -->
+  {% if flujograma_png %}
+  <div class="page-section" style="page: flujograma-page;">
+    <div class="page-title">Flujograma</div>
+    <div class="flujograma-box"><img src="{{ flujograma_png }}" alt="Flujograma" class="wide"></div>
   </div>
-  {% endfor %}
   {% endif %}
 
   <!-- Página: Hallazgos de flujograma -->

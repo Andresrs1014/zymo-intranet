@@ -275,7 +275,8 @@ class AnalisisPdfRequest(BaseModel):
     cargos: list[dict[str, Any]] = []
     findings: list[dict[str, Any]] = []
     markdownNormalizado: str | None = None
-    flujogramaPngs: list[str] = []
+    flujogramaPng: str | None = None
+    flujogramaAltoMm: float | None = None
     procedimiento: dict[str, Any]
 
 
@@ -287,11 +288,13 @@ async def generar_pdf_analisis(
     """
     Genera el PDF de un análisis del historial (coherencia/mejoras/proc-vs-inst/cargos/completo).
     Recibe el item ya cargado por el frontend (viene completo desde /api/analisis/historial) —
-    no hace falta re-consultar sig-backend. El flujograma, si existe, llega como una o mas
-    tiras PNG (data URL) ya rasterizadas por el navegador -- no hay renderer de Mermaid en el
-    servidor, y WeasyPrint no soporta el <style> con clases CSS que Mermaid embebe en el SVG
-    (el texto salia en blanco). Si el diagrama es muy alto se corta en varias tiras para que
-    cada una quepa legible en una pagina, en vez de encoger todo a una sola pagina ilegible.
+    no hace falta re-consultar sig-backend. El flujograma, si existe, llega como PNG (data URL)
+    ya rasterizado por el navegador -- no hay renderer de Mermaid en el servidor, y WeasyPrint
+    no soporta el <style> con clases CSS que Mermaid embebe en el SVG (el texto salia en
+    blanco). La pagina del flujograma NO usa el tamaño A4 fijo del resto del documento: el
+    navegador manda tambien flujogramaAltoMm (el alto que necesita la pagina para que el
+    diagrama entre completo a ancho de pagina, sin cortarlo ni encogerlo) y se define una
+    @page nombrada con ese alto exacto en el propio HTML -- ver template_sig_analisis.html.
     """
     slug    = _DEFAULT_PLATFORM_SLUG
     empresa = _load_platform(slug)
@@ -333,7 +336,14 @@ async def generar_pdf_analisis(
         "findings_procedimiento": findings_procedimiento,
         "findings_flujograma":    findings_flujograma,
         "markdown_normalizado_html": _md_to_html(payload.markdownNormalizado or ""),
-        "flujograma_pngs": payload.flujogramaPngs,
+        "flujograma_png": payload.flujogramaPng or "",
+        # La pagina del flujograma se dimensiona a la medida del diagrama en vez de usar
+        # el A4 fijo del resto del documento. flujogramaAltoMm (del navegador) es solo el
+        # alto de LA IMAGEN a 178mm de ancho -- se le suma el margen de pagina (2.6cm) y
+        # el titulo "Flujograma" (~3cm) para llegar al alto real de pagina que hace falta.
+        # Clamp defensivo (150-1200mm): nunca confiar solo en el cliente para un valor
+        # que se inyecta directo en una regla @page.
+        "flujograma_alto_pagina_mm": max(150, min(1200, round((payload.flujogramaAltoMm or 190) + 60))),
 
         "autor_nombre": payload.autorNombre,
         "fecha_analisis": _fmt_date(payload.createdAt),
