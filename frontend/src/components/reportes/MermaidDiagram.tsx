@@ -24,10 +24,17 @@ function ensureMermaidInit() {
  * sí renderiza el SVG completo, así que se convierte a imagen acá y el PDF solo recibe
  * un <img> -- evita depender del soporte SVG/CSS de WeasyPrint por completo.
  */
-export async function svgToPngDataUrl(svg: SVGSVGElement, scale = 3): Promise<string> {
+export async function svgToPngDataUrl(svg: SVGSVGElement, maxDimension = 1600): Promise<string> {
   const bbox = svg.getBBox()
   const width = svg.viewBox.baseVal.width || bbox.width || svg.clientWidth || 800
   const height = svg.viewBox.baseVal.height || bbox.height || svg.clientHeight || 400
+
+  // Escala acotada por maxDimension en vez de un factor fijo -- el PDF ya limita el
+  // flujograma a 230mm de alto (~1350px), así que un diagrama largo no gana nitidez
+  // rasterizando a x3 (podía dar canvases de decenas de millones de px): eso era lo que
+  // trababa el navegador al descargar y lo que inflaba el PDF resultante. Con el tope,
+  // diagramas chicos siguen saliendo nítidos (hasta x3) y los grandes no se disparan.
+  const scale = Math.min(3, maxDimension / Math.max(width, height))
 
   const clone = svg.cloneNode(true) as SVGSVGElement
   clone.setAttribute("width", String(width))
