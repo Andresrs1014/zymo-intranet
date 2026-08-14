@@ -6,7 +6,7 @@ import { api } from "@/lib/api"
 import { useAuthStore } from "@/store/authStore"
 import ReactMarkdown, { type Components } from "react-markdown"
 import remarkGfm from "remark-gfm"
-import { MermaidDiagram } from "@/components/reportes/MermaidDiagram"
+import { MermaidDiagram, svgToPngDataUrl } from "@/components/reportes/MermaidDiagram"
 import {
   Download, Target, Lightbulb, GitCompare, Database, Users, CheckCircle2, AlertTriangle,
   ClipboardCheck, ChevronLeft, ChevronRight, Folder, X, Info, FileText, Loader2, Trash2, AlertOctagon,
@@ -466,7 +466,7 @@ function SeverityBadge({ severidad }: { severidad: string }) {
   return <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full border font-medium uppercase shrink-0", cls)}>{severidad}</span>
 }
 
-async function downloadAnalisisPdf(item: HistorialItem, flujogramaSvg: string | null) {
+async function downloadAnalisisPdf(item: HistorialItem, flujogramaPng: string | null) {
   const payload = {
     tipo: item.tipo,
     autorNombre: item.autorNombre,
@@ -486,7 +486,7 @@ async function downloadAnalisisPdf(item: HistorialItem, flujogramaSvg: string | 
       severidad: findingSeveridad(f) ?? null,
     })),
     markdownNormalizado: item.markdownNormalizado ?? null,
-    flujogramaSvg: flujogramaSvg,
+    flujogramaPng: flujogramaPng,
     procedimiento: item.procedimiento,
   }
   const res = await api.post("/api/sig/pdf/analisis", payload, { responseType: "blob" })
@@ -533,12 +533,14 @@ export function AnalisisDetailModal({ item, onClose }: { item: HistorialItem; on
     setDownloadingPdf(true)
     setPdfError(null)
     try {
-      // El SVG del flujograma, si existe, ya está renderizado en el DOM por <MermaidDiagram> —
+      // El flujograma, si existe, ya está renderizado en el DOM por <MermaidDiagram> —
       // sea el del campo dedicado o uno incrustado como ```mermaid dentro del documento
       // normalizado (ver MARKDOWN_MERMAID_COMPONENTS). No hay renderer de mermaid en el
-      // servidor, así que se captura tal cual desde acá (el primero que aparezca en el reporte).
-      const svg = flujogramaRef.current?.querySelector("svg")?.outerHTML ?? null
-      await downloadAnalisisPdf(item, svg)
+      // servidor, así que se rasteriza a PNG acá mismo (WeasyPrint no soporta el <style>
+      // con clases CSS que Mermaid embebe en el SVG — el texto salía en blanco).
+      const svgEl = flujogramaRef.current?.querySelector("svg")
+      const png = svgEl ? await svgToPngDataUrl(svgEl) : null
+      await downloadAnalisisPdf(item, png)
     } catch {
       setPdfError("No se pudo generar el PDF — revisa logs del servidor.")
     } finally {

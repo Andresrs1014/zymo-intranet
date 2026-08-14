@@ -17,6 +17,45 @@ function ensureMermaidInit() {
   mermaidInitialized = true
 }
 
+/**
+ * Rasteriza un <svg> ya renderizado a PNG (data URL) -- WeasyPrint (motor del PDF de
+ * análisis) no soporta el bloque <style> con clases CSS que Mermaid embebe en el SVG
+ * exportado, así que los <text> quedan sin color y el diagrama sale vacío. El navegador
+ * sí renderiza el SVG completo, así que se convierte a imagen acá y el PDF solo recibe
+ * un <img> -- evita depender del soporte SVG/CSS de WeasyPrint por completo.
+ */
+export async function svgToPngDataUrl(svg: SVGSVGElement, scale = 2): Promise<string> {
+  const bbox = svg.getBBox()
+  const width = svg.viewBox.baseVal.width || bbox.width || svg.clientWidth || 800
+  const height = svg.viewBox.baseVal.height || bbox.height || svg.clientHeight || 400
+
+  const clone = svg.cloneNode(true) as SVGSVGElement
+  clone.setAttribute("width", String(width))
+  clone.setAttribute("height", String(height))
+
+  const svgString = new XMLSerializer().serializeToString(clone)
+  const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgString)}`
+
+  const img = new Image()
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve()
+    img.onerror = () => reject(new Error("No se pudo rasterizar el flujograma."))
+    img.src = dataUrl
+  })
+
+  const canvas = document.createElement("canvas")
+  canvas.width = width * scale
+  canvas.height = height * scale
+  const ctx = canvas.getContext("2d")
+  if (!ctx) throw new Error("No se pudo crear el canvas de rasterizado.")
+  ctx.fillStyle = "#ffffff"
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  ctx.scale(scale, scale)
+  ctx.drawImage(img, 0, 0, width, height)
+
+  return canvas.toDataURL("image/png")
+}
+
 /** Renderiza un bloque ```mermaid del markdown como diagrama SVG real. */
 export function MermaidDiagram({ code }: { code: string }) {
   const rawId = useId().replace(/[^a-zA-Z0-9]/g, "")

@@ -275,7 +275,7 @@ class AnalisisPdfRequest(BaseModel):
     cargos: list[dict[str, Any]] = []
     findings: list[dict[str, Any]] = []
     markdownNormalizado: str | None = None
-    flujogramaSvg: str | None = None
+    flujogramaPng: str | None = None
     procedimiento: dict[str, Any]
 
 
@@ -287,8 +287,9 @@ async def generar_pdf_analisis(
     """
     Genera el PDF de un análisis del historial (coherencia/mejoras/proc-vs-inst/cargos/completo).
     Recibe el item ya cargado por el frontend (viene completo desde /api/analisis/historial) —
-    no hace falta re-consultar sig-backend. El flujograma, si existe, llega como SVG ya
-    renderizado por el navegador (no hay renderer de Mermaid en el servidor).
+    no hace falta re-consultar sig-backend. El flujograma, si existe, llega como PNG (data URL)
+    ya rasterizado por el navegador -- no hay renderer de Mermaid en el servidor, y WeasyPrint
+    no soporta el <style> con clases CSS que Mermaid embebe en el SVG (el texto salía en blanco).
     """
     slug    = _DEFAULT_PLATFORM_SLUG
     empresa = _load_platform(slug)
@@ -319,7 +320,7 @@ async def generar_pdf_analisis(
         "cargos":     payload.cargos,
         "findings":   payload.findings,
         "markdown_normalizado_html": _md_to_html(payload.markdownNormalizado or ""),
-        "flujograma_svg": payload.flujogramaSvg or "",
+        "flujograma_png": payload.flujogramaPng or "",
 
         "autor_nombre": payload.autorNombre,
         "fecha_analisis": _fmt_date(payload.createdAt),

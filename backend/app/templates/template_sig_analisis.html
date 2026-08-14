@@ -139,7 +139,7 @@
     .cargo-block li { font-size: 8.5pt; line-height: 1.5; }
 
     .flujograma-box { text-align: center; padding: 6px 0; }
-    .flujograma-box svg { max-width: 100%; height: auto; }
+    .flujograma-box img { max-width: 100%; height: auto; }
 
     .content-block { font-size: 9pt; line-height: 1.5; color: var(--navy); }
     .content-block p { margin: 0 0 5px 0; }
@@ -278,10 +278,10 @@
     {% endfor %}
   </div>
   {% endif %}
-  {% if flujograma_svg %}
+  {% if flujograma_png %}
   <div class="card">
     <div class="card-title">Flujograma</div>
-    <div class="flujograma-box">{{ flujograma_svg | safe }}</div>
+    <div class="flujograma-box"><img src="{{ flujograma_png }}" alt="Flujograma"></div>
   </div>
   {% endif %}
   {% if markdown_normalizado_html %}
