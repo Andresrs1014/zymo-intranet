@@ -23,7 +23,16 @@ function ensureMermaidInit() {
 // grande del diagrama, que es lo que lo dejaba borroso en diagramas altos (la escala
 // terminaba fijada por la altura, dejando el ancho real muy por debajo de lo nítido).
 const PDF_PAGE_W_MM = 178
-const TARGET_WIDTH_PX = 2000
+// ~170dpi a 178mm de ancho -- de sobra para verse nitido en PDF/pantalla, sin ser
+// una resolucion de impresion profesional que no hace falta acá.
+const TARGET_WIDTH_PX = 1200
+// Tope duro de píxeles totales: el ancho ya está acotado arriba, pero un diagrama
+// muy ALTO (muchos pasos) igual podía generar un canvas de decenas de millones de
+// píxeles porque el alto no tenía límite -- eso era lo que trababa el navegador al
+// rasterizar/codificar el PNG y lo que hacía lenta la descarga. Si el diagrama es
+// tan alto que se pasa del presupuesto, se reduce la escala un poco más (menos
+// nítido en ese caso extremo, pero sigue siendo una sola página completa y legible).
+const MAX_TOTAL_PX = 9_000_000
 
 export interface FlujogramaRaster {
   dataUrl: string
@@ -51,7 +60,11 @@ export async function svgToPngDataUrl(svg: SVGSVGElement): Promise<FlujogramaRas
   const width = svg.viewBox.baseVal.width || bbox.width || svg.clientWidth || 800
   const height = svg.viewBox.baseVal.height || bbox.height || svg.clientHeight || 400
 
-  const scale = Math.min(4, TARGET_WIDTH_PX / width)
+  let scale = TARGET_WIDTH_PX / width
+  const estimatedTotalPx = width * scale * (height * scale)
+  if (estimatedTotalPx > MAX_TOTAL_PX) {
+    scale *= Math.sqrt(MAX_TOTAL_PX / estimatedTotalPx)
+  }
 
   const clone = svg.cloneNode(true) as SVGSVGElement
   clone.setAttribute("width", String(width))
