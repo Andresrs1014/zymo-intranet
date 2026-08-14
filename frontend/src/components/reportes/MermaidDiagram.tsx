@@ -24,7 +24,7 @@ function ensureMermaidInit() {
  * sí renderiza el SVG completo, así que se convierte a imagen acá y el PDF solo recibe
  * un <img> -- evita depender del soporte SVG/CSS de WeasyPrint por completo.
  */
-export async function svgToPngDataUrl(svg: SVGSVGElement, scale = 2): Promise<string> {
+export async function svgToPngDataUrl(svg: SVGSVGElement, scale = 3): Promise<string> {
   const bbox = svg.getBBox()
   const width = svg.viewBox.baseVal.width || bbox.width || svg.clientWidth || 800
   const height = svg.viewBox.baseVal.height || bbox.height || svg.clientHeight || 400
