@@ -109,8 +109,11 @@
     /* Paginación explícita del análisis "completo" -- cada sección arranca en
        página nueva (page-break-before) en vez de dejar que el contenido fluya
        y se corte donde alcance. Portada aparte con page-break-after. */
-    .cover-page-completo { page-break-after: always; padding: 70px 20px 40px; }
+    /* La portada ya NO es su propia pagina (quedaba con demasiado blanco) -- comparte
+       la primera pagina con "Analisis y hallazgos de procedimiento", que le sigue sin
+       page-break-before (ver .page-section-first). El resto de las secciones si */
     .page-section { page-break-before: always; padding-top: 12px; }
+    .page-section-first { padding-top: 12px; }
     .page-title {
       font-family: 'Times New Roman', Times, Georgia, serif;
       font-size: 22pt; font-weight: 700; color: var(--navy);
@@ -123,11 +126,11 @@
        un solo reporte continuo), asi que el tamaño de letra "denso" original
        (pensado para una sola pagina larga) dejaba cada pagina casi vacia con
        texto diminuto perdido en el medio. */
-    .page-section p.resumen { font-size: 13pt; line-height: 1.6; margin-bottom: 22px; }
-    .page-section .item-row { font-size: 12.5pt; line-height: 1.65; padding: 11px 0; }
-    .page-section .badge { font-size: 8.5pt; padding: 2px 8px; }
-    .page-section .empty-note { font-size: 13pt; }
-    .page-section .content-block { font-size: 12pt; line-height: 1.7; }
+    .page-section p.resumen, .page-section-first p.resumen { font-size: 13pt; line-height: 1.6; margin-bottom: 22px; }
+    .page-section .item-row, .page-section-first .item-row { font-size: 12.5pt; line-height: 1.65; padding: 11px 0; }
+    .page-section .badge, .page-section-first .badge { font-size: 8.5pt; padding: 2px 8px; }
+    .page-section .empty-note, .page-section-first .empty-note { font-size: 13pt; }
+    .page-section .content-block, .page-section-first .content-block { font-size: 12pt; line-height: 1.7; }
 
     /* Score */
     .score-row { display: table; width: 100%; }
@@ -219,7 +222,7 @@
   </div>
 
   <!-- PORTADA -->
-  <div class="cover-band {{ 'cover-page-completo' if tipo == 'completo' else '' }}">
+  <div class="cover-band">
     <div class="cover-eyebrow">ZYMO · SIG · {{ area }}</div>
     <div class="cover-tipo">Análisis de {{ tipo_label }}</div>
     <div class="cover-titulo">{{ codigo }} — {{ titulo }}</div>
@@ -296,8 +299,8 @@
 
   {% if tipo == "completo" %}
 
-  <!-- Página: Análisis y hallazgos de procedimiento -->
-  <div class="page-section">
+  <!-- Página 1 (continúa la portada, sin salto): Análisis y hallazgos de procedimiento -->
+  <div class="page-section-first">
     <div class="page-title">Análisis y hallazgos de procedimiento</div>
     <p class="resumen" style="margin-bottom:14px;">
       Análisis completo (rúbrica) de {{ codigo }} — {{ titulo }}. Se identificaron
