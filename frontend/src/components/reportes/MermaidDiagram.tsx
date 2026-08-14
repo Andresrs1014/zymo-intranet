@@ -4,7 +4,16 @@ import mermaid from "mermaid"
 let mermaidInitialized = false
 function ensureMermaidInit() {
   if (mermaidInitialized) return
-  mermaid.initialize({ startOnLoad: false, theme: "neutral", securityLevel: "strict" })
+  // htmlLabels:false -- el texto de los nodos se dibuja como <text>/<tspan> nativo del SVG
+  // en vez de <foreignObject> con HTML embebido. El PDF de análisis captura este mismo SVG
+  // y lo pasa a WeasyPrint, que no soporta foreignObject: con html labels el diagrama salía
+  // con las formas correctas pero sin ningún texto adentro.
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: "neutral",
+    securityLevel: "strict",
+    flowchart: { htmlLabels: false },
+  })
   mermaidInitialized = true
 }
 
