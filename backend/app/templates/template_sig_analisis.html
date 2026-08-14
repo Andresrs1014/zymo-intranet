@@ -104,7 +104,20 @@
       padding-bottom: 7px;
       border-bottom: 2px solid var(--red);
     }
-    .card p.resumen { font-size: 9.5pt; line-height: 1.5; color: var(--navy); margin: 0; }
+    .card p.resumen, p.resumen { font-size: 9.5pt; line-height: 1.5; color: var(--navy); margin: 0; }
+
+    /* Paginación explícita del análisis "completo" -- cada sección arranca en
+       página nueva (page-break-before) en vez de dejar que el contenido fluya
+       y se corte donde alcance. Portada aparte con page-break-after. */
+    .cover-page-completo { page-break-after: always; padding: 70px 20px 40px; }
+    .page-section { page-break-before: always; }
+    .page-title {
+      font-family: 'Times New Roman', Times, Georgia, serif;
+      font-size: 16pt; font-weight: 700; color: var(--navy);
+      margin-bottom: 14px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid var(--red);
+    }
 
     /* Score */
     .score-row { display: table; width: 100%; }
@@ -117,7 +130,7 @@
     .score-label { display: table-cell; vertical-align: middle; padding-left: 14px; font-size: 10pt; font-weight: 700; }
 
     /* Listas de hallazgos/propuestas/conflictos */
-    .item-row { padding: 6px 0; border-bottom: 1px solid var(--bg); font-size: 9pt; line-height: 1.45; }
+    .item-row { padding: 6px 0; border-bottom: 1px solid var(--bg); font-size: 9pt; line-height: 1.45; page-break-inside: avoid; }
     .item-row:last-child { border-bottom: none; }
     .badge {
       display: inline-block; font-size: 6.5pt; font-weight: 700; text-transform: uppercase;
@@ -196,11 +209,11 @@
   </div>
 
   <!-- PORTADA -->
-  <div class="cover-band">
+  <div class="cover-band {{ 'cover-page-completo' if tipo == 'completo' else '' }}">
     <div class="cover-eyebrow">ZYMO · SIG · {{ area }}</div>
     <div class="cover-tipo">Análisis de {{ tipo_label }}</div>
     <div class="cover-titulo">{{ codigo }} — {{ titulo }}</div>
-    <div class="cover-meta">{{ fecha_analisis }} · Analizado por {{ autor_nombre }}</div>
+    <div class="cover-meta">{{ fecha_analisis }}</div>
   </div>
 
   {% if resumen %}
@@ -271,34 +284,73 @@
   {% endif %}
 
   {% if tipo == "completo" %}
-  {% if findings %}
-  <div class="card">
-    <div class="card-title">Hallazgos por rúbrica ({{ findings|length }})</div>
-    {% for f in findings %}
+
+  <!-- Página: Análisis y hallazgos de procedimiento -->
+  <div class="page-section">
+    <div class="page-title">Análisis y hallazgos de procedimiento</div>
+    <p class="resumen" style="margin-bottom:14px;">
+      Análisis completo (rúbrica) de {{ codigo }} — {{ titulo }}. Se identificaron
+      {{ findings_procedimiento|length }} hallazgo{{ "s" if findings_procedimiento|length != 1 else "" }}.
+    </p>
+    {% if findings_procedimiento %}
+      {% for f in findings_procedimiento %}
+      <div class="item-row">
+        {% if f.severidad %}<span class="badge {{ f.severidad|lower }}">{{ f.severidad }}</span>{% endif %}
+        {% if f.categoria %}<strong>{{ f.categoria }}:</strong> {% endif %}{{ f.descripcion }}
+      </div>
+      {% endfor %}
+    {% else %}<span class="empty-note">Sin hallazgos de procedimiento</span>{% endif %}
+  </div>
+
+  <!-- Página: Flujograma -->
+  {% if flujograma_png %}
+  <div class="page-section">
+    <div class="page-title">Flujograma</div>
+    <div class="flujograma-box"><img src="{{ flujograma_png }}" alt="Flujograma"></div>
+  </div>
+  {% endif %}
+
+  <!-- Página: Hallazgos de flujograma -->
+  {% if findings_flujograma %}
+  <div class="page-section">
+    <div class="page-title">Hallazgos de flujograma</div>
+    {% for f in findings_flujograma %}
     <div class="item-row">
       {% if f.severidad %}<span class="badge {{ f.severidad|lower }}">{{ f.severidad }}</span>{% endif %}
-      {% if f.categoria %}<strong>{{ f.categoria }}:</strong> {% endif %}{{ f.descripcion }}
+      {{ f.descripcion }}
     </div>
     {% endfor %}
   </div>
   {% endif %}
-  {% if flujograma_png %}
-  <div class="card">
-    <div class="card-title">Flujograma</div>
-    <div class="flujograma-box"><img src="{{ flujograma_png }}" alt="Flujograma"></div>
+
+  <!-- Página: Conclusiones -->
+  <div class="page-section">
+    <div class="page-title">Conclusiones</div>
+    {% if proposals %}
+      <p class="resumen" style="margin-bottom:8px;"><strong>Propuestas de mejora</strong></p>
+      {% for p in proposals %}
+      <div class="item-row"><span class="item-num">{{ loop.index }}</span>{{ p.descripcion }}{% if p.categoria %} <span style="color:var(--slate);font-size:8pt;">({{ p.categoria }})</span>{% endif %}</div>
+      {% endfor %}
+    {% else %}
+      <p class="empty-note">Sin propuestas de mejora registradas.</p>
+    {% endif %}
   </div>
-  {% endif %}
+
+  <!-- Anexo: documento normalizado — referencia completa del texto del procedimiento,
+       aparte de la paginación principal para no perderlo. -->
   {% if markdown_normalizado_html %}
-  <div class="card">
-    <div class="card-title">Documento normalizado</div>
+  <div class="page-section">
+    <div class="page-title">Anexo — Documento normalizado</div>
     <div class="content-block">{{ markdown_normalizado_html | safe }}</div>
   </div>
   {% endif %}
+
   {% endif %}
 
   <div class="nota-block">
+    <small>&copy; Documento generado con apoyo de inteligencia artificial — su contenido debe ser validado por el líder del proceso antes de tomarlo como definitivo.<br>
     <strong>Trazabilidad SIG:</strong> Análisis de {{ tipo_label }} sobre {{ codigo }} — {{ titulo }}.
-    Analizado por {{ autor_nombre }} el {{ fecha_analisis }}. PDF generado por {{ generado_por }} el {{ fecha_generacion }}.
+    Analizado por {{ autor_nombre }} el {{ fecha_analisis }}. PDF generado por {{ generado_por }} el {{ fecha_generacion }}.</small>
   </div>
 
   <div class="footer-bar"></div>

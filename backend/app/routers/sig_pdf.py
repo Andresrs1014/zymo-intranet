@@ -298,6 +298,15 @@ async def generar_pdf_analisis(
     area    = proc.get("area", {}) or {}
     ahora   = datetime.now(_BOGOTA_TZ)
 
+    # El hallazgo de coherencia flujograma-vs-texto (categoria "coherencia_flujograma",
+    # ver rubrica_categorias) tiene su propia pagina en el PDF de "completo" -- separado
+    # del resto de hallazgos de procedimiento, no mezclado en la misma lista.
+    def _es_hallazgo_flujograma(f: dict[str, Any]) -> bool:
+        return str(f.get("categoria") or "").strip().lower() == "coherencia_flujograma"
+
+    findings_flujograma    = [f for f in payload.findings if _es_hallazgo_flujograma(f)]
+    findings_procedimiento = [f for f in payload.findings if not _es_hallazgo_flujograma(f)]
+
     context = {
         "empresa_nombre": empresa.get("nombre", "LOGIMAT S.A.S."),
         "empresa_nit":    empresa.get("nit", ""),
@@ -319,6 +328,8 @@ async def generar_pdf_analisis(
         "conflictos": payload.conflictos,
         "cargos":     payload.cargos,
         "findings":   payload.findings,
+        "findings_procedimiento": findings_procedimiento,
+        "findings_flujograma":    findings_flujograma,
         "markdown_normalizado_html": _md_to_html(payload.markdownNormalizado or ""),
         "flujograma_png": payload.flujogramaPng or "",
 
