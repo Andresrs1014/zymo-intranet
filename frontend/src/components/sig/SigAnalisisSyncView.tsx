@@ -6,7 +6,7 @@ import { api } from "@/lib/api"
 import { useAuthStore } from "@/store/authStore"
 import ReactMarkdown, { type Components } from "react-markdown"
 import remarkGfm from "remark-gfm"
-import { MermaidDiagram, svgToPngDataUrl } from "@/components/reportes/MermaidDiagram"
+import { MermaidDiagram, svgToPngSlices } from "@/components/reportes/MermaidDiagram"
 import {
   Download, Target, Lightbulb, GitCompare, Database, Users, CheckCircle2, AlertTriangle,
   ClipboardCheck, ChevronLeft, ChevronRight, Folder, X, Info, FileText, Loader2, Trash2, AlertOctagon,
@@ -484,7 +484,7 @@ function SeverityBadge({ severidad }: { severidad: string }) {
 
 // Solo pide el PDF y devuelve el blob -- lo que se hace con él (descargarlo,
 // mostrarlo en un visor embebido) queda a cargo de quien llama.
-async function fetchAnalisisPdfBlob(item: HistorialItem, flujogramaPng: string | null): Promise<Blob> {
+async function fetchAnalisisPdfBlob(item: HistorialItem, flujogramaPngs: string[]): Promise<Blob> {
   const payload = {
     tipo: item.tipo,
     autorNombre: item.autorNombre,
@@ -504,7 +504,7 @@ async function fetchAnalisisPdfBlob(item: HistorialItem, flujogramaPng: string |
       severidad: findingSeveridad(f) ?? null,
     })),
     markdownNormalizado: item.markdownNormalizado ?? null,
-    flujogramaPng: flujogramaPng,
+    flujogramaPngs: flujogramaPngs,
     procedimiento: item.procedimiento,
   }
   const res = await api.post("/api/sig/pdf/analisis", payload, { responseType: "blob" })
@@ -564,16 +564,16 @@ export function AnalisisDetailModal({ item, onClose }: { item: HistorialItem; on
   // normalizado (ver MARKDOWN_MERMAID_COMPONENTS). No hay renderer de mermaid en el
   // servidor, así que se rasteriza a PNG acá mismo (WeasyPrint no soporta el <style>
   // con clases CSS que Mermaid embebe en el SVG — el texto salía en blanco).
-  async function currentFlujogramaPng() {
+  async function currentFlujogramaPngs() {
     const svgEl = flujogramaRef.current?.querySelector("svg")
-    return svgEl ? await svgToPngDataUrl(svgEl) : null
+    return svgEl ? await svgToPngSlices(svgEl) : []
   }
 
   async function handleDownloadPdf() {
     setDownloadingPdf(true)
     setPdfError(null)
     try {
-      const blob = await fetchAnalisisPdfBlob(item, await currentFlujogramaPng())
+      const blob = await fetchAnalisisPdfBlob(item, await currentFlujogramaPngs())
       triggerBlobDownload(blob, pdfFilename())
     } catch {
       setPdfError("No se pudo generar el PDF — revisa logs del servidor.")

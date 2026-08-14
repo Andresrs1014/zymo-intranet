@@ -170,6 +170,10 @@
        tiene page-break-inside:avoid, y una imagen no se puede partir entre paginas, asi
        que si no cabe entera simplemente se recorta en el borde de la pagina. */
     .flujograma-box img { max-width: 100%; max-height: 230mm; width: auto; height: auto; }
+    /* Cuando el flujograma viene cortado en varias tiras (diagrama alto), cada tira ya
+       fue medida en el navegador para llenar el ancho de pagina y caber en una hoja --
+       forzar width:100% en vez de dejarla a su tamaño nativo es lo que la hace legible. */
+    .flujograma-box img.wide { width: 100%; height: auto; max-height: 230mm; }
 
     .content-block { font-size: 9pt; line-height: 1.5; color: var(--navy); }
     .content-block p { margin: 0 0 5px 0; }
@@ -316,12 +320,16 @@
     {% else %}<span class="empty-note">Sin hallazgos de procedimiento</span>{% endif %}
   </div>
 
-  <!-- Página: Flujograma -->
-  {% if flujograma_png %}
+  <!-- Página: Flujograma -- si el diagrama es muy alto para caber legible en una sola
+       hoja, viene cortado en varias tiras desde el navegador; cada una es su propia
+       página en vez de encoger todo hasta que el texto no se pueda leer. -->
+  {% if flujograma_pngs %}
+  {% for img in flujograma_pngs %}
   <div class="page-section">
-    <div class="page-title">Flujograma</div>
-    <div class="flujograma-box"><img src="{{ flujograma_png }}" alt="Flujograma"></div>
+    <div class="page-title">{{ "Flujograma" if loop.first else "Flujograma (continuación)" }}</div>
+    <div class="flujograma-box"><img src="{{ img }}" alt="Flujograma" class="{{ 'wide' if flujograma_pngs|length > 1 else '' }}"></div>
   </div>
+  {% endfor %}
   {% endif %}
 
   <!-- Página: Hallazgos de flujograma -->
