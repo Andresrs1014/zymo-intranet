@@ -10,6 +10,7 @@ import { MermaidDiagram, svgToPngDataUrl } from "@/components/reportes/MermaidDi
 import {
   Download, Target, Lightbulb, GitCompare, Database, Users, CheckCircle2, AlertTriangle,
   ClipboardCheck, ChevronLeft, ChevronRight, Folder, X, Info, FileText, Loader2, Trash2, AlertOctagon,
+  List, BookOpen,
 } from "lucide-react"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -545,6 +546,7 @@ export function AnalisisDetailModal({ item, onClose }: { item: HistorialItem; on
   const [confirmDelete, setConfirmDelete] = useState(false)
   const deleteMut = useDeleteAnalisis()
   const [bookPage, setBookPage] = useState(0)
+  const [viewMode, setViewMode] = useState<"paginado" | "lineal">("paginado")
 
   useEffect(() => setBookPage(0), [item.id])
 
@@ -600,155 +602,227 @@ export function AnalisisDetailModal({ item, onClose }: { item: HistorialItem; on
   ]
   const activePage = bookPages[bookPage] ?? "portada"
 
+  // Contenido de cada página del análisis "completo" — se define una sola vez y se
+  // reutiliza tanto en modo paginado (una página visible, absolute+opacity) como en
+  // modo lineal (todas apiladas en un scroll único), para no duplicar el markup.
+  const portadaBody = (
+    <>
+      <div className="text-white/80 text-[11px] font-mono font-bold tracking-widest mb-6">
+        ZYMO · SIG · {item.procedimiento.area.nombre}
+      </div>
+      <div className="flex items-center gap-2 text-white/90 text-[12px] mb-3">
+        {TIPO_ICON[item.tipo]}
+        <span className="font-medium">Análisis de {TIPO_LABEL[item.tipo]}</span>
+      </div>
+      <h1 className="text-white text-2xl font-semibold leading-tight">
+        {item.procedimiento.codigo} — {item.procedimiento.titulo}
+      </h1>
+      <p className="text-white/70 text-[13px] mt-4">{fmtDateTime(item.createdAt)}</p>
+    </>
+  )
+
+  const hallazgosBody = (
+    <>
+      <h2 className="text-[17px] font-semibold text-zinc-800 pb-2.5 mb-4 border-b-2 border-zinc-800">Análisis y hallazgos de procedimiento</h2>
+      <p className="text-[13px] text-zinc-600 leading-relaxed mb-5">
+        Análisis completo (rúbrica) de {item.procedimiento.codigo} — {item.procedimiento.titulo}.
+        Se identificaron {findingsProcedimiento.length} hallazgo{findingsProcedimiento.length !== 1 ? "s" : ""}.
+      </p>
+      {findingsProcedimiento.length > 0 ? (
+        <div className="space-y-3">
+          {findingsProcedimiento.map((f, idx) => {
+            const sev = findingSeveridad(f)
+            const cat = firstText(f, ["categoria"])
+            return (
+              <div key={idx} className="flex items-start gap-3 pb-3 border-b border-zinc-100 last:border-0 last:pb-0">
+                {sev && <SeverityBadge severidad={sev} />}
+                <p className="text-[13px] text-zinc-700 leading-relaxed">
+                  {cat && <span className="text-zinc-400 font-medium">{cat}: </span>}
+                  {findingTexto(f)}
+                </p>
+              </div>
+            )
+          })}
+        </div>
+      ) : <span className="text-[13px] text-zinc-400 italic">Sin hallazgos de procedimiento</span>}
+    </>
+  )
+
+  const flujogramaBody = (
+    <>
+      <h2 className="text-[17px] font-semibold text-zinc-800 pb-2.5 mb-4 border-b-2 border-zinc-800">Flujograma</h2>
+      <MermaidDiagram code={item.flujogramaMmd!} />
+    </>
+  )
+
+  const hallazgosFlujogramaBody = (
+    <>
+      <h2 className="text-[17px] font-semibold text-zinc-800 pb-2.5 mb-4 border-b-2 border-zinc-800">Hallazgos de flujograma</h2>
+      <div className="space-y-3">
+        {findingsFlujograma.map((f, idx) => {
+          const sev = findingSeveridad(f)
+          return (
+            <div key={idx} className="flex items-start gap-3 pb-3 border-b border-zinc-100 last:border-0 last:pb-0">
+              {sev && <SeverityBadge severidad={sev} />}
+              <p className="text-[13px] text-zinc-700 leading-relaxed">{findingTexto(f)}</p>
+            </div>
+          )
+        })}
+      </div>
+    </>
+  )
+
+  const conclusionesBody = (
+    <>
+      <h2 className="text-[17px] font-semibold text-zinc-800 pb-2.5 mb-4 border-b-2 border-zinc-800">Conclusiones</h2>
+      {(item.proposals ?? []).length > 0 ? (
+        <div className="space-y-4">
+          <p className="text-[12px] font-semibold text-zinc-500 uppercase tracking-wide">Propuestas de mejora</p>
+          {(item.proposals ?? []).map((p, idx) => {
+            const cat = proposalCategoria(p)
+            return (
+              <div key={idx} className="flex items-start gap-3">
+                <span className="h-6 w-6 rounded-full bg-amber-50 text-amber-600 text-[12px] font-semibold flex items-center justify-center shrink-0 mt-0.5">{idx + 1}</span>
+                <div>
+                  <p className="text-[13px] text-zinc-700 leading-relaxed">{proposalTexto(p)}</p>
+                  {cat && <p className="text-[12px] text-zinc-400 mt-1">{cat}</p>}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      ) : <span className="text-[13px] text-zinc-400 italic">Sin propuestas de mejora registradas</span>}
+    </>
+  )
+
+  const anexoBody = (
+    <>
+      <h2 className="text-[17px] font-semibold text-zinc-800 pb-2.5 mb-4 border-b-2 border-zinc-800 not-prose">Anexo — Documento normalizado</h2>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_MERMAID_COMPONENTS}>
+        {item.markdownNormalizado!}
+      </ReactMarkdown>
+    </>
+  )
+
   return (
     <div className="fixed inset-0 z-[100] flex flex-col bg-zinc-800">
 
-      {/* Barra superior fija — mínima, para no competir con el informe */}
-      <div className="shrink-0 flex items-center justify-between px-6 h-12 bg-zinc-900">
-        <span className="text-white/50 text-[12px]">Vista de presentación — historial de análisis</span>
-        <button
-          onClick={onClose}
-          className="flex items-center gap-1.5 text-[12px] text-white/70 hover:text-white transition-colors"
-        >
-          Cerrar
-          <X className="h-4 w-4" />
-        </button>
-      </div>
+      {/* Barra superior fija — una sola línea con cierre, navegación de páginas
+          (solo en modo paginado) y el toggle libro/lineal. */}
+      <div className="shrink-0 flex items-center justify-between gap-4 px-6 h-12 bg-white border-b border-zinc-200">
+        <span className="text-zinc-400 text-[12px] shrink-0">Vista de presentación</span>
 
-      {item.tipo === "completo" ? (
-        <>
-          {/* Navegación de páginas — el mismo orden y criterio de qué se omite que el PDF */}
-          <div className="shrink-0 flex items-center justify-center gap-4 py-3 bg-zinc-900 border-b border-white/5">
+        {item.tipo === "completo" && viewMode === "paginado" && (
+          <div className="flex-1 flex items-center justify-center gap-3 min-w-0">
             <button
               onClick={() => setBookPage((p) => Math.max(0, p - 1))}
               disabled={bookPage === 0}
-              className="p-1.5 rounded-full text-white/60 hover:text-white hover:bg-white/10 disabled:opacity-25 disabled:hover:bg-transparent transition-colors"
+              className="p-1.5 rounded-full text-zinc-400 hover:text-zinc-800 hover:bg-zinc-100 disabled:opacity-25 disabled:hover:bg-transparent transition-colors"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <span className="text-white/70 text-[12px] w-64 text-center truncate">
-              {BOOK_PAGE_LABEL[activePage]} <span className="text-white/35 tabular-nums">· {bookPage + 1}/{bookPages.length}</span>
+            <span className="text-zinc-600 text-[12px] truncate">
+              {BOOK_PAGE_LABEL[activePage]} <span className="text-zinc-400 tabular-nums">· {bookPage + 1}/{bookPages.length}</span>
             </span>
             <button
               onClick={() => setBookPage((p) => Math.min(bookPages.length - 1, p + 1))}
               disabled={bookPage === bookPages.length - 1}
-              className="p-1.5 rounded-full text-white/60 hover:text-white hover:bg-white/10 disabled:opacity-25 disabled:hover:bg-transparent transition-colors"
+              className="p-1.5 rounded-full text-zinc-400 hover:text-zinc-800 hover:bg-zinc-100 disabled:opacity-25 disabled:hover:bg-transparent transition-colors"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
           </div>
+        )}
 
-          {/* "Libro" — proporción A4. Todas las páginas quedan montadas en el DOM (para
-              que el flujograma siempre tenga geometría real y el PDF lo pueda rasterizar
-              sin importar qué página se esté viendo), solo una es visible a la vez. */}
-          <div className="flex-1 overflow-auto flex items-start justify-center py-8 px-4">
-            <div className="relative w-full max-w-[720px] aspect-[210/297] bg-white rounded-lg shadow-2xl shrink-0 overflow-hidden">
+        <div className="flex items-center gap-4 shrink-0">
+          {item.tipo === "completo" && (
+            <button
+              onClick={() => setViewMode((m) => (m === "paginado" ? "lineal" : "paginado"))}
+              className="flex items-center gap-1.5 text-[12px] text-zinc-500 hover:text-zinc-800 transition-colors"
+            >
+              {viewMode === "paginado" ? <><List className="h-3.5 w-3.5" />Ver todo</> : <><BookOpen className="h-3.5 w-3.5" />Ver paginado</>}
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            className="flex items-center gap-1.5 text-[12px] text-zinc-500 hover:text-zinc-800 transition-colors"
+          >
+            Cerrar
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
 
-              <div
-                className={cn(
-                  "absolute inset-0 overflow-y-auto flex flex-col items-center justify-center px-10 text-center transition-opacity duration-200",
-                  activePage === "portada" ? "opacity-100" : "opacity-0 pointer-events-none",
-                )}
-                style={{ backgroundColor: item.procedimiento.area.color }}
-              >
-                <div className="text-white/80 text-[11px] font-mono font-bold tracking-widest mb-6">
-                  ZYMO · SIG · {item.procedimiento.area.nombre}
-                </div>
-                <div className="flex items-center gap-2 text-white/90 text-[12px] mb-3">
-                  {TIPO_ICON[item.tipo]}
-                  <span className="font-medium">Análisis de {TIPO_LABEL[item.tipo]}</span>
-                </div>
-                <h1 className="text-white text-2xl font-semibold leading-tight">
-                  {item.procedimiento.codigo} — {item.procedimiento.titulo}
-                </h1>
-                <p className="text-white/70 text-[13px] mt-4">{fmtDateTime(item.createdAt)}</p>
-              </div>
+      {item.tipo === "completo" && viewMode === "paginado" ? (
+        /* "Libro" — proporción A4. Todas las páginas quedan montadas en el DOM (para
+           que el flujograma siempre tenga geometría real y el PDF lo pueda rasterizar
+           sin importar qué página se esté viendo), solo una es visible a la vez. */
+        <div className="flex-1 overflow-auto flex items-start justify-center py-8 px-4">
+          <div className="relative w-full max-w-[720px] aspect-[210/297] bg-white rounded-lg shadow-2xl shrink-0 overflow-hidden">
 
-              <div className={cn("absolute inset-0 overflow-y-auto p-10 transition-opacity duration-200", activePage === "hallazgos" ? "opacity-100" : "opacity-0 pointer-events-none")}>
-                <h2 className="text-[17px] font-semibold text-zinc-800 pb-2.5 mb-4 border-b-2 border-zinc-800">Análisis y hallazgos de procedimiento</h2>
-                <p className="text-[13px] text-zinc-600 leading-relaxed mb-5">
-                  Análisis completo (rúbrica) de {item.procedimiento.codigo} — {item.procedimiento.titulo}.
-                  Se identificaron {findingsProcedimiento.length} hallazgo{findingsProcedimiento.length !== 1 ? "s" : ""}.
-                </p>
-                {findingsProcedimiento.length > 0 ? (
-                  <div className="space-y-3">
-                    {findingsProcedimiento.map((f, idx) => {
-                      const sev = findingSeveridad(f)
-                      const cat = firstText(f, ["categoria"])
-                      return (
-                        <div key={idx} className="flex items-start gap-3 pb-3 border-b border-zinc-100 last:border-0 last:pb-0">
-                          {sev && <SeverityBadge severidad={sev} />}
-                          <p className="text-[13px] text-zinc-700 leading-relaxed">
-                            {cat && <span className="text-zinc-400 font-medium">{cat}: </span>}
-                            {findingTexto(f)}
-                          </p>
-                        </div>
-                      )
-                    })}
-                  </div>
-                ) : <span className="text-[13px] text-zinc-400 italic">Sin hallazgos de procedimiento</span>}
-              </div>
-
-              {hasFlujograma && (
-                <div ref={flujogramaRef} className={cn("absolute inset-0 overflow-y-auto p-10 transition-opacity duration-200", activePage === "flujograma" ? "opacity-100" : "opacity-0 pointer-events-none")}>
-                  <h2 className="text-[17px] font-semibold text-zinc-800 pb-2.5 mb-4 border-b-2 border-zinc-800">Flujograma</h2>
-                  <MermaidDiagram code={item.flujogramaMmd!} />
-                </div>
+            <div
+              className={cn(
+                "absolute inset-0 overflow-y-auto flex flex-col items-center justify-center px-10 text-center transition-opacity duration-200",
+                activePage === "portada" ? "opacity-100" : "opacity-0 pointer-events-none",
               )}
+              style={{ backgroundColor: item.procedimiento.area.color }}
+            >
+              {portadaBody}
+            </div>
 
-              {hasFlujogramaFinding && (
-                <div className={cn("absolute inset-0 overflow-y-auto p-10 transition-opacity duration-200", activePage === "hallazgosFlujograma" ? "opacity-100" : "opacity-0 pointer-events-none")}>
-                  <h2 className="text-[17px] font-semibold text-zinc-800 pb-2.5 mb-4 border-b-2 border-zinc-800">Hallazgos de flujograma</h2>
-                  <div className="space-y-3">
-                    {findingsFlujograma.map((f, idx) => {
-                      const sev = findingSeveridad(f)
-                      return (
-                        <div key={idx} className="flex items-start gap-3 pb-3 border-b border-zinc-100 last:border-0 last:pb-0">
-                          {sev && <SeverityBadge severidad={sev} />}
-                          <p className="text-[13px] text-zinc-700 leading-relaxed">{findingTexto(f)}</p>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
+            <div className={cn("absolute inset-0 overflow-y-auto p-10 transition-opacity duration-200", activePage === "hallazgos" ? "opacity-100" : "opacity-0 pointer-events-none")}>
+              {hallazgosBody}
+            </div>
 
-              <div className={cn("absolute inset-0 overflow-y-auto p-10 transition-opacity duration-200", activePage === "conclusiones" ? "opacity-100" : "opacity-0 pointer-events-none")}>
-                <h2 className="text-[17px] font-semibold text-zinc-800 pb-2.5 mb-4 border-b-2 border-zinc-800">Conclusiones</h2>
-                {(item.proposals ?? []).length > 0 ? (
-                  <div className="space-y-4">
-                    <p className="text-[12px] font-semibold text-zinc-500 uppercase tracking-wide">Propuestas de mejora</p>
-                    {(item.proposals ?? []).map((p, idx) => {
-                      const cat = proposalCategoria(p)
-                      return (
-                        <div key={idx} className="flex items-start gap-3">
-                          <span className="h-6 w-6 rounded-full bg-amber-50 text-amber-600 text-[12px] font-semibold flex items-center justify-center shrink-0 mt-0.5">{idx + 1}</span>
-                          <div>
-                            <p className="text-[13px] text-zinc-700 leading-relaxed">{proposalTexto(p)}</p>
-                            {cat && <p className="text-[12px] text-zinc-400 mt-1">{cat}</p>}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                ) : <span className="text-[13px] text-zinc-400 italic">Sin propuestas de mejora registradas</span>}
+            {hasFlujograma && (
+              <div ref={flujogramaRef} className={cn("absolute inset-0 overflow-y-auto p-10 transition-opacity duration-200", activePage === "flujograma" ? "opacity-100" : "opacity-0 pointer-events-none")}>
+                {flujogramaBody}
               </div>
+            )}
 
+            {hasFlujogramaFinding && (
+              <div className={cn("absolute inset-0 overflow-y-auto p-10 transition-opacity duration-200", activePage === "hallazgosFlujograma" ? "opacity-100" : "opacity-0 pointer-events-none")}>
+                {hallazgosFlujogramaBody}
+              </div>
+            )}
+
+            <div className={cn("absolute inset-0 overflow-y-auto p-10 transition-opacity duration-200", activePage === "conclusiones" ? "opacity-100" : "opacity-0 pointer-events-none")}>
+              {conclusionesBody}
+            </div>
+
+            {hasAnexo && (
+              <div className={cn(
+                "absolute inset-0 overflow-y-auto p-10 prose prose-sm max-w-none prose-headings:text-zinc-800 prose-p:text-zinc-700 prose-p:leading-relaxed transition-opacity duration-200",
+                activePage === "anexo" ? "opacity-100" : "opacity-0 pointer-events-none",
+              )}>
+                {anexoBody}
+              </div>
+            )}
+
+          </div>
+        </div>
+      ) : item.tipo === "completo" ? (
+        /* Vista lineal — todas las páginas apiladas en un solo scroll, para saltar
+           pasos rápido en vez de navegar página por página. Mismo contenido que el
+           libro paginado (reutiliza los *Body de arriba), solo cambia el envoltorio. */
+        <div className="flex-1 overflow-y-auto">
+          <div className="w-[94%] max-w-[960px] mx-auto my-8 bg-white rounded-2xl shadow-2xl overflow-hidden">
+            <div className="px-10 py-10 text-center" style={{ backgroundColor: item.procedimiento.area.color }}>
+              {portadaBody}
+            </div>
+            <div className="px-10 py-8">
+              <section className="pb-8 border-b border-zinc-100">{hallazgosBody}</section>
+              {hasFlujograma && <section ref={flujogramaRef} className="py-8 border-b border-zinc-100">{flujogramaBody}</section>}
+              {hasFlujogramaFinding && <section className="py-8 border-b border-zinc-100">{hallazgosFlujogramaBody}</section>}
+              <section className="py-8 border-b border-zinc-100 last:border-0">{conclusionesBody}</section>
               {hasAnexo && (
-                <div className={cn(
-                  "absolute inset-0 overflow-y-auto p-10 prose prose-sm max-w-none prose-headings:text-zinc-800 prose-p:text-zinc-700 prose-p:leading-relaxed transition-opacity duration-200",
-                  activePage === "anexo" ? "opacity-100" : "opacity-0 pointer-events-none",
-                )}>
-                  <h2 className="text-[17px] font-semibold text-zinc-800 pb-2.5 mb-4 border-b-2 border-zinc-800 not-prose">Anexo — Documento normalizado</h2>
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_MERMAID_COMPONENTS}>
-                    {item.markdownNormalizado!}
-                  </ReactMarkdown>
-                </div>
+                <section className="pt-8 prose prose-sm max-w-none prose-headings:text-zinc-800 prose-p:text-zinc-700 prose-p:leading-relaxed">
+                  {anexoBody}
+                </section>
               )}
-
             </div>
           </div>
-        </>
+        </div>
       ) : (
         /* "Hoja" del informe, centrada, scrolleable — sin cambios para los demás tipos de análisis */
         <div className="flex-1 overflow-y-auto">
@@ -868,7 +942,7 @@ export function AnalisisDetailModal({ item, onClose }: { item: HistorialItem; on
       )}
 
       {/* Pie fijo — visible sin importar en qué página del libro se esté */}
-      <div className="shrink-0 flex items-center justify-between px-10 py-4 border-t border-white/10 bg-zinc-900">
+      <div className="shrink-0 flex items-center justify-between px-10 py-2.5 border-t border-white/10 bg-zinc-900">
         <div className="flex flex-col gap-0.5">
           <span className="text-[11px] text-white/40">Generado por la intranet ZYMO — SIG</span>
           {pdfError && <span className="text-[11px] text-red-400">{pdfError}</span>}
