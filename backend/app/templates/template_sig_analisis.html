@@ -162,12 +162,11 @@
     .cargo-block li { font-size: 8.5pt; line-height: 1.5; }
 
     .flujograma-box { text-align: center; padding: 6px 0; }
-    /* width:100% para que el diagrama siempre llene el ancho de la pagina en vez de
-       quedarse a su resolucion nativa (un diagrama chico se veia diminuto y perdido
-       en una pagina A4 entera) -- max-height sigue acotando a lo que cabe en una
-       pagina (271mm util menos titulo) para que uno alto no se corte: .card tiene
-       page-break-inside:avoid y una imagen no se puede partir entre paginas. */
-    .flujograma-box img { width: 100%; max-height: 230mm; height: auto; }
+    /* max-height acotado a lo que cabe en una pagina A4 (271mm util menos titulo/padding
+       de .card) -- sin esto, un flujograma mas alto que una pagina queda cortado: .card
+       tiene page-break-inside:avoid, y una imagen no se puede partir entre paginas, asi
+       que si no cabe entera simplemente se recorta en el borde de la pagina. */
+    .flujograma-box img { max-width: 100%; max-height: 230mm; width: auto; height: auto; }
 
     .content-block { font-size: 9pt; line-height: 1.5; color: var(--navy); }
     .content-block p { margin: 0 0 5px 0; }
