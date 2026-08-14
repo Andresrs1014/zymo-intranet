@@ -116,6 +116,7 @@ function buildMarkdown(item: HistorialItem): string {
     const props = item.proposals ?? []
     return header + [
       `## Propuestas de mejora (${props.length})`, ``,
+      `_Son sugerencias para evaluar, no cambios obligatorios._`, ``,
       props.length === 0 ? "_Sin propuestas_" : props.map((p, i) => {
         const cat = proposalCategoria(p)
         return `${i + 1}. ${proposalTexto(p)}${cat ? ` _(${cat})_` : ""}`
@@ -677,7 +678,10 @@ export function AnalisisDetailModal({ item, onClose }: { item: HistorialItem; on
       <h2 className="text-[17px] font-semibold text-zinc-800 pb-2.5 mb-4 border-b-2 border-zinc-800">Conclusiones</h2>
       {(item.proposals ?? []).length > 0 ? (
         <div className="space-y-4">
-          <p className="text-[12px] font-semibold text-zinc-500 uppercase tracking-wide">Propuestas de mejora</p>
+          <div>
+            <p className="text-[12px] font-semibold text-zinc-500 uppercase tracking-wide">Propuestas de mejora</p>
+            <p className="text-[11px] text-zinc-400 italic mt-0.5">Son sugerencias para evaluar, no cambios obligatorios.</p>
+          </div>
           {(item.proposals ?? []).map((p, idx) => {
             const cat = proposalCategoria(p)
             return (
@@ -885,7 +889,8 @@ export function AnalisisDetailModal({ item, onClose }: { item: HistorialItem; on
 
               {item.tipo === "mejoras" && (item.proposals ?? []).length > 0 && (
                 <section>
-                  <h2 className="text-[12px] font-semibold text-zinc-400 uppercase tracking-wide mb-3">Propuestas de mejora</h2>
+                  <h2 className="text-[12px] font-semibold text-zinc-400 uppercase tracking-wide mb-1">Propuestas de mejora</h2>
+                  <p className="text-[12px] text-zinc-400 italic mb-3">Son sugerencias para evaluar, no cambios obligatorios.</p>
                   <div className="space-y-4">
                     {(item.proposals ?? []).map((p, idx) => {
                       const cat = proposalCategoria(p)

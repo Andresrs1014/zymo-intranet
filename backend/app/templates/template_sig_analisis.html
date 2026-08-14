@@ -246,6 +246,7 @@
   {% if tipo == "mejoras" %}
   <div class="card">
     <div class="card-title">Propuestas de mejora ({{ proposals|length }})</div>
+    <p style="font-size:8pt; color:var(--slate); margin:-6px 0 10px 0;">Son sugerencias para evaluar, no cambios obligatorios.</p>
     {% if proposals %}
       {% for p in proposals %}
       <div class="item-row"><span class="item-num">{{ loop.index }}</span>{{ p.descripcion }}{% if p.categoria %} <span style="color:var(--slate);font-size:8pt;">({{ p.categoria }})</span>{% endif %}</div>
@@ -327,7 +328,8 @@
   <div class="page-section">
     <div class="page-title">Conclusiones</div>
     {% if proposals %}
-      <p class="resumen" style="margin-bottom:8px;"><strong>Propuestas de mejora</strong></p>
+      <p class="resumen" style="margin-bottom:2px;"><strong>Propuestas de mejora</strong></p>
+      <p style="font-size:8pt; color:var(--slate); margin:0 0 10px 0;">Son sugerencias para evaluar, no cambios obligatorios.</p>
       {% for p in proposals %}
       <div class="item-row"><span class="item-num">{{ loop.index }}</span>{{ p.descripcion }}{% if p.categoria %} <span style="color:var(--slate);font-size:8pt;">({{ p.categoria }})</span>{% endif %}</div>
       {% endfor %}
