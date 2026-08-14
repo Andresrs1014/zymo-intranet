@@ -59,6 +59,7 @@ from app.routers.netvault import router as netvault_router
 from app.routers.mantenimiento.router import router as mantenimiento_router
 from app.routers.sig_pdf import router as sig_pdf_router
 from app.models.mantenimiento import SolicitudMantenimiento, TipoMantenimientoConfig, HistorialMantenimiento  # noqa: F401
+from app.models.analysis_kind import AnalysisKind
 from app.models.rubrica import RubricaCategoria
 
 
@@ -353,6 +354,61 @@ def _seed_rubrica() -> None:
     print("[seed] Rúbrica de análisis verificada.")
 
 
+# Semilla inicial del catálogo de tipos de análisis del SIG. Antes vivía
+# hardcodeado como ANALYSIS_KINDS en SigRubricaPanel.tsx — se movió a tabla
+# (analysis_kinds) para que se pueda editar desde la página "Análisis" del SIG,
+# igual que la rúbrica. Estos valores solo pueblan la tabla la primera vez.
+#
+# Corregido: coherencia/mejoras/proc-vs-inst/cargos decían "Corre en el servidor
+# (Gemini de la intranet)" dando a entender que solo se ejecutan desde la
+# intranet — es falso, MCP-001 expone sig_analyze_coherencia/mejoras/proc_vs_inst/
+# cargos y dispara el MISMO endpoint server-side (mismo Gemini, misma key), solo
+# que el disparo puede venir de Claude Code/Codex vía MCP en vez de la UI.
+_DEFAULT_ANALYSIS_KINDS = [
+    {
+        "id": "coherencia", "name": "Coherencia", "cost": "bajo", "orden": 0,
+        "description": "Revisa que el texto del procedimiento y su flujograma no se contradigan entre sí.",
+        "where_text": "Corre en el servidor con Gemini — se dispara desde la intranet o desde MCP-001 (Claude Code/Codex), mismo motor y misma key en ambos casos.",
+    },
+    {
+        "id": "mejoras", "name": "Mejoras", "cost": "bajo", "orden": 1,
+        "description": "Sugiere mejoras puntuales de trazabilidad, claridad y numerales faltantes.",
+        "where_text": "Corre en el servidor con Gemini — se dispara desde la intranet o desde MCP-001 (Claude Code/Codex), mismo motor y misma key en ambos casos.",
+    },
+    {
+        "id": "proc-vs-inst", "name": "Proc/Inst", "cost": "medio", "orden": 2,
+        "description": "Compara el procedimiento contra sus instructivos — busca pasos que no coinciden.",
+        "where_text": "Corre en el servidor con Gemini — se dispara desde la intranet o desde MCP-001 (Claude Code/Codex), mismo motor y misma key en ambos casos.",
+    },
+    {
+        "id": "cargos", "name": "Cargos", "cost": "medio", "orden": 3,
+        "description": "Compara el procedimiento contra los manuales de funciones de T&C de los cargos involucrados.",
+        "where_text": "Corre en el servidor con Gemini — se dispara desde la intranet o desde MCP-001 (Claude Code/Codex), mismo motor y misma key en ambos casos.",
+    },
+    {
+        "id": "completo", "name": "Análisis completo", "cost": "alto", "orden": 4,
+        "description": "Las 7 categorías de la rúbrica de abajo, todas a la vez — el análisis más profundo que existe hoy.",
+        "where_text": "Lo ejecuta un agente externo (Claude Code/Codex, con su propia suscripción) vía MCP-001 — no gasta la key del servidor.",
+    },
+    {
+        "id": "lightrag", "name": "LightRAG (indexar)", "cost": "bajo", "orden": 5,
+        "description": "No es un análisis — indexa el procedimiento al grafo de conocimiento para que la IA lo tenga presente después.",
+        "where_text": "Botón \"RAG\" dentro de cada procedimiento. Ver el resultado en Grafo de conocimiento.",
+    },
+]
+
+
+def _seed_analysis_kinds() -> None:
+    """Idempotente por clave natural (id del tipo de análisis) — si ya existe
+    una fila con ese id no se toca (puede tener ediciones del usuario)."""
+    with Session(get_engine()) as session:
+        for kind in _DEFAULT_ANALYSIS_KINDS:
+            if not session.get(AnalysisKind, kind["id"]):
+                session.add(AnalysisKind(**kind))
+        session.commit()
+    print("[seed] Catálogo de tipos de análisis verificado.")
+
+
 def _seed_admin() -> None:
     with Session(get_engine()) as session:
         existing = session.exec(
@@ -497,6 +553,7 @@ async def lifespan(app: FastAPI):
     _seed_roles()
     _seed_areas_sedes()
     _seed_rubrica()
+    _seed_analysis_kinds()
     _seed_admin()
     create_oc_tables()
     _migrate_oc_db()

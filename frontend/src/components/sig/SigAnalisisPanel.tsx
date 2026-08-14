@@ -252,7 +252,7 @@ const AGENTS = {
     bg:     "bg-emerald-950/40",
     desc:   "Modela la empresa tal como opera hoy. Indexa procedimientos vigentes, instructivos y análisis actuales.",
     pregunta: "¿Cómo se ejecuta X proceso actualmente en ZYMO?",
-    llm:    "Gemini 2.0 Flash",
+    llm:    "Gemini 2.5 Flash",
     embed:  "Ollama nomic-embed-text · 768 dims",
   },
   rag2: {
@@ -265,7 +265,7 @@ const AGENTS = {
     bg:     "bg-violet-950/40",
     desc:   "Modela la empresa con sus procedimientos corregidos y optimizados. Solo indexa versiones mejoradas.",
     pregunta: "¿Cómo debería ejecutarse X proceso según las mejoras propuestas?",
-    llm:    "Gemini 2.0 Flash",
+    llm:    "Gemini 2.5 Flash",
     embed:  "Ollama nomic-embed-text · 768 dims",
   },
 } as const
@@ -333,7 +333,7 @@ function SigRagModal({ onClose }: { onClose: () => void }) {
           <Database className="h-4 w-4 text-emerald-400 shrink-0" />
           <div>
             <p className="text-sm font-mono font-bold text-white">LightRAG — Grafo de conocimiento ZYMO</p>
-            <p className="text-[11px] text-zinc-500 font-mono mt-0.5">Gemini 2.0 Flash · Ollama nomic-embed-text · 768 dims</p>
+            <p className="text-[11px] text-zinc-500 font-mono mt-0.5">Gemini 2.5 Flash · Ollama nomic-embed-text · 768 dims</p>
           </div>
           <div className="ml-auto flex items-center gap-2">
             <button

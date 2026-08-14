@@ -22,6 +22,7 @@ from sqlmodel import Session, select
 from app.config import settings
 from app.core.deps import get_current_user, require_permission
 from app.database import get_db
+from app.models.analysis_kind import AnalysisKind
 from app.models.rubrica import RubricaCategoria
 from app.models.user import User
 from app.services.tc_manual_extraction import cargo_manual_flags
@@ -118,6 +119,55 @@ async def update_rubrica_categoria(
     db.commit()
     db.refresh(categoria)
     return categoria.model_dump(exclude={"orden"})
+
+
+# ── Catálogo de tipos de análisis ─────────────────────────────────────────────
+# Antes hardcodeado como ANALYSIS_KINDS en SigRubricaPanel.tsx — vive en la tabla
+# `analysis_kinds`, editable desde la página "Análisis" del SIG. Semilla inicial
+# en `_DEFAULT_ANALYSIS_KINDS` (backend/app/main.py, _seed_analysis_kinds()).
+
+@router.get("/analysis-kinds")
+async def get_analysis_kinds(
+    _user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[dict[str, Any]]:
+    kinds = db.exec(select(AnalysisKind).order_by(AnalysisKind.orden)).all()
+    return [k.model_dump(exclude={"orden"}) for k in kinds]
+
+
+class AnalysisKindUpdate(BaseModel):
+    name: str | None = None
+    cost: str | None = None
+    description: str | None = None
+    where_text: str | None = None
+
+
+@router.patch("/analysis-kinds/{kind_id}")
+async def update_analysis_kind(
+    kind_id: str,
+    payload: AnalysisKindUpdate,
+    _user: User = Depends(require_permission("mod_sig")),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Edita nombre, costo, descripción o el texto de "dónde corre" de un tipo
+    de análisis. Requiere permiso mod_sig (mismo permiso que edita el resto del SIG)."""
+    kind = db.get(AnalysisKind, kind_id)
+    if not kind:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tipo de análisis no encontrado.")
+
+    if payload.name is not None:
+        kind.name = payload.name.strip() or kind.name
+    if payload.cost is not None and payload.cost in ("bajo", "medio", "alto"):
+        kind.cost = payload.cost
+    if payload.description is not None:
+        kind.description = payload.description.strip() or kind.description
+    if payload.where_text is not None:
+        kind.where_text = payload.where_text.strip() or kind.where_text
+
+    db.add(kind)
+    db.commit()
+    db.refresh(kind)
+    return kind.model_dump(exclude={"orden"})
 
 
 # ── Schemas de request / response ─────────────────────────────────────────────

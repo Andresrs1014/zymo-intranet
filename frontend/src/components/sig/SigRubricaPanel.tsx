@@ -5,60 +5,34 @@ import { cn } from "@/lib/utils"
 import { api } from "@/lib/api"
 import { useAuthStore } from "@/store/authStore"
 
-// ── Catálogo de análisis — de menor a mayor costo para el agente. Los primeros
-// 4 corren en el servidor (consumen la key de Gemini de la intranet); el
-// completo lo ejecuta un agente externo (Claude Code/Codex, su propia
-// suscripción) leyendo la rúbrica de abajo; LightRAG no es un análisis, es
-// indexación al grafo de conocimiento — vive aparte, en "Grafo de conocimiento".
+// ── Catálogo de análisis — de menor a mayor costo para el agente. Los datos
+// (nombre, costo, descripción, dónde corre) vienen de `GET /api/netvault/analysis-kinds`
+// (tabla `analysis_kinds`, backend/app/models/analysis_kind.py) — editables con el
+// lápiz, igual que la rúbrica de abajo. El ícono y el color del costo no viven en
+// la BD (no son datos del negocio) — se resuelven acá por id/costo.
 
-interface AnalysisKind {
+interface AnalysisKindData {
   id: string
   name: string
-  icon: React.ReactNode
   cost: "bajo" | "medio" | "alto"
-  costColor: string
   description: string
-  where: string
+  where_text: string
 }
 
-const ANALYSIS_KINDS: AnalysisKind[] = [
-  {
-    id: "coherencia", name: "Coherencia", icon: <Target className="h-3.5 w-3.5" />,
-    cost: "bajo", costColor: "text-blue-600 bg-blue-50",
-    description: "Revisa que el texto del procedimiento y su flujograma no se contradigan entre sí.",
-    where: "Corre en el servidor (Gemini de la intranet).",
-  },
-  {
-    id: "mejoras", name: "Mejoras", icon: <Lightbulb className="h-3.5 w-3.5" />,
-    cost: "bajo", costColor: "text-amber-600 bg-amber-50",
-    description: "Sugiere mejoras puntuales de trazabilidad, claridad y numerales faltantes.",
-    where: "Corre en el servidor (Gemini de la intranet).",
-  },
-  {
-    id: "proc-vs-inst", name: "Proc/Inst", icon: <GitCompare className="h-3.5 w-3.5" />,
-    cost: "medio", costColor: "text-violet-600 bg-violet-50",
-    description: "Compara el procedimiento contra sus instructivos — busca pasos que no coinciden.",
-    where: "Corre en el servidor (Gemini de la intranet).",
-  },
-  {
-    id: "cargos", name: "Cargos", icon: <Users className="h-3.5 w-3.5" />,
-    cost: "medio", costColor: "text-rose-600 bg-rose-50",
-    description: "Compara el procedimiento contra los manuales de funciones de T&C de los cargos involucrados.",
-    where: "Corre en el servidor (Gemini de la intranet).",
-  },
-  {
-    id: "completo", name: "Análisis completo", icon: <ClipboardCheck className="h-3.5 w-3.5" />,
-    cost: "alto", costColor: "text-helix-accent bg-helix-accent/10",
-    description: "Las 7 categorías de la rúbrica de abajo, todas a la vez — el análisis más profundo que existe hoy.",
-    where: "Lo ejecuta un agente externo (Claude Code/Codex, con su propia suscripción) vía MCP-001 — no gasta la key del servidor.",
-  },
-  {
-    id: "lightrag", name: "LightRAG (indexar)", icon: <Database className="h-3.5 w-3.5" />,
-    cost: "bajo", costColor: "text-emerald-600 bg-emerald-50",
-    description: "No es un análisis — indexa el procedimiento al grafo de conocimiento para que la IA lo tenga presente después.",
-    where: "Botón \"RAG\" dentro de cada procedimiento. Ver el resultado en Grafo de conocimiento.",
-  },
-]
+const KIND_ICONS: Record<string, React.ReactNode> = {
+  coherencia:    <Target className="h-3.5 w-3.5" />,
+  mejoras:       <Lightbulb className="h-3.5 w-3.5" />,
+  "proc-vs-inst": <GitCompare className="h-3.5 w-3.5" />,
+  cargos:        <Users className="h-3.5 w-3.5" />,
+  completo:      <ClipboardCheck className="h-3.5 w-3.5" />,
+  lightrag:      <Database className="h-3.5 w-3.5" />,
+}
+
+const COST_COLORS: Record<string, string> = {
+  bajo:  "text-blue-600 bg-blue-50",
+  medio: "text-violet-600 bg-violet-50",
+  alto:  "text-helix-accent bg-helix-accent/10",
+}
 
 // ── Datos — se traen del endpoint real `GET /api/netvault/rubrica`
 // (backend/app/routers/netvault.py). Las categorías viven en la tabla
@@ -90,6 +64,11 @@ export function SigRubricaPanel() {
     queryFn: () => api.get("/api/netvault/rubrica").then((r) => r.data),
   })
 
+  const { data: kinds = [], isLoading: kindsLoading } = useQuery<AnalysisKindData[]>({
+    queryKey: ["sig", "analysis-kinds"],
+    queryFn: () => api.get("/api/netvault/analysis-kinds").then((r) => r.data),
+  })
+
   const categories = data?.categorias ?? []
 
   return (
@@ -103,26 +82,20 @@ export function SigRubricaPanel() {
           </div>
           <div>
             <h1 className="text-base font-semibold text-zinc-800">Análisis</h1>
-            <p className="text-xs text-zinc-500">6 tipos disponibles, de menor a mayor costo</p>
+            <p className="text-xs text-zinc-500">{kinds.length} tipos disponibles, de menor a mayor costo</p>
           </div>
         </div>
 
         {/* Catálogo de tipos de análisis */}
+        {kindsLoading && (
+          <div className="flex items-center gap-2 text-zinc-400 py-6 justify-center">
+            <Loader className="h-4 w-4 animate-spin" />
+            <span className="text-xs">Cargando catálogo…</span>
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-2.5 mt-5 mb-8">
-          {ANALYSIS_KINDS.map((k) => (
-            <div key={k.id} className="bg-white rounded-lg px-3.5 py-3 shadow-sm">
-              <div className="flex items-center justify-between gap-2 mb-1">
-                <div className="flex items-center gap-1.5 text-zinc-700">
-                  {k.icon}
-                  <span className="text-[13px] font-medium">{k.name}</span>
-                </div>
-                <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0", k.costColor)}>
-                  {k.cost}
-                </span>
-              </div>
-              <p className="text-[12px] text-zinc-500 leading-relaxed mb-1.5">{k.description}</p>
-              <p className="text-[11px] text-zinc-400 italic">{k.where}</p>
-            </div>
+          {kinds.map((k) => (
+            <AnalysisKindCard key={k.id} kind={k} canEdit={canEditSig} />
           ))}
         </div>
 
@@ -163,6 +136,128 @@ export function SigRubricaPanel() {
           ))}
         </div>
       </div>
+    </div>
+  )
+}
+
+// ── Tarjeta de tipo de análisis ────────────────────────────────────────────────
+
+function AnalysisKindCard({ kind, canEdit }: { kind: AnalysisKindData; canEdit: boolean }) {
+  const qc = useQueryClient()
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(kind)
+
+  const mutation = useMutation({
+    mutationFn: (patch: { name: string; cost: string; description: string; where_text: string }) =>
+      api.patch(`/api/netvault/analysis-kinds/${kind.id}`, patch),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["sig", "analysis-kinds"] })
+      setEditing(false)
+    },
+  })
+
+  function startEdit() {
+    setDraft(kind)
+    setEditing(true)
+  }
+
+  function save() {
+    mutation.mutate({
+      name: draft.name,
+      cost: draft.cost,
+      description: draft.description,
+      where_text: draft.where_text,
+    })
+  }
+
+  const shown = editing ? draft : kind
+
+  return (
+    <div className={cn("bg-white rounded-lg px-3.5 py-3 shadow-sm", editing && "ring-1 ring-helix-accent")}>
+      <div className="flex items-center justify-between gap-2 mb-1">
+        <div className="flex items-center gap-1.5 text-zinc-700 min-w-0 flex-1">
+          {KIND_ICONS[kind.id]}
+          {editing ? (
+            <input
+              value={draft.name}
+              onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
+              className="text-[13px] font-medium border border-zinc-200 rounded px-1.5 py-0.5 min-w-0 flex-1 focus:outline-none focus:ring-1 focus:ring-helix-accent/40"
+            />
+          ) : (
+            <span className="text-[13px] font-medium truncate">{shown.name}</span>
+          )}
+        </div>
+        {editing ? (
+          <select
+            value={draft.cost}
+            onChange={(e) => setDraft((d) => ({ ...d, cost: e.target.value as AnalysisKindData["cost"] }))}
+            className="text-[10px] px-1 py-0.5 rounded border border-zinc-200 shrink-0"
+          >
+            <option value="bajo">bajo</option>
+            <option value="medio">medio</option>
+            <option value="alto">alto</option>
+          </select>
+        ) : (
+          <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0", COST_COLORS[kind.cost])}>
+            {shown.cost}
+          </span>
+        )}
+        {canEdit && !editing && (
+          <button
+            onClick={startEdit}
+            className="text-zinc-300 hover:text-helix-accent transition-colors shrink-0"
+            title={`Editar ${kind.name}`}
+          >
+            <Pencil className="h-3 w-3" />
+          </button>
+        )}
+      </div>
+
+      {editing ? (
+        <textarea
+          value={draft.description}
+          onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
+          rows={2}
+          className="w-full text-[12px] text-zinc-600 leading-relaxed border border-zinc-200 rounded px-2 py-1 mb-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-helix-accent/40"
+        />
+      ) : (
+        <p className="text-[12px] text-zinc-500 leading-relaxed mb-1.5">{shown.description}</p>
+      )}
+
+      {editing ? (
+        <textarea
+          value={draft.where_text}
+          onChange={(e) => setDraft((d) => ({ ...d, where_text: e.target.value }))}
+          rows={2}
+          className="w-full text-[11px] text-zinc-500 italic border border-zinc-200 rounded px-2 py-1 resize-none focus:outline-none focus:ring-1 focus:ring-helix-accent/40"
+        />
+      ) : (
+        <p className="text-[11px] text-zinc-400 italic">{shown.where_text}</p>
+      )}
+
+      {editing && (
+        <div className="flex items-center gap-2 pt-2">
+          {mutation.isError && (
+            <span className="text-[11px] text-red-500 mr-auto">No se pudo guardar.</span>
+          )}
+          <button
+            onClick={() => setEditing(false)}
+            disabled={mutation.isPending}
+            className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded text-zinc-500 hover:text-zinc-700 transition-colors ml-auto"
+          >
+            <X className="h-3 w-3" />
+            Cancelar
+          </button>
+          <button
+            onClick={save}
+            disabled={mutation.isPending}
+            className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-lg bg-helix-accent text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+          >
+            {mutation.isPending ? <Loader className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+            Guardar
+          </button>
+        </div>
+      )}
     </div>
   )
 }
