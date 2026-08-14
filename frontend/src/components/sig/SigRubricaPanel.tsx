@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { ClipboardCheck, Info, Target, Lightbulb, GitCompare, Users, Database, Loader, Pencil, Save, X } from "lucide-react"
+import { ClipboardCheck, Info, Target, Lightbulb, GitCompare, Users, Database, Loader, Pencil, Save, X, ShieldCheck, Eye, SpellCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { api } from "@/lib/api"
 import { useAuthStore } from "@/store/authStore"
@@ -134,6 +134,49 @@ export function SigRubricaPanel() {
           {categories.map((cat) => (
             <CategoryCard key={cat.id} category={cat} canEdit={canEditSig} />
           ))}
+        </div>
+
+        {/* Control de calidad del análisis — filtros 2 y 3. No son categorías puntuadas
+            como las de arriba (no editables desde acá): son la disciplina de revisión
+            que se aplica ANTES de guardar un análisis, sobre cómo queda redactado. */}
+        <div className="mt-10 mb-2">
+          <h2 className="text-sm font-semibold text-zinc-800">Control de calidad del análisis</h2>
+          <p className="text-xs text-zinc-500 mt-0.5">
+            Se aplica sobre cada hallazgo antes de publicarlo — no suma ni resta puntos, filtra cómo queda escrito.
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-2.5">
+          <div className="bg-white rounded-lg pl-4 pr-4 py-3.5 border-l-[3px] border-l-zinc-200">
+            <div className="flex items-center gap-2 mb-1.5">
+              <Eye className="h-4 w-4 text-helix-accent" />
+              <h3 className="text-sm font-semibold text-zinc-800">¿Lo entiende el lector final?</h3>
+            </div>
+            <p className="text-[13px] text-zinc-600 leading-relaxed">
+              Antes de guardar, se revisa cada hallazgo como si lo fuera a leer un líder o un gerente sin contexto
+              técnico previo. No se dejan referencias a artefactos internos de la extracción del documento
+              (ej. "[pic]", "sección 15" sin decir de qué documento) ni afirmaciones sin explicar qué significan
+              o qué decisión habilita.
+            </p>
+          </div>
+          <div className="bg-white rounded-lg pl-4 pr-4 py-3.5 border-l-[3px] border-l-zinc-200">
+            <div className="flex items-center gap-2 mb-1.5">
+              <SpellCheck className="h-4 w-4 text-helix-accent" />
+              <h3 className="text-sm font-semibold text-zinc-800">Forma y redacción</h3>
+            </div>
+            <p className="text-[13px] text-zinc-600 leading-relaxed">
+              Español correcto, puntuación limpia, oraciones directas. Cada hallazgo dice qué se encontró y por
+              qué importa, sin relleno — se prioriza que sea breve y accionable sobre que sea exhaustivo.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-start gap-2 mt-3 text-[11px] text-zinc-400 leading-relaxed">
+          <ShieldCheck className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+          <p>
+            La rúbrica (arriba) define <em>qué</em> se revisa del procedimiento — esto define <em>cómo</em> queda
+            redactado el resultado antes de subirlo. Metodología alineada con BASC V6-2022 (clausulas 4.4 enfoque
+            de procesos, 6.1 gestión del riesgo, 7.2.3 control de documentos), sin exigir cumplimiento estricto —
+            el objetivo es que los líderes corrijan a tiempo antes de una auditoría externa, no sancionar.
+          </p>
         </div>
       </div>
     </div>

@@ -270,6 +270,22 @@ def _seed_areas_sedes() -> None:
 # es la BD, no este diccionario.
 _DEFAULT_RUBRICA_CATEGORIAS = [
     {
+        # orden=-1 para que quede primera sin renumerar las demas (el seed es
+        # idempotente por id -- cambiar el "orden" de una categoria ya sembrada
+        # en una BD existente no la actualiza, solo inserta las que faltan).
+        # Chequeo exigido explicitamente por BASC V6-2022, clausula 4.4 (enfoque
+        # de procesos): "la empresa debe identificar todos los procesos" -- el
+        # flujograma es como se demuestra eso, por eso va primero y con mas peso.
+        "id": "coherencia_flujograma", "name": "Coherencia flujograma", "weight": 1.3, "orden": -1,
+        "description": "El flujograma (imagen o mermaid) representa fielmente los pasos, decisiones y responsables que describe el texto del procedimiento.",
+        "checks": [
+            "Los pasos del flujograma coinciden con la Matriz Detallada del texto",
+            "Las decisiones (rombos) reflejan condiciones que el texto realmente describe",
+            "Si no coincide, se documenta como hallazgo explicando qué no coincide y por qué",
+            "Si el documento no trae flujograma o no se pudo extraer, se indica el motivo en vez de dejarlo en blanco",
+        ],
+    },
+    {
         "id": "claridad", "name": "Claridad", "weight": 1.2, "orden": 0,
         "description": "El texto es comprensible, sin ambigüedades ni jerga innecesaria.",
         "checks": [
