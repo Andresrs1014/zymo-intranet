@@ -90,6 +90,7 @@ export function TyCPersonaPage() {
   const user = useAuthStore((s) => s.user)
   const puedeEditar   = user ? canEditTyC(user.role, user.app_permissions) : false
   const puedeSensible = user ? canSeeTyCSensible(user.role, user.app_permissions) : false
+  const esAdmin        = user?.role === "admin"
 
   const [tab, setTab] = useState<Tab>("info")
   const [persona, setPersona] = useState<Persona | null>(null)
@@ -133,6 +134,21 @@ export function TyCPersonaPage() {
   }
 
   function cancelarEdicion() { setEditando(false); setForm({}); setError("") }
+
+  async function eliminarPersona() {
+    if (!persona) return
+    if (!window.confirm(
+      `¿Eliminar definitivamente a ${persona.nombre}? Se borra su registro y su historial ` +
+      `(capacitaciones, evaluaciones, sanciones, novedades). Esta acción no se puede deshacer.`
+    )) return
+    setError("")
+    try {
+      await api.delete(`/tc/personas/${persona.id}`)
+      navigate("/tc/directorio")
+    } catch {
+      setError("No se pudo eliminar el colaborador.")
+    }
+  }
 
   async function guardar() {
     if (!persona) return
@@ -274,6 +290,12 @@ export function TyCPersonaPage() {
                 <button onClick={iniciarEdicion}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-input rounded-md hover:bg-accent transition-colors">
                   <Pencil className="w-3.5 h-3.5" /> Editar
+                </button>
+              )}
+              {esAdmin && !editando && (
+                <button onClick={eliminarPersona}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-destructive/40 text-destructive rounded-md hover:bg-destructive/10 transition-colors">
+                  <Trash2 className="w-3.5 h-3.5" /> Eliminar
                 </button>
               )}
               {editando && (

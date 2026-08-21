@@ -28,12 +28,17 @@ from app.models.user import User
 from app.personal_database import (
     PtcArea,
     PtcCapacitacion,
+    PtcCapBloquePersona,
     PtcCargo,
     PtcCargoSede,
+    PtcClienteAnalista,
+    PtcClienteAsignacion,
     PtcEvaluacion,
+    PtcEventoPersona,
     PtcNovedad,
     PtcPersona,
     PtcSancion,
+    PtcTicketRol,
     get_personal_db,
     get_personal_engine,
 )
@@ -1628,18 +1633,36 @@ async def subir_imagen_cargo(
     }
 
 
+_PERSONA_CASCADE_MODELS = [
+    PtcCapacitacion, PtcEvaluacion, PtcSancion, PtcNovedad,
+    PtcEventoPersona, PtcCapBloquePersona, PtcClienteAsignacion,
+    PtcTicketRol, PtcClienteAnalista,
+]
+
+
 @router.delete("/personas/{persona_id}", status_code=status.HTTP_204_NO_CONTENT)
-def desactivar_persona(
+def eliminar_persona(
     persona_id: int,
     db: Session = Depends(get_personal_db),
-    _: User = Depends(require_tc_editar),
+    _: User = Depends(require_admin),
 ):
+    """Borrado duro, solo admin — para retiros normales usar bulk-estado (soft,
+    con notificación). Limpia el historial propio y las referencias que
+    quedarían huérfanas; no toca lider_persona_id/evaluador_persona_id
+    (referencia rara, se muestra en blanco si queda huérfana — ponytail)."""
     persona = db.get(PtcPersona, persona_id)
     if not persona:
         raise HTTPException(status_code=404, detail="Persona no encontrada.")
-    persona.estado = _INACTIVO
-    persona.updated_at = datetime.utcnow()
-    db.add(persona)
+
+    for jefe in db.exec(select(PtcPersona).where(PtcPersona.jefe_directo_id == persona_id)).all():
+        jefe.jefe_directo_id = None
+        db.add(jefe)
+
+    for model in _PERSONA_CASCADE_MODELS:
+        for row in db.exec(select(model).where(model.persona_id == persona_id)).all():
+            db.delete(row)
+
+    db.delete(persona)
     db.commit()
 
 

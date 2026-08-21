@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react"
+import { api } from "@/lib/api"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { AdminConfigNav } from "@/components/admin/AdminConfigNav"
 import {
@@ -48,8 +49,20 @@ function AreasPanel() {
 
   const [editTarget, setEditTarget] = useState<AreaItem | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<AreaItem | null>(null)
+  const [enUso, setEnUso] = useState<{ directorio: PersonaAfectada[]; cuentas: PersonaAfectada[] } | null>(null)
   const [showCreate, setShowCreate] = useState(false)
   const [error, setError] = useState<string>()
+
+  async function requestDelete(item: AreaItem) {
+    setDeleteTarget(item)
+    setEnUso(null)
+    try {
+      const { data } = await api.get(`/areas/${item.id}/en-uso`)
+      setEnUso(data)
+    } catch {
+      // el mensaje de confirmación cae al genérico si esto falla
+    }
+  }
 
   async function handleCreate(name: string) {
     setError(undefined)
@@ -99,7 +112,8 @@ function AreasPanel() {
       onCancelEdit={() => setEditTarget(null)}
       onUpdate={handleUpdate}
       deleteTarget={deleteTarget}
-      onDeleteRequest={(item) => setDeleteTarget(item)}
+      deleteInfo={enUso}
+      onDeleteRequest={requestDelete}
       onCancelDelete={() => setDeleteTarget(null)}
       onDelete={handleDelete}
       entityLabel="área"
@@ -214,6 +228,11 @@ interface CatalogItem {
   visible_en_solicitudes_oc?: boolean
 }
 
+interface PersonaAfectada {
+  id: number
+  nombre: string
+}
+
 interface CatalogPanelProps {
   title: string
   items: CatalogItem[]
@@ -229,6 +248,8 @@ interface CatalogPanelProps {
   onCancelEdit: () => void
   onUpdate: (id: number, name: string) => void
   deleteTarget: CatalogItem | null
+  /** Solo para áreas: personas/cuentas que quedarían sin esta área */
+  deleteInfo?: { directorio: PersonaAfectada[]; cuentas: PersonaAfectada[] } | null
   onDeleteRequest: (item: CatalogItem) => void
   onCancelDelete: () => void
   onDelete: () => void
@@ -241,7 +262,7 @@ function CatalogPanel({
   title, items, isLoading, error, isPending,
   showCreate, onOpenCreate, onCancelCreate, onCreate,
   editTarget, onEdit, onCancelEdit, onUpdate,
-  deleteTarget, onDeleteRequest, onCancelDelete, onDelete,
+  deleteTarget, deleteInfo, onDeleteRequest, onCancelDelete, onDelete,
   entityLabel,
   renderAfterName,
 }: CatalogPanelProps) {
@@ -356,26 +377,35 @@ function CatalogPanel({
                   </Button>
                 </form>
               ) : deleteTarget?.id === item.id ? (
-                <div className="flex flex-1 items-center gap-2">
-                  <span className="flex-1 text-sm text-foreground">{item.name}</span>
-                  <span className="text-xs text-red-500">¿Eliminar?</span>
-                  <Button
-                    onClick={onDelete}
-                    disabled={isPending}
-                    variant="ghost"
-                    size="sm"
-                    className="text-xs px-2 py-1 h-auto text-red-500 hover:bg-red-50"
-                  >
-                    {isPending ? "..." : "Sí"}
-                  </Button>
-                  <Button
-                    onClick={onCancelDelete}
-                    variant="ghost"
-                    size="sm"
-                    className="text-xs px-2 py-1 h-auto"
-                  >
-                    No
-                  </Button>
+                <div className="flex flex-1 flex-col gap-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="flex-1 text-sm text-foreground">{item.name}</span>
+                    <span className="text-xs text-red-500">¿Eliminar?</span>
+                    <Button
+                      onClick={onDelete}
+                      disabled={isPending}
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs px-2 py-1 h-auto text-red-500 hover:bg-red-50"
+                    >
+                      {isPending ? "..." : "Sí"}
+                    </Button>
+                    <Button
+                      onClick={onCancelDelete}
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs px-2 py-1 h-auto"
+                    >
+                      No
+                    </Button>
+                  </div>
+                  {deleteInfo && (deleteInfo.directorio.length > 0 || deleteInfo.cuentas.length > 0) && (
+                    <p className="text-xs text-muted-foreground">
+                      ¿Quieres eliminar el área? Tiene las siguientes personas asignadas:{" "}
+                      {[...deleteInfo.directorio, ...deleteInfo.cuentas].map((p) => p.nombre).join(", ")}.
+                      Se les quitará el área (quedan como "Sin área") — nadie se borra.
+                    </p>
+                  )}
                 </div>
               ) : (
                 <>

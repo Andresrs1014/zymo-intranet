@@ -6,6 +6,7 @@ from app.core.deps import get_current_user, require_admin
 from app.database import get_db
 from app.models.area import Area
 from app.models.user import User
+from app.personal_database import PtcPersona, get_personal_engine
 
 router = APIRouter(prefix="/areas", tags=["Areas"])
 
@@ -21,6 +22,16 @@ class AreaUpdate(BaseModel):
 class AreaRead(BaseModel):
     id: int
     name: str
+
+
+class PersonaAfectada(BaseModel):
+    id: int
+    nombre: str
+
+
+class AreaEnUso(BaseModel):
+    directorio: list[PersonaAfectada]
+    cuentas: list[PersonaAfectada]
 
 
 @router.get("", response_model=list[AreaRead])
@@ -73,6 +84,27 @@ def update_area(
     return area
 
 
+@router.get("/{area_id}/en-uso", response_model=AreaEnUso)
+def area_en_uso(
+    area_id: int,
+    _: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Personas que quedarían sin área si se borra — para el mensaje de confirmación."""
+    area = db.get(Area, area_id)
+    if not area:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Área no encontrada.")
+
+    cuentas = db.exec(select(User).where(User.area == area.name)).all()
+    with Session(get_personal_engine()) as pdb:
+        personas = pdb.exec(select(PtcPersona).where(PtcPersona.area_id == area_id)).all()
+
+    return {
+        "directorio": [{"id": p.id, "nombre": p.nombre} for p in personas],
+        "cuentas": [{"id": u.id, "nombre": u.full_name or u.email} for u in cuentas],
+    }
+
+
 @router.delete("/{area_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_area(
     area_id: int,
@@ -83,12 +115,17 @@ def delete_area(
     if not area:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Área no encontrada.")
 
-    in_use = db.exec(select(User).where(User.area == area.name)).first()
-    if in_use:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"El área '{area.name}' está asignada a uno o más usuarios y no puede eliminarse.",
-        )
+    # Desvincula en vez de bloquear — el usuario ya confirmó contra /en-uso.
+    for user in db.exec(select(User).where(User.area == area.name)).all():
+        user.area = None
+        db.add(user)
+    db.commit()
+
+    with Session(get_personal_engine()) as pdb:
+        for persona in pdb.exec(select(PtcPersona).where(PtcPersona.area_id == area_id)).all():
+            persona.area_id = None
+            pdb.add(persona)
+        pdb.commit()
 
     db.delete(area)
     db.commit()
