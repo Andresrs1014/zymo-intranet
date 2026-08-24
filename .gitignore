@@ -32,9 +32,13 @@ node_modules/
 dist/
 .cache/
 
-# Claude Code worktrees y configuración local
+# Claude Code worktrees y configuración local — .claude/ ya NO se ignora completo
+# (git no permite reincluir archivos dentro de un directorio ignorado por patrón),
+# así que se ignora puntualmente lo que debe quedar local. .claude/skills/ sí se
+# versiona a propósito, para que cualquiera que clone el repo tenga las skills.
 .claude/worktrees/
-.claude/
+.claude/settings.local.json
+.claude/roles-y-permisos.md
 .worktrees/
 
 # Editores
