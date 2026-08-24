@@ -59,7 +59,7 @@ export function SigRagPanel() {
 
   const { data: ragData, isLoading, refetch, isFetching } = useQuery<RagStatusData>({
     queryKey: ["sig", "rag-panel", activeRag],
-    queryFn:  () => api.get(`/api/netvault/rag-status?rag_id=${activeRag}`).then((r) => r.data),
+    queryFn:  () => api.get(`/api/sig-ia/rag-status?rag_id=${activeRag}`).then((r) => r.data),
     staleTime: 30_000,
   })
 

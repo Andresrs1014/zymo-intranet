@@ -65,7 +65,7 @@ class Settings(BaseSettings):
     whatsapp_api_token: str = ""           # Bearer token de la app Meta
     whatsapp_phone_number_id: str = ""     # ID del número remitente
 
-    # ── Anthropic / Claude (proxy NetVault — la API key nunca sale del servidor) ──
+    # ── Anthropic / Claude (análisis IA del SIG — la API key nunca sale del servidor) ──
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-4-6"
 

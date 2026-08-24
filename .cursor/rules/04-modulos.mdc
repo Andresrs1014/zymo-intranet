@@ -40,7 +40,7 @@ La URL `/m/{token}` es pública. Backend valida solo el scope, no el usuario.
 ### Routers
 - `procedimientos.ts` — CRUD, versionado, commit de documentos, flujogramas MMD
 - `instructivos.ts` — extracción de texto servidor-side; `POST /:id/reextract` para `.doc`
-- `analisis.ts` — análisis IA (NetVault/LightRAG); jobs con estados `running|done|error|cancelled`
+- `analisis.ts` — análisis IA (sig-ia/LightRAG); jobs con estados `running|done|error|cancelled`
 - `commits.ts` — historial de versiones de archivos adjuntos
 
 ### Extracción de texto

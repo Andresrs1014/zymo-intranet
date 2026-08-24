@@ -6,7 +6,7 @@ import { api } from "@/lib/api"
 import { useAuthStore } from "@/store/authStore"
 
 // ── Catálogo de análisis — de menor a mayor costo para el agente. Los datos
-// (nombre, costo, descripción, dónde corre) vienen de `GET /api/netvault/analysis-kinds`
+// (nombre, costo, descripción, dónde corre) vienen de `GET /api/sig-ia/analysis-kinds`
 // (tabla `analysis_kinds`, backend/app/models/analysis_kind.py) — editables con el
 // lápiz, igual que la rúbrica de abajo. El ícono y el color del costo no viven en
 // la BD (no son datos del negocio) — se resuelven acá por id/costo.
@@ -34,9 +34,9 @@ const COST_COLORS: Record<string, string> = {
   alto:  "text-helix-accent bg-helix-accent/10",
 }
 
-// ── Datos — se traen del endpoint real `GET /api/netvault/rubrica`
-// (backend/app/routers/netvault.py). Las categorías viven en la tabla
-// `rubrica_categorias` — editables una por una con `PATCH /api/netvault/rubrica/{id}`
+// ── Datos — se traen del endpoint real `GET /api/sig-ia/rubrica`
+// (backend/app/routers/sig_ia.py). Las categorías viven en la tabla
+// `rubrica_categorias` — editables una por una con `PATCH /api/sig-ia/rubrica/{id}`
 // (requiere permiso mod_sig, igual que el resto del SIG).
 
 interface RubricCategory {
@@ -61,12 +61,12 @@ export function SigRubricaPanel() {
 
   const { data, isLoading, isError } = useQuery<RubricaResponse>({
     queryKey: ["sig", "rubrica"],
-    queryFn: () => api.get("/api/netvault/rubrica").then((r) => r.data),
+    queryFn: () => api.get("/api/sig-ia/rubrica").then((r) => r.data),
   })
 
   const { data: kinds = [], isLoading: kindsLoading } = useQuery<AnalysisKindData[]>({
     queryKey: ["sig", "analysis-kinds"],
-    queryFn: () => api.get("/api/netvault/analysis-kinds").then((r) => r.data),
+    queryFn: () => api.get("/api/sig-ia/analysis-kinds").then((r) => r.data),
   })
 
   const categories = data?.categorias ?? []
@@ -192,7 +192,7 @@ function AnalysisKindCard({ kind, canEdit }: { kind: AnalysisKindData; canEdit: 
 
   const mutation = useMutation({
     mutationFn: (patch: { name: string; cost: string; description: string; where_text: string }) =>
-      api.patch(`/api/netvault/analysis-kinds/${kind.id}`, patch),
+      api.patch(`/api/sig-ia/analysis-kinds/${kind.id}`, patch),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["sig", "analysis-kinds"] })
       setEditing(false)
@@ -314,7 +314,7 @@ function CategoryCard({ category, canEdit }: { category: RubricCategory; canEdit
 
   const mutation = useMutation({
     mutationFn: (patch: { weight: number; description: string; checks: string[] }) =>
-      api.patch(`/api/netvault/rubrica/${category.id}`, patch),
+      api.patch(`/api/sig-ia/rubrica/${category.id}`, patch),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["sig", "rubrica"] })
       setEditing(false)

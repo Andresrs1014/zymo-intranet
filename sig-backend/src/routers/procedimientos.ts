@@ -210,7 +210,7 @@ router.patch("/:id", requireSigAccess, async (req: Request, res: Response) => {
   res.json(proc)
 })
 
-// GET /api/procedimientos/:id/sync — último commit aprobado para sincronización con NetVault
+// GET /api/procedimientos/:id/sync — último commit aprobado, usado por el MCP/agente de análisis IA
 router.get("/:id/sync", async (req: Request, res: Response) => {
   const id = parseInt(req.params.id)
   const proc = await prisma.sigProcedimiento.findUnique({

@@ -6,7 +6,7 @@ from sqlmodel import Field, SQLModel
 class RubricaCategoria(SQLModel, table=True):
     """Categoría de la rúbrica de análisis completo (MCP-001 / sig_analyze_full).
 
-    Antes vivía hardcodeada como constantes de Python en netvault.py — se movió
+    Antes vivía hardcodeada como constantes de Python en sig_ia.py — se movió
     a tabla para que se pueda editar desde la página "Análisis" del SIG.
     """
     __tablename__ = "rubrica_categorias"

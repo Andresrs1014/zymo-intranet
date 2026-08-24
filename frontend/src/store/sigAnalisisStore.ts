@@ -10,7 +10,7 @@ export interface AnalysisJob {
   procedureTitulo:  string
   type:             AnalysisType
   status:           JobStatus
-  netvaultJobId?:   string
+  sigIaJobId?:      string
   result?:          unknown
   error?:           string
   startedAt:        number

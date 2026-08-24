@@ -52,7 +52,7 @@ enum SigEstadoProcedimiento {
   OBSOLETO
 }
 
-// ── Commit — lo que envía NetVault (antes vs después del agente IA) ────────────
+// ── Commit — antes vs después del agente de análisis IA ────────────────────────
 
 model SigCommit {
   id               Int                @id @default(autoincrement())

@@ -1,8 +1,8 @@
 """
-netvault.py — Proxy de análisis Claude para la app de escritorio NetVault.
+sig_ia.py — Análisis IA + RAG del SIG (rúbrica, coherencia, mejoras, chat, LightRAG).
 
-La API key de Anthropic vive ÚNICAMENTE en el backend de la intranet.
-NetVault envía el documento y recibe el paquete de análisis completo.
+La API key de Anthropic/Gemini vive ÚNICAMENTE en el backend de la intranet.
+El cliente (frontend, MCP) envía el documento y recibe el paquete de análisis completo.
 """
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ from app.services.tc_manual_extraction import cargo_manual_flags
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/netvault", tags=["netvault"])
+router = APIRouter(prefix="/api/sig-ia", tags=["sig-ia"])
 
 # ── Rúbrica ────────────────────────────────────────────────────────────────────
 # Las 7 categorías ya NO están hardcodeadas acá — viven en la tabla
@@ -200,10 +200,10 @@ class ChatRequest(BaseModel):
 def _build_system_prompt() -> str:
     category_names = " | ".join(c["name"] for c in RUBRIC_CATEGORIES)
     lines: list[str] = [
-        "Eres el agente de análisis de procedimientos de NetVault (ZYMO).",
+        "Eres el agente de análisis de procedimientos del SIG (ZYMO).",
         "Tu misión es evaluar documentos empresariales según la rúbrica oficial y devolver un paquete JSON estructurado.",
         "",
-        f"Rúbrica NetVault v{RUBRIC_VERSION}",
+        f"Rúbrica SIG v{RUBRIC_VERSION}",
         "",
         "Evalúa el documento en estas categorías (genera al menos un hallazgo por categoría "
         "donde haya observación; si está bien, un hallazgo 'baja' de refuerzo):",
@@ -324,7 +324,7 @@ def _parse_response(raw: str, req: AnalyzeRequest) -> dict[str, Any]:
     try:
         return json.loads(json_str)
     except json.JSONDecodeError as exc:
-        logger.warning("[netvault] JSON inválido en char %d, intentando reparar…", exc.pos)
+        logger.warning("[sig-ia] JSON inválido en char %d, intentando reparar…", exc.pos)
 
     # Intento 2: escapar control chars literales (\n, \r, \t dentro de strings)
     sanitized = _sanitize_json_string(json_str)
@@ -338,10 +338,10 @@ def _parse_response(raw: str, req: AnalyzeRequest) -> dict[str, Any]:
         from json_repair import repair_json  # type: ignore[import]
         repaired = repair_json(sanitized, return_objects=True)
         if isinstance(repaired, dict) and repaired:
-            logger.info("[netvault] JSON reparado con json-repair")
+            logger.info("[sig-ia] JSON reparado con json-repair")
             return repaired  # type: ignore[return-value]
     except Exception as repair_exc:
-        logger.warning("[netvault] json-repair falló: %s", repair_exc)
+        logger.warning("[sig-ia] json-repair falló: %s", repair_exc)
 
     raise ValueError(
         f"Claude no devolvió JSON válido (char {json_str.find(json_str[8000:8100] if len(json_str) > 8000 else '')}) — "
@@ -412,7 +412,7 @@ def _run_analysis_job(job_id: str, body: AnalyzeRequest) -> None:
         tokens_out = response.usage.output_tokens
         cost_usd   = (tokens_in * 3 + tokens_out * 15) / 1_000_000
         logger.info(
-            "[netvault/job:%s] %s — in=%d out=%d costo≈$%.4f",
+            "[sig-ia/job:%s] %s — in=%d out=%d costo≈$%.4f",
             job_id[:8], body.procedureCode, tokens_in, tokens_out, cost_usd,
         )
         raw    = response.content[0].text
@@ -420,7 +420,7 @@ def _run_analysis_job(job_id: str, body: AnalyzeRequest) -> None:
         pkg    = _assemble_package(body, parsed)
         _jobs[job_id] = {"status": "done", "data": pkg}
     except Exception as exc:
-        logger.exception("[netvault/job:%s] Error", job_id[:8])
+        logger.exception("[sig-ia/job:%s] Error", job_id[:8])
         _jobs[job_id] = {"status": "error", "error": str(exc)}
 
 
@@ -457,7 +457,7 @@ async def get_job(
 
 
 @router.post("/chat")
-async def chat_netvault(
+async def chat_sig_ia(
     body: ChatRequest,
     _user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
@@ -501,7 +501,7 @@ async def chat_netvault(
                 detail="Librería 'google-generativeai' no instalada en el backend.",
             )
         except Exception as exc:
-            logger.exception("[netvault/chat/gemini] Error")
+            logger.exception("[sig-ia/chat/gemini] Error")
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
 
     # Default: Claude
@@ -530,7 +530,7 @@ async def chat_netvault(
             detail="Librería 'anthropic' no instalada en el backend.",
         )
     except Exception as exc:
-        logger.exception("[netvault/chat/claude] Error")
+        logger.exception("[sig-ia/chat/claude] Error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
 
 
@@ -644,7 +644,7 @@ class ConsultarRAGRequest(BaseModel):
 # ── Prompts coherencia ────────────────────────────────────────────────────────
 
 def _build_coherencia_system() -> str:
-    return """Eres el agente de coherencia de procedimientos de NetVault (ZYMO).
+    return """Eres el agente de coherencia de procedimientos del SIG (ZYMO).
 Detecta si el procedimiento es internamente coherente y, si se provee un flujograma, si el texto y el flujograma son consistentes.
 
 Responde ÚNICAMENTE con JSON válido (sin markdown fence):
@@ -703,7 +703,7 @@ def _run_coherencia_job(job_id: str, body: CoherenciaRequest) -> None:
         tokens_in  = response.usage.input_tokens
         tokens_out = response.usage.output_tokens
         logger.info(
-            "[netvault/coherencia/job:%s] %s — in=%d out=%d",
+            "[sig-ia/coherencia/job:%s] %s — in=%d out=%d",
             job_id[:8], body.procedureCode, tokens_in, tokens_out,
         )
 
@@ -725,14 +725,14 @@ def _run_coherencia_job(job_id: str, body: CoherenciaRequest) -> None:
             },
         }
     except Exception as exc:
-        logger.exception("[netvault/coherencia/job:%s] Error", job_id[:8])
+        logger.exception("[sig-ia/coherencia/job:%s] Error", job_id[:8])
         _jobs[job_id] = {"status": "error", "error": str(exc)}
 
 
 # ── Prompts mejoras ───────────────────────────────────────────────────────────
 
 def _build_mejoras_system() -> str:
-    return """Eres el agente de mejora de procedimientos de NetVault (ZYMO).
+    return """Eres el agente de mejora de procedimientos del SIG (ZYMO).
 Identifica brechas, oportunidades de mejora, automatización posible y huecos. No evalúes coherencia interna.
 
 Responde ÚNICAMENTE con JSON válido (sin markdown fence):
@@ -793,7 +793,7 @@ def _run_mejoras_job(job_id: str, body: MejorasRequest) -> None:
         tokens_in  = response.usage.input_tokens
         tokens_out = response.usage.output_tokens
         logger.info(
-            "[netvault/mejoras/job:%s] %s — in=%d out=%d",
+            "[sig-ia/mejoras/job:%s] %s — in=%d out=%d",
             job_id[:8], body.procedureCode, tokens_in, tokens_out,
         )
 
@@ -815,7 +815,7 @@ def _run_mejoras_job(job_id: str, body: MejorasRequest) -> None:
             },
         }
     except Exception as exc:
-        logger.exception("[netvault/mejoras/job:%s] Error", job_id[:8])
+        logger.exception("[sig-ia/mejoras/job:%s] Error", job_id[:8])
         _jobs[job_id] = {"status": "error", "error": str(exc)}
 
 
@@ -885,7 +885,7 @@ def _run_pvsi_job(job_id: str, body: ProcVsInstRequest) -> None:
         tokens_in  = response.usage.input_tokens
         tokens_out = response.usage.output_tokens
         logger.info(
-            "[netvault/pvsi/job:%s] %s — in=%d out=%d",
+            "[sig-ia/pvsi/job:%s] %s — in=%d out=%d",
             job_id[:8], body.procedureCode, tokens_in, tokens_out,
         )
 
@@ -908,7 +908,7 @@ def _run_pvsi_job(job_id: str, body: ProcVsInstRequest) -> None:
             },
         }
     except Exception as exc:
-        logger.exception("[netvault/pvsi/job:%s] Error", job_id[:8])
+        logger.exception("[sig-ia/pvsi/job:%s] Error", job_id[:8])
         _jobs[job_id] = {"status": "error", "error": str(exc)}
 
 
@@ -940,7 +940,7 @@ async def _run_indexar_job(job_id: str, body: IndexarLightRAGRequest) -> None:
             },
         }
     except Exception as exc:
-        logger.exception("[netvault/indexar/job:%s] Error", job_id[:8])
+        logger.exception("[sig-ia/indexar/job:%s] Error", job_id[:8])
         _jobs[job_id] = {"status": "error", "error": str(exc)}
 
 
@@ -1160,7 +1160,7 @@ def _run_cargos_job(job_id: str, body: CargosRequest) -> None:
         tokens_in  = response.usage.input_tokens
         tokens_out = response.usage.output_tokens
         logger.info(
-            "[netvault/cargos/job:%s] %s — in=%d out=%d cargos_asignados=%d manuales=%d",
+            "[sig-ia/cargos/job:%s] %s — in=%d out=%d cargos_asignados=%d manuales=%d",
             job_id[:8], body.procedureCode, tokens_in, tokens_out, len(cargos_asignados), len(manuales_tc),
         )
 
@@ -1184,7 +1184,7 @@ def _run_cargos_job(job_id: str, body: CargosRequest) -> None:
             },
         }
     except Exception as exc:
-        logger.exception("[netvault/cargos/job:%s] Error", job_id[:8])
+        logger.exception("[sig-ia/cargos/job:%s] Error", job_id[:8])
         _jobs[job_id] = {"status": "error", "error": str(exc)}
 
 
@@ -1221,7 +1221,7 @@ class EditarConIARequest(BaseModel):
 
 
 def _build_editar_system() -> str:
-    return """Eres el agente de edición de procedimientos de NetVault (ZYMO).
+    return """Eres el agente de edición de procedimientos del SIG (ZYMO).
 Recibes un procedimiento en markdown y una instrucción de edición específica del usuario.
 Tu tarea es aplicar ÚNICAMENTE los cambios solicitados, dejando el resto del documento intacto.
 
@@ -1272,7 +1272,7 @@ def _run_editar_job(job_id: str, body: EditarConIARequest) -> None:
         tokens_in  = response.usage.input_tokens
         tokens_out = response.usage.output_tokens
         logger.info(
-            "[netvault/editar/job:%s] %s — in=%d out=%d",
+            "[sig-ia/editar/job:%s] %s — in=%d out=%d",
             job_id[:8], body.procedureCode, tokens_in, tokens_out,
         )
 
@@ -1296,7 +1296,7 @@ def _run_editar_job(job_id: str, body: EditarConIARequest) -> None:
             },
         }
     except Exception as exc:
-        logger.exception("[netvault/editar/job:%s] Error", job_id[:8])
+        logger.exception("[sig-ia/editar/job:%s] Error", job_id[:8])
         _jobs[job_id] = {"status": "error", "error": str(exc)}
 
 

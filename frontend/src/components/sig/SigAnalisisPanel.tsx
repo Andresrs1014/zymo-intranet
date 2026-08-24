@@ -54,19 +54,19 @@ interface ProcSummary {
   areaNombre: string
 }
 
-// ── Netvault polling ──────────────────────────────────────────────────────────
+// ── Polling de jobs de análisis IA ──────────────────────────────────────────────
 
-const NETVAULT_TERMINAL = new Set(["done", "error", "cancelled", "failed", "aborted"])
+const SIG_IA_TERMINAL = new Set(["done", "error", "cancelled", "failed", "aborted"])
 
-async function pollNetvaultJob(jobId: string, signal: AbortSignal): Promise<unknown> {
+async function pollSigIaJob(jobId: string, signal: AbortSignal): Promise<unknown> {
   for (let i = 0; i < 120; i++) {
     if (signal.aborted) throw new DOMException("Cancelled by user", "AbortError")
     await new Promise<void>((r) => setTimeout(r, 2500))
     if (signal.aborted) throw new DOMException("Cancelled by user", "AbortError")
-    const { data } = await api.get(`/api/netvault/job/${jobId}`, { signal })
+    const { data } = await api.get(`/api/sig-ia/job/${jobId}`, { signal })
     if (data.status === "done") return data.data
-    if (data.status === "error") throw new Error(data.error ?? "El análisis falló en netvault")
-    if (NETVAULT_TERMINAL.has(data.status as string))
+    if (data.status === "error") throw new Error(data.error ?? "El análisis falló")
+    if (SIG_IA_TERMINAL.has(data.status as string))
       throw new Error(`Estado inesperado del job: ${data.status as string}`)
   }
   throw new Error("Tiempo de espera agotado (5 min)")
@@ -137,7 +137,7 @@ export function useRunAnalysis() {
     _jobControllers.set(localId, controller)
 
     try {
-      let netvaultRes: { job_id: string }
+      let sigIaRes: { job_id: string }
 
       const contextoPrevio = await _fetchContextoPrevio(proc.id, type)
 
@@ -153,11 +153,11 @@ export function useRunAnalysis() {
       }))
 
       if (type === "coherencia") {
-        netvaultRes = (await api.post("/api/netvault/analizar-coherencia", base)).data
+        sigIaRes = (await api.post("/api/sig-ia/analizar-coherencia", base)).data
       } else if (type === "mejoras") {
-        netvaultRes = (await api.post("/api/netvault/analizar-mejoras", base)).data
+        sigIaRes = (await api.post("/api/sig-ia/analizar-mejoras", base)).data
       } else if (type === "proc-vs-inst") {
-        netvaultRes = (await api.post("/api/netvault/analizar-proc-vs-inst", {
+        sigIaRes = (await api.post("/api/sig-ia/analizar-proc-vs-inst", {
           ...base, instructivos: instList,
         })).data
       } else if (type === "cargos") {
@@ -165,17 +165,17 @@ export function useRunAnalysis() {
         if (cargoIds.length === 0) {
           throw new Error("Asigna al menos un cargo T&C al procedimiento antes de analizar.")
         }
-        netvaultRes = (await api.post("/api/netvault/analizar-cargos", {
+        sigIaRes = (await api.post("/api/sig-ia/analizar-cargos", {
           ...base, instructivos: instList, cargo_ids: cargoIds,
         })).data
       } else {
-        netvaultRes = (await api.post("/api/netvault/indexar-lightrag", {
+        sigIaRes = (await api.post("/api/sig-ia/indexar-lightrag", {
           ...base, instructivos: instList,
         })).data
       }
 
-      updateJob(localId, { netvaultJobId: netvaultRes.job_id })
-      const result = await pollNetvaultJob(netvaultRes.job_id, controller.signal)
+      updateJob(localId, { sigIaJobId: sigIaRes.job_id })
+      const result = await pollSigIaJob(sigIaRes.job_id, controller.signal)
 
       if (type !== "lightrag") {
         const endpoint =
@@ -312,7 +312,7 @@ function SigRagModal({ onClose }: { onClose: () => void }) {
 
   const { data: ragData, isLoading, refetch } = useQuery<RagStatusData>({
     queryKey: ["sig", "rag-modal", activeRag],
-    queryFn:  () => api.get(`/api/netvault/rag-status?rag_id=${activeRag}`).then((r) => r.data),
+    queryFn:  () => api.get(`/api/sig-ia/rag-status?rag_id=${activeRag}`).then((r) => r.data),
     staleTime: 30_000,
   })
 
@@ -602,7 +602,7 @@ export function SigAnalisisPanel() {
             <div className="text-center">
               <p className="text-sm font-mono text-zinc-500">Sin procedimientos commiteados</p>
               <p className="text-[11px] text-zinc-400 mt-1">
-                Solo aparecen procedimientos con al menos un commit desde NetVault.
+                Solo aparecen procedimientos con al menos un commit aprobado.
               </p>
             </div>
           </div>

@@ -55,7 +55,7 @@ from app.routers.admin.whatsapp_config import router as admin_whatsapp_config_ro
 from app.routers.whatsapp import router as whatsapp_router
 from app.routers.user_tools import router as user_tools_router
 from app.routers.tasks_v2 import router as tasks_v2_router
-from app.routers.netvault import router as netvault_router
+from app.routers.sig_ia import router as sig_ia_router
 from app.routers.mantenimiento.router import router as mantenimiento_router
 from app.routers.sig_pdf import router as sig_pdf_router
 from app.models.mantenimiento import SolicitudMantenimiento, TipoMantenimientoConfig, HistorialMantenimiento  # noqa: F401
@@ -264,7 +264,7 @@ def _seed_areas_sedes() -> None:
 
 
 # Semilla inicial de la rúbrica de análisis completo (MCP-001 / sig_analyze_full).
-# Antes vivía hardcodeada en netvault.py — se movió a tabla (rubrica_categorias)
+# Antes vivía hardcodeada en sig_ia.py — se movió a tabla (rubrica_categorias)
 # para que se pueda editar desde la página "Análisis" del SIG. Estos valores solo
 # se usan para poblar la tabla la primera vez; después de eso la fuente de verdad
 # es la BD, no este diccionario.
@@ -634,7 +634,7 @@ app.include_router(admin_whatsapp_config_router)
 app.include_router(whatsapp_router)
 app.include_router(user_tools_router)
 app.include_router(tasks_v2_router)
-app.include_router(netvault_router)
+app.include_router(sig_ia_router)
 app.include_router(mantenimiento_router)
 app.include_router(sig_pdf_router)
 app.include_router(personal_router)

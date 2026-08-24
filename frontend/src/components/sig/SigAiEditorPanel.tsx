@@ -70,7 +70,7 @@ export function SigAiEditorPanel({
   async function startPolling(jobId: string) {
     pollRef.current = setInterval(async () => {
       try {
-        const res = await api.get(`/api/netvault/job/${jobId}`)
+        const res = await api.get(`/api/sig-ia/job/${jobId}`)
         const job = res.data
         if (job.status === "done") {
           stopPolling()
@@ -101,7 +101,7 @@ export function SigAiEditorPanel({
     setResult(null)
 
     try {
-      const res = await api.post("/api/netvault/editar-con-ia", {
+      const res = await api.post("/api/sig-ia/editar-con-ia", {
         procedimientoId,
         procedureCode,
         area,

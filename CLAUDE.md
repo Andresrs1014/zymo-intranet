@@ -146,7 +146,7 @@ Clonar y adaptar para cada nuevo backend Node.
 ### Routers
 - `procedimientos.ts` — CRUD de procedimientos, versionado, commit de documentos, flujogramas MMD
 - `instructivos.ts` — instructivos con extracción de texto servidor-side; `POST /:id/reextract` para re-procesar `.doc` con antiword
-- `analisis.ts` — análisis IA (NetVault/LightRAG); store de jobs con estados `running|done|error|cancelled`
+- `analisis.ts` — análisis IA (sig-ia/LightRAG); store de jobs con estados `running|done|error|cancelled`
 - `commits.ts` — historial de versiones de archivos adjuntos a procedimientos
 
 ### Extracción de texto (`services/textExtraction.ts`)
@@ -179,10 +179,10 @@ El query param `procedimientoId` es opcional. Sin él retorna todos los instruct
 - `get_rag(rag_id)` — singleton lazy por instancia, con lock asyncio para evitar init concurrente
 - `indexar_texto(texto, rag_id)` y `buscar_conocimiento(query, modo, rag_id)` son la API pública
 
-Endpoints en `netvault.py`:
-- `POST /api/netvault/indexar-lightrag` — job async, indexa procedimiento + instructivos
-- `POST /api/netvault/consultar-rag` — consulta síncrona con modos `local|global|mix`
-- `GET /api/netvault/rag-status?rag_id=rag1` — inspecciona archivos del working dir: cuenta docs, chunks, entidades y relaciones del `.graphml`
+Endpoints en `sig_ia.py`:
+- `POST /api/sig-ia/indexar-lightrag` — job async, indexa procedimiento + instructivos
+- `POST /api/sig-ia/consultar-rag` — consulta síncrona con modos `local|global|mix`
+- `GET /api/sig-ia/rag-status?rag_id=rag1` — inspecciona archivos del working dir: cuenta docs, chunks, entidades y relaciones del `.graphml`
 
 ---
 
@@ -203,7 +203,7 @@ Servidor MCP en `C:\Gestion_documental\mcps\mcp001-intranet` que expone 15 herra
 ### Routers clave
 - `auth.py` — JWT, registro, `/auth/me` (devuelve `app_permissions` + `user_tools`)
 - `roles.py` — gestión de roles con `app_permissions: list[str]` editable
-- `netvault.py` — proxy hacia LightRAG/NetVault. Endpoints: `/analizar`, `/analizar-coherencia`, `/analizar-mejoras`, `/analizar-proc-vs-inst`, `/analizar-cargos`, `/editar-con-ia`, `/chat`, `/indexar-lightrag`, `/consultar-rag`, `/rag-status`, `/job/:id`
+- `sig_ia.py` (antes `netvault.py`, renombrado 2026-08-24 — sin relación con el repo personal "NetVault" del usuario, era solo coincidencia de nombre) — análisis IA + LightRAG del SIG. Endpoints bajo `/api/sig-ia/`: `/analizar`, `/analizar-coherencia`, `/analizar-mejoras`, `/analizar-proc-vs-inst`, `/analizar-cargos`, `/editar-con-ia`, `/chat`, `/indexar-lightrag`, `/consultar-rag`, `/rag-status`, `/job/:id`, `/rubrica`
 - `oc/` — flujo completo de órdenes de compra
 - `mantenimiento/` — FSM de mantenimiento (ver sección abajo)
 - `personal.py` — directorio T&C (164 personas), sin base de datos propia: lee `_persona_dict` desde `main_db`
