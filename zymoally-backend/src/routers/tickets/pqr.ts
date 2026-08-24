@@ -321,6 +321,11 @@ router.post("/", upload.array("evidence"), async (req, res, next) => {
   }
 })
 
+// Estos dos solo se alcanzan por el flujo formal (marcar-listo / validar-cierre)
+// — moverlos a mano desde acá se saltaba la evidencia obligatoria y la
+// validación gerencial, quedando solo bloqueado por convención de UI.
+const ESTADOS_FLUJO_FORMAL = ["pendiente validacion", "cerrado"]
+
 // PATCH /:id/estado — actualizar estado (registra acción, app.js:1797-1811)
 router.patch("/:id/estado", async (req, res, next) => {
   try {
@@ -329,6 +334,10 @@ router.patch("/:id/estado", async (req, res, next) => {
     const existing = await prisma.zymoPqrTicket.findUnique({ where: { id } })
     if (!existing) { res.status(404).json({ error: "Ticket no encontrado" }); return }
     if (!canManageTicket(req.user, existing)) { denyManage(res); return }
+    if (ESTADOS_FLUJO_FORMAL.includes(status.toLowerCase().trim()) && !hasOverride(req.user)) {
+      res.status(403).json({ error: "Pasar a 'Pendiente validación' o 'Cerrado' requiere el flujo formal (marcar listo / validar cierre) o un admin/gerencia." })
+      return
+    }
 
     const entrandoCerrado = /cerrado/i.test(status) && !existing.closedDate
     const ticket = await prisma.zymoPqrTicket.update({
