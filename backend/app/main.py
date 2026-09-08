@@ -142,6 +142,16 @@ _DEFAULT_ROLES = [
         "description": "Gestión de solicitudes de mantenimiento — sin acceso al módulo OC/Compras",
         "app_permissions": ["mod_mantenimiento"],
     },
+    {
+        # Cuentas exclusivas para IA (analista del SIG vía MCP-001). Acceso completo al SIG
+        # (leer, subir y bajar archivos, guardar análisis) por mod_sig, PERO no puede aprobar
+        # commits ni archivos: esas rutas exigen rol admin/gerente (requireGerente en
+        # sig-backend), y IA_SIG no lo es. Tampoco gestiona usuarios/roles (require_admin).
+        "name": "IA_SIG",
+        "label": "IA — Analista SIG",
+        "description": "Cuenta de agente IA para análisis del SIG. Lee y analiza procedimientos, sube/baja archivos indicados; NO aprueba cambios ni archivos.",
+        "app_permissions": ["mod_sig"],
+    },
 ]
 
 

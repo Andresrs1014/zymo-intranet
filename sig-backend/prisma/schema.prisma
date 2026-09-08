@@ -41,6 +41,9 @@ model SigProcedimiento {
   analisisCargos       SigAnalisisCargos[]
   analisisCompleto     SigAnalisisCompleto[]
   cargosInvolucrados   SigProcedimientoCargo[]
+  auditorias           SigAnalisisAuditoria[]
+  hallazgos            SigHallazgo[]
+  consultas            SigConsulta[]
 
   @@index([areaId])
   @@index([estado])
@@ -86,6 +89,9 @@ model SigCommit {
 
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
+
+  auditorias       SigAnalisisAuditoria[]
+  hallazgos        SigHallazgo[]
 
   @@index([procedimientoId])
   @@index([estado])
@@ -306,6 +312,121 @@ model SigAnalisisCompleto {
   createdAt DateTime @default(now())
 
   @@index([procedimientoId])
+}
+
+// ── Auditoría del agente analista (multiagente MCP-001) ──────────────────────
+// Un registro por corrida del agente analista sobre un procedimiento. NO usa
+// score/porcentaje: veredicto de auditoría (pasa / no_pasa / incompleto)
+// derivado en el servidor a partir de la clasificación de los hallazgos.
+// Ver C:\Gestion_documental\rubrica\rubrica_sig.md.
+
+model SigAnalisisAuditoria {
+  id              Int              @id @default(autoincrement())
+  procedimientoId Int
+  procedimiento   SigProcedimiento @relation(fields: [procedimientoId], references: [id], onDelete: Cascade)
+  commitId        Int?             // versión del documento analizada
+  commit          SigCommit?       @relation(fields: [commitId], references: [id], onDelete: SetNull)
+
+  veredicto           String  // "pasa" | "no_pasa" | "incompleto" (derivado en el servidor)
+  veredictoPorFuncion Json    @default("{}")   // { "1.1": "pasa", "1.2": "no_pasa", ... }
+  conteo              Json    @default("{}")   // { ncMayor, ncMenor, observacion, consulta }
+  resumenEjecutivo    String  @db.Text
+  reporteMarkdown     String  @db.Text
+  normas              Json    @default("[]")   // ["ISO 9001", "BASC"]
+  alcanceArchivos     Json    @default("[]")   // documentos que entraron al análisis
+
+  // Autoría: la cuenta IA (rol IA_SIG) ejecuta; el operador humano dispara; y luego valida.
+  autorId        Int
+  autorNombre    String
+  operadorId     Int?
+  operadorNombre String?
+  validadoPorId  Int?
+  validadoNombre String?
+  validadoEn     DateTime?
+
+  modelosUsados Json @default("[]")
+  tokensUsados  Int?
+
+  createdAt DateTime @default(now())
+
+  hallazgos SigHallazgo[]
+  consultas SigConsulta[]
+
+  @@index([procedimientoId])
+  @@index([commitId])
+  @@index([createdAt])
+}
+
+// ── Hallazgo — entidad con ciclo de vida propio, atada a la versión ──────────
+// El agente es dueño del ciclo: al re-analizar una versión nueva cierra los
+// hallazgos que esa versión resuelve (con evidencia). Ver rúbrica §8.
+
+model SigHallazgo {
+  id              Int                  @id @default(autoincrement())
+  procedimientoId Int
+  procedimiento   SigProcedimiento     @relation(fields: [procedimientoId], references: [id], onDelete: Cascade)
+  auditoriaId     Int
+  auditoria       SigAnalisisAuditoria @relation(fields: [auditoriaId], references: [id], onDelete: Cascade)
+  commitId        Int?                 // versión contra la que se levantó
+  commit          SigCommit?           @relation(fields: [commitId], references: [id], onDelete: SetNull)
+
+  funcion       String  // "1.1" | "1.2" | "1.3" | "1.4"
+  nivel         Int     // 1 = comprensión humana, 2 = norma
+  clasificacion String  // "observacion" | "nc_menor" | "nc_mayor"
+  fragmento     String  @db.Text
+  archivo       String?
+  descripcion   String  @db.Text
+  demostracion  Json    @default("{}")   // { tipo, detalle, citasEnConflicto[] }
+  palabra       Json?                    // sub-formato §1.2 (2 definiciones) cuando funcion = "1.2"
+  impacto       String? @db.Text
+  dedupeKey     String
+
+  estado          String    @default("ABIERTO")  // "ABIERTO" | "CERRADO"
+  motivoCierre    String?   @db.Text
+  evidenciaCierre String?   @db.Text               // fragmento nuevo que corrige el problema
+  sustituyeA      Int?                             // id del hallazgo previo que este reemplaza
+  cerradoPorId    Int?
+  cerradoNombre   String?
+  cerradoEn       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([procedimientoId, estado])
+  @@index([auditoriaId])
+  @@index([dedupeKey])
+}
+
+// ── Consulta — el agente necesita algo del usuario para poder juzgar ─────────
+// Documento faltante (§5.A) o contexto operativo confuso (§5.B). Mientras haya
+// consultas ABIERTAS el veredicto queda "incompleto".
+
+model SigConsulta {
+  id              Int                  @id @default(autoincrement())
+  procedimientoId Int
+  procedimiento   SigProcedimiento     @relation(fields: [procedimientoId], references: [id], onDelete: Cascade)
+  auditoriaId     Int
+  auditoria       SigAnalisisAuditoria @relation(fields: [auditoriaId], references: [id], onDelete: Cascade)
+
+  tipo              String  // "documento_faltante" | "contexto_operativo"
+  funcion           String
+  fragmento         String? @db.Text
+  documentoEsperado String?
+  motivo            String? @db.Text
+  preguntas         Json    @default("[]")
+
+  estado           String   @default("ABIERTA")  // "ABIERTA" | "RESUELTA"
+  respuestaUsuario String?  @db.Text
+  // "sin_hallazgo" | "observacion" | "nc_menor" | "nc_mayor" | "otro_nombre" | "indexado"
+  resolucion       String?
+  resueltoPorId    Int?
+  resueltoNombre   String?
+  resueltoEn       DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([procedimientoId, estado])
+  @@index([auditoriaId])
 }
 
 // ── Reportes de Desarrollo ────────────────────────────────────────────────────

@@ -145,17 +145,30 @@ Clonar y adaptar para cada nuevo backend Node.
 
 ### Routers
 - `procedimientos.ts` — CRUD de procedimientos, versionado, commit de documentos, flujogramas MMD
-- `instructivos.ts` — instructivos con extracción de texto servidor-side; `POST /:id/reextract` para re-procesar `.doc` con antiword
+- `instructivos.ts` — instructivos con extracción de texto servidor-side; `POST /:id/reextract` para re-procesar el archivo original
 - `analisis.ts` — análisis IA (sig-ia/LightRAG); store de jobs con estados `running|done|error|cancelled`
 - `commits.ts` — historial de versiones de archivos adjuntos a procedimientos
 
 ### Extracción de texto (`services/textExtraction.ts`)
 | Formato | Herramienta |
 |---|---|
-| `.docx` | `mammoth` (convierte a Markdown) |
-| `.pdf` | `pdf-parse` |
-| `.doc` | `antiword -m UTF-8.txt` (requiere `apk add antiword` en Alpine) |
-| `.md`, `.txt` | `fs.readFile` directo |
+| `.docx` | `mammoth.convertToHtml` (styleMap con encabezados EN + ES "Título N") → `turndown` + `@joplin/turndown-plugin-gfm` → Markdown con **tablas GFM**, encabezados y numeración de listas. `promoteTableHeaders()` mete la 1ª fila en `<thead>` porque mammoth no emite `<th>`. Imágenes no se inlinean: la del flujograma se guarda en `uploads/sig/flujogramas` (volumen `sig_uploads`) y el texto lleva un marcador; las demás quedan como `[Imagen del documento — no incluida en el texto]` (no se omiten en silencio). |
+| `.pdf` | `pdf-parse` v2 `getText({ lineEnforce, cellSeparator:" | ", cellThreshold:7 })` (orden de lectura + columnas) + `getTable()` (tablas ruladas → GFM, anexadas bajo `## Tablas detectadas en el PDF`). OCR (`pdf2pic` `density:300` sin width/height forzados + `tesseract.js` `spa+eng`, tope `SIG_OCR_MAX_PAGES`=50) si el texto digital está ausente **o** escaso (PDF escaneado o mixto: ≥30% de páginas casi vacías). |
+| `.doc` | **LibreOffice headless** (`soffice --convert-to docx`, `UserInstallation` propio por invocación) → se procesa como `.docx`. Fallback: `antiword -m UTF-8.txt` (texto plano, sin estructura, con warning). Requiere `libreoffice antiword` en Alpine. |
+| `.md`, `.txt` | `fs.readFile`; strip de BOM UTF-8 y fallback a Latin-1 si hay bytes inválidos (con warning). |
+
+Dockerfile de `sig-backend`: `apk add openssl antiword graphicsmagick ghostscript libreoffice ttf-dejavu` (ghostscript lo necesita `pdf2pic` para rasterizar el PDF; sin él la rama OCR falla). Self-check de las partes puras (`cleanupMarkdown`, `renderPdfTables`, `promoteTableHeaders`): `npm run selfcheck`.
+
+### Auditoría multiagente del analista (rúbrica de 4 lentes)
+Flujo nuevo, separado del análisis de 8 categorías (`sig_analyze_full`). Rúbrica y estructura: `C:\Gestion_documental\rubrica\rubrica_sig.md` + `estructura-sistema-gestion.md` (fuente de verdad; copiadas dentro del MCP en `mcp001_intranet/`).
+
+- **Modelos** (`sig-backend/prisma/schema.prisma`, migración `20260907120000_sig_auditoria_hallazgos_consultas`):
+  - `SigAnalisisAuditoria` — 1 fila por corrida. **Sin score**: `veredicto` (`pasa`/`no_pasa`/`incompleto`) **derivado en el servidor** (`src/services/veredicto.ts`), nunca lo manda el cliente. `commitId` (versión analizada), `autorId` (cuenta IA rol `IA_SIG`) + `operadorNombre` (humano) + `validadoPor/En`.
+  - `SigHallazgo` — entidad con ciclo de vida. `estado` `ABIERTO`/`CERRADO`, `dedupeKey`, `demostracion` (Json), `palabra` (Json §1.2), `evidenciaCierre`, `sustituyeA`. El agente cierra los que una versión nueva resuelve (§8).
+  - `SigConsulta` — `tipo` `documento_faltante`/`contexto_operativo`; mientras haya `ABIERTA` el veredicto es `incompleto`.
+- **Router** `src/routers/auditorias.ts` (montado en `app.use("/api", ...)`): `POST /api/auditorias` (crea auditoría+hallazgos+consultas en 1 transacción, valida demostración §4 con `src/services/hallazgoValidacion.ts` → los sin prueba bajan a `observacion`, deduplica por `dedupeKey`, aplica `cierres[]`, calcula `hallazgosPreviosNoMencionados` §8.1, deriva veredicto). `GET/PATCH` de `/api/auditorias`, `/api/hallazgos`, `/api/consultas`. Todo `requireSigAccess`.
+- **MCP** (`mcp001-intranet`): NO corre LLM. `sig_review_context` (arma procedimiento + subdocs + hallazgos abiertos + rúbrica) → el CLI que llama analiza con su propio modelo → `sig_review_submit` (backend valida/deduplica/deriva/persiste) → `sig_list_findings` / `sig_close_finding` / `sig_answer_consulta` para el ciclo de vida.
+- Rol `IA_SIG` (`backend/app/main.py` `_DEFAULT_ROLES`, `app_permissions: ["mod_sig"]`): acceso total al SIG salvo aprobar commits/archivos (eso exige admin/gerente vía `requireGerente`). Self-check: `npm run selfcheck` (incluye `auditorias.selfcheck.ts` — derivación del veredicto + validación de demostración).
 
 ### Análisis IA — cancelación de jobs
 Los `AbortController` se guardan en el Map `_jobControllers` a nivel de módulo en `SigAnalisisPanel.tsx`. La función exportada `cancelAnalysisJob(id)` permite que cualquier componente cancele un job sin pasar por el store (que no puede guardar objetos no serializables).

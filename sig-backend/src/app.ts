@@ -10,6 +10,7 @@ import instructivosRouter from "./routers/instructivos"
 import formatosRouter from "./routers/formatos"
 import docAnexosRouter from "./routers/doc-anexos"
 import analisisRouter from "./routers/analisis"
+import auditoriasRouter from "./routers/auditorias"
 import reportesDesarrolloRouter from "./routers/reportes-desarrollo"
 import libertadoraBackupRouter from "./routers/libertadora-backup"
 
@@ -36,6 +37,7 @@ app.use("/api/instructivos", instructivosRouter)
 app.use("/api/formatos", formatosRouter)
 app.use("/api/doc-anexos", docAnexosRouter)
 app.use("/api/analisis", analisisRouter)
+app.use("/api", auditoriasRouter) // /api/auditorias, /api/hallazgos, /api/consultas
 app.use("/api/reportes-desarrollo", reportesDesarrolloRouter)
 app.use("/api/libertadora-backup", libertadoraBackupRouter)
 
