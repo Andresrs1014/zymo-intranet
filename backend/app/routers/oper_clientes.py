@@ -3,10 +3,11 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlmodel import Session
 
+from app.config import settings
 from app.core.deps import get_current_user, require_permission
 from app.database import get_db
 from app.models.user import User
@@ -23,6 +24,7 @@ from app.services.clientes_cartera import (
     guardar_sedes_config,
     importar_excel,
     listar_analistas,
+    listar_analistas_para_citas,
     listar_clientes_response,
     listar_clientes_simple,
     listar_cargos_simple,
@@ -39,6 +41,26 @@ router = APIRouter(prefix="/operativo", tags=["Operativo Clientes"])
 
 require_oper_clientes = require_permission("mod_oper_clientes")
 require_tickets_config = require_permission("mod_tickets_config")
+
+
+def _is_valid_internal_key(key: Optional[str]) -> bool:
+    return bool(key and settings.internal_key and key == settings.internal_key)
+
+
+# ── Sincronización con Citas (crm_2.0) ───────────────────────────────────────
+# Servicio-a-servicio únicamente (X-Internal-Key) — mismo patrón que
+# personal.py:/personas/buscar. crm_2.0 la consume para actualizar
+# accounts.owner_id de sus empresas de Citas.
+
+@router.get("/cartera/analistas-citas")
+def get_analistas_para_citas(
+    x_internal_key: Optional[str] = Header(default=None),
+    db: Session = Depends(get_personal_db),
+    main_db: Session = Depends(get_db),
+):
+    if not _is_valid_internal_key(x_internal_key):
+        raise HTTPException(status_code=403, detail="Requiere X-Internal-Key válida.")
+    return listar_analistas_para_citas(db, main_db)
 
 
 # ── Lecturas livianas para el formulario de tickets (Zymo Ally) ──────────────

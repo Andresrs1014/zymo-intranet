@@ -355,6 +355,10 @@ class PtcCliente(SQLModel, table=True):
     client_no: str = Field(max_length=50, default="", index=True)
     dume_no: str = Field(max_length=50, default="")
     nombre: str = Field(max_length=200)
+    # NIT — llave para emparejar este cliente con la cuenta correspondiente en
+    # otros sistemas (ej. Citas de crm_2.0, que identifica todo por NIT, no
+    # por client_no/dume_no). Opcional: se llena a mano o por Excel.
+    nit: str = Field(max_length=20, default="", index=True)
     activo: bool = Field(default=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -484,6 +488,8 @@ def _migrate_personal() -> None:
             "ALTER TABLE ptc_evento ADD COLUMN costo REAL DEFAULT NULL",
             "ALTER TABLE ptc_persona ADD COLUMN tarjeta TEXT DEFAULT ''",
             "ALTER TABLE ptc_persona ADD COLUMN tarjeta_fecha_asignacion DATE DEFAULT NULL",
+            # NIT — llave de emparejamiento con Citas (crm_2.0), ver PtcCliente.nit
+            "ALTER TABLE ptc_cliente ADD COLUMN nit TEXT DEFAULT ''",
         ]:
             try:
                 conn.execute(text(sql))
@@ -497,6 +503,9 @@ def _migrate_personal() -> None:
         conn.execute(text(
             "CREATE TABLE IF NOT EXISTS ptc_config "
             "(key TEXT PRIMARY KEY, value TEXT)"
+        ))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_ptc_cliente_nit ON ptc_cliente (nit)"
         ))
         conn.commit()
 

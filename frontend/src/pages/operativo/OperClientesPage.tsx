@@ -27,6 +27,7 @@ interface Cliente {
   client_no: string
   dume_no: string
   nombre: string
+  nit: string
   activo: boolean
   asignaciones: Record<string, Asignacion>
   analistas_tickets: AnalistaTicket[]
@@ -152,6 +153,19 @@ export function OperClientesPage() {
       void cargar()
     } catch {
       setBanner({ ok: false, msg: "Error al guardar asignación." })
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  async function guardarNit(cliente: Cliente, nit: string) {
+    if (nit === cliente.nit) return
+    setSavingId(cliente.id)
+    try {
+      const { data } = await api.put(`/operativo/clientes/${cliente.id}`, { nit })
+      setClientes((prev) => prev.map((c) => (c.id === cliente.id ? data : c)))
+    } catch {
+      setBanner({ ok: false, msg: "Error al guardar el NIT." })
     } finally {
       setSavingId(null)
     }
@@ -349,6 +363,9 @@ export function OperClientesPage() {
                 <th className="py-2 text-left text-[10px] font-semibold text-muted-foreground uppercase">No Cliente</th>
                 <th className="py-2 text-left text-[10px] font-semibold text-muted-foreground uppercase">Nombre</th>
                 <th className="py-2 text-left text-[10px] font-semibold text-muted-foreground uppercase">DUME</th>
+                <th className="py-2 text-left text-[10px] font-semibold text-muted-foreground uppercase" title="Llave para sincronizar el analista con Citas (crm_2.0)">
+                  NIT
+                </th>
                 {sedesActivas.map((e) => (
                   <th key={e.id} className="py-2 text-left text-[10px] font-semibold text-muted-foreground uppercase min-w-[168px]">
                     <span className={`inline-flex px-1.5 py-0.5 rounded text-[9px] font-bold ${empresaColorMap.get(e.id)?.badge ?? ""}`}>
@@ -367,6 +384,16 @@ export function OperClientesPage() {
                   <td className="py-2.5 font-mono text-xs font-semibold">{c.client_no}</td>
                   <td className="py-2.5 text-sm">{c.nombre}</td>
                   <td className="py-2.5 font-mono text-xs text-muted-foreground">{c.dume_no || "—"}</td>
+                  <td className="py-2.5">
+                    <input
+                      type="text"
+                      defaultValue={c.nit}
+                      placeholder="Sin NIT"
+                      disabled={savingId === c.id}
+                      onBlur={(ev) => void guardarNit(c, ev.target.value.trim())}
+                      className="w-28 h-7 px-2 font-mono text-xs bg-background border border-input rounded-lg focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-40"
+                    />
+                  </td>
                   {sedesActivas.map((e) => {
                     const asig = c.asignaciones[String(e.id)]
                     const habilitada = asig?.habilitada ?? false

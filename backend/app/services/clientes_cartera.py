@@ -41,6 +41,8 @@ class ClienteBody(BaseModel):
     client_no: str = Field(min_length=1, max_length=50)
     dume_no: str = Field(default="", max_length=50)
     nombre: str = Field(min_length=1, max_length=200)
+    # Llave de emparejamiento con Citas (crm_2.0) — ver PtcCliente.nit. Opcional.
+    nit: str = Field(default="", max_length=20)
     activo: bool = True
     asignaciones: list[AsignacionBody] = Field(default_factory=list)
     # Analistas responsables para gestión de tickets (Zymo Ally) — distinto de
@@ -52,6 +54,7 @@ class ClienteBody(BaseModel):
 class ClienteUpdateBody(BaseModel):
     dume_no: Optional[str] = None
     nombre: Optional[str] = None
+    nit: Optional[str] = None
     activo: Optional[bool] = None
     asignaciones: Optional[list[AsignacionBody]] = None
     analistas_tickets: Optional[list[int]] = None
@@ -167,6 +170,7 @@ def _cliente_dict(
         "client_no": c.client_no,
         "dume_no": c.dume_no,
         "nombre": c.nombre,
+        "nit": c.nit,
         "activo": c.activo,
         "asignaciones": asignaciones,
         "analistas_tickets": analistas_tickets,
@@ -433,6 +437,7 @@ def crear_cliente(body: ClienteBody, db: Session, main_db: Session) -> dict:
         client_no=body.client_no.strip(),
         dume_no=body.dume_no.strip(),
         nombre=body.nombre.strip(),
+        nit=body.nit.strip(),
         activo=body.activo,
     )
     db.add(c)
@@ -455,6 +460,8 @@ def actualizar_cliente(
         c.dume_no = body.dume_no.strip()
     if body.nombre is not None:
         c.nombre = body.nombre.strip()
+    if body.nit is not None:
+        c.nit = body.nit.strip()
     if body.activo is not None:
         c.activo = body.activo
     if body.asignaciones is not None:
@@ -518,6 +525,7 @@ async def importar_excel(file: UploadFile, db: Session) -> dict:
                 "Nombre o razon social",
             ],
         )
+        nit = _client_field(row_dict, ["NIT", "N° NIT", "Numero de NIT", "Nit cliente"])
         if not client_no or not nombre:
             skipped += 1
             continue
@@ -527,6 +535,8 @@ async def importar_excel(file: UploadFile, db: Session) -> dict:
         if existing:
             existing.dume_no = dume_no
             existing.nombre = nombre
+            if nit:
+                existing.nit = nit
             existing.activo = True
             existing.updated_at = datetime.utcnow()
             db.add(existing)
@@ -537,6 +547,7 @@ async def importar_excel(file: UploadFile, db: Session) -> dict:
                     client_no=client_no,
                     dume_no=dume_no,
                     nombre=nombre,
+                    nit=nit,
                     activo=True,
                 )
             )
@@ -557,3 +568,44 @@ def guardar_sedes_config(body: SedesConfigBody, db: Session, main_db: Session) -
 
 def plantilla_path() -> Path:
     return _PLANTILLA_CLIENTES
+
+
+def listar_analistas_para_citas(db: Session, main_db: Session) -> list[dict]:
+    """Para la sincronización con Citas (crm_2.0, servicio-a-servicio vía
+    X-Internal-Key): un analista responsable por cliente con NIT.
+
+    Citas solo admite UN analista por empresa (`accounts.owner_id`), mientras
+    que aquí un cliente puede tener varios (`PtcClienteAnalista`, pensado para
+    ruteo de tickets). Se toma el primero (menor `persona_id` insertado) como
+    "el" analista para Citas — decisión explícita, no un descuido: si más
+    adelante Citas necesita varios, este endpoint es el que cambia.
+
+    Solo devuelve clientes con `nit` no vacío (sin NIT no hay con qué
+    emparejar contra `accounts.nit` del lado de Citas) y con al menos un
+    analista asignado.
+    """
+    clientes = db.exec(
+        select(PtcCliente).where(PtcCliente.activo == True, PtcCliente.nit != "")  # noqa: E712
+    ).all()
+    result: list[dict] = []
+    for c in clientes:
+        asignaciones = db.exec(
+            select(PtcClienteAnalista)
+            .where(PtcClienteAnalista.cliente_id == c.id)
+            .order_by(col(PtcClienteAnalista.id))
+        ).all()
+        if not asignaciones:
+            continue
+        persona = db.get(PtcPersona, asignaciones[0].persona_id)
+        if not persona:
+            continue
+        email = _email_corporativo_efectivo(persona, main_db)
+        if not email:
+            continue
+        result.append({
+            "nit": c.nit.strip(),
+            "clienteNombre": c.nombre,
+            "analistaNombre": persona.nombre,
+            "analistaEmail": email,
+        })
+    return result
