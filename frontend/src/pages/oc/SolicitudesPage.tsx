@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { OcSolicitudesPagination } from "@/components/oc/OcSolicitudesPagination"
+import { api } from "@/lib/api"
 import { useSolicitudes, OC_SOLICITUDES_PAGE_SIZE, type SolicitudesFilters } from "@/hooks/useOC"
 import { useSedesParaSolicitudesOc } from "@/hooks/useSedes"
 import { useAreas } from "@/hooks/useAreas"
@@ -22,11 +23,31 @@ const ESTADOS_OPTIONS = [
   { value: "cerrada", label: "Cerrada" },
 ]
 
+async function descargarExcelOc(): Promise<string> {
+  const res = await api.get("/api/oc/solicitudes/excel", { responseType: "blob" })
+  const disposition: string = res.headers["content-disposition"] ?? ""
+  const match = disposition.match(/filename="(.+?)"/)
+  const filename = match ? match[1] : "solicitudes-oc.xlsx"
+  const url = URL.createObjectURL(res.data as Blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  return filename
+}
+
 export function SolicitudesPage() {
   const navigate = useNavigate()
   const [estadoFiltro, setEstadoFiltro] = useState<string | null>(null)
   const [plataformaFiltro, setPlataformaFiltro] = useState<string | null>(null)
   const [areaFiltro, setAreaFiltro] = useState<string | null>(null)
+  const [textoBusqueda, setTextoBusqueda] = useState("")
+  const [q, setQ] = useState("")
+  const [descargando, setDescargando] = useState(false)
+  const [errorExcel, setErrorExcel] = useState<string | null>(null)
   const [page, setPage] = useState(1)
 
   const { data: sedesOc = [] } = useSedesParaSolicitudesOc()
@@ -40,17 +61,36 @@ export function SolicitudesPage() {
     [areas],
   )
 
+  useEffect(() => {
+    const t = window.setTimeout(() => setQ(textoBusqueda.trim()), 300)
+    return () => window.clearTimeout(t)
+  }, [textoBusqueda])
+
   const listFilters = useMemo((): SolicitudesFilters => {
     const f: SolicitudesFilters = {}
     if (estadoFiltro) f.estado = estadoFiltro
     if (plataformaFiltro) f.plataforma = plataformaFiltro
     if (areaFiltro) f.area = areaFiltro
+    if (q) f.q = q
     return f
-  }, [estadoFiltro, plataformaFiltro, areaFiltro])
+  }, [estadoFiltro, plataformaFiltro, areaFiltro, q])
 
   useEffect(() => {
     setPage(1)
-  }, [estadoFiltro, plataformaFiltro, areaFiltro])
+  }, [estadoFiltro, plataformaFiltro, areaFiltro, q])
+
+  async function handleDescargarExcel() {
+    if (descargando) return
+    setDescargando(true)
+    setErrorExcel(null)
+    try {
+      await descargarExcelOc()
+    } catch {
+      setErrorExcel("No se pudo descargar el Excel.")
+    } finally {
+      setDescargando(false)
+    }
+  }
 
   const { data, isLoading, isRefetching } = useSolicitudes(listFilters, page)
   const solicitudes = data?.items ?? []
@@ -79,6 +119,14 @@ export function SolicitudesPage() {
 
           {/* Filtros */}
           <div className="flex flex-wrap gap-3 mb-4">
+            <input
+              type="search"
+              value={textoBusqueda}
+              onChange={(e) => setTextoBusqueda(e.target.value)}
+              placeholder="Buscar OS, proveedor o cotización"
+              aria-label="Buscar por OS, proveedor o número de cotización"
+              className="w-72 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
             <Combobox
               className="w-52"
               options={ESTADOS_OPTIONS}
@@ -100,7 +148,20 @@ export function SolicitudesPage() {
               onChange={(v) => setAreaFiltro(v as string | null)}
               placeholder="Todas las áreas"
             />
+            <button
+              type="button"
+              onClick={() => void handleDescargarExcel()}
+              disabled={descargando}
+              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {descargando ? "Descargando..." : "Descargar Excel"}
+            </button>
           </div>
+          {errorExcel && (
+            <div className="mb-4 rounded-lg bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-600">
+              {errorExcel}
+            </div>
+          )}
 
           {/* Tabla */}
           <div className="bg-card rounded-xl border border-border shadow-sm overflow-x-auto">

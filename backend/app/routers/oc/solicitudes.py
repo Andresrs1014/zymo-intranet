@@ -1,3 +1,4 @@
+import io
 import shutil
 import uuid
 from datetime import date, datetime, timezone
@@ -5,7 +6,7 @@ from pathlib import Path
 from typing import Literal, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile, status
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, func, select
@@ -225,13 +226,17 @@ def list_solicitudes(
     plataforma: Optional[str] = Query(default=None),
     area: Optional[str] = Query(default=None),
     tipo_solicitud: Optional[str] = Query(default=None),
+    q: Optional[str] = Query(default=None, max_length=80),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
     current_user: User = Depends(require_compras),
     oc_db: Session = Depends(get_oc_db),
 ):
     """Listado paginado para panel de compras. Respuesta `{items, total}` (no un array raíz).
+    `q` busca en consecutivo OS, nombre de proveedor y número de cotización.
     Documentación operativa: `ESTADO_PROYECTO.md` (módulo OC)."""
+    from app.services.oc_export import cond_busqueda
+
     conds = [SolicitudOC.archivada == False]  # noqa: E712
     if estado:
         conds.append(SolicitudOC.estado == estado)
@@ -241,6 +246,9 @@ def list_solicitudes(
         conds.append(SolicitudOC.area_solicitante == area)
     if tipo_solicitud:
         conds.append(SolicitudOC.tipo_solicitud == tipo_solicitud)
+    busqueda = (q or "").strip()
+    if busqueda:
+        conds.append(cond_busqueda(busqueda))
 
     total = oc_db.exec(select(func.count(SolicitudOC.id)).where(*conds)).one()
     query = (
@@ -350,6 +358,22 @@ def mis_solicitudes(
         query = query.where(SolicitudOC.estado == estado)
     query = query.order_by(SolicitudOC.fecha_solicitud.desc()).offset(skip).limit(limit)
     return oc_db.exec(query).all()
+
+
+@router.get("/excel")
+def exportar_solicitudes_excel(
+    current_user: User = Depends(require_compras),
+    oc_db: Session = Depends(get_oc_db),
+):
+    """Todas las solicitudes no archivadas, una fila por OS. Registrado antes de /{solicitud_id}."""
+    from app.services.oc_export import exportar
+
+    contenido, filename = exportar(oc_db)
+    return StreamingResponse(
+        io.BytesIO(contenido),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/{solicitud_id}", response_model=SolicitudRead)

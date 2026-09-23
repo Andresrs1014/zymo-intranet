@@ -24,6 +24,7 @@ export interface SolicitudesFilters {
   plataforma?: string
   area?: string
   tipo_solicitud?: string
+  q?: string
 }
 
 export function usePlataformasOC() {
@@ -48,6 +49,7 @@ export function useSolicitudes(filters: SolicitudesFilters = {}, page: number = 
       if (filters.plataforma) params.set("plataforma", filters.plataforma)
       if (filters.area) params.set("area", filters.area)
       if (filters.tipo_solicitud) params.set("tipo_solicitud", filters.tipo_solicitud)
+      if (filters.q) params.set("q", filters.q)
       const { data } = await api.get<SolicitudesListResponse>(`/api/oc/solicitudes?${params}`)
       return data
     },
