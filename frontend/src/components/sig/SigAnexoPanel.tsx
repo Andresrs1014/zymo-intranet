@@ -263,18 +263,22 @@ export function SigAnexoPanel({
           {instructivoOptions && (
             <div>
               <label className="text-[11px] text-zinc-400 uppercase tracking-widest font-mono block mb-1">
-                Instructivo (opcional)
+                ¿A qué pertenece?
               </label>
               <select
                 value={instructivoId}
                 onChange={(e) => setInstructivoId(e.target.value)}
                 className="w-full bg-white border border-zinc-200 rounded-lg px-2.5 py-1.5 text-[12px] text-zinc-700 font-mono focus:outline-none focus:ring-1 focus:ring-helix-accent/40"
               >
-                <option value="">— Sin instructivo —</option>
+                <option value="">Al procedimiento (no se menciona en ningún instructivo)</option>
                 {instructivoOptions.map((i) => (
-                  <option key={i.id} value={i.id}>{i.codigo} — {i.titulo}</option>
+                  <option key={i.id} value={i.id}>Al instructivo {i.codigo} — {i.titulo}</option>
                 ))}
               </select>
+              <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed">
+                Elegí un instructivo solo si el formato se menciona ahí específicamente.
+                Si el procedimiento lo menciona directamente (o no se menciona en ninguno), dejalo "Al procedimiento".
+              </p>
             </div>
           )}
 
@@ -376,17 +380,17 @@ export function SigAnexoPanel({
                       onBlur={() => setEditingInstructivoFor(null)}
                       disabled={updateInstructivoMutation.isPending}
                       onClick={(e) => e.stopPropagation()}
-                      className="text-[10px] font-mono px-1 py-px rounded border border-helix-accent/40 bg-white text-zinc-600 max-w-[160px]"
+                      className="text-[10px] font-mono px-1 py-px rounded border border-helix-accent/40 bg-white text-zinc-600 max-w-[220px]"
                     >
-                      <option value="">— Sin instructivo —</option>
+                      <option value="">Del procedimiento (sin instructivo)</option>
                       {instructivoOptions.map((o) => (
-                        <option key={o.id} value={o.id}>{o.codigo} — {o.titulo}</option>
+                        <option key={o.id} value={o.id}>Del instructivo {o.codigo} — {o.titulo}</option>
                       ))}
                     </select>
                   ) : item.instructivo ? (
                     <button
                       onClick={(e) => { e.stopPropagation(); instructivoOptions && canEdit && setEditingInstructivoFor(item.id) }}
-                      title={`${item.instructivo.titulo}${instructivoOptions && canEdit ? " — click para cambiar" : ""}`}
+                      title={`Del instructivo: ${item.instructivo.titulo}${instructivoOptions && canEdit ? " — click para cambiar" : ""}`}
                       className="text-[10px] font-mono px-1.5 py-px rounded bg-zinc-100 text-zinc-500 truncate max-w-[140px] hover:bg-zinc-200 transition-colors"
                     >
                       {item.instructivo.codigo}
@@ -395,11 +399,11 @@ export function SigAnexoPanel({
                     instructivoOptions && canEdit && (
                       <button
                         onClick={(e) => { e.stopPropagation(); setEditingInstructivoFor(item.id) }}
-                        title="Asociar a un instructivo"
+                        title="Está asociado directo al procedimiento (no a un instructivo) — click para asociarlo a uno puntual"
                         className="flex items-center gap-1 text-[10px] font-mono px-1.5 py-px rounded border border-dashed border-zinc-300 text-zinc-400 hover:border-helix-accent/40 hover:text-helix-accent transition-colors"
                       >
                         <Pencil className="h-2.5 w-2.5" />
-                        Sin instructivo
+                        Del procedimiento
                       </button>
                     )
                   )}
