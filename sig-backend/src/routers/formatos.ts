@@ -119,30 +119,52 @@ router.post(
   },
 )
 
-// ── PATCH /api/formatos/:id — reasignar el instructivo asociado ───────────────
-// Uso: subiste el formato antes que su instructivo (o sin asociar ninguno) y
+// ── PATCH /api/formatos/:id — reasignar instructivo y/o procedimiento ─────────
+// Uso 1: subiste el formato antes que su instructivo (o sin asociar ninguno) y
 // ahora querés vincularlo/cambiarlo/quitarlo sin volver a subir el archivo.
+// Uso 2: el formato quedó bajo el procedimiento equivocado -- moverlo a otro.
 
 router.patch("/:id", requireSigAccess, async (req: Request, res: Response) => {
   const id = parseInt(req.params.id)
-  const BodySchema = z.object({ instructivoId: z.coerce.number().int().positive().nullable() })
+  const BodySchema = z.object({
+    instructivoId: z.coerce.number().int().positive().nullable().optional(),
+    procedimientoId: z.coerce.number().int().positive().optional(),
+  })
   const parsed = BodySchema.safeParse(req.body)
   if (!parsed.success) { res.status(422).json({ error: parsed.error.flatten() }); return }
+  if (parsed.data.instructivoId === undefined && parsed.data.procedimientoId === undefined) {
+    res.status(422).json({ error: "Nada para actualizar" })
+    return
+  }
 
   const formato = await prisma.sigFormato.findUnique({ where: { id } })
   if (!formato) { res.status(404).json({ error: "Formato no encontrado" }); return }
 
-  if (parsed.data.instructivoId != null) {
-    const inst = await prisma.sigInstructivo.findUnique({ where: { id: parsed.data.instructivoId } })
-    if (!inst || inst.procedimientoId !== formato.procedimientoId) {
-      res.status(404).json({ error: "Instructivo no encontrado en este procedimiento" })
-      return
+  const data: { instructivoId?: number | null; procedimientoId?: number } = {}
+
+  if (parsed.data.procedimientoId !== undefined) {
+    const proc = await prisma.sigProcedimiento.findUnique({ where: { id: parsed.data.procedimientoId } })
+    if (!proc) { res.status(404).json({ error: "Procedimiento destino no encontrado" }); return }
+    data.procedimientoId = parsed.data.procedimientoId
+    // El instructivo (si tenía uno) es del procedimiento viejo -- ya no aplica.
+    if (parsed.data.procedimientoId !== formato.procedimientoId) data.instructivoId = null
+  }
+
+  if (parsed.data.instructivoId !== undefined && data.instructivoId === undefined) {
+    if (parsed.data.instructivoId != null) {
+      const inst = await prisma.sigInstructivo.findUnique({ where: { id: parsed.data.instructivoId } })
+      const procDestino = data.procedimientoId ?? formato.procedimientoId
+      if (!inst || inst.procedimientoId !== procDestino) {
+        res.status(404).json({ error: "Instructivo no encontrado en ese procedimiento" })
+        return
+      }
     }
+    data.instructivoId = parsed.data.instructivoId
   }
 
   const updated = await prisma.sigFormato.update({
     where: { id },
-    data: { instructivoId: parsed.data.instructivoId },
+    data,
     include: { instructivo: { select: { codigo: true, titulo: true } } },
   })
   res.json(updated)

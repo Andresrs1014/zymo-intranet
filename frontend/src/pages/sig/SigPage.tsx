@@ -974,6 +974,7 @@ function ProcedureFileView({
                 canEdit={canEditSig}
                 instructivoOptions={instructivosSnap}
                 extraField={{ name: "procedimientoId", value: String(id) }}
+                procedimientoActualId={id}
               />
             )}
 
@@ -989,6 +990,7 @@ function ProcedureFileView({
                 queryKey={["sig", "doc-anexos", id]}
                 canEdit={canEditSig}
                 extraField={{ name: "procedimientoId", value: String(id) }}
+                procedimientoActualId={id}
               />
             )}
 
@@ -2163,6 +2165,7 @@ function SigProcedureMobileView({
             canEdit={canEditSig}
             instructivoOptions={instructivosSnap}
             extraField={{ name: "procedimientoId", value: String(id) }}
+            procedimientoActualId={id}
           />
         )}
 
@@ -2177,6 +2180,7 @@ function SigProcedureMobileView({
             queryKey={["sig", "doc-anexos", id]}
             canEdit={canEditSig}
             extraField={{ name: "procedimientoId", value: String(id) }}
+            procedimientoActualId={id}
           />
         )}
 

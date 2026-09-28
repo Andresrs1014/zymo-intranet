@@ -1,9 +1,10 @@
 import { useRef, useState } from "react"
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query"
 import { sigApi } from "@/lib/sigApi"
+import { cn } from "@/lib/utils"
 import {
   Paperclip, Plus, FileText, Trash2, Loader, AlertCircle, AlertTriangle,
-  X, FileCheck, Upload, Download, Pencil,
+  X, FileCheck, Upload, Download, Pencil, ArrowRightLeft,
 } from "lucide-react"
 
 // ── Panel genérico de "archivo suelto" — usado por Formatos (cuelga de un
@@ -17,10 +18,13 @@ export interface SigAnexoItem {
   tipoMime: string | null
   autorNombre: string
   createdAt: string
+  procedimientoId: number
   instructivo?: { codigo: string; titulo: string } | null
 }
 
 interface InstructivoOption { id: number; codigo: string; titulo: string }
+interface SigArea { id: number; nombre: string }
+interface SigProcedimientoOption { id: number; areaId: number; codigo: string; titulo: string }
 
 interface Props {
   title: string
@@ -35,6 +39,8 @@ interface Props {
   extraField?: { name: string; value: string }
   /** Si se pasa, el form exige elegir un instructivo antes de subir (uso: Formatos) */
   instructivoOptions?: InstructivoOption[]
+  /** Procedimiento donde se está viendo este panel hoy — habilita "mover a otro procedimiento" por fila */
+  procedimientoActualId?: number
 }
 
 function getErr(e: unknown, fallback: string): string {
@@ -44,7 +50,7 @@ function getErr(e: unknown, fallback: string): string {
 
 export function SigAnexoPanel({
   title, emptyText, listUrl, uploadUrl, deleteUrlBase, archivoUrlBase,
-  queryKey, canEdit = false, extraField, instructivoOptions,
+  queryKey, canEdit = false, extraField, instructivoOptions, procedimientoActualId,
 }: Props) {
   const qc = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -61,6 +67,8 @@ export function SigAnexoPanel({
   const [batchProgress, setBatchProgress] = useState<{ done: number; total: number } | null>(null)
   const [batchErrors, setBatchErrors] = useState<string[]>([])
   const [editingInstructivoFor, setEditingInstructivoFor] = useState<number | null>(null)
+  const [movingId, setMovingId] = useState<number | null>(null)
+  const [moveAreaId, setMoveAreaId] = useState<number | null>(null)
 
   const { data: items = [], isLoading } = useQuery<SigAnexoItem[]>({
     queryKey,
@@ -75,6 +83,28 @@ export function SigAnexoPanel({
     onSuccess: () => {
       qc.invalidateQueries({ queryKey })
       setEditingInstructivoFor(null)
+    },
+  })
+
+  // Mover un formato/anexo ya subido a OTRO procedimiento -- no solo cambiar
+  // a qué instructivo apunta, sino de qué procedimiento cuelga.
+  const { data: moveAreas = [] } = useQuery<SigArea[]>({
+    queryKey: ["sig", "areas"],
+    queryFn: () => sigApi.get("/api/areas").then((r) => r.data),
+    enabled: !!procedimientoActualId && movingId !== null,
+  })
+  const { data: moveProcs = [] } = useQuery<SigProcedimientoOption[]>({
+    queryKey: ["sig", "procs-by-area", moveAreaId],
+    queryFn: () => sigApi.get(`/api/procedimientos?areaId=${moveAreaId}`).then((r) => r.data),
+    enabled: moveAreaId != null,
+  })
+  const updateProcedimientoMutation = useMutation({
+    mutationFn: ({ id, procedimientoId }: { id: number; procedimientoId: number }) =>
+      sigApi.patch(`${deleteUrlBase}/${id}`, { procedimientoId }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey })
+      setMovingId(null)
+      setMoveAreaId(null)
     },
   })
 
@@ -169,6 +199,7 @@ export function SigAnexoPanel({
   }
 
   return (
+    <div className="flex-1 overflow-y-auto bg-white">
     <div className="max-w-3xl mx-auto px-8 py-8">
       <input
         ref={fileInputRef}
@@ -354,8 +385,8 @@ export function SigAnexoPanel({
             </div>
           )}
           {items.map((item) => (
+            <div key={item.id} className="space-y-1.5">
             <div
-              key={item.id}
               className="group flex items-center gap-3 px-4 py-3 border border-zinc-200 rounded-lg bg-white hover:border-zinc-300 hover:shadow-sm transition-all"
             >
               <FileText className="h-4 w-4 text-zinc-400 shrink-0" />
@@ -417,6 +448,21 @@ export function SigAnexoPanel({
                   : <Download className="h-3.5 w-3.5" />
                 }
               </button>
+              {canEdit && procedimientoActualId != null && (
+                <button
+                  onClick={() => { setMovingId(movingId === item.id ? null : item.id); setMoveAreaId(null) }}
+                  className={cn(
+                    "shrink-0 p-1.5 rounded transition-colors",
+                    movingId === item.id
+                      ? "text-helix-accent bg-helix-accent/10"
+                      : "text-zinc-300 hover:text-helix-accent hover:bg-helix-accent/5",
+                  )}
+                  title="Mover a otro procedimiento"
+                  aria-label={`Mover ${item.nombre} a otro procedimiento`}
+                >
+                  <ArrowRightLeft className="h-3.5 w-3.5" />
+                </button>
+              )}
               {canEdit && (
                 confirmDeleteId === item.id ? (
                   <div className="flex items-center gap-1 shrink-0">
@@ -446,9 +492,45 @@ export function SigAnexoPanel({
                 )
               )}
             </div>
+            {movingId === item.id && (
+              <div className="ml-7 flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-50 border border-zinc-200">
+                <select
+                  value={moveAreaId ?? ""}
+                  onChange={(e) => setMoveAreaId(e.target.value ? Number(e.target.value) : null)}
+                  className="text-[11px] font-mono px-2 py-1 rounded border border-zinc-200 bg-white text-zinc-600"
+                >
+                  <option value="">Área…</option>
+                  {moveAreas.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+                </select>
+                <select
+                  value=""
+                  disabled={moveAreaId == null || updateProcedimientoMutation.isPending}
+                  onChange={(e) => {
+                    if (!e.target.value) return
+                    updateProcedimientoMutation.mutate({ id: item.id, procedimientoId: Number(e.target.value) })
+                  }}
+                  className="text-[11px] font-mono px-2 py-1 rounded border border-zinc-200 bg-white text-zinc-600 disabled:opacity-50 flex-1"
+                >
+                  <option value="">Procedimiento destino…</option>
+                  {moveProcs.filter((p) => p.id !== procedimientoActualId).map((p) => (
+                    <option key={p.id} value={p.id}>{p.codigo} — {p.titulo}</option>
+                  ))}
+                </select>
+                {updateProcedimientoMutation.isPending
+                  ? <Loader className="h-3 w-3 text-zinc-400 animate-spin shrink-0" />
+                  : (
+                    <button onClick={() => setMovingId(null)} className="text-zinc-400 hover:text-zinc-700 shrink-0">
+                      <X className="h-3 w-3" />
+                    </button>
+                  )
+                }
+              </div>
+            )}
+            </div>
           ))}
         </div>
       )}
+    </div>
     </div>
   )
 }
