@@ -102,27 +102,6 @@ router.post(
   },
 )
 
-// ── PATCH /api/doc-anexos/:id — mover a otro procedimiento ────────────────────
-
-router.patch("/:id", requireSigAccess, async (req: Request, res: Response) => {
-  const id = parseInt(req.params.id)
-  const BodySchema = z.object({ procedimientoId: z.coerce.number().int().positive() })
-  const parsed = BodySchema.safeParse(req.body)
-  if (!parsed.success) { res.status(422).json({ error: parsed.error.flatten() }); return }
-
-  const anexo = await prisma.sigDocAnexo.findUnique({ where: { id } })
-  if (!anexo) { res.status(404).json({ error: "Documento anexo no encontrado" }); return }
-
-  const proc = await prisma.sigProcedimiento.findUnique({ where: { id: parsed.data.procedimientoId } })
-  if (!proc) { res.status(404).json({ error: "Procedimiento destino no encontrado" }); return }
-
-  const updated = await prisma.sigDocAnexo.update({
-    where: { id },
-    data: { procedimientoId: parsed.data.procedimientoId },
-  })
-  res.json(updated)
-})
-
 // ── DELETE /api/doc-anexos/:id ──────────────────────────────────────────────────
 
 router.delete("/:id", requireSigAccess, async (req: Request, res: Response) => {
