@@ -182,6 +182,39 @@ model SigDocAnexo {
   @@index([procedimientoId])
 }
 
+// ── Archivo pendiente — pool de carga masiva sin asignar ──────────────────────
+// Se sube el archivo suelto (botón "Subir procedimientos" o "Subir documentos de
+// soporte") sin decir todavía a qué procedimiento pertenece. Queda estático acá
+// hasta que alguien lo asigna a mano (uno por uno o varios a la vez a un mismo
+// procedimiento). `origen` distingue si lo subió la intranet o el MCP-001 (mismo
+// endpoint, servido por requireSigAccess — el rol IA_SIG ya tiene mod_sig).
+model SigArchivoPendiente {
+  id              Int      @id @default(autoincrement())
+  archivoOriginal String   @db.VarChar(500) // nombre de archivo en uploads/sig (igual que SigCommit)
+  nombreArchivo   String   @db.VarChar(255)
+  tipoMime        String?  @db.VarChar(100)
+  tamanoBytes     Int
+  categoria       String   @db.VarChar(20) // "procedimiento" | "soporte"
+  origen          String   @default("intranet") @db.VarChar(20) // "intranet" | "mcp"
+  subidoPorId     Int?
+  subidoPorNombre String
+
+  asignado        Boolean   @default(false)
+  asignadoEn      DateTime?
+  asignadoTipo    String?   @db.VarChar(20) // "procedimiento" | "instructivo" | "formato" | "doc_anexo"
+  // Referencias de trazabilidad al registro creado al asignar -- sin relación
+  // formal (el destino puede vivir en cualquiera de 4 tablas distintas).
+  commitId        Int?
+  instructivoId   Int?
+  formatoId       Int?
+  docAnexoId      Int?
+
+  createdAt DateTime @default(now())
+
+  @@index([categoria, asignado])
+  @@index([createdAt])
+}
+
 // ── Análisis de Coherencia ────────────────────────────────────────────────────
 
 model SigAnalisisCoherencia {
