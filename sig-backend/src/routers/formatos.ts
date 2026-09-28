@@ -119,6 +119,35 @@ router.post(
   },
 )
 
+// ── PATCH /api/formatos/:id — reasignar el instructivo asociado ───────────────
+// Uso: subiste el formato antes que su instructivo (o sin asociar ninguno) y
+// ahora querés vincularlo/cambiarlo/quitarlo sin volver a subir el archivo.
+
+router.patch("/:id", requireSigAccess, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id)
+  const BodySchema = z.object({ instructivoId: z.coerce.number().int().positive().nullable() })
+  const parsed = BodySchema.safeParse(req.body)
+  if (!parsed.success) { res.status(422).json({ error: parsed.error.flatten() }); return }
+
+  const formato = await prisma.sigFormato.findUnique({ where: { id } })
+  if (!formato) { res.status(404).json({ error: "Formato no encontrado" }); return }
+
+  if (parsed.data.instructivoId != null) {
+    const inst = await prisma.sigInstructivo.findUnique({ where: { id: parsed.data.instructivoId } })
+    if (!inst || inst.procedimientoId !== formato.procedimientoId) {
+      res.status(404).json({ error: "Instructivo no encontrado en este procedimiento" })
+      return
+    }
+  }
+
+  const updated = await prisma.sigFormato.update({
+    where: { id },
+    data: { instructivoId: parsed.data.instructivoId },
+    include: { instructivo: { select: { codigo: true, titulo: true } } },
+  })
+  res.json(updated)
+})
+
 // ── DELETE /api/formatos/:id ────────────────────────────────────────────────────
 
 router.delete("/:id", requireSigAccess, async (req: Request, res: Response) => {

@@ -1,9 +1,9 @@
 import { useRef, useState } from "react"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query"
 import { sigApi } from "@/lib/sigApi"
 import {
   Paperclip, Plus, FileText, Trash2, Loader, AlertCircle, AlertTriangle,
-  X, FileCheck, Upload, Download,
+  X, FileCheck, Upload, Download, Pencil,
 } from "lucide-react"
 
 // ── Panel genérico de "archivo suelto" — usado por Formatos (cuelga de un
@@ -60,10 +60,22 @@ export function SigAnexoPanel({
   const [downloading, setDownloading] = useState<number | null>(null)
   const [batchProgress, setBatchProgress] = useState<{ done: number; total: number } | null>(null)
   const [batchErrors, setBatchErrors] = useState<string[]>([])
+  const [editingInstructivoFor, setEditingInstructivoFor] = useState<number | null>(null)
 
   const { data: items = [], isLoading } = useQuery<SigAnexoItem[]>({
     queryKey,
     queryFn: () => sigApi.get(listUrl).then((r) => r.data),
+  })
+
+  // Reasignar el instructivo de un formato ya subido -- para cuando primero se
+  // sube el formato y el instructivo se sube/aprueba después.
+  const updateInstructivoMutation = useMutation({
+    mutationFn: ({ id, instructivoId }: { id: number; instructivoId: number | null }) =>
+      sigApi.patch(`${deleteUrlBase}/${id}`, { instructivoId }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey })
+      setEditingInstructivoFor(null)
+    },
   })
 
   function handleFile(f: File) {
@@ -350,13 +362,45 @@ export function SigAnexoPanel({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className="text-[12px] font-mono font-semibold text-zinc-700">{item.nombre}</span>
-                  {item.instructivo && (
-                    <span
-                      title={item.instructivo.titulo}
-                      className="text-[10px] font-mono px-1.5 py-px rounded bg-zinc-100 text-zinc-500 truncate max-w-[140px]"
+                  {instructivoOptions && canEdit && editingInstructivoFor === item.id ? (
+                    <select
+                      autoFocus
+                      value={item.instructivo ? instructivoOptions.find((o) => o.codigo === item.instructivo!.codigo)?.id ?? "" : ""}
+                      onChange={(e) => {
+                        updateInstructivoMutation.mutate({
+                          id: item.id,
+                          instructivoId: e.target.value ? Number(e.target.value) : null,
+                        })
+                      }}
+                      onBlur={() => setEditingInstructivoFor(null)}
+                      disabled={updateInstructivoMutation.isPending}
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-[10px] font-mono px-1 py-px rounded border border-helix-accent/40 bg-white text-zinc-600 max-w-[160px]"
+                    >
+                      <option value="">— Sin instructivo —</option>
+                      {instructivoOptions.map((o) => (
+                        <option key={o.id} value={o.id}>{o.codigo} — {o.titulo}</option>
+                      ))}
+                    </select>
+                  ) : item.instructivo ? (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); instructivoOptions && canEdit && setEditingInstructivoFor(item.id) }}
+                      title={`${item.instructivo.titulo}${instructivoOptions && canEdit ? " — click para cambiar" : ""}`}
+                      className="text-[10px] font-mono px-1.5 py-px rounded bg-zinc-100 text-zinc-500 truncate max-w-[140px] hover:bg-zinc-200 transition-colors"
                     >
                       {item.instructivo.codigo}
-                    </span>
+                    </button>
+                  ) : (
+                    instructivoOptions && canEdit && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setEditingInstructivoFor(item.id) }}
+                        title="Asociar a un instructivo"
+                        className="flex items-center gap-1 text-[10px] font-mono px-1.5 py-px rounded border border-dashed border-zinc-300 text-zinc-400 hover:border-helix-accent/40 hover:text-helix-accent transition-colors"
+                      >
+                        <Pencil className="h-2.5 w-2.5" />
+                        Sin instructivo
+                      </button>
+                    )
                   )}
                 </div>
                 <p className="text-[11px] text-zinc-400 truncate mt-0.5">{item.nombreArchivo}</p>
