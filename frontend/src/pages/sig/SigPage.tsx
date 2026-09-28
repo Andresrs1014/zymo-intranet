@@ -15,7 +15,6 @@ import {
   GitBranchPlus, GitBranch, Clock, ChevronRight, ChevronLeft, Check, Circle, Download,
   Pencil, Eye, Sparkles, Save, XCircle, Loader, AlertCircle,
   ClipboardCheck, RefreshCw, History, UploadCloud, BookOpen, Paperclip, Users, Database,
-  Files, Layers,
 } from "lucide-react"
 import { SigAiEditorPanel } from "@/components/sig/SigAiEditorPanel"
 import { MermaidDiagram } from "@/components/reportes/MermaidDiagram"
@@ -27,7 +26,7 @@ import {
 import { SigAnalisisQueue } from "@/components/sig/SigAnalisisQueue"
 import { SigAnalisisInspector } from "@/components/sig/SigAnalisisInspector"
 import { SigCargarModal, type PreselectedProc } from "@/components/sig/SigCargarModal"
-import { SigArchivosPendientesModal } from "@/components/sig/SigArchivosPendientesModal"
+import { SigArchivosPendientesTray } from "@/components/sig/SigArchivosPendientesTray"
 import { SigInstructivosPanel, type SigInstructivo, InstructivoArchivoView, PROSE as INST_PROSE } from "@/components/sig/SigInstructivosPanel"
 import { SigProcedimientoCargosPanel } from "@/components/sig/SigProcedimientoCargosPanel"
 import { SigAnexoPanel } from "@/components/sig/SigAnexoPanel"
@@ -78,8 +77,6 @@ function SigDesktopView() {
     setCargarOpen(true)
   }, [])
 
-  // Carga masiva sin asignar (bolsa de archivos pendientes)
-  const [pendientesModal, setPendientesModal] = useState<"procedimiento" | "soporte" | null>(null)
 
   const { data: pendientes = [] } = useQuery<unknown[]>({
     queryKey: ["sig", "commits", "pendientes"],
@@ -159,8 +156,6 @@ function SigDesktopView() {
         onOpenRag={openRag}
         onOpenSync={openAnalisisSync}
         onCargar={() => openCargar(null)}
-        onSubirProcedimientos={() => setPendientesModal("procedimiento")}
-        onSubirSoporte={() => setPendientesModal("soporte")}
       />
 
       {/* Body */}
@@ -224,19 +219,14 @@ function SigDesktopView() {
       {/* Floating inspector — bottom-left near sidebar */}
       <SigAnalisisInspector />
 
+      {/* Bolsa de archivos pendientes — persiste aunque se cierre, ver ArchivoPendiente */}
+      <SigArchivosPendientesTray />
+
       {/* Carga de procedimiento / nueva versión desde documento */}
       {cargarOpen && (
         <SigCargarModal
           preselected={cargarProc}
           onClose={() => setCargarOpen(false)}
-        />
-      )}
-
-      {/* Carga masiva sin asignar — bolsa de archivos pendientes */}
-      {pendientesModal && (
-        <SigArchivosPendientesModal
-          categoria={pendientesModal}
-          onClose={() => setPendientesModal(null)}
         />
       )}
     </div>
@@ -247,7 +237,6 @@ function SigDesktopView() {
 
 function TitleBar({
   isGerente, canEditSig, pendingCount, onOpenQueue, onOpenRag, onOpenSync, onCargar,
-  onSubirProcedimientos, onSubirSoporte,
 }: {
   isGerente:            boolean
   canEditSig:           boolean
@@ -256,8 +245,6 @@ function TitleBar({
   onOpenRag:            () => void
   onOpenSync:           () => void
   onCargar:             () => void
-  onSubirProcedimientos: () => void
-  onSubirSoporte:         () => void
 }) {
   return (
     <div className="h-10 shrink-0 flex items-center justify-between px-4 border-b border-zinc-200 bg-white">
@@ -275,26 +262,6 @@ function TitleBar({
           >
             <UploadCloud className="h-3 w-3" />
             Cargar procedimiento
-          </button>
-        )}
-        {canEditSig && (
-          <button
-            onClick={onSubirProcedimientos}
-            title="Subir varios archivos a la vez y asignarlos después, uno por uno, como nueva versión"
-            className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded border border-zinc-200 text-zinc-500 hover:border-helix-accent/40 hover:text-helix-accent transition-colors font-mono"
-          >
-            <Files className="h-3 w-3" />
-            Subir procedimientos
-          </button>
-        )}
-        {canEditSig && (
-          <button
-            onClick={onSubirSoporte}
-            title="Subir varios instructivos/formatos/anexos y asignarlos a un mismo procedimiento"
-            className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded border border-zinc-200 text-zinc-500 hover:border-helix-accent/40 hover:text-helix-accent transition-colors font-mono"
-          >
-            <Layers className="h-3 w-3" />
-            Subir documentos de soporte
           </button>
         )}
         <button
