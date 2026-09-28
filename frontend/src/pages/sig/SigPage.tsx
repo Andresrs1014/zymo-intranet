@@ -1329,22 +1329,23 @@ function ArchivoOriginalView({
   if (contenidoAgente?.trim()) {
     return (
       <div className="flex-1 overflow-auto bg-white p-6">
-        <div className="max-w-3xl mx-auto">
-          <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-            <AlertCircle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-            <p className="text-[11px] text-amber-700">
-              Formato sin vista previa exacta ({nombreArchivo}) — se muestra el texto extraído del documento original.
-            </p>
-          </div>
-          <div className="prose max-w-none
-              prose-headings:font-mono prose-headings:text-zinc-800 prose-headings:font-bold prose-headings:tracking-tight
-              prose-p:text-zinc-600 prose-p:leading-relaxed prose-p:text-[13px]
-              prose-strong:text-zinc-800 prose-strong:font-semibold
-              prose-li:text-zinc-600 prose-li:text-[13px] prose-li:leading-relaxed
-              prose-table:text-[12px] prose-table:w-full"
-          >
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{cleanProcContent(contenidoAgente)}</ReactMarkdown>
-          </div>
+        {/* Sin max-w — mismo motivo que el visor de .docx de arriba: forzar un
+            contenedor angosto (pensado para prosa) corta las tablas anchas del
+            encabezado institucional que trae el texto extraído. */}
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+          <AlertCircle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+          <p className="text-[11px] text-amber-700">
+            Formato sin vista previa exacta ({nombreArchivo}) — se muestra el texto extraído del documento original.
+          </p>
+        </div>
+        <div className="prose max-w-none
+            prose-headings:font-mono prose-headings:text-zinc-800 prose-headings:font-bold prose-headings:tracking-tight
+            prose-p:text-zinc-600 prose-p:leading-relaxed prose-p:text-[13px]
+            prose-strong:text-zinc-800 prose-strong:font-semibold
+            prose-li:text-zinc-600 prose-li:text-[13px] prose-li:leading-relaxed
+            prose-table:text-[12px] prose-table:w-full"
+        >
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{cleanProcContent(contenidoAgente)}</ReactMarkdown>
         </div>
       </div>
     )
