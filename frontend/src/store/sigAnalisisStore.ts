@@ -1,6 +1,9 @@
 import { create } from "zustand"
 
-export type AnalysisType = "coherencia" | "mejoras" | "proc-vs-inst" | "cargos" | "lightrag"
+// Los tipos de análisis con LLM del servidor (coherencia/mejoras/proc-vs-inst/cargos)
+// se retiraron de la intranet — esa responsabilidad pasa al MCP-001. Solo queda
+// LightRAG (indexación, no genera hallazgos).
+export type AnalysisType = "lightrag"
 export type JobStatus   = "running" | "done" | "error" | "cancelled"
 
 export interface AnalysisJob {

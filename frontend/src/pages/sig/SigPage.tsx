@@ -15,11 +15,11 @@ import {
   GitBranchPlus, GitBranch, Clock, ChevronRight, ChevronLeft, Check, Circle, Download,
   Pencil, Eye, Sparkles, Save, XCircle, Loader, AlertCircle,
   ClipboardCheck, RefreshCw, History, UploadCloud, BookOpen, Paperclip, Users, Database,
+  Files, Layers,
 } from "lucide-react"
 import { SigAiEditorPanel } from "@/components/sig/SigAiEditorPanel"
 import { MermaidDiagram } from "@/components/reportes/MermaidDiagram"
 import { useRunAnalysis } from "@/components/sig/SigAnalisisPanel"
-import { SigRubricaPanel } from "@/components/sig/SigRubricaPanel"
 import { SigRagPanel } from "@/components/sig/SigRagPanel"
 import {
   SigAnalisisSyncView, AnalisisDetailModal, TIPO_ICON, TIPO_LABEL, type HistorialItem,
@@ -27,13 +27,14 @@ import {
 import { SigAnalisisQueue } from "@/components/sig/SigAnalisisQueue"
 import { SigAnalisisInspector } from "@/components/sig/SigAnalisisInspector"
 import { SigCargarModal, type PreselectedProc } from "@/components/sig/SigCargarModal"
+import { SigArchivosPendientesModal } from "@/components/sig/SigArchivosPendientesModal"
 import { SigInstructivosPanel, type SigInstructivo, InstructivoArchivoView, PROSE as INST_PROSE } from "@/components/sig/SigInstructivosPanel"
 import { SigProcedimientoCargosPanel } from "@/components/sig/SigProcedimientoCargosPanel"
 import { SigAnexoPanel } from "@/components/sig/SigAnexoPanel"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-type TabIcon = "file" | "diff" | "queue" | "rubrica" | "sync" | "rag"
+type TabIcon = "file" | "diff" | "queue" | "sync" | "rag"
 
 interface TabMeta {
   key: string
@@ -47,7 +48,6 @@ type ActiveView =
   | { kind: "procedure"; id: number }
   | { kind: "commit"; id: number }
   | { kind: "queue" }
-  | { kind: "rubrica" }
   | { kind: "rag" }
   | { kind: "analisis-sync" }
 
@@ -77,6 +77,9 @@ function SigDesktopView() {
     setCargarProc(proc)
     setCargarOpen(true)
   }, [])
+
+  // Carga masiva sin asignar (bolsa de archivos pendientes)
+  const [pendientesModal, setPendientesModal] = useState<"procedimiento" | "soporte" | null>(null)
 
   const { data: pendientes = [] } = useQuery<unknown[]>({
     queryKey: ["sig", "commits", "pendientes"],
@@ -131,10 +134,6 @@ function SigDesktopView() {
     openTab({ kind: "queue" }, { key: "queue", icon: "queue", title: "Cola de revisión" })
   }, [openTab])
 
-  const openRubrica = useCallback(() => {
-    openTab({ kind: "rubrica" }, { key: "rubrica", icon: "rubrica", title: "Análisis" })
-  }, [openTab])
-
   const openRag = useCallback(() => {
     openTab({ kind: "rag" }, { key: "rag", icon: "rag", title: "Grafo de conocimiento" })
   }, [openTab])
@@ -157,10 +156,11 @@ function SigDesktopView() {
         canEditSig={canEditSig}
         pendingCount={pendingCount}
         onOpenQueue={openQueue}
-        onOpenRubrica={openRubrica}
         onOpenRag={openRag}
         onOpenSync={openAnalisisSync}
         onCargar={() => openCargar(null)}
+        onSubirProcedimientos={() => setPendientesModal("procedimiento")}
+        onSubirSoporte={() => setPendientesModal("soporte")}
       />
 
       {/* Body */}
@@ -209,7 +209,6 @@ function SigDesktopView() {
             {activeView.kind === "queue" && (
               <ReviewQueueView onOpenCommit={openCommit} />
             )}
-            {activeView.kind === "rubrica" && <SigRubricaPanel />}
             {activeView.kind === "rag" && <SigRagPanel />}
             {activeView.kind === "analisis-sync" && <SigAnalisisSyncView />}
           </div>
@@ -232,6 +231,14 @@ function SigDesktopView() {
           onClose={() => setCargarOpen(false)}
         />
       )}
+
+      {/* Carga masiva sin asignar — bolsa de archivos pendientes */}
+      {pendientesModal && (
+        <SigArchivosPendientesModal
+          categoria={pendientesModal}
+          onClose={() => setPendientesModal(null)}
+        />
+      )}
     </div>
   )
 }
@@ -239,16 +246,18 @@ function SigDesktopView() {
 // ── Title bar ──────────────────────────────────────────────────────────────────
 
 function TitleBar({
-  isGerente, canEditSig, pendingCount, onOpenQueue, onOpenRubrica, onOpenRag, onOpenSync, onCargar,
+  isGerente, canEditSig, pendingCount, onOpenQueue, onOpenRag, onOpenSync, onCargar,
+  onSubirProcedimientos, onSubirSoporte,
 }: {
   isGerente:            boolean
   canEditSig:           boolean
   pendingCount:         number
   onOpenQueue:          () => void
-  onOpenRubrica:        () => void
   onOpenRag:            () => void
   onOpenSync:           () => void
   onCargar:             () => void
+  onSubirProcedimientos: () => void
+  onSubirSoporte:         () => void
 }) {
   return (
     <div className="h-10 shrink-0 flex items-center justify-between px-4 border-b border-zinc-200 bg-white">
@@ -268,13 +277,26 @@ function TitleBar({
             Cargar procedimiento
           </button>
         )}
-        <button
-          onClick={onOpenRubrica}
-          className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded border border-violet-200 text-violet-600 hover:bg-violet-50 transition-colors"
-        >
-          <ClipboardCheck className="h-3 w-3" />
-          Análisis
-        </button>
+        {canEditSig && (
+          <button
+            onClick={onSubirProcedimientos}
+            title="Subir varios archivos a la vez y asignarlos después, uno por uno, como nueva versión"
+            className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded border border-zinc-200 text-zinc-500 hover:border-helix-accent/40 hover:text-helix-accent transition-colors font-mono"
+          >
+            <Files className="h-3 w-3" />
+            Subir procedimientos
+          </button>
+        )}
+        {canEditSig && (
+          <button
+            onClick={onSubirSoporte}
+            title="Subir varios instructivos/formatos/anexos y asignarlos a un mismo procedimiento"
+            className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded border border-zinc-200 text-zinc-500 hover:border-helix-accent/40 hover:text-helix-accent transition-colors font-mono"
+          >
+            <Layers className="h-3 w-3" />
+            Subir documentos de soporte
+          </button>
+        )}
         <button
           onClick={onOpenRag}
           className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded border border-emerald-200 text-emerald-600 hover:bg-emerald-50 transition-colors"
@@ -309,7 +331,6 @@ const TAB_ICON: Record<TabIcon, React.ReactNode> = {
   file:    <FileText       className="h-3.5 w-3.5 text-zinc-400" />,
   diff:    <GitCommit      className="h-3.5 w-3.5 text-helix-ai/80" />,
   queue:   <Inbox          className="h-3.5 w-3.5 text-amber-500/70" />,
-  rubrica: <ClipboardCheck className="h-3.5 w-3.5 text-violet-500/80" />,
   rag:     <Database        className="h-3.5 w-3.5 text-emerald-500/80" />,
   sync:    <History        className="h-3.5 w-3.5 text-zinc-400" />,
 }
@@ -1735,7 +1756,6 @@ function SigMobileEntry() {
   const [colaSelectedId, setColaSelectedId] = useState<number | null>(null)
   const [openProcId, setOpenProcId] = useState<number | null>(null)
   const [openCommitId, setOpenCommitId] = useState<number | null>(null)
-  const [analisisSub, setAnalisisSub] = useState<"historial" | "catalogo">("historial")
 
   const { data: commits = [], isLoading } = useQuery<PendingCommit[]>({
     queryKey: ["sig", "commits", "pendientes-detail"],
@@ -1828,28 +1848,8 @@ function SigMobileEntry() {
 
         {tab === "analisis" && (
           <div className="h-full flex flex-col bg-white">
-            <div className="shrink-0 flex items-center gap-1.5 px-4 h-11 border-b border-zinc-200">
-              <button
-                onClick={() => setAnalisisSub("historial")}
-                className={cn(
-                  "text-[12px] px-2.5 py-1 rounded-full transition-colors",
-                  analisisSub === "historial" ? "bg-zinc-800 text-white" : "text-zinc-500",
-                )}
-              >
-                Historial
-              </button>
-              <button
-                onClick={() => setAnalisisSub("catalogo")}
-                className={cn(
-                  "text-[12px] px-2.5 py-1 rounded-full transition-colors",
-                  analisisSub === "catalogo" ? "bg-zinc-800 text-white" : "text-zinc-500",
-                )}
-              >
-                Catálogo
-              </button>
-            </div>
             <div className="flex-1 overflow-hidden">
-              {analisisSub === "historial" ? <SigAnalisisSyncView /> : <SigRubricaPanel />}
+              <SigAnalisisSyncView />
             </div>
           </div>
         )}
@@ -2255,7 +2255,6 @@ function StatusBar({
     activeView.kind === "procedure"    ? "procedure"
     : activeView.kind === "commit"     ? "diff"
     : activeView.kind === "queue"      ? "queue"
-    : activeView.kind === "rubrica"    ? "análisis"
     : activeView.kind === "rag"        ? "grafo de conocimiento"
     : activeView.kind === "analisis-sync" ? "historial de análisis"
     : ""

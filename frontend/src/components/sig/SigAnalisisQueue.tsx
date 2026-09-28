@@ -2,24 +2,16 @@ import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
 import { useSigAnalisisStore, type AnalysisJob, type AnalysisType } from "@/store/sigAnalisisStore"
 import { cancelAnalysisJob } from "./SigAnalisisPanel"
-import { ChevronUp, X, CheckCircle2, AlertCircle, Loader, Target, Lightbulb, GitCompare, Database, Users } from "lucide-react"
+import { ChevronUp, X, CheckCircle2, AlertCircle, Loader, Database } from "lucide-react"
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const TYPE_LABEL: Record<AnalysisType, string> = {
-  coherencia:    "Coherencia",
-  mejoras:       "Mejoras",
-  "proc-vs-inst":"Proc/Inst",
-  cargos:        "Cargos",
-  lightrag:      "LightRAG",
+  lightrag: "LightRAG",
 }
 
 const TYPE_ICON: Record<AnalysisType, React.ReactNode> = {
-  coherencia:    <Target className="h-3 w-3" />,
-  mejoras:       <Lightbulb className="h-3 w-3" />,
-  "proc-vs-inst":<GitCompare className="h-3 w-3" />,
-  cargos:        <Users className="h-3 w-3" />,
-  lightrag:      <Database className="h-3 w-3" />,
+  lightrag: <Database className="h-3 w-3" />,
 }
 
 function useElapsed(job: AnalysisJob): string {

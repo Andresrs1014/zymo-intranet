@@ -5,8 +5,8 @@ import { sigApi } from "@/lib/sigApi"
 import { useSigAnalisisStore, type AnalysisType } from "@/store/sigAnalisisStore"
 import { useRunAnalysis, cancelAnalysisJob } from "./SigAnalisisPanel"
 import {
-  X, Minus, Target, Lightbulb, GitCompare, Database, Users,
-  Loader, CheckCircle2, AlertTriangle, ChevronDown,
+  X, Minus, Target, Database,
+  Loader, CheckCircle2, ChevronDown,
 } from "lucide-react"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -18,29 +18,11 @@ interface ProcMeta {
   areaNombre: string
 }
 
-interface CargoComparacion {
-  cargo:                     string
-  tiene_manual:              boolean
-  estado:                    "ACORDE" | "INCOMPLETO" | "DISCREPANCIA" | "NO_DEFINIDO"
-  funciones_en_procedimiento: string[]
-  funciones_en_manual:       string[]
-  brechas:                   string[]
-  observaciones:             string
-}
-
 interface AnalisisResult {
   id:                number
   tipo:              string
   createdAt:         string
   resumen:           string
-  coherente?:        boolean
-  puntaje?:          number | null
-  issues?:           Array<{ tipo: string; descripcion: string; severidad: string }>
-  proposals?:        Array<{ descripcion: string; categoria?: string }>
-  conflictos?:       Array<{ instructivoCodigo: string; descripcion: string; severidad: string }>
-  cargos?:           Array<{ cargo: string; funciones: string[]; mencionadoEn: string[] }>
-  comparaciones?:    CargoComparacion[]
-  cargos_sin_manual?: string[]
 }
 
 interface ProcSyncData {
@@ -61,34 +43,6 @@ const TABS: Array<{
   dot:   string
 }> = [
   {
-    type:  "coherencia",
-    label: "Coherencia",
-    icon:  <Target    className="h-3 w-3" />,
-    color: "text-blue-600 border-blue-200",
-    dot:   "bg-blue-400",
-  },
-  {
-    type:  "mejoras",
-    label: "Mejoras",
-    icon:  <Lightbulb className="h-3 w-3" />,
-    color: "text-amber-600 border-amber-200",
-    dot:   "bg-amber-400",
-  },
-  {
-    type:  "proc-vs-inst",
-    label: "Proc/Inst",
-    icon:  <GitCompare className="h-3 w-3" />,
-    color: "text-violet-600 border-violet-200",
-    dot:   "bg-violet-400",
-  },
-  {
-    type:  "cargos",
-    label: "Cargos",
-    icon:  <Users     className="h-3 w-3" />,
-    color: "text-rose-600 border-rose-200",
-    dot:   "bg-rose-400",
-  },
-  {
     type:  "lightrag",
     label: "LightRAG",
     icon:  <Database  className="h-3 w-3" />,
@@ -103,7 +57,7 @@ export function SigAnalisisInspector() {
   const { inspectorProcId, inspectorMinimized, closeInspector, setInspectorMinimized } =
     useSigAnalisisStore()
 
-  const [activeTab, setActiveTab] = useState<AnalysisType>("coherencia")
+  const [activeTab, setActiveTab] = useState<AnalysisType>("lightrag")
 
   if (inspectorProcId === null) return null
 
@@ -286,10 +240,7 @@ function AnalysisTabContent({
         : contenido
 
       const procMeta = (await sigApi.get(`/api/procedimientos/${procId}`)).data
-      let instructivos: Instructivo[] = []
-      if (type === "proc-vs-inst" || type === "cargos") {
-        instructivos = (await sigApi.get(`/api/instructivos?procedimientoId=${procId}&activo=true`)).data
-      }
+      const instructivos: Instructivo[] = (await sigApi.get(`/api/instructivos?procedimientoId=${procId}&activo=true`)).data
       void runAnalysis(
         {
           id:         procId,
@@ -385,18 +336,6 @@ function ResultView({ type, result }: { type: AnalysisType; result: AnalisisResu
         <span className="text-[11px] font-mono text-zinc-400">{date}</span>
       </div>
 
-      {type === "coherencia" && (
-        <CoherenciaResult result={result} />
-      )}
-      {type === "mejoras" && (
-        <MejorasResult result={result} />
-      )}
-      {type === "proc-vs-inst" && (
-        <ProcVsInstResult result={result} />
-      )}
-      {type === "cargos" && (
-        <CargosResult result={result} />
-      )}
       {type === "lightrag" && (
         <LightRAGResult result={result} />
       )}
@@ -407,269 +346,6 @@ function ResultView({ type, result }: { type: AnalysisType; result: AnalisisResu
           <p className="text-[11px] text-zinc-400 font-mono leading-relaxed">{result.resumen}</p>
         </div>
       )}
-    </div>
-  )
-}
-
-function CoherenciaResult({ result }: { result: AnalisisResult }) {
-  const score = result.puntaje != null ? Math.round(result.puntaje * 100) : null
-  const scoreColor =
-    score == null  ? "text-zinc-400" :
-    score >= 80    ? "text-emerald-600" :
-    score >= 60    ? "text-amber-600"   : "text-red-600"
-  const issues = result.issues ?? []
-
-  return (
-    <div className="space-y-2.5">
-      {/* Score */}
-      <div className="flex items-center justify-between bg-zinc-50 rounded-lg px-3 py-2.5 border border-zinc-100">
-        <div className="flex items-center gap-1.5">
-          {result.coherente
-            ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-            : <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-          }
-          <span className="text-[11px] font-mono text-zinc-600">
-            {result.coherente ? "Coherente" : "Con problemas"}
-          </span>
-        </div>
-        {score != null && (
-          <span className={cn("text-[18px] font-mono font-bold tabular-nums", scoreColor)}>
-            {score}<span className="text-[11px] font-normal text-zinc-400">/100</span>
-          </span>
-        )}
-      </div>
-
-      {/* Issues */}
-      {issues.length > 0 && (
-        <div>
-          <p className="text-[11px] font-mono text-zinc-400 uppercase tracking-wider mb-1.5">
-            Hallazgos ({issues.length})
-          </p>
-          <div className="space-y-1">
-            {issues.slice(0, 5).map((issue, i) => (
-              <div key={i} className="flex items-start gap-1.5 text-[11px]">
-                <span className={cn(
-                  "shrink-0 mt-0.5 px-1 py-0.5 rounded text-[11px] font-mono font-semibold",
-                  issue.severidad === "ALTA"   ? "bg-red-100 text-red-600" :
-                  issue.severidad === "MEDIA"  ? "bg-amber-100 text-amber-600" :
-                                                  "bg-zinc-100 text-zinc-500",
-                )}>
-                  {issue.severidad}
-                </span>
-                <span className="text-zinc-600 leading-tight">{issue.descripcion}</span>
-              </div>
-            ))}
-            {issues.length > 5 && (
-              <p className="text-[11px] text-zinc-400 font-mono">+{issues.length - 5} más…</p>
-            )}
-          </div>
-        </div>
-      )}
-
-      {issues.length === 0 && (
-        <p className="text-[11px] text-emerald-600 font-mono">Sin hallazgos — procedimiento coherente.</p>
-      )}
-    </div>
-  )
-}
-
-function MejorasResult({ result }: { result: AnalisisResult }) {
-  const proposals = result.proposals ?? []
-
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-1.5 text-[11px] font-mono text-zinc-600">
-        <Lightbulb className="h-3.5 w-3.5 text-amber-500" />
-        <span className="font-semibold">{proposals.length}</span>
-        <span>propuesta{proposals.length !== 1 ? "s" : ""} de mejora</span>
-      </div>
-      {proposals.length === 0 && (
-        <p className="text-[11px] text-zinc-400 font-mono">Sin propuestas identificadas.</p>
-      )}
-      <div className="space-y-1.5">
-        {proposals.slice(0, 6).map((p, i) => (
-          <div key={i} className="flex items-start gap-2 text-[11px]">
-            <span className="shrink-0 font-mono text-amber-500 font-bold mt-0.5">{i + 1}.</span>
-            <div>
-              <span className="text-zinc-600 leading-tight">{p.descripcion}</span>
-              {p.categoria && (
-                <span className="ml-1.5 text-[11px] text-zinc-400 font-mono">({p.categoria})</span>
-              )}
-            </div>
-          </div>
-        ))}
-        {proposals.length > 6 && (
-          <p className="text-[11px] text-zinc-400 font-mono">+{proposals.length - 6} más…</p>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function ProcVsInstResult({ result }: { result: AnalisisResult }) {
-  const conflictos = result.conflictos ?? []
-
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-1.5 bg-zinc-50 rounded-lg px-3 py-2 border border-zinc-100">
-        {result.coherente
-          ? <><CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> <span className="text-[11px] font-mono text-emerald-600">Alineado con instructivos</span></>
-          : <><AlertTriangle className="h-3.5 w-3.5 text-amber-500" /> <span className="text-[11px] font-mono text-amber-600">{conflictos.length} conflicto{conflictos.length !== 1 ? "s" : ""}</span></>
-        }
-      </div>
-      {conflictos.length === 0 && result.coherente && (
-        <p className="text-[11px] text-emerald-600 font-mono">Sin conflictos detectados.</p>
-      )}
-      <div className="space-y-1.5">
-        {conflictos.slice(0, 5).map((c, i) => (
-          <div key={i} className="flex items-start gap-1.5 text-[11px]">
-            <span className={cn(
-              "shrink-0 mt-0.5 px-1 py-0.5 rounded text-[11px] font-mono font-semibold",
-              c.severidad === "ALTA"   ? "bg-red-100 text-red-600" :
-              c.severidad === "MEDIA"  ? "bg-amber-100 text-amber-600" :
-                                          "bg-zinc-100 text-zinc-500",
-            )}>
-              {c.severidad}
-            </span>
-            <div>
-              <span className="text-violet-600 font-mono text-[11px]">{c.instructivoCodigo}</span>
-              <span className="text-zinc-600 ml-1">— {c.descripcion}</span>
-            </div>
-          </div>
-        ))}
-        {conflictos.length > 5 && (
-          <p className="text-[11px] text-zinc-400 font-mono">+{conflictos.length - 5} más…</p>
-        )}
-      </div>
-    </div>
-  )
-}
-
-const ESTADO_CFG: Record<CargoComparacion["estado"], { label: string; bg: string; text: string; border: string }> = {
-  ACORDE:       { label: "Acorde",       bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
-  INCOMPLETO:   { label: "Incompleto",   bg: "bg-amber-50",   text: "text-amber-700",   border: "border-amber-200"   },
-  DISCREPANCIA: { label: "Discrepancia", bg: "bg-red-50",     text: "text-red-700",     border: "border-red-200"     },
-  NO_DEFINIDO:  { label: "Sin manual",   bg: "bg-zinc-50",    text: "text-zinc-500",    border: "border-zinc-200"    },
-}
-
-function CargosResult({ result }: { result: AnalisisResult }) {
-  const comparaciones = result.comparaciones ?? []
-  const sinManual     = result.cargos_sin_manual ?? []
-
-  // Fallback: old format (cargos simple array)
-  const legacyCargos  = comparaciones.length === 0 ? (result.cargos ?? []) : []
-
-  if (comparaciones.length === 0 && legacyCargos.length === 0) {
-    return <p className="text-[11px] text-zinc-400 font-mono">Sin cargos identificados.</p>
-  }
-
-  // ── New format ────────────────────────────────────────────────────────────
-  if (comparaciones.length > 0) {
-    const acorde       = comparaciones.filter((c) => c.estado === "ACORDE").length
-    const incompleto   = comparaciones.filter((c) => c.estado === "INCOMPLETO").length
-    const discrepancia = comparaciones.filter((c) => c.estado === "DISCREPANCIA").length
-
-    return (
-      <div className="space-y-2.5">
-        {/* Summary pills */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-[11px] font-mono text-zinc-500">{comparaciones.length} cargos analizados</span>
-          {acorde > 0       && <span className="text-[11px] font-mono px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">{acorde} acorde{acorde !== 1 ? "s" : ""}</span>}
-          {incompleto > 0   && <span className="text-[11px] font-mono px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">{incompleto} incompleto{incompleto !== 1 ? "s" : ""}</span>}
-          {discrepancia > 0 && <span className="text-[11px] font-mono px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">{discrepancia} discrepancia{discrepancia !== 1 ? "s" : ""}</span>}
-        </div>
-
-        {/* Comparison cards */}
-        <div className="space-y-2">
-          {comparaciones.map((c, i) => {
-            const cfg = ESTADO_CFG[c.estado]
-            return (
-              <div key={i} className={`rounded-lg border p-2.5 ${cfg.bg} ${cfg.border}`}>
-                <div className="flex items-center justify-between gap-2 mb-1.5">
-                  <p className={`text-[11px] font-mono font-semibold ${cfg.text}`}>{c.cargo}</p>
-                  <span className={`text-[11px] font-mono font-bold px-1.5 py-0.5 rounded-full border ${cfg.border} ${cfg.text}`}>
-                    {cfg.label}
-                  </span>
-                </div>
-
-                {/* Funciones en procedimiento */}
-                {c.funciones_en_procedimiento?.length > 0 && (
-                  <div className="mt-1">
-                    <p className="text-[11px] font-mono text-zinc-400 uppercase tracking-wide mb-0.5">En procedimiento</p>
-                    <ul className="space-y-0.5">
-                      {c.funciones_en_procedimiento.slice(0, 3).map((f, j) => (
-                        <li key={j} className="flex items-start gap-1 text-[11px] text-zinc-600">
-                          <span className="shrink-0 text-zinc-300 mt-0.5">→</span>{f}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Brechas */}
-                {c.brechas?.length > 0 && (
-                  <div className="mt-1.5">
-                    <p className="text-[11px] font-mono text-amber-600 uppercase tracking-wide mb-0.5">Brechas</p>
-                    <ul className="space-y-0.5">
-                      {c.brechas.slice(0, 3).map((b, j) => (
-                        <li key={j} className="flex items-start gap-1 text-[11px] text-amber-700">
-                          <span className="shrink-0 mt-0.5">⚠</span>{b}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Observaciones */}
-                {c.observaciones && (
-                  <p className="mt-1.5 text-[11px] text-zinc-500 italic leading-snug">{c.observaciones}</p>
-                )}
-              </div>
-            )
-          })}
-        </div>
-
-        {/* Cargos sin manual */}
-        {sinManual.length > 0 && (
-          <div className="mt-1">
-            <p className="text-[11px] font-mono text-zinc-400 uppercase tracking-wide mb-1">Sin manual en T&C</p>
-            <div className="flex flex-wrap gap-1">
-              {sinManual.map((nombre, i) => (
-                <span key={i} className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-500 border border-zinc-200">
-                  {nombre}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  // ── Legacy format (fallback) ──────────────────────────────────────────────
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-1.5 text-[11px] font-mono text-zinc-600">
-        <Users className="h-3.5 w-3.5 text-rose-500" />
-        <span className="font-semibold">{legacyCargos.length}</span>
-        <span>cargo{legacyCargos.length !== 1 ? "s" : ""} identificado{legacyCargos.length !== 1 ? "s" : ""}</span>
-      </div>
-      <div className="space-y-2">
-        {legacyCargos.map((c, i) => (
-          <div key={i} className="rounded-lg border border-rose-100 bg-rose-50/50 p-2.5">
-            <p className="text-[11px] font-mono font-semibold text-rose-700">{c.cargo}</p>
-            {c.funciones.length > 0 && (
-              <ul className="mt-1.5 space-y-0.5">
-                {c.funciones.slice(0, 4).map((f, j) => (
-                  <li key={j} className="flex items-start gap-1 text-[11px] text-zinc-600">
-                    <span className="shrink-0 text-rose-400 mt-0.5">•</span>{f}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        ))}
-      </div>
     </div>
   )
 }

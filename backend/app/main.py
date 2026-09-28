@@ -59,8 +59,6 @@ from app.routers.sig_ia import router as sig_ia_router
 from app.routers.mantenimiento.router import router as mantenimiento_router
 from app.routers.sig_pdf import router as sig_pdf_router
 from app.models.mantenimiento import SolicitudMantenimiento, TipoMantenimientoConfig, HistorialMantenimiento  # noqa: F401
-from app.models.analysis_kind import AnalysisKind
-from app.models.rubrica import RubricaCategoria
 
 
 _DEFAULT_ROLES = [
@@ -273,168 +271,6 @@ def _seed_areas_sedes() -> None:
     print("[seed] Áreas y sedes verificadas.")
 
 
-# Semilla inicial de la rúbrica de análisis completo (MCP-001 / sig_analyze_full).
-# Antes vivía hardcodeada en sig_ia.py — se movió a tabla (rubrica_categorias)
-# para que se pueda editar desde la página "Análisis" del SIG. Estos valores solo
-# se usan para poblar la tabla la primera vez; después de eso la fuente de verdad
-# es la BD, no este diccionario.
-_DEFAULT_RUBRICA_CATEGORIAS = [
-    {
-        # orden=-1 para que quede primera sin renumerar las demas (el seed es
-        # idempotente por id -- cambiar el "orden" de una categoria ya sembrada
-        # en una BD existente no la actualiza, solo inserta las que faltan).
-        # Chequeo exigido explicitamente por BASC V6-2022, clausula 4.4 (enfoque
-        # de procesos): "la empresa debe identificar todos los procesos" -- el
-        # flujograma es como se demuestra eso, por eso va primero y con mas peso.
-        "id": "coherencia_flujograma", "name": "Coherencia flujograma", "weight": 1.3, "orden": -1,
-        "description": "El flujograma (imagen o mermaid) representa fielmente los pasos, decisiones y responsables que describe el texto del procedimiento.",
-        "checks": [
-            "Los pasos del flujograma coinciden con la Matriz Detallada del texto",
-            "Las decisiones (rombos) reflejan condiciones que el texto realmente describe",
-            "Si no coincide, se documenta como hallazgo explicando qué no coincide y por qué",
-            "Si el documento no trae flujograma o no se pudo extraer, se indica el motivo en vez de dejarlo en blanco",
-        ],
-    },
-    {
-        "id": "claridad", "name": "Claridad", "weight": 1.2, "orden": 0,
-        "description": "El texto es comprensible, sin ambigüedades ni jerga innecesaria.",
-        "checks": [
-            "Cada paso tiene un verbo de acción explícito",
-            "No hay términos sin definir en el primer uso",
-            "Las condiciones (si/entonces) están explícitas",
-            "Un lector nuevo puede ejecutar el proceso sin preguntar",
-        ],
-    },
-    {
-        "id": "completitud", "name": "Completitud", "weight": 1.2, "orden": 1,
-        "description": "Cubre inicio, desarrollo, cierre, excepciones y entregables.",
-        "checks": [
-            "Existe disparador claro de inicio",
-            "Todos los pasos intermedios están documentados",
-            "Hay cierre formal con entregables",
-            "Se documentan excepciones y qué hacer ante ellas",
-            "Referencias a formularios/sistemas están nombrados",
-        ],
-    },
-    {
-        "id": "responsabilidades", "name": "Responsabilidades", "weight": 1.0, "orden": 2,
-        "description": "Define quién hace qué, con roles y escalamiento.",
-        "checks": [
-            "Cada actividad tiene responsable (rol o cargo)",
-            "Existe escalamiento ante bloqueos",
-            "Aprobaciones tienen autoridad nombrada",
-            "No hay pasos huérfanos sin dueño",
-        ],
-    },
-    {
-        "id": "riesgos", "name": "Riesgos", "weight": 1.0, "orden": 3,
-        "description": "Identifica riesgos operacionales, legales y de cumplimiento.",
-        "checks": [
-            "Riesgos por paso o por fase están nombrados",
-            "Existen controles o mitigaciones",
-            "Datos sensibles tienen manejo indicado",
-            "Impacto de error está considerado",
-        ],
-    },
-    {
-        "id": "tiempos", "name": "Tiempos", "weight": 0.8, "orden": 4,
-        "description": "Plazos, SLAs y duración por actividad cuando aplique.",
-        "checks": [
-            "Actividades con SLA o plazo tienen valor numérico",
-            "Unidades de tiempo son consistentes",
-            "Tiempos de espera entre áreas están indicados",
-            "Plazos legales o contractuales están citados si aplican",
-        ],
-    },
-    {
-        "id": "cumplimiento", "name": "Cumplimiento", "weight": 1.0, "orden": 5,
-        "description": "Alineación con normativa interna, políticas y trazabilidad.",
-        "checks": [
-            "Referencia a políticas o normas internas cuando aplica",
-            "Registros/evidencias de cumplimiento están definidos",
-            "Versionado y vigencia del documento son coherentes",
-            "Separación de funciones en aprobaciones sensibles",
-        ],
-    },
-    {
-        "id": "mejora_continua", "name": "Mejora continua", "weight": 0.8, "orden": 6,
-        "description": "Oportunidades de automatización, eliminación de pasos y mejoras.",
-        "checks": [
-            "Pasos manuales redundantes identificados",
-            "Oportunidades de integración con intranet/sistemas",
-            "Métricas o KPIs del proceso mencionados o sugeridos",
-            "Propuestas son accionables y priorizadas",
-        ],
-    },
-]
-
-
-def _seed_rubrica() -> None:
-    """Idempotente por clave natural (id de categoría), no por conteo — si ya
-    existe una fila con ese id no se toca (puede tener ediciones del usuario)."""
-    with Session(get_engine()) as session:
-        for cat in _DEFAULT_RUBRICA_CATEGORIAS:
-            if not session.get(RubricaCategoria, cat["id"]):
-                session.add(RubricaCategoria(**cat))
-        session.commit()
-    print("[seed] Rúbrica de análisis verificada.")
-
-
-# Semilla inicial del catálogo de tipos de análisis del SIG. Antes vivía
-# hardcodeado como ANALYSIS_KINDS en SigRubricaPanel.tsx — se movió a tabla
-# (analysis_kinds) para que se pueda editar desde la página "Análisis" del SIG,
-# igual que la rúbrica. Estos valores solo pueblan la tabla la primera vez.
-#
-# Corregido: coherencia/mejoras/proc-vs-inst/cargos decían "Corre en el servidor
-# (Gemini de la intranet)" dando a entender que solo se ejecutan desde la
-# intranet — es falso, MCP-001 expone sig_analyze_coherencia/mejoras/proc_vs_inst/
-# cargos y dispara el MISMO endpoint server-side (mismo Gemini, misma key), solo
-# que el disparo puede venir de Claude Code/Codex vía MCP en vez de la UI.
-_DEFAULT_ANALYSIS_KINDS = [
-    {
-        "id": "coherencia", "name": "Coherencia", "cost": "bajo", "orden": 0,
-        "description": "Revisa que el texto del procedimiento y su flujograma no se contradigan entre sí.",
-        "where_text": "Corre en el servidor con Gemini — se dispara desde la intranet o desde MCP-001 (Claude Code/Codex), mismo motor y misma key en ambos casos.",
-    },
-    {
-        "id": "mejoras", "name": "Mejoras", "cost": "bajo", "orden": 1,
-        "description": "Sugiere mejoras puntuales de trazabilidad, claridad y numerales faltantes.",
-        "where_text": "Corre en el servidor con Gemini — se dispara desde la intranet o desde MCP-001 (Claude Code/Codex), mismo motor y misma key en ambos casos.",
-    },
-    {
-        "id": "proc-vs-inst", "name": "Proc/Inst", "cost": "medio", "orden": 2,
-        "description": "Compara el procedimiento contra sus instructivos — busca pasos que no coinciden.",
-        "where_text": "Corre en el servidor con Gemini — se dispara desde la intranet o desde MCP-001 (Claude Code/Codex), mismo motor y misma key en ambos casos.",
-    },
-    {
-        "id": "cargos", "name": "Cargos", "cost": "medio", "orden": 3,
-        "description": "Compara el procedimiento contra los manuales de funciones de T&C de los cargos involucrados.",
-        "where_text": "Corre en el servidor con Gemini — se dispara desde la intranet o desde MCP-001 (Claude Code/Codex), mismo motor y misma key en ambos casos.",
-    },
-    {
-        "id": "completo", "name": "Análisis completo", "cost": "alto", "orden": 4,
-        "description": "Las 7 categorías de la rúbrica de abajo, todas a la vez — el análisis más profundo que existe hoy.",
-        "where_text": "Lo ejecuta un agente externo (Claude Code/Codex, con su propia suscripción) vía MCP-001 — no gasta la key del servidor.",
-    },
-    {
-        "id": "lightrag", "name": "LightRAG (indexar)", "cost": "bajo", "orden": 5,
-        "description": "No es un análisis — indexa el procedimiento al grafo de conocimiento para que la IA lo tenga presente después.",
-        "where_text": "Botón \"RAG\" dentro de cada procedimiento. Ver el resultado en Grafo de conocimiento.",
-    },
-]
-
-
-def _seed_analysis_kinds() -> None:
-    """Idempotente por clave natural (id del tipo de análisis) — si ya existe
-    una fila con ese id no se toca (puede tener ediciones del usuario)."""
-    with Session(get_engine()) as session:
-        for kind in _DEFAULT_ANALYSIS_KINDS:
-            if not session.get(AnalysisKind, kind["id"]):
-                session.add(AnalysisKind(**kind))
-        session.commit()
-    print("[seed] Catálogo de tipos de análisis verificado.")
-
-
 def _seed_admin() -> None:
     with Session(get_engine()) as session:
         existing = session.exec(
@@ -578,8 +414,6 @@ async def lifespan(app: FastAPI):
     _migrate_db()
     _seed_roles()
     _seed_areas_sedes()
-    _seed_rubrica()
-    _seed_analysis_kinds()
     _seed_admin()
     create_oc_tables()
     _migrate_oc_db()

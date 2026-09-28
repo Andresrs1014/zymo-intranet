@@ -304,8 +304,8 @@ async def generar_pdf_analisis(
     ahora   = datetime.now(_BOGOTA_TZ)
 
     # El hallazgo de coherencia flujograma-vs-texto (categoria "coherencia_flujograma",
-    # ver rubrica_categorias) tiene su propia pagina en el PDF de "completo" -- separado
-    # del resto de hallazgos de procedimiento, no mezclado en la misma lista.
+    # de la ex-rubrica de 7 categorias, ya retirada de la intranet) tiene su propia
+    # pagina en el PDF de "completo" -- separado del resto de hallazgos, no mezclado.
     def _es_hallazgo_flujograma(f: dict[str, Any]) -> bool:
         return str(f.get("categoria") or "").strip().lower() == "coherencia_flujograma"
 
