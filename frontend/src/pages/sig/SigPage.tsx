@@ -467,6 +467,13 @@ function ProcedureFileView({
     if (tab !== "soporte") setSelectedInst(null)
   }
 
+  // El panel Historial (256px) le quita espacio real al documento -- en la
+  // pestaña "Procedimiento" (donde se lee el .docx/.pdf completo) arranca
+  // colapsado para dejarle todo el ancho al contenido; el usuario lo puede
+  // reabrir con un clic. Cambiar de pestaña resetea al default de esa pestaña.
+  const [historialCollapsed, setHistorialCollapsed] = useState(contentTab === "archivo")
+  useEffect(() => { setHistorialCollapsed(contentTab === "archivo") }, [contentTab])
+
   const { data: procCargosCount = 0 } = useQuery<number>({
     queryKey: ["sig", "proc-cargos-count", id],
     queryFn: async () => {
@@ -1036,13 +1043,30 @@ function ProcedureFileView({
         )}
       </div>
 
-      {/* Right panel: commit history */}
+      {/* Right panel: commit history — colapsable, ver historialCollapsed arriba */}
+      {historialCollapsed ? (
+        <button
+          onClick={() => setHistorialCollapsed(false)}
+          title="Mostrar historial"
+          className="w-6 shrink-0 border-l border-zinc-200 bg-zinc-50 hover:bg-zinc-100 flex flex-col items-center justify-center gap-1.5 transition-colors"
+        >
+          <ChevronLeft className="h-3 w-3 text-zinc-400" />
+          <Clock className="h-3 w-3 text-zinc-400" />
+        </button>
+      ) : (
       <div className="w-64 shrink-0 border-l border-zinc-200 flex flex-col bg-zinc-50">
         <div className="flex items-center gap-2 px-3 h-7 border-b border-zinc-200 shrink-0">
           <Clock className="h-3 w-3 text-helix-ai/50" />
-          <span className="text-[11px] text-helix-ai/60 font-mono uppercase tracking-widest">
+          <span className="text-[11px] text-helix-ai/60 font-mono uppercase tracking-widest flex-1">
             Historial
           </span>
+          <button
+            onClick={() => setHistorialCollapsed(true)}
+            title="Ocultar historial"
+            className="text-zinc-400 hover:text-zinc-700 transition-colors"
+          >
+            <ChevronRight className="h-3 w-3" />
+          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto py-1">
@@ -1091,6 +1115,7 @@ function ProcedureFileView({
           ))}
         </div>
       </div>
+      )}
 
       {openAnalisisItem && (
         <AnalisisDetailModal item={openAnalisisItem} onClose={() => setOpenAnalisisItem(null)} />
