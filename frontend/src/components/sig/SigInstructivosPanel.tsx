@@ -79,6 +79,14 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
   const [reextractError, setReextractError] = useState<string | null>(null)
 
+  // Varios archivos a la vez -- cada instructivo necesita código propio (no se
+  // puede auto-generar con sentido), así que se pide en una lista compacta en
+  // vez de repetir el modal de un archivo N veces.
+  const [batch, setBatch] = useState<{ file: File; codigo: string; titulo: string }[] | null>(null)
+  const [batchSubmitting, setBatchSubmitting] = useState(false)
+  const [batchError, setBatchError] = useState("")
+  const [batchDone, setBatchDone] = useState(0)
+
   const { data: instructivos = [], isLoading } = useQuery<SigInstructivo[]>({
     queryKey: ["sig", "instructivos", procedimientoId],
     queryFn: () =>
@@ -112,8 +120,68 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
   }
 
   function openFilePicker() {
-    if (atLimit || form.visible) return
+    if (atLimit || form.visible || batch) return
     fileInputRef.current?.click()
+  }
+
+  function handleFiles(files: File[]) {
+    if (files.length === 1) { handleFile(files[0]); return }
+    const allowed = [".md", ".markdown", ".txt", ".docx", ".pdf", ".doc"]
+    const bad = files.find((f) => !allowed.some((ext) => f.name.toLowerCase().endsWith(ext)))
+    if (bad) {
+      setForm((f) => ({ ...f, error: `"${bad.name}" no tiene un formato soportado (MD, TXT, DOCX, PDF, DOC).` }))
+      return
+    }
+    setBatchError("")
+    setBatchDone(0)
+    setBatch(files.map((file) => ({
+      file,
+      codigo: "",
+      titulo: file.name.replace(/\.[^.]+$/, "").replace(/[-_]/g, " "),
+    })))
+  }
+
+  function updateBatchItem(i: number, patch: Partial<{ codigo: string; titulo: string }>) {
+    setBatch((b) => b && b.map((it, j) => (j === i ? { ...it, ...patch } : it)))
+  }
+
+  async function handleBatchSave() {
+    if (!batch) return
+    const faltante = batch.find((it) => !it.codigo.trim() || !it.titulo.trim())
+    if (faltante) { setBatchError("Completa código y título de todos los documentos."); return }
+    if (instructivos.length + batch.length > MAX_INSTRUCTIVOS) {
+      setBatchError(`Límite de ${MAX_INSTRUCTIVOS} documentos por procedimiento.`)
+      return
+    }
+    setBatchSubmitting(true)
+    setBatchError("")
+    const failed: typeof batch = []
+    const errorMsgs: string[] = []
+    for (let i = 0; i < batch.length; i++) {
+      const it = batch[i]
+      try {
+        const fd = new FormData()
+        fd.append("file", it.file)
+        fd.append("procedimientoId", String(procedimientoId))
+        fd.append("codigo", it.codigo.trim().toUpperCase())
+        fd.append("titulo", it.titulo.trim())
+        fd.append("versionDoc", "1.0")
+        await sigApi.post("/api/instructivos/upload", fd, { headers: { "Content-Type": "multipart/form-data" } })
+      } catch (e) {
+        failed.push(it)
+        errorMsgs.push(`"${it.file.name}": ${getErr(e, "no se pudo guardar")}`)
+      }
+      setBatchDone(i + 1)
+    }
+    qc.invalidateQueries({ queryKey: ["sig", "instructivos", procedimientoId] })
+    setBatchSubmitting(false)
+    setBatchDone(0)
+    if (failed.length > 0) {
+      setBatch(failed)
+      setBatchError(errorMsgs.join(" · ") + " — corrige y volvé a guardar.")
+      return
+    }
+    setBatch(null)
   }
 
   async function handleSave() {
@@ -194,10 +262,11 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
         ref={fileInputRef}
         type="file"
         accept={SUPPORTED_ACCEPT}
+        multiple
         className="hidden"
         onChange={(e) => {
-          const file = e.target.files?.[0]
-          if (file) handleFile(file)
+          const files = Array.from(e.target.files ?? [])
+          if (files.length > 0) handleFiles(files)
           e.target.value = ""
         }}
       />
@@ -223,7 +292,8 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
         {canEdit && (
           <button
             onClick={openFilePicker}
-            disabled={form.visible || atLimit}
+            disabled={form.visible || !!batch || atLimit}
+            title="Podés seleccionar varios archivos a la vez"
             className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-mono font-semibold
                        border border-helix-accent/30 text-helix-accent hover:bg-helix-accent/5
                        transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
@@ -233,6 +303,74 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
           </button>
         )}
       </div>
+
+      {/* Revisión de varios archivos a la vez -- código + título por archivo */}
+      {batch && canEdit && (
+        <div className="mb-4 rounded-xl border border-helix-accent/25 bg-helix-accent/5 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FileText className="h-3.5 w-3.5 text-helix-accent" />
+              <p className="text-[12px] font-semibold text-zinc-700 font-mono">
+                {batch.length} documento{batch.length !== 1 ? "s" : ""} nuevo{batch.length !== 1 ? "s" : ""}
+              </p>
+            </div>
+            <button
+              onClick={() => { setBatch(null); setBatchError("") }}
+              className="p-1 rounded text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
+          <div className="space-y-2 max-h-72 overflow-y-auto">
+            {batch.map((it, i) => (
+              <div key={i} className="rounded-lg border border-zinc-200 bg-white p-2.5 space-y-1.5">
+                <p className="text-[11px] text-zinc-500 font-mono truncate">{it.file.name}</p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <input
+                    value={it.codigo}
+                    onChange={(e) => updateBatchItem(i, { codigo: e.target.value.toUpperCase() })}
+                    placeholder="Código * (INS-OP-001)"
+                    className={cn(inputCls, "text-[11px]", !it.codigo.trim() && "border-amber-300")}
+                  />
+                  <input
+                    value={it.titulo}
+                    onChange={(e) => updateBatchItem(i, { titulo: e.target.value })}
+                    placeholder="Título *"
+                    className={cn(inputCls, "text-[11px]")}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {batchError && (
+            <div className="flex items-start gap-2 px-2.5 py-2 rounded-lg bg-red-50 border border-red-200">
+              <AlertCircle className="h-3.5 w-3.5 text-red-500 shrink-0 mt-0.5" />
+              <p className="text-[11px] text-red-600">{batchError}</p>
+            </div>
+          )}
+
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={() => { setBatch(null); setBatchError("") }}
+              className="flex-1 py-1.5 rounded-lg text-[11px] font-mono border border-zinc-200 text-zinc-500 hover:bg-zinc-50 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => void handleBatchSave()}
+              disabled={batchSubmitting}
+              className="flex-1 py-1.5 rounded-lg text-[11px] font-mono font-semibold bg-helix-accent text-white hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-1.5"
+            >
+              {batchSubmitting
+                ? <><Loader className="h-3 w-3 animate-spin" /> Subiendo {batchDone}/{batch.length}…</>
+                : <><FileCheck className="h-3 w-3" /> Guardar {batch.length} documento{batch.length !== 1 ? "s" : ""}</>
+              }
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Capacity bar */}
       {canEdit && instructivos.length > 0 && (

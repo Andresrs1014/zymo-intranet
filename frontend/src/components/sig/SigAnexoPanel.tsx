@@ -58,6 +58,8 @@ export function SigAnexoPanel({
   const [deleting, setDeleting] = useState<number | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
   const [downloading, setDownloading] = useState<number | null>(null)
+  const [batchProgress, setBatchProgress] = useState<{ done: number; total: number } | null>(null)
+  const [batchErrors, setBatchErrors] = useState<string[]>([])
 
   const { data: items = [], isLoading } = useQuery<SigAnexoItem[]>({
     queryKey,
@@ -69,6 +71,31 @@ export function SigAnexoPanel({
     setNombre(f.name.replace(/\.[^.]+$/, "").replace(/[-_]/g, " "))
     setVisible(true)
     setError("")
+  }
+
+  // Varios archivos a la vez: sin form de revisión por archivo (solo piden
+  // "nombre", se auto-genera del nombre de archivo como ya hacía el single) --
+  // se suben uno por uno para no perder cuál falló, y seguir con el resto.
+  async function handleFilesBatch(files: File[]) {
+    setBatchErrors([])
+    setBatchProgress({ done: 0, total: files.length })
+    const errors: string[] = []
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i]
+      try {
+        const fd = new FormData()
+        fd.append("file", f)
+        fd.append("nombre", f.name.replace(/\.[^.]+$/, "").replace(/[-_]/g, " "))
+        if (extraField) fd.append(extraField.name, extraField.value)
+        await sigApi.post(uploadUrl, fd, { headers: { "Content-Type": "multipart/form-data" } })
+      } catch (e) {
+        errors.push(`${f.name}: ${getErr(e, "no se pudo guardar")}`)
+      }
+      setBatchProgress({ done: i + 1, total: files.length })
+    }
+    qc.invalidateQueries({ queryKey })
+    setBatchProgress(null)
+    setBatchErrors(errors)
   }
 
   async function handleSave() {
@@ -134,10 +161,12 @@ export function SigAnexoPanel({
       <input
         ref={fileInputRef}
         type="file"
+        multiple
         className="hidden"
         onChange={(e) => {
-          const f = e.target.files?.[0]
-          if (f) handleFile(f)
+          const files = Array.from(e.target.files ?? [])
+          if (files.length === 1) handleFile(files[0])
+          else if (files.length > 1) void handleFilesBatch(files)
           e.target.value = ""
         }}
       />
@@ -155,7 +184,8 @@ export function SigAnexoPanel({
         {canEdit && (
           <button
             onClick={() => (visible ? null : fileInputRef.current?.click())}
-            disabled={visible}
+            disabled={visible || !!batchProgress}
+            title="Podés seleccionar varios archivos a la vez"
             className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-mono font-semibold
                        border border-helix-accent/30 text-helix-accent hover:bg-helix-accent/5
                        transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
@@ -165,6 +195,32 @@ export function SigAnexoPanel({
           </button>
         )}
       </div>
+
+      {batchProgress && (
+        <div className="mb-4 flex items-center gap-2 px-3 py-2.5 rounded-lg bg-helix-accent/5 border border-helix-accent/20">
+          <Loader className="h-3.5 w-3.5 text-helix-accent animate-spin shrink-0" />
+          <span className="text-[11px] text-zinc-600 font-mono">
+            Subiendo {batchProgress.done}/{batchProgress.total}…
+          </span>
+        </div>
+      )}
+
+      {batchErrors.length > 0 && (
+        <div className="mb-4 space-y-1.5">
+          {batchErrors.map((msg, i) => (
+            <div key={i} className="flex items-start gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-200">
+              <AlertCircle className="h-3.5 w-3.5 text-red-500 shrink-0 mt-0.5" />
+              <p className="text-[11px] text-red-600 flex-1">{msg}</p>
+              <button
+                onClick={() => setBatchErrors((e) => e.filter((_, j) => j !== i))}
+                className="text-red-400 hover:text-red-600 shrink-0"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {visible && canEdit && (
         <div className="mb-4 rounded-xl border border-helix-accent/25 bg-helix-accent/5 p-4 space-y-3">
