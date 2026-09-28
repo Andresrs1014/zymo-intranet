@@ -109,16 +109,16 @@ export function SigArchivosPendientesTray() {
       <button
         onClick={() => setExpanded(true)}
         className={cn(
-          "absolute bottom-5 right-5 z-40 flex items-center gap-2 px-3.5 py-2 rounded-xl border shadow-lg transition-colors",
+          "absolute bottom-5 right-5 z-40 flex items-center gap-2 px-3.5 py-2 rounded-xl border-2 bg-white text-zinc-900 transition-colors",
           archivos.length > 0
-            ? "bg-zinc-900 border-zinc-800 text-white hover:bg-zinc-800"
-            : "bg-white border-zinc-200 text-zinc-500 hover:border-zinc-300",
+            ? "border-red-500 shadow-[0_0_14px_rgba(239,68,68,0.55)] hover:shadow-[0_0_18px_rgba(239,68,68,0.7)]"
+            : "border-zinc-200 shadow-sm hover:border-zinc-300",
         )}
       >
-        <Inbox className="h-3.5 w-3.5" />
+        <Inbox className="h-3.5 w-3.5 text-zinc-900" />
         <span className="text-[12px] font-mono">Archivos pendientes</span>
         {archivos.length > 0 && (
-          <span className="h-4 min-w-[16px] px-1 rounded-full bg-helix-accent text-white text-[10px] font-mono font-bold flex items-center justify-center">
+          <span className="text-[12px] font-mono font-bold text-emerald-600">
             {archivos.length}
           </span>
         )}
