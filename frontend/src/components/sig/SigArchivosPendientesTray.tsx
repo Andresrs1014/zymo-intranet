@@ -127,18 +127,29 @@ export function SigArchivosPendientesTray() {
   }
 
   return (
-    <div className="absolute bottom-5 right-5 z-40 w-[440px] max-h-[70vh] flex flex-col rounded-xl border border-zinc-200 shadow-2xl shadow-zinc-900/20 overflow-hidden bg-white">
+    <div
+      className={cn(
+        "absolute bottom-5 right-5 z-40 w-[560px] max-h-[80vh] flex flex-col rounded-xl border-2 bg-white overflow-hidden",
+        archivos.length > 0
+          ? "border-red-500 shadow-[0_0_18px_rgba(239,68,68,0.55)]"
+          : "border-zinc-200 shadow-2xl shadow-zinc-900/10",
+      )}
+    >
       {/* Header */}
-      <div className="shrink-0 flex items-center gap-2 px-3.5 py-2.5 bg-zinc-900">
-        <Inbox className="h-3.5 w-3.5 text-violet-400 shrink-0" />
-        <span className="text-[12px] font-mono text-white font-semibold flex-1">
-          Archivos pendientes {archivos.length > 0 && `(${archivos.length})`}
+      <div className="shrink-0 flex items-center gap-2 px-4 py-3 bg-white border-b border-zinc-200">
+        <Inbox className="h-4 w-4 text-zinc-900 shrink-0" />
+        <span className="text-[13px] font-mono text-zinc-900 font-semibold">
+          Archivos pendientes
         </span>
+        {archivos.length > 0 && (
+          <span className="text-[13px] font-mono font-bold text-emerald-600">({archivos.length})</span>
+        )}
+        <span className="flex-1" />
         <button
           onClick={() => { setExpanded(false); setAssigningId(null); setAsignandoSoporte(false) }}
-          className="h-5 w-5 rounded flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors"
+          className="h-6 w-6 rounded flex items-center justify-center text-zinc-400 hover:text-zinc-800 hover:bg-zinc-100 transition-colors"
         >
-          <ChevronUp className="h-3 w-3 rotate-180" />
+          <ChevronUp className="h-3.5 w-3.5 rotate-180" />
         </button>
       </div>
 
