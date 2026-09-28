@@ -340,6 +340,7 @@ function useAreasYProcedimientos(areaId: number | null) {
 function AsignarProcedimientoForm({
   archivo, onCancel, onDone,
 }: { archivo: ArchivoPendiente; onCancel: () => void; onDone: () => void }) {
+  const qc = useQueryClient()
   const [areaId, setAreaId] = useState<number | null>(null)
   const [procId, setProcId] = useState<number | null>(null)
   const [mensaje, setMensaje] = useState(`Nueva versión — ${stripExt(archivo.nombreArchivo)}`)
@@ -358,6 +359,15 @@ function AsignarProcedimientoForm({
         mensaje: mensaje.trim(),
         versionDoc: versionDoc.trim() || undefined,
       })
+      // Mismo set de invalidaciones que SigCargarModal tras subir una versión --
+      // sin esto, el previsualizador de ProcedureFileView queda con la caché vieja
+      // (proc.commits no incluye el commit nuevo) y el texto extraído no aparece
+      // hasta un F5 manual.
+      await qc.invalidateQueries({ queryKey: ["sig", "procedimiento", procId] })
+      await qc.invalidateQueries({ queryKey: ["sig", "commits-by-proc", procId] })
+      if (areaId != null) await qc.invalidateQueries({ queryKey: ["sig", "procs-by-area", areaId] })
+      await qc.invalidateQueries({ queryKey: ["sig", "commits", "pendientes"] })
+      await qc.invalidateQueries({ queryKey: ["sig", "commits", "pendientes-detail"] })
       onDone()
     } catch (e) {
       setError(getErr(e, "No se pudo asignar el archivo"))
@@ -425,6 +435,7 @@ function AsignarProcedimientoForm({
 function AsignarSoportePanel({
   archivos, onBack, onDone,
 }: { archivos: ArchivoPendiente[]; onBack: () => void; onDone: () => void }) {
+  const qc = useQueryClient()
   const [areaId, setAreaId] = useState<number | null>(null)
   const [procId, setProcId] = useState<number | null>(null)
   const [items, setItems] = useState<Record<number, { tipo: SoporteTipo; titulo: string; codigo: string }>>(() =>
@@ -454,6 +465,12 @@ function AsignarSoportePanel({
           ...(items[a.id].tipo === "instructivo" ? { codigo: items[a.id].codigo.trim() } : {}),
         })),
       })
+      // Mismas listas que muestra ProcedureFileView por pestaña -- sin esto los
+      // documentos recién asignados no aparecen hasta un F5 manual.
+      await qc.invalidateQueries({ queryKey: ["sig", "instructivos", procId] })
+      await qc.invalidateQueries({ queryKey: ["sig", "formatos", procId] })
+      await qc.invalidateQueries({ queryKey: ["sig", "doc-anexos", procId] })
+      if (areaId != null) await qc.invalidateQueries({ queryKey: ["sig", "procs-by-area", areaId] })
       onDone()
     } catch (e) {
       setError(getErr(e, "No se pudieron asignar los archivos"))
