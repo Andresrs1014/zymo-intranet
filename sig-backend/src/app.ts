@@ -8,6 +8,8 @@ import procedimientosRouter from "./routers/procedimientos"
 import commitsRouter from "./routers/commits"
 import archivosPendientesRouter from "./routers/archivos-pendientes"
 import instructivosRouter from "./routers/instructivos"
+import protocolosRouter from "./routers/protocolos"
+import referenciasRouter from "./routers/referencias"
 import formatosRouter from "./routers/formatos"
 import docAnexosRouter from "./routers/doc-anexos"
 import analisisRouter from "./routers/analisis"
@@ -36,6 +38,8 @@ app.use("/api/procedimientos", procedimientosRouter)
 app.use("/api/commits", commitsRouter)
 app.use("/api/archivos-pendientes", archivosPendientesRouter)
 app.use("/api/instructivos", instructivosRouter)
+app.use("/api/protocolos", protocolosRouter)
+app.use("/api/referencias", referenciasRouter)
 app.use("/api/formatos", formatosRouter)
 app.use("/api/doc-anexos", docAnexosRouter)
 app.use("/api/analisis", analisisRouter)

@@ -27,7 +27,7 @@ import prisma from "../src/config/prisma"
 
 const NO_TOCAR = ["areas", "reportesDesarrollo", "libertadoraBackup"] as const
 const DEBE_QUEDAR_EN_CERO = [
-  "procedimientos", "commits", "instructivos", "formatos", "docAnexos",
+  "procedimientos", "commits", "instructivos", "protocolos", "referencias", "formatos", "docAnexos",
   "analisisCoherencia", "analisisMejoras", "analisisProcVsInst", "analisisCargos",
   "analisisCompleto", "procedimientoCargo",
 ] as const
@@ -36,6 +36,8 @@ const TABLA_SQL: Record<typeof DEBE_QUEDAR_EN_CERO[number], string> = {
   procedimientos:      "SigProcedimiento",
   commits:              "SigCommit",
   instructivos:         "SigInstructivo",
+  protocolos:           "SigProtocolo",
+  referencias:          "SigReferencia",
   formatos:             "SigFormato",
   docAnexos:            "SigDocAnexo",
   analisisCoherencia:   "SigAnalisisCoherencia",
@@ -66,6 +68,8 @@ async function snapshot() {
     procedimientos:      await prisma.sigProcedimiento.count(),
     commits:              await prisma.sigCommit.count(),
     instructivos:         await prisma.sigInstructivo.count(),
+    protocolos:           await prisma.sigProtocolo.count(),
+    referencias:          await prisma.sigReferencia.count(),
     formatos:             await prisma.sigFormato.count(),
     docAnexos:            await prisma.sigDocAnexo.count(),
     analisisCoherencia:   await prisma.sigAnalisisCoherencia.count(),
@@ -98,15 +102,17 @@ async function main() {
     return
   }
 
-  const [commitsConArchivo, instConArchivo, formatosRows, anexosRows] = await Promise.all([
+  const [commitsConArchivo, instConArchivo, protocolosConArchivo, formatosRows, anexosRows] = await Promise.all([
     prisma.sigCommit.findMany({ where: { archivoOriginal: { not: null } }, select: { archivoOriginal: true } }),
     prisma.sigInstructivo.findMany({ where: { archivoOriginal: { not: null } }, select: { archivoOriginal: true } }),
+    prisma.sigProtocolo.findMany({ where: { archivoOriginal: { not: null } }, select: { archivoOriginal: true } }),
     prisma.sigFormato.findMany({ select: { archivo: true } }),
     prisma.sigDocAnexo.findMany({ select: { archivo: true } }),
   ])
   const rutasArchivos = [
     ...commitsConArchivo.map((c) => c.archivoOriginal as string),
     ...instConArchivo.map((i) => i.archivoOriginal as string),
+    ...protocolosConArchivo.map((p) => p.archivoOriginal as string),
     ...formatosRows.map((f) => f.archivo),
     ...anexosRows.map((a) => a.archivo),
   ]

@@ -14,7 +14,7 @@ import {
 const UPLOAD_ACCEPT = ".md,.markdown,.txt,.docx,.pdf,.doc"
 
 type Categoria = "procedimiento" | "soporte"
-type SoporteTipo = "instructivo" | "formato" | "doc_anexo"
+type SoporteTipo = "instructivo" | "protocolo" | "formato" | "doc_anexo"
 
 interface ArchivoPendiente {
   id: number
@@ -449,7 +449,7 @@ function AsignarSoportePanel({
     setItems((s) => ({ ...s, [id]: { ...s[id], ...patch } }))
   }
 
-  const faltaCodigo = archivos.some((a) => items[a.id]?.tipo === "instructivo" && !items[a.id]?.codigo.trim())
+  const faltaCodigo = archivos.some((a) => (items[a.id]?.tipo === "instructivo" || items[a.id]?.tipo === "protocolo") && !items[a.id]?.codigo.trim())
 
   async function submit() {
     if (!procId || faltaCodigo) return
@@ -462,12 +462,13 @@ function AsignarSoportePanel({
           id: a.id,
           tipo: items[a.id].tipo,
           titulo: items[a.id].titulo.trim(),
-          ...(items[a.id].tipo === "instructivo" ? { codigo: items[a.id].codigo.trim() } : {}),
+          ...(items[a.id].tipo === "instructivo" || items[a.id].tipo === "protocolo" ? { codigo: items[a.id].codigo.trim() } : {}),
         })),
       })
       // Mismas listas que muestra ProcedureFileView por pestaña -- sin esto los
       // documentos recién asignados no aparecen hasta un F5 manual.
       await qc.invalidateQueries({ queryKey: ["sig", "instructivos", procId] })
+      await qc.invalidateQueries({ queryKey: ["sig", "protocolos", procId] })
       await qc.invalidateQueries({ queryKey: ["sig", "formatos", procId] })
       await qc.invalidateQueries({ queryKey: ["sig", "doc-anexos", procId] })
       if (areaId != null) await qc.invalidateQueries({ queryKey: ["sig", "procs-by-area", areaId] })
@@ -526,6 +527,7 @@ function AsignarSoportePanel({
                   className="bg-zinc-50 border border-zinc-200 rounded px-1.5 py-1 text-[10px] text-zinc-700 font-mono focus:outline-none focus:ring-1 focus:ring-helix-accent/40"
                 >
                   <option value="instructivo">Instructivo</option>
+                  <option value="protocolo">Protocolo</option>
                   <option value="formato">Formato</option>
                   <option value="doc_anexo">Anexo</option>
                 </select>
@@ -535,7 +537,7 @@ function AsignarSoportePanel({
                   placeholder="Título"
                   className="bg-zinc-50 border border-zinc-200 rounded px-1.5 py-1 text-[10px] text-zinc-700 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-helix-accent/40"
                 />
-                {it.tipo === "instructivo" ? (
+                {it.tipo === "instructivo" || it.tipo === "protocolo" ? (
                   <input
                     value={it.codigo}
                     onChange={(e) => updateItem(a.id, { codigo: e.target.value.toUpperCase() })}

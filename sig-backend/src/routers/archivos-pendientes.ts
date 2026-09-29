@@ -192,9 +192,9 @@ router.post("/:id/asignar-procedimiento", requireSigAccess, async (req: Request,
 
 const ItemSoporteSchema = z.object({
   id: z.number().int().positive(),
-  tipo: z.enum(["instructivo", "formato", "doc_anexo"]),
+  tipo: z.enum(["instructivo", "protocolo", "formato", "doc_anexo"]),
   titulo: z.string().min(1).max(255),
-  codigo: z.string().min(1).max(50).optional(), // requerido solo si tipo === "instructivo"
+  codigo: z.string().min(1).max(50).optional(), // requerido si tipo es instructivo o protocolo
 })
 
 const AsignarSoporteSchema = z.object({
@@ -210,8 +210,8 @@ router.post("/asignar-soporte", requireSigAccess, async (req: Request, res: Resp
   if (!proc) { res.status(422).json({ error: "Procedimiento no encontrado" }); return }
 
   for (const item of parsed.data.items) {
-    if (item.tipo === "instructivo" && !item.codigo) {
-      res.status(422).json({ error: `El item "${item.titulo}" es un instructivo y necesita código` })
+    if ((item.tipo === "instructivo" || item.tipo === "protocolo") && !item.codigo) {
+      res.status(422).json({ error: `El item "${item.titulo}" es un ${item.tipo} y necesita código` })
       return
     }
   }
@@ -248,6 +248,27 @@ router.post("/asignar-soporte", requireSigAccess, async (req: Request, res: Resp
         data: { asignado: true, asignadoEn: new Date(), asignadoTipo: "instructivo", instructivoId: created.id },
       })
       resultados.push({ archivoPendienteId: item.id, tipo: "instructivo", creadoId: created.id, warnings })
+    } else if (item.tipo === "protocolo") {
+      const { text, warnings } = await extractText(filePath, archivo.nombreArchivo)
+      const created = await prisma.sigProtocolo.create({
+        data: {
+          procedimientoId: parsed.data.procedimientoId,
+          codigo: item.codigo!.toUpperCase(),
+          titulo: item.titulo,
+          contenido: text,
+          contenidoOriginal: text,
+          archivoOriginal: filePath,
+          nombreArchivo: archivo.nombreArchivo,
+          tipoMime: archivo.tipoMime,
+          autorId: userId,
+          autorNombre: userName,
+        },
+      })
+      await prisma.sigArchivoPendiente.update({
+        where: { id: item.id },
+        data: { asignado: true, asignadoEn: new Date(), asignadoTipo: "protocolo", protocoloId: created.id },
+      })
+      resultados.push({ archivoPendienteId: item.id, tipo: "protocolo", creadoId: created.id, warnings })
     } else if (item.tipo === "formato") {
       const created = await prisma.sigFormato.create({
         data: {

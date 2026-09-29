@@ -33,8 +33,10 @@ model SigProcedimiento {
   updatedAt   DateTime               @updatedAt
   commits              SigCommit[]
   instructivos         SigInstructivo[]
+  protocolos           SigProtocolo[]
   formatos             SigFormato[]
   docAnexos            SigDocAnexo[]
+  referencias          SigReferencia[]
   analisisCoherencia   SigAnalisisCoherencia[]
   analisisMejoras      SigAnalisisMejoras[]
   analisisProcVsInst   SigAnalisisProcVsInst[]
@@ -136,6 +138,62 @@ model SigInstructivo {
   @@index([codigo])
 }
 
+// ── Protocolo — documento con casa en un procedimiento. Las demás citas
+// (otro procedimiento, un instructivo) viven en SigReferencia, no como segundo padre.
+
+model SigProtocolo {
+  id              Int              @id @default(autoincrement())
+  procedimientoId Int
+  procedimiento   SigProcedimiento @relation(fields: [procedimientoId], references: [id], onDelete: Cascade)
+
+  codigo          String
+  titulo          String
+  descripcion     String?
+
+  contenido         String  @db.Text
+  contenidoOriginal String? @db.Text
+  versionDoc        String  @default("1.0")
+
+  archivoOriginal   String? @db.VarChar(500)
+  nombreArchivo     String? @db.VarChar(255)
+  tipoMime          String? @db.VarChar(100)
+
+  autorId     Int
+  autorNombre String
+
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([procedimientoId, codigo])
+  @@index([procedimientoId])
+  @@index([codigo])
+}
+
+// ── Referencia — "esto cita aquello", aunque el destino no exista o sea de otra área.
+// La casa del archivo sigue siendo un solo padre. destinoId queda vacío si el
+// archivo no está (ausente) o todavía no se abrió (otra_area).
+
+model SigReferencia {
+  id              Int              @id @default(autoincrement())
+  procedimientoId Int
+  procedimiento   SigProcedimiento @relation(fields: [procedimientoId], references: [id], onDelete: Cascade)
+
+  origenTipo    String  @db.VarChar(20) // procedimiento | instructivo | protocolo | formato
+  origenId      Int
+  destinoTipo   String  @db.VarChar(20) // procedimiento | instructivo | protocolo | formato | area
+  destinoCodigo String  @db.VarChar(80)
+  destinoId     Int?
+  estado        String  @db.VarChar(20) // resuelta | ausente | otra_area | otro_codigo
+  nota          String? @db.Text
+  frase         String? @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@unique([origenTipo, origenId, destinoTipo, destinoCodigo])
+  @@index([procedimientoId])
+}
+
 // ── Formato — plantilla/formulario a nivel de procedimiento; puede asociarse
 // a un instructivo puntual para más contexto, pero no es obligatorio ──────────
 
@@ -201,11 +259,12 @@ model SigArchivoPendiente {
 
   asignado        Boolean   @default(false)
   asignadoEn      DateTime?
-  asignadoTipo    String?   @db.VarChar(20) // "procedimiento" | "instructivo" | "formato" | "doc_anexo"
+  asignadoTipo    String?   @db.VarChar(20) // "procedimiento" | "instructivo" | "protocolo" | "formato" | "doc_anexo"
   // Referencias de trazabilidad al registro creado al asignar -- sin relación
-  // formal (el destino puede vivir en cualquiera de 4 tablas distintas).
+  // formal (el destino puede vivir en cualquiera de varias tablas).
   commitId        Int?
   instructivoId   Int?
+  protocoloId     Int?
   formatoId       Int?
   docAnexoId      Int?
 

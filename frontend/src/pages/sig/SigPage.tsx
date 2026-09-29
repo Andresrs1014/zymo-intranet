@@ -30,6 +30,7 @@ import { SigArchivosPendientesTray } from "@/components/sig/SigArchivosPendiente
 import { SigInstructivosPanel, type SigInstructivo, InstructivoArchivoView, PROSE as INST_PROSE } from "@/components/sig/SigInstructivosPanel"
 import { SigProcedimientoCargosPanel } from "@/components/sig/SigProcedimientoCargosPanel"
 import { SigAnexoPanel } from "@/components/sig/SigAnexoPanel"
+import { SigVinculosPanel } from "@/components/sig/SigVinculosPanel"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -458,11 +459,11 @@ function ProcedureFileView({
   const [saveError, setSaveError] = useState("")
   // ponytail: pestaña "Documento" oculta a pedido del usuario (2026-08-05) — subir a true para restaurarla
   const SHOW_DOC_TAB = false
-  const [contentTab, setContentTab] = useState<"doc" | "archivo" | "soporte" | "formatos" | "docanexos" | "cargos" | "flujograma">(SHOW_DOC_TAB ? "doc" : "archivo")
+  const [contentTab, setContentTab] = useState<"doc" | "archivo" | "soporte" | "formatos" | "docanexos" | "cargos" | "flujograma" | "vinculos">(SHOW_DOC_TAB ? "doc" : "archivo")
   const [selectedInst, setSelectedInst] = useState<SigInstructivo | null>(null)
   const [indexingRag, setIndexingRag] = useState(false)
   const runAnalysis = useRunAnalysis()
-  function switchTab(tab: "doc" | "archivo" | "soporte" | "formatos" | "docanexos" | "cargos" | "flujograma") {
+  function switchTab(tab: "doc" | "archivo" | "soporte" | "formatos" | "docanexos" | "cargos" | "flujograma" | "vinculos") {
     setContentTab(tab)
     if (tab !== "soporte") setSelectedInst(null)
   }
@@ -790,6 +791,18 @@ function ProcedureFileView({
                     )}
                   </button>
                   <button
+                    onClick={() => switchTab("vinculos")}
+                    className={cn(
+                      "flex items-center gap-1.5 px-4 h-8 text-[11px] font-mono border-b-2 transition-colors",
+                      effectiveTab === "vinculos"
+                        ? "border-helix-accent text-zinc-800 bg-white"
+                        : "border-transparent text-zinc-400 hover:text-zinc-600",
+                    )}
+                  >
+                    <GitBranch className="h-3 w-3" />
+                    Vínculos
+                  </button>
+                  <button
                     onClick={() => switchTab("formatos")}
                     className={cn(
                       "flex items-center gap-1.5 px-4 h-8 text-[11px] font-mono border-b-2 transition-colors",
@@ -1038,6 +1051,14 @@ function ProcedureFileView({
                 inst={selectedInst}
                 onBack={() => setSelectedInst(null)}
               />
+            )}
+
+            {effectiveTab === "vinculos" && (
+              <div className="flex-1 overflow-auto bg-white">
+                <div className="max-w-3xl mx-auto px-8 py-8">
+                  <SigVinculosPanel procedimientoId={id} canEdit={canEditSig} />
+                </div>
+              </div>
             )}
           </div>
         )}
@@ -1950,7 +1971,7 @@ function MobileTabBar({
 // No incluye edición manual ni "Editar con IA" — un textarea no es cómodo en celular
 // y la edición real de contenido se sigue haciendo desde escritorio.
 
-type ProcMobileTab = "contenido" | "archivo" | "instructivos" | "cargos" | "flujograma" | "formatos" | "docanexos" | "historial"
+type ProcMobileTab = "contenido" | "archivo" | "instructivos" | "cargos" | "flujograma" | "formatos" | "docanexos" | "vinculos" | "historial"
 
 function SigProcedureMobileView({
   id, canEditSig, onBack, onOpenCommit,
@@ -2038,6 +2059,7 @@ function SigProcedureMobileView({
     { key: "contenido", label: "Contenido", show: true },
     { key: "archivo", label: "Procedimiento", show: showArchivoTab },
     { key: "instructivos", label: `Instructivos${instructivosSnap.length > 0 ? ` (${instructivosSnap.length})` : ""}`, show: true },
+    { key: "vinculos", label: "Vínculos", show: true },
     { key: "cargos", label: "Cargos", show: true },
     { key: "flujograma", label: "Flujograma", show: true },
     { key: "formatos", label: "Formatos", show: true },
@@ -2128,6 +2150,12 @@ function SigProcedureMobileView({
               canEdit={canEditSig}
               onSelectInst={(inst) => setSelectedInst(inst)}
             />
+          </div>
+        )}
+
+        {effectiveTab === "vinculos" && (
+          <div className="px-5 py-6">
+            <SigVinculosPanel procedimientoId={id} canEdit={canEditSig} />
           </div>
         )}
 
