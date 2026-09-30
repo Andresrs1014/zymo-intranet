@@ -9,7 +9,7 @@ import { sigApi } from "@/lib/sigApi"
 export function PreviewFrame({ children }: { children: ReactNode }) {
   return (
     <div className="flex-1 h-full min-h-0 flex flex-col p-3 bg-zinc-100">
-      <div className="mx-auto w-full max-w-[1100px] flex-1 min-h-[480px] overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100">
+      <div className="mx-auto w-full max-w-[1250px] flex-1 min-h-[480px] overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100">
         {children}
       </div>
     </div>
