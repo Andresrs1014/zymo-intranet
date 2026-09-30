@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { sigApi } from "@/lib/sigApi"
 import { api } from "@/lib/api"
 import { cn } from "@/lib/utils"
+import { DocxViewer, PdfFrame } from "@/components/sig/SigFileViewer"
 import { Search, Users, Check, AlertTriangle, Loader, BookOpen, X, FileText, Paperclip } from "lucide-react"
 
 export interface ProcCargoAsignado {
@@ -332,7 +333,7 @@ function CargoManualModal({ cargo, onClose }: { cargo: TcCargo; onClose: () => v
 
   const [loading, setLoading] = useState(isDocx || isExcel)
   const [error, setError] = useState<string | null>(null)
-  const docxRef = useRef<HTMLDivElement>(null)
+  const [docxData, setDocxData] = useState<ArrayBuffer | null>(null)
   const [sheet, setSheet] = useState<string[][] | null>(null)
 
   const [textLoading, setTextLoading] = useState(true)
@@ -349,12 +350,7 @@ function CargoManualModal({ cargo, onClose }: { cargo: TcCargo; onClose: () => v
         if (!r.ok) throw new Error()
         return r.arrayBuffer()
       })
-      .then((buf) => {
-        if (!docxRef.current) return
-        return import("docx-preview").then(({ renderAsync }) =>
-          renderAsync(buf, docxRef.current!, undefined, { className: "docx-render", inWrapper: false }),
-        )
-      })
+      .then((buf) => setDocxData(buf))
       .catch(() => setError("No se pudo cargar el documento."))
       .finally(() => setLoading(false))
   }, [url, isDocx])
@@ -396,7 +392,7 @@ function CargoManualModal({ cargo, onClose }: { cargo: TcCargo; onClose: () => v
       className="fixed inset-0 z-[100] flex items-center justify-center bg-zinc-900/50 backdrop-blur-[1px]"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="relative w-full max-w-6xl h-[90vh] flex flex-col rounded-xl border border-zinc-200 bg-white shadow-xl overflow-hidden">
+      <div className="relative w-full max-w-[96vw] xl:max-w-[1500px] h-[92vh] flex flex-col rounded-xl border border-zinc-200 bg-white shadow-xl overflow-hidden">
 
         <div className="shrink-0 flex items-center gap-2.5 px-5 py-3.5 border-b border-zinc-200">
           <div className="h-7 w-7 rounded-md bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0">
@@ -459,13 +455,11 @@ function CargoManualModal({ cargo, onClose }: { cargo: TcCargo; onClose: () => v
               )}
 
               {!loading && !error && isPdf && (
-                <iframe src={url} className="w-full h-full border-0" title={cargo.manual_filename ?? "Manual de funciones"} />
+                <PdfFrame src={url} title={cargo.manual_filename ?? "Manual de funciones"} />
               )}
 
-              {!loading && !error && isDocx && (
-                <div className="h-full overflow-auto p-6">
-                  <div ref={docxRef} className="max-w-5xl mx-auto" />
-                </div>
+              {!loading && !error && isDocx && docxData && (
+                <DocxViewer data={docxData} onError={setError} />
               )}
 
               {!loading && !error && isExcel && (

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query"
 import { useAuthStore } from "@/store/authStore"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -28,6 +28,7 @@ import { SigAnalisisInspector } from "@/components/sig/SigAnalisisInspector"
 import { SigCargarModal, type PreselectedProc } from "@/components/sig/SigCargarModal"
 import { SigArchivosPendientesTray } from "@/components/sig/SigArchivosPendientesTray"
 import { SigInstructivosPanel, type SigInstructivo, InstructivoArchivoView, PROSE as INST_PROSE } from "@/components/sig/SigInstructivosPanel"
+import { DocxViewer, PdfFrame } from "@/components/sig/SigFileViewer"
 import { SigProcedimientoCargosPanel } from "@/components/sig/SigProcedimientoCargosPanel"
 import { SigAnexoPanel } from "@/components/sig/SigAnexoPanel"
 
@@ -1267,7 +1268,6 @@ function ArchivoOriginalView({
   const [arrayBuffer, setArrayBuffer] = useState<ArrayBuffer | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const docxRef = useRef<HTMLDivElement>(null)
 
   const isPdf  = tipoMime === "application/pdf"
   const isDocx = tipoMime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -1295,16 +1295,6 @@ function ArchivoOriginalView({
     return () => { if (blobUrl) URL.revokeObjectURL(blobUrl) }
   }, [commitId, isDocx])
 
-  useEffect(() => {
-    if (!isDocx || !arrayBuffer || !docxRef.current) return
-    import("docx-preview").then(({ renderAsync }) => {
-      renderAsync(arrayBuffer, docxRef.current!, undefined, {
-        className: "docx-render",
-        inWrapper: false,
-      }).catch(() => setError("No se pudo renderizar el documento Word."))
-    })
-  }, [arrayBuffer, isDocx])
-
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center gap-2 text-zinc-400">
@@ -1324,27 +1314,13 @@ function ArchivoOriginalView({
   }
 
   if (isPdf && objectUrl) {
-    return (
-      <div className="flex-1 overflow-hidden bg-zinc-100">
-        <iframe
-          src={objectUrl}
-          className="w-full h-full border-0"
-          title={nombreArchivo ?? "Archivo PDF"}
-        />
-      </div>
-    )
+    return <PdfFrame src={objectUrl} title={nombreArchivo ?? "Archivo PDF"} />
   }
 
-  if (isDocx) {
-    return (
-      <div className="flex-1 overflow-auto bg-white p-6">
-        {/* Sin max-w — docx-preview dibuja el ancho real de tabla del .docx original;
-            forzarlo a un contenedor angosto (pensado para prosa) corta las tablas anchas
-            del encabezado institucional. El overflow-auto del padre ya resuelve el scroll
-            cuando la tabla es mas ancha que el panel. */}
-        <div ref={docxRef} />
-      </div>
-    )
+  if (isDocx && arrayBuffer) {
+    // DocxViewer escala las páginas al ancho del panel (sin max-w angosto, que
+    // cortaba las tablas anchas del encabezado institucional).
+    return <DocxViewer data={arrayBuffer} onError={setError} />
   }
 
   // .doc viejo u otro formato sin visor nativo — no hay libreria que lo dibuje

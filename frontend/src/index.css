@@ -86,4 +86,17 @@
     height: 0;
     overflow: visible;
   }
+
+  /* Visor de .docx del SIG: fondo gris de "mesa" y páginas centradas con sombra
+     (el wrapper de docx-preview trae su propio padding y flex column). */
+  .sig-docx-host .docx-render-wrapper,
+  .sig-docx-host .docx-wrapper {
+    background: transparent;
+    padding: 16px;
+    align-items: center;
+  }
+  .sig-docx-host section.docx-render {
+    margin-bottom: 16px;
+    box-shadow: 0 1px 4px rgb(0 0 0 / 0.12);
+  }
 }

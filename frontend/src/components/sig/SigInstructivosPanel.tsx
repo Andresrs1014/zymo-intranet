@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query"
 import { sigApi } from "@/lib/sigApi"
 import { cn } from "@/lib/utils"
+import { DocxViewer, PdfFrame } from "@/components/sig/SigFileViewer"
 import {
   BookOpen, Plus, FileText, Trash2, Loader, AlertCircle, AlertTriangle,
   X, FileCheck, Upload, FolderOpen, Paperclip,
@@ -636,7 +637,6 @@ export function InstructivoArchivoView({ inst }: { inst: SigInstructivo }) {
   const [arrayBuffer, setArrayBuffer] = useState<ArrayBuffer | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const docxRef = useRef<HTMLDivElement>(null)
 
   const isPdf  = inst.tipoMime === "application/pdf"
   const isDocx = inst.tipoMime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -664,16 +664,6 @@ export function InstructivoArchivoView({ inst }: { inst: SigInstructivo }) {
     return () => { if (blobUrl) URL.revokeObjectURL(blobUrl) }
   }, [inst.id, isDocx])
 
-  useEffect(() => {
-    if (!isDocx || !arrayBuffer || !docxRef.current) return
-    import("docx-preview").then(({ renderAsync }) => {
-      renderAsync(arrayBuffer, docxRef.current!, undefined, {
-        className: "docx-render",
-        inWrapper: false,
-      }).catch(() => setError("No se pudo renderizar el documento Word."))
-    })
-  }, [arrayBuffer, isDocx])
-
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center gap-2 text-zinc-400 bg-white">
@@ -693,23 +683,11 @@ export function InstructivoArchivoView({ inst }: { inst: SigInstructivo }) {
   }
 
   if (isPdf && objectUrl) {
-    return (
-      <div className="flex-1 overflow-hidden bg-zinc-100">
-        <iframe
-          src={objectUrl}
-          className="w-full h-full border-0"
-          title={inst.nombreArchivo ?? "Archivo PDF"}
-        />
-      </div>
-    )
+    return <PdfFrame src={objectUrl} title={inst.nombreArchivo ?? "Archivo PDF"} />
   }
 
-  if (isDocx) {
-    return (
-      <div className="flex-1 overflow-auto bg-white p-6">
-        <div ref={docxRef} className="max-w-3xl mx-auto" />
-      </div>
-    )
+  if (isDocx && arrayBuffer) {
+    return <DocxViewer data={arrayBuffer} onError={setError} />
   }
 
   // .doc u otro — descarga
