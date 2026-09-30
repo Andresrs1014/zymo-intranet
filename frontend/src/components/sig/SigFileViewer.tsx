@@ -18,7 +18,8 @@ export function PreviewFrame({ children }: { children: ReactNode }) {
 export function PdfFrame({ src, title }: { src: string; title: string }) {
   return (
     <PreviewFrame>
-      <iframe src={src} title={title} className="h-full w-full border-0 bg-zinc-100" />
+      {/* #view=FitH: el visor nativo del PDF ajusta la página al ancho del marco */}
+      <iframe src={`${src}#view=FitH`} title={title} className="h-full w-full border-0 bg-zinc-100" />
     </PreviewFrame>
   )
 }
