@@ -9,6 +9,7 @@ import prisma from "../config/prisma"
 import { getUserId, requireSigAccess, requireGerente } from "../middleware/auth"
 import { sendAprobacionEmail } from "../services/email"
 import { extractText } from "../services/textExtraction"
+import { getPdfPreview, isOfficeDoc } from "../services/pdfPreview"
 import { resolveActorName } from "../utils/userNames"
 
 const router = Router()
@@ -143,6 +144,39 @@ router.get("/:id/archivo", async (req: Request, res: Response) => {
   res.setHeader("Content-Disposition", `inline; filename="${commit.nombreArchivo ?? "archivo"}"`)
   const stream = fsSync.createReadStream(filePath)
   stream.pipe(res)
+})
+
+// ── GET /api/commits/:id/archivo/pdf — el original como PDF (Word → LibreOffice) ─
+
+router.get("/:id/archivo/pdf", async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id)
+  const commit = await prisma.sigCommit.findUnique({
+    where: { id },
+    select: { archivoOriginal: true, nombreArchivo: true },
+  })
+  if (!commit?.archivoOriginal) {
+    res.status(404).json({ error: "Este commit no tiene archivo adjunto" })
+    return
+  }
+  const filePath = path.join(UPLOADS_DIR, commit.archivoOriginal)
+  if (!isOfficeDoc(filePath)) {
+    res.status(415).json({ error: "El archivo no es un documento Word" })
+    return
+  }
+  try {
+    await fs.access(filePath)
+  } catch {
+    res.status(404).json({ error: "Archivo no encontrado en el servidor" })
+    return
+  }
+  const pdf = await getPdfPreview(filePath, `commit_${id}`)
+  if (!pdf) {
+    res.status(502).json({ error: "No se pudo convertir el documento a PDF" })
+    return
+  }
+  res.setHeader("Content-Type", "application/pdf")
+  res.setHeader("Content-Disposition", "inline")
+  fsSync.createReadStream(pdf).pipe(res)
 })
 
 // ── GET /api/commits/:id/flujograma-imagen — imagen original del flujograma ──

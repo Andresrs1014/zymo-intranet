@@ -7,6 +7,7 @@ import fsSync from "fs"
 import prisma from "../config/prisma"
 import { requireSigAccess, getUserId } from "../middleware/auth"
 import { extractText } from "../services/textExtraction"
+import { getPdfPreview, isOfficeDoc } from "../services/pdfPreview"
 import { resolveActorName } from "../utils/userNames"
 
 const router = Router()
@@ -85,6 +86,35 @@ router.get("/:id/archivo", requireSigAccess, async (req: Request, res: Response)
     `inline; filename="${inst.nombreArchivo ?? "archivo"}"`,
   )
   fsSync.createReadStream(filePath).pipe(res)
+})
+
+// ── GET /api/instructivos/:id/archivo/pdf — el original como PDF (Word → LibreOffice) ─
+
+router.get("/:id/archivo/pdf", requireSigAccess, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id)
+  const inst = await prisma.sigInstructivo.findUnique({ where: { id } })
+  if (!inst || !inst.archivoOriginal) {
+    res.status(404).json({ error: "Archivo no disponible" })
+    return
+  }
+  if (!isOfficeDoc(inst.archivoOriginal)) {
+    res.status(415).json({ error: "El archivo no es un documento Word" })
+    return
+  }
+  try {
+    await fs.access(inst.archivoOriginal)
+  } catch {
+    res.status(404).json({ error: "Archivo no encontrado en el servidor" })
+    return
+  }
+  const pdf = await getPdfPreview(inst.archivoOriginal, `inst_${id}`)
+  if (!pdf) {
+    res.status(502).json({ error: "No se pudo convertir el documento a PDF" })
+    return
+  }
+  res.setHeader("Content-Type", "application/pdf")
+  res.setHeader("Content-Disposition", "inline")
+  fsSync.createReadStream(pdf).pipe(res)
 })
 
 // ── POST /api/instructivos/upload — multipart con extracción servidor-side ────

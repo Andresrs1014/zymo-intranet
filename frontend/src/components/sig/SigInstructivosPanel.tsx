@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query"
 import { sigApi } from "@/lib/sigApi"
 import { cn } from "@/lib/utils"
-import { DocxViewer, PdfFrame } from "@/components/sig/SigFileViewer"
+import { PdfFrame, WordPreview } from "@/components/sig/SigFileViewer"
 import {
   BookOpen, Plus, FileText, Trash2, Loader, AlertCircle, AlertTriangle,
   X, FileCheck, Upload, FolderOpen, Paperclip,
@@ -687,7 +687,14 @@ export function InstructivoArchivoView({ inst }: { inst: SigInstructivo }) {
   }
 
   if (isDocx && arrayBuffer) {
-    return <DocxViewer data={arrayBuffer} onError={setError} />
+    return (
+      <WordPreview
+        pdfPath={`/api/instructivos/${inst.id}/archivo/pdf`}
+        docxData={arrayBuffer}
+        title={inst.nombreArchivo ?? "Documento Word"}
+        onError={setError}
+      />
+    )
   }
 
   // .doc u otro — descarga

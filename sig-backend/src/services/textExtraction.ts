@@ -399,7 +399,7 @@ async function ocrPdf(filePath: string, pageCount: number): Promise<{ text: stri
 
 // ── LibreOffice headless ─────────────────────────────────────────────────────
 
-async function tryLibreOfficeConvert(filePath: string, toExt: "docx"): Promise<string | null> {
+export async function tryLibreOfficeConvert(filePath: string, toExt: "docx" | "pdf"): Promise<string | null> {
   const outDir = path.join(os.tmpdir(), `lo_${randomUUID()}`)
   await fs.mkdir(outDir, { recursive: true })
   try {

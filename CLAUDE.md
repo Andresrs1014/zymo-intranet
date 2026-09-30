@@ -157,7 +157,10 @@ Clonar y adaptar para cada nuevo backend Node.
 | `.doc` | **LibreOffice headless** (`soffice --convert-to docx`, `UserInstallation` propio por invocación) → se procesa como `.docx`. Fallback: `antiword -m UTF-8.txt` (texto plano, sin estructura, con warning). Requiere `libreoffice antiword` en Alpine. |
 | `.md`, `.txt` | `fs.readFile`; strip de BOM UTF-8 y fallback a Latin-1 si hay bytes inválidos (con warning). |
 
-Dockerfile de `sig-backend`: `apk add openssl antiword graphicsmagick ghostscript libreoffice ttf-dejavu` (ghostscript lo necesita `pdf2pic` para rasterizar el PDF; sin él la rama OCR falla). Self-check de las partes puras (`cleanupMarkdown`, `renderPdfTables`, `promoteTableHeaders`): `npm run selfcheck`.
+Dockerfile de `sig-backend`: `apk add openssl antiword graphicsmagick ghostscript libreoffice ttf-dejavu font-liberation` (ghostscript lo necesita `pdf2pic` para rasterizar el PDF; sin él la rama OCR falla). Self-check de las partes puras (`cleanupMarkdown`, `renderPdfTables`, `promoteTableHeaders`): `npm run selfcheck`.
+
+### Previsualización de archivos Word (.docx)
+`GET /api/commits/:id/archivo/pdf` y `GET /api/instructivos/:id/archivo/pdf` convierten el original a PDF con LibreOffice (`services/pdfPreview.ts`, caché en `uploads/sig/_preview/`, se invalida si el original cambia) y el frontend (`WordPreview` en `components/sig/SigFileViewer.tsx`) lo muestra en el visor nativo de PDF, igual que la cotización de gestion_comercial. `font-liberation` es necesario: es métricamente compatible con Arial/Times y sin él las tablas se reflowean con DejaVu. Si la conversión falla (502), el frontend cae a `docx-preview` en el navegador.
 
 ### Auditoría multiagente del analista (rúbrica de 4 lentes)
 Flujo nuevo, separado del análisis de 8 categorías (`sig_analyze_full`). Rúbrica y estructura: `C:\Gestion_documental\rubrica\rubrica_sig.md` + `estructura-sistema-gestion.md` (fuente de verdad; copiadas dentro del MCP en `mcp001_intranet/`).

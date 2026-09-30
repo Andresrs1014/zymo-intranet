@@ -1,4 +1,5 @@
-import { useEffect, useRef, type ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
+import { sigApi } from "@/lib/sigApi"
 
 /**
  * Marco de previsualización de archivos del SIG — mismo criterio que la vista
@@ -77,4 +78,43 @@ export function DocxViewer({ data, onError }: { data: ArrayBuffer; onError: (msg
       </div>
     </PreviewFrame>
   )
+}
+
+/**
+ * Word: el servidor lo convierte a PDF con LibreOffice y se muestra en el visor
+ * nativo de PDF (paginación y tablas idénticas a Word, sin redibujar nada).
+ * Si la conversión falla, cae al render en el navegador con docx-preview.
+ */
+export function WordPreview({
+  pdfPath, docxData, title, onError,
+}: { pdfPath: string; docxData: ArrayBuffer; title: string; onError: (msg: string) => void }) {
+  const [state, setState] = useState<{ status: "loading" } | { status: "pdf"; url: string } | { status: "fallback" }>({ status: "loading" })
+
+  useEffect(() => {
+    let url: string | null = null
+    let cancelled = false
+    setState({ status: "loading" })
+    sigApi.get(pdfPath, { responseType: "blob" })
+      .then((res) => {
+        if (cancelled) return
+        url = URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }))
+        setState({ status: "pdf", url })
+      })
+      .catch(() => { if (!cancelled) setState({ status: "fallback" }) })
+    return () => {
+      cancelled = true
+      if (url) URL.revokeObjectURL(url)
+    }
+  }, [pdfPath])
+
+  if (state.status === "loading") {
+    return (
+      <div className="flex-1 flex items-center justify-center gap-2 text-zinc-400">
+        <div className="h-3 w-3 rounded-full border border-zinc-300 border-t-zinc-600 animate-spin" />
+        <span className="text-xs font-mono">Preparando vista previa…</span>
+      </div>
+    )
+  }
+  if (state.status === "pdf") return <PdfFrame src={state.url} title={title} />
+  return <DocxViewer data={docxData} onError={onError} />
 }

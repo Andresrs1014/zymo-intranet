@@ -28,7 +28,7 @@ import { SigAnalisisInspector } from "@/components/sig/SigAnalisisInspector"
 import { SigCargarModal, type PreselectedProc } from "@/components/sig/SigCargarModal"
 import { SigArchivosPendientesTray } from "@/components/sig/SigArchivosPendientesTray"
 import { SigInstructivosPanel, type SigInstructivo, InstructivoArchivoView, PROSE as INST_PROSE } from "@/components/sig/SigInstructivosPanel"
-import { DocxViewer, PdfFrame } from "@/components/sig/SigFileViewer"
+import { PdfFrame, WordPreview } from "@/components/sig/SigFileViewer"
 import { SigProcedimientoCargosPanel } from "@/components/sig/SigProcedimientoCargosPanel"
 import { SigAnexoPanel } from "@/components/sig/SigAnexoPanel"
 
@@ -1318,9 +1318,14 @@ function ArchivoOriginalView({
   }
 
   if (isDocx && arrayBuffer) {
-    // DocxViewer escala las páginas al ancho del panel (sin max-w angosto, que
-    // cortaba las tablas anchas del encabezado institucional).
-    return <DocxViewer data={arrayBuffer} onError={setError} />
+    return (
+      <WordPreview
+        pdfPath={`/api/commits/${commitId}/archivo/pdf`}
+        docxData={arrayBuffer}
+        title={nombreArchivo ?? "Documento Word"}
+        onError={setError}
+      />
+    )
   }
 
   // .doc viejo u otro formato sin visor nativo — no hay libreria que lo dibuje
