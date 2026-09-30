@@ -95,6 +95,14 @@
     padding: 16px;
     align-items: center;
   }
+  /* docx-preview fuerza `hyphens: auto` en todo el documento; Word no separa
+     palabras a menos que el .docx lo active, y en columnas angostas de tablas
+     con texto justificado deja "Identifi-cación", "Activi-dad", etc. */
+  .sig-docx-host .docx-render,
+  .sig-docx-host .docx-render * {
+    hyphens: none !important;
+    -webkit-hyphens: none !important;
+  }
   .sig-docx-host section.docx-render {
     margin-bottom: 16px;
     box-shadow: 0 1px 4px rgb(0 0 0 / 0.12);
