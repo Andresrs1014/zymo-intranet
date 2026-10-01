@@ -278,6 +278,8 @@ Router `tc_agenda.py`. Permiso propio `mod_tc_agenda`, **independiente** de `mod
 
 **Gotcha — descargas de PDF sin auth:** cualquier link de descarga de archivo servido por un endpoint autenticado (no estático) debe usar `openAuthenticatedApiBlob()` de `lib/api.ts`, nunca un `<a href>` plano — un `window.open`/navegación directa no adjunta el header `Authorization`, igual que el gotcha ya conocido en OC/Financiero.
 
+**Gotcha — nginx del frontend resuelve los backends dinámicamente (2026-10-01):** `frontend/nginx.conf` define `resolver 127.0.0.11 valid=10s` y los destinos como variables (`set $sig_up http://sig-backend:3003;` + `proxy_pass $sig_up;`). Antes eran `proxy_pass http://sig-backend:3003/;` literales: nginx resolvía el nombre UNA vez al arrancar y, tras reconstruir un backend (IP nueva), daba `502` hasta reiniciar el frontend. Al añadir un backend nuevo: (1) usar variable, nunca un `proxy_pass` literal — **ni siquiera uno**, porque si otro bloque usa el mismo host:puerto en forma literal, el de variable reutiliza el grupo ya resuelto y se salta el DNS; (2) con variable nginx ya NO quita el prefijo solo: si el bloque tenía ruta (`proxy_pass http://x:3003/;` en `location /sig-api/`) hay que poner `rewrite ^/sig-api/(.*)$ /$1 break;`.
+
 **Gotcha — nginx:** cualquier router nuevo bajo `/tc/` (incluye `/tc/agenda/*`, `/tc/eventos/*`) debe añadirse a la regex de proxy en `frontend/nginx.conf` (~línea 154, corregido 2026-08-03 — decía 134, que hoy son los bloques estáticos `/tc-manuales/`/`/tc-fotos/`/`/tc-docs/`, no el regex de la API) o cae al fallback del SPA y devuelve HTML donde el frontend espera JSON (`.forEach`/`.map` truena con un error genérico, no un 404 obvio).
 
 ---
