@@ -1,4 +1,5 @@
 import "dotenv/config";
+import "./utils/asyncErrors"; // ANTES de montar rutas: un handler async que lanza no debe tumbar el proceso
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import path from "path";
