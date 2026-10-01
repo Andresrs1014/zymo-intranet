@@ -55,7 +55,6 @@ from app.routers.admin.whatsapp_config import router as admin_whatsapp_config_ro
 from app.routers.whatsapp import router as whatsapp_router
 from app.routers.user_tools import router as user_tools_router
 from app.routers.tasks_v2 import router as tasks_v2_router
-from app.routers.sig_ia import router as sig_ia_router
 from app.routers.mantenimiento.router import router as mantenimiento_router
 from app.routers.sig_pdf import router as sig_pdf_router
 from app.models.mantenimiento import SolicitudMantenimiento, TipoMantenimientoConfig, HistorialMantenimiento  # noqa: F401
@@ -478,7 +477,6 @@ app.include_router(admin_whatsapp_config_router)
 app.include_router(whatsapp_router)
 app.include_router(user_tools_router)
 app.include_router(tasks_v2_router)
-app.include_router(sig_ia_router)
 app.include_router(mantenimiento_router)
 app.include_router(sig_pdf_router)
 app.include_router(personal_router)

@@ -14,8 +14,6 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from jinja2 import Environment, FileSystemLoader
-from pydantic import BaseModel
-from typing import Any
 import io
 
 from app.core.deps import get_current_user
@@ -243,125 +241,6 @@ async def generar_pdf_procedimiento(
     ).write_pdf()
 
     filename = f"{proc.get('codigo', 'SIG')}_v{context['version']}.pdf"
-
-    return StreamingResponse(
-        io.BytesIO(pdf_bytes),
-        media_type="application/pdf",
-        headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
-            "Content-Length": str(len(pdf_bytes)),
-        },
-    )
-
-
-# ── PDF de análisis (historial) ─────────────────────────────────────────────
-
-_TIPO_LABEL = {
-    "coherencia": "Coherencia", "mejoras": "Mejoras", "proc-vs-inst": "Procedimiento vs. Instructivos",
-    "cargos": "Cargos y Funciones", "completo": "Análisis Completo (Rúbrica)",
-}
-
-
-class AnalisisPdfRequest(BaseModel):
-    tipo: str
-    autorNombre: str
-    createdAt: str
-    resumen: str | None = None
-    coherente: bool | None = None
-    puntaje: float | None = None
-    issues: list[dict[str, Any]] = []
-    proposals: list[dict[str, Any]] = []
-    conflictos: list[dict[str, Any]] = []
-    cargos: list[dict[str, Any]] = []
-    findings: list[dict[str, Any]] = []
-    markdownNormalizado: str | None = None
-    flujogramaPng: str | None = None
-    flujogramaAltoMm: float | None = None
-    procedimiento: dict[str, Any]
-
-
-@router.post("/pdf/analisis")
-async def generar_pdf_analisis(
-    payload: AnalisisPdfRequest,
-    current_user: User = Depends(get_current_user),
-):
-    """
-    Genera el PDF de un análisis del historial (coherencia/mejoras/proc-vs-inst/cargos/completo).
-    Recibe el item ya cargado por el frontend (viene completo desde /api/analisis/historial) —
-    no hace falta re-consultar sig-backend. El flujograma, si existe, llega como PNG (data URL)
-    ya rasterizado por el navegador -- no hay renderer de Mermaid en el servidor, y WeasyPrint
-    no soporta el <style> con clases CSS que Mermaid embebe en el SVG (el texto salia en
-    blanco). La pagina del flujograma NO usa el tamaño A4 fijo del resto del documento: el
-    navegador manda tambien flujogramaAltoMm (el alto que necesita la pagina para que el
-    diagrama entre completo a ancho de pagina, sin cortarlo ni encogerlo) y se define una
-    @page nombrada con ese alto exacto en el propio HTML -- ver template_sig_analisis.html.
-    """
-    slug    = _DEFAULT_PLATFORM_SLUG
-    empresa = _load_platform(slug)
-    logo_url = _logo_url(slug, empresa)
-    proc    = payload.procedimiento
-    area    = proc.get("area", {}) or {}
-    ahora   = datetime.now(_BOGOTA_TZ)
-
-    # El hallazgo de coherencia flujograma-vs-texto (categoria "coherencia_flujograma",
-    # de la ex-rubrica de 7 categorias, ya retirada de la intranet) tiene su propia
-    # pagina en el PDF de "completo" -- separado del resto de hallazgos, no mezclado.
-    def _es_hallazgo_flujograma(f: dict[str, Any]) -> bool:
-        return str(f.get("categoria") or "").strip().lower() == "coherencia_flujograma"
-
-    findings_flujograma    = [f for f in payload.findings if _es_hallazgo_flujograma(f)]
-    findings_procedimiento = [f for f in payload.findings if not _es_hallazgo_flujograma(f)]
-
-    context = {
-        "empresa_nombre": empresa.get("nombre", "LOGIMAT S.A.S."),
-        "empresa_nit":    empresa.get("nit", ""),
-        "empresa_ciudad": empresa.get("ciudad", ""),
-        "logo_url":       logo_url,
-
-        "codigo":   proc.get("codigo", "—"),
-        "titulo":   proc.get("titulo", "—"),
-        "area":     area.get("nombre", "—"),
-
-        "tipo":       payload.tipo,
-        "tipo_label": _TIPO_LABEL.get(payload.tipo, payload.tipo),
-        "resumen":    payload.resumen or "",
-
-        "score":      round(payload.puntaje * 100) if payload.puntaje is not None else None,
-        "coherente":  payload.coherente,
-        "issues":     payload.issues,
-        "proposals":  payload.proposals,
-        "conflictos": payload.conflictos,
-        "cargos":     payload.cargos,
-        "findings":   payload.findings,
-        "findings_procedimiento": findings_procedimiento,
-        "findings_flujograma":    findings_flujograma,
-        "markdown_normalizado_html": _md_to_html(payload.markdownNormalizado or ""),
-        "flujograma_png": payload.flujogramaPng or "",
-        # La pagina del flujograma se dimensiona a la medida del diagrama en vez de usar
-        # el A4 fijo del resto del documento. flujogramaAltoMm (del navegador) es solo el
-        # alto de LA IMAGEN a 178mm de ancho -- se le suma el margen de pagina (2.6cm) y
-        # el titulo "Flujograma" (~3cm) para llegar al alto real de pagina que hace falta.
-        # Clamp defensivo (150-1200mm): nunca confiar solo en el cliente para un valor
-        # que se inyecta directo en una regla @page.
-        "flujograma_alto_pagina_mm": max(150, min(1200, round((payload.flujogramaAltoMm or 190) + 60))),
-
-        "autor_nombre": payload.autorNombre,
-        "fecha_analisis": _fmt_date(payload.createdAt),
-        "fecha_generacion": ahora.strftime("%d/%m/%Y %H:%M"),
-        "generado_por": current_user.full_name or current_user.username,
-    }
-
-    env  = Environment(loader=FileSystemLoader(str(_TEMPLATES_DIR)))
-    html = env.get_template("template_sig_analisis.html").render(**context)
-
-    from weasyprint import HTML
-
-    pdf_bytes = HTML(
-        string=html,
-        base_url=str(_PLATFORMS_DIR / slug),
-    ).write_pdf()
-
-    filename = f"{proc.get('codigo', 'SIG')}_analisis_{payload.tipo}_{ahora.strftime('%Y%m%d')}.pdf"
 
     return StreamingResponse(
         io.BytesIO(pdf_bytes),

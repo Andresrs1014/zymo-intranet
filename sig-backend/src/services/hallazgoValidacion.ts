@@ -8,6 +8,10 @@
 // Para funcion "1.2" (palabras) la demostración es el sub-formato `palabra`
 // completo (las 2 definiciones + por_que_no_encaja + por_que_si_encaja).
 //
+// Conformidad (§4): solo necesita criterio + evidencia (fragmento).
+// Oportunidad de mejora (§3.2): además exige criterio citado y brecha en `condicion`.
+// tipo "kpi" -> detalle + objeto `kpi` con nombre, periodo y resultado.
+//
 // Un hallazgo sin demostración NO se descarta silenciosamente: se degrada a
 // `observacion` con nota (para no perder la señal) y se reporta en `ajustes`.
 
@@ -17,6 +21,9 @@ export interface HallazgoLike {
   fragmento?: string | null
   demostracion?: unknown
   palabra?: unknown
+  kpi?: unknown
+  criterio?: string | null
+  condicion?: string | null
   descripcion?: string | null
   [k: string]: unknown
 }
@@ -43,9 +50,19 @@ function palabraCompleta(p: unknown): boolean {
   )
 }
 
+function kpiCompleto(k: unknown): boolean {
+  if (!k || typeof k !== "object") return false
+  const o = k as Record<string, unknown>
+  return tieneTexto(o.nombre) && tieneTexto(o.periodo) && tieneTexto(o.resultado)
+}
+
 function demostracionValida(h: HallazgoLike): boolean {
+  if (h.clasificacion === "conformidad") return tieneTexto(h.fragmento) && tieneTexto(h.criterio)
   if (h.funcion === "1.2") return palabraCompleta(h.palabra)
   if (!tieneTexto(h.fragmento)) return false
+  if (h.clasificacion === "oportunidad_mejora" && (!tieneTexto(h.criterio) || !tieneTexto(h.condicion))) {
+    return false
+  }
   const d = h.demostracion
   if (!d || typeof d !== "object") return false
   const o = d as Record<string, unknown>
@@ -54,6 +71,9 @@ function demostracionValida(h: HallazgoLike): boolean {
   }
   if (o.tipo === "clausula" || o.tipo === "regla_funcion") {
     return tieneTexto(o.detalle)
+  }
+  if (o.tipo === "kpi") {
+    return tieneTexto(o.detalle) && kpiCompleto(h.kpi)
   }
   return false
 }

@@ -10,8 +10,8 @@ import { validarDemostracion } from "../src/services/hallazgoValidacion"
 {
   const v = derivarVeredicto([], 0)
   assert.strictEqual(v.veredicto, "pasa")
-  assert.deepStrictEqual(v.veredictoPorFuncion, { "1.1": "pasa", "1.2": "pasa", "1.3": "pasa", "1.4": "pasa" })
-  assert.deepStrictEqual(v.conteo, { ncMayor: 0, ncMenor: 0, observacion: 0, consulta: 0 })
+  assert.deepStrictEqual(v.veredictoPorFuncion, { "1.1": "pasa", "1.2": "pasa", "1.3": "pasa", "1.4": "pasa", "1.5": "pasa", "1.6": "pasa" })
+  assert.deepStrictEqual(v.conteo, { ncMayor: 0, ncMenor: 0, observacion: 0, oportunidadMejora: 0, conformidad: 0, consulta: 0 })
 }
 
 // Solo observaciones => sigue pasando, cuenta pero no mueve el veredicto.
@@ -128,6 +128,51 @@ import { validarDemostracion } from "../src/services/hallazgoValidacion"
   const obs = validarDemostracion([{ funcion: "1.4", clasificacion: "observacion" }])
   assert.strictEqual(obs.hallazgos[0].clasificacion, "observacion")
   assert.strictEqual(obs.ajustes.length, 0)
+}
+
+{
+  // Rúbrica §3.4: conformidades y OM nunca cambian el veredicto; 1.5/1.6 existen.
+  const v = derivarVeredicto(
+    [
+      { funcion: "1.6", clasificacion: "oportunidad_mejora" },
+      { funcion: "1.5", clasificacion: "observacion" },
+    ],
+    0,
+    3,
+  )
+  assert.strictEqual(v.veredicto, "pasa")
+  assert.strictEqual(v.conteo.oportunidadMejora, 1)
+  assert.strictEqual(v.conteo.conformidad, 3)
+  assert.strictEqual(v.veredictoPorFuncion["1.6"], "pasa")
+  assert.strictEqual(derivarVeredicto([{ funcion: "1.6", clasificacion: "nc_menor" }], 0).veredictoPorFuncion["1.6"], "no_pasa")
+}
+{
+  // Conformidad: solo criterio + evidencia. OM: exige criterio y condición. KPI: objeto kpi completo.
+  const conf = validarDemostracion([{ funcion: "1.1", clasificacion: "conformidad", fragmento: "«x»", criterio: "C1" }])
+  assert.strictEqual(conf.hallazgos[0].clasificacion, "conformidad")
+  const confSinCriterio = validarDemostracion([{ funcion: "1.1", clasificacion: "conformidad", fragmento: "«x»" }])
+  assert.strictEqual(confSinCriterio.hallazgos[0].clasificacion, "observacion")
+
+  const omSinCondicion = validarDemostracion([
+    { funcion: "1.6", clasificacion: "oportunidad_mejora", fragmento: "«x»", criterio: "C2", demostracion: { tipo: "regla_funcion", detalle: "1.6" } },
+  ])
+  assert.strictEqual(omSinCondicion.hallazgos[0].clasificacion, "observacion")
+
+  const kpiOk = validarDemostracion([
+    {
+      funcion: "1.6",
+      clasificacion: "nc_menor",
+      fragmento: "«x»",
+      criterio: "C2",
+      demostracion: { tipo: "kpi", detalle: "meta 95%" },
+      kpi: { nombre: "Cumplimiento", periodo: "2026-08", resultado: "80%" },
+    },
+  ])
+  assert.strictEqual(kpiOk.hallazgos[0].clasificacion, "nc_menor")
+  const kpiIncompleto = validarDemostracion([
+    { funcion: "1.6", clasificacion: "nc_menor", fragmento: "«x»", demostracion: { tipo: "kpi", detalle: "meta 95%" }, kpi: { nombre: "Cumplimiento" } },
+  ])
+  assert.strictEqual(kpiIncompleto.hallazgos[0].clasificacion, "observacion")
 }
 
 console.log("auditorias.selfcheck: OK")

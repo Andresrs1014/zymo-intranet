@@ -15,17 +15,24 @@ const HallazgoIn = z.object({
   clasificacion: z.enum(CLASIFICACIONES),
   fragmento: z.string().min(1),
   archivo: z.string().nullable().optional(),
+  tipoDocumento: z.string().nullable().optional(),
+  criterio: z.string().nullable().optional(),
+  condicion: z.string().nullable().optional(),
   descripcion: z.string().min(1),
   demostracion: z.any().optional(),
   palabra: z.any().nullable().optional(),
+  kpi: z.any().nullable().optional(),
   impacto: z.string().nullable().optional(),
+  riesgo: z.any().nullable().optional(),
+  causa: z.any().nullable().optional(),
   dedupeKey: z.string().min(1),
   sustituyeA: z.number().int().positive().nullable().optional(),
 })
 
 const ConsultaIn = z.object({
-  tipo: z.enum(["documento_faltante", "contexto_operativo"]),
+  tipo: z.enum(["documento_faltante", "contexto_operativo", "dato_kpi"]),
   funcion: z.enum(FUNCIONES),
+  datos: z.any().nullable().optional(), // dato_kpi: { kpi, faltante, periodo }
   fragmento: z.string().nullable().optional(),
   documentoEsperado: z.string().nullable().optional(),
   motivo: z.string().nullable().optional(),
@@ -38,6 +45,15 @@ const CierreIn = z.object({
   evidencia: z.string().min(1),
 })
 
+// §8.1: una entrada por cada hallazgo ABIERTO de la corrida anterior.
+const SeguimientoIn = z.object({
+  hallazgoId: z.number().int().positive(),
+  estado: z.enum(["cerrado", "sigue_abierto", "sustituido", "no_evaluable"]),
+  motivo: z.string().min(1),
+  evidencia: z.string().nullable().optional(),
+  abiertoDesdeCommit: z.number().int().nullable().optional(),
+})
+
 const AuditoriaSchema = z.object({
   procedimientoId: z.number().int().positive(),
   commitId: z.number().int().positive().nullable().optional(),
@@ -48,6 +64,12 @@ const AuditoriaSchema = z.object({
   modelosUsados: z.array(z.string()).default([]),
   tokensUsados: z.number().int().nonnegative().optional(),
   operadorNombre: z.string().nullable().optional(),
+  alcance: z.any().optional(),
+  criterios: z.array(z.any()).default([]),
+  comprensionProceso: z.string().nullable().optional(),
+  supuestos: z.array(z.any()).default([]),
+  recomendaciones: z.string().nullable().optional(),
+  seguimiento: z.array(SeguimientoIn).default([]),
   hallazgos: z.array(HallazgoIn).default([]),
   consultas: z.array(ConsultaIn).default([]),
   cierres: z.array(CierreIn).default([]),
@@ -87,6 +109,12 @@ router.post("/auditorias", requireSigAccess, async (req: Request, res: Response)
           reporteMarkdown: b.reporteMarkdown,
           normas: b.normas,
           alcanceArchivos: b.alcanceArchivos,
+          alcance: b.alcance ?? {},
+          criterios: b.criterios,
+          comprensionProceso: b.comprensionProceso ?? null,
+          supuestos: b.supuestos,
+          recomendaciones: b.recomendaciones ?? null,
+          seguimiento: b.seguimiento,
           modelosUsados: b.modelosUsados,
           tokensUsados: b.tokensUsados ?? null,
           autorId,
@@ -102,7 +130,15 @@ router.post("/auditorias", requireSigAccess, async (req: Request, res: Response)
         where: { procedimientoId: b.procedimientoId, estado: "ABIERTO" },
         select: { id: true, dedupeKey: true },
       })
-      const previosPorKey = new Map(previosAbiertos.map((h) => [h.dedupeKey, h.id]))
+      // Las conformidades se deduplican contra las ya registradas (línea base).
+      const previosConformes = await tx.sigHallazgo.findMany({
+        where: { procedimientoId: b.procedimientoId, estado: "CONFORME" },
+        select: { dedupeKey: true },
+      })
+      const previosPorKey = new Map<string, number>([
+        ...previosAbiertos.map((h): [string, number] => [h.dedupeKey, h.id]),
+        ...previosConformes.map((h): [string, number] => [h.dedupeKey, 0]),
+      ])
 
       // 2) Hallazgos nuevos: se omite el que ya existe ABIERTO con el mismo
       //    dedupeKey (es el mismo hallazgo de una corrida anterior).
@@ -125,12 +161,19 @@ router.post("/auditorias", requireSigAccess, async (req: Request, res: Response)
             clasificacion: h.clasificacion,
             fragmento: h.fragmento,
             archivo: h.archivo ?? null,
+            tipoDocumento: h.tipoDocumento ?? null,
+            criterio: h.criterio ?? null,
+            condicion: h.condicion ?? null,
             descripcion: h.descripcion,
             demostracion: h.demostracion ?? {},
             palabra: h.palabra ?? undefined,
+            kpi: h.kpi ?? undefined,
             impacto: h.impacto ?? null,
+            riesgo: h.riesgo ?? undefined,
+            causa: h.causa ?? undefined,
             dedupeKey: h.dedupeKey,
             sustituyeA: h.sustituyeA ?? null,
+            estado: h.clasificacion === "conformidad" ? "CONFORME" : "ABIERTO",
           })),
         })
       }
@@ -143,6 +186,7 @@ router.post("/auditorias", requireSigAccess, async (req: Request, res: Response)
             auditoriaId: aud.id,
             tipo: c.tipo,
             funcion: c.funcion,
+            datos: c.datos ?? undefined,
             fragmento: c.fragmento ?? null,
             documentoEsperado: c.documentoEsperado ?? null,
             motivo: c.motivo ?? null,
@@ -154,8 +198,19 @@ router.post("/auditorias", requireSigAccess, async (req: Request, res: Response)
       // 4) Cierres: el agente cierra los hallazgos previos que esta versión
       //    resuelve (rúbrica §8). Solo aplica a hallazgos ABIERTO del mismo
       //    procedimiento.
+      // `cierres[]` es el subconjunto de `seguimiento[]` cerrado (§6.2). Una entrada
+      // "sustituido" también cierra el hallazgo previo (§8.1); el nuevo ya trae
+      // `sustituyeA`. Se unen para no exigir que el cliente mande el dato dos veces.
+      const cierresTodos = [...b.cierres]
+      for (const e of b.seguimiento) {
+        if ((e.estado === "cerrado" || e.estado === "sustituido") && e.evidencia) {
+          if (!cierresTodos.some((c) => c.hallazgoId === e.hallazgoId)) {
+            cierresTodos.push({ hallazgoId: e.hallazgoId, motivo: e.motivo, evidencia: e.evidencia })
+          }
+        }
+      }
       const cerradosIds: number[] = []
-      for (const cierre of b.cierres) {
+      for (const cierre of cierresTodos) {
         const r = await tx.sigHallazgo.updateMany({
           where: { id: cierre.hallazgoId, procedimientoId: b.procedimientoId, estado: "ABIERTO" },
           data: {
@@ -174,9 +229,33 @@ router.post("/auditorias", requireSigAccess, async (req: Request, res: Response)
       //  dedupeKey) NI cerró. Quedan ABIERTO pero se reportan: el agente
       //  tiene que dar cuenta de todos.
       const keysEntrantes = new Set(hallazgosValidados.map((h) => h.dedupeKey))
+      const idsSeguimiento = new Set(b.seguimiento.map((e) => e.hallazgoId))
       const noMencionados = previosAbiertos
-        .filter((p) => !keysEntrantes.has(p.dedupeKey) && !cerradosIds.includes(p.id))
+        .filter(
+          (p) =>
+            !keysEntrantes.has(p.dedupeKey) &&
+            !cerradosIds.includes(p.id) &&
+            !idsSeguimiento.has(p.id),
+        )
         .map((p) => p.id)
+
+      // §8.2 — cuadre: cerrados + siguen abiertos + sustituidos + no evaluables
+      // debe igualar los hallazgos abiertos previos a esta corrida.
+      const conteoSeg = { cerrado: 0, sigue_abierto: 0, sustituido: 0, no_evaluable: 0 }
+      const previosIds = new Set(previosAbiertos.map((p) => p.id))
+      for (const e of b.seguimiento) {
+        if (previosIds.has(e.hallazgoId)) conteoSeg[e.estado]++
+      }
+      const cuadre = {
+        previos: previosAbiertos.length,
+        cerrados: conteoSeg.cerrado,
+        siguenAbiertos: conteoSeg.sigue_abierto,
+        sustituidos: conteoSeg.sustituido,
+        noEvaluables: conteoSeg.no_evaluable,
+        cuadra:
+          conteoSeg.cerrado + conteoSeg.sigue_abierto + conteoSeg.sustituido + conteoSeg.no_evaluable ===
+          previosAbiertos.length,
+      }
 
       // 5) Veredicto = estado ACTUAL del procedimiento tras esta corrida:
       //    todos los hallazgos ABIERTO + consultas ABIERTA.
@@ -187,14 +266,19 @@ router.post("/auditorias", requireSigAccess, async (req: Request, res: Response)
       const consultasAbiertas = await tx.sigConsulta.count({
         where: { procedimientoId: b.procedimientoId, estado: "ABIERTA" },
       })
-      const { veredicto, veredictoPorFuncion, conteo } = derivarVeredicto(abiertos, consultasAbiertas)
+      const conformidades = hallazgosValidados.filter((h) => h.clasificacion === "conformidad").length
+      const { veredicto, veredictoPorFuncion, conteo } = derivarVeredicto(
+        abiertos,
+        consultasAbiertas,
+        conformidades,
+      )
 
       const auditoria = await tx.sigAnalisisAuditoria.update({
         where: { id: aud.id },
         data: { veredicto, veredictoPorFuncion, conteo },
         include: { hallazgos: true, consultas: true },
       })
-      return { auditoria, deduplicados, cerradosIds, noMencionados }
+      return { auditoria, deduplicados, cerradosIds, noMencionados, cuadre }
     })
 
     res.status(201).json({
@@ -204,6 +288,7 @@ router.post("/auditorias", requireSigAccess, async (req: Request, res: Response)
         hallazgosDeduplicados: resultado.deduplicados,
         hallazgosCerrados: resultado.cerradosIds,
         hallazgosPreviosNoMencionados: resultado.noMencionados,
+        cuadreSeguimiento: resultado.cuadre,
       },
     })
   } catch (e) {
@@ -218,7 +303,10 @@ router.get("/auditorias", async (req: Request, res: Response) => {
     where: procedimientoId ? { procedimientoId: parseInt(procedimientoId as string) } : {},
     orderBy: { createdAt: "desc" },
     take: limit ? parseInt(limit as string) : 20,
-    include: { _count: { select: { hallazgos: true, consultas: true } } },
+    include: {
+      _count: { select: { hallazgos: true, consultas: true } },
+      procedimiento: { select: { codigo: true, titulo: true, area: { select: { nombre: true, color: true } } } },
+    },
   })
   res.json(auditorias)
 })

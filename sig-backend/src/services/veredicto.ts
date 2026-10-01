@@ -2,20 +2,41 @@
 // Puro, sin I/O. El veredicto NUNCA lo manda el cliente: se deriva acá a partir
 // de la clasificación de los hallazgos ABIERTO + el nº de consultas ABIERTA.
 
-export const FUNCIONES = ["1.1", "1.2", "1.3", "1.4"] as const
-export const CLASIFICACIONES = ["observacion", "nc_menor", "nc_mayor"] as const
+export const FUNCIONES = ["1.1", "1.2", "1.3", "1.4", "1.5", "1.6"] as const
+export const CLASIFICACIONES = [
+  "conformidad",
+  "observacion",
+  "oportunidad_mejora",
+  "nc_menor",
+  "nc_mayor",
+] as const
 
 export interface VeredictoDerivado {
   veredicto: "pasa" | "no_pasa" | "incompleto"
   veredictoPorFuncion: Record<string, "pasa" | "no_pasa">
-  conteo: { ncMayor: number; ncMenor: number; observacion: number; consulta: number }
+  conteo: {
+    ncMayor: number
+    ncMenor: number
+    observacion: number
+    oportunidadMejora: number
+    conformidad: number
+    consulta: number
+  }
 }
 
 export function derivarVeredicto(
   hallazgos: Array<{ funcion: string; clasificacion: string }>,
   consultasAbiertas: number,
+  conformidades = 0,
 ): VeredictoDerivado {
-  const conteo = { ncMayor: 0, ncMenor: 0, observacion: 0, consulta: consultasAbiertas }
+  const conteo = {
+    ncMayor: 0,
+    ncMenor: 0,
+    observacion: 0,
+    oportunidadMejora: 0,
+    conformidad: conformidades,
+    consulta: consultasAbiertas,
+  }
   const veredictoPorFuncion: Record<string, "pasa" | "no_pasa"> = {}
   for (const f of FUNCIONES) veredictoPorFuncion[f] = "pasa"
 
@@ -28,6 +49,8 @@ export function derivarVeredicto(
       if (h.funcion in veredictoPorFuncion) veredictoPorFuncion[h.funcion] = "no_pasa"
     } else if (h.clasificacion === "observacion") {
       conteo.observacion++
+    } else if (h.clasificacion === "oportunidad_mejora") {
+      conteo.oportunidadMejora++
     }
   }
 

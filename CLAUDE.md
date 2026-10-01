@@ -146,7 +146,7 @@ Clonar y adaptar para cada nuevo backend Node.
 ### Routers
 - `procedimientos.ts` — CRUD de procedimientos, versionado, commit de documentos, flujogramas MMD
 - `instructivos.ts` — instructivos con extracción de texto servidor-side; `POST /:id/reextract` para re-procesar el archivo original
-- `analisis.ts` — análisis IA (sig-ia/LightRAG); store de jobs con estados `running|done|error|cancelled`
+- `auditorias.ts` — recibe/lista las auditorías del agente (ver abajo). **La intranet ya no ejecuta ningún análisis con IA** (retirado 2026-10-01, plan `docs/PLAN-separacion-sig-agente.md`): solo guarda documentos, versiones y los resultados que le envía el MCP.
 - `commits.ts` — historial de versiones de archivos adjuntos a procedimientos
 
 ### Extracción de texto (`services/textExtraction.ts`)
@@ -169,42 +169,24 @@ Flujo nuevo, separado del análisis de 8 categorías (`sig_analyze_full`). Rúbr
   - `SigAnalisisAuditoria` — 1 fila por corrida. **Sin score**: `veredicto` (`pasa`/`no_pasa`/`incompleto`) **derivado en el servidor** (`src/services/veredicto.ts`), nunca lo manda el cliente. `commitId` (versión analizada), `autorId` (cuenta IA rol `IA_SIG`) + `operadorNombre` (humano) + `validadoPor/En`.
   - `SigHallazgo` — entidad con ciclo de vida. `estado` `ABIERTO`/`CERRADO`, `dedupeKey`, `demostracion` (Json), `palabra` (Json §1.2), `evidenciaCierre`, `sustituyeA`. El agente cierra los que una versión nueva resuelve (§8).
   - `SigConsulta` — `tipo` `documento_faltante`/`contexto_operativo`; mientras haya `ABIERTA` el veredicto es `incompleto`.
+  - **Rúbrica v2 (2026-10-01, migración `20261001120000_auditoria_rubrica_v2`)**: funciones 1.1–1.6; clasificaciones `conformidad` (estado `CONFORME`, no cuenta para el veredicto) y `oportunidad_mejora`; hallazgo con `criterio`/`condicion`/`riesgo`/`causa`/`kpi`/`tipoDocumento`; consulta `dato_kpi`; auditoría con `alcance`/`criterios`/`comprensionProceso`/`supuestos`/`seguimiento[]` (§8) y `orquestacion.cuadreSeguimiento` (§8.2). **Pendiente:** `procesoId` (no existe entidad Proceso) y que `sig_review_submit` del MCP envíe los campos nuevos.
 - **Router** `src/routers/auditorias.ts` (montado en `app.use("/api", ...)`): `POST /api/auditorias` (crea auditoría+hallazgos+consultas en 1 transacción, valida demostración §4 con `src/services/hallazgoValidacion.ts` → los sin prueba bajan a `observacion`, deduplica por `dedupeKey`, aplica `cierres[]`, calcula `hallazgosPreviosNoMencionados` §8.1, deriva veredicto). `GET/PATCH` de `/api/auditorias`, `/api/hallazgos`, `/api/consultas`. Todo `requireSigAccess`.
 - **MCP** (`mcp001-intranet`): NO corre LLM. `sig_review_context` (arma procedimiento + subdocs + hallazgos abiertos + rúbrica) → el CLI que llama analiza con su propio modelo → `sig_review_submit` (backend valida/deduplica/deriva/persiste) → `sig_list_findings` / `sig_close_finding` / `sig_answer_consulta` para el ciclo de vida.
 - Rol `IA_SIG` (`backend/app/main.py` `_DEFAULT_ROLES`, `app_permissions: ["mod_sig"]`): acceso total al SIG salvo aprobar commits/archivos (eso exige admin/gerente vía `requireGerente`). Self-check: `npm run selfcheck` (incluye `auditorias.selfcheck.ts` — derivación del veredicto + validación de demostración).
-
-### Análisis IA — cancelación de jobs
-Los `AbortController` se guardan en el Map `_jobControllers` a nivel de módulo en `SigAnalisisPanel.tsx`. La función exportada `cancelAnalysisJob(id)` permite que cualquier componente cancele un job sin pasar por el store (que no puede guardar objetos no serializables).
 
 ### `GET /sig-api/api/instructivos` — `procedimientoId` opcional
 El query param `procedimientoId` es opcional. Sin él retorna todos los instructivos del SIG. Con él filtra por procedimiento. Antes requería el param (400 si faltaba) — ese comportamiento fue eliminado.
 
 ---
 
-## LightRAG — Grafo de conocimiento dual
-
-`backend/app/agents/lightrag_service.py` gestiona dos instancias independientes:
-
-| ID | Nombre | Directorio en servidor | Propósito |
-|---|---|---|---|
-| `rag1` | Jarvis | `/app/data/lightrag` | Empresa tal como opera hoy |
-| `rag2` | Ultron | `/app/data/lightrag_rag2` | Empresa con procedimientos corregidos |
-
-- LLM de extracción: **Gemini 2.5 Flash** (`settings.gemini_model`, `backend/app/config.py:75` — corregido 2026-08-03, decía 2.0)
-- Embeddings: **Ollama `nomic-embed-text`** (768 dims, local en servidor, sin cuota)
-- `get_rag(rag_id)` — singleton lazy por instancia, con lock asyncio para evitar init concurrente
-- `indexar_texto(texto, rag_id)` y `buscar_conocimiento(query, modo, rag_id)` son la API pública
-
-Endpoints en `sig_ia.py`:
-- `POST /api/sig-ia/indexar-lightrag` — job async, indexa procedimiento + instructivos
-- `POST /api/sig-ia/consultar-rag` — consulta síncrona con modos `local|global|mix`
-- `GET /api/sig-ia/rag-status?rag_id=rag1` — inspecciona archivos del working dir: cuenta docs, chunks, entidades y relaciones del `.graphml`
+## LightRAG
+Los endpoints `/api/sig-ia/*` (análisis, chat, editar-con-IA, indexar/consultar RAG) y los paneles de IA del frontend del SIG se **retiraron el 2026-10-01**. `backend/app/agents/lightrag_service.py` sigue existiendo solo para el agente administrativo (`agentes.py`, `doc_tools.py`). El contexto de empresa del agente analista vivirá en los grafos de `C:\Gestion_documental\grafo-sig` (ver plan), no en LightRAG.
 
 ---
 
 ## MCP externo — `mcp001-intranet`
 
-Servidor MCP en `C:\Gestion_documental\mcps\mcp001-intranet` que expone 15 herramientas del SIG a Codex, Claude Code y cualquier cliente MCP. Permite que agentes externos (Codex/GPT) lean y analicen procedimientos usando su propia licencia de LLM, sin consumir la API key del servidor.
+Servidor MCP en `C:\Gestion_documental\mcps\mcp001-intranet` que expone 16 herramientas del SIG a Codex, Claude Code y cualquier cliente MCP. Permite que agentes externos (Codex/GPT) lean y analicen procedimientos usando su propia licencia de LLM, sin consumir la API key del servidor.
 
 - Paquete Python instalable: `pip install git+https://github.com/Andresrs1014/mcp001-intranet.git`
 - Comando: `mcp001-intranet` (entry point del paquete)
@@ -219,7 +201,7 @@ Servidor MCP en `C:\Gestion_documental\mcps\mcp001-intranet` que expone 15 herra
 ### Routers clave
 - `auth.py` — JWT, registro, `/auth/me` (devuelve `app_permissions` + `user_tools`)
 - `roles.py` — gestión de roles con `app_permissions: list[str]` editable
-- `sig_ia.py` (antes `netvault.py`, renombrado 2026-08-24 — sin relación con el repo personal "NetVault" del usuario, era solo coincidencia de nombre) — análisis IA + LightRAG del SIG. Endpoints bajo `/api/sig-ia/`: `/analizar`, `/analizar-coherencia`, `/analizar-mejoras`, `/analizar-proc-vs-inst`, `/analizar-cargos`, `/editar-con-ia`, `/chat`, `/indexar-lightrag`, `/consultar-rag`, `/rag-status`, `/job/:id`, `/rubrica`
+- `sig_pdf.py` — PDF de procedimientos (el PDF de análisis legacy se retiró 2026-10-01). El antiguo `sig_ia.py` (análisis IA + LightRAG del SIG) se eliminó.
 - `oc/` — flujo completo de órdenes de compra
 - `mantenimiento/` — FSM de mantenimiento (ver sección abajo)
 - `personal.py` — directorio T&C (164 personas), sin base de datos propia: lee `_persona_dict` desde `main_db`
@@ -333,7 +315,7 @@ Decisión explícita 2026-07-28 (comentarios en `libertadora-backend/src/app.ts:
 `LibertadoraProspecto`, `LibertadoraCita`, `LibertadoraMeta` (fila única id=1) y `LibertadoraUser` (`isAdmin` booleano controla quién puede crear/desactivar/resetear contraseña de otras cuentas; contraseña fijada a mano, sin flujo de recuperación por correo todavía).
 
 ### Respaldo hacia SIG — nunca se construyó el lado emisor
-La versión anterior de esta sección describía un `services/sigBackup.ts` fire-and-forget hacia `sig-backend`. **Ese archivo no existe** en `libertadora-backend` — nada en su código llama a `sig-backend`. El lado receptor sí sigue ahí (`sig-backend`: modelo `SigLibertadoraBackup`, endpoint `POST /api/libertadora-backup`) pero es código muerto, nunca se invoca. Si se quiere retomar ese respaldo, hay que construirlo desde cero del lado de `libertadora-backend`.
+La versión anterior de esta sección describía un `services/sigBackup.ts` fire-and-forget hacia `sig-backend`. **Ese archivo no existe** en `libertadora-backend` — nada en su código llama a `sig-backend`. El lado receptor (`SigLibertadoraBackup`, `POST /api/libertadora-backup`) se **eliminó el 2026-10-01**; la tabla tenía 134 filas, respaldadas en `C:\Gestion_documentalackups\sig-legacy-2026-10-01\legacy_tables.sql`. Si se quiere retomar ese respaldo, hay que construirlo desde cero del lado de `libertadora-backend`.
 
 ### ⚠️ Brecha real encontrada (no solo documentación) — código embebido en `zymo-intranet/frontend` quedó roto
 `frontend/src/components/libertadora/*`, `frontend/src/pages/libertadora/*` y `frontend/src/lib/libertadoraApi.ts` **siguen en el repo de la intranet** y datan de antes del pivote del 2026-07-28 — nunca se actualizaron ni se borraron:

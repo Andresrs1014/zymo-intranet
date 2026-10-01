@@ -35,11 +35,6 @@ model SigProcedimiento {
   instructivos         SigInstructivo[]
   formatos             SigFormato[]
   docAnexos            SigDocAnexo[]
-  analisisCoherencia   SigAnalisisCoherencia[]
-  analisisMejoras      SigAnalisisMejoras[]
-  analisisProcVsInst   SigAnalisisProcVsInst[]
-  analisisCargos       SigAnalisisCargos[]
-  analisisCompleto     SigAnalisisCompleto[]
   cargosInvolucrados   SigProcedimientoCargo[]
   auditorias           SigAnalisisAuditoria[]
   hallazgos            SigHallazgo[]
@@ -215,78 +210,6 @@ model SigArchivoPendiente {
   @@index([createdAt])
 }
 
-// ── Análisis de Coherencia ────────────────────────────────────────────────────
-
-model SigAnalisisCoherencia {
-  id              Int              @id @default(autoincrement())
-  procedimientoId Int
-  procedimiento   SigProcedimiento @relation(fields: [procedimientoId], references: [id], onDelete: Cascade)
-
-  coherente  Boolean
-  puntaje    Float?
-  resumen    String @db.Text
-  issues     Json   @default("[]")
-
-  flujogramaConsistente Boolean?
-  flujogramaDiff        String?  @db.Text
-
-  autorId      Int
-  autorNombre  String
-  tokensUsados Int?
-  modeloUsado  String @default("claude-sonnet-4-6")
-
-  createdAt DateTime @default(now())
-
-  @@index([procedimientoId])
-  @@index([createdAt])
-}
-
-// ── Análisis de Mejoras ───────────────────────────────────────────────────────
-
-model SigAnalisisMejoras {
-  id              Int              @id @default(autoincrement())
-  procedimientoId Int
-  procedimiento   SigProcedimiento @relation(fields: [procedimientoId], references: [id], onDelete: Cascade)
-
-  findings         Json   @default("[]")
-  proposals        Json   @default("[]")
-  markdownMejorado String? @db.Text
-  resumen          String  @db.Text
-
-  autorId      Int
-  autorNombre  String
-  tokensUsados Int?
-  modeloUsado  String @default("claude-sonnet-4-6")
-
-  createdAt DateTime @default(now())
-
-  @@index([procedimientoId])
-  @@index([createdAt])
-}
-
-// ── Análisis de Cargos y Funciones ───────────────────────────────────────────
-
-model SigAnalisisCargos {
-  id              Int              @id @default(autoincrement())
-  procedimientoId Int
-  procedimiento   SigProcedimiento @relation(fields: [procedimientoId], references: [id], onDelete: Cascade)
-
-  cargos           Json   @default("[]")
-  comparaciones    Json   @default("[]")
-  cargos_sin_manual Json  @default("[]")
-  resumen String @db.Text
-
-  autorId      Int
-  autorNombre  String
-  tokensUsados Int?
-  modeloUsado  String @default("claude-sonnet-4-6")
-
-  createdAt DateTime @default(now())
-
-  @@index([procedimientoId])
-  @@index([createdAt])
-}
-
 // ── Cargos T&C asignados a un procedimiento (para análisis IA) ───────────────
 
 model SigProcedimientoCargo {
@@ -300,51 +223,6 @@ model SigProcedimientoCargo {
   @@unique([procedimientoId, cargoId])
   @@index([procedimientoId])
   @@index([cargoId])
-}
-
-// ── Análisis Procedimiento vs Instructivos ────────────────────────────────────
-
-model SigAnalisisProcVsInst {
-  id              Int              @id @default(autoincrement())
-  procedimientoId Int
-  procedimiento   SigProcedimiento @relation(fields: [procedimientoId], references: [id], onDelete: Cascade)
-
-  instructivoIds Json    @default("[]")
-  coherente      Boolean
-  resumen        String  @db.Text
-  conflictos     Json    @default("[]")
-
-  autorId      Int
-  autorNombre  String
-  tokensUsados Int?
-  modeloUsado  String @default("claude-sonnet-4-6")
-
-  createdAt DateTime @default(now())
-
-  @@index([procedimientoId])
-}
-
-// ── Análisis Completo (rúbrica) — hoy solo lo dispara el MCP (sig_analyze_full),
-// sin botón en la UI por costo/complejidad de la API key, decisión del usuario.
-
-model SigAnalisisCompleto {
-  id              Int              @id @default(autoincrement())
-  procedimientoId Int
-  procedimiento   SigProcedimiento @relation(fields: [procedimientoId], references: [id], onDelete: Cascade)
-
-  findings          Json    @default("[]")
-  proposals         Json    @default("[]")
-  markdownNormalizado String? @db.Text
-  flujogramaMmd     String? @db.Text
-
-  autorId      Int
-  autorNombre  String
-  tokensUsados Int?
-  modeloUsado  String @default("claude-sonnet-4-6")
-
-  createdAt DateTime @default(now())
-
-  @@index([procedimientoId])
 }
 
 // ── Auditoría del agente analista (multiagente MCP-001) ──────────────────────
@@ -362,11 +240,18 @@ model SigAnalisisAuditoria {
 
   veredicto           String  // "pasa" | "no_pasa" | "incompleto" (derivado en el servidor)
   veredictoPorFuncion Json    @default("{}")   // { "1.1": "pasa", "1.2": "no_pasa", ... }
-  conteo              Json    @default("{}")   // { ncMayor, ncMenor, observacion, consulta }
+  conteo              Json    @default("{}")   // { ncMayor, ncMenor, observacion, oportunidadMejora, conformidad, consulta }
   resumenEjecutivo    String  @db.Text
   reporteMarkdown     String  @db.Text
   normas              Json    @default("[]")   // ["ISO 9001", "BASC"]
   alcanceArchivos     Json    @default("[]")   // documentos que entraron al análisis
+  // Rúbrica §6.2: plan de auditoría, comprensión y seguimiento de la corrida.
+  alcance           Json    @default("{}")   // { tipo, documentos[], periodoKpi, muestra }
+  criterios         Json    @default("[]")   // [{ id, tipo, fuente, referencia }]
+  comprensionProceso String? @db.Text
+  supuestos         Json    @default("[]")
+  recomendaciones   String? @db.Text         // solo si el usuario las pidió (§0.7)
+  seguimiento       Json    @default("[]")   // una entrada por hallazgo abierto previo (§8)
 
   // Autoría: la cuenta IA (rol IA_SIG) ejecuta; el operador humano dispara; y luego valida.
   autorId        Int
@@ -403,18 +288,24 @@ model SigHallazgo {
   commitId        Int?                 // versión contra la que se levantó
   commit          SigCommit?           @relation(fields: [commitId], references: [id], onDelete: SetNull)
 
-  funcion       String  // "1.1" | "1.2" | "1.3" | "1.4"
+  funcion       String  // "1.1" … "1.6"
   nivel         Int     // 1 = comprensión humana, 2 = norma
-  clasificacion String  // "observacion" | "nc_menor" | "nc_mayor"
+  clasificacion String  // "conformidad" | "observacion" | "oportunidad_mejora" | "nc_menor" | "nc_mayor"
   fragmento     String  @db.Text
   archivo       String?
+  tipoDocumento String?                  // caracterizacion | procedimiento | instructivo | formato | …
+  criterio      String?                  // id dentro de SigAnalisisAuditoria.criterios
+  condicion     String? @db.Text         // brecha entre criterio y evidencia
   descripcion   String  @db.Text
-  demostracion  Json    @default("{}")   // { tipo, detalle, citasEnConflicto[] }
+  demostracion  Json    @default("{}")   // { tipo: contradiccion|clausula|regla_funcion|kpi, detalle, citasEnConflicto[] }
   palabra       Json?                    // sub-formato §1.2 (2 definiciones) cuando funcion = "1.2"
+  kpi           Json?                    // cuando funcion = "1.6": { nombre, objetivo, meta, periodo, resultado, fuenteDato }
   impacto       String? @db.Text
+  riesgo        Json?                    // { impacto, probabilidad, efectividadControl, prioridad, justificacion }
+  causa         Json?                    // { tipo: evidenciada|hipotesis, detalle }
   dedupeKey     String
 
-  estado          String    @default("ABIERTO")  // "ABIERTO" | "CERRADO"
+  estado          String    @default("ABIERTO")  // "ABIERTO" | "CERRADO" | "CONFORME"
   motivoCierre    String?   @db.Text
   evidenciaCierre String?   @db.Text               // fragmento nuevo que corrige el problema
   sustituyeA      Int?                             // id del hallazgo previo que este reemplaza
@@ -441,8 +332,9 @@ model SigConsulta {
   auditoriaId     Int
   auditoria       SigAnalisisAuditoria @relation(fields: [auditoriaId], references: [id], onDelete: Cascade)
 
-  tipo              String  // "documento_faltante" | "contexto_operativo"
+  tipo              String  // "documento_faltante" | "contexto_operativo" | "dato_kpi"
   funcion           String
+  datos             Json?   // dato_kpi: { kpi, faltante, periodo }
   fragmento         String? @db.Text
   documentoEsperado String?
   motivo            String? @db.Text
@@ -495,21 +387,3 @@ model SigReporteDesarrollo {
   @@index([fechaReporte])
 }
 
-// ── Respaldo automático de Libertadora (CRM Skandia CREA) ────────────────────
-// Copia de seguridad append-only que envía libertadora-backend en cada
-// creación/edición/borrado de un prospecto o cita — decisión explícita del
-// usuario ("que caiga al SIG... como backup automático, por si se necesita").
-// No es un espejo en vivo ni se consulta desde ningún flujo del SIG todavía,
-// solo respaldo histórico.
-
-model SigLibertadoraBackup {
-  id         Int      @id @default(autoincrement())
-  entity     String   // "prospecto" | "cita"
-  action     String   // "create" | "update" | "delete"
-  externalId Int      // id en la BD propia de libertadora-backend
-  payload    Json
-  createdAt  DateTime @default(now())
-
-  @@index([entity, externalId])
-  @@index([createdAt])
-}

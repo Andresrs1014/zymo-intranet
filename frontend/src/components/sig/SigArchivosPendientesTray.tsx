@@ -7,7 +7,7 @@ import {
   Trash2, ArrowRight, ChevronLeft, CheckCircle, Bot, User, Plus, Layers,
 } from "lucide-react"
 
-// Tray persistente abajo a la derecha (mismo patrón que SigAnalisisQueue) --
+// Tray persistente abajo a la derecha (overlay persistente) --
 // a diferencia del job queue, esto NO se vacía solo: los archivos quedan acá
 // hasta que alguien los asigna a mano, sobreviven cerrar/reabrir el tray.
 

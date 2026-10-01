@@ -13,18 +13,11 @@ import remarkGfm from "remark-gfm"
 import {
   FileText, GitCommit, Inbox, X,
   GitBranchPlus, GitBranch, Clock, ChevronRight, ChevronLeft, Check, Circle, Download,
-  Pencil, Eye, Sparkles, Save, XCircle, Loader, AlertCircle,
-  ClipboardCheck, RefreshCw, History, UploadCloud, BookOpen, Paperclip, Users, Database,
+  Pencil, Eye, Save, XCircle, Loader, AlertCircle,
+  ClipboardCheck, RefreshCw, History, UploadCloud, BookOpen, Paperclip, Users,
 } from "lucide-react"
-import { SigAiEditorPanel } from "@/components/sig/SigAiEditorPanel"
 import { MermaidDiagram } from "@/components/reportes/MermaidDiagram"
-import { useRunAnalysis } from "@/components/sig/SigAnalisisPanel"
-import { SigRagPanel } from "@/components/sig/SigRagPanel"
-import {
-  SigAnalisisSyncView, AnalisisDetailModal, TIPO_ICON, TIPO_LABEL, type HistorialItem,
-} from "@/components/sig/SigAnalisisSyncView"
-import { SigAnalisisQueue } from "@/components/sig/SigAnalisisQueue"
-import { SigAnalisisInspector } from "@/components/sig/SigAnalisisInspector"
+import { SigAuditoriasView, AuditoriasProcLista } from "@/components/sig/SigAuditoriasView"
 import { SigCargarModal, type PreselectedProc } from "@/components/sig/SigCargarModal"
 import { SigArchivosPendientesTray } from "@/components/sig/SigArchivosPendientesTray"
 import { SigInstructivosPanel, type SigInstructivo, InstructivoArchivoView, PROSE as INST_PROSE } from "@/components/sig/SigInstructivosPanel"
@@ -34,7 +27,7 @@ import { SigAnexoPanel } from "@/components/sig/SigAnexoPanel"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-type TabIcon = "file" | "diff" | "queue" | "sync" | "rag"
+type TabIcon = "file" | "diff" | "queue" | "sync"
 
 interface TabMeta {
   key: string
@@ -48,7 +41,6 @@ type ActiveView =
   | { kind: "procedure"; id: number }
   | { kind: "commit"; id: number }
   | { kind: "queue" }
-  | { kind: "rag" }
   | { kind: "analisis-sync" }
 
 // ── SigPage ────────────────────────────────────────────────────────────────────
@@ -132,12 +124,8 @@ function SigDesktopView() {
     openTab({ kind: "queue" }, { key: "queue", icon: "queue", title: "Cola de revisión" })
   }, [openTab])
 
-  const openRag = useCallback(() => {
-    openTab({ kind: "rag" }, { key: "rag", icon: "rag", title: "Grafo de conocimiento" })
-  }, [openTab])
-
   const openAnalisisSync = useCallback(() => {
-    openTab({ kind: "analisis-sync" }, { key: "analisis-sync", icon: "sync", title: "Historial de análisis" })
+    openTab({ kind: "analisis-sync" }, { key: "analisis-sync", icon: "sync", title: "Auditorías" })
   }, [openTab])
 
   // ── Derived state ─────────────────────────────────────────────────────────────
@@ -154,7 +142,6 @@ function SigDesktopView() {
         canEditSig={canEditSig}
         pendingCount={pendingCount}
         onOpenQueue={openQueue}
-        onOpenRag={openRag}
         onOpenSync={openAnalisisSync}
         onCargar={() => openCargar(null)}
       />
@@ -205,20 +192,13 @@ function SigDesktopView() {
             {activeView.kind === "queue" && (
               <ReviewQueueView onOpenCommit={openCommit} />
             )}
-            {activeView.kind === "rag" && <SigRagPanel />}
-            {activeView.kind === "analisis-sync" && <SigAnalisisSyncView />}
+            {activeView.kind === "analisis-sync" && <SigAuditoriasView />}
           </div>
         </div>
       </div>
 
       {/* Status bar */}
       <StatusBar pendingCount={pendingCount} isGerente={isGerente} activeView={activeView} />
-
-      {/* Analysis job queue — Google Drive style overlay */}
-      <SigAnalisisQueue />
-
-      {/* Floating inspector — bottom-left near sidebar */}
-      <SigAnalisisInspector />
 
       {/* Bolsa de archivos pendientes — persiste aunque se cierre, ver ArchivoPendiente */}
       <SigArchivosPendientesTray />
@@ -237,13 +217,12 @@ function SigDesktopView() {
 // ── Title bar ──────────────────────────────────────────────────────────────────
 
 function TitleBar({
-  isGerente, canEditSig, pendingCount, onOpenQueue, onOpenRag, onOpenSync, onCargar,
+  isGerente, canEditSig, pendingCount, onOpenQueue, onOpenSync, onCargar,
 }: {
   isGerente:            boolean
   canEditSig:           boolean
   pendingCount:         number
   onOpenQueue:          () => void
-  onOpenRag:            () => void
   onOpenSync:           () => void
   onCargar:             () => void
 }) {
@@ -266,18 +245,11 @@ function TitleBar({
           </button>
         )}
         <button
-          onClick={onOpenRag}
-          className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded border border-emerald-200 text-emerald-600 hover:bg-emerald-50 transition-colors"
-        >
-          <Database className="h-3 w-3" />
-          Grafo de conocimiento
-        </button>
-        <button
           onClick={onOpenSync}
           className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded border border-zinc-200 text-zinc-500 hover:border-zinc-400 hover:text-zinc-700 transition-colors font-mono"
         >
           <History className="h-3 w-3" />
-          Historial de análisis
+          Auditorías
         </button>
         {isGerente && pendingCount > 0 && (
           <button
@@ -299,7 +271,6 @@ const TAB_ICON: Record<TabIcon, React.ReactNode> = {
   file:    <FileText       className="h-3.5 w-3.5 text-zinc-400" />,
   diff:    <GitCommit      className="h-3.5 w-3.5 text-helix-ai/80" />,
   queue:   <Inbox          className="h-3.5 w-3.5 text-amber-500/70" />,
-  rag:     <Database        className="h-3.5 w-3.5 text-emerald-500/80" />,
   sync:    <History        className="h-3.5 w-3.5 text-zinc-400" />,
 }
 
@@ -427,7 +398,7 @@ interface CommitFull {
   flujogramaMmd:       string | null
 }
 
-type EditorMode = "view" | "edit" | "ai"
+type EditorMode = "view" | "edit"
 
 const ESTADO_PROC_BADGE: Record<string, string> = {
   BORRADOR: "text-zinc-500 border-zinc-300 bg-zinc-100",
@@ -461,8 +432,6 @@ function ProcedureFileView({
   const SHOW_DOC_TAB = false
   const [contentTab, setContentTab] = useState<"doc" | "archivo" | "soporte" | "formatos" | "docanexos" | "cargos" | "flujograma">(SHOW_DOC_TAB ? "doc" : "archivo")
   const [selectedInst, setSelectedInst] = useState<SigInstructivo | null>(null)
-  const [indexingRag, setIndexingRag] = useState(false)
-  const runAnalysis = useRunAnalysis()
   function switchTab(tab: "doc" | "archivo" | "soporte" | "formatos" | "docanexos" | "cargos" | "flujograma") {
     setContentTab(tab)
     if (tab !== "soporte") setSelectedInst(null)
@@ -482,12 +451,6 @@ function ProcedureFileView({
       return Array.isArray(res.data) ? res.data.length : 0
     },
   })
-
-  const { data: analisisHistorial = [] } = useQuery<HistorialItem[]>({
-    queryKey: ["sig", "analisis", "historial", "proc", id],
-    queryFn: () => sigApi.get("/api/analisis/historial", { params: { procedimientoId: id, limit: 50 } }).then((r) => r.data),
-  })
-  const [openAnalisisItem, setOpenAnalisisItem] = useState<HistorialItem | null>(null)
 
   const qc = useQueryClient()
   const [reextractErr, setReextractErr] = useState<string | null>(null)
@@ -569,24 +532,6 @@ function ProcedureFileView({
     }
   }
 
-  async function handleIndexRag() {
-    if (!content?.contenidoAgente || !proc || indexingRag) return
-    setIndexingRag(true)
-    try {
-      const inst = instructivosSnap.length > 0
-        ? (await sigApi.get(`/api/instructivos?procedimientoId=${id}&activo=true`)).data as Array<{ id: number; codigo: string; titulo: string; contenido: string }>
-        : []
-      void runAnalysis(
-        { id: proc.id, codigo: proc.codigo, titulo: proc.titulo, areaNombre: proc.area.nombre },
-        "lightrag",
-        content.contenidoAgente,
-        inst,
-      )
-    } finally {
-      setIndexingRag(false)
-    }
-  }
-
   if (procLoading) {
     return (
       <div className="flex items-center justify-center h-full bg-white">
@@ -632,31 +577,15 @@ function ProcedureFileView({
             {editorMode === "view" && currentContent && (
               <>
                 <button
-                  onClick={handleIndexRag}
-                  disabled={indexingRag}
-                  title="Indexar este procedimiento en el grafo de conocimiento LightRAG"
-                  className="flex items-center gap-1 text-[11px] px-2 py-1 rounded border border-emerald-200 text-emerald-600 hover:bg-emerald-50 transition-colors font-mono disabled:opacity-40"
-                >
-                  {indexingRag ? <Loader className="h-3 w-3 animate-spin" /> : <Database className="h-3 w-3" />}
-                  RAG
-                </button>
-                <button
                   onClick={enterEdit}
                   className="flex items-center gap-1 text-[11px] px-2 py-1 rounded border border-zinc-200 text-zinc-500 hover:border-zinc-300 hover:text-zinc-700 transition-colors font-mono"
                 >
                   <Pencil className="h-3 w-3" />
                   Editar
                 </button>
-                <button
-                  onClick={() => setEditorMode("ai")}
-                  className="flex items-center gap-1 text-[11px] px-2 py-1 rounded border border-violet-200 text-violet-600 hover:bg-violet-50 transition-colors font-mono"
-                >
-                  <Sparkles className="h-3 w-3" />
-                  Editar con IA
-                </button>
               </>
             )}
-            {(editorMode === "edit" || editorMode === "ai") && (
+            {editorMode === "edit" && (
               <button
                 onClick={() => setEditorMode("view")}
                 className="flex items-center gap-1 text-[11px] px-2 py-1 rounded border border-zinc-200 text-zinc-500 hover:text-zinc-700 transition-colors font-mono"
@@ -667,19 +596,6 @@ function ProcedureFileView({
             )}
           </div>
         </div>
-
-        {/* AI Editor mode */}
-        {editorMode === "ai" && (
-          <div className="flex-1 overflow-hidden">
-            <SigAiEditorPanel
-              procedimientoId={id}
-              procedureCode={proc.codigo}
-              area={procArea.nombre}
-              contenidoActual={currentContent}
-              onCommitCreated={() => setEditorMode("view")}
-            />
-          </div>
-        )}
 
         {/* Manual edit mode */}
         {editorMode === "edit" && (
@@ -1090,37 +1006,15 @@ function ProcedureFileView({
         <div className="flex items-center gap-2 px-3 h-7 border-b border-t border-zinc-200 shrink-0">
           <ClipboardCheck className="h-3 w-3 text-helix-ai/50" />
           <span className="text-[11px] text-helix-ai/60 font-mono uppercase tracking-widest">
-            Análisis
+            Auditorías
           </span>
         </div>
         <div className="shrink-0 max-h-64 overflow-y-auto py-1">
-          {analisisHistorial.length === 0 && (
-            <div className="px-4 py-6 text-[11px] text-zinc-400 italic text-center">
-              Sin análisis aún
-            </div>
-          )}
-          {analisisHistorial.map((item) => (
-            <button
-              key={`${item.tipo}-${item.id}`}
-              onClick={() => setOpenAnalisisItem(item)}
-              className="w-full flex items-center gap-2 px-3 py-2 border-b border-zinc-200/60 hover:bg-zinc-100 transition-colors text-left"
-            >
-              <span className="text-zinc-400 shrink-0">{TIPO_ICON[item.tipo]}</span>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs text-zinc-600 truncate leading-tight">{TIPO_LABEL[item.tipo]}</p>
-                <span className="text-[11px] text-zinc-400 font-mono">
-                  {new Date(item.createdAt).toLocaleDateString("es-CO", { day: "2-digit", month: "short" })}
-                </span>
-              </div>
-            </button>
-          ))}
+          <AuditoriasProcLista procId={id} variant="desktop" />
         </div>
       </div>
       )}
 
-      {openAnalisisItem && (
-        <AnalisisDetailModal item={openAnalisisItem} onClose={() => setOpenAnalisisItem(null)} />
-      )}
     </div>
   )
 }
@@ -1719,7 +1613,7 @@ function ReviewQueueView({
 // Shell con 4 pestañas inferiores: reutiliza los mismos paneles del escritorio
 // (ya son de una sola columna / max-w-3xl centrado) en vez de duplicar UI.
 
-type MobileTab = "cola" | "procedimientos" | "analisis" | "grafo"
+type MobileTab = "cola" | "procedimientos" | "analisis"
 
 function SigMobileEntry() {
   const user = useAuthStore((s) => s.user)
@@ -1823,12 +1717,11 @@ function SigMobileEntry() {
         {tab === "analisis" && (
           <div className="h-full flex flex-col bg-white">
             <div className="flex-1 overflow-hidden">
-              <SigAnalisisSyncView />
+              <SigAuditoriasView />
             </div>
           </div>
         )}
 
-        {tab === "grafo" && <SigRagPanel />}
       </div>
 
       {!drilled && <MobileTabBar tab={tab} onChange={setTab} pendingCount={commits.length} />}
@@ -1894,8 +1787,7 @@ function MobileTabBar({
   const items: { key: MobileTab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { key: "cola", label: "Cola", icon: <Inbox className="h-4 w-4" />, badge: pendingCount },
     { key: "procedimientos", label: "Procedimientos", icon: <FileText className="h-4 w-4" /> },
-    { key: "analisis", label: "Análisis", icon: <ClipboardCheck className="h-4 w-4" /> },
-    { key: "grafo", label: "Grafo", icon: <Database className="h-4 w-4" /> },
+    { key: "analisis", label: "Auditorías", icon: <ClipboardCheck className="h-4 w-4" /> },
   ]
   return (
     <div
@@ -1938,7 +1830,6 @@ function SigProcedureMobileView({
 }: { id: number; canEditSig: boolean; onBack: () => void; onOpenCommit: (id: number) => void }) {
   const [tab, setTab] = useState<ProcMobileTab>("contenido")
   const [selectedInst, setSelectedInst] = useState<SigInstructivo | null>(null)
-  const [openAnalisisItem, setOpenAnalisisItem] = useState<HistorialItem | null>(null)
   const qc = useQueryClient()
   const [reextractErr, setReextractErr] = useState<string | null>(null)
 
@@ -1964,11 +1855,6 @@ function SigProcedureMobileView({
   const { data: instructivosSnap = [] } = useQuery<{ id: number; codigo: string; titulo: string }[]>({
     queryKey: ["sig", "instructivos", id],
     queryFn: () => sigApi.get(`/api/instructivos?procedimientoId=${id}&activo=true`).then((r) => r.data),
-  })
-
-  const { data: analisisHistorial = [] } = useQuery<HistorialItem[]>({
-    queryKey: ["sig", "analisis", "historial", "proc", id],
-    queryFn: () => sigApi.get("/api/analisis/historial", { params: { procedimientoId: id, limit: 50 } }).then((r) => r.data),
   })
 
   const sortedCommits  = [...(proc?.commits ?? [])].sort(
@@ -2188,34 +2074,13 @@ function SigProcedureMobileView({
               </div>
             </div>
             <div>
-              <h3 className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wide px-2 mb-2">Análisis</h3>
-              {analisisHistorial.length === 0 && (
-                <p className="text-[12px] text-zinc-400 italic px-2">Sin análisis aún</p>
-              )}
-              <div className="space-y-1">
-                {analisisHistorial.map((item) => (
-                  <button
-                    key={`${item.tipo}-${item.id}`}
-                    onClick={() => setOpenAnalisisItem(item)}
-                    className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg border border-zinc-100 active:bg-zinc-50 transition-colors text-left"
-                  >
-                    <span className="text-zinc-400 shrink-0">{TIPO_ICON[item.tipo]}</span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[12.5px] text-zinc-700 truncate">{TIPO_LABEL[item.tipo]}</p>
-                      <p className="text-[11px] text-zinc-400 mt-0.5">
-                        {new Date(item.createdAt).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" })}
-                      </p>
-                    </div>
-                    <ChevronRight className="h-3.5 w-3.5 text-zinc-300 shrink-0" />
-                  </button>
-                ))}
-              </div>
+              <h3 className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wide px-2 mb-2">Auditorías</h3>
+              <AuditoriasProcLista procId={id} variant="mobile" />
             </div>
           </div>
         )}
       </div>
 
-      {openAnalisisItem && <AnalisisDetailModal item={openAnalisisItem} onClose={() => setOpenAnalisisItem(null)} />}
     </div>
   )
 }
@@ -2229,8 +2094,7 @@ function StatusBar({
     activeView.kind === "procedure"    ? "procedure"
     : activeView.kind === "commit"     ? "diff"
     : activeView.kind === "queue"      ? "queue"
-    : activeView.kind === "rag"        ? "grafo de conocimiento"
-    : activeView.kind === "analisis-sync" ? "historial de análisis"
+    : activeView.kind === "analisis-sync" ? "auditorías"
     : ""
 
   return (
