@@ -5,6 +5,7 @@ import multer from "multer"
 import path from "path"
 import fs from "fs/promises"
 import fsSync from "fs"
+import { SigEstadoCommit } from "@prisma/client"
 import prisma from "../config/prisma"
 import { getUserId, requireSigAccess, requireGerente } from "../middleware/auth"
 import { sendAprobacionEmail } from "../services/email"
@@ -53,11 +54,15 @@ const CommitSchema = z.object({
 
 router.get("/", async (req: Request, res: Response) => {
   const { procedimientoId, estado, limit } = req.query
+  if (estado && !Object.values(SigEstadoCommit).includes(estado as SigEstadoCommit)) {
+    res.status(400).json({ error: `estado inválido. Valores: ${Object.values(SigEstadoCommit).join(" | ")}` })
+    return
+  }
 
   const commits = await prisma.sigCommit.findMany({
     where: {
       ...(procedimientoId ? { procedimientoId: parseInt(procedimientoId as string) } : {}),
-      ...(estado ? { estado: estado as "PENDIENTE_REVISION" | "APROBADO" | "RECHAZADO" } : {}),
+      ...(estado ? { estado: estado as SigEstadoCommit } : {}),
     },
     include: {
       procedimiento: {

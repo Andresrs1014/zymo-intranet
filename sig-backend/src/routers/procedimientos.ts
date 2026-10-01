@@ -3,6 +3,7 @@ import { z } from "zod"
 import multer from "multer"
 import path from "path"
 import fs from "fs"
+import { SigEstadoProcedimiento } from "@prisma/client"
 import prisma from "../config/prisma"
 import { getUserId, requireSigAccess, requireGerente } from "../middleware/auth"
 import { extractText } from "../services/textExtraction"
@@ -84,11 +85,15 @@ const UpdateSchema = ProcedimientoSchema.partial().omit({ areaId: true })
 // GET /api/procedimientos — lista con filtros opcionales
 router.get("/", async (req: Request, res: Response) => {
   const { areaId, estado, q } = req.query
+  if (estado && !Object.values(SigEstadoProcedimiento).includes(estado as SigEstadoProcedimiento)) {
+    res.status(400).json({ error: `estado inválido. Valores: ${Object.values(SigEstadoProcedimiento).join(" | ")}` })
+    return
+  }
 
   const procedimientos = await prisma.sigProcedimiento.findMany({
     where: {
       ...(areaId ? { areaId: parseInt(areaId as string) } : {}),
-      ...(estado ? { estado: estado as any } : {}),
+      ...(estado ? { estado: estado as SigEstadoProcedimiento } : {}),
       ...(q ? {
         OR: [
           { titulo: { contains: q as string, mode: "insensitive" } },

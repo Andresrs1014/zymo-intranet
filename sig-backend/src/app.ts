@@ -1,4 +1,5 @@
 import "dotenv/config"
+import "./utils/asyncErrors" // ANTES de montar rutas: un handler async que lanza no debe tumbar el proceso
 import express, { Request, Response, NextFunction } from "express"
 import cors from "cors"
 import { env } from "./config/env"
@@ -45,8 +46,9 @@ app.use((_req: Request, res: Response) => {
 })
 
 // Error handler
-app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+app.use((err: Error, _req: Request, res: Response, next: NextFunction) => {
   console.error(err.stack)
+  if (res.headersSent) return next(err) // ya se empezó a responder: que Express cierre la conexión
   res.status(500).json({ error: "Error interno del servidor" })
 })
 
