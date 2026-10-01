@@ -32,7 +32,11 @@ const HallazgoIn = z.object({
 const ConsultaIn = z.object({
   tipo: z.enum(["documento_faltante", "contexto_operativo", "dato_kpi"]),
   funcion: z.enum(FUNCIONES),
-  datos: z.any().nullable().optional(), // dato_kpi: { kpi, faltante, periodo }
+  // Rúbrica §5.B/§5.C: una sola `pregunta`; dato_kpi trae kpi/faltante/periodo sueltos.
+  pregunta: z.string().nullable().optional(),
+  kpi: z.string().nullable().optional(),
+  faltante: z.string().nullable().optional(),
+  periodo: z.string().nullable().optional(),
   fragmento: z.string().nullable().optional(),
   documentoEsperado: z.string().nullable().optional(),
   motivo: z.string().nullable().optional(),
@@ -54,7 +58,7 @@ const SeguimientoIn = z.object({
   abiertoDesdeCommit: z.number().int().nullable().optional(),
 })
 
-const AuditoriaSchema = z.object({
+export const AuditoriaSchema = z.object({
   procedimientoId: z.number().int().positive(),
   commitId: z.number().int().positive().nullable().optional(),
   resumenEjecutivo: z.string().min(1),
@@ -186,11 +190,11 @@ router.post("/auditorias", requireSigAccess, async (req: Request, res: Response)
             auditoriaId: aud.id,
             tipo: c.tipo,
             funcion: c.funcion,
-            datos: c.datos ?? undefined,
+            datos: c.tipo === "dato_kpi" ? { kpi: c.kpi ?? null, faltante: c.faltante ?? null, periodo: c.periodo ?? null } : undefined,
             fragmento: c.fragmento ?? null,
             documentoEsperado: c.documentoEsperado ?? null,
             motivo: c.motivo ?? null,
-            preguntas: c.preguntas,
+            preguntas: c.pregunta ? [c.pregunta, ...c.preguntas] : c.preguntas,
           })),
         })
       }

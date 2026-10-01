@@ -175,4 +175,34 @@ import { validarDemostracion } from "../src/services/hallazgoValidacion"
   assert.strictEqual(kpiIncompleto.hallazgos[0].clasificacion, "observacion")
 }
 
+{
+  // Contrato con el MCP: un payload completo de la rúbrica §6.2 debe pasar el esquema del router.
+  const { AuditoriaSchema } = require("../src/routers/auditorias")
+  const payload = {
+    procedimientoId: 1,
+    commitId: 5,
+    resumenEjecutivo: "x",
+    reporteMarkdown: "# informe",
+    alcance: { tipo: "procedimiento", documentos: [{ codigo: "PRC-001" }], periodoKpi: { desde: "2026-01", hasta: "2026-06" } },
+    criterios: [{ id: "C1", tipo: "norma", fuente: "ISO 9001" }],
+    comprensionProceso: "…",
+    supuestos: ["asumo X"],
+    seguimiento: [{ hallazgoId: 3, estado: "sigue_abierto", motivo: "persiste desde v2" }],
+    hallazgos: [{
+      funcion: "1.6", nivel: 1, clasificacion: "oportunidad_mejora", fragmento: "«x»", descripcion: "d", dedupeKey: "k",
+      criterio: "C1", condicion: "brecha", demostracion: { tipo: "kpi", detalle: "meta" },
+      kpi: { nombre: "N", periodo: "2026-03", resultado: "80%" }, riesgo: { prioridad: "baja" }, causa: { tipo: "hipotesis", detalle: "?" },
+    }],
+    consultas: [
+      { tipo: "dato_kpi", funcion: "1.6", kpi: "N", faltante: "resultado", periodo: "2026-03", pregunta: "¿Se midió?" },
+      { tipo: "contexto_operativo", funcion: "1.1", fragmento: "«y»", pregunta: "¿Es claro?" },
+    ],
+  }
+  const r = AuditoriaSchema.safeParse(payload)
+  assert.ok(r.success, JSON.stringify(r.success ? "" : r.error.flatten()))
+  // estado de seguimiento inválido se rechaza
+  const mal = AuditoriaSchema.safeParse({ ...payload, seguimiento: [{ hallazgoId: 3, estado: "otro", motivo: "m" }] })
+  assert.ok(!mal.success)
+}
+
 console.log("auditorias.selfcheck: OK")

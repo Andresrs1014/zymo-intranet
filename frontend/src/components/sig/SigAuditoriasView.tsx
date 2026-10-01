@@ -61,6 +61,7 @@ interface Consulta {
   motivo: string | null
   fragmento: string | null
   preguntas: string[]
+  datos: { kpi?: string | null; faltante?: string | null; periodo?: string | null } | null
   estado: string
   respuestaUsuario: string | null
 }
@@ -458,6 +459,9 @@ function ConsultasLista({ consultas }: { consultas: Consulta[] }) {
             <span className="text-[10px] px-1.5 py-0.5 rounded-full border border-zinc-200 text-zinc-500 font-mono ml-auto">{c.estado}</span>
           </div>
           {c.motivo && <p className="text-[13px] text-zinc-800">{c.motivo}</p>}
+          {c.datos?.kpi && (
+            <Campo label="KPI" texto={`${c.datos.kpi} · falta ${c.datos.faltante ?? "dato"}${c.datos.periodo ? ` (${c.datos.periodo})` : ""}`} />
+          )}
           {c.fragmento && <blockquote className="mt-2 pl-3 border-l-2 border-zinc-200 text-[12px] text-zinc-500 italic">{c.fragmento}</blockquote>}
           <ul className="mt-2 list-disc pl-4 text-[12px] text-zinc-600 space-y-0.5">
             {c.preguntas.map((p, i) => <li key={i}>{p}</li>)}

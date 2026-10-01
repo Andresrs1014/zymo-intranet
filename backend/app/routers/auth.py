@@ -147,6 +147,12 @@ def login(
     return TokenResponse(access_token=token)
 
 
+@router.get("/admin-check", status_code=status.HTTP_204_NO_CONTENT)
+def admin_check(_: User = Depends(require_admin)) -> None:
+    """Sonda para proxies (nginx auth_request): 204 si el token es de un admin; 401/403 si no.
+    Sin cuerpo y sin tocar la BD más allá de validar al usuario."""
+
+
 @router.get("/me", response_model=MeResponse)
 def me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     from app.models.user_tool import UserTool
