@@ -7,9 +7,12 @@
 param(
   [string]$Dest = "C:\Respaldos-Zymo",
   [int]$Keep = 7,
-  [string]$Server = "zymo-claude"
+  [string]$Server = "zymo",   # alias de SSH (~/.ssh/config). Una tarea programada no puede teclear contraseña: ver -Key
+  [string]$Key = ""           # llave privada SIN contraseña para correr desatendido, p. ej. $HOME\.ssh\zymo_respaldos
 )
 $ErrorActionPreference = "Stop"
+$sshOpts = @("-o", "BatchMode=yes", "-o", "ConnectTimeout=20")
+if ($Key) { $sshOpts += @("-i", $Key, "-o", "IdentitiesOnly=yes") }
 New-Item -ItemType Directory -Force $Dest | Out-Null
 $log = Join-Path $Dest "pull.log"
 function Log($m) { "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')  $m" | Tee-Object -FilePath $log -Append | Write-Host }
@@ -19,12 +22,12 @@ $tmp = Join-Path $Dest ".recibiendo-$stamp"
 try {
   Log "inicio: $Server -> $Dest"
   # 1) ¿el servidor reporta problemas con sus propios respaldos?
-  $alerta = ssh -o BatchMode=yes -o ConnectTimeout=20 $Server 'cat ~/zymo-backups/ALERTA_RESPALDOS.txt 2>/dev/null; cat ~/zymo-backups/daily/LAST_FAILURE 2>/dev/null'
+  $alerta = ssh @sshOpts $Server 'cat ~/zymo-backups/ALERTA_RESPALDOS.txt 2>/dev/null; cat ~/zymo-backups/daily/LAST_FAILURE 2>/dev/null'
   if ($alerta) { Log "ATENCION, el servidor reporta: $($alerta -join ' | ')" }
 
   # 2) descarga (carpeta daily completa: Postgres, SQLite y adjuntos)
   New-Item -ItemType Directory -Force $tmp | Out-Null
-  scp -r -q -o BatchMode=yes -o ConnectTimeout=20 "${Server}:zymo-backups/daily" $tmp
+  scp -r -q @sshOpts "${Server}:zymo-backups/daily" $tmp
   if ($LASTEXITCODE -ne 0) { throw "scp falló (código $LASTEXITCODE)" }
 
   # 3) comprobaciones mínimas: que traiga las bases y que los .gz no estén truncados
@@ -40,7 +43,7 @@ try {
   }
   Rename-Item $tmp (Join-Path $Dest $stamp)
   $mb = [math]::Round(((Get-ChildItem (Join-Path $Dest $stamp) -Recurse -File | Measure-Object Length -Sum).Sum) / 1MB, 1)
-  Log "OK: $stamp ($($pg.Count) Postgres, $($sq.Count) SQLite, $mb MB). Copia del servidor: $(ssh -o BatchMode=yes $Server 'cat ~/zymo-backups/daily/LAST_SUCCESS')"
+  Log "OK: $stamp ($($pg.Count) Postgres, $($sq.Count) SQLite, $mb MB). Copia del servidor: $(ssh @sshOpts $Server 'cat ~/zymo-backups/daily/LAST_SUCCESS')"
 
   # 4) conservar solo las últimas $Keep descargas
   Get-ChildItem $Dest -Directory | Where-Object { $_.Name -match '^\d{8}-\d{4}$' } |
