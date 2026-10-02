@@ -352,14 +352,23 @@ router.patch("/auditorias/:id/validar", requireSigAccess, async (req: Request, r
   }
 })
 
-// ── GET /api/hallazgos?procedimientoId=&estado= ──────────────────────────────
+// ── GET /api/hallazgos?procedimientoId=&areaId=&estado= ──────────────────────
 // Lo usa el orquestador del MCP para cargar los hallazgos ABIERTO antes de una
-// re-corrida (rúbrica §7 / §8).
+// re-corrida (rúbrica §7 / §8). `areaId` trae los de todos los procedimientos del
+// área (para contar defectos repetidos); cada fila incluye el código del procedimiento.
 router.get("/hallazgos", async (req: Request, res: Response) => {
-  const { procedimientoId, estado, funcion } = req.query
+  const { procedimientoId, areaId, estado, funcion } = req.query
+  const pid = procedimientoId ? parseInt(procedimientoId as string) : undefined
+  const aid = areaId ? parseInt(areaId as string) : undefined
+  if (Number.isNaN(pid) || Number.isNaN(aid)) {
+    res.status(400).json({ error: "procedimientoId y areaId deben ser enteros" })
+    return
+  }
   const hallazgos = await prisma.sigHallazgo.findMany({
+    include: aid !== undefined ? { procedimiento: { select: { codigo: true } } } : undefined,
     where: {
-      ...(procedimientoId ? { procedimientoId: parseInt(procedimientoId as string) } : {}),
+      ...(pid !== undefined ? { procedimientoId: pid } : {}),
+      ...(aid !== undefined ? { procedimiento: { areaId: aid } } : {}),
       ...(estado ? { estado: (estado as string).toUpperCase() } : {}),
       ...(funcion ? { funcion: funcion as string } : {}),
     },
