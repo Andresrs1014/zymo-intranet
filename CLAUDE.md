@@ -174,6 +174,9 @@ Flujo nuevo, separado del análisis de 8 categorías (`sig_analyze_full`). Rúbr
 - **MCP** (`mcp001-intranet`): NO corre LLM. `sig_review_context` (arma procedimiento + subdocs + hallazgos abiertos + rúbrica) → el CLI que llama analiza con su propio modelo → `sig_review_submit` (backend valida/deduplica/deriva/persiste) → `sig_list_findings` / `sig_close_finding` / `sig_answer_consulta` para el ciclo de vida.
 - Rol `IA_SIG` (`backend/app/main.py` `_DEFAULT_ROLES`, `app_permissions: ["mod_sig"]`): acceso total al SIG salvo aprobar commits/archivos (eso exige admin/gerente vía `requireGerente`). Self-check: `npm run selfcheck` (incluye `auditorias.selfcheck.ts` — derivación del veredicto + validación de demostración).
 
+### SIG de pruebas (`sig-backend-pruebas`, profile `pruebas`)
+Mismo código que `sig-backend`, con BD propia vacía (`sig-db-pruebas`, `sigdb_pruebas`), sin frontend y sin puerto público (`127.0.0.1:3014`). El `docker compose up` normal **no** lo levanta. Levantar: `docker compose --profile pruebas up -d --build sig-backend-pruebas`. Acceso desde el equipo del analista: `ssh -L 3014:127.0.0.1:3014 <servidor>` y `ZYMO_SIG_URL=http://127.0.0.1:3014` en el `.env` del MCP (el login sigue yendo a `ZYMO_BASE_URL`; el JWT es el mismo). `sig_review_context` informa `ambiente: "pruebas" | "produccion"`.
+
 ### `GET /sig-api/api/instructivos` — `procedimientoId` opcional
 El query param `procedimientoId` es opcional. Sin él retorna todos los instructivos del SIG. Con él filtra por procedimiento. Antes requería el param (400 si faltaba) — ese comportamiento fue eliminado.
 
