@@ -167,6 +167,7 @@ def regenerar_pdf_orden_por_solicitud(
     if old_pdf.exists():
         old_pdf.unlink(missing_ok=True)
 
+    OC_DOCS_DIR.mkdir(parents=True, exist_ok=True)  # volumen recién creado: sin esto corregir una OC enviada da 500
     pdf_path = OC_DOCS_DIR / f"{numero_oc}.pdf"
 
     auxiliar_nombre = ""
