@@ -62,6 +62,15 @@ import { fetchProcCargoIds, type ProcCargoAsignado } from "@/components/sig/..."
 
 ---
 
+## Respaldos (obligatorio mantenerlos vivos)
+
+Incidente 2026-10-02: un `docker compose down -v` borró todos los volúmenes y el último respaldo útil tenía 12 días. **Nunca** usar `down -v` en este proyecto (ver gotcha abajo). Hoy hay tres capas, todas fuera de Docker (`~/zymo-backups/` en el servidor):
+1. **Diaria, 17:00 hora Colombia** (`ops/backup/daily-copy.sh`, cron `0 22 * * *` UTC): un solo archivo por base, sobrescrito cada día (+ `.prev` como red de seguridad), `pg_dumpall` de todo Postgres corriendo, SQLite del backend con la API de backup, y los volúmenes de adjuntos. Valida cada archivo antes de reemplazar al anterior; si falla, no pisa la copia buena y escribe `daily/LAST_FAILURE`.
+2. **Semanal, domingo 02:00 Colombia** (`~/backup/backup-databases.sh`, 8 semanas de historia en `weekly/`).
+3. **Vigilante** (`ops/backup/check-backups.sh`, 22:30 UTC): si el diario o el semanal fallan o se atrasan, crea `~/zymo-backups/ALERTA_RESPALDOS.txt`, que se muestra al entrar por SSH.
+
+**Gotcha:** `docker compose --profile X down -v` NO se limita al profile: derriba y borra TODO el proyecto. Para quitar un servicio: `docker compose rm -sfv <servicio>` y `docker volume rm <volumen>`.
+
 ## Arquitectura de servicios
 
 ### Mapa de puertos y bases de datos
