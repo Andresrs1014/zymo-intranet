@@ -1,11 +1,14 @@
 #!/bin/bash
-# Copia diaria de las bases de datos y adjuntos a una carpeta del servidor FUERA de Docker.
-# Un solo archivo por base: se SOBRESCRIBE cada día (más el anterior como .prev, ver abajo).
-# Cron (hora Colombia 17:00 = 22:00 UTC):  0 22 * * * ~/apps/zymo-intranet/ops/backup/daily-copy.sh
+# Copia de las bases de datos y adjuntos a una carpeta del servidor FUERA de Docker, DOS veces al día.
+# Un solo archivo por base: se SOBRESCRIBE en cada corrida (más el anterior como .prev, ver abajo).
+# Cron (el servidor está en UTC; 13:00 y 19:00 hora Colombia = 18:00 y 00:00 UTC):
+#   0 18 * * * ~/apps/zymo-intranet/ops/backup/daily-copy.sh
+#   0 0  * * * ~/apps/zymo-intranet/ops/backup/daily-copy.sh
 #
 # Qué copia:
 #   - pg_*.sql.gz        pg_dumpall de TODO contenedor Postgres que esté corriendo (descubiertos, no hardcodeados)
-#   - sqlite/*.db        SQLite del backend (API de backup de SQLite, consistente) + quick_check
+#   - sqlite/*.db        SQLite del backend (API de backup de SQLite, consistente) + quick_check;
+#                        más los SQLite de matrix_backend y crm_html_app
 #   - vol_*.tgz          volúmenes de adjuntos (uploads, backend_data sin los .db) del proyecto zymo-intranet
 # Protección contra sobrescribir una copia buena con una mala: cada archivo nuevo se valida
 # (gzip íntegro, dump completo, quick_check, y no menos de la mitad del tamaño del actual). Si falla,
@@ -83,6 +86,43 @@ PY
   fi
   rm -rf "$tmpd"
 fi
+
+# 2b) SQLite de otros proyectos del servidor (los mismos que cubre el semanal)
+# sqlite_extra <py|node> <contenedor> <ruta_en_contenedor> <nombre_de_salida>
+sqlite_extra() {
+  local kind="$1" c="$2" src="$3" name="$4" tmp="$DEST/sqlite/.x_$4" ok=0
+  docker ps --format '{{.Names}}' | grep -qx "$c" || { fail "contenedor $c no está corriendo (SQLite $name sin copiar)"; return; }
+  rm -f "$tmp"
+  if [ "$kind" = py ]; then
+    timeout 10m docker exec -i "$c" python - "$src" /tmp/zbk.db <<'PY' && ok=1
+import sqlite3, sys
+s = sqlite3.connect('file:%s?mode=ro' % sys.argv[1], uri=True); t = sqlite3.connect(sys.argv[2])
+s.backup(t)
+if t.execute('pragma quick_check').fetchone()[0] != 'ok':
+    raise SystemExit('quick_check fallo')
+PY
+  else
+    timeout 10m docker exec -i "$c" node - "$src" /tmp/zbk.db <<'NODE' && ok=1
+const { DatabaseSync, backup } = require("node:sqlite");
+const [source, target] = process.argv.slice(2);
+(async () => {
+  const db = new DatabaseSync(source, { readOnly: true });
+  await backup(db, target); db.close();
+  const v = new DatabaseSync(target, { readOnly: true });
+  const r = Object.values(v.prepare("PRAGMA quick_check").get())[0]; v.close();
+  if (r !== "ok") throw new Error("quick_check fallo");
+})().catch((e) => { console.error(e.message); process.exitCode = 1; });
+NODE
+  fi
+  if [ "$ok" = 1 ] && docker cp "$c:/tmp/zbk.db" "$tmp"; then
+    docker exec "$c" rm -f /tmp/zbk.db
+    promover "$tmp" "$DEST/sqlite/$name" 1 && log "ok sqlite $name ($c)"
+  else
+    fail "sqlite $name ($c): backup o quick_check falló"; rm -f "$tmp"
+  fi
+}
+sqlite_extra py   matrix_backend /app/data/matrix.db            matrix.db
+sqlite_extra node crm_html_app   /app/backend/data/app.db        crm-html-app.db
 
 # 3) Adjuntos: volúmenes uploads y backend_data (sin los .db, que van arriba)
 for v in $(docker volume ls -q --filter "label=com.docker.compose.project=$PROJECT" | grep -E '(uploads|backend_data)$' | grep -v pruebas); do
