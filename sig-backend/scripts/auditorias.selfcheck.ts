@@ -205,4 +205,27 @@ import { validarDemostracion } from "../src/services/hallazgoValidacion"
   assert.ok(!mal.success)
 }
 
+{
+  // Una regla apagada no deja rastro: solo aparecen las funciones evaluadas (y las que tienen algo abierto).
+  const evaluadas = ["1.1", "1.2", "1.3", "1.4", "1.6"]
+  const sin15 = derivarVeredicto([], 0, 0, evaluadas)
+  assert.deepStrictEqual(Object.keys(sin15.veredictoPorFuncion), evaluadas, "1.5 no debe aparecer si no se evaluó")
+  assert.ok(!JSON.stringify(sin15).includes("1.5"), "ningún rastro de la función apagada en el resultado")
+  // una consulta congela el veredicto de SU función (y solo de ella), aunque haya una NC
+  const cong = derivarVeredicto([{ funcion: "1.6", clasificacion: "nc_menor" }, { funcion: "1.4", clasificacion: "nc_menor" }], [{ funcion: "1.6" }], 0, evaluadas)
+  assert.strictEqual(cong.veredictoPorFuncion["1.6"], "incompleto")
+  assert.strictEqual(cong.veredictoPorFuncion["1.4"], "no_pasa")
+  assert.strictEqual(cong.veredicto, "incompleto")
+  // un hallazgo abierto de una corrida anterior en una función hoy no evaluada SÍ se muestra (es un hecho)
+  const previo = derivarVeredicto([{ funcion: "1.5", clasificacion: "nc_menor" }], 0, 0, evaluadas)
+  assert.strictEqual(previo.veredictoPorFuncion["1.5"], "no_pasa")
+}
+{
+  // `alcance.funciones` pasa por el esquema del router y valida los valores
+  const { AuditoriaSchema } = require("../src/routers/auditorias")
+  const base = { procedimientoId: 1, resumenEjecutivo: "x", reporteMarkdown: "y" }
+  assert.ok(AuditoriaSchema.safeParse({ ...base, alcance: { tipo: "procedimiento", funciones: ["1.1", "1.6"] } }).success)
+  assert.ok(!AuditoriaSchema.safeParse({ ...base, alcance: { funciones: ["9.9"] } }).success, "función inexistente")
+}
+
 console.log("auditorias.selfcheck: OK")

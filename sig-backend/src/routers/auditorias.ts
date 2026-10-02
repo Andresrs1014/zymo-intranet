@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express"
 import { z } from "zod"
+import type { Prisma } from "@prisma/client"
 import prisma from "../config/prisma"
 import { requireSigAccess, getUserId } from "../middleware/auth"
 import { resolveActorName } from "../utils/userNames"
@@ -68,7 +69,8 @@ export const AuditoriaSchema = z.object({
   modelosUsados: z.array(z.string()).default([]),
   tokensUsados: z.number().int().nonnegative().optional(),
   operadorNombre: z.string().nullable().optional(),
-  alcance: z.any().optional(),
+  // `funciones`: las funciones (1.1–1.6) que esta corrida evaluó; el resto del alcance es libre.
+  alcance: z.object({ funciones: z.array(z.enum(FUNCIONES)).optional() }).passthrough().optional(),
   criterios: z.array(z.any()).default([]),
   comprensionProceso: z.string().nullable().optional(),
   supuestos: z.array(z.any()).default([]),
@@ -113,7 +115,7 @@ router.post("/auditorias", requireSigAccess, async (req: Request, res: Response)
           reporteMarkdown: b.reporteMarkdown,
           normas: b.normas,
           alcanceArchivos: b.alcanceArchivos,
-          alcance: b.alcance ?? {},
+          alcance: (b.alcance ?? {}) as Prisma.InputJsonObject,
           criterios: b.criterios,
           comprensionProceso: b.comprensionProceso ?? null,
           supuestos: b.supuestos,
@@ -267,14 +269,17 @@ router.post("/auditorias", requireSigAccess, async (req: Request, res: Response)
         where: { procedimientoId: b.procedimientoId, estado: "ABIERTO" },
         select: { funcion: true, clasificacion: true },
       })
-      const consultasAbiertas = await tx.sigConsulta.count({
+      const consultasAbiertas = await tx.sigConsulta.findMany({
         where: { procedimientoId: b.procedimientoId, estado: "ABIERTA" },
+        select: { funcion: true },
       })
       const conformidades = hallazgosValidados.filter((h) => h.clasificacion === "conformidad").length
+      // `alcance.funciones`: solo esas aparecen en el veredicto por función (una regla apagada no deja rastro).
       const { veredicto, veredictoPorFuncion, conteo } = derivarVeredicto(
         abiertos,
         consultasAbiertas,
         conformidades,
+        b.alcance?.funciones,
       )
 
       const auditoria = await tx.sigAnalisisAuditoria.update({

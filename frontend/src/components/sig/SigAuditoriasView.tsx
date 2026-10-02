@@ -74,7 +74,7 @@ interface SeguimientoEntrada {
 }
 
 interface AuditoriaDetalle extends AuditoriaResumen {
-  veredictoPorFuncion: Record<string, "pasa" | "no_pasa">
+  veredictoPorFuncion: Record<string, Veredicto>
   reporteMarkdown: string
   normas: string[]
   alcance: { tipo?: string; documentos?: Array<{ codigo: string; tipoDocumento?: string; version?: string }>; periodoKpi?: { desde: string; hasta: string } } | null
@@ -375,10 +375,10 @@ export function AuditoriaDetalleModal({ id, onClose }: { id: number; onClose: ()
                     title={FUNCION_LABEL[f]}
                     className={cn(
                       "text-[11px] px-2 py-0.5 rounded border font-mono",
-                      v === "pasa" ? "border-emerald-200 text-emerald-700 bg-emerald-50" : "border-red-200 text-red-700 bg-red-50",
+                      VEREDICTO_CLS[v],
                     )}
                   >
-                    {f} {v === "pasa" ? "pasa" : "no pasa"}
+                    {f} {VEREDICTO_LABEL[v].toLowerCase()}
                   </span>
                 ))}
               </div>

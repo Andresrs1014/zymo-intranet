@@ -242,13 +242,55 @@ async function extractDocx(filePath: string): Promise<ExtractionResult> {
   // Reemplaza los marcadores de imagen. La del flujograma se marca explícita;
   // el resto se deja señalado (no se omite en silencio) para que el agente
   // sepa que había una imagen y no la está viendo.
-  md = md.replace(/!\[[^\]]*\]\(sig-image:(\d+)\)/g, (_m, n: string) =>
-    flujogramaIndex && parseInt(n, 10) === flujogramaIndex
+  // El texto de cada imagen se saca por OCR (script, sin gastar contexto del
+  // modelo): el agente lee texto y solo mira la imagen si el OCR no sirvió.
+  const ocrByIndex = await ocrDocxImages(images, warnings)
+  md = md.replace(/!\[[^\]]*\]\(sig-image:(\d+)\)/g, (_m, n: string) => {
+    const idx = parseInt(n, 10)
+    const ocr = ocrByIndex.get(idx)
+    const esFlujo = flujogramaIndex !== undefined && idx === flujogramaIndex
+    const base = esFlujo
       ? "[FLUJOGRAMA — ver imagen original adjunta al procedimiento]"
-      : "[Imagen del documento — no incluida en el texto]",
-  )
+      : "[Imagen del documento — no incluida en el texto]"
+    return ocr ? `${base}\n\n[Texto de la imagen reconocido por OCR; puede tener errores]\n\n${ocr}` : base
+  })
 
   return { text: cleanupMarkdown(md), warnings, flujogramaImagenUrl }
+}
+
+// OCR de imágenes embebidas (png/jpg/bmp/gif; emf/wmf/svg no los lee tesseract).
+// Apagable con SIG_OCR_IMAGES=false; topes por cantidad y por tamaño mínimo
+// (logos/íconos pesan poco y no tienen texto útil).
+const OCR_IMG_MAX = Number(process.env.SIG_OCR_MAX_IMAGES ?? 10)
+const OCR_IMG_MIN_BYTES = 8 * 1024
+const OCR_IMG_EXT = new Set(["png", "jpg", "bmp", "gif"])
+
+async function ocrDocxImages(
+  images: Array<{ index: number; buffer: Buffer; ext: string }>,
+  warnings: string[],
+): Promise<Map<number, string>> {
+  const out = new Map<number, string>()
+  if (process.env.SIG_OCR_IMAGES === "false") return out
+  const todo = images
+    .filter((i) => OCR_IMG_EXT.has(i.ext) && i.buffer.length >= OCR_IMG_MIN_BYTES)
+    .slice(0, OCR_IMG_MAX)
+  if (!todo.length) return out
+  try {
+    const { createWorker } = await import("tesseract.js")
+    const worker = await createWorker("spa+eng")
+    try {
+      for (const img of todo) {
+        const { data: { text } } = await worker.recognize(img.buffer)
+        const clean = text.trim()
+        if (clean.length >= 20) out.set(img.index, clean)
+      }
+    } finally {
+      await worker.terminate()
+    }
+  } catch (e) {
+    warnings.push(`OCR de imágenes del documento falló: ${e instanceof Error ? e.message : String(e)}`)
+  }
+  return out
 }
 
 // ── .pdf ─────────────────────────────────────────────────────────────────────
