@@ -37,7 +37,7 @@ promover() {
     fi
   fi
   [ -f "$final" ] && mv -f "$final" "$final.prev"
-  mv -f "$tmp" "$final"; chmod 600 "$final"
+  mv -f "$tmp" "$final"; chmod 600 "$final" 2>/dev/null || true
 }
 
 log "== inicio =="
@@ -87,8 +87,10 @@ fi
 # 3) Adjuntos: volúmenes uploads y backend_data (sin los .db, que van arriba)
 for v in $(docker volume ls -q --filter "label=com.docker.compose.project=$PROJECT" | grep -E '(uploads|backend_data)$' | grep -v pruebas); do
   out="$DEST/vol_${v}.tgz"; tmp="$out.tmp"
-  if timeout 30m docker run --rm -v "$v":/v:ro -v "$DEST":/out alpine \
-       tar czf "/out/$(basename "$tmp")" -C /v --exclude='*.db' --exclude='*.db-wal' --exclude='*.db-shm' . && gzip -t "$tmp"; then
+  # el contenedor corre como root: el archivo se entrega a nuestro usuario (chown) para poder rotarlo/borrarlo
+  if timeout 30m docker run --rm -v "$v":/v:ro -v "$DEST":/out alpine sh -c \
+       "tar czf '/out/$(basename "$tmp")' -C /v --exclude='*.db' --exclude='*.db-wal' --exclude='*.db-shm' . \
+        && chown $(id -u):$(id -g) '/out/$(basename "$tmp")'" && gzip -t "$tmp"; then
     promover "$tmp" "$out" 0 && log "ok volumen $v ($(stat -c %s "$out") B)"
   else
     fail "volumen $v: tar falló"; rm -f "$tmp"
