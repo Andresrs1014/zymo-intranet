@@ -197,6 +197,9 @@ services:
         condition: service_healthy
     volumes:
       - sig_pruebas_uploads:/app/uploads/sig
+    # El historial de migraciones no se puede reproducir desde una BD vacía (la base original se creó
+    # con `db push`), así que el sandbox crea el esquema directo desde schema.prisma.
+    command: ["sh", "-c", "npx prisma db push --skip-generate && node dist/app.js"]
     mem_limit: 768m
     restart: unless-stopped
 
