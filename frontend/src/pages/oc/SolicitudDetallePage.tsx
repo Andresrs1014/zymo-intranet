@@ -1303,6 +1303,7 @@ export function SolicitudDetallePage() {
                       { onSuccess: () => handleGenerarOC(true) }
                     )
                   }}
+                  onRegenerarArchivo={() => handleGenerarOC(true)}
                   onDescargar={handleDescargar}
                   onMarcarEnviada={(email) => marcarEnviada.mutate({ id: solicitud.id, email_proveedor: email })}
                   onMarcarEnPlataforma={() => marcarEnPlataforma.mutate(solicitud.id)}
@@ -2697,6 +2698,7 @@ function PanelOrdenCompra({
   isClosing,
   onGenerar,
   onRegenerar,
+  onRegenerarArchivo,
   onDescargar,
   isActualizando = false,
   onMarcarEnviada,
@@ -2716,6 +2718,7 @@ function PanelOrdenCompra({
   isClosing: boolean
   onGenerar: (plataforma: string) => void
   onRegenerar: (plataforma: string) => void
+  onRegenerarArchivo: () => void
   onDescargar: () => void
   isActualizando?: boolean
   onMarcarEnviada: (email: string) => void
@@ -2747,13 +2750,25 @@ function PanelOrdenCompra({
             {orden && <p className="text-xs text-muted-foreground font-mono">{orden.numero_oc}</p>}
           </div>
           {orden && (
-            <button
-              onClick={onDescargar}
-              className="ml-auto rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted transition-colors"
-            >
-              ↓ Descargar OC
-            </button>
-        )}
+            <div className="ml-auto flex flex-wrap items-center gap-2">
+              <button
+                onClick={onDescargar}
+                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted transition-colors"
+              >
+                ↓ Descargar OC
+              </button>
+              {puedeGenerar && (
+                <button
+                  type="button"
+                  onClick={onRegenerarArchivo}
+                  disabled={isGenerating}
+                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+                >
+                  {isGenerating ? "Regenerando..." : "↺ Regenerar OC"}
+                </button>
+              )}
+            </div>
+          )}
       </div>
     </div>
   )

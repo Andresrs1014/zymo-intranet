@@ -78,6 +78,13 @@ def _fecha_bogota(fecha: Optional[datetime]) -> datetime:
     return fecha.astimezone(bog)
 
 
+def _fecha_original_oc(solicitud: Optional[SolicitudOC]) -> Optional[datetime]:
+    """Fecha con la que salió la OC originalmente (None si no hay ninguna registrada)."""
+    if not solicitud:
+        return None
+    return solicitud.fecha_envio_oc or solicitud.fecha_aprobacion or solicitud.fecha_cotizacion
+
+
 def _generar_pdf(
     numero_oc: str,
     solicitud: SolicitudOC,
@@ -276,7 +283,10 @@ def generar_orden_compra(
         if aprobador:
             aprobador_nombre = aprobador.full_name
 
-    _generar_pdf(numero_oc, solicitud, cotizacion, pdf_path, auxiliar_nombre, aprobador_nombre)
+    # Regenerar una OC ya cerrada reconstruye el archivo, no emite una OC nueva: conserva su fecha.
+    from app.models.oc import EstadoOC
+    fecha = _fecha_original_oc(solicitud) if solicitud.estado == EstadoOC.cerrada else None
+    _generar_pdf(numero_oc, solicitud, cotizacion, pdf_path, auxiliar_nombre, aprobador_nombre, fecha)
 
     if orden_existente and forzar:
         orden_existente.cotizacion_id = cotizacion.id
@@ -564,10 +574,7 @@ def descargar_orden(
         # El archivo se perdió (volumen borrado/restaurado): se reconstruye desde los datos de la BD,
         # con la fecha original de la OC y no la de hoy.
         _log.warning("[descarga] PDF ausente, regenerando: %s", orden.numero_oc)
-        solicitud = oc_db.get(SolicitudOC, orden.solicitud_id)
-        fecha = None
-        if solicitud:
-            fecha = solicitud.fecha_envio_oc or solicitud.fecha_aprobacion
+        fecha = _fecha_original_oc(oc_db.get(SolicitudOC, orden.solicitud_id))
         regen = regenerar_pdf_orden_por_solicitud(oc_db, db, orden.solicitud_id, fecha or orden.created_at)
         if regen:
             orden = regen[0]
