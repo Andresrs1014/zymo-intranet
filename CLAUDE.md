@@ -153,9 +153,11 @@ Clonar y adaptar para cada nuevo backend Node.
 ## SIG — Sistema Integrado de Gestión (`sig-backend`)
 
 ### Routers
-- `procedimientos.ts` — CRUD de procedimientos, versionado, commit de documentos, flujogramas MMD
+- `procedimientos.ts` — CRUD de procedimientos, versionado, commit de documentos, flujogramas MMD. `GET /:id/review-context` (instructivos, protocolos, formatos y citas del procedimiento, contrato de `sig_review_context` del MCP) y `GET /:id/sync` (incluye protocolos y referencias). Ambos leen vía `services/vinculosSig.ts`.
 - `instructivos.ts` — instructivos con extracción de texto servidor-side; `POST /:id/reextract` para re-procesar el archivo original
-- `auditorias.ts` — recibe/lista las auditorías del agente (ver abajo). **La intranet ya no ejecuta ningún análisis con IA** (retirado 2026-10-01, plan `docs/PLAN-separacion-sig-agente.md`): solo guarda documentos, versiones y los resultados que le envía el MCP.
+- `protocolos.ts` — protocolos con casa en un procedimiento (`SigProtocolo`): lista, detalle, `POST /upload` (multipart; 409 si el código ya existe en ese procedimiento), `DELETE` (soft; `?hard=true` solo admin). Portado del PR #17 (2026-10-05).
+- `referencias.ts` — citas entre documentos, **incluso rotas** (`SigReferencia`: `resuelta` / `ausente` / `otra_area` / `otro_codigo`). `POST` hace upsert por origen+destino; una `resuelta` exige destino existente y una `ausente`/`otra_area` no puede llevarlo. Self-check del contrato: `scripts/referencias.selfcheck.ts`.
+- `auditorias.ts` — recibe/lista las auditorías del agente (ver abajo). **La intranet ya no ejecuta ningún análisis con IA** (retirado 2026-10-01, plan `docs/PLAN-separacion-sig-agente.md`): solo guarda documentos, versiones y los resultados que le envía el MCP. `DELETE /api/auditorias/:id` (admin/gerente; cascada de hallazgos y consultas; reabre los cierres que esa corrida hizo —heurística: mismo autor y `cerradoEn` entre −15 s y +3 s de `createdAt`—; 409 si está firmada salvo `?forzar=1`).
 - `commits.ts` — historial de versiones de archivos adjuntos a procedimientos
 
 ### Extracción de texto (`services/textExtraction.ts`)
