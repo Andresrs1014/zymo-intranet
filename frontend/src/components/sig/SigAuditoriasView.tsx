@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-import { ChevronRight, ClipboardCheck, Loader2, ShieldCheck, X } from "lucide-react"
+import { ChevronRight, ClipboardCheck, Download, Loader2, ShieldCheck, Trash2, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { sigApi } from "@/lib/sigApi"
+import { useAuthStore } from "@/store/authStore"
 import { PROSE } from "@/components/sig/SigInstructivosPanel"
 
 // ── Tipos — espejo de sig-backend/src/routers/auditorias.ts ────────────────────
@@ -112,13 +113,14 @@ const CLASIF_CLS: Record<string, string> = {
   nc_mayor: "bg-red-50 text-red-700 border-red-200",
 }
 
+// Nombres de las funciones de la rúbrica v2 (mcp001_intranet/rubrica_sig.md §1).
 const FUNCION_LABEL: Record<string, string> = {
-  "1.1": "Claridad y coherencia",
-  "1.2": "Palabras",
-  "1.3": "Coherencia entre documentos",
-  "1.4": "Arquitectura documental",
-  "1.5": "Objetivos y metas",
-  "1.6": "KPI y resultados",
+  "1.1": "Coherencia y ejecutabilidad",
+  "1.2": "Palabras mal usadas",
+  "1.3": "Citación correcta",
+  "1.4": "Separación de responsabilidades",
+  "1.5": "Trazabilidad",
+  "1.6": "Efectividad frente a KPI",
 }
 
 const SEGUIMIENTO_LABEL: Record<string, string> = {
@@ -187,7 +189,7 @@ export function AuditoriasProcLista({ procId, variant }: { procId: number; varia
               "w-full flex items-center gap-2 text-left transition-colors",
               mobile
                 ? "px-3 py-2.5 rounded-lg border border-zinc-100 active:bg-zinc-50"
-                : "px-3 py-2 border-b border-zinc-200/60 hover:bg-zinc-100",
+                : "px-3 py-2 border-b border-zinc-200/60 hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zinc-400",
             )}
           >
             <div className="min-w-0 flex-1">
@@ -260,7 +262,7 @@ export function SigAuditoriasView() {
                   <button
                     key={a.id}
                     onClick={() => setOpenId(a.id)}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-zinc-50 transition-colors"
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-zinc-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zinc-400"
                   >
                     <div className="min-w-0 flex-1">
                       <p className="text-[13px] text-zinc-800 truncate">
@@ -296,12 +298,64 @@ export function SigAuditoriasView() {
 
 type Pestana = "informe" | "hallazgos" | "consultas" | "seguimiento" | "contexto"
 
+/** Descarga un texto como archivo, sin pasar por el servidor: el informe ya viene en el detalle. */
+function descargar(nombre: string, contenido: string, tipo: string) {
+  const url = URL.createObjectURL(new Blob([contenido], { type: tipo }))
+  const enlace = document.createElement("a")
+  enlace.href = url
+  enlace.download = nombre
+  document.body.appendChild(enlace)
+  enlace.click()
+  enlace.remove()
+  URL.revokeObjectURL(url)
+}
+
+const BTN_ACCION =
+  "inline-flex items-center gap-1.5 min-h-[32px] px-2.5 rounded-md border border-zinc-200 bg-white text-[12px] text-zinc-600 " +
+  "hover:bg-zinc-50 hover:text-zinc-900 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 " +
+  "disabled:opacity-50 disabled:cursor-not-allowed"
+
 export function AuditoriaDetalleModal({ id, onClose }: { id: number; onClose: () => void }) {
+  const qc = useQueryClient()
+  const user = useAuthStore((s) => s.user)
+  const isManager = user?.role === "admin" || user?.role === "gerente"
   const [tab, setTab] = useState<Pestana>("informe")
+  const [confirmando, setConfirmando] = useState(false)
+  const [errorBorrado, setErrorBorrado] = useState<string | null>(null)
   const { data: a, isLoading } = useQuery<AuditoriaDetalle>({
     queryKey: ["sig", "auditoria", id],
     queryFn: () => sigApi.get(`/api/auditorias/${id}`).then((r) => r.data),
   })
+
+  const borrar = useMutation({
+    // Una auditoría firmada exige `forzar`; la confirmación en pantalla ya lo advierte.
+    mutationFn: () =>
+      sigApi.delete(`/api/auditorias/${id}`, { params: a?.validadoEn ? { forzar: 1 } : undefined }).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["sig", "auditorias"] }) // también cubre ["sig","auditorias","proc",id]
+      qc.removeQueries({ queryKey: ["sig", "auditoria", id] })
+      onClose()
+    },
+    onError: (e: unknown) => {
+      const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error
+      setErrorBorrado(msg ?? "No se pudo eliminar la auditoría. Inténtalo de nuevo o revisa tus permisos.")
+    },
+  })
+
+  // Escape cierra primero la confirmación y luego el modal; al abrir la confirmación el foco va a "Cancelar".
+  const cancelarRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    const alTeclear = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return
+      if (confirmando) { setConfirmando(false); setErrorBorrado(null) } else onClose()
+    }
+    document.addEventListener("keydown", alTeclear)
+    return () => document.removeEventListener("keydown", alTeclear)
+  }, [confirmando, onClose])
+  useEffect(() => { if (confirmando) cancelarRef.current?.focus() }, [confirmando])
+  const nombreBase = a
+    ? `auditoria-${(a.procedimiento?.codigo ?? String(a.procedimientoId)).replace(/[^\w.-]+/g, "_")}-${a.id}-${a.createdAt.slice(0, 10)}`
+    : "auditoria"
   const tabs: Array<[Pestana, string, number | null]> = [
     ["informe", "Informe", null],
     ["hallazgos", "Hallazgos", a?.hallazgos.length ?? 0],
@@ -312,6 +366,9 @@ export function AuditoriaDetalleModal({ id, onClose }: { id: number; onClose: ()
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Detalle de la auditoría"
       className="fixed inset-0 z-[100] flex items-stretch justify-center bg-zinc-900/60 p-0 sm:p-6 animate-in fade-in duration-200 motion-reduce:animate-none"
       onClick={onClose}
     >
@@ -343,6 +400,54 @@ export function AuditoriaDetalleModal({ id, onClose }: { id: number; onClose: ()
           </button>
         </div>
 
+        {a && (
+          <div className="shrink-0 flex flex-wrap items-center gap-2 px-5 py-2 border-b border-zinc-200 bg-zinc-50/70">
+            <button type="button" className={BTN_ACCION} onClick={() => descargar(`${nombreBase}.md`, a.reporteMarkdown, "text/markdown;charset=utf-8")}>
+              <Download className="h-3.5 w-3.5" aria-hidden="true" />
+              Informe (.md)
+            </button>
+            <button type="button" className={BTN_ACCION} onClick={() => descargar(`${nombreBase}.json`, JSON.stringify(a, null, 2), "application/json;charset=utf-8")}>
+              <Download className="h-3.5 w-3.5" aria-hidden="true" />
+              Datos (.json)
+            </button>
+            {isManager && !confirmando && (
+              <button
+                type="button"
+                className={cn(BTN_ACCION, "ml-auto text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700")}
+                onClick={() => { setErrorBorrado(null); setConfirmando(true) }}
+              >
+                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                Eliminar
+              </button>
+            )}
+          </div>
+        )}
+
+        {a && confirmando && (
+          <div role="alertdialog" aria-label="Confirmar eliminación de la auditoría" className="shrink-0 px-5 py-3 border-b border-red-200 bg-red-50 text-[12px] text-red-800">
+            <p className="leading-relaxed">
+              ¿Eliminar esta auditoría? Se borran también sus {a.hallazgos.length} hallazgos y {a.consultas.length} consultas.
+              Los hallazgos de corridas anteriores que esta cerró se reabren. Esta acción no se puede deshacer.
+              {a.validadoNombre && <strong> Está firmada por {a.validadoNombre}.</strong>}
+            </p>
+            {errorBorrado && <p role="alert" className="mt-1 font-medium">{errorBorrado}</p>}
+            <div className="mt-2 flex items-center gap-2">
+              <button
+                type="button"
+                disabled={borrar.isPending}
+                onClick={() => borrar.mutate()}
+                className="inline-flex items-center gap-1.5 min-h-[32px] px-3 rounded-md bg-red-600 text-white text-[12px] font-medium hover:bg-red-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 disabled:opacity-60"
+              >
+                {borrar.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />}
+                {borrar.isPending ? "Eliminando…" : "Sí, eliminar"}
+              </button>
+              <button ref={cancelarRef} type="button" disabled={borrar.isPending} className={BTN_ACCION} onClick={() => { setConfirmando(false); setErrorBorrado(null) }}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="shrink-0 flex gap-1 px-4 border-b border-zinc-200 overflow-x-auto">
           {tabs.map(([key, label, n]) => (
             <button
@@ -359,7 +464,7 @@ export function AuditoriaDetalleModal({ id, onClose }: { id: number; onClose: ()
           ))}
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+        <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-4">
           {isLoading && (
             <div className="flex items-center justify-center gap-2 py-16 text-zinc-400">
               <Loader2 className="h-4 w-4 animate-spin" />

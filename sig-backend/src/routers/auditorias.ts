@@ -2,7 +2,7 @@ import { Router, Request, Response } from "express"
 import { z } from "zod"
 import type { Prisma } from "@prisma/client"
 import prisma from "../config/prisma"
-import { requireSigAccess, getUserId } from "../middleware/auth"
+import { requireSigAccess, requireGerente, getUserId } from "../middleware/auth"
 import { resolveActorName } from "../utils/userNames"
 import { derivarVeredicto, FUNCIONES, CLASIFICACIONES } from "../services/veredicto"
 import { validarDemostracion } from "../services/hallazgoValidacion"
@@ -335,6 +335,73 @@ router.get("/auditorias/:id", async (req: Request, res: Response) => {
     return
   }
   res.json(aud)
+})
+
+// ── DELETE /api/auditorias/:id — borra una corrida (pruebas en vivo) ─────────
+// Solo admin/gerente (la cuenta IA_SIG no puede borrar su propio rastro). El
+// borrado en cascada se lleva los hallazgos y consultas que ESA corrida creó.
+// Los hallazgos de corridas anteriores que esta cerró (mismo autor, misma
+// ventana de tiempo) se reabren para dejar el procedimiento como estaba. Una
+// auditoría firmada por un humano exige `?forzar=1`.
+// Los cierres de una corrida se hacen dentro de su propia transacción: `cerradoEn` (reloj del backend, tomado
+// antes de insertar) queda justo antes de `createdAt` (reloj de la BD, al insertar). Ventana estrecha para no
+// tocar cierres de otra corrida del mismo autor.
+const VENTANA_ANTES_MS = 15_000
+const VENTANA_DESPUES_MS = 3_000
+
+router.delete("/auditorias/:id", requireGerente, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id)
+  if (Number.isNaN(id)) {
+    res.status(400).json({ error: "id inválido" })
+    return
+  }
+  const aud = await prisma.sigAnalisisAuditoria.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      procedimientoId: true,
+      autorId: true,
+      createdAt: true,
+      validadoNombre: true,
+      validadoEn: true,
+      _count: { select: { hallazgos: true, consultas: true } },
+    },
+  })
+  if (!aud) {
+    res.status(404).json({ error: "Auditoría no encontrada" })
+    return
+  }
+  const forzar = req.query.forzar === "1" || req.query.forzar === "true"
+  if (aud.validadoEn && !forzar) {
+    res.status(409).json({
+      error: "La auditoría está firmada; confirma el borrado explícitamente",
+      firmadaPor: aud.validadoNombre,
+      firmadaEn: aud.validadoEn,
+    })
+    return
+  }
+
+  const t0 = aud.createdAt.getTime()
+  const cierresRevertidos = await prisma.$transaction(async (tx) => {
+    const reabiertos = await tx.sigHallazgo.updateMany({
+      where: {
+        procedimientoId: aud.procedimientoId,
+        auditoriaId: { not: id },
+        estado: "CERRADO",
+        cerradoPorId: aud.autorId,
+        cerradoEn: { gte: new Date(t0 - VENTANA_ANTES_MS), lte: new Date(t0 + VENTANA_DESPUES_MS) },
+      },
+      data: { estado: "ABIERTO", motivoCierre: null, evidenciaCierre: null, cerradoPorId: null, cerradoNombre: null, cerradoEn: null },
+    })
+    await tx.sigAnalisisAuditoria.delete({ where: { id } })
+    return reabiertos.count
+  })
+
+  res.json({
+    ok: true,
+    eliminados: { hallazgos: aud._count.hallazgos, consultas: aud._count.consultas },
+    cierresRevertidos,
+  })
 })
 
 // ── PATCH /api/auditorias/:id/validar — firma del humano ─────────────────────
