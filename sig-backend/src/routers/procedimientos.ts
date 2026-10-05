@@ -7,6 +7,7 @@ import { SigEstadoProcedimiento } from "@prisma/client"
 import prisma from "../config/prisma"
 import { getUserId, requireSigAccess, requireGerente } from "../middleware/auth"
 import { extractText } from "../services/textExtraction"
+import { cargarVinculos } from "../services/vinculosSig"
 
 const router = Router()
 
@@ -244,12 +245,15 @@ router.get("/:id/sync", async (req: Request, res: Response) => {
   if (!proc) { res.status(404).json({ error: "Procedimiento no encontrado" }); return }
 
   const latest = proc.commits[0] ?? null
+  const vinculos = await cargarVinculos(id)
   res.json({
     procedimientoId: proc.id,
     codigo: proc.codigo,
     titulo: proc.titulo,
     estado: proc.estado,
     area: { nombre: proc.area.nombre, color: proc.area.color },
+    protocolos: vinculos.protocolos.map(({ id: pid, codigo, titulo }) => ({ id: pid, codigo, titulo })),
+    referencias: vinculos.referencias,
     latestApproved: latest ? {
       commitId:        latest.id,
       contenidoAgente: latest.contenidoAgente,
@@ -264,6 +268,28 @@ router.get("/:id/sync", async (req: Request, res: Response) => {
       versionDoc:      latest.versionDoc,
       createdAt:       latest.createdAt,
     } : null,
+  })
+})
+
+// GET /api/procedimientos/:id/review-context
+// Contrato de lectura para mcp001 `sig_review_context`: instructivos, protocolos, formatos
+// y citas (resueltas y rotas) del procedimiento. Portado del PR #17.
+router.get("/:id/review-context", requireSigAccess, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id)
+  if (Number.isNaN(id)) { res.status(400).json({ error: "id inválido" }); return }
+  const proc = await prisma.sigProcedimiento.findUnique({
+    where: { id },
+    include: { area: { select: { nombre: true, color: true } } },
+  })
+  if (!proc) { res.status(404).json({ error: "Procedimiento no encontrado" }); return }
+  const vinculos = await cargarVinculos(id)
+  res.json({
+    procedimientoId: proc.id,
+    codigo: proc.codigo,
+    titulo: proc.titulo,
+    estado: proc.estado,
+    area: proc.area,
+    ...vinculos,
   })
 })
 

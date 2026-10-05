@@ -9,7 +9,7 @@
     "db:generate": "prisma generate",
     "reset:procedimientos": "ts-node scripts/reset-procedimientos.ts",
     "renumerar:procedimientos": "ts-node scripts/renumerar-procedimientos.ts",
-    "selfcheck": "ts-node scripts/textExtraction.selfcheck.ts && ts-node scripts/auditorias.selfcheck.ts && ts-node scripts/asyncErrors.selfcheck.ts"
+    "selfcheck": "ts-node scripts/textExtraction.selfcheck.ts && ts-node scripts/auditorias.selfcheck.ts && ts-node scripts/asyncErrors.selfcheck.ts && ts-node scripts/referencias.selfcheck.ts"
   },
   "dependencies": {
     "@joplin/turndown-plugin-gfm": "^1.0.68",

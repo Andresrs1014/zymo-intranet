@@ -39,6 +39,8 @@ model SigProcedimiento {
   auditorias           SigAnalisisAuditoria[]
   hallazgos            SigHallazgo[]
   consultas            SigConsulta[]
+  protocolos           SigProtocolo[]
+  referencias          SigReferencia[]
 
   @@index([areaId])
   @@index([estado])
@@ -352,6 +354,63 @@ model SigConsulta {
 
   @@index([procedimientoId, estado])
   @@index([auditoriaId])
+}
+
+// ── Protocolo — documento con casa en un procedimiento. Las demás citas
+// (otro procedimiento, un instructivo) viven en SigReferencia, no como segundo padre.
+// Lo consume el MCP (mcp001): sig_upload_area_folder y sig_review_context. Portado del PR #17.
+
+model SigProtocolo {
+  id              Int              @id @default(autoincrement())
+  procedimientoId Int
+  procedimiento   SigProcedimiento @relation(fields: [procedimientoId], references: [id], onDelete: Cascade)
+
+  codigo          String
+  titulo          String
+  descripcion     String?
+
+  contenido         String  @db.Text
+  contenidoOriginal String? @db.Text
+  versionDoc        String  @default("1.0")
+
+  archivoOriginal   String? @db.VarChar(500)
+  nombreArchivo     String? @db.VarChar(255)
+  tipoMime          String? @db.VarChar(100)
+
+  autorId     Int
+  autorNombre String
+
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([procedimientoId, codigo])
+  @@index([procedimientoId])
+  @@index([codigo])
+}
+
+// ── Referencia — "esto cita aquello", aunque el destino no exista o sea de otra área.
+// La casa del archivo sigue siendo un solo padre. destinoId queda vacío si el
+// archivo no está (ausente) o todavía no se abrió (otra_area).
+
+model SigReferencia {
+  id              Int              @id @default(autoincrement())
+  procedimientoId Int
+  procedimiento   SigProcedimiento @relation(fields: [procedimientoId], references: [id], onDelete: Cascade)
+
+  origenTipo    String  @db.VarChar(20) // procedimiento | instructivo | protocolo | formato
+  origenId      Int
+  destinoTipo   String  @db.VarChar(20) // procedimiento | instructivo | protocolo | formato | area
+  destinoCodigo String  @db.VarChar(80)
+  destinoId     Int?
+  estado        String  @db.VarChar(20) // resuelta | ausente | otra_area | otro_codigo
+  nota          String? @db.Text
+  frase         String? @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@unique([origenTipo, origenId, destinoTipo, destinoCodigo])
+  @@index([procedimientoId])
 }
 
 // ── Reportes de Desarrollo ────────────────────────────────────────────────────
