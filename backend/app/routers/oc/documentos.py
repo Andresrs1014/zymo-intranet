@@ -68,6 +68,16 @@ def _load_platform_config(plataforma: Optional[str]) -> dict:
     }
 
 
+def _fecha_bogota(fecha: Optional[datetime]) -> datetime:
+    """Fecha a imprimir en la OC: la dada (naive = UTC) o ahora, siempre en hora Colombia."""
+    bog = ZoneInfo("America/Bogota")
+    if fecha is None:
+        return datetime.now(bog)
+    if fecha.tzinfo is None:
+        fecha = fecha.replace(tzinfo=timezone.utc)
+    return fecha.astimezone(bog)
+
+
 def _generar_pdf(
     numero_oc: str,
     solicitud: SolicitudOC,
@@ -75,6 +85,7 @@ def _generar_pdf(
     output_path: Path,
     auxiliar_nombre: str = "",
     aprobador_nombre: str = "",
+    fecha: Optional[datetime] = None,
 ) -> None:
     empresa = _load_platform_config(solicitud.plataforma)
     slug = _SLUG_MAP.get((solicitud.plataforma or "").lower().strip(), "logimat")
@@ -100,7 +111,7 @@ def _generar_pdf(
         "empresa": empresa,
         "logo_url": logo_url,
         "numero_oc": numero_oc,
-        "fecha": datetime.now(ZoneInfo("America/Bogota")).strftime("%d/%m/%Y"),
+        "fecha": _fecha_bogota(fecha).strftime("%d/%m/%Y"),
         "proveedor": {
             "nombre": cotizacion.proveedor_nombre or "",
             "nit": cotizacion.proveedor_nit or "N/A",
@@ -144,8 +155,13 @@ def regenerar_pdf_orden_por_solicitud(
     oc_db: Session,
     db,
     solicitud_id: uuid.UUID,
+    fecha: Optional[datetime] = None,
 ) -> Optional[tuple[OrdenCompra, CotizacionProveedor]]:
-    """Regenera el PDF de la orden existente con la cotización aprobada más reciente."""
+    """Regenera el PDF de la orden existente con la cotización aprobada más reciente.
+
+    `fecha` fija la fecha impresa (para reconstruir una OC vieja con su fecha original);
+    sin ella se imprime la de hoy, como siempre.
+    """
     orden = oc_db.exec(select(OrdenCompra).where(OrdenCompra.solicitud_id == solicitud_id)).first()
     if not orden:
         return None
@@ -181,7 +197,7 @@ def regenerar_pdf_orden_por_solicitud(
         if aprobador:
             aprobador_nombre = aprobador.full_name
 
-    _generar_pdf(numero_oc, solicitud, cotizacion, pdf_path, auxiliar_nombre, aprobador_nombre)
+    _generar_pdf(numero_oc, solicitud, cotizacion, pdf_path, auxiliar_nombre, aprobador_nombre, fecha)
 
     orden.cotizacion_id = cotizacion.id
     orden.pdf_path = str(pdf_path)
@@ -538,20 +554,30 @@ def descargar_orden(
     orden_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     oc_db: Session = Depends(get_oc_db),
+    db: Session = Depends(get_db),
 ):
     orden = oc_db.get(OrdenCompra, orden_id)
     if not orden:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Orden de compra no encontrada.")
 
-    if orden.pdf_path:
-        pdf_path = Path(orden.pdf_path)
-        if pdf_path.exists():
-            return FileResponse(
-                path=str(pdf_path),
-                media_type="application/pdf",
-                filename=f"{orden.numero_oc}.pdf",
-            )
-        _log.warning("[descarga] pdf_path en DB pero archivo no existe: %s", orden.pdf_path)
+    if not (orden.pdf_path and Path(orden.pdf_path).exists()):
+        # El archivo se perdió (volumen borrado/restaurado): se reconstruye desde los datos de la BD,
+        # con la fecha original de la OC y no la de hoy.
+        _log.warning("[descarga] PDF ausente, regenerando: %s", orden.numero_oc)
+        solicitud = oc_db.get(SolicitudOC, orden.solicitud_id)
+        fecha = None
+        if solicitud:
+            fecha = solicitud.fecha_envio_oc or solicitud.fecha_aprobacion
+        regen = regenerar_pdf_orden_por_solicitud(oc_db, db, orden.solicitud_id, fecha or orden.created_at)
+        if regen:
+            orden = regen[0]
+
+    if orden.pdf_path and Path(orden.pdf_path).exists():
+        return FileResponse(
+            path=str(orden.pdf_path),
+            media_type="application/pdf",
+            filename=f"{orden.numero_oc}.pdf",
+        )
 
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
