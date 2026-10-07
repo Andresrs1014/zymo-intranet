@@ -8,7 +8,10 @@ param(
   [string]$Dest = "C:\Respaldos-Zymo",
   [int]$Keep = 7,
   [string]$Server = "zymo",   # alias de SSH (~/.ssh/config). Una tarea programada no puede teclear contraseña: ver -Key
-  [string]$Key = ""           # llave privada SIN contraseña para correr desatendido, p. ej. $HOME\.ssh\zymo_respaldos
+  [string]$Key = "",          # llave privada SIN contraseña para correr desatendido, p. ej. $HOME\.ssh\zymo_respaldos
+  [string]$OneDrive = "",     # carpeta de OneDrive donde dejar la copia CIFRADA (.7z); OneDrive la sincroniza sola
+  [string]$PasswordFile = "", # archivo con la contraseña del .7z, protegido con DPAPI (ver register-pull-task.ps1)
+  [int]$KeepOneDrive = 2      # cuántos .7z se conservan en OneDrive
 )
 $ErrorActionPreference = "Stop"
 $sshOpts = @("-o", "BatchMode=yes", "-o", "ConnectTimeout=20")
@@ -44,6 +47,29 @@ try {
   Rename-Item $tmp (Join-Path $Dest $stamp)
   $mb = [math]::Round(((Get-ChildItem (Join-Path $Dest $stamp) -Recurse -File | Measure-Object Length -Sum).Sum) / 1MB, 1)
   Log "OK: $stamp ($($pg.Count) Postgres, $($sq.Count) SQLite, $mb MB). Copia del servidor: $(ssh @sshOpts $Server 'cat ~/zymo-backups/daily/LAST_SUCCESS')"
+
+  # 3b) copia cifrada a OneDrive (si se pidió). Un fallo aquí no invalida la descarga local.
+  if ($OneDrive) {
+    try {
+      $sevenZip = @("C:\Program Files\7-Zip\7z.exe", "$env:LOCALAPPDATA\Programs\7-Zip\7z.exe", (Get-Command 7z -ErrorAction SilentlyContinue).Source) |
+        Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
+      if (-not $sevenZip) { throw "7-Zip no está instalado (hace falta para cifrar la copia de OneDrive)" }
+      if (-not $PasswordFile -or -not (Test-Path $PasswordFile)) { throw "falta el archivo de contraseña: $PasswordFile" }
+      $sec = Get-Content $PasswordFile | ConvertTo-SecureString
+      $plain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec))
+      New-Item -ItemType Directory -Force $OneDrive | Out-Null
+      $tmp7z = Join-Path $Dest ".onedrive-$stamp.7z"      # se arma fuera de OneDrive y se mueve al terminar (no sube a medias)
+      & $sevenZip a -t7z -mx=3 -mhe=on "-p$plain" $tmp7z (Join-Path (Join-Path $Dest $stamp) "daily") | Out-Null
+      if ($LASTEXITCODE -ne 0) { throw "7-Zip falló (código $LASTEXITCODE)" }
+      Move-Item $tmp7z (Join-Path $OneDrive "respaldos-zymo-$stamp.7z") -Force
+      Get-ChildItem $OneDrive -Filter "respaldos-zymo-*.7z" | Sort-Object Name -Descending | Select-Object -Skip $KeepOneDrive |
+        ForEach-Object { Remove-Item $_.FullName -Force; Log "OneDrive: borrada la más antigua: $($_.Name)" }
+      Log "OneDrive: respaldos-zymo-$stamp.7z ($([math]::Round((Get-Item (Join-Path $OneDrive "respaldos-zymo-$stamp.7z")).Length/1MB,1)) MB, cifrado)"
+    } catch {
+      Log "ERROR OneDrive (la descarga local sí quedó): $($_.Exception.Message)"
+      Remove-Item (Join-Path $Dest ".onedrive-$stamp.7z") -Force -ErrorAction SilentlyContinue
+    }
+  }
 
   # 4) conservar solo las últimas $Keep descargas
   Get-ChildItem $Dest -Directory | Where-Object { $_.Name -match '^\d{8}-\d{4}$' } |

@@ -7,11 +7,14 @@
 param(
   [string]$Server = "zymo",             # alias de SSH del equipo
   [string]$Dest = "C:\Respaldos-Zymo",
-  [string]$Key = ""                     # llave privada SIN contraseña (obligatoria si el equipo entra por contraseña)
+  [string]$Key = "",                    # llave privada SIN contraseña (obligatoria si el equipo entra por contraseña)
+  [string]$OneDrive = "",               # carpeta de OneDrive para la copia cifrada (opcional)
+  [string]$PasswordFile = ""            # archivo DPAPI con la contraseña del .7z (obligatorio si se usa -OneDrive)
 )
 $script = Join-Path $PSScriptRoot "pull-backups.ps1"
 $argumento = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$script`" -Server `"$Server`" -Dest `"$Dest`""
 if ($Key) { $argumento += " -Key `"$Key`"" }
+if ($OneDrive) { $argumento += " -OneDrive `"$OneDrive`" -PasswordFile `"$PasswordFile`"" }
 $accion = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $argumento
 $triggers = @((New-ScheduledTaskTrigger -Daily -At "14:00"), (New-ScheduledTaskTrigger -Daily -At "20:00"))
 $config = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 30)
