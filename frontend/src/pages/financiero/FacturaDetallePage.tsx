@@ -535,6 +535,13 @@ export function FacturaDetallePage() {
                 <InfoField label="Valor sin IVA" value={formatCOP(solicitud?.valor_antes_iva ?? null)} />
                 <InfoField label="IVA" value={formatCOP(solicitud?.valor_iva ?? null)} />
               </div>
+
+              <div className="mt-4 rounded-lg border border-border bg-muted/50 px-4 py-3">
+                <p className="text-xs text-muted-foreground">Observaciones de la aprobación</p>
+                <p className="mt-0.5 whitespace-pre-wrap text-sm font-medium text-foreground">
+                  {solicitud?.observaciones_aprobacion?.trim() || "Sin observaciones."}
+                </p>
+              </div>
             </section>
 
             {/* ── Nueva sección comparativa: OC + Formulario | Visor PDF ─── */}

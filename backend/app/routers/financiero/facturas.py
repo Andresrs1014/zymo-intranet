@@ -84,6 +84,7 @@ class SolicitudConFacturaRead(BaseModel):
     observaciones_seguimiento: Optional[str] = None
     seguimiento_updated_at: Optional[datetime] = None
     aval_compra_solicitud: Optional[str] = None
+    observaciones_aprobacion: Optional[str] = None  # lo que escribió quien aprobó la cotización (directiva)
     items_cotizacion: Optional[List[Dict[str, Any]]] = None  # [{num, descripcion, cantidad, valor_unitario, valor_total, ...}]
 
     class Config:
@@ -522,6 +523,7 @@ def _fila_solicitud_financiero(
         observaciones_seguimiento=seg.observaciones if seg else None,
         seguimiento_updated_at=seg.updated_at if seg else None,
         aval_compra_solicitud=sol.aval_compra,
+        observaciones_aprobacion=cotizacion.observaciones_aprobacion if cotizacion else None,
         items_cotizacion=cotizacion.items if cotizacion else None,
     )
 

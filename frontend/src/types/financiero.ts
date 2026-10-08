@@ -50,6 +50,8 @@ export interface SolicitudConFactura {
   /** Notas abiertas durante el ciclo de compra (anticipo/proforma, antes de validar factura). */
   observaciones_seguimiento: string | null
   seguimiento_updated_at: string | null
+  /** Observaciones que dejó quien aprobó la cotización (directiva). */
+  observaciones_aprobacion: string | null
   /** Aval de compra de la solicitud (campo texto libre). */
   aval_compra_solicitud: string | null
   /** Ítems de la cotización aprobada. */
