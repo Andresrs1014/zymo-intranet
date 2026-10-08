@@ -149,7 +149,7 @@ def get_smtp_config_service(
     db: Session = Depends(get_db),
 ):
     """SMTP corporativo (principal + respaldo) para consumo servicio-a-servicio
-    (task-backend, helix-backend, etc.). Requiere X-Internal-Key — nunca expuesto a
+    (task-backend, etc.). Requiere X-Internal-Key — nunca expuesto a
     usuarios finales (a diferencia de GET "" que oculta la contraseña real). El
     llamador debe intentar `primary` y, si falla el envío, reintentar con `backup`.
     """

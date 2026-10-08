@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     # SSO — secret compartido con apps externas (CRM, etc.)
     jwt_sso_secret: str = ""
 
-    # Clave interna para llamadas service-to-service (task-backend, helix-backend, etc.)
+    # Clave interna para llamadas service-to-service (task-backend, etc.)
     internal_key: str = ""
 
     # OC Automatizaciones

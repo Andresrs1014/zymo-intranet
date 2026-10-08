@@ -78,7 +78,7 @@ export function TicketsSidebar() {
                     >
                       {/* Barra de acento en el borde izquierdo del activo —
                           no solo el tinte de fondo que ya trae shadcn por
-                          defecto, mismo patrón que TaskSidebar/HelixSidebar. */}
+                          defecto, mismo patrón que TaskSidebar. */}
                       {isActive && (
                         <span
                           aria-hidden

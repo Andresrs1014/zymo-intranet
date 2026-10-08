@@ -244,13 +244,6 @@ export const INTERNAL_MODULE_GROUPS: ModulePermissionGroup[] = [
         description: "Sistema Integrado de Gestión — procedimientos e instructivos",
       },
       {
-        id: "mod_helix",
-        category: "modulo",
-        icon: "🧬",
-        name: "Helix Zymo",
-        description: "Tablero de planeación de proyectos y actividades del equipo",
-      },
-      {
         id: "mod_extraccion_ia",
         category: "modulo",
         icon: "🤖",

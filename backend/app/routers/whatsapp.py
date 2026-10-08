@@ -33,7 +33,7 @@ def send_whatsapp_to_user(
 ):
     """Envía un WhatsApp a un usuario de la intranet, resolviendo su teléfono
     corporativo desde el directorio T&C. Solo servicio-a-servicio (X-Internal-Key) —
-    lo usan task-backend/helix-backend para alertas, no hay uso desde el frontend."""
+    lo usan task-backend para alertas, no hay uso desde el frontend."""
     if not _is_valid_internal_key(x_internal_key):
         raise HTTPException(status_code=401, detail="No autorizado")
 

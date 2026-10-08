@@ -12,7 +12,6 @@ import {
   canSeeSIG,
   canUseAgentePanel,
   canSeeExtraccionIA,
-  canSeeHelix,
   canSeeTyC,
   canUseAgenda,
   canUseEvaluacionesDesempeno,
@@ -62,7 +61,6 @@ import { PrintFacturacionPage } from "@/pages/financiero/PrintFacturacionPage"
 import { AgentFloatingWindow } from "@/components/agent/AgentFloatingWindow"
 import { GerencialPage } from "@/pages/gerencial/GerencialPage"
 import { ExtraccionIAPage } from "@/pages/admin/ExtraccionIAPage"
-import { HelixPage } from "@/pages/planeacion/helix/HelixPage"
 import { LibertadoraPage } from "@/pages/libertadora/LibertadoraPage"
 import { LibertadoraPartnerPage } from "@/pages/libertadora/partner/LibertadoraPartnerPage"
 import { TicketsPage } from "@/pages/tickets/TicketsPage"
@@ -222,13 +220,6 @@ function SigRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" state={isMobile ? { from: location } : undefined} replace />
   }
   if (!canSeeSIG(user.role, user.app_permissions)) return <Navigate to="/dashboard" replace />
-  return <>{children}</>
-}
-
-function HelixRoute({ children }: { children: React.ReactNode }) {
-  const user = useAuthStore((s) => s.user)
-  if (!user) return <Navigate to="/login" replace />
-  if (!canSeeHelix(user.role, user.app_permissions)) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
 
@@ -658,15 +649,6 @@ export default function App() {
           }
         />
 
-        {/* Planeación — Helix Zymo */}
-        <Route
-          path="/planeacion/helix"
-          element={
-            <HelixRoute>
-              <HelixPage />
-            </HelixRoute>
-          }
-        />
 
         {/* Comercial — Libertadora Seguros (CRM Skandia CREA) */}
         <Route
@@ -677,7 +659,7 @@ export default function App() {
             </LibertadoraRoute>
           }
         />
-        {/* Zymo Ally — Tickets (dominio sin relación con Helix, solo comparte posición en el sidebar) */}
+        {/* Zymo Ally — Tickets */}
         <Route
           path="/zymoally/tickets"
           element={

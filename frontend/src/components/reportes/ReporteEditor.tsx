@@ -167,7 +167,7 @@ export function ReporteEditor({
               id="rep-titulo"
               value={titulo}
               onChange={(e) => setTitulo(e.target.value)}
-              placeholder="Refactor del módulo de Helix…"
+              placeholder="Refactor del módulo de Tareas…"
               autoComplete="off"
               className="font-mono text-[13px]"
             />

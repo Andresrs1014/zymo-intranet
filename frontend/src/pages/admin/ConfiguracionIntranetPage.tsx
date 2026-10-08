@@ -93,7 +93,7 @@ export function ConfiguracionIntranetPage() {
               <p className="mt-0.5 text-[13px] leading-relaxed text-zinc-600">
                 Acá se configura lo <strong>general</strong> de la intranet: quién existe, qué rol tiene y de
                 dónde salen los catálogos maestros (áreas, sedes). Cada herramienta — Zymo Ally, Gestión de
-                Tareas, Helix — mantiene su propia configuración interna por separado.
+                Tareas — mantiene su propia configuración interna por separado.
               </p>
             </div>
           </div>

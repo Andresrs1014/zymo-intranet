@@ -55,7 +55,7 @@ cd backend && uvicorn app.main:app --reload --port 8001
 
 Backend Node dev:
 ```bash
-cd sig-backend && npm run dev         # (o helix-backend / task-backend)
+cd sig-backend && npm run dev         # (o task-backend)
 ```
 
 Prisma:

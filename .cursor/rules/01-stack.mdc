@@ -11,7 +11,6 @@ alwaysApply: true
 |---|---|---|
 | `backend` Python/FastAPI | 8001 | SQLite + PostgreSQL |
 | `frontend` React 19 + Vite / Nginx | 81 | — |
-| `helix-backend` Node/TS | 3001 | helix-db (5433) |
 | `task-backend` Node/TS | 3002 | task-db (5434) |
 | `sig-backend` Node/TS | 3004 | sig-db (5436) |
 | `zymoally-backend` Node/TS | 3005 | zymoally-db (5438) |
@@ -43,7 +42,6 @@ except Exception:
 | `/operativo/*` | OperativoRoute | `mod_operativo` |
 | `/sgc/*` | SGCRoute | `mod_sgc` |
 | `/sig/*` | SigRoute | `mod_sig` |
-| `/planeacion/helix` | HelixRoute | `mod_helix` |
 | `/mantenimiento/*` | MantenimientoRoute | — |
 | `/tc/*` | TyCRoute | `mod_tc` |
 | `/tc/calendario`, `/tc/eventos/*` | AgendaRoute | `mod_tc_agenda` (independiente de `mod_tc`) |

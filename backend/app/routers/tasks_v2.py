@@ -34,7 +34,7 @@ def list_task_users(
     Retorna todos los usuarios activos de la intranet.
     Acepta X-Internal-Key (service-to-service) o JWT de usuario autenticado.
     """
-    # Permitir acceso con clave interna (task-backend, helix-backend, etc.)
+    # Permitir acceso con clave interna (task-backend, etc.)
     if _is_valid_internal_key(x_internal_key):
         pass  # authorized
     else:

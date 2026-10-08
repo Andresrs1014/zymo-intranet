@@ -29,9 +29,9 @@ uvicorn app.main:app --reload --port 8001   # Dev server
 python -m app.agents.worker                 # Worker de agentes en background
 ```
 
-### Node backends (sig-backend / helix-backend / task-backend / zymoally-backend)
+### Node backends (sig-backend / task-backend / zymoally-backend)
 ```bash
-cd sig-backend        # o helix-backend / task-backend / zymoally-backend
+cd sig-backend        # o task-backend / zymoally-backend
 npm run dev           # Dev con hot-reload (ts-node / nodemon)
 npm run build         # Compilar TS → dist/
 npx tsc --noEmit      # Verificar TypeScript — OBLIGATORIO antes de commit
@@ -80,13 +80,14 @@ Incidente 2026-10-02: un `docker compose down -v` borró todos los volúmenes y 
 | `backend` (Python/FastAPI) | 8001 | 8001 | SQLite (OC/mantenimiento) + `zymo-db` (Postgres principal) | 5437 (solo `zymo-db`) |
 | `frontend` (React/Nginx) | 81 | 80 | — | — |
 | `zymo-worker` | — | — | (comparte backend_data + `zymo-db`) | — |
-| `helix-backend` | 3001 | 3001 | `helix-db` | sin exponer al host (solo red interna de docker compose) |
 | `task-backend` | 3002 | 3002 | `task-db` | 5434 |
 | `sig-backend` | 3004 | 3003 | `sig-db` | 5436 |
 | `zymoally-backend` | 3005 | 3005 | `zymoally-db` | 5438 |
 | `libertadora-backend` | 3006 | 3006 | `libertadora-db` | 5439 |
 
-Corregido 2026-08-03: la fila `backend` decía "SQLite / PostgreSQL, Puerto BD —"; en realidad usa Postgres (`zymo-db`, host 5437) desde hace tiempo, y `helix-db` no tiene puerto de host expuesto (a diferencia de las demás BD, que sí lo tienen) — "5433" no existe en `docker-compose.yml`.
+Corregido 2026-08-03: la fila `backend` decía "SQLite / PostgreSQL, Puerto BD —"; en realidad usa Postgres (`zymo-db`, host 5437) desde hace tiempo.
+
+Helix (módulo de planeación, `helix-backend` + `helix-db`) se eliminó por completo el 2026-10-08: código, rutas, permiso `mod_helix`, contenedores y volúmenes.
 
 ### JWT compartido
 El backend Python emite el JWT (HS256) vía `create_access_token(subject=user.email, extra={role, sede, area, id, app_permissions})` (`backend/app/core/security.py` + `routers/auth.py:137-146`). **Todos los backends Node** validan ese mismo token usando `SECRET_KEY` de `./backend/.env`. **`app_permissions` SÍ viene en el JWT** (corregido 2026-08-03 — esta nota decía lo contrario; no hace falta un `GET /auth/me` aparte para leerlo desde un backend Node, `req.user.app_permissions` ya viene poblado).
@@ -132,7 +133,6 @@ Clonar y adaptar para cada nuevo backend Node.
 | `/financiero/*` | Financiero | `FinancieroRoute` (`mod_financiero`) |
 | `/gerencial` | Gerencial | `GerencialRoute` (`mod_gerencial`) |
 | `/sig/*` | SIG (procedimientos + análisis IA) | `SigRoute` (`mod_sig`) |
-| `/planeacion/helix` | Helix (sprints/tareas) | `HelixRoute` (`mod_helix`) |
 | `/tareas-v2` | Gestión de tareas dev | `PrivateRoute` + `user_tools` |
 | `/mantenimiento/*`, `/mantenimiento/tablero` | Mantenimiento | `MantenimientoRoute` |
 | `/tc/*` | Talento y Cultura (directorio, organigrama) | `TyCRoute` (`mod_tc`) |
@@ -386,7 +386,7 @@ agent-browser open https://zymointranet.com --session admin
 Flujos obligatorios: login/logout, flujo OC completo, análisis SIG, navegación entre módulos.
 
 ### mcp-builder — integraciones con agentes IA
-MCPs activos: `mcp-zymo-bodega`, `mcp-zymo-oc`, `mcp-zymo-helix`, `mcp-zymo-reportes`.
+MCPs activos: `mcp-zymo-bodega`, `mcp-zymo-oc`, `mcp-zymo-reportes`.
 Patrón: Python/FastMCP, transporte streamable HTTP.
 
 ---
@@ -409,5 +409,4 @@ Un cambio está listo solo si:
 - `docs/ADMIN_DB_PLAN.md`
 - `valido/Master_plan/ZYMO_MASTER_PLAN_v2.1.md` (corregido 2026-08-03 — la ruta vieja `Master_plan/ZYMO_MASTER_PLAN_v2.md` no existe; solo queda una copia marcada inválida bajo `no_valido/`)
 - `docs/superpowers/specs/`
-- `plans/helix_zymo/PLAN_IMPLEMENTACION_INTRANET.md`
 - `C:\Users\andres.quintero\OneDrive - IMC CARGO INTERNATIONAL SAS\Documentos\Diagramas\GH_DIRECTORIO_PLAN\` — plan técnico y ejecutivo del módulo GH (Gestión Humana)

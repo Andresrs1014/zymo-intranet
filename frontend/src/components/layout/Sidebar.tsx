@@ -11,7 +11,6 @@ import {
   LineChart,
   Cpu,
   ListTodo,
-  Layers,
   Users,
   Ticket,
   Smile,
@@ -31,7 +30,6 @@ import {
   canSeeExtraccionIA,
   canSubmitDevTasks,
   canManageDevTasks,
-  canSeeHelix,
   canSeeTyC,
   canSeeTickets,
   canSeeSAC,
@@ -71,7 +69,6 @@ export function Sidebar() {
   const showGestionTareas  = user
     ? canSubmitDevTasks(user.user_tools ?? []) || canManageDevTasks(user.user_tools ?? [])
     : false
-  const showHelix          = user ? canSeeHelix(user.role, perms) : false
   // Oculto del sidebar a propósito (2026-07-28) — el módulo completo se va a
   // mudar fuera de la intranet (dominio y proyecto propios, en definición).
   // La ruta /libertadora y el permiso siguen intactos, solo no se enlaza acá.
@@ -266,21 +263,13 @@ export function Sidebar() {
         )}
 
         {/* ── Section: Planeación ────────────────────────────────────── */}
-        {(showHelix || showTickets || showSac) && (
+        {(showTickets || showSac) && (
           <>
             <SidebarSeparator />
             <SidebarGroup>
               <SidebarGroupLabel>Planeación</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {showHelix && (
-                    <NavItem
-                      to="/planeacion/helix"
-                      label="Helix Zymo"
-                      icon={<Layers className="w-4 h-4" />}
-                      active={isActive(["/planeacion/helix"])}
-                    />
-                  )}
                   {showTickets && (
                     <NavItem
                       to="/zymoally/tickets"

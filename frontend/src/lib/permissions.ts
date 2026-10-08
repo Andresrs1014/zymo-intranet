@@ -123,11 +123,6 @@ export function isCoGestor(members: Array<{ user_id: number; role: string }>, us
   return members.some((m) => m.user_id === userId && m.role === "co_gestor")
 }
 
-export function canSeeHelix(role: string, appPerms?: string[]): boolean {
-  if (role === "admin") return true
-  return hasPerm(appPerms, "mod_helix")
-}
-
 export function canSeeLibertadora(role: string, appPerms?: string[]): boolean {
   if (role === "admin") return true
   return hasPerm(appPerms, "mod_libertadora")
