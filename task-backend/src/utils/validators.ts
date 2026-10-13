@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { AppError } from "../middleware/errorHandler"
 
 export const idParamSchema = z.object({
   id: z.string().regex(/^\d+$/).transform(Number),
@@ -20,9 +21,9 @@ export const paginationSchema = z.object({
 
 /** Trim string and validate minimum length */
 export function validateTitle(titulo: unknown): string {
-  if (typeof titulo !== "string") throw new Error("Título requerido")
+  if (typeof titulo !== "string") throw new AppError(400, "Título requerido")
   const trimmed = titulo.trim()
-  if (trimmed.length < 3) throw new Error("El título debe tener al menos 3 caracteres")
-  if (trimmed.length > 250) throw new Error("El título no puede superar 250 caracteres")
+  if (trimmed.length < 3) throw new AppError(400, "El título debe tener al menos 3 caracteres")
+  if (trimmed.length > 250) throw new AppError(400, "El título no puede superar 250 caracteres")
   return trimmed
 }

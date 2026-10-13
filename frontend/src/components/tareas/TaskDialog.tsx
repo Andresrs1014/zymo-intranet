@@ -213,6 +213,7 @@ export function TaskDialog({ open, teamId, task, onClose }: TaskDialogProps) {
             <input
               className={INPUT}
               placeholder="Título de la tarea (mín. 3 caracteres)"
+              maxLength={250}
               value={form.titulo}
               onChange={(e) => setForm((f) => ({ ...f, titulo: e.target.value }))}
             />
