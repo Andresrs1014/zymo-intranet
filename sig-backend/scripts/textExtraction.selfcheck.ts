@@ -6,7 +6,7 @@
  * renderPdfTables (filas irregulares, escape de pipes, tabla GFM válida).
  */
 import assert from "assert"
-import { cleanupMarkdown, renderPdfTables, promoteTableHeaders, flujogramaImageIndices } from "../src/services/textExtraction"
+import { cleanupMarkdown, renderPdfTables, promoteTableHeaders, flujogramaImageIndices, flujogramaPdfPaginas } from "../src/services/textExtraction"
 
 // ── cleanupMarkdown ─────────────────────────────────────────────────────────
 assert.strictEqual(
@@ -103,3 +103,17 @@ assert.deepStrictEqual(
 )
 assert.deepStrictEqual(flujogramaImageIndices("<p>Sin nada</p>"), [], "sin flujograma devuelve vacío")
 console.log("flujogramaImageIndices ok")
+
+// ── flujogramaPdfPaginas ────────────────────────────────────────────────────
+assert.deepStrictEqual(
+  flujogramaPdfPaginas(["OBJETIVO\n...", "x", "...", "9. FLUJOGRAMA\n", "", "10. INDICADORES\nCódigo", "12. CONTROL"]),
+  [4, 6],
+  "del título FLUJOGRAMA hasta la página de INDICADORES, inclusive",
+)
+assert.deepStrictEqual(
+  flujogramaPdfPaginas(["a", "9. FLUJOGRAMA\n10. INDICADORES\n"]),
+  [2, 2],
+  "título e indicadores en la misma página",
+)
+assert.strictEqual(flujogramaPdfPaginas(["hay flujogramas de apoyo en el texto", "INDICADORES"]), null, "sin título propio no hay rango")
+console.log("flujogramaPdfPaginas ok")

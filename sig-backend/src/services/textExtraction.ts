@@ -7,7 +7,7 @@ import os from "os"
 import path from "path"
 import { execFile } from "child_process"
 import { promisify } from "util"
-import { randomUUID } from "crypto"
+import { createHash, randomUUID } from "crypto"
 
 const execFileAsync = promisify(execFile)
 
@@ -335,6 +335,51 @@ async function ocrDocxImages(
 
 // ── .pdf ─────────────────────────────────────────────────────────────────────
 
+/**
+ * Páginas [desde, hasta] (base 1) donde vive el flujograma de un PDF: desde la página
+ * con el título "FLUJOGRAMA" (línea propia) hasta la de "INDICADORES", inclusive
+ * (la imagen puede quedar en cualquiera de las dos). null si no hay título.
+ */
+export function flujogramaPdfPaginas(textos: string[]): [number, number] | null {
+  const desde = textos.findIndex((t) => /^[ \t]*[\d.)\- \t]*FLUJOGRAMA[ \t]*:?[ \t]*$/im.test(t))
+  if (desde < 0) return null
+  const sig = textos.findIndex((t, i) => i >= desde && /^[ \t]*[\d.)\- \t]*INDICADORES\b/im.test(t))
+  return [desde + 1, (sig < 0 ? textos.length - 1 : sig) + 1]
+}
+
+// Imágenes grandes (los logos del encabezado miden ~150 px) de esas páginas, sin repetidas
+// (un mismo objeto puede reaparecer en la página siguiente), unidas por guardarFlujograma.
+async function flujogramaDePdf(
+  parser: PDFParse,
+  textos: string[],
+  warnings: string[],
+): Promise<string | undefined> {
+  const rango = flujogramaPdfPaginas(textos)
+  if (!rango) return undefined
+  try {
+    const r = await Promise.race([
+      parser.getImage({ imageThreshold: 300, imageBuffer: true, imageDataUrl: false }),
+      new Promise<never>((_, rej) => setTimeout(() => rej(new Error("tiempo agotado")), 30_000)),
+    ])
+    const vistas = new Set<string>()
+    const imgs: Array<{ buffer: Buffer; ext: string }> = []
+    for (const pg of r.pages) {
+      if (pg.pageNumber < rango[0] || pg.pageNumber > rango[1]) continue
+      for (const im of pg.images) {
+        const buffer = Buffer.from(im.data)
+        const hash = createHash("sha1").update(buffer).digest("hex")
+        if (vistas.has(hash)) continue
+        vistas.add(hash)
+        imgs.push({ buffer, ext: buffer[0] === 0xff && buffer[1] === 0xd8 ? "jpg" : "png" })
+      }
+    }
+    return imgs.length ? await guardarFlujograma(imgs, warnings) : undefined
+  } catch (e) {
+    warnings.push(`No se pudo extraer la imagen del flujograma del PDF: ${e instanceof Error ? e.message : String(e)}`)
+    return undefined
+  }
+}
+
 async function extractPdf(filePath: string): Promise<ExtractionResult> {
   const buffer = await fs.readFile(filePath)
   // pdf-parse v2 expone una clase (PDFParse); debe destruirse explícitamente.
@@ -360,6 +405,10 @@ async function extractPdf(filePath: string): Promise<ExtractionResult> {
       digital.length < pageCount * PDF_SPARSE_CHARS_PER_PAGE ||
       (pages.length > 1 && nearEmptyPages / pages.length >= 0.3)
 
+    // Antes de getTable: getImage se cuelga si corre después de getTable sobre el mismo parser.
+    const flujoWarns: string[] = []
+    const flujogramaImagenUrl = await flujogramaDePdf(parser, pages.map((p) => p.text ?? ""), flujoWarns)
+
     // Tablas ruladas detectadas por geometría -> se anexan como tablas GFM.
     let tablesMd = ""
     try {
@@ -373,12 +422,12 @@ async function extractPdf(filePath: string): Promise<ExtractionResult> {
 
     if (digital && !looksSparse) {
       const parts = [digital]
-      const warns: string[] = []
+      const warns: string[] = [...flujoWarns]
       if (tablesMd) {
         parts.push("\n\n## Tablas detectadas en el PDF\n\n" + tablesMd)
         warns.push("Tablas del PDF reconstruidas por geometría; verificar contra el original.")
       }
-      return { text: parts.join("").trim(), warnings: warns }
+      return { text: parts.join("").trim(), warnings: warns, flujogramaImagenUrl }
     }
 
     // Texto digital ausente o escaso => PDF escaneado o mixto: OCR.
@@ -398,8 +447,10 @@ async function extractPdf(filePath: string): Promise<ExtractionResult> {
       text: parts.join("").trim(),
       warnings: [
         ...ocr.warnings,
+        ...flujoWarns,
         ...(tablesMd ? ["Tablas del PDF reconstruidas por geometría; verificar contra el original."] : []),
       ],
+      flujogramaImagenUrl,
     }
   } catch {
     return {
