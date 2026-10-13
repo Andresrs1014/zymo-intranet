@@ -6,7 +6,7 @@
  * renderPdfTables (filas irregulares, escape de pipes, tabla GFM válida).
  */
 import assert from "assert"
-import { cleanupMarkdown, renderPdfTables, promoteTableHeaders } from "../src/services/textExtraction"
+import { cleanupMarkdown, renderPdfTables, promoteTableHeaders, flujogramaImageIndices } from "../src/services/textExtraction"
 
 // ── cleanupMarkdown ─────────────────────────────────────────────────────────
 assert.strictEqual(
@@ -73,3 +73,33 @@ const nested = "<table><tr><td><table><tr><td>x</td></tr></table></td></tr></tab
 assert.strictEqual(promoteTableHeaders(nested), nested, "deja intactas las tablas anidadas")
 
 console.log("textExtraction.selfcheck: OK")
+
+// ── flujogramaImageIndices ──────────────────────────────────────────────────
+const im = (n: number) => `<p><img src="sig-image:${n}" /></p>`
+assert.deepStrictEqual(
+  flujogramaImageIndices(`<p>FLUJOGRAMA</p><p>FASE A</p>${im(1)}${im(2)}<p>FASE B</p>${im(3)}<p>INDICADORES</p><p>Código: FR-1</p>${im(4)}`),
+  [1, 2, 3],
+  "junta las imágenes seguidas y corta al llegar a la siguiente sección",
+)
+assert.deepStrictEqual(
+  flujogramaImageIndices(`<p>Los flujogramas de apoyo</p>${im(1)}<p>x</p><p>FLUJOGRAMA</p>${im(2)}<p>INDICADORES</p>`),
+  [2],
+  "ignora 'flujogramas' dentro de prosa",
+)
+assert.deepStrictEqual(
+  flujogramaImageIndices(`<table><tr><td><p><img src="sig-image:1" /><strong>9. Flujograma </strong></p></td></tr></table><p> </p><p>INDICADORES</p>`),
+  [1],
+  "la imagen viene en el mismo párrafo del título",
+)
+assert.deepStrictEqual(
+  flujogramaImageIndices(`<table><tr><td><p><strong>9. FLUJOGRAMA</strong></p></td></tr></table><table><tr><td>${im(1)}</td></tr></table>${im(2)}<table><tr><td><p>INDICADORES</p></td></tr></table>${im(3)}`),
+  [1, 2],
+  "título e imagen dentro de tablas de una celda (GIS/GEC)",
+)
+assert.deepStrictEqual(
+  flujogramaImageIndices(`<p><strong>9. FLUJOGRAMA</strong></p><img src="sig-image:1" /><img src="sig-image:2" /><table><tr><td><p>Encabezado</p>${im(3)}</td></tr></table>`),
+  [1, 2],
+  "imágenes sueltas cuentan; una tabla con texto (encabezado con logo) corta",
+)
+assert.deepStrictEqual(flujogramaImageIndices("<p>Sin nada</p>"), [], "sin flujograma devuelve vacío")
+console.log("flujogramaImageIndices ok")

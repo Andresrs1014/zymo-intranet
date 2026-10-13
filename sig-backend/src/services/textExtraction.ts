@@ -185,6 +185,60 @@ export async function extractText(filePath: string, fileName: string): Promise<E
 
 // ── .docx ────────────────────────────────────────────────────────────────────
 
+/**
+ * Índices (sig-image:N) de las imágenes del flujograma. En muchos procedimientos el
+ * flujograma viene partido en varias imágenes seguidas (fases) bajo un párrafo
+ * "FLUJOGRAMA", con a lo sumo un subtítulo corto entre una y otra; termina en la
+ * siguiente sección (dos bloques de texto seguidos o una tabla con texto). Sin título propio, cae al primer
+ * `FLUJOGRAMA` seguido de imagen (ya no coincide con "flujogramas" dentro de prosa).
+ */
+export function flujogramaImageIndices(html: string): number[] {
+  const blocks = html.match(/<(p|h[1-6]|table|ul|ol)\b[\s\S]*?<\/\1>|<img\b[^>]*>/g) ?? []
+  const imgs = (b: string) => [...b.matchAll(/sig-image:(\d+)/g)].map((m) => Number(m[1]))
+  const text = (b: string) => b.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim()
+  const hi = blocks.findIndex((b) => /^[\d.\s)-]*FLUJOGRAMA\s*:?$/i.test(text(b)))
+  if (hi >= 0) {
+    const run: number[] = [...imgs(blocks[hi])] // la imagen puede venir en el mismo párrafo del título
+    let seguidosDeTexto = 0
+    for (const b of blocks.slice(hi + 1)) {
+      const ii = imgs(b)
+      const esTabla = b.startsWith("<table")
+      if (ii.length && (!esTabla || !text(b))) { run.push(...ii); seguidosDeTexto = 0; continue } // tabla con texto = encabezado, no flujograma
+      if (esTabla || ++seguidosDeTexto >= 2) break
+    }
+    if (run.length) return run
+  }
+  const m = html.match(/\bFLUJOGRAMA\b[\s\S]{0,400}?sig-image:(\d+)/i)
+  return m ? [Number(m[1])] : []
+}
+
+// Pega las imágenes en vertical con GraphicsMagick (ya está en la imagen Docker por pdf2pic).
+// Devuelve el nombre del archivo guardado; si gm falla, guarda solo la primera y avisa.
+async function guardarFlujograma(
+  imgs: Array<{ buffer: Buffer; ext: string }>,
+  warnings: string[],
+): Promise<string> {
+  const id = randomUUID()
+  if (imgs.length > 1) {
+    const tmp = imgs.map((im, i) => path.join(FLUJOGRAMA_DIR, `_parte_${id}_${i}.${im.ext}`))
+    const out = `flujo_${id}.png`
+    try {
+      await Promise.all(tmp.map((f, i) => fs.writeFile(f, imgs[i].buffer)))
+      await execFileAsync("gm", ["convert", ...tmp, "-background", "white", "-gravity", "center", "-append", path.join(FLUJOGRAMA_DIR, out)], {
+        timeout: 60_000,
+      })
+      return out
+    } catch {
+      warnings.push(`El flujograma tiene ${imgs.length} imágenes y no se pudieron unir; solo se guardó la primera.`)
+    } finally {
+      await Promise.all(tmp.map((f) => fs.unlink(f).catch(() => {})))
+    }
+  }
+  const filename = `flujo_${id}.${imgs[0].ext}`
+  await fs.writeFile(path.join(FLUJOGRAMA_DIR, filename), imgs[0].buffer)
+  return filename
+}
+
 async function extractDocx(filePath: string): Promise<ExtractionResult> {
   const buffer = await fs.readFile(filePath)
 
@@ -217,24 +271,10 @@ async function extractDocx(filePath: string): Promise<ExtractionResult> {
     .filter((m) => m.type === "warning")
     .map((m) => m.message)
 
-  // El flujograma es la imagen que aparece justo después de la palabra
-  // "FLUJOGRAMA" -- patrón confirmado en los 12 procedimientos SIG reales
-  // (bullet en negrita, no un heading real de Word).
-  let flujogramaImagenUrl: string | undefined
-  let flujogramaIndex: number | undefined
-  const flujogramaMatch = result.value.match(/FLUJOGRAMA[\s\S]{0,400}?sig-image:(\d+)/i)
-  if (flujogramaMatch) {
-    flujogramaIndex = parseInt(flujogramaMatch[1], 10)
-    const img = images.find((i) => i.index === flujogramaIndex)
-    if (img) {
-      // randomUUID en vez de Date.now(): dos extracciones concurrentes con el
-      // mismo índice de imagen generaban el mismo nombre y una pisaba a la otra
-      // en disco. Ver zymointranet.md / hallazgo 2026-08-14.
-      const filename = `flujo_${randomUUID()}.${img.ext}`
-      await fs.writeFile(path.join(FLUJOGRAMA_DIR, filename), img.buffer)
-      flujogramaImagenUrl = filename
-    }
-  }
+  // El flujograma puede ser varias imágenes seguidas; se unen en una sola.
+  const flujogramaIdx = new Set(flujogramaImageIndices(result.value))
+  const flujoImgs = images.filter((i) => flujogramaIdx.has(i.index))
+  const flujogramaImagenUrl = flujoImgs.length ? await guardarFlujograma(flujoImgs, warnings) : undefined
 
   // HTML -> Markdown con tablas GFM, encabezados y numeración de listas.
   let md = turndown.turndown(promoteTableHeaders(result.value))
@@ -248,7 +288,7 @@ async function extractDocx(filePath: string): Promise<ExtractionResult> {
   md = md.replace(/!\[[^\]]*\]\(sig-image:(\d+)\)/g, (_m, n: string) => {
     const idx = parseInt(n, 10)
     const ocr = ocrByIndex.get(idx)
-    const esFlujo = flujogramaIndex !== undefined && idx === flujogramaIndex
+    const esFlujo = flujogramaIdx.has(idx)
     const base = esFlujo
       ? "[FLUJOGRAMA — ver imagen original adjunta al procedimiento]"
       : "[Imagen del documento — no incluida en el texto]"
