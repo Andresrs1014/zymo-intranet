@@ -5,7 +5,7 @@ import { taskApi } from "@/lib/taskApi"
 import { canManageDevTasks } from "@/lib/permissions"
 import { useAuthStore } from "@/store/authStore"
 import type { Task } from "@/types/task"
-import { CHIP_PRIORIDAD, CuadroVistaPrevia, hace, unir } from "./CuadroVistaPrevia"
+import { CHIP_PRIORIDAD, CuadroVistaPrevia, hace, type FilaPrevia } from "./CuadroVistaPrevia"
 
 const ORDEN = ["alta", "media", "baja"]
 const CERRADAS = new Set(["completada", "cancelada"])
@@ -28,11 +28,11 @@ function Cuadro({ titulo, icon, clave, params, aparte, vacio, amplio }: {
   const { data = [], isLoading, isError } = useTareas(clave, params)
   const filas = [...data]
     .sort((a, b) => ORDEN.indexOf(a.prioridad.toLowerCase()) - ORDEN.indexOf(b.prioridad.toLowerCase()))
-    .map((t) => ({
+    .map((t): FilaPrevia => ({
       key: String(t.id),
       chip: { texto: t.prioridad, clase: CHIP_PRIORIDAD[t.prioridad.toLowerCase()] ?? CHIP_PRIORIDAD.baja },
       texto: t.titulo,
-      meta: unir(`Subió ${t.subidoPorNombre}`, t.asignadoANombre ? `Responsable ${t.asignadoANombre}` : "Sin responsable", t.plataforma, hace(t.createdAt)),
+      datos: [["Subió", t.subidoPorNombre], ["Responsable", t.asignadoANombre ?? "Sin asignar"], ["Plataforma", t.plataforma], ["Creada", hace(t.createdAt)]],
       aparte: aparte(t),
       to: "/tareas-v2",
     }))

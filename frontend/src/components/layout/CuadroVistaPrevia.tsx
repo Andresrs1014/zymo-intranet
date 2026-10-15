@@ -7,8 +7,8 @@ export interface FilaPrevia {
   /** Etiqueta corta de color (prioridad, estado…). */
   chip?: { texto: string; clase: string }
   texto: string
-  /** Segunda línea (solo en modo amplio): quién la pidió, de qué área, hace cuánto… */
-  meta?: string
+  /** Datos con etiqueta (solo en modo amplio): Solicitante, Área, Unidades, Hace… */
+  datos?: Array<[etiqueta: string, valor: string | null | undefined]>
   /** Dato secundario a la derecha (quién la hizo, valor…). */
   aparte?: string
   aparteTitulo?: string
@@ -33,9 +33,6 @@ export function hace(iso?: string | null): string | undefined {
   if (d < 14) return `hace ${d} d`
   return `hace ${Math.floor(d / 7)} sem`
 }
-
-/** Une los datos que existan con " · ", sin dejar huecos. */
-export const unir = (...partes: Array<string | null | undefined>) => partes.filter(Boolean).join(" · ")
 
 /**
  * Cuadro informativo. Normal: cuántas hay y 4 filas. Amplio (quien tiene pocos módulos): 8 filas de dos líneas
@@ -74,13 +71,22 @@ export function CuadroVistaPrevia({
             <>
               {f.chip && <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${f.chip.clase}`}>{f.chip.texto}</span>}
               <span className="min-w-0 flex-1">
-                <span className={`block text-foreground ${amplio ? "line-clamp-2 text-sm font-medium" : "truncate text-xs"}`} title={f.texto}>{f.texto}</span>
-                {amplio && f.meta && <span className="mt-0.5 block truncate text-xs text-muted-foreground" title={f.meta}>{f.meta}</span>}
+                <span className={`block text-foreground ${amplio ? "line-clamp-2 text-sm font-semibold" : "truncate text-xs"}`} title={f.texto}>{f.texto}</span>
+                {amplio && f.datos && (
+                  <dl className="mt-1.5 flex flex-wrap gap-x-5 gap-y-1.5">
+                    {f.datos.filter(([, v]) => v).map(([etiqueta, valor]) => (
+                      <div key={etiqueta} className="min-w-0">
+                        <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{etiqueta}</dt>
+                        <dd className="max-w-[14rem] truncate text-xs font-semibold text-foreground" title={valor ?? undefined}>{valor}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
               </span>
               {f.aparte && <span className={`shrink-0 truncate text-muted-foreground ${amplio ? "max-w-[9rem] font-mono text-xs text-foreground" : "max-w-[7rem] text-xs"}`} title={f.aparteTitulo ?? f.aparte}>{f.aparte}</span>}
             </>
           )
-          const clase = `flex items-center gap-2 ${amplio ? "py-2.5" : ""}`
+          const clase = `flex items-center gap-2 ${amplio ? "py-3" : ""}`
           return (
             <li key={f.key}>
               {f.to ? (

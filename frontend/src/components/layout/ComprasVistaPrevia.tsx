@@ -4,7 +4,7 @@ import { useSolicitudes } from "@/hooks/useOC"
 import { canApproveOC } from "@/lib/permissions"
 import { useAuthStore } from "@/store/authStore"
 import type { EstadoOC } from "@/types/oc"
-import { CHIP_PRIORIDAD, CuadroVistaPrevia, hace, unir } from "./CuadroVistaPrevia"
+import { CHIP_PRIORIDAD, CuadroVistaPrevia, hace, type FilaPrevia } from "./CuadroVistaPrevia"
 
 const ORDEN = ["alta", "media", "baja"]
 
@@ -13,11 +13,11 @@ function Cuadro({ titulo, icon, estado, amplio }: { titulo: string; icon: React.
   // las más urgentes primero (de las que trae la página actual)
   const filas = [...(data?.items ?? [])]
     .sort((a, b) => ORDEN.indexOf(a.nivel_prioridad.toLowerCase()) - ORDEN.indexOf(b.nivel_prioridad.toLowerCase()))
-    .map((s) => ({
+    .map((s): FilaPrevia => ({
       key: s.id,
       chip: { texto: s.nivel_prioridad, clase: CHIP_PRIORIDAD[s.nivel_prioridad.toLowerCase()] ?? CHIP_PRIORIDAD.baja },
       texto: s.descripcion,
-      meta: unir(`Solicitó ${s.solicitante_nombre}`, s.area_solicitante, s.cantidad > 1 ? `${s.cantidad} unidades` : null, hace(s.fecha_solicitud)),
+      datos: [["Solicitante", s.solicitante_nombre], ["Área", s.area_solicitante], ["Unidades", String(s.cantidad)], ["Solicitada", hace(s.fecha_solicitud)]],
       aparte: amplio ? s.consecutivo_os : s.solicitante_nombre,
       aparteTitulo: `Solicitó ${s.solicitante_nombre}`,
       to: `/oc/solicitudes/${s.id}`,

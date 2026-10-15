@@ -37,7 +37,7 @@ export function DashboardPage() {
   const verCompras = admin || perms.includes("mod_oc_ver")
   const verFinanciera = admin || perms.includes("mod_financiero")
   const tools = user?.user_tools ?? []
-  const verTareas = canSubmitDevTasks(tools) || canManageDevTasks(tools)
+  const verTareas = admin || canSubmitDevTasks(tools) || canManageDevTasks(tools)
   const conResumen = verCompras || verFinanciera || verTareas
   // 3 módulos: cada uno se despliega; 1 o 2: se muestran abiertos y en grande, con quién pidió y hace cuánto
   const plegable = [verCompras, verFinanciera, verTareas].filter(Boolean).length >= 3
@@ -55,9 +55,9 @@ export function DashboardPage() {
 
       {conResumen ? (
         <div className={`flex max-w-7xl flex-col ${plegable ? "gap-3" : "gap-8"}`}>
-          {verCompras && <Seccion titulo="Compras" plegable={plegable} abierta><ComprasVistaPrevia amplio={!plegable} /></Seccion>}
-          {verFinanciera && <Seccion titulo="Financiero" plegable={plegable} abierta={false}><FinancieraVistaPrevia amplio={!plegable} /></Seccion>}
-          {verTareas && <Seccion titulo="Gestión de tareas" plegable={plegable} abierta={false}><TareasVistaPrevia amplio={!plegable} /></Seccion>}
+          {verCompras && <Seccion titulo="Compras" plegable={plegable} abierta><ComprasVistaPrevia amplio /></Seccion>}
+          {verFinanciera && <Seccion titulo="Financiero" plegable={plegable} abierta={false}><FinancieraVistaPrevia amplio /></Seccion>}
+          {verTareas && <Seccion titulo="Gestión de tareas" plegable={plegable} abierta={false}><TareasVistaPrevia amplio /></Seccion>}
         </div>
       ) : externas.length === 0 ? (
         <p className="text-sm text-muted-foreground">

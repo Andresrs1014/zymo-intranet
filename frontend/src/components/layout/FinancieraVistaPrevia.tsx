@@ -2,14 +2,14 @@ import { FileX2, FileSearch, TriangleAlert } from "lucide-react"
 
 import { useSolicitudesFinanciero } from "@/hooks/useFinanciero"
 import type { SolicitudConFactura } from "@/types/financiero"
-import { CuadroVistaPrevia, hace, unir } from "./CuadroVistaPrevia"
+import { CuadroVistaPrevia, hace, type FilaPrevia } from "./CuadroVistaPrevia"
 
 const pesos = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 })
 
-const fila = (s: SolicitudConFactura) => ({
+const fila = (s: SolicitudConFactura): FilaPrevia => ({
   key: s.solicitud_id,
   texto: `${s.numero_oc ?? s.consecutivo_os ?? "OC"} · ${s.proveedor_nombre ?? s.descripcion ?? "Sin proveedor"}`,
-  meta: unir(s.solicitante_nombre ? `Solicitó ${s.solicitante_nombre}` : null, s.area_solicitante, s.empresa_compra_nombre, hace(s.fecha_recibido ?? s.fecha_en_plataforma)),
+  datos: [["Solicitante", s.solicitante_nombre], ["Área", s.area_solicitante], ["Compra", s.empresa_compra_nombre], ["Hace", hace(s.fecha_recibido ?? s.fecha_en_plataforma)]],
   aparte: (s.valor_factura ?? s.valor_aprobado) != null ? pesos.format((s.valor_factura ?? s.valor_aprobado) as number) : undefined,
   aparteTitulo: s.solicitante_nombre ? `Solicitó ${s.solicitante_nombre}` : undefined,
   to: `/financiero/facturas/${s.solicitud_id}`,
