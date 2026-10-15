@@ -4,11 +4,11 @@ import { useSolicitudes } from "@/hooks/useOC"
 import { canApproveOC } from "@/lib/permissions"
 import { useAuthStore } from "@/store/authStore"
 import type { EstadoOC } from "@/types/oc"
-import { CHIP_PRIORIDAD, CuadroVistaPrevia } from "./CuadroVistaPrevia"
+import { CHIP_PRIORIDAD, CuadroVistaPrevia, hace, unir } from "./CuadroVistaPrevia"
 
 const ORDEN = ["alta", "media", "baja"]
 
-function Cuadro({ titulo, icon, estado }: { titulo: string; icon: React.ReactNode; estado: EstadoOC }) {
+function Cuadro({ titulo, icon, estado, amplio }: { titulo: string; icon: React.ReactNode; estado: EstadoOC; amplio: boolean }) {
   const { data, isLoading, isError } = useSolicitudes({ estado })
   // las más urgentes primero (de las que trae la página actual)
   const filas = [...(data?.items ?? [])]
@@ -17,20 +17,22 @@ function Cuadro({ titulo, icon, estado }: { titulo: string; icon: React.ReactNod
       key: s.id,
       chip: { texto: s.nivel_prioridad, clase: CHIP_PRIORIDAD[s.nivel_prioridad.toLowerCase()] ?? CHIP_PRIORIDAD.baja },
       texto: s.descripcion,
-      aparte: s.solicitante_nombre,
+      meta: unir(`Solicitó ${s.solicitante_nombre}`, s.area_solicitante, s.cantidad > 1 ? `${s.cantidad} unidades` : null, hace(s.fecha_solicitud)),
+      aparte: amplio ? s.consecutivo_os : s.solicitante_nombre,
       aparteTitulo: `Solicitó ${s.solicitante_nombre}`,
+      to: `/oc/solicitudes/${s.id}`,
     }))
-  return <CuadroVistaPrevia titulo={titulo} icon={icon} total={data?.total} filas={filas} cargando={isLoading} error={isError} />
+  return <CuadroVistaPrevia titulo={titulo} icon={icon} total={data?.total} filas={filas} cargando={isLoading} error={isError} amplio={amplio} verTodo="/oc/solicitudes" />
 }
 
 /** Vista previa de Compras en el inicio: solicitudes por asignar y, para quien aprueba, las que esperan aprobación. */
-export function ComprasVistaPrevia() {
+export function ComprasVistaPrevia({ amplio = false }: { amplio?: boolean }) {
   const user = useAuthStore((s) => s.user)
   const aprueba = user ? canApproveOC(user.role, user.app_permissions) : false
   return (
     <div className="grid gap-3 md:grid-cols-2">
-      <Cuadro titulo="Por asignar" icon={<UserCheck className="size-4" aria-hidden="true" />} estado="nueva" />
-      {aprueba && <Cuadro titulo="Por aprobar" icon={<ClipboardCheck className="size-4" aria-hidden="true" />} estado="pendiente_aprobacion" />}
+      <Cuadro titulo="Por asignar" icon={<UserCheck className="size-4" aria-hidden="true" />} estado="nueva" amplio={amplio} />
+      {aprueba && <Cuadro titulo="Por aprobar" icon={<ClipboardCheck className="size-4" aria-hidden="true" />} estado="pendiente_aprobacion" amplio={amplio} />}
     </div>
   )
 }
