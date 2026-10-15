@@ -37,7 +37,7 @@ Las sesiones abiertas conservan su token hasta que cierren sesión; lo asignado 
 docker exec -i <backend> sh -c "cd /app && PYTHONPATH=/app python -" < backend/scripts/areas_faltantes.py            # simulación
 docker exec -i <backend> sh -c "cd /app && PYTHONPATH=/app python - --aplicar" < backend/scripts/areas_faltantes.py
 ```
-Solo agrega (compara sin mayúsculas ni tildes): hoy en producción crearía únicamente «Servicio al Cliente». El área de un usuario también
+Solo agrega (compara sin mayúsculas ni tildes): hoy en producción crearía 4 áreas: «Operaciones IMCC», «Operaciones IMCD», «SIG» y «Servicio al Cliente» (las carpetas del SIG que la intranet no tiene con ese nombre; no se unifican con Operaciones IMCCARGO, Operaciones IMC DEPOSITO ni Sistemas de Gestión). El área de un usuario también
 se reconoce sin importar mayúsculas (3 usuarios tienen «Planeación y consultoria»).
 
 ## Dejar marcados a quienes ya ven Financiero, Compras y Tareas

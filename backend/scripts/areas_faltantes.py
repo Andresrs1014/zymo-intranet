@@ -13,13 +13,14 @@ from sqlmodel import Session, select
 from app.database import get_engine
 from app.models.area import Area
 
-# Las 14 áreas REALES: las carpetas del SIG de producción (2026-10-15). Se escriben con el nombre que ya usa la intranet
-# cuando es la misma área con otra grafía (SIG «OPERACIONES IMCC» = «Operaciones IMCCARGO», «OPERACIONES IMDE» = «Operaciones IMC DEPOSITO»,
-# «SIG» = «Sistemas de Gestión»). Las áreas que la intranet tiene de más (Comercial, Compras, Finanzas…) NO se tocan.
+# Las 14 áreas REALES: las carpetas del SIG de producción, con su nombre tal cual (2026-10-15). Son áreas distintas entre sí
+# y distintas de las demás de la intranet: NO se unifican. «OPERACIONES IMDE» del SIG se corrige a «Operaciones IMCD» (error de
+# escritura; en el SIG se renombra aparte). Las áreas que la intranet ya tiene de más (Operaciones IMCCARGO, Sistemas de Gestión,
+# Comercial, Compras, Finanzas…) NO se tocan.
 ESPERADAS = [
     "Administrativo", "Control y Seguridad", "Desarrollo e innovación", "Financiera", "IT Soporte",
-    "Operaciones IMCCARGO", "Operaciones IMC DEPOSITO", "Operaciones Logimat", "Planeación y Consultoria",
-    "Proyectos y Negocios", "Sistemas de Gestión", "Servicio al Cliente", "Talento y Cultura", "Transporte",
+    "Operaciones IMCC", "Operaciones IMCD", "Operaciones Logimat", "Planeación y Consultoria",
+    "Proyectos y Negocios", "SIG", "Servicio al Cliente", "Talento y Cultura", "Transporte",
 ]
 APLICAR = "--aplicar" in sys.argv[1:]
 
