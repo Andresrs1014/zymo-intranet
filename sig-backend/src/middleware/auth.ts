@@ -8,6 +8,7 @@ export interface AuthPayload {
   email?: string
   full_name?: string
   role?: string
+  area?: string
   app_permissions?: string[]
 }
 
@@ -15,6 +16,10 @@ declare global {
   namespace Express {
     interface Request {
       user?: AuthPayload
+      /** Áreas del SIG que puede ver el líder (las pone requireSigLider). */
+      sigAreaIds?: number[]
+      /** La puerta de líderes ya comprobó que este GET es de una carpeta de su área. */
+      sigLiderOk?: boolean
     }
   }
 }
@@ -63,6 +68,7 @@ export function requireGerente(req: Request, res: Response, next: NextFunction):
 
 /** Admin o usuarios con mod_sig o gerente */
 export function requireSigAccess(req: Request, res: Response, next: NextFunction): void {
+  if (req.sigLiderOk) { next(); return } // líder dentro de su área (ver gateLider)
   const role = req.user?.role
   const perms = req.user?.app_permissions ?? []
   if (role === "admin" || role === "gerente" || perms.includes("mod_sig")) {

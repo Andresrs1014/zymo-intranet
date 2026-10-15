@@ -1,0 +1,3 @@
+ALTER TABLE "SigInstructivo" ADD COLUMN "estado" "SigEstadoCommit" NOT NULL DEFAULT 'APROBADO', ADD COLUMN "aprobadoNombre" TEXT, ADD COLUMN "aprobadoEn" TIMESTAMP(3), ADD COLUMN "comentarioRevision" TEXT;
+ALTER TABLE "SigFormato" ADD COLUMN "estado" "SigEstadoCommit" NOT NULL DEFAULT 'APROBADO', ADD COLUMN "aprobadoNombre" TEXT, ADD COLUMN "aprobadoEn" TIMESTAMP(3), ADD COLUMN "comentarioRevision" TEXT;
+ALTER TABLE "SigDocAnexo" ADD COLUMN "estado" "SigEstadoCommit" NOT NULL DEFAULT 'APROBADO', ADD COLUMN "aprobadoNombre" TEXT, ADD COLUMN "aprobadoEn" TIMESTAMP(3), ADD COLUMN "comentarioRevision" TEXT;

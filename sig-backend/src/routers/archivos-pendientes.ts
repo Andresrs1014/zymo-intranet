@@ -24,7 +24,8 @@ const storage = multer.diskStorage({
   },
 })
 
-const upload = multer({
+const upload = multer({ defParamCharset: "utf8", // los nombres con tilde llegan en UTF-8; multer los leía como latin1 (DESINFECCIÃ“N)
+  
   storage,
   limits: { fileSize: 20 * 1024 * 1024, files: 50 },
   fileFilter: (_req, file, cb) => {

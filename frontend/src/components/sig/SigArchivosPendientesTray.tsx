@@ -1,8 +1,9 @@
 import { useRef, useState } from "react"
+import { useArrastrable } from "@/hooks/useArrastrable"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { sigApi } from "@/lib/sigApi"
 import { cn } from "@/lib/utils"
-import {
+import { GripVertical,
   Inbox, ChevronUp, FileText, Loader, AlertTriangle,
   Trash2, ArrowRight, ChevronLeft, CheckCircle, Bot, User, Plus, Layers,
 } from "lucide-react"
@@ -51,6 +52,9 @@ const LIST_KEY = ["sig", "archivos-pendientes"]
 export function SigArchivosPendientesTray() {
   const qc = useQueryClient()
   const [expanded, setExpanded] = useState(false)
+  // la bandeja se puede mover (arrastrando o con las flechas) y recuerda dónde quedó
+  const arr = useArrastrable("sig_bandeja_pos")
+  const lugar = { ["--x" as string]: `${arr.pos.x}px`, ["--y" as string]: `${arr.pos.y}px`, touchAction: "none" } as React.CSSProperties
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [assigningId, setAssigningId] = useState<number | null>(null)
   const [asignandoSoporte, setAsignandoSoporte] = useState(false)
@@ -107,18 +111,23 @@ export function SigArchivosPendientesTray() {
   if (!expanded) {
     return (
       <button
-        onClick={() => setExpanded(true)}
+        ref={arr.ref}
+        {...arr.agarre}
+        onClick={() => { if (!arr.consumirClick()) setExpanded(true) }}
+        style={lugar}
+        aria-label={`Archivos pendientes${archivos.length > 0 ? `: ${archivos.length}` : ""}. Abrir. Se puede mover arrastrando o con las flechas del teclado`}
         className={cn(
-          "absolute bottom-5 right-5 z-40 flex items-center gap-2 px-3.5 py-2 rounded-xl border-2 bg-white text-zinc-900 transition-colors",
-          archivos.length > 0
-            ? "border-red-500 shadow-[0_0_14px_rgba(239,68,68,0.55)] hover:shadow-[0_0_18px_rgba(239,68,68,0.7)]"
-            : "border-zinc-200 shadow-sm hover:border-zinc-300",
+          "sig-bandeja absolute bottom-5 right-5 z-40 flex cursor-grab touch-none items-center gap-2 rounded-xl border-2 bg-white px-3.5 py-2 text-zinc-900 shadow-md transition-colors active:cursor-grabbing",
+          "[animation:sig-bandeja-entra_.32s_cubic-bezier(.2,.8,.2,1)_both] [transform:translate3d(var(--x),var(--y),0)]",
+          archivos.length > 0 ? "border-red-600 hover:border-red-700" : "border-zinc-400 hover:border-zinc-600",
         )}
       >
-        <Inbox className="h-3.5 w-3.5 text-zinc-900" />
+        {archivos.length > 0 && <span aria-hidden className="sig-pulso pointer-events-none absolute inset-0 rounded-xl [animation:sig-pulso_2.4s_ease-out_infinite]" />}
+        <GripVertical className="h-3.5 w-3.5 text-zinc-500" aria-hidden />
+        <Inbox className="h-3.5 w-3.5 text-zinc-900" aria-hidden />
         <span className="text-[12px] font-mono">Archivos pendientes</span>
         {archivos.length > 0 && (
-          <span className="text-[12px] font-mono font-bold text-emerald-600">
+          <span className="text-[12px] font-mono font-bold text-emerald-700">
             {archivos.length}
           </span>
         )}
@@ -128,26 +137,36 @@ export function SigArchivosPendientesTray() {
 
   return (
     <div
+      ref={arr.ref}
+      style={lugar}
       className={cn(
-        "absolute bottom-5 right-5 z-40 w-[560px] max-h-[80vh] flex flex-col rounded-xl border-2 bg-white overflow-hidden",
-        archivos.length > 0
-          ? "border-red-500 shadow-[0_0_18px_rgba(239,68,68,0.55)]"
-          : "border-zinc-200 shadow-2xl shadow-zinc-900/10",
+        "sig-bandeja absolute bottom-5 right-5 z-40 w-[560px] max-w-[calc(100%-2.5rem)] max-h-[80vh] flex flex-col rounded-xl border-2 bg-white overflow-hidden shadow-2xl shadow-zinc-900/15",
+        "[animation:sig-bandeja-entra_.32s_cubic-bezier(.2,.8,.2,1)_both] [transform:translate3d(var(--x),var(--y),0)]",
+        archivos.length > 0 ? "border-red-600" : "border-zinc-400",
       )}
     >
-      {/* Header */}
-      <div className="shrink-0 flex items-center gap-2 px-4 py-3 bg-white border-b border-zinc-200">
+      {/* Header: también es el asa para mover la bandeja */}
+      <div
+        {...arr.agarre}
+        tabIndex={0}
+        role="group"
+        aria-label="Barra de la bandeja: arrástrala o usa las flechas del teclado para moverla; Inicio la devuelve a su lugar"
+        className="shrink-0 flex cursor-grab touch-none items-center gap-2 border-b border-zinc-300 bg-zinc-100 px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-helix-accent active:cursor-grabbing"
+      >
+        <GripVertical className="h-4 w-4 text-zinc-500 shrink-0" aria-hidden />
         <Inbox className="h-4 w-4 text-zinc-900 shrink-0" />
         <span className="text-[13px] font-mono text-zinc-900 font-semibold">
           Archivos pendientes
         </span>
         {archivos.length > 0 && (
-          <span className="text-[13px] font-mono font-bold text-emerald-600">({archivos.length})</span>
+          <span className="text-[13px] font-mono font-bold text-emerald-700">({archivos.length})</span>
         )}
         <span className="flex-1" />
         <button
+          data-no-arrastrar
+          aria-label="Minimizar la bandeja"
           onClick={() => { setExpanded(false); setAssigningId(null); setAsignandoSoporte(false) }}
-          className="h-6 w-6 rounded flex items-center justify-center text-zinc-400 hover:text-zinc-800 hover:bg-zinc-100 transition-colors"
+          className="h-6 w-6 rounded flex items-center justify-center text-zinc-600 hover:text-zinc-800 hover:bg-zinc-200 transition-colors"
         >
           <ChevronUp className="h-3.5 w-3.5 rotate-180" />
         </button>
@@ -174,7 +193,7 @@ export function SigArchivosPendientesTray() {
             <button
               onClick={() => inputProcRef.current?.click()}
               disabled={uploading}
-              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-helix-accent/30 text-helix-accent hover:bg-helix-accent/5 transition-colors text-[11px] font-mono disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-helix-accent/30 text-helix-accent-ink hover:bg-helix-accent/5 transition-colors text-xs font-mono disabled:opacity-50"
             >
               {uploading ? <Loader className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
               Procedimientos
@@ -182,7 +201,7 @@ export function SigArchivosPendientesTray() {
             <button
               onClick={() => inputSoporteRef.current?.click()}
               disabled={uploading}
-              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-zinc-200 text-zinc-500 hover:border-helix-accent/40 hover:text-helix-accent transition-colors text-[11px] font-mono disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-zinc-300 text-zinc-700 hover:border-helix-accent/40 hover:text-helix-accent-ink transition-colors text-xs font-mono disabled:opacity-50"
             >
               {uploading ? <Loader className="h-3 w-3 animate-spin" /> : <Layers className="h-3 w-3" />}
               Soporte
@@ -191,13 +210,13 @@ export function SigArchivosPendientesTray() {
           {uploadError && <ErrorBox msg={uploadError} />}
 
           {archivos.length === 0 && (
-            <p className="text-xs text-zinc-400 font-mono py-6 text-center">Nada pendiente por ahora.</p>
+            <p className="text-xs text-zinc-600 font-mono py-6 text-center">Nada pendiente por ahora.</p>
           )}
 
           {/* Sección procedimientos */}
           {procedimientos.length > 0 && (
             <div>
-              <label className="text-[11px] text-zinc-400 uppercase tracking-widest font-mono block mb-1.5">
+              <label className="text-xs text-zinc-600 uppercase tracking-widest font-mono block mb-1.5">
                 Procedimientos ({procedimientos.length})
               </label>
               <div className="space-y-1.5">
@@ -223,13 +242,13 @@ export function SigArchivosPendientesTray() {
           {soporte.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-[11px] text-zinc-400 uppercase tracking-widest font-mono">
+                <label className="text-xs text-zinc-600 uppercase tracking-widest font-mono">
                   Documentos de soporte ({soporte.length})
                 </label>
                 {selected.size > 0 && (
                   <button
                     onClick={() => setAsignandoSoporte(true)}
-                    className="flex items-center gap-1 text-[11px] text-helix-accent hover:opacity-80 transition-opacity font-mono"
+                    className="flex items-center gap-1 text-xs text-helix-accent-ink hover:opacity-80 transition-opacity font-mono"
                   >
                     Asignar {selected.size} <ArrowRight className="h-2.5 w-2.5" />
                   </button>
@@ -276,7 +295,7 @@ function ArchivoRow({
   onAssigned: () => void
 }) {
   return (
-    <div className={cn("rounded-lg border overflow-hidden", isAssigning ? "border-helix-accent/40" : "border-zinc-200")}>
+    <div className={cn("rounded-lg border overflow-hidden", isAssigning ? "border-helix-accent/40" : "border-zinc-300")}>
       <div className="flex items-center gap-2 px-2.5 py-1.5 bg-white">
         {selectable && (
           <input
@@ -286,10 +305,10 @@ function ArchivoRow({
             className="h-3.5 w-3.5 rounded border-zinc-300 accent-helix-accent shrink-0"
           />
         )}
-        <FileText className="h-3 w-3 text-zinc-400 shrink-0" />
+        <FileText className="h-3 w-3 text-zinc-600 shrink-0" />
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] text-zinc-700 font-mono truncate">{archivo.nombreArchivo}</p>
-          <div className="flex items-center gap-1 text-[10px] text-zinc-400 font-mono">
+          <p className="text-xs text-zinc-700 font-mono truncate">{archivo.nombreArchivo}</p>
+          <div className="flex items-center gap-1 text-[11px] text-zinc-600 font-mono">
             <span>{fmtSize(archivo.tamanoBytes)}</span>
             <span>·</span>
             {archivo.origen === "mcp" ? <Bot className="h-2.5 w-2.5" /> : <User className="h-2.5 w-2.5" />}
@@ -299,7 +318,7 @@ function ArchivoRow({
         {!selectable && !isAssigning && (
           <button
             onClick={onStartAssign}
-            className="shrink-0 flex items-center gap-1 text-[10px] px-1.5 py-1 rounded border border-helix-accent/30 text-helix-accent hover:bg-helix-accent/5 transition-colors font-mono"
+            className="shrink-0 flex items-center gap-1 text-[11px] px-1.5 py-1 rounded border border-helix-accent/30 text-helix-accent-ink hover:bg-helix-accent/5 transition-colors font-mono"
           >
             Asignar <ArrowRight className="h-2.5 w-2.5" />
           </button>
@@ -307,7 +326,7 @@ function ArchivoRow({
         <button
           onClick={onDiscard}
           title="Descartar"
-          className="shrink-0 h-5 w-5 flex items-center justify-center rounded text-zinc-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+          className="shrink-0 h-5 w-5 flex items-center justify-center rounded text-zinc-600 hover:text-red-700 hover:bg-red-50 transition-colors"
         >
           <Trash2 className="h-2.5 w-2.5" />
         </button>
@@ -377,12 +396,12 @@ function AsignarProcedimientoForm({
   }
 
   return (
-    <div className="px-2.5 py-2.5 bg-zinc-50 border-t border-zinc-200 space-y-2">
+    <div className="px-2.5 py-2.5 bg-zinc-100 border-t border-zinc-300 space-y-2">
       <div className="grid grid-cols-2 gap-1.5">
         <select
           value={areaId ?? ""}
           onChange={(e) => { setAreaId(e.target.value ? Number(e.target.value) : null); setProcId(null) }}
-          className="bg-white border border-zinc-200 rounded-lg px-2 py-1 text-[11px] text-zinc-700 font-mono focus:outline-none focus:ring-1 focus:ring-helix-accent/40"
+          className="bg-white border border-zinc-300 rounded-lg px-2 py-1 text-xs text-zinc-700 font-mono focus:outline-none focus:ring-1 focus:ring-helix-accent/40"
         >
           <option value="">Área…</option>
           {areas.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}
@@ -391,7 +410,7 @@ function AsignarProcedimientoForm({
           value={procId ?? ""}
           onChange={(e) => setProcId(e.target.value ? Number(e.target.value) : null)}
           disabled={areaId == null}
-          className="bg-white border border-zinc-200 rounded-lg px-2 py-1 text-[11px] text-zinc-700 font-mono focus:outline-none focus:ring-1 focus:ring-helix-accent/40 disabled:opacity-50"
+          className="bg-white border border-zinc-300 rounded-lg px-2 py-1 text-xs text-zinc-700 font-mono focus:outline-none focus:ring-1 focus:ring-helix-accent/40 disabled:opacity-50"
         >
           <option value="">Procedimiento…</option>
           {procs.map((p) => <option key={p.id} value={p.id}>{p.codigo} — {p.titulo}</option>)}
@@ -401,26 +420,26 @@ function AsignarProcedimientoForm({
         value={mensaje}
         onChange={(e) => setMensaje(e.target.value)}
         placeholder="Mensaje de la versión"
-        className="w-full bg-white border border-zinc-200 rounded-lg px-2 py-1 text-[11px] text-zinc-700 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-helix-accent/40"
+        className="w-full bg-white border border-zinc-300 rounded-lg px-2 py-1 text-xs text-zinc-700 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-helix-accent/40"
       />
       <input
         value={versionDoc}
         onChange={(e) => setVersionDoc(e.target.value)}
         placeholder="Versión del documento (opcional, ej. 1.0)"
-        className="w-full bg-white border border-zinc-200 rounded-lg px-2 py-1 text-[11px] text-zinc-700 font-mono placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-helix-accent/40"
+        className="w-full bg-white border border-zinc-300 rounded-lg px-2 py-1 text-xs text-zinc-700 font-mono placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-helix-accent/40"
       />
       {error && <ErrorBox msg={error} />}
       <div className="flex gap-1.5">
         <button
           onClick={onCancel}
-          className="flex items-center gap-1 px-2 py-1 text-[11px] text-zinc-500 hover:text-zinc-700 border border-zinc-200 rounded-lg transition-colors font-mono"
+          className="flex items-center gap-1 px-2 py-1 text-xs text-zinc-700 hover:text-zinc-700 border border-zinc-300 rounded-lg transition-colors font-mono"
         >
           <ChevronLeft className="h-3 w-3" /> Cancelar
         </button>
         <button
           onClick={submit}
           disabled={submitting || !procId || !mensaje.trim()}
-          className="flex-1 flex items-center justify-center gap-1.5 py-1 bg-helix-accent text-white text-[11px] font-medium rounded-lg hover:opacity-90 disabled:opacity-40 transition-opacity font-mono"
+          className="flex-1 flex items-center justify-center gap-1.5 py-1 bg-helix-accent text-white text-xs font-medium rounded-lg hover:opacity-90 disabled:opacity-40 transition-opacity font-mono"
         >
           {submitting ? <Loader className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
           Asignar
@@ -483,20 +502,20 @@ function AsignarSoportePanel({
     <div className="flex-1 overflow-y-auto p-3.5 space-y-3">
       <button
         onClick={onBack}
-        className="flex items-center gap-1 text-[11px] text-zinc-400 hover:text-zinc-600 transition-colors font-mono"
+        className="flex items-center gap-1 text-xs text-zinc-600 hover:text-zinc-700 transition-colors font-mono"
       >
         <ChevronLeft className="h-3 w-3" /> Volver
       </button>
 
       <div>
-        <label className="text-[11px] text-zinc-400 uppercase tracking-widest font-mono block mb-1.5">
+        <label className="text-xs text-zinc-600 uppercase tracking-widest font-mono block mb-1.5">
           Destino ({archivos.length} archivo{archivos.length !== 1 ? "s" : ""})
         </label>
         <div className="grid grid-cols-2 gap-1.5">
           <select
             value={areaId ?? ""}
             onChange={(e) => { setAreaId(e.target.value ? Number(e.target.value) : null); setProcId(null) }}
-            className="bg-zinc-50 border border-zinc-200 rounded-lg px-2 py-1 text-[11px] text-zinc-700 font-mono focus:outline-none focus:ring-1 focus:ring-helix-accent/40"
+            className="bg-zinc-100 border border-zinc-300 rounded-lg px-2 py-1 text-xs text-zinc-700 font-mono focus:outline-none focus:ring-1 focus:ring-helix-accent/40"
           >
             <option value="">Área…</option>
             {areas.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}
@@ -505,7 +524,7 @@ function AsignarSoportePanel({
             value={procId ?? ""}
             onChange={(e) => setProcId(e.target.value ? Number(e.target.value) : null)}
             disabled={areaId == null}
-            className="bg-zinc-50 border border-zinc-200 rounded-lg px-2 py-1 text-[11px] text-zinc-700 font-mono focus:outline-none focus:ring-1 focus:ring-helix-accent/40 disabled:opacity-50"
+            className="bg-zinc-100 border border-zinc-300 rounded-lg px-2 py-1 text-xs text-zinc-700 font-mono focus:outline-none focus:ring-1 focus:ring-helix-accent/40 disabled:opacity-50"
           >
             <option value="">Procedimiento…</option>
             {procs.map((p) => <option key={p.id} value={p.id}>{p.codigo} — {p.titulo}</option>)}
@@ -517,13 +536,13 @@ function AsignarSoportePanel({
         {archivos.map((a) => {
           const it = items[a.id]
           return (
-            <div key={a.id} className="rounded-lg border border-zinc-200 p-2 space-y-1.5">
-              <p className="text-[11px] text-zinc-500 font-mono truncate">{a.nombreArchivo}</p>
+            <div key={a.id} className="rounded-lg border border-zinc-300 p-2 space-y-1.5">
+              <p className="text-xs text-zinc-700 font-mono truncate">{a.nombreArchivo}</p>
               <div className="grid grid-cols-3 gap-1.5">
                 <select
                   value={it.tipo}
                   onChange={(e) => updateItem(a.id, { tipo: e.target.value as SoporteTipo })}
-                  className="bg-zinc-50 border border-zinc-200 rounded px-1.5 py-1 text-[10px] text-zinc-700 font-mono focus:outline-none focus:ring-1 focus:ring-helix-accent/40"
+                  className="bg-zinc-100 border border-zinc-300 rounded px-1.5 py-1 text-[11px] text-zinc-700 font-mono focus:outline-none focus:ring-1 focus:ring-helix-accent/40"
                 >
                   <option value="instructivo">Instructivo</option>
                   <option value="formato">Formato</option>
@@ -533,7 +552,7 @@ function AsignarSoportePanel({
                   value={it.titulo}
                   onChange={(e) => updateItem(a.id, { titulo: e.target.value })}
                   placeholder="Título"
-                  className="bg-zinc-50 border border-zinc-200 rounded px-1.5 py-1 text-[10px] text-zinc-700 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-helix-accent/40"
+                  className="bg-zinc-100 border border-zinc-300 rounded px-1.5 py-1 text-[11px] text-zinc-700 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-helix-accent/40"
                 />
                 {it.tipo === "instructivo" ? (
                   <input
@@ -541,8 +560,8 @@ function AsignarSoportePanel({
                     onChange={(e) => updateItem(a.id, { codigo: e.target.value.toUpperCase() })}
                     placeholder="Código"
                     className={cn(
-                      "bg-zinc-50 border rounded px-1.5 py-1 text-[10px] text-zinc-700 font-mono placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-helix-accent/40",
-                      !it.codigo.trim() ? "border-amber-300" : "border-zinc-200",
+                      "bg-zinc-100 border rounded px-1.5 py-1 text-[11px] text-zinc-700 font-mono placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-helix-accent/40",
+                      !it.codigo.trim() ? "border-amber-300" : "border-zinc-300",
                     )}
                   />
                 ) : <div />}
@@ -557,7 +576,7 @@ function AsignarSoportePanel({
       <button
         onClick={submit}
         disabled={submitting || !procId || faltaCodigo}
-        className="w-full flex items-center justify-center gap-1.5 py-1.5 bg-helix-accent text-white text-[11px] font-medium rounded-lg hover:opacity-90 disabled:opacity-40 transition-opacity font-mono"
+        className="w-full flex items-center justify-center gap-1.5 py-1.5 bg-helix-accent text-white text-xs font-medium rounded-lg hover:opacity-90 disabled:opacity-40 transition-opacity font-mono"
       >
         {submitting ? <Loader className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
         Asignar {archivos.length} documento{archivos.length !== 1 ? "s" : ""}
@@ -569,8 +588,8 @@ function AsignarSoportePanel({
 function ErrorBox({ msg }: { msg: string }) {
   return (
     <div className="flex items-start gap-2 p-2 rounded-lg bg-red-50 border border-red-200">
-      <AlertTriangle className="h-3 w-3 text-red-500 mt-0.5 shrink-0" />
-      <p className="text-[11px] text-red-600 leading-relaxed">{msg}</p>
+      <AlertTriangle className="h-3 w-3 text-red-700 mt-0.5 shrink-0" />
+      <p className="text-xs text-red-600 leading-relaxed">{msg}</p>
     </div>
   )
 }

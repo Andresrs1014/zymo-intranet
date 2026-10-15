@@ -7,16 +7,21 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ── Áreas de procedimientos (creadas por admin, BD inicia vacía) ──────────────
+// ── Áreas de procedimientos: se crean desde las áreas de la intranet (Organización), no aquí ──
 
 model SigArea {
   id             Int                @id @default(autoincrement())
+  /// Área de la intranet de la que nació esta carpeta (null = carpeta anterior sin enlazar)
+  intranetAreaId Int?               @unique
+  /// Cargos del área en el directorio (solo lectura, se refrescan al sincronizar)
+  cargos         Json               @default("[]")
   nombre         String
   descripcion    String?
   color          String             @default("#3b82f6")
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
   procedimientos SigProcedimiento[]
+  indicadores    SigIndicador[]
 }
 
 // ── Procedimiento (el "repositorio" de un documento) ──────────────────────────
@@ -124,6 +129,13 @@ model SigInstructivo {
   autorNombre String
 
   activo    Boolean  @default(true)
+
+  // Lo que sube un líder de área queda PENDIENTE_REVISION hasta que el SIG lo verifique
+  estado             SigEstadoCommit @default(APROBADO)
+  aprobadoNombre     String?
+  aprobadoEn         DateTime?
+  comentarioRevision String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -151,6 +163,13 @@ model SigFormato {
   autorId     Int
   autorNombre String
 
+
+  // Lo que sube un líder de área queda PENDIENTE_REVISION hasta que el SIG lo verifique
+  estado             SigEstadoCommit @default(APROBADO)
+  aprobadoNombre     String?
+  aprobadoEn         DateTime?
+  comentarioRevision String?
+
   createdAt DateTime @default(now())
 
   @@index([instructivoId])
@@ -173,6 +192,13 @@ model SigDocAnexo {
 
   autorId     Int
   autorNombre String
+
+
+  // Lo que sube un líder de área queda PENDIENTE_REVISION hasta que el SIG lo verifique
+  estado             SigEstadoCommit @default(APROBADO)
+  aprobadoNombre     String?
+  aprobadoEn         DateTime?
+  comentarioRevision String?
 
   createdAt DateTime @default(now())
 
@@ -444,5 +470,43 @@ model SigReporteDesarrollo {
   @@index([proyecto])
   @@index([autorId])
   @@index([fechaReporte])
+}
+
+// ── Indicador (hoja de vida FR-010) — ficha + resultados, por área del SIG ──
+
+model SigIndicador {
+  id                 Int      @id @default(autoincrement())
+  areaId             Int
+  area               SigArea  @relation(fields: [areaId], references: [id], onDelete: Cascade)
+
+  nombre             String
+  codigo             String?
+  objetivo           String?  @db.Text
+  formula            String?  @db.Text
+  meta               String?
+  frecuencia         String?
+  fuente             String?  @db.Text
+  tipo               String?
+  tendencia          String?
+  plazo              String?
+  procesoResponsable String?
+  versionDoc         String?
+  fechaDoc           String?
+  resultados         Json     @default("[]")
+
+  archivo       String  @db.VarChar(500)
+  nombreArchivo String  @db.VarChar(255)
+  tipoMime      String? @db.VarChar(100)
+  hoja          String?
+
+  autorId     Int
+  autorNombre String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([areaId, nombre, nombreArchivo])
+  @@index([areaId])
+  @@index([nombre])
 }
 

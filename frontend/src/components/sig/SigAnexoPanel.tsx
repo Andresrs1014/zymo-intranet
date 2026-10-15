@@ -1,6 +1,7 @@
 import { useRef, useState } from "react"
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query"
 import { sigApi } from "@/lib/sigApi"
+import { EstadoRevision } from "./EstadoRevision"
 import {
   Paperclip, Plus, FileText, Trash2, Loader, AlertCircle, AlertTriangle,
   X, FileCheck, Upload, Download, Pencil,
@@ -9,11 +10,12 @@ import {
 // ── Panel genérico de "archivo suelto" — usado por Formatos (cuelga de un
 // instructivo) y Doc Anexos (cuelga del procedimiento). Sin extracción de texto
 // ni versionado — a diferencia de Instructivos, son solo archivo + nombre.
-
 export interface SigAnexoItem {
   id: number
   nombre: string
   nombreArchivo: string
+  estado?: string
+  comentarioRevision?: string | null
   tipoMime: string | null
   autorNombre: string
   createdAt: string
@@ -23,6 +25,8 @@ export interface SigAnexoItem {
 interface InstructivoOption { id: number; codigo: string; titulo: string }
 
 interface Props {
+  /** El marco (lienzo, tarjeta y guía) lo pone quien lo llama: el panel entrega solo su contenido. */
+  enMarco?: boolean
   title: string
   emptyText: string
   listUrl: string
@@ -31,6 +35,8 @@ interface Props {
   archivoUrlBase: string
   queryKey: unknown[]
   canEdit?: boolean
+  /** Líder de área: puede subir archivos, pero no borrar ni cambiar el instructivo asociado. */
+  soloSubir?: boolean
   /** Campo extra fijo que va en el FormData (ej. { procedimientoId: "5" }) — omitir si instructivoOptions ya lo cubre */
   extraField?: { name: string; value: string }
   /** Si se pasa, el form exige elegir un instructivo antes de subir (uso: Formatos) */
@@ -44,7 +50,7 @@ function getErr(e: unknown, fallback: string): string {
 
 export function SigAnexoPanel({
   title, emptyText, listUrl, uploadUrl, deleteUrlBase, archivoUrlBase,
-  queryKey, canEdit = false, extraField, instructivoOptions,
+  queryKey, canEdit = false, soloSubir = false, extraField, instructivoOptions, enMarco = false,
 }: Props) {
   const qc = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -168,9 +174,8 @@ export function SigAnexoPanel({
     }
   }
 
-  return (
-    <div className="flex-1 overflow-y-auto bg-white">
-    <div className="max-w-3xl mx-auto px-8 py-8">
+  const cuerpo = (
+    <>
       <input
         ref={fileInputRef}
         type="file"
@@ -186,10 +191,10 @@ export function SigAnexoPanel({
 
       <div className="flex items-start justify-between gap-3 mb-5">
         <div className="flex items-center gap-2">
-          <Paperclip className="h-4 w-4 text-zinc-400" />
-          <span className="text-[13px] font-mono font-semibold text-zinc-600">{title}</span>
+          <Paperclip className="h-4 w-4 text-zinc-600" />
+          <span className="text-[13px] font-mono font-semibold text-zinc-700">{title}</span>
           {items.length > 0 && (
-            <span className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-zinc-200 text-zinc-400">
+            <span className="text-xs font-mono px-1.5 py-0.5 rounded border border-zinc-300 text-zinc-600">
               {items.length}
             </span>
           )}
@@ -199,8 +204,8 @@ export function SigAnexoPanel({
             onClick={() => (visible ? null : fileInputRef.current?.click())}
             disabled={visible || !!batchProgress}
             title="Podés seleccionar varios archivos a la vez"
-            className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-mono font-semibold
-                       border border-helix-accent/30 text-helix-accent hover:bg-helix-accent/5
+            className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-semibold
+                       border border-helix-accent/30 text-helix-accent-ink hover:bg-helix-accent/5
                        transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Plus className="h-3 w-3" />
@@ -211,8 +216,8 @@ export function SigAnexoPanel({
 
       {batchProgress && (
         <div className="mb-4 flex items-center gap-2 px-3 py-2.5 rounded-lg bg-helix-accent/5 border border-helix-accent/20">
-          <Loader className="h-3.5 w-3.5 text-helix-accent animate-spin shrink-0" />
-          <span className="text-[11px] text-zinc-600 font-mono">
+          <Loader className="h-3.5 w-3.5 text-helix-accent-ink animate-spin shrink-0" />
+          <span className="text-xs text-zinc-700 font-mono">
             Subiendo {batchProgress.done}/{batchProgress.total}…
           </span>
         </div>
@@ -222,11 +227,11 @@ export function SigAnexoPanel({
         <div className="mb-4 space-y-1.5">
           {batchErrors.map((msg, i) => (
             <div key={i} className="flex items-start gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-200">
-              <AlertCircle className="h-3.5 w-3.5 text-red-500 shrink-0 mt-0.5" />
-              <p className="text-[11px] text-red-600 flex-1">{msg}</p>
+              <AlertCircle className="h-3.5 w-3.5 text-red-700 shrink-0 mt-0.5" />
+              <p className="text-xs text-red-600 flex-1">{msg}</p>
               <button
                 onClick={() => setBatchErrors((e) => e.filter((_, j) => j !== i))}
-                className="text-red-400 hover:text-red-600 shrink-0"
+                className="text-red-600 hover:text-red-600 shrink-0"
               >
                 <X className="h-3 w-3" />
               </button>
@@ -239,22 +244,22 @@ export function SigAnexoPanel({
         <div className="mb-4 rounded-xl border border-helix-accent/25 bg-helix-accent/5 p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <FileText className="h-3.5 w-3.5 text-helix-accent" />
+              <FileText className="h-3.5 w-3.5 text-helix-accent-ink" />
               <p className="text-[12px] font-semibold text-zinc-700 font-mono">Nuevo documento</p>
             </div>
             <button
               onClick={() => { setVisible(false); setFile(null); setNombre(""); setError("") }}
-              className="p-1 rounded text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors"
+              className="p-1 rounded text-zinc-600 hover:text-zinc-700 hover:bg-zinc-200 transition-colors"
             >
               <X className="h-3.5 w-3.5" />
             </button>
           </div>
 
           {file && (
-            <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white border border-zinc-200">
-              <Paperclip className="h-3 w-3 text-zinc-400 shrink-0" />
-              <span className="text-[11px] text-zinc-600 truncate font-mono">{file.name}</span>
-              <span className="ml-auto text-[11px] text-zinc-400 font-mono tabular-nums">
+            <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white border border-zinc-300">
+              <Paperclip className="h-3 w-3 text-zinc-600 shrink-0" />
+              <span className="text-xs text-zinc-700 truncate font-mono">{file.name}</span>
+              <span className="ml-auto text-xs text-zinc-600 font-mono tabular-nums">
                 {(file.size / 1024).toFixed(0)} KB
               </span>
             </div>
@@ -262,55 +267,59 @@ export function SigAnexoPanel({
 
           {instructivoOptions && (
             <div>
-              <label className="text-[11px] text-zinc-400 uppercase tracking-widest font-mono block mb-1">
+              <label className="text-xs text-zinc-600 uppercase tracking-widest font-mono block mb-1">
                 ¿A qué pertenece?
               </label>
               <select
                 value={instructivoId}
+                aria-label="¿A qué pertenece?"
                 onChange={(e) => setInstructivoId(e.target.value)}
-                className="w-full bg-white border border-zinc-200 rounded-lg px-2.5 py-1.5 text-[12px] text-zinc-700 font-mono focus:outline-none focus:ring-1 focus:ring-helix-accent/40"
+                className="w-full bg-white border border-zinc-300 rounded-lg px-2.5 py-1.5 text-[12px] text-zinc-700 font-mono focus:outline-none focus:ring-1 focus:ring-helix-accent/40"
               >
                 <option value="">Al procedimiento (no se menciona en ningún instructivo)</option>
                 {instructivoOptions.map((i) => (
                   <option key={i.id} value={i.id}>Al instructivo {i.codigo} — {i.titulo}</option>
                 ))}
               </select>
-              <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed">
-                Elegí un instructivo solo si el formato se menciona ahí específicamente.
-                Si el procedimiento lo menciona directamente (o no se menciona en ninguno), dejalo "Al procedimiento".
+              <p className="text-xs text-zinc-600 mt-1 leading-relaxed">
+                Elige un instructivo solo si el formato se menciona ahí específicamente.
+                Si el procedimiento lo menciona directamente (o no se menciona en ninguno), déjalo en "Al procedimiento".
               </p>
             </div>
           )}
 
           <div>
-            <label className="text-[11px] text-zinc-400 uppercase tracking-widest font-mono block mb-1">
+            <label className="text-xs text-zinc-600 uppercase tracking-widest font-mono block mb-1">
               Nombre *
             </label>
             <input
               value={nombre}
+              aria-label="Nombre"
+              name="nombre"
+              autoComplete="off"
               onChange={(e) => setNombre(e.target.value)}
-              className="w-full bg-white border border-zinc-200 rounded-lg px-2.5 py-1.5 text-[12px] text-zinc-700 font-mono placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-helix-accent/40"
+              className="w-full bg-white border border-zinc-300 rounded-lg px-2.5 py-1.5 text-[12px] text-zinc-700 font-mono placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-helix-accent/40"
             />
           </div>
 
           {error && (
             <div className="flex items-start gap-2 px-2.5 py-2 rounded-lg bg-red-50 border border-red-200">
-              <AlertCircle className="h-3.5 w-3.5 text-red-500 shrink-0 mt-0.5" />
-              <p className="text-[11px] text-red-600">{error}</p>
+              <AlertCircle className="h-3.5 w-3.5 text-red-700 shrink-0 mt-0.5" />
+              <p className="text-xs text-red-600">{error}</p>
             </div>
           )}
 
           <div className="flex gap-2 pt-1">
             <button
               onClick={() => { setVisible(false); setFile(null); setNombre(""); setError("") }}
-              className="flex-1 py-1.5 rounded-lg text-[11px] font-mono border border-zinc-200 text-zinc-500 hover:bg-zinc-50 transition-colors"
+              className="flex-1 py-1.5 rounded-lg text-xs font-mono border border-zinc-300 text-zinc-700 hover:bg-zinc-100 transition-colors"
             >
               Cancelar
             </button>
             <button
               onClick={() => void handleSave()}
               disabled={submitting}
-              className="flex-1 py-1.5 rounded-lg text-[11px] font-mono font-semibold bg-helix-accent text-white hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-1.5"
+              className="flex-1 py-1.5 rounded-lg text-xs font-mono font-semibold bg-helix-accent text-white hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-1.5"
             >
               {submitting
                 ? <><Loader className="h-3 w-3 animate-spin" /> Subiendo…</>
@@ -322,23 +331,23 @@ export function SigAnexoPanel({
       )}
 
       {isLoading && (
-        <div className="flex items-center justify-center py-8 gap-2 text-zinc-400">
+        <div className="flex items-center justify-center py-8 gap-2 text-zinc-600">
           <Loader className="h-4 w-4 animate-spin" />
           <span className="text-xs font-mono">Cargando…</span>
         </div>
       )}
 
       {!isLoading && items.length === 0 && canEdit && !visible && (
-        <div className="flex flex-col items-center justify-center py-10 gap-3 rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50">
-          <Paperclip className="h-8 w-8 text-zinc-300" />
+        <div className="flex flex-col items-center justify-center py-10 gap-3 rounded-xl border border-dashed border-zinc-300 bg-zinc-100/50">
+          <Paperclip className="h-8 w-8 text-zinc-600" />
           <div className="text-center space-y-1">
-            <p className="text-[12px] font-mono text-zinc-500">Sin documentos</p>
-            <p className="text-[11px] text-zinc-400 max-w-[280px] leading-relaxed">{emptyText}</p>
+            <p className="text-[12px] font-mono text-zinc-700">Sin documentos</p>
+            <p className="text-xs text-zinc-600 max-w-[280px] leading-relaxed">{emptyText}</p>
           </div>
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-mono font-semibold
-                       border border-helix-accent/30 text-helix-accent hover:bg-helix-accent/5 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-semibold
+                       border border-helix-accent/30 text-helix-accent-ink hover:bg-helix-accent/5 transition-colors"
           >
             <Upload className="h-3 w-3" />
             Cargar primer documento
@@ -347,29 +356,31 @@ export function SigAnexoPanel({
       )}
 
       {!isLoading && items.length === 0 && !canEdit && (
-        <p className="text-[11px] text-zinc-400 text-center py-10">{emptyText}</p>
+        <p className="text-xs text-zinc-600 text-center py-10">{emptyText}</p>
       )}
 
       {!isLoading && items.length > 0 && (
         <div className="space-y-2">
           {error && !visible && (
             <div className="flex items-start gap-2 px-2.5 py-2 rounded-lg bg-red-50 border border-red-200" aria-live="polite">
-              <AlertCircle className="h-3.5 w-3.5 text-red-500 shrink-0 mt-0.5" />
-              <p className="text-[11px] text-red-600">{error}</p>
+              <AlertCircle className="h-3.5 w-3.5 text-red-700 shrink-0 mt-0.5" />
+              <p className="text-xs text-red-600">{error}</p>
             </div>
           )}
           {items.map((item) => (
             <div
               key={item.id}
-              className="group flex items-center gap-3 px-4 py-3 border border-zinc-200 rounded-lg bg-white hover:border-zinc-300 hover:shadow-sm transition-all"
+              className="group flex items-center gap-3 px-4 py-3 border border-zinc-300 rounded-lg bg-white hover:border-zinc-300 hover:shadow-sm transition-shadow"
             >
-              <FileText className="h-4 w-4 text-zinc-400 shrink-0" />
+              <FileText className="h-4 w-4 text-zinc-600 shrink-0" />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className="text-[12px] font-mono font-semibold text-zinc-700">{item.nombre}</span>
-                  {instructivoOptions && canEdit && editingInstructivoFor === item.id ? (
+                  <EstadoRevision estado={item.estado} comentario={item.comentarioRevision} />
+                  {instructivoOptions && canEdit && !soloSubir && editingInstructivoFor === item.id ? (
                     <select
                       autoFocus
+                      aria-label="Instructivo al que pertenece"
                       value={item.instructivo ? instructivoOptions.find((o) => o.codigo === item.instructivo!.codigo)?.id ?? "" : ""}
                       onChange={(e) => {
                         updateInstructivoMutation.mutate({
@@ -380,7 +391,7 @@ export function SigAnexoPanel({
                       onBlur={() => setEditingInstructivoFor(null)}
                       disabled={updateInstructivoMutation.isPending}
                       onClick={(e) => e.stopPropagation()}
-                      className="text-[10px] font-mono px-1 py-px rounded border border-helix-accent/40 bg-white text-zinc-600 max-w-[220px]"
+                      className="text-[11px] font-mono px-1 py-px rounded border border-helix-accent/40 bg-white text-zinc-700 max-w-[220px]"
                     >
                       <option value="">Del procedimiento (sin instructivo)</option>
                       {instructivoOptions.map((o) => (
@@ -389,18 +400,18 @@ export function SigAnexoPanel({
                     </select>
                   ) : item.instructivo ? (
                     <button
-                      onClick={(e) => { e.stopPropagation(); instructivoOptions && canEdit && setEditingInstructivoFor(item.id) }}
-                      title={`Del instructivo: ${item.instructivo.titulo}${instructivoOptions && canEdit ? " — click para cambiar" : ""}`}
-                      className="text-[10px] font-mono px-1.5 py-px rounded bg-zinc-100 text-zinc-500 truncate max-w-[140px] hover:bg-zinc-200 transition-colors"
+                      onClick={(e) => { e.stopPropagation(); instructivoOptions && canEdit && !soloSubir && setEditingInstructivoFor(item.id) }}
+                      title={`Del instructivo: ${item.instructivo.titulo}${instructivoOptions && canEdit && !soloSubir ? " — click para cambiar" : ""}`}
+                      className="text-[11px] font-mono px-1.5 py-px rounded bg-zinc-200 text-zinc-700 shrink-0 whitespace-nowrap truncate max-w-[140px] hover:bg-zinc-200 transition-colors"
                     >
                       {item.instructivo.codigo}
                     </button>
                   ) : (
-                    instructivoOptions && canEdit && (
+                    instructivoOptions && canEdit && !soloSubir && (
                       <button
                         onClick={(e) => { e.stopPropagation(); setEditingInstructivoFor(item.id) }}
                         title="Está asociado directo al procedimiento (no a un instructivo) — click para asociarlo a uno puntual"
-                        className="flex items-center gap-1 text-[10px] font-mono px-1.5 py-px rounded border border-dashed border-zinc-300 text-zinc-400 hover:border-helix-accent/40 hover:text-helix-accent transition-colors"
+                        className="flex shrink-0 items-center gap-1 whitespace-nowrap text-[11px] font-mono px-1.5 py-px rounded border border-dashed border-zinc-300 text-zinc-600 hover:border-helix-accent/40 hover:text-helix-accent-ink transition-colors"
                       >
                         <Pencil className="h-2.5 w-2.5" />
                         Del procedimiento
@@ -408,12 +419,12 @@ export function SigAnexoPanel({
                     )
                   )}
                 </div>
-                <p className="text-[11px] text-zinc-400 truncate mt-0.5">{item.nombreArchivo}</p>
+                <p className="text-xs text-zinc-600 truncate mt-0.5">{item.nombreArchivo}</p>
               </div>
               <button
                 onClick={() => void handleDownload(item)}
                 disabled={downloading === item.id}
-                className="shrink-0 p-1.5 rounded text-zinc-300 hover:text-helix-accent hover:bg-helix-accent/5 transition-colors disabled:opacity-40"
+                className="shrink-0 p-1.5 rounded text-zinc-600 hover:text-helix-accent-ink hover:bg-helix-accent/5 transition-colors disabled:opacity-40"
                 title="Descargar"
                 aria-label={`Descargar ${item.nombre}`}
               >
@@ -422,20 +433,20 @@ export function SigAnexoPanel({
                   : <Download className="h-3.5 w-3.5" />
                 }
               </button>
-              {canEdit && (
+              {canEdit && !soloSubir && (
                 confirmDeleteId === item.id ? (
                   <div className="flex items-center gap-1 shrink-0">
-                    <AlertTriangle className="h-2.5 w-2.5 text-amber-500" />
+                    <AlertTriangle className="h-2.5 w-2.5 text-amber-700" />
                     <button
                       onClick={() => void handleDelete(item.id)}
                       disabled={deleting === item.id}
-                      className="text-[11px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-500 border border-red-200 hover:bg-red-500/20 font-mono"
+                      className="text-xs px-1.5 py-0.5 rounded bg-red-500/10 text-red-700 border border-red-200 hover:bg-red-500/20 font-mono"
                     >
                       {deleting === item.id ? "…" : "Sí"}
                     </button>
                     <button
                       onClick={() => setConfirmDeleteId(null)}
-                      className="text-[11px] px-1 py-0.5 rounded text-zinc-400 hover:text-zinc-600 font-mono"
+                      className="text-xs px-1 py-0.5 rounded text-zinc-600 hover:text-zinc-700 font-mono"
                     >
                       No
                     </button>
@@ -444,7 +455,8 @@ export function SigAnexoPanel({
                   <button
                     onClick={() => setConfirmDeleteId(item.id)}
                     disabled={!!deleting}
-                    className="opacity-0 group-hover:opacity-100 shrink-0 p-1.5 rounded hover:bg-red-50 text-zinc-300 hover:text-red-400 transition-all"
+                    aria-label={`Eliminar ${item.nombre}`}
+                    className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 shrink-0 p-1.5 rounded hover:bg-red-50 text-zinc-600 hover:text-red-600 transition-[opacity,color,background-color] focus-visible:ring-2 focus-visible:ring-helix-accent/40"
                   >
                     {deleting === item.id ? <Loader className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                   </button>
@@ -454,7 +466,11 @@ export function SigAnexoPanel({
           ))}
         </div>
       )}
-    </div>
+    </>
+  )
+  return enMarco ? cuerpo : (
+    <div className="flex-1 overflow-y-auto bg-white">
+      <div className="max-w-3xl mx-auto px-8 py-8">{cuerpo}</div>
     </div>
   )
 }

@@ -7,6 +7,7 @@ import { authenticate } from "./middleware/auth"
 import areasRouter from "./routers/areas"
 import procedimientosRouter from "./routers/procedimientos"
 import commitsRouter from "./routers/commits"
+import revisionRouter from "./routers/revision"
 import archivosPendientesRouter from "./routers/archivos-pendientes"
 import instructivosRouter from "./routers/instructivos"
 import formatosRouter from "./routers/formatos"
@@ -14,9 +15,13 @@ import docAnexosRouter from "./routers/doc-anexos"
 import protocolosRouter from "./routers/protocolos"
 import referenciasRouter from "./routers/referencias"
 import auditoriasRouter from "./routers/auditorias"
+import indicadoresRouter from "./routers/indicadores"
+import buscarRouter from "./routers/buscar"
+import { gateLider } from "./middleware/gateLider"
 import reportesDesarrolloRouter from "./routers/reportes-desarrollo"
 
 const app = express()
+app.set("case sensitive routing", true) // /api/Indicadores ya no coincide con /api/indicadores
 
 app.use(cors({
   origin: env.CORS_ORIGIN ?? "*",
@@ -32,9 +37,11 @@ app.get("/health", (_req: Request, res: Response) => {
 
 // Rutas protegidas con JWT
 app.use("/api", authenticate)
+app.use("/api", gateLider)
 app.use("/api/areas", areasRouter)
 app.use("/api/procedimientos", procedimientosRouter)
 app.use("/api/commits", commitsRouter)
+app.use("/api/revision", revisionRouter)
 app.use("/api/archivos-pendientes", archivosPendientesRouter)
 app.use("/api/instructivos", instructivosRouter)
 app.use("/api/formatos", formatosRouter)
@@ -42,6 +49,8 @@ app.use("/api/doc-anexos", docAnexosRouter)
 app.use("/api/protocolos", protocolosRouter)
 app.use("/api/referencias", referenciasRouter)
 app.use("/api", auditoriasRouter) // /api/auditorias, /api/hallazgos, /api/consultas
+app.use("/api/indicadores", indicadoresRouter)
+app.use("/api/buscar", buscarRouter)
 app.use("/api/reportes-desarrollo", reportesDesarrolloRouter)
 
 // 404

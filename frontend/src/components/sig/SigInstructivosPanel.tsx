@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query"
 import { sigApi } from "@/lib/sigApi"
+import { EstadoRevision } from "./EstadoRevision"
 import { cn } from "@/lib/utils"
 import { PdfFrame, WordPreview } from "@/components/sig/SigFileViewer"
 import {
@@ -10,8 +11,9 @@ import {
 } from "lucide-react"
 
 const MAX_INSTRUCTIVOS = 20
-
 export interface SigInstructivo {
+  estado?: string
+  comentarioRevision?: string | null
   id: number
   procedimientoId: number
   codigo: string
@@ -27,9 +29,13 @@ export interface SigInstructivo {
 }
 
 interface Props {
+  /** El marco (lienzo, tarjeta y guía) lo pone quien lo llama. */
+  enMarco?: boolean
   procedimientoId: number
   procCodigo?: string
   canEdit?: boolean
+  /** Líder de área: puede subir instructivos, pero no borrarlos. */
+  soloSubir?: boolean
   onSelectInst?: (inst: SigInstructivo) => void
 }
 
@@ -61,16 +67,16 @@ function getErr(e: unknown, fallback: string): string {
 
 export const PROSE = `prose prose-base max-w-none
   prose-headings:font-mono prose-headings:text-zinc-700 prose-headings:font-semibold
-  prose-p:text-zinc-600 prose-p:leading-relaxed
+  prose-p:text-zinc-700 prose-p:leading-relaxed
   prose-strong:text-zinc-800 prose-strong:font-semibold
-  prose-li:text-zinc-600 prose-li:leading-relaxed
+  prose-li:text-zinc-700 prose-li:leading-relaxed
   prose-ul:space-y-1.5 prose-ol:space-y-1.5 prose-ul:my-3 prose-ol:my-3
-  prose-code:text-helix-ai prose-code:bg-zinc-100 prose-code:px-1 prose-code:rounded prose-code:text-[11px]
-  prose-table:text-[12px] prose-th:text-zinc-600 prose-th:font-mono prose-th:font-semibold prose-th:text-[11px] prose-th:border prose-th:border-zinc-200 prose-th:px-3 prose-th:py-1.5 prose-th:bg-zinc-50
-  prose-td:text-zinc-600 prose-td:text-[12px] prose-td:border prose-td:border-zinc-100 prose-td:px-3 prose-td:py-1.5
-  prose-hr:border-zinc-200`
+  prose-code:text-helix-ai prose-code:bg-zinc-200 prose-code:px-1 prose-code:rounded prose-code:text-xs
+  prose-table:text-[12px] prose-th:text-zinc-700 prose-th:font-mono prose-th:font-semibold prose-th:text-xs prose-th:border prose-th:border-zinc-300 prose-th:px-3 prose-th:py-1.5 prose-th:bg-zinc-100
+  prose-td:text-zinc-700 prose-td:text-[12px] prose-td:border prose-td:border-zinc-200 prose-td:px-3 prose-td:py-1.5
+  prose-hr:border-zinc-300`
 
-export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = false, onSelectInst }: Props) {
+export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = false, soloSubir = false, onSelectInst, enMarco = false }: Props) {
   const qc = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const formRef = useRef<HTMLDivElement>(null)
@@ -258,7 +264,7 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
   }
 
   return (
-    <div className="mt-12 pt-8 border-t border-zinc-100">
+    <div className={enMarco ? "space-y-4" : "mt-12 pt-8 border-t border-zinc-200"}>
       <input
         ref={fileInputRef}
         type="file"
@@ -276,15 +282,15 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
       <div className="flex items-start justify-between gap-3 mb-5">
         <div>
           <div className="flex items-center gap-2">
-            <BookOpen className="h-4 w-4 text-zinc-400" />
-            <span className="text-[13px] font-mono font-semibold text-zinc-600">Documentos de soporte</span>
+            <BookOpen className="h-4 w-4 text-zinc-600" />
+            <span className="text-[13px] font-mono font-semibold text-zinc-700">Documentos de soporte</span>
             {instructivos.length > 0 && (
-              <span className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-zinc-200 text-zinc-400">
+              <span className="text-xs font-mono px-1.5 py-0.5 rounded border border-zinc-300 text-zinc-600">
                 {instructivos.length}
               </span>
             )}
           </div>
-          <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed max-w-md">
+          <p className="text-xs text-zinc-600 mt-1 leading-relaxed max-w-md">
             Instructivos, guías o normas que complementan
             {procCodigo ? ` ${procCodigo}` : " este procedimiento"}.
           </p>
@@ -295,8 +301,8 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
             onClick={openFilePicker}
             disabled={form.visible || !!batch || atLimit}
             title="Podés seleccionar varios archivos a la vez"
-            className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-mono font-semibold
-                       border border-helix-accent/30 text-helix-accent hover:bg-helix-accent/5
+            className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-semibold
+                       border border-helix-accent/30 text-helix-accent-ink hover:bg-helix-accent/5
                        transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Plus className="h-3 w-3" />
@@ -310,14 +316,14 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
         <div className="mb-4 rounded-xl border border-helix-accent/25 bg-helix-accent/5 p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <FileText className="h-3.5 w-3.5 text-helix-accent" />
+              <FileText className="h-3.5 w-3.5 text-helix-accent-ink" />
               <p className="text-[12px] font-semibold text-zinc-700 font-mono">
                 {batch.length} documento{batch.length !== 1 ? "s" : ""} nuevo{batch.length !== 1 ? "s" : ""}
               </p>
             </div>
             <button
               onClick={() => { setBatch(null); setBatchError("") }}
-              className="p-1 rounded text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors"
+              className="p-1 rounded text-zinc-600 hover:text-zinc-700 hover:bg-zinc-200 transition-colors"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -325,20 +331,20 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
 
           <div className="space-y-2 max-h-72 overflow-y-auto">
             {batch.map((it, i) => (
-              <div key={i} className="rounded-lg border border-zinc-200 bg-white p-2.5 space-y-1.5">
-                <p className="text-[11px] text-zinc-500 font-mono truncate">{it.file.name}</p>
+              <div key={i} className="rounded-lg border border-zinc-300 bg-white p-2.5 space-y-1.5">
+                <p className="text-xs text-zinc-700 font-mono truncate">{it.file.name}</p>
                 <div className="grid grid-cols-2 gap-1.5">
                   <input
                     value={it.codigo}
                     onChange={(e) => updateBatchItem(i, { codigo: e.target.value.toUpperCase() })}
                     placeholder="Código * (INS-OP-001)"
-                    className={cn(inputCls, "text-[11px]", !it.codigo.trim() && "border-amber-300")}
+                    className={cn(inputCls, "text-xs", !it.codigo.trim() && "border-amber-300")}
                   />
                   <input
                     value={it.titulo}
                     onChange={(e) => updateBatchItem(i, { titulo: e.target.value })}
                     placeholder="Título *"
-                    className={cn(inputCls, "text-[11px]")}
+                    className={cn(inputCls, "text-xs")}
                   />
                 </div>
               </div>
@@ -347,22 +353,22 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
 
           {batchError && (
             <div className="flex items-start gap-2 px-2.5 py-2 rounded-lg bg-red-50 border border-red-200">
-              <AlertCircle className="h-3.5 w-3.5 text-red-500 shrink-0 mt-0.5" />
-              <p className="text-[11px] text-red-600">{batchError}</p>
+              <AlertCircle className="h-3.5 w-3.5 text-red-700 shrink-0 mt-0.5" />
+              <p className="text-xs text-red-600">{batchError}</p>
             </div>
           )}
 
           <div className="flex gap-2 pt-1">
             <button
               onClick={() => { setBatch(null); setBatchError("") }}
-              className="flex-1 py-1.5 rounded-lg text-[11px] font-mono border border-zinc-200 text-zinc-500 hover:bg-zinc-50 transition-colors"
+              className="flex-1 py-1.5 rounded-lg text-xs font-mono border border-zinc-300 text-zinc-700 hover:bg-zinc-100 transition-colors"
             >
               Cancelar
             </button>
             <button
               onClick={() => void handleBatchSave()}
               disabled={batchSubmitting}
-              className="flex-1 py-1.5 rounded-lg text-[11px] font-mono font-semibold bg-helix-accent text-white hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-1.5"
+              className="flex-1 py-1.5 rounded-lg text-xs font-mono font-semibold bg-helix-accent text-white hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-1.5"
             >
               {batchSubmitting
                 ? <><Loader className="h-3 w-3 animate-spin" /> Subiendo {batchDone}/{batch.length}…</>
@@ -376,13 +382,13 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
       {/* Capacity bar */}
       {canEdit && instructivos.length > 0 && (
         <div className="flex items-center gap-2 mb-4">
-          <div className="flex-1 h-1 rounded-full bg-zinc-100">
+          <div className="flex-1 h-1 rounded-full bg-zinc-200">
             <div
-              className="h-1 rounded-full bg-helix-done/60 transition-all duration-500"
+              className="h-1 rounded-full bg-helix-done/60 transition-[width] duration-500"
               style={{ width: `${(instructivos.length / MAX_INSTRUCTIVOS) * 100}%` }}
             />
           </div>
-          <span className="text-[11px] text-zinc-400 font-mono tabular-nums">
+          <span className="text-xs text-zinc-600 font-mono tabular-nums">
             {instructivos.length} / {MAX_INSTRUCTIVOS}
           </span>
         </div>
@@ -391,9 +397,9 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
       {/* Re-extract error */}
       {reextractError && (
         <div className="mb-4 flex items-start gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-200">
-          <AlertCircle className="h-3.5 w-3.5 text-red-500 shrink-0 mt-0.5" />
-          <p className="text-[11px] text-red-600 flex-1">{reextractError}</p>
-          <button onClick={() => setReextractError(null)} className="text-red-400 hover:text-red-600">
+          <AlertCircle className="h-3.5 w-3.5 text-red-700 shrink-0 mt-0.5" />
+          <p className="text-xs text-red-600 flex-1">{reextractError}</p>
+          <button onClick={() => setReextractError(null)} className="text-red-600 hover:text-red-600">
             <X className="h-3 w-3" />
           </button>
         </div>
@@ -404,8 +410,8 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
         <div className="mb-4 space-y-1.5">
           {form.warnings.map((w, i) => (
             <div key={i} className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200">
-              <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
-              <p className="text-[11px] text-amber-700">{w}</p>
+              <AlertTriangle className="h-3.5 w-3.5 text-amber-700 shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-700">{w}</p>
             </div>
           ))}
         </div>
@@ -419,22 +425,22 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <FileText className="h-3.5 w-3.5 text-helix-accent" />
+              <FileText className="h-3.5 w-3.5 text-helix-accent-ink" />
               <p className="text-[12px] font-semibold text-zinc-700 font-mono">Nuevo documento</p>
             </div>
             <button
               onClick={() => setForm(FORM_DEFAULT)}
-              className="p-1 rounded text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors"
+              className="p-1 rounded text-zinc-600 hover:text-zinc-700 hover:bg-zinc-200 transition-colors"
             >
               <X className="h-3.5 w-3.5" />
             </button>
           </div>
 
           {form.fileName && (
-            <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white border border-zinc-200">
-              <FolderOpen className="h-3 w-3 text-zinc-400 shrink-0" />
-              <span className="text-[11px] text-zinc-600 truncate font-mono">{form.fileName}</span>
-              <span className="ml-auto text-[11px] text-zinc-400 font-mono tabular-nums">
+            <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white border border-zinc-300">
+              <FolderOpen className="h-3 w-3 text-zinc-600 shrink-0" />
+              <span className="text-xs text-zinc-700 truncate font-mono">{form.fileName}</span>
+              <span className="ml-auto text-xs text-zinc-600 font-mono tabular-nums">
                 {(form.file?.size ? (form.file.size / 1024).toFixed(0) : "?")} KB
               </span>
             </div>
@@ -479,22 +485,22 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
 
           {form.error && (
             <div className="flex items-start gap-2 px-2.5 py-2 rounded-lg bg-red-50 border border-red-200">
-              <AlertCircle className="h-3.5 w-3.5 text-red-500 shrink-0 mt-0.5" />
-              <p className="text-[11px] text-red-600">{form.error}</p>
+              <AlertCircle className="h-3.5 w-3.5 text-red-700 shrink-0 mt-0.5" />
+              <p className="text-xs text-red-600">{form.error}</p>
             </div>
           )}
 
           <div className="flex gap-2 pt-1">
             <button
               onClick={() => setForm(FORM_DEFAULT)}
-              className="flex-1 py-1.5 rounded-lg text-[11px] font-mono border border-zinc-200 text-zinc-500 hover:bg-zinc-50 transition-colors"
+              className="flex-1 py-1.5 rounded-lg text-xs font-mono border border-zinc-300 text-zinc-700 hover:bg-zinc-100 transition-colors"
             >
               Cancelar
             </button>
             <button
               onClick={() => void handleSave()}
               disabled={form.submitting}
-              className="flex-1 py-1.5 rounded-lg text-[11px] font-mono font-semibold bg-helix-accent text-white hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-1.5"
+              className="flex-1 py-1.5 rounded-lg text-xs font-mono font-semibold bg-helix-accent text-white hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-1.5"
             >
               {form.submitting
                 ? <><Loader className="h-3 w-3 animate-spin" /> Subiendo…</>
@@ -507,7 +513,7 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
 
       {/* Loading */}
       {isLoading && (
-        <div className="flex items-center justify-center py-8 gap-2 text-zinc-400">
+        <div className="flex items-center justify-center py-8 gap-2 text-zinc-600">
           <Loader className="h-4 w-4 animate-spin" />
           <span className="text-xs font-mono">Cargando documentos…</span>
         </div>
@@ -515,18 +521,18 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
 
       {/* Empty state */}
       {!isLoading && instructivos.length === 0 && canEdit && !form.visible && (
-        <div className="flex flex-col items-center justify-center py-10 gap-3 rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50">
-          <BookOpen className="h-8 w-8 text-zinc-300" />
+        <div className="flex flex-col items-center justify-center py-10 gap-3 rounded-xl border border-dashed border-zinc-300 bg-zinc-100/50">
+          <BookOpen className="h-8 w-8 text-zinc-600" />
           <div className="text-center space-y-1">
-            <p className="text-[12px] font-mono text-zinc-500">Sin documentos de soporte</p>
-            <p className="text-[11px] text-zinc-400 max-w-[260px] leading-relaxed">
+            <p className="text-[12px] font-mono text-zinc-700">Sin documentos de soporte</p>
+            <p className="text-xs text-zinc-600 max-w-[260px] leading-relaxed">
               Agrega instructivos o guías que complementen el procedimiento. No es obligatorio.
             </p>
           </div>
           <button
             onClick={openFilePicker}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-mono font-semibold
-                       border border-helix-accent/30 text-helix-accent hover:bg-helix-accent/5 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-semibold
+                       border border-helix-accent/30 text-helix-accent-ink hover:bg-helix-accent/5 transition-colors"
           >
             <Upload className="h-3 w-3" />
             Cargar primer documento
@@ -540,24 +546,30 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
           {instructivos.map((inst) => (
             <div
               key={inst.id}
+              role="button"
+              tabIndex={0}
               onClick={() => onSelectInst?.(inst)}
-              className="group flex items-center gap-3 px-4 py-3 border border-zinc-200 rounded-lg bg-white hover:border-zinc-300 hover:shadow-sm cursor-pointer transition-all"
+              onKeyDown={(e) => {
+                if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onSelectInst?.(inst) }
+              }}
+              className="group flex items-center gap-3 px-4 py-3 border border-zinc-300 rounded-lg bg-white hover:border-zinc-300 hover:shadow-sm cursor-pointer transition-shadow focus-visible:ring-2 focus-visible:ring-helix-accent/40 focus-visible:outline-none"
             >
-              <FileText className="h-4 w-4 text-zinc-400 shrink-0" />
+              <FileText className="h-4 w-4 text-zinc-600 shrink-0" />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-[12px] font-mono font-semibold text-zinc-700">{inst.codigo}</span>
-                  <span className="text-[11px] font-mono text-zinc-400">v{inst.versionDoc}</span>
+                  <span className="text-xs font-mono text-zinc-600">v{inst.versionDoc}</span>
+                  <EstadoRevision estado={inst.estado} comentario={inst.comentarioRevision} />
                   {inst.archivoOriginal && !inst.tipoMime?.startsWith("text/") && (
-                    <span className="text-[11px] font-mono px-1.5 py-px rounded bg-zinc-100 text-zinc-500">
+                    <span className="text-xs font-mono px-1.5 py-px rounded bg-zinc-200 text-zinc-700">
                       {inst.tipoMime === "application/pdf" ? "PDF" : inst.tipoMime?.includes("docx") ? "DOCX" : "DOC"}
                     </span>
                   )}
                   {!inst.contenido.trim() && (
-                    <span className="text-[11px] font-mono px-1.5 py-px rounded bg-amber-100 text-amber-600">sin texto</span>
+                    <span className="text-xs font-mono px-1.5 py-px rounded bg-amber-100 text-amber-700">sin texto</span>
                   )}
                 </div>
-                <p className="text-[12px] text-zinc-500 truncate mt-0.5">{inst.titulo}</p>
+                <p className="text-[12px] text-zinc-700 truncate mt-0.5">{inst.titulo}</p>
               </div>
 
               {/* Re-extract button for empty contenido */}
@@ -566,7 +578,7 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
                   onClick={(e) => { e.stopPropagation(); reextractMutation.mutate(inst.id) }}
                   disabled={reextractMutation.isPending}
                   title="Re-extraer texto del archivo"
-                  className="shrink-0 flex items-center gap-1 px-2 py-1 rounded border border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100 text-[11px] font-mono transition-colors"
+                  className="shrink-0 flex items-center gap-1 px-2 py-1 rounded border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 text-xs font-mono transition-colors"
                 >
                   <RefreshCw className={cn("h-3 w-3", reextractMutation.isPending && "animate-spin")} />
                   Re-extraer
@@ -574,23 +586,23 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
               )}
 
               {/* Delete button */}
-              {canEdit && (
+              {canEdit && !soloSubir && (
                 confirmDeleteId === inst.id ? (
                   <div
                     className="flex items-center gap-1 shrink-0"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <AlertTriangle className="h-2.5 w-2.5 text-amber-500" />
+                    <AlertTriangle className="h-2.5 w-2.5 text-amber-700" />
                     <button
                       onClick={() => void handleDelete(inst.id)}
                       disabled={deleting === inst.id}
-                      className="text-[11px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-500 border border-red-200 hover:bg-red-500/20 font-mono"
+                      className="text-xs px-1.5 py-0.5 rounded bg-red-500/10 text-red-700 border border-red-200 hover:bg-red-500/20 font-mono"
                     >
                       {deleting === inst.id ? "…" : "Sí"}
                     </button>
                     <button
                       onClick={() => setConfirmDeleteId(null)}
-                      className="text-[11px] px-1 py-0.5 rounded text-zinc-400 hover:text-zinc-600 font-mono"
+                      className="text-xs px-1 py-0.5 rounded text-zinc-600 hover:text-zinc-700 font-mono"
                     >
                       No
                     </button>
@@ -599,14 +611,15 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
                   <button
                     onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(inst.id) }}
                     disabled={!!deleting}
-                    className="opacity-0 group-hover:opacity-100 shrink-0 p-1.5 rounded hover:bg-red-50 text-zinc-300 hover:text-red-400 transition-all"
+                    aria-label={`Eliminar ${inst.codigo}`}
+                    className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 shrink-0 p-1.5 rounded hover:bg-red-50 text-zinc-600 hover:text-red-600 transition-[opacity,color,background-color] focus-visible:ring-2 focus-visible:ring-helix-accent/40"
                   >
                     {deleting === inst.id ? <Loader className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                   </button>
                 )
               )}
 
-              <ChevronRight className="h-3.5 w-3.5 text-zinc-300 shrink-0" />
+              <ChevronRight className="h-3.5 w-3.5 text-zinc-600 shrink-0" />
             </div>
           ))}
         </div>
@@ -614,15 +627,15 @@ export function SigInstructivosPanel({ procedimientoId, procCodigo, canEdit = fa
 
       {atLimit && canEdit && (
         <div className="flex items-center gap-2 px-3 py-2 mt-3 rounded-lg bg-amber-50 border border-amber-200">
-          <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-          <p className="text-[11px] text-amber-700 font-mono">
+          <AlertTriangle className="h-3.5 w-3.5 text-amber-700 shrink-0" />
+          <p className="text-xs text-amber-700 font-mono">
             Límite de {MAX_INSTRUCTIVOS} documentos alcanzado. Elimina uno para agregar más.
           </p>
         </div>
       )}
 
       {canEdit && (
-        <p className="text-[11px] text-zinc-400 text-center mt-4 font-mono opacity-70">
+        <p className="text-xs text-zinc-600 text-center mt-4 font-mono opacity-70">
           Formatos: MD · TXT · DOCX · PDF · DOC
         </p>
       )}
@@ -666,7 +679,7 @@ export function InstructivoArchivoView({ inst }: { inst: SigInstructivo }) {
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center gap-2 text-zinc-400 bg-white">
+      <div className="flex-1 flex items-center justify-center gap-2 text-zinc-600 bg-white">
         <div className="h-3 w-3 rounded-full border border-zinc-300 border-t-zinc-600 animate-spin" />
         <span className="text-xs font-mono">Cargando archivo…</span>
       </div>
@@ -676,8 +689,8 @@ export function InstructivoArchivoView({ inst }: { inst: SigInstructivo }) {
   if (error) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-3 bg-white">
-        <AlertCircle className="h-5 w-5 text-zinc-300" />
-        <p className="text-sm text-zinc-400 font-mono">{error}</p>
+        <AlertCircle className="h-5 w-5 text-zinc-600" />
+        <p className="text-sm text-zinc-600 font-mono">{error}</p>
       </div>
     )
   }
@@ -700,16 +713,16 @@ export function InstructivoArchivoView({ inst }: { inst: SigInstructivo }) {
   // .doc u otro — descarga
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-4 bg-white">
-      <Paperclip className="h-8 w-8 text-zinc-300" />
+      <Paperclip className="h-8 w-8 text-zinc-600" />
       <div className="text-center">
-        <p className="text-sm font-mono text-zinc-600">{inst.nombreArchivo ?? "Archivo"}</p>
-        <p className="text-[11px] text-zinc-400 mt-1">Este formato no puede mostrarse en el navegador.</p>
+        <p className="text-sm font-mono text-zinc-700">{inst.nombreArchivo ?? "Archivo"}</p>
+        <p className="text-xs text-zinc-600 mt-1">Este formato no puede mostrarse en el navegador.</p>
       </div>
       {objectUrl && (
         <a
           href={objectUrl}
           download={inst.nombreArchivo ?? "archivo"}
-          className="flex items-center gap-1.5 text-[11px] px-3 py-2 rounded border border-zinc-200 text-zinc-600 hover:border-zinc-400 hover:text-zinc-900 transition-colors font-mono"
+          className="flex items-center gap-1.5 text-xs px-3 py-2 rounded border border-zinc-300 text-zinc-700 hover:border-zinc-400 hover:text-zinc-900 transition-colors font-mono"
         >
           <Download className="h-3.5 w-3.5" />
           Descargar {inst.nombreArchivo}
@@ -720,12 +733,12 @@ export function InstructivoArchivoView({ inst }: { inst: SigInstructivo }) {
 }
 
 const inputCls =
-  "w-full bg-white border border-zinc-200 rounded-lg px-2.5 py-1.5 text-[12px] text-zinc-700 font-mono placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-helix-accent/40 transition-colors"
+  "w-full bg-white border border-zinc-300 rounded-lg px-2.5 py-1.5 text-[12px] text-zinc-700 font-mono placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-helix-accent/40 transition-colors"
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="text-[11px] text-zinc-400 uppercase tracking-widest font-mono block mb-1">{label}</label>
+      <label className="text-xs text-zinc-600 uppercase tracking-widest font-mono block mb-1">{label}</label>
       {children}
     </div>
   )

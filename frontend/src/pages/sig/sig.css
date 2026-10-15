@@ -1,0 +1,42 @@
+/* SIG: mismas fuentes que la plataforma de rúbricas — Ubuntu para el texto y Cascadia Code para códigos, cifras y etiquetas. Solo dentro de .sig-root. */
+@import "@fontsource/ubuntu/400.css";
+@import "@fontsource/ubuntu/400-italic.css";
+@import "@fontsource/ubuntu/500.css";
+@import "@fontsource/ubuntu/700.css";
+@import "@fontsource-variable/cascadia-code";
+
+.sig-root, .sig-root input, .sig-root select, .sig-root textarea, .sig-root button, .sig-root optgroup, .sig-root option { font-family: "Ubuntu", system-ui, sans-serif; }
+.sig-root .font-mono, .sig-root code, .sig-root pre, .sig-root kbd { font-family: "Cascadia Code Variable", "Cascadia Code", ui-monospace, monospace; }
+/* Ubuntu no tiene 600: los títulos semibold pasan a 500 */
+.sig-root .font-semibold { font-weight: 500; }
+
+/* Barras de desplazamiento elegantes: finas, pista invisible, pulgar redondeado y sutil que se enciende en rojo de marca al pasar el cursor.
+   (El visor de PDF y los iframes traen las suyas: el navegador no deja tocarlas.) */
+.sig-root * { scrollbar-width: thin; scrollbar-color: rgb(113 113 122 / .45) transparent; }
+.sig-root ::-webkit-scrollbar { width: 12px; height: 12px; }
+.sig-root ::-webkit-scrollbar-track { background: transparent; }
+.sig-root ::-webkit-scrollbar-thumb { background: rgb(113 113 122 / .38); border-radius: 999px; border: 4px solid transparent; background-clip: content-box; min-height: 44px; }
+.sig-root ::-webkit-scrollbar-thumb:hover { background: #ef3340; background-clip: content-box; border-width: 3px; }
+.sig-root ::-webkit-scrollbar-thumb:active { background: #c4202c; background-clip: content-box; border-width: 3px; }
+.sig-root ::-webkit-scrollbar-corner { background: transparent; }
+
+/* Franjas que se desplazan (pestañas) sin barra visible */
+.sig-root .sig-sin-barra { scrollbar-width: none; }
+.sig-root .sig-sin-barra::-webkit-scrollbar { display: none; }
+
+/* ── Movimiento: una entrada con curva exponencial; sin movimiento si la persona lo pidió ── */
+@keyframes sig-entra { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: none } }
+@keyframes sig-bandeja-entra { from { opacity: 0; transform: translate3d(var(--x, 0), calc(var(--y, 0px) + 12px), 0) scale(.97) } to { opacity: 1; transform: translate3d(var(--x, 0), var(--y, 0), 0) scale(1) } }
+@keyframes sig-pulso { 0% { box-shadow: 0 0 0 0 rgb(220 38 38 / .35) } 70% { box-shadow: 0 0 0 9px rgb(220 38 38 / 0) } 100% { box-shadow: 0 0 0 0 rgb(220 38 38 / 0) } }
+.sig-entra { animation: sig-entra .3s cubic-bezier(.2, .8, .2, 1) both; }
+/* los hijos directos entran escalonados (los primeros 8; el resto aparece con el último) */
+.sig-escalona > * { animation: sig-entra .32s cubic-bezier(.2, .8, .2, 1) both; }
+.sig-escalona > *:nth-child(2) { animation-delay: 40ms } .sig-escalona > *:nth-child(3) { animation-delay: 80ms }
+.sig-escalona > *:nth-child(4) { animation-delay: 120ms } .sig-escalona > *:nth-child(5) { animation-delay: 160ms }
+.sig-escalona > *:nth-child(6) { animation-delay: 200ms } .sig-escalona > *:nth-child(7) { animation-delay: 240ms }
+.sig-escalona > *:nth-child(n+8) { animation-delay: 280ms }
+@media (prefers-reduced-motion: reduce) {
+  .sig-entra, .sig-escalona > * { animation: none; }
+  .sig-bandeja { animation: none !important; transform: translate3d(var(--x, 0), var(--y, 0), 0) !important; }
+  .sig-pulso { animation: none !important; }
+}

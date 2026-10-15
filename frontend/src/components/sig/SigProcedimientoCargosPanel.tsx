@@ -142,7 +142,7 @@ export function SigProcedimientoCargosPanel({ procedimientoId, canEdit }: Props)
           <Users className="h-4 w-4 text-rose-500" />
           <h2 className="text-sm font-semibold text-zinc-800 font-mono">Cargos involucrados</h2>
         </div>
-        <p className="text-[11px] text-zinc-500 leading-relaxed">
+        <p className="text-xs text-zinc-700 leading-relaxed">
           Selecciona los cargos de T&amp;C que aplican a este procedimiento. El análisis «Cargos» solo
           comparará estos roles contra sus manuales de funciones.
         </p>
@@ -151,7 +151,7 @@ export function SigProcedimientoCargosPanel({ procedimientoId, canEdit }: Props)
       {loadError && (
         <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
           <AlertTriangle className="h-3.5 w-3.5 text-red-600 shrink-0 mt-0.5" />
-          <p className="text-[11px] text-red-800 font-mono">
+          <p className="text-xs text-red-800 font-mono">
             No se pudo cargar el listado de cargos T&amp;C. Verifica que el backend esté desplegado y recarga la página.
           </p>
         </div>
@@ -159,8 +159,8 @@ export function SigProcedimientoCargosPanel({ procedimientoId, canEdit }: Props)
 
       {!loading && asignados.length === 0 && (
         <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-          <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
-          <p className="text-[11px] text-amber-800 font-mono">
+          <AlertTriangle className="h-3.5 w-3.5 text-amber-700 shrink-0 mt-0.5" />
+          <p className="text-xs text-amber-800 font-mono">
             Sin cargos asignados — el análisis de cargos no se puede ejecutar hasta que selecciones al menos uno.
           </p>
         </div>
@@ -168,8 +168,8 @@ export function SigProcedimientoCargosPanel({ procedimientoId, canEdit }: Props)
 
       {!loading && archivoSinTexto.length > 0 && (
         <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-          <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
-          <p className="text-[11px] text-amber-800 font-mono">
+          <AlertTriangle className="h-3.5 w-3.5 text-amber-700 shrink-0 mt-0.5" />
+          <p className="text-xs text-amber-800 font-mono">
             {archivoSinTexto.length} cargo(s) tienen archivo en T&amp;C pero sin texto extraído para IA:{" "}
             {archivoSinTexto.map((a) => a.cargoNombre).join(", ")} — en T&amp;C use «Re-extraer texto».
           </p>
@@ -177,9 +177,9 @@ export function SigProcedimientoCargosPanel({ procedimientoId, canEdit }: Props)
       )}
 
       {!loading && sinManualAsignados.length > 0 && archivoSinTexto.length === 0 && (
-        <div className="flex items-start gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2">
-          <BookOpen className="h-3.5 w-3.5 text-zinc-400 shrink-0 mt-0.5" />
-          <p className="text-[11px] text-zinc-600 font-mono">
+        <div className="flex items-start gap-2 rounded-lg border border-zinc-300 bg-zinc-100 px-3 py-2">
+          <BookOpen className="h-3.5 w-3.5 text-zinc-600 shrink-0 mt-0.5" />
+          <p className="text-xs text-zinc-700 font-mono">
             {sinManualAsignados.length} cargo(s) asignado(s) sin manual en T&amp;C:{" "}
             {sinManualAsignados.map((a) => a.cargoNombre).join(", ")} — quedarán como NO_DEFINIDO.
           </p>
@@ -188,7 +188,7 @@ export function SigProcedimientoCargosPanel({ procedimientoId, canEdit }: Props)
 
       {canEdit && (
         <div className="relative" ref={searchBoxRef}>
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 z-10" aria-hidden />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-600 z-10" aria-hidden />
           <input
             type="search"
             value={search}
@@ -196,12 +196,12 @@ export function SigProcedimientoCargosPanel({ procedimientoId, canEdit }: Props)
             onFocus={() => setSearchOpen(true)}
             placeholder="Buscar cargo para agregar…"
             aria-label="Buscar cargo para agregar"
-            className="w-full h-8 pl-8 pr-3 text-[11px] font-mono border border-zinc-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-helix-accent text-zinc-700"
+            className="w-full h-8 pl-8 pr-3 text-xs font-mono border border-zinc-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-helix-accent text-zinc-700"
           />
           {searchOpen && (
-            <div className="absolute z-20 mt-1 w-full max-h-64 overflow-y-auto border border-zinc-200 rounded-lg divide-y divide-zinc-100 bg-white shadow-lg">
+            <div className="absolute z-20 mt-1 w-full max-h-64 overflow-y-auto border border-zinc-300 rounded-lg divide-y divide-zinc-200 bg-white shadow-lg">
               {searchResults.length === 0 && (
-                <p className="text-[11px] text-zinc-400 font-mono px-3 py-3 text-center">
+                <p className="text-xs text-zinc-600 font-mono px-3 py-3 text-center">
                   {search.trim() ? "Sin coincidencias" : "Todos los cargos ya están agregados"}
                 </p>
               )}
@@ -210,10 +210,10 @@ export function SigProcedimientoCargosPanel({ procedimientoId, canEdit }: Props)
                   key={cargo.id}
                   type="button"
                   onClick={() => { toggle(cargo.id); setSearch(""); setSearchOpen(false) }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-zinc-50 transition-colors"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-zinc-100 transition-colors"
                 >
                   <span className="flex-1 min-w-0 text-[12px] text-zinc-700 truncate">{cargo.nombre}</span>
-                  <span className="shrink-0 text-[11px] text-helix-accent font-mono">+ agregar</span>
+                  <span className="shrink-0 text-xs text-helix-accent-ink font-mono">+ agregar</span>
                 </button>
               ))}
             </div>
@@ -222,16 +222,16 @@ export function SigProcedimientoCargosPanel({ procedimientoId, canEdit }: Props)
       )}
 
       {loading ? (
-        <div className="flex items-center gap-2 text-zinc-400 py-6 justify-center">
+        <div className="flex items-center gap-2 text-zinc-600 py-6 justify-center">
           <Loader className="h-3.5 w-3.5 animate-spin" />
-          <span className="text-[11px] font-mono">Cargando cargos…</span>
+          <span className="text-xs font-mono">Cargando cargos…</span>
         </div>
       ) : selectedCargos.length === 0 ? (
-        <p className="text-[11px] text-zinc-400 font-mono px-3 py-4 text-center border border-dashed border-zinc-200 rounded-lg">
+        <p className="text-xs text-zinc-600 font-mono px-3 py-4 text-center border border-dashed border-zinc-300 rounded-lg">
           Sin cargos seleccionados — usa el buscador de arriba para agregar.
         </p>
       ) : (
-        <div className="border border-zinc-200 rounded-lg divide-y divide-zinc-100 bg-white">
+        <div className="border border-zinc-300 rounded-lg divide-y divide-zinc-200 bg-white">
           {selectedCargos.map((cargo) => {
             const tieneArchivo = cargo.tiene_archivo ?? !!cargo.manual_url
             const tieneManual = !!cargo.tiene_manual
@@ -246,7 +246,7 @@ export function SigProcedimientoCargosPanel({ procedimientoId, canEdit }: Props)
                     type="button"
                     onClick={() => toggle(cargo.id)}
                     title="Quitar cargo"
-                    className="shrink-0 text-zinc-300 hover:text-rose-600 transition-colors"
+                    className="shrink-0 text-zinc-600 hover:text-rose-600 transition-colors"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -257,17 +257,17 @@ export function SigProcedimientoCargosPanel({ procedimientoId, canEdit }: Props)
                     type="button"
                     onClick={() => setViewingManual(cargo)}
                     title="Ver manual de funciones"
-                    className="shrink-0 text-[11px] px-1.5 py-0.5 rounded border font-mono max-w-[140px] truncate text-emerald-700 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 transition-colors"
+                    className="shrink-0 text-xs px-1.5 py-0.5 rounded border font-mono max-w-[140px] truncate text-emerald-700 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 transition-colors"
                   >
                     {badge}
                   </button>
                 ) : (
                   <span
                     className={cn(
-                      "shrink-0 text-[11px] px-1.5 py-0.5 rounded border font-mono max-w-[100px] truncate",
+                      "shrink-0 text-xs px-1.5 py-0.5 rounded border font-mono max-w-[100px] truncate",
                       tieneArchivo
                         ? "text-amber-700 border-amber-200 bg-amber-50"
-                        : "text-zinc-400 border-zinc-200 bg-zinc-50",
+                        : "text-zinc-600 border-zinc-300 bg-zinc-100",
                     )}
                     title={badge}
                   >
@@ -281,7 +281,7 @@ export function SigProcedimientoCargosPanel({ procedimientoId, canEdit }: Props)
       )}
 
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <span className="text-[11px] text-zinc-400 font-mono tabular-nums">
+        <span className="text-xs text-zinc-600 font-mono tabular-nums">
           {selected.size} seleccionado{selected.size !== 1 ? "s" : ""}
           {dirty && " · cambios sin guardar"}
         </span>
@@ -290,7 +290,7 @@ export function SigProcedimientoCargosPanel({ procedimientoId, canEdit }: Props)
             <button
               type="button"
               onClick={handleCancel}
-              className="text-[11px] font-mono px-2.5 py-1 rounded border border-zinc-200 text-zinc-500 hover:text-zinc-700"
+              className="text-xs font-mono px-2.5 py-1 rounded border border-zinc-300 text-zinc-700 hover:text-zinc-700"
             >
               Descartar
             </button>
@@ -298,7 +298,7 @@ export function SigProcedimientoCargosPanel({ procedimientoId, canEdit }: Props)
               type="button"
               disabled={saveMutation.isPending}
               onClick={() => void handleSave()}
-              className="flex items-center gap-1 text-[11px] font-mono px-2.5 py-1 rounded bg-rose-600 text-white hover:bg-rose-500 disabled:opacity-50"
+              className="flex items-center gap-1 text-xs font-mono px-2.5 py-1 rounded bg-rose-600 text-white hover:bg-rose-500 disabled:opacity-50"
             >
               {saveMutation.isPending ? (
                 <Loader className="h-3 w-3 animate-spin" />
@@ -309,7 +309,7 @@ export function SigProcedimientoCargosPanel({ procedimientoId, canEdit }: Props)
             </button>
           </div>
         )}
-        {msg && <span className="text-[11px] text-emerald-600 font-mono">{msg}</span>}
+        {msg && <span className="text-xs text-emerald-700 font-mono">{msg}</span>}
       </div>
 
       {viewingManual && (
@@ -392,33 +392,33 @@ function CargoManualModal({ cargo, onClose }: { cargo: TcCargo; onClose: () => v
       className="fixed inset-0 z-[100] flex items-center justify-center bg-zinc-900/50 backdrop-blur-[1px]"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="relative w-full max-w-[96vw] xl:max-w-[1500px] h-[92vh] flex flex-col rounded-xl border border-zinc-200 bg-white shadow-xl overflow-hidden">
+      <div className="relative w-full max-w-[96vw] xl:max-w-[1500px] h-[92vh] flex flex-col rounded-xl border border-zinc-300 bg-white shadow-xl overflow-hidden">
 
-        <div className="shrink-0 flex items-center gap-2.5 px-5 py-3.5 border-b border-zinc-200">
+        <div className="shrink-0 flex items-center gap-2.5 px-5 py-3.5 border-b border-zinc-300">
           <div className="h-7 w-7 rounded-md bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0">
-            <FileText className="h-3.5 w-3.5 text-emerald-600" />
+            <FileText className="h-3.5 w-3.5 text-emerald-700" />
           </div>
           <div className="min-w-0">
             <p className="text-[13px] font-semibold text-zinc-800 truncate">Manual de funciones</p>
-            <p className="text-[11px] text-zinc-500 truncate">{cargo.nombre}</p>
+            <p className="text-xs text-zinc-700 truncate">{cargo.nombre}</p>
           </div>
           <button
             onClick={onClose}
-            className="ml-auto h-7 w-7 flex items-center justify-center rounded text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors shrink-0"
+            className="ml-auto h-7 w-7 flex items-center justify-center rounded text-zinc-600 hover:text-zinc-700 hover:bg-zinc-200 transition-colors shrink-0"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="shrink-0 flex items-center gap-1 px-5 pt-2.5 border-b border-zinc-200">
+        <div className="shrink-0 flex items-center gap-1 px-5 pt-2.5 border-b border-zinc-300">
           <button
             type="button"
             onClick={() => setDocTab("original")}
             className={cn(
               "px-3 py-1.5 text-[12px] font-medium rounded-t-md border border-b-0",
               docTab === "original"
-                ? "border-zinc-200 bg-white text-zinc-800"
-                : "border-transparent text-zinc-400 hover:text-zinc-600",
+                ? "border-zinc-300 bg-white text-zinc-800"
+                : "border-transparent text-zinc-600 hover:text-zinc-700",
             )}
           >
             Documento original
@@ -429,8 +429,8 @@ function CargoManualModal({ cargo, onClose }: { cargo: TcCargo; onClose: () => v
             className={cn(
               "px-3 py-1.5 text-[12px] font-medium rounded-t-md border border-b-0",
               docTab === "funciones"
-                ? "border-zinc-200 bg-white text-zinc-800"
-                : "border-transparent text-zinc-400 hover:text-zinc-600",
+                ? "border-zinc-300 bg-white text-zinc-800"
+                : "border-transparent text-zinc-600 hover:text-zinc-700",
             )}
           >
             Funciones
@@ -441,7 +441,7 @@ function CargoManualModal({ cargo, onClose }: { cargo: TcCargo; onClose: () => v
           {docTab === "original" ? (
             <>
               {loading && (
-                <div className="h-full flex items-center justify-center gap-2 text-zinc-400">
+                <div className="h-full flex items-center justify-center gap-2 text-zinc-600">
                   <Loader className="h-4 w-4 animate-spin" />
                   <span className="text-xs">Cargando documento…</span>
                 </div>
@@ -449,8 +449,8 @@ function CargoManualModal({ cargo, onClose }: { cargo: TcCargo; onClose: () => v
 
               {!loading && error && (
                 <div className="h-full flex flex-col items-center justify-center gap-2 text-center px-6">
-                  <AlertTriangle className="h-5 w-5 text-zinc-300" />
-                  <p className="text-sm text-zinc-500">{error}</p>
+                  <AlertTriangle className="h-5 w-5 text-zinc-600" />
+                  <p className="text-sm text-zinc-700">{error}</p>
                 </div>
               )}
 
@@ -470,7 +470,7 @@ function CargoManualModal({ cargo, onClose }: { cargo: TcCargo; onClose: () => v
                         {sheet.map((row, ri) => (
                           <tr key={ri}>
                             {row.map((cell, ci) => (
-                              <td key={ci} className="border border-zinc-200 px-2 py-1 text-zinc-700 whitespace-nowrap">
+                              <td key={ci} className="border border-zinc-300 px-2 py-1 text-zinc-700 whitespace-nowrap">
                                 {cell}
                               </td>
                             ))}
@@ -480,7 +480,7 @@ function CargoManualModal({ cargo, onClose }: { cargo: TcCargo; onClose: () => v
                     </table>
                   </div>
                 ) : (
-                  <div className="h-full flex items-center justify-center text-sm text-zinc-400">
+                  <div className="h-full flex items-center justify-center text-sm text-zinc-600">
                     Archivo de Excel vacío
                   </div>
                 )
@@ -488,10 +488,10 @@ function CargoManualModal({ cargo, onClose }: { cargo: TcCargo; onClose: () => v
 
               {!loading && !error && (isDocOld || (!isPdf && !isDocx && !isExcel)) && (
                 <div className="h-full flex flex-col items-center justify-center gap-4">
-                  <Paperclip className="h-8 w-8 text-zinc-300" />
+                  <Paperclip className="h-8 w-8 text-zinc-600" />
                   <div className="text-center">
-                    <p className="text-sm text-zinc-600">{cargo.manual_filename ?? "Documento"}</p>
-                    <p className="text-[11px] text-zinc-400 mt-1">
+                    <p className="text-sm text-zinc-700">{cargo.manual_filename ?? "Documento"}</p>
+                    <p className="text-xs text-zinc-600 mt-1">
                       {isDocOld
                         ? "Formato .doc antiguo — el navegador no puede mostrarlo. Descárgalo para abrirlo en Word."
                         : "Este formato no puede mostrarse acá — descárgalo para verlo."}
@@ -500,7 +500,7 @@ function CargoManualModal({ cargo, onClose }: { cargo: TcCargo; onClose: () => v
                   <a
                     href={url}
                     download={cargo.manual_filename}
-                    className="flex items-center gap-1.5 text-[11px] px-3 py-2 rounded border border-zinc-200 text-zinc-600 hover:border-zinc-400 hover:text-zinc-900 transition-colors"
+                    className="flex items-center gap-1.5 text-xs px-3 py-2 rounded border border-zinc-300 text-zinc-700 hover:border-zinc-400 hover:text-zinc-900 transition-colors"
                   >
                     Descargar documento original
                   </a>
@@ -510,7 +510,7 @@ function CargoManualModal({ cargo, onClose }: { cargo: TcCargo; onClose: () => v
           ) : (
             <>
               {textLoading && (
-                <div className="h-full flex items-center justify-center gap-2 text-zinc-400">
+                <div className="h-full flex items-center justify-center gap-2 text-zinc-600">
                   <Loader className="h-4 w-4 animate-spin" />
                   <span className="text-xs">Cargando texto…</span>
                 </div>
@@ -518,8 +518,8 @@ function CargoManualModal({ cargo, onClose }: { cargo: TcCargo; onClose: () => v
 
               {!textLoading && textError && (
                 <div className="h-full flex flex-col items-center justify-center gap-2 text-center px-6">
-                  <AlertTriangle className="h-5 w-5 text-zinc-300" />
-                  <p className="text-sm text-zinc-500">{textError}</p>
+                  <AlertTriangle className="h-5 w-5 text-zinc-600" />
+                  <p className="text-sm text-zinc-700">{textError}</p>
                 </div>
               )}
 
@@ -532,8 +532,8 @@ function CargoManualModal({ cargo, onClose }: { cargo: TcCargo; onClose: () => v
                   </div>
                 ) : (
                   <div className="h-full flex flex-col items-center justify-center gap-2 text-center px-6">
-                    <AlertTriangle className="h-5 w-5 text-zinc-300" />
-                    <p className="text-sm text-zinc-500">
+                    <AlertTriangle className="h-5 w-5 text-zinc-600" />
+                    <p className="text-sm text-zinc-700">
                       Este documento no tiene texto extraído todavía — en T&amp;C, usa «Re-extraer texto» sobre este cargo.
                     </p>
                   </div>

@@ -78,6 +78,19 @@ export const INTERNAL_MODULE_GROUPS: ModulePermissionGroup[] = [
     ],
   },
   {
+    title: "SIG de mi área",
+    subtitle: "Para líderes: ven los procedimientos y archivos de su área y suben versiones nuevas",
+    modules: [
+      {
+        id: "mod_sig_lider",
+        category: "modulo",
+        icon: "📁",
+        name: "SIG — Procedimientos de mi área",
+        description: "Ver los procedimientos y archivos de su área y enviar versiones nuevas para que el SIG las verifique",
+      },
+    ],
+  },
+  {
     title: "Talento y Cultura (T&C)",
     subtitle: "Directorio, organigrama, formación e indicadores",
     modules: [

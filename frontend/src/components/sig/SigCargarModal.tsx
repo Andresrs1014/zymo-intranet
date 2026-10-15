@@ -5,7 +5,7 @@ import { useAuthStore } from "@/store/authStore"
 import { cn } from "@/lib/utils"
 import { extractTextFromFile } from "@/lib/sigDocExtract"
 import {
-  X, Plus, Layers, FileText, FolderOpen, Loader, AlertTriangle,
+  X, Plus, FileText, FolderOpen, Loader, AlertTriangle,
   CheckCircle, UploadCloud, Eye, EyeOff, ChevronLeft, GitCommit,
   Info,
 } from "lucide-react"
@@ -55,12 +55,7 @@ interface Props {
   onSuccess?: (commitId: number) => void
 }
 
-type Step = "select" | "create-area" | "create-proc" | "load-file" | "commit" | "done"
-
-const COLORS = [
-  "#ef3340", "#3b82f6", "#10b981", "#f59e0b",
-  "#8b5cf6", "#ec4899", "#06b6d4", "#84cc16",
-]
+type Step = "select" | "create-proc" | "load-file" | "commit" | "done"
 
 function getErr(e: unknown, fallback: string): string {
   return (e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? fallback
@@ -71,6 +66,9 @@ function getErr(e: unknown, fallback: string): string {
 export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
   const user = useAuthStore((s) => s.user)
   const isManager = user?.role === "admin" || user?.role === "gerente"
+  const perms = user?.app_permissions ?? []
+  // Líder de área: solo envía versiones nuevas de los procedimientos de su área; crear procedimientos es del SIG
+  const esLider = !isManager && !perms.includes("mod_sig") && perms.includes("mod_sig_lider")
   const qc = useQueryClient()
 
   const [step, setStep] = useState<Step>(preselected ? "load-file" : "select")
@@ -84,9 +82,6 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
   )
 
   // ── Create-area state ─────────────────────────────────────────────────────────
-  const [areaNombre, setAreaNombre] = useState("")
-  const [areaColor, setAreaColor] = useState(COLORS[0])
-  const [creatingArea, setCreatingArea] = useState(false)
 
   // ── Create-proc state ─────────────────────────────────────────────────────────
   const [codigo, setCodigo] = useState("")
@@ -137,23 +132,6 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
   }, [proc, preselected, mensaje])
 
   // ── Handlers ────────────────────────────────────────────────────────────────
-  async function handleCreateArea() {
-    if (!areaNombre.trim()) return
-    setCreatingArea(true)
-    setError("")
-    try {
-      const res = await sigApi.post("/api/areas", { nombre: areaNombre.trim(), color: areaColor })
-      await qc.invalidateQueries({ queryKey: ["sig", "areas"] })
-      setAreaId(res.data.id)
-      setAreaNombre("")
-      setStep("create-proc")
-    } catch (e) {
-      setError(getErr(e, "Error al crear el área"))
-    } finally {
-      setCreatingArea(false)
-    }
-  }
-
   async function handleCreateProc() {
     if (areaId == null || !codigo.trim() || !titulo.trim()) return
     setCreatingProc(true)
@@ -252,24 +230,27 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-zinc-900/50 backdrop-blur-[1px]"
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-zinc-900/50 backdrop-blur-[1px] overscroll-contain"
     >
       <div
-        className="bg-white rounded-xl w-full max-w-md border border-zinc-200 shadow-xl overflow-hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Cargar procedimiento"
+        className="bg-white rounded-xl w-full max-w-md border border-zinc-300 shadow-xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-zinc-200">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-zinc-300">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="h-6 w-6 rounded-md bg-helix-accent/10 border border-helix-accent/20 flex items-center justify-center shrink-0">
-              <UploadCloud className="h-3.5 w-3.5 text-helix-accent" />
+              <UploadCloud className="h-3.5 w-3.5 text-helix-accent-ink" />
             </div>
             <span className="text-[13px] font-semibold text-zinc-800 font-mono">
               {preselected ? "Cargar nueva versión" : "Cargar procedimiento"}
             </span>
             {selectedArea && (
               <span
-                className="flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full border font-mono shrink-0"
+                className="flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full border font-mono shrink-0"
                 style={{ color: selectedArea.color, borderColor: `${selectedArea.color}40`, backgroundColor: `${selectedArea.color}10` }}
               >
                 <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: selectedArea.color }} />
@@ -279,7 +260,7 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
           </div>
           <button
             onClick={onClose}
-            className="h-6 w-6 flex items-center justify-center rounded text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors shrink-0"
+            className="h-6 w-6 flex items-center justify-center rounded text-zinc-600 hover:text-zinc-700 hover:bg-zinc-200 transition-colors shrink-0"
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -289,7 +270,7 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
           {/* ── SELECT ───────────────────────────────────────────────────────── */}
           {step === "select" && (
             <div className="space-y-4">
-              <p className="text-xs text-zinc-500 leading-relaxed">
+              <p className="text-xs text-zinc-700 leading-relaxed">
                 Selecciona el procedimiento destino. Cada carga genera una versión que
                 {isManager ? " queda vigente" : " entra a la cola de revisión del gerente"}.
               </p>
@@ -297,18 +278,15 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
               {/* Área */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-[11px] text-zinc-400 uppercase tracking-widest font-mono">Área</label>
-                  <button
-                    onClick={() => { setError(""); setStep("create-area") }}
-                    className="flex items-center gap-1 text-[11px] text-helix-accent hover:opacity-80 transition-opacity font-mono"
-                  >
-                    <Plus className="h-2.5 w-2.5" /> Nueva área
-                  </button>
+                  <label className="text-xs text-zinc-600 uppercase tracking-widest font-mono">Área</label>
+                  <span className="text-[11px] text-zinc-600 font-mono" title="Las carpetas del SIG nacen de las áreas de la intranet">se crean en Organización</span>
                 </div>
                 <select
+                  aria-label="Área"
+                  name="area"
                   value={areaId ?? ""}
                   onChange={(e) => { setAreaId(e.target.value ? Number(e.target.value) : null); setProc(null) }}
-                  className="w-full bg-zinc-50 border border-zinc-200 hover:border-zinc-300 rounded-lg px-3 py-2 text-xs text-zinc-700 font-mono focus:outline-none focus:ring-1 focus:ring-helix-accent/40 transition-colors"
+                  className="w-full bg-zinc-100 border border-zinc-300 hover:border-zinc-300 rounded-lg px-3 py-2 text-xs text-zinc-700 font-mono focus:outline-none focus:ring-1 focus:ring-helix-accent/40 transition-colors"
                 >
                   <option value="">Seleccionar área…</option>
                   {areas.map((a) => (
@@ -320,8 +298,10 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
               {/* Procedimiento */}
               {areaId != null && (
                 <div>
-                  <label className="text-[11px] text-zinc-400 uppercase tracking-widest font-mono block mb-1.5">Procedimiento</label>
+                  <label className="text-xs text-zinc-600 uppercase tracking-widest font-mono block mb-1.5">Procedimiento</label>
                   <select
+                    aria-label="Procedimiento"
+                    name="procedimiento"
                     value={proc?.id ?? ""}
                     onChange={(e) => {
                       if (e.target.value === "new") {
@@ -334,13 +314,13 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
                       setProc(p)
                       if (p) { setMensaje(`Carga inicial de ${p.codigo}`); setStep("load-file") }
                     }}
-                    className="w-full bg-zinc-50 border border-zinc-200 hover:border-zinc-300 rounded-lg px-3 py-2 text-xs text-zinc-700 font-mono focus:outline-none focus:ring-1 focus:ring-helix-accent/40 transition-colors"
+                    className="w-full bg-zinc-100 border border-zinc-300 hover:border-zinc-300 rounded-lg px-3 py-2 text-xs text-zinc-700 font-mono focus:outline-none focus:ring-1 focus:ring-helix-accent/40 transition-colors"
                   >
                     <option value="">Seleccionar procedimiento…</option>
                     {procs.map((p) => (
                       <option key={p.id} value={p.id}>{p.codigo} — {p.titulo}</option>
                     ))}
-                    <option value="new">+ Crear nuevo procedimiento</option>
+                    {!esLider && <option value="new">+ Crear nuevo procedimiento</option>}
                   </select>
                 </div>
               )}
@@ -349,54 +329,21 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
             </div>
           )}
 
-          {/* ── CREATE AREA ──────────────────────────────────────────────────── */}
-          {step === "create-area" && (
-            <div className="space-y-3.5">
-              <StepTitle icon={<Layers className="h-3 w-3 text-helix-ai" />} label="Nueva área" />
-              <Field label="Nombre">
-                <input
-                  value={areaNombre}
-                  onChange={(e) => setAreaNombre(e.target.value)}
-                  placeholder="ej. Talento &amp; Cultura"
-                  autoFocus
-                  className="w-full bg-zinc-50 border border-zinc-200 rounded-lg px-3 py-1.5 text-xs text-zinc-700 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-helix-accent/40 transition-colors"
-                />
-              </Field>
-              <div>
-                <label className="text-[11px] text-zinc-400 uppercase tracking-widest font-mono block mb-2">Color</label>
-                <div className="flex gap-2 flex-wrap">
-                  {COLORS.map((c) => (
-                    <button
-                      key={c}
-                      onClick={() => setAreaColor(c)}
-                      className="h-5 w-5 rounded-full transition-transform hover:scale-110"
-                      style={{ backgroundColor: c, outline: areaColor === c ? `2px solid ${c}` : "none", outlineOffset: 2 }}
-                    />
-                  ))}
-                </div>
-              </div>
-              {error && <ErrorBox msg={error} />}
-              <FooterButtons
-                onBack={() => setStep("select")}
-                primaryLabel={creatingArea ? "Creando…" : "Crear área"}
-                primaryDisabled={creatingArea || !areaNombre.trim()}
-                primaryLoading={creatingArea}
-                onPrimary={handleCreateArea}
-              />
-            </div>
-          )}
-
           {/* ── CREATE PROC ──────────────────────────────────────────────────── */}
           {step === "create-proc" && (
             <div className="space-y-3.5">
-              <StepTitle icon={<Plus className="h-3 w-3 text-helix-done" />} label="Nuevo procedimiento" />
+              <StepTitle icon={<Plus className="h-3 w-3 text-emerald-700" />} label="Nuevo procedimiento" />
               <Field label="Código">
                 <input
                   value={codigo}
                   onChange={(e) => setCodigo(e.target.value.toUpperCase())}
                   placeholder="ej. TC-001"
+                  aria-label="Código del procedimiento"
+                  name="codigo"
+                  autoComplete="off"
+                  spellCheck={false}
                   autoFocus
-                  className="w-full bg-zinc-50 border border-zinc-200 rounded-lg px-3 py-1.5 text-xs text-zinc-700 font-mono placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-helix-accent/40 transition-colors"
+                  className="w-full bg-zinc-100 border border-zinc-300 rounded-lg px-3 py-1.5 text-xs text-zinc-700 font-mono placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-helix-accent/40 transition-colors"
                 />
               </Field>
               <Field label="Título">
@@ -404,7 +351,7 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
                   value={titulo}
                   onChange={(e) => setTitulo(e.target.value)}
                   placeholder="Nombre del procedimiento"
-                  className="w-full bg-zinc-50 border border-zinc-200 rounded-lg px-3 py-1.5 text-xs text-zinc-700 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-helix-accent/40 transition-colors"
+                  className="w-full bg-zinc-100 border border-zinc-300 rounded-lg px-3 py-1.5 text-xs text-zinc-700 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-helix-accent/40 transition-colors"
                 />
               </Field>
               <Field label="Descripción (opcional)">
@@ -413,7 +360,7 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
                   onChange={(e) => setDescripcion(e.target.value)}
                   placeholder="Descripción breve del procedimiento..."
                   rows={4}
-                  className="w-full bg-zinc-50 border border-zinc-200 rounded-lg px-3 py-2 text-xs text-zinc-700 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-helix-accent/40 transition-colors resize-none leading-relaxed"
+                  className="w-full bg-zinc-100 border border-zinc-300 rounded-lg px-3 py-2 text-xs text-zinc-700 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-helix-accent/40 transition-colors resize-none leading-relaxed"
                 />
               </Field>
               {error && <ErrorBox msg={error} />}
@@ -451,19 +398,19 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
                   "w-full flex flex-col items-center gap-2 py-7 rounded-xl border-2 border-dashed transition-colors group disabled:opacity-50",
                   fileName
                     ? "border-helix-done/40 bg-helix-done/5 hover:bg-helix-done/10"
-                    : "border-zinc-200 hover:border-helix-accent/40 hover:bg-zinc-50",
+                    : "border-zinc-300 hover:border-helix-accent/40 hover:bg-zinc-100",
                 )}
               >
                 {extracting ? (
                   <>
-                    <Loader className="h-5 w-5 text-helix-accent animate-spin" />
-                    <span className="text-xs text-zinc-500 font-mono">Leyendo archivo…</span>
+                    <Loader className="h-5 w-5 text-helix-accent-ink animate-spin" />
+                    <span className="text-xs text-zinc-700 font-mono">Leyendo archivo…</span>
                   </>
                 ) : fileName ? (
                   <>
-                    <FileText className="h-5 w-5 text-helix-done" />
-                    <span className="text-xs text-helix-done font-mono font-medium">{fileName}</span>
-                    <span className="text-[11px] text-zinc-400 font-mono">
+                    <FileText className="h-5 w-5 text-emerald-700" />
+                    <span className="text-xs text-emerald-700 font-mono font-medium">{fileName}</span>
+                    <span className="text-xs text-zinc-600 font-mono">
                       {serverExtract
                         ? "el texto se extraerá en el servidor · click para cambiar"
                         : `${content.length.toLocaleString()} caracteres · click para cambiar`}
@@ -471,8 +418,8 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
                   </>
                 ) : (
                   <>
-                    <FolderOpen className="h-5 w-5 text-zinc-400 group-hover:text-helix-accent transition-colors" />
-                    <span className="text-xs text-zinc-500 group-hover:text-zinc-700 transition-colors font-mono">
+                    <FolderOpen className="h-5 w-5 text-zinc-600 group-hover:text-helix-accent-ink transition-colors" />
+                    <span className="text-xs text-zinc-700 group-hover:text-zinc-700 transition-colors font-mono">
                       Click para seleccionar archivo
                     </span>
                   </>
@@ -483,7 +430,7 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
 
               {serverExtract && fileName && (
                 <div className="flex items-start gap-2 p-2.5 rounded-lg bg-blue-50 border border-blue-200">
-                  <Info className="h-3.5 w-3.5 text-blue-500 mt-0.5 shrink-0" />
+                  <Info className="h-3.5 w-3.5 text-blue-700 mt-0.5 shrink-0" />
                   <p className="text-xs text-blue-700 leading-relaxed">
                     El texto se extraerá en el servidor al cargar. El archivo original quedará guardado y disponible para visualización.
                   </p>
@@ -494,13 +441,13 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
                 <div>
                   <button
                     onClick={() => setShowPreview((v) => !v)}
-                    className="flex items-center gap-1.5 text-[11px] text-zinc-400 hover:text-zinc-600 transition-colors mb-1.5 font-mono"
+                    className="flex items-center gap-1.5 text-xs text-zinc-600 hover:text-zinc-700 transition-colors mb-1.5 font-mono"
                   >
                     {showPreview ? <EyeOff className="h-2.5 w-2.5" /> : <Eye className="h-2.5 w-2.5" />}
                     {showPreview ? "Ocultar vista previa" : "Ver contenido extraído"}
                   </button>
                   {showPreview && (
-                    <pre className="bg-zinc-50 border border-zinc-200 rounded-lg px-3 py-2 text-[11px] text-zinc-500 font-mono leading-relaxed overflow-auto max-h-40 whitespace-pre-wrap">
+                    <pre className="bg-zinc-100 border border-zinc-300 rounded-lg px-3 py-2 text-xs text-zinc-700 font-mono leading-relaxed overflow-auto max-h-40 whitespace-pre-wrap">
                       {content.slice(0, 1200)}{content.length > 1200 ? "\n…" : ""}
                     </pre>
                   )}
@@ -520,17 +467,17 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
           {step === "commit" && proc && (
             <div className="space-y-3.5">
               {/* Destino */}
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-zinc-50 border border-zinc-200">
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-zinc-100 border border-zinc-300">
                 {selectedArea && (
                   <div className="w-1 self-stretch rounded-full shrink-0" style={{ backgroundColor: selectedArea.color }} />
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] text-zinc-400 uppercase tracking-widest font-mono mb-0.5">Procedimiento destino</p>
-                  <p className="text-xs font-mono text-helix-accent font-semibold">{proc.codigo}</p>
-                  <p className="text-xs text-zinc-500 truncate mt-0.5">{proc.titulo}</p>
+                  <p className="text-xs text-zinc-600 uppercase tracking-widest font-mono mb-0.5">Procedimiento destino</p>
+                  <p className="text-xs font-mono text-helix-accent-ink font-semibold">{proc.codigo}</p>
+                  <p className="text-xs text-zinc-700 truncate mt-0.5">{proc.titulo}</p>
                 </div>
                 {fileName && (
-                  <span className="shrink-0 text-[11px] px-1.5 py-0.5 rounded bg-helix-warning/10 text-helix-warning border border-helix-warning/20 font-mono max-w-[110px] truncate">
+                  <span className="shrink-0 text-xs px-1.5 py-0.5 rounded bg-helix-warning/10 text-helix-warning border border-helix-warning/20 font-mono max-w-[110px] truncate">
                     {fileName}
                   </span>
                 )}
@@ -543,7 +490,7 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
                   rows={3}
                   autoFocus
                   placeholder="Describe el contenido que se está cargando…"
-                  className="w-full bg-zinc-50 border border-zinc-200 rounded-lg px-3 py-2 text-xs text-zinc-700 placeholder:text-zinc-400 resize-none focus:outline-none focus:ring-1 focus:ring-helix-accent/40 transition-colors leading-relaxed"
+                  className="w-full bg-zinc-100 border border-zinc-300 rounded-lg px-3 py-2 text-xs text-zinc-700 placeholder:text-zinc-600 resize-none focus:outline-none focus:ring-1 focus:ring-helix-accent/40 transition-colors leading-relaxed"
                 />
               </Field>
 
@@ -552,7 +499,7 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
                   value={versionDoc}
                   onChange={(e) => setVersionDoc(e.target.value)}
                   placeholder="ej. 1.0"
-                  className="w-full bg-zinc-50 border border-zinc-200 rounded-lg px-3 py-1.5 text-xs text-zinc-700 font-mono placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-helix-accent/40 transition-colors"
+                  className="w-full bg-zinc-100 border border-zinc-300 rounded-lg px-3 py-1.5 text-xs text-zinc-700 font-mono placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-helix-accent/40 transition-colors"
                 />
               </Field>
 
@@ -573,13 +520,13 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
           {step === "done" && commitId != null && (
             <div className="flex flex-col items-center justify-center py-6 gap-4 text-center">
               <div className="h-14 w-14 rounded-full bg-helix-done/10 border border-helix-done/25 flex items-center justify-center">
-                <CheckCircle className="h-7 w-7 text-helix-done" />
+                <CheckCircle className="h-7 w-7 text-emerald-700" />
               </div>
               <div>
                 <p className="text-[13px] font-semibold text-zinc-800 font-mono mb-1">
                   {isManager ? "Versión publicada" : "Versión enviada"}
                 </p>
-                <p className="text-xs text-zinc-500 leading-relaxed max-w-[260px]">
+                <p className="text-xs text-zinc-700 leading-relaxed max-w-[260px]">
                   {isManager
                     ? `El commit #${String(commitId).padStart(4, "0")} quedó aprobado y el procedimiento está vigente.`
                     : `El commit #${String(commitId).padStart(4, "0")} está pendiente de aprobación del gerente.`}
@@ -589,8 +536,8 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
                 <div className="w-full text-left space-y-1">
                   {warnings.map((w, i) => (
                     <div key={i} className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-50 border border-amber-200">
-                      <AlertTriangle className="h-3.5 w-3.5 text-amber-500 mt-0.5 shrink-0" />
-                      <p className="text-[11px] text-amber-700 leading-relaxed">{w}</p>
+                      <AlertTriangle className="h-3.5 w-3.5 text-amber-700 mt-0.5 shrink-0" />
+                      <p className="text-xs text-amber-700 leading-relaxed">{w}</p>
                     </div>
                   ))}
                 </div>
@@ -614,11 +561,11 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
 function StepTitle({ icon, label, hint }: { icon: React.ReactNode; label: string; hint?: string }) {
   return (
     <div className="flex items-center gap-2">
-      <div className="h-5 w-5 rounded bg-zinc-100 border border-zinc-200 flex items-center justify-center shrink-0">
+      <div className="h-5 w-5 rounded bg-zinc-200 border border-zinc-300 flex items-center justify-center shrink-0">
         {icon}
       </div>
       <span className="text-xs font-medium text-zinc-700 font-mono">{label}</span>
-      {hint && <span className="text-[11px] text-zinc-400 font-mono">{hint}</span>}
+      {hint && <span className="text-xs text-zinc-600 font-mono">{hint}</span>}
     </div>
   )
 }
@@ -626,7 +573,7 @@ function StepTitle({ icon, label, hint }: { icon: React.ReactNode; label: string
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="text-[11px] text-zinc-400 uppercase tracking-widest font-mono block mb-1.5">{label}</label>
+      <label className="text-xs text-zinc-600 uppercase tracking-widest font-mono block mb-1.5">{label}</label>
       {children}
     </div>
   )
@@ -635,7 +582,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function ErrorBox({ msg }: { msg: string }) {
   return (
     <div className="flex items-start gap-2 p-2.5 rounded-lg bg-red-50 border border-red-200">
-      <AlertTriangle className="h-3.5 w-3.5 text-red-500 mt-0.5 shrink-0" />
+      <AlertTriangle className="h-3.5 w-3.5 text-red-700 mt-0.5 shrink-0" />
       <p className="text-xs text-red-600 leading-relaxed">{msg}</p>
     </div>
   )
@@ -656,7 +603,7 @@ function FooterButtons({
       {onBack && (
         <button
           onClick={onBack}
-          className="flex items-center gap-1 px-3 py-2 text-xs text-zinc-500 hover:text-zinc-700 border border-zinc-200 hover:border-zinc-300 rounded-lg transition-colors font-mono"
+          className="flex items-center gap-1 px-3 py-2 text-xs text-zinc-700 hover:text-zinc-700 border border-zinc-300 hover:border-zinc-300 rounded-lg transition-colors font-mono"
         >
           <ChevronLeft className="h-3 w-3" /> Atrás
         </button>

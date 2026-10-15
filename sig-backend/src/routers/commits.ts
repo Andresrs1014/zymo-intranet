@@ -8,6 +8,7 @@ import fsSync from "fs"
 import { SigEstadoCommit } from "@prisma/client"
 import prisma from "../config/prisma"
 import { getUserId, requireSigAccess, requireGerente } from "../middleware/auth"
+import { fueraDeArea } from "../middleware/gateLider"
 import { sendAprobacionEmail } from "../services/email"
 import { extractText } from "../services/textExtraction"
 import { getPdfPreview, isOfficeDoc } from "../services/pdfPreview"
@@ -28,7 +29,8 @@ const storage = multer.diskStorage({
   },
 })
 
-const upload = multer({
+const upload = multer({ defParamCharset: "utf8", // los nombres con tilde llegan en UTF-8; multer los leía como latin1 (DESINFECCIÃ“N)
+  
   storage,
   limits: { fileSize: 20 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
@@ -110,17 +112,21 @@ router.get("/:id", async (req: Request, res: Response) => {
   })
   if (!commit) { res.status(404).json({ error: "Commit no encontrado" }); return }
 
+  // versiones ya guardadas pueden traer CRLF: se compara sin esa diferencia
+  const lf = (t: string) => t.replace(/\r\n?/g, "\n")
+  const contenidoOriginal = lf(commit.contenidoOriginal)
+  const contenidoAgente = lf(commit.contenidoAgente)
   const patch = createTwoFilesPatch(
     "original.md",
     "agente.md",
-    commit.contenidoOriginal,
-    commit.contenidoAgente,
+    contenidoOriginal,
+    contenidoAgente,
     "Documento original",
     "Procesado por IA",
     { context: 4 },
   )
 
-  res.json({ ...commit, patch })
+  res.json({ ...commit, contenidoOriginal, contenidoAgente, patch })
 })
 
 // ── GET /api/commits/:id/archivo — sirve el archivo original ─────────────────
@@ -215,82 +221,108 @@ router.get("/:id/flujograma-imagen", async (req: Request, res: Response) => {
 
 // ── POST /api/commits/upload — upload desde web con archivo binario ──────────
 
+export interface SubidaCommit {
+  file: Express.Multer.File | undefined
+  procedimientoId: number
+  mensaje: string
+  versionDoc?: string
+}
+
+/**
+ * Registra un archivo subido como nueva versión de un procedimiento. Gerente/admin quedan aprobados al instante;
+ * los demás quedan PENDIENTE_REVISION para que el SIG la verifique. `soloPendiente` fuerza la revisión (líderes de área).
+ */
+export async function registrarVersionSubida(
+  datos: SubidaCommit, user: NonNullable<Request["user"]>, opts: { soloPendiente?: boolean } = {},
+): Promise<{ status: number; body: unknown }> {
+  const { file, procedimientoId, mensaje, versionDoc } = datos
+  if (!file) return { status: 400, body: { error: "Se requiere un archivo (.md, .txt, .docx, .pdf, .doc)" } }
+  const descartar = () => fs.unlink(file.path).catch(() => {})
+
+  if (!procedimientoId || !mensaje) {
+    await descartar()
+    return { status: 422, body: { error: "procedimientoId y mensaje son requeridos" } }
+  }
+  const proc = await prisma.sigProcedimiento.findUnique({ where: { id: procedimientoId } })
+  if (!proc) {
+    await descartar()
+    return { status: 422, body: { error: "Procedimiento no encontrado. Crea el procedimiento primero." } }
+  }
+
+  // Extracción de texto en el servidor (autoritativa)
+  const extraccion = await extractText(file.path, file.originalname)
+  const { text: extractedText, warnings } = extraccion
+
+  // contenidoOriginal = última versión aprobada (o vacío si es el primer commit)
+  const prevCommit = await prisma.sigCommit.findFirst({
+    where: { procedimientoId, estado: "APROBADO" },
+    orderBy: { createdAt: "desc" },
+    select: { contenidoAgente: true },
+  })
+  const contenidoOriginal = prevCommit?.contenidoAgente ?? ""
+
+  const userId = getUserId(user)
+  const userName = await resolveActorName(userId, user.full_name)
+  const isGerente = !opts.soloPendiente && (user.role === "gerente" || user.role === "admin")
+  const estadoFinal = isGerente ? "APROBADO" : "PENDIENTE_REVISION"
+
+  const commit = await prisma.sigCommit.create({
+    data: {
+      procedimientoId,
+      contenidoOriginal,
+      contenidoAgente:  extractedText,
+      flujogramaImagenUrl: extraccion.flujogramaImagenUrl,
+      sinCambios:       false,
+      mensaje,
+      autorId:          userId,
+      autorNombre:      userName,
+      versionDoc,
+      archivoOriginal:  file.filename,
+      nombreArchivo:    file.originalname,
+      tipoMime:         file.mimetype,
+      estado:           estadoFinal,
+      ...(isGerente ? {
+        aprobadoPor:    userId,
+        aprobadoNombre: userName,
+        aprobadoEn:     new Date(),
+      } : {}),
+    },
+    include: { procedimiento: { select: { codigo: true, titulo: true } } },
+  })
+
+  if (isGerente) {
+    await prisma.sigProcedimiento.update({
+      where: { id: procedimientoId },
+      data:  { estado: "VIGENTE" },
+    })
+  }
+  return { status: 201, body: { ...commit, warnings } }
+}
+
+/** multer de las versiones subidas (mismos tipos y tope que /upload); lo reutiliza la vista del líder. */
+export const subirVersion = upload
+
 router.post(
   "/upload",
   requireSigAccess,
   upload.single("file"),
   async (req: Request, res: Response) => {
-    if (!req.file) {
-      res.status(400).json({ error: "Se requiere un archivo (.md, .txt, .docx, .pdf, .doc)" })
-      return
-    }
-
     const procedimientoId = parseInt(req.body.procedimientoId)
-    const mensaje = (req.body.mensaje ?? "").trim()
-    const versionDoc: string | undefined = req.body.versionDoc?.trim() || undefined
-
-    if (!procedimientoId || !mensaje) {
-      await fs.unlink(req.file.path).catch(() => {})
-      res.status(422).json({ error: "procedimientoId y mensaje son requeridos" })
-      return
+    if (req.sigAreaIds) { // líder: solo su área, y la versión siempre queda pendiente de que el SIG la verifique
+      const proc = Number.isFinite(procedimientoId) ? await prisma.sigProcedimiento.findUnique({ where: { id: procedimientoId }, select: { areaId: true } }) : null
+      if (!proc || fueraDeArea(req, proc.areaId)) {
+        if (req.file) await fs.unlink(req.file.path).catch(() => {})
+        res.status(404).json({ error: "Procedimiento no encontrado en tu área" })
+        return
+      }
     }
-
-    const proc = await prisma.sigProcedimiento.findUnique({ where: { id: procedimientoId } })
-    if (!proc) {
-      await fs.unlink(req.file.path).catch(() => {})
-      res.status(422).json({ error: "Procedimiento no encontrado. Crea el procedimiento primero." })
-      return
-    }
-
-    // Extracción de texto en el servidor (autoritativa)
-    const extraccion = await extractText(req.file.path, req.file.originalname)
-    const { text: extractedText, warnings } = extraccion
-
-    // contenidoOriginal = última versión aprobada (o vacío si es el primer commit)
-    const prevCommit = await prisma.sigCommit.findFirst({
-      where: { procedimientoId, estado: "APROBADO" },
-      orderBy: { createdAt: "desc" },
-      select: { contenidoAgente: true },
-    })
-    const contenidoOriginal = prevCommit?.contenidoAgente ?? ""
-
-    const userId = getUserId(req.user!)
-    const userName = await resolveActorName(userId, req.user!.full_name)
-    const isGerente = req.user!.role === "gerente" || req.user!.role === "admin"
-    const estadoFinal = isGerente ? "APROBADO" : "PENDIENTE_REVISION"
-
-    const commit = await prisma.sigCommit.create({
-      data: {
-        procedimientoId,
-        contenidoOriginal,
-        contenidoAgente:  extractedText,
-        flujogramaImagenUrl: extraccion.flujogramaImagenUrl,
-        sinCambios:       false,
-        mensaje,
-        autorId:          userId,
-        autorNombre:      userName,
-        versionDoc,
-        archivoOriginal:  req.file.filename,
-        nombreArchivo:    req.file.originalname,
-        tipoMime:         req.file.mimetype,
-        estado:           estadoFinal,
-        ...(isGerente ? {
-          aprobadoPor:    userId,
-          aprobadoNombre: userName,
-          aprobadoEn:     new Date(),
-        } : {}),
-      },
-      include: { procedimiento: { select: { codigo: true, titulo: true } } },
-    })
-
-    if (isGerente) {
-      await prisma.sigProcedimiento.update({
-        where: { id: procedimientoId },
-        data:  { estado: "VIGENTE" },
-      })
-    }
-
-    res.status(201).json({ ...commit, warnings })
+    const r = await registrarVersionSubida({
+      file: req.file,
+      procedimientoId,
+      mensaje: (req.body.mensaje ?? "").trim(),
+      versionDoc: req.body.versionDoc?.trim() || undefined,
+    }, req.user!, { soloPendiente: Boolean(req.sigAreaIds) })
+    res.status(r.status).json(r.body)
   },
 )
 

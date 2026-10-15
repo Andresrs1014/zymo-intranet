@@ -6,7 +6,7 @@ import prisma from "../config/prisma"
 export async function cargarVinculos(procedimientoId: number) {
   const [instructivos, protocolos, formatos, referencias] = await Promise.all([
     prisma.sigInstructivo.findMany({
-      where: { procedimientoId, activo: true },
+      where: { procedimientoId, activo: true, estado: "APROBADO" },
       orderBy: { codigo: "asc" },
       select: { id: true, codigo: true, titulo: true, versionDoc: true, contenido: true },
     }),
@@ -16,7 +16,7 @@ export async function cargarVinculos(procedimientoId: number) {
       select: { id: true, codigo: true, titulo: true, versionDoc: true, contenido: true },
     }),
     prisma.sigFormato.findMany({
-      where: { procedimientoId },
+      where: { procedimientoId, estado: "APROBADO" },
       orderBy: { nombre: "asc" },
       select: { id: true, nombre: true, nombreArchivo: true, instructivoId: true },
     }),

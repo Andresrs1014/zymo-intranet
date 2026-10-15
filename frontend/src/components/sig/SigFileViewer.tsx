@@ -8,8 +8,8 @@ import { sigApi } from "@/lib/sigApi"
  */
 export function PreviewFrame({ children }: { children: ReactNode }) {
   return (
-    <div className="flex-1 h-full min-h-0 flex flex-col p-3 bg-zinc-100">
-      <div className="mx-auto w-full max-w-[1250px] flex-1 min-h-[480px] overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100">
+    <div className="flex-1 h-full min-h-0 flex flex-col p-3 bg-zinc-200">
+      <div className="mx-auto w-full max-w-[1250px] flex-1 min-h-[480px] overflow-hidden rounded-lg border border-zinc-300 bg-zinc-200">
         {children}
       </div>
     </div>
@@ -20,7 +20,7 @@ export function PdfFrame({ src, title }: { src: string; title: string }) {
   return (
     <PreviewFrame>
       {/* #view=FitH: el visor nativo del PDF ajusta la página al ancho del marco */}
-      <iframe src={`${src}#view=FitH`} title={title} className="h-full w-full border-0 bg-zinc-100" />
+      <iframe src={`${src}#view=FitH`} title={title} className="h-full w-full border-0 bg-zinc-200" />
     </PreviewFrame>
   )
 }
@@ -109,7 +109,7 @@ export function WordPreview({
 
   if (state.status === "loading") {
     return (
-      <div className="flex-1 flex items-center justify-center gap-2 text-zinc-400">
+      <div className="flex-1 flex items-center justify-center gap-2 text-zinc-600">
         <div className="h-3 w-3 rounded-full border border-zinc-300 border-t-zinc-600 animate-spin" />
         <span className="text-xs font-mono">Preparando vista previa…</span>
       </div>

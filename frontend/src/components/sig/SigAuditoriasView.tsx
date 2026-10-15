@@ -107,7 +107,7 @@ const CLASIF_LABEL: Record<string, string> = {
 }
 const CLASIF_CLS: Record<string, string> = {
   conformidad: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  observacion: "bg-zinc-100 text-zinc-600 border-zinc-200",
+  observacion: "bg-zinc-200 text-zinc-700 border-zinc-300",
   oportunidad_mejora: "bg-sky-50 text-sky-700 border-sky-200",
   nc_menor: "bg-amber-50 text-amber-700 border-amber-200",
   nc_mayor: "bg-red-50 text-red-700 border-red-200",
@@ -135,7 +135,7 @@ const fmtFecha = (iso: string) =>
 
 function VeredictoBadge({ v }: { v: Veredicto }) {
   return (
-    <span className={cn("text-[11px] px-2 py-0.5 rounded-full border font-medium shrink-0", VEREDICTO_CLS[v])}>
+    <span className={cn("text-xs px-2 py-0.5 rounded-full border font-medium shrink-0", VEREDICTO_CLS[v])}>
       {VEREDICTO_LABEL[v]}
     </span>
   )
@@ -144,18 +144,18 @@ function VeredictoBadge({ v }: { v: Veredicto }) {
 function ConteoChips({ c }: { c: Conteo }) {
   const items: Array<[string, number | undefined, string]> = [
     ["NC mayor", c.ncMayor, "text-red-600"],
-    ["NC menor", c.ncMenor, "text-amber-600"],
-    ["Obs.", c.observacion, "text-zinc-600"],
+    ["NC menor", c.ncMenor, "text-amber-700"],
+    ["Obs.", c.observacion, "text-zinc-700"],
     ["OM", c.oportunidadMejora, "text-sky-600"],
-    ["Conf.", c.conformidad, "text-emerald-600"],
-    ["Consultas", c.consulta, "text-amber-600"],
+    ["Conf.", c.conformidad, "text-emerald-700"],
+    ["Consultas", c.consulta, "text-amber-700"],
   ]
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-mono tabular-nums">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-mono tabular-nums">
       {items
         .filter(([, n]) => (n ?? 0) > 0)
         .map(([label, n, cls]) => (
-          <span key={label} className="text-zinc-400">
+          <span key={label} className="text-zinc-600">
             <span className={cn("font-semibold", cls)}>{n}</span> {label}
           </span>
         ))}
@@ -176,7 +176,7 @@ export function AuditoriasProcLista({ procId, variant }: { procId: number; varia
   return (
     <>
       {items.length === 0 && (
-        <p className={cn("text-zinc-400 italic", mobile ? "text-[12px] px-2" : "px-4 py-6 text-[11px] text-center")}>
+        <p className={cn("text-zinc-600 italic", mobile ? "text-[12px] px-2" : "px-4 py-6 text-xs text-center")}>
           Sin auditorías aún
         </p>
       )}
@@ -188,20 +188,20 @@ export function AuditoriasProcLista({ procId, variant }: { procId: number; varia
             className={cn(
               "w-full flex items-center gap-2 text-left transition-colors",
               mobile
-                ? "px-3 py-2.5 rounded-lg border border-zinc-100 active:bg-zinc-50"
-                : "px-3 py-2 border-b border-zinc-200/60 hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zinc-400",
+                ? "px-3 py-2.5 rounded-lg border border-zinc-200 active:bg-zinc-100"
+                : "px-3 py-2 border-b border-zinc-300/60 hover:bg-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zinc-400",
             )}
           >
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <VeredictoBadge v={a.veredicto} />
-                <span className="text-[11px] text-zinc-400 font-mono">{fmtFecha(a.createdAt)}</span>
+                <span className="text-xs text-zinc-600 font-mono">{fmtFecha(a.createdAt)}</span>
               </div>
               <div className="mt-1">
                 <ConteoChips c={a.conteo} />
               </div>
             </div>
-            <ChevronRight className="h-3.5 w-3.5 text-zinc-300 shrink-0" />
+            <ChevronRight className="h-3.5 w-3.5 text-zinc-600 shrink-0" />
           </button>
         ))}
       </div>
@@ -231,56 +231,56 @@ export function SigAuditoriasView() {
   }, [items])
 
   return (
-    <div className="flex flex-col h-full bg-zinc-50 overflow-hidden">
-      <div className="shrink-0 flex items-center gap-2 px-4 h-11 border-b border-zinc-200 bg-white">
-        <ClipboardCheck className="h-4 w-4 text-zinc-400" />
+    <div className="flex flex-col h-full bg-zinc-100 overflow-hidden">
+      <div className="shrink-0 flex items-center gap-2 px-4 h-11 border-b border-zinc-300 bg-white">
+        <ClipboardCheck className="h-4 w-4 text-zinc-600" />
         <span className="text-[13px] font-medium text-zinc-700">Auditorías del agente</span>
-        <span className="text-[11px] text-zinc-400 font-mono">{items.length}</span>
+        <span className="text-xs text-zinc-600 font-mono">{items.length}</span>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">
         {isLoading && (
-          <div className="flex items-center justify-center gap-2 py-16 text-zinc-400">
+          <div className="flex items-center justify-center gap-2 py-16 text-zinc-600">
             <Loader2 className="h-4 w-4 animate-spin" />
             <span className="text-xs font-mono">Cargando...</span>
           </div>
         )}
         {!isLoading && items.length === 0 && (
-          <p className="text-center text-[12px] text-zinc-400 italic py-16">
+          <p className="text-center text-[12px] text-zinc-600 italic py-16">
             Aún no hay auditorías. Las crea el agente analista desde el MCP.
           </p>
         )}
         <div className="max-w-3xl mx-auto space-y-6">
           {porArea.map(([nombre, grupo]) => (
             <section key={nombre}>
-              <h3 className="flex items-center gap-2 text-[11px] font-semibold text-zinc-400 uppercase tracking-wide mb-2">
+              <h3 className="flex items-center gap-2 text-xs font-semibold text-zinc-600 uppercase tracking-wide mb-2">
                 <span className="h-2 w-2 rounded-full" style={{ backgroundColor: grupo.color }} />
                 {nombre}
               </h3>
-              <div className="rounded-xl border border-zinc-200 bg-white divide-y divide-zinc-100 overflow-hidden">
+              <div className="rounded-xl border border-zinc-300 bg-white divide-y divide-zinc-200 overflow-hidden">
                 {grupo.items.map((a) => (
                   <button
                     key={a.id}
                     onClick={() => setOpenId(a.id)}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-zinc-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zinc-400"
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-zinc-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zinc-400"
                   >
                     <div className="min-w-0 flex-1">
                       <p className="text-[13px] text-zinc-800 truncate">
                         <span className="font-mono font-medium">{a.procedimiento?.codigo}</span>
-                        <span className="text-zinc-500"> · {a.procedimiento?.titulo}</span>
+                        <span className="text-zinc-700"> · {a.procedimiento?.titulo}</span>
                       </p>
                       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
                         <ConteoChips c={a.conteo} />
-                        <span className="text-[11px] text-zinc-400">
+                        <span className="text-xs text-zinc-600">
                           {fmtFecha(a.createdAt)} · {a.operadorNombre ?? a.autorNombre}
                         </span>
                       </div>
                     </div>
                     {a.validadoNombre && (
-                      <ShieldCheck className="h-4 w-4 text-emerald-500 shrink-0" aria-label={`Validada por ${a.validadoNombre}`} />
+                      <ShieldCheck className="h-4 w-4 text-emerald-700 shrink-0" aria-label={`Validada por ${a.validadoNombre}`} />
                     )}
                     <VeredictoBadge v={a.veredicto} />
-                    <ChevronRight className="h-3.5 w-3.5 text-zinc-300 shrink-0" />
+                    <ChevronRight className="h-3.5 w-3.5 text-zinc-600 shrink-0" />
                   </button>
                 ))}
               </div>
@@ -311,8 +311,8 @@ function descargar(nombre: string, contenido: string, tipo: string) {
 }
 
 const BTN_ACCION =
-  "inline-flex items-center gap-1.5 min-h-[32px] px-2.5 rounded-md border border-zinc-200 bg-white text-[12px] text-zinc-600 " +
-  "hover:bg-zinc-50 hover:text-zinc-900 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 " +
+  "inline-flex items-center gap-1.5 min-h-[32px] px-2.5 rounded-md border border-zinc-300 bg-white text-[12px] text-zinc-700 " +
+  "hover:bg-zinc-100 hover:text-zinc-900 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 " +
   "disabled:opacity-50 disabled:cursor-not-allowed"
 
 export function AuditoriaDetalleModal({ id, onClose }: { id: number; onClose: () => void }) {
@@ -376,32 +376,32 @@ export function AuditoriaDetalleModal({ id, onClose }: { id: number; onClose: ()
         className="flex flex-col w-full max-w-4xl bg-white sm:rounded-xl overflow-hidden shadow-2xl animate-in slide-in-from-bottom-4 duration-300 motion-reduce:animate-none"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="shrink-0 flex items-start gap-3 px-5 py-3 border-b border-zinc-200">
+        <div className="shrink-0 flex items-start gap-3 px-5 py-3 border-b border-zinc-300">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <span className="text-[13px] font-mono font-semibold text-zinc-800">{a?.procedimiento?.codigo ?? "…"}</span>
               {a && <VeredictoBadge v={a.veredicto} />}
               {a?.validadoNombre && (
-                <span className="flex items-center gap-1 text-[11px] text-emerald-600">
+                <span className="flex items-center gap-1 text-xs text-emerald-700">
                   <ShieldCheck className="h-3.5 w-3.5" />
                   Validada por {a.validadoNombre}
                 </span>
               )}
             </div>
-            <p className="text-[12px] text-zinc-500 truncate">{a?.procedimiento?.titulo}</p>
+            <p className="text-[12px] text-zinc-700 truncate">{a?.procedimiento?.titulo}</p>
             {a && (
               <div className="mt-1.5">
                 <ConteoChips c={a.conteo} />
               </div>
             )}
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-md text-zinc-400 hover:text-zinc-800 hover:bg-zinc-100 transition-colors" aria-label="Cerrar">
+          <button onClick={onClose} className="p-1.5 rounded-md text-zinc-600 hover:text-zinc-800 hover:bg-zinc-200 transition-colors" aria-label="Cerrar">
             <X className="h-4 w-4" />
           </button>
         </div>
 
         {a && (
-          <div className="shrink-0 flex flex-wrap items-center gap-2 px-5 py-2 border-b border-zinc-200 bg-zinc-50/70">
+          <div className="shrink-0 flex flex-wrap items-center gap-2 px-5 py-2 border-b border-zinc-300 bg-zinc-100/70">
             <button type="button" className={BTN_ACCION} onClick={() => descargar(`${nombreBase}.md`, a.reporteMarkdown, "text/markdown;charset=utf-8")}>
               <Download className="h-3.5 w-3.5" aria-hidden="true" />
               Informe (.md)
@@ -448,25 +448,25 @@ export function AuditoriaDetalleModal({ id, onClose }: { id: number; onClose: ()
           </div>
         )}
 
-        <div className="shrink-0 flex gap-1 px-4 border-b border-zinc-200 overflow-x-auto">
+        <div className="shrink-0 flex gap-1 px-4 border-b border-zinc-300 overflow-x-auto">
           {tabs.map(([key, label, n]) => (
             <button
               key={key}
               onClick={() => setTab(key)}
               className={cn(
                 "px-3 py-2 text-[12px] border-b-2 -mb-px whitespace-nowrap transition-colors",
-                tab === key ? "border-zinc-800 text-zinc-900 font-medium" : "border-transparent text-zinc-400 hover:text-zinc-700",
+                tab === key ? "border-zinc-800 text-zinc-900 font-medium" : "border-transparent text-zinc-600 hover:text-zinc-700",
               )}
             >
               {label}
-              {n != null && n > 0 && <span className="ml-1.5 text-[10px] text-zinc-400 font-mono">{n}</span>}
+              {n != null && n > 0 && <span className="ml-1.5 text-[11px] text-zinc-600 font-mono">{n}</span>}
             </button>
           ))}
         </div>
 
         <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-4">
           {isLoading && (
-            <div className="flex items-center justify-center gap-2 py-16 text-zinc-400">
+            <div className="flex items-center justify-center gap-2 py-16 text-zinc-600">
               <Loader2 className="h-4 w-4 animate-spin" />
             </div>
           )}
@@ -479,7 +479,7 @@ export function AuditoriaDetalleModal({ id, onClose }: { id: number; onClose: ()
                     key={f}
                     title={FUNCION_LABEL[f]}
                     className={cn(
-                      "text-[11px] px-2 py-0.5 rounded border font-mono",
+                      "text-xs px-2 py-0.5 rounded border font-mono",
                       VEREDICTO_CLS[v],
                     )}
                   >
@@ -511,25 +511,25 @@ function HallazgosLista({ hallazgos }: { hallazgos: Hallazgo[] }) {
     <div className="space-y-6">
       {Array.from(porFuncion.entries()).map(([funcion, lista]) => (
         <section key={funcion}>
-          <h4 className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wide mb-2">
+          <h4 className="text-xs font-semibold text-zinc-600 uppercase tracking-wide mb-2">
             {funcion} · {FUNCION_LABEL[funcion] ?? ""}
           </h4>
           <div className="space-y-3">
             {lista.map((h) => (
-              <article key={h.id} className="rounded-lg border border-zinc-200 p-3.5">
+              <article key={h.id} className="rounded-lg border border-zinc-300 p-3.5">
                 <div className="flex flex-wrap items-center gap-2 mb-2">
-                  <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full border font-medium", CLASIF_CLS[h.clasificacion])}>
+                  <span className={cn("text-[11px] px-1.5 py-0.5 rounded-full border font-medium", CLASIF_CLS[h.clasificacion])}>
                     {CLASIF_LABEL[h.clasificacion] ?? h.clasificacion}
                   </span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full border border-zinc-200 text-zinc-500 font-mono">{h.estado}</span>
-                  {h.archivo && <span className="text-[11px] text-zinc-400 font-mono">{h.archivo}</span>}
+                  <span className="text-[11px] px-1.5 py-0.5 rounded-full border border-zinc-300 text-zinc-700 font-mono">{h.estado}</span>
+                  {h.archivo && <span className="text-xs text-zinc-600 font-mono">{h.archivo}</span>}
                 </div>
                 <p className="text-[13px] text-zinc-800 leading-relaxed">{h.descripcion}</p>
-                <blockquote className="mt-2 pl-3 border-l-2 border-zinc-200 text-[12px] text-zinc-500 italic">{h.fragmento}</blockquote>
+                <blockquote className="mt-2 pl-3 border-l-2 border-zinc-300 text-[12px] text-zinc-700 italic">{h.fragmento}</blockquote>
                 {h.condicion && <Campo label="Condición" texto={h.condicion} />}
                 {h.demostracion?.detalle && <Campo label={`Demostración (${h.demostracion.tipo ?? "—"})`} texto={h.demostracion.detalle} />}
                 {h.demostracion?.citasEnConflicto?.map((c, i) => (
-                  <blockquote key={i} className="mt-1 pl-3 border-l-2 border-amber-200 text-[12px] text-zinc-500 italic">{c}</blockquote>
+                  <blockquote key={i} className="mt-1 pl-3 border-l-2 border-amber-200 text-[12px] text-zinc-700 italic">{c}</blockquote>
                 ))}
                 {h.kpi && (
                   <Campo
@@ -557,18 +557,18 @@ function ConsultasLista({ consultas }: { consultas: Consulta[] }) {
   return (
     <div className="space-y-3">
       {consultas.map((c) => (
-        <article key={c.id} className="rounded-lg border border-zinc-200 p-3.5">
+        <article key={c.id} className="rounded-lg border border-zinc-300 p-3.5">
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full border border-amber-200 bg-amber-50 text-amber-700 font-medium">{c.tipo.replace("_", " ")}</span>
-            <span className="text-[10px] text-zinc-400 font-mono">{c.funcion}</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full border border-zinc-200 text-zinc-500 font-mono ml-auto">{c.estado}</span>
+            <span className="text-[11px] px-1.5 py-0.5 rounded-full border border-amber-200 bg-amber-50 text-amber-700 font-medium">{c.tipo.replace("_", " ")}</span>
+            <span className="text-[11px] text-zinc-600 font-mono">{c.funcion}</span>
+            <span className="text-[11px] px-1.5 py-0.5 rounded-full border border-zinc-300 text-zinc-700 font-mono ml-auto">{c.estado}</span>
           </div>
           {c.motivo && <p className="text-[13px] text-zinc-800">{c.motivo}</p>}
           {c.datos?.kpi && (
             <Campo label="KPI" texto={`${c.datos.kpi} · falta ${c.datos.faltante ?? "dato"}${c.datos.periodo ? ` (${c.datos.periodo})` : ""}`} />
           )}
-          {c.fragmento && <blockquote className="mt-2 pl-3 border-l-2 border-zinc-200 text-[12px] text-zinc-500 italic">{c.fragmento}</blockquote>}
-          <ul className="mt-2 list-disc pl-4 text-[12px] text-zinc-600 space-y-0.5">
+          {c.fragmento && <blockquote className="mt-2 pl-3 border-l-2 border-zinc-300 text-[12px] text-zinc-700 italic">{c.fragmento}</blockquote>}
+          <ul className="mt-2 list-disc pl-4 text-[12px] text-zinc-700 space-y-0.5">
             {c.preguntas.map((p, i) => <li key={i}>{p}</li>)}
           </ul>
           {c.respuestaUsuario && <Campo label="Respuesta" texto={c.respuestaUsuario} />}
@@ -583,12 +583,12 @@ function SeguimientoLista({ entradas }: { entradas: SeguimientoEntrada[] }) {
   return (
     <div className="space-y-2">
       {entradas.map((e) => (
-        <div key={e.hallazgoId} className="rounded-lg border border-zinc-200 p-3 flex gap-3">
-          <span className="text-[11px] font-mono text-zinc-400 shrink-0">#{e.hallazgoId}</span>
+        <div key={e.hallazgoId} className="rounded-lg border border-zinc-300 p-3 flex gap-3">
+          <span className="text-xs font-mono text-zinc-600 shrink-0">#{e.hallazgoId}</span>
           <div className="min-w-0">
             <p className="text-[12px] font-medium text-zinc-700">{SEGUIMIENTO_LABEL[e.estado] ?? e.estado}</p>
-            <p className="text-[12px] text-zinc-600">{e.motivo}</p>
-            {e.evidencia && <blockquote className="mt-1 pl-3 border-l-2 border-zinc-200 text-[12px] text-zinc-500 italic">{e.evidencia}</blockquote>}
+            <p className="text-[12px] text-zinc-700">{e.motivo}</p>
+            {e.evidencia && <blockquote className="mt-1 pl-3 border-l-2 border-zinc-300 text-[12px] text-zinc-700 italic">{e.evidencia}</blockquote>}
           </div>
         </div>
       ))}
@@ -602,31 +602,31 @@ function Contexto({ a }: { a: AuditoriaDetalle }) {
   return (
     <div className="space-y-5">
       <Bloque titulo="Alcance">
-        <p className="text-[12px] text-zinc-600">
+        <p className="text-[12px] text-zinc-700">
           {a.alcance?.tipo ?? "procedimiento"}
           {a.alcance?.periodoKpi && ` · KPI ${a.alcance.periodoKpi.desde} → ${a.alcance.periodoKpi.hasta}`}
           {a.normas.length > 0 && ` · ${a.normas.join(", ")}`}
         </p>
         {docs.length > 0 && (
-          <ul className="mt-1 text-[12px] text-zinc-600 font-mono space-y-0.5">
+          <ul className="mt-1 text-[12px] text-zinc-700 font-mono space-y-0.5">
             {docs.map((d) => <li key={`${d.codigo}-${d.version}`}>{d.codigo}{d.version ? ` v${d.version}` : ""}{d.tipoDocumento ? ` (${d.tipoDocumento})` : ""}</li>)}
           </ul>
         )}
       </Bloque>
       {a.criterios.length > 0 && (
         <Bloque titulo="Criterios">
-          <ul className="text-[12px] text-zinc-600 space-y-1">
+          <ul className="text-[12px] text-zinc-700 space-y-1">
             {a.criterios.map((c) => (
-              <li key={c.id}><span className="font-mono text-zinc-400">{c.id}</span> · {c.fuente}{c.referencia ? ` — ${c.referencia}` : ""} <span className="text-zinc-400">({c.tipo})</span></li>
+              <li key={c.id}><span className="font-mono text-zinc-600">{c.id}</span> · {c.fuente}{c.referencia ? ` — ${c.referencia}` : ""} <span className="text-zinc-600">({c.tipo})</span></li>
             ))}
           </ul>
         </Bloque>
       )}
-      {a.comprensionProceso && <Bloque titulo="Comprensión del proceso"><p className="text-[12px] text-zinc-600 whitespace-pre-wrap leading-relaxed">{a.comprensionProceso}</p></Bloque>}
-      {supuestos.length > 0 && <Bloque titulo="Supuestos e hipótesis"><ul className="list-disc pl-4 text-[12px] text-zinc-600 space-y-0.5">{supuestos.map((s, i) => <li key={i}>{s}</li>)}</ul></Bloque>}
-      {a.recomendaciones && <Bloque titulo="Recomendaciones (solicitadas)"><p className="text-[12px] text-zinc-600 whitespace-pre-wrap">{a.recomendaciones}</p></Bloque>}
+      {a.comprensionProceso && <Bloque titulo="Comprensión del proceso"><p className="text-[12px] text-zinc-700 whitespace-pre-wrap leading-relaxed">{a.comprensionProceso}</p></Bloque>}
+      {supuestos.length > 0 && <Bloque titulo="Supuestos e hipótesis"><ul className="list-disc pl-4 text-[12px] text-zinc-700 space-y-0.5">{supuestos.map((s, i) => <li key={i}>{s}</li>)}</ul></Bloque>}
+      {a.recomendaciones && <Bloque titulo="Recomendaciones (solicitadas)"><p className="text-[12px] text-zinc-700 whitespace-pre-wrap">{a.recomendaciones}</p></Bloque>}
       <Bloque titulo="Trazabilidad">
-        <p className="text-[12px] text-zinc-600">
+        <p className="text-[12px] text-zinc-700">
           Versión analizada {a.commitId != null ? `#${String(a.commitId).padStart(4, "0")}` : "—"} · {a.autorNombre}
           {a.modelosUsados.length > 0 && ` · ${a.modelosUsados.join(", ")}`}
         </p>
@@ -638,7 +638,7 @@ function Contexto({ a }: { a: AuditoriaDetalle }) {
 function Bloque({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
     <section>
-      <h4 className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wide mb-1.5">{titulo}</h4>
+      <h4 className="text-xs font-semibold text-zinc-600 uppercase tracking-wide mb-1.5">{titulo}</h4>
       {children}
     </section>
   )
@@ -646,13 +646,13 @@ function Bloque({ titulo, children }: { titulo: string; children: React.ReactNod
 
 function Campo({ label, texto }: { label: string; texto: string }) {
   return (
-    <p className="mt-2 text-[12px] text-zinc-600">
-      <span className="font-medium text-zinc-500">{label}: </span>
+    <p className="mt-2 text-[12px] text-zinc-700">
+      <span className="font-medium text-zinc-700">{label}: </span>
       {texto}
     </p>
   )
 }
 
 function Vacio({ texto }: { texto: string }) {
-  return <p className="text-center text-[12px] text-zinc-400 italic py-12">{texto}</p>
+  return <p className="text-center text-[12px] text-zinc-600 italic py-12">{texto}</p>
 }

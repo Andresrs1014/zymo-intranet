@@ -6,6 +6,7 @@ import fs from "fs/promises"
 import fsSync from "fs"
 import prisma from "../config/prisma"
 import { requireSigAccess, getUserId } from "../middleware/auth"
+import { fueraDeArea } from "../middleware/gateLider"
 import { resolveActorName } from "../utils/userNames"
 
 const router = Router()
@@ -23,7 +24,8 @@ const storage = multer.diskStorage({
   },
 })
 
-const upload = multer({ storage, limits: { fileSize: 20 * 1024 * 1024 } })
+const upload = multer({ defParamCharset: "utf8", // los nombres con tilde llegan en UTF-8; multer los leía como latin1 (DESINFECCIÃ“N)
+   storage, limits: { fileSize: 20 * 1024 * 1024 } })
 
 // ── GET /api/formatos?instructivoId=&procedimientoId= ─────────────────────────
 // procedimientoId agrega los formatos de TODOS los instructivos del procedimiento
@@ -92,6 +94,11 @@ router.post(
       res.status(404).json({ error: "Procedimiento no encontrado" })
       return
     }
+    if (fueraDeArea(req, proc.areaId)) {
+      await fs.unlink(req.file.path).catch(() => {})
+      res.status(404).json({ error: "Procedimiento no encontrado en tu área" })
+      return
+    }
 
     if (parsed.data.instructivoId) {
       const inst = await prisma.sigInstructivo.findUnique({ where: { id: parsed.data.instructivoId } })
@@ -105,6 +112,7 @@ router.post(
     const autorId = getUserId(req.user!)
     const created = await prisma.sigFormato.create({
       data: {
+        estado: req.sigAreaIds ? "PENDIENTE_REVISION" : "APROBADO", // líder de área: el SIG lo verifica
         procedimientoId: parsed.data.procedimientoId,
         instructivoId: parsed.data.instructivoId ?? null,
         nombre: parsed.data.nombre,

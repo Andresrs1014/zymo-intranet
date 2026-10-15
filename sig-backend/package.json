@@ -9,7 +9,7 @@
     "db:generate": "prisma generate",
     "reset:procedimientos": "ts-node scripts/reset-procedimientos.ts",
     "renumerar:procedimientos": "ts-node scripts/renumerar-procedimientos.ts",
-    "selfcheck": "ts-node scripts/textExtraction.selfcheck.ts && ts-node scripts/auditorias.selfcheck.ts && ts-node scripts/asyncErrors.selfcheck.ts && ts-node scripts/referencias.selfcheck.ts"
+    "selfcheck": "ts-node scripts/textExtraction.selfcheck.ts && ts-node scripts/auditorias.selfcheck.ts && ts-node scripts/asyncErrors.selfcheck.ts && ts-node scripts/referencias.selfcheck.ts && ts-node scripts/indicadorHoja.selfcheck.ts && ts-node scripts/indicadorLectura.selfcheck.ts"
   },
   "dependencies": {
     "@joplin/turndown-plugin-gfm": "^1.0.68",
@@ -17,6 +17,7 @@
     "cors": "^2.8.5",
     "diff": "^7.0.0",
     "dotenv": "^16.4.5",
+    "exceljs": "^4.4.0",
     "express": "^4.21.1",
     "jsonwebtoken": "^9.0.2",
     "mammoth": "^1.12.0",

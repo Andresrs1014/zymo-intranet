@@ -8,6 +8,7 @@ import prisma from "../config/prisma"
 import { getUserId, requireSigAccess, requireGerente } from "../middleware/auth"
 import { extractText } from "../services/textExtraction"
 import { cargarVinculos } from "../services/vinculosSig"
+import { listarIndicadores } from "./indicadores"
 
 const router = Router()
 
@@ -21,7 +22,8 @@ const procStorage = multer.diskStorage({
     cb(null, `${Date.now()}-${safe}`)
   },
 })
-const uploadProcPdf = multer({
+const uploadProcPdf = multer({ defParamCharset: "utf8", // los nombres con tilde llegan en UTF-8; multer los leía como latin1 (DESINFECCIÃ“N)
+  
   storage: procStorage,
   limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (_, file, cb) => {
@@ -91,9 +93,14 @@ router.get("/", async (req: Request, res: Response) => {
     return
   }
 
+  // un líder solo ve las carpetas de su área (req.sigAreaIds lo pone la puerta de líderes)
+  const pedida = areaId ? parseInt(areaId as string) : undefined
+  const areaFiltro = req.sigAreaIds
+    ? (pedida !== undefined ? (req.sigAreaIds.includes(pedida) ? pedida : -1) : { in: req.sigAreaIds })
+    : pedida
   const procedimientos = await prisma.sigProcedimiento.findMany({
     where: {
-      ...(areaId ? { areaId: parseInt(areaId as string) } : {}),
+      ...(areaFiltro !== undefined ? { areaId: areaFiltro } : {}),
       ...(estado ? { estado: estado as SigEstadoProcedimiento } : {}),
       ...(q ? {
         OR: [
@@ -283,6 +290,7 @@ router.get("/:id/review-context", requireSigAccess, async (req: Request, res: Re
   })
   if (!proc) { res.status(404).json({ error: "Procedimiento no encontrado" }); return }
   const vinculos = await cargarVinculos(id)
+  const indicadores = await listarIndicadores(proc.areaId) // rúbrica §1.6: KPI del área, con su lectura
   res.json({
     procedimientoId: proc.id,
     codigo: proc.codigo,
@@ -290,6 +298,7 @@ router.get("/:id/review-context", requireSigAccess, async (req: Request, res: Re
     estado: proc.estado,
     area: proc.area,
     ...vinculos,
+    indicadores,
   })
 })
 

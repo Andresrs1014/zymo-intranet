@@ -8,8 +8,14 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Organización (áreas, usuarios y permisos): rojo con blanco
+        // Organización (áreas, usuarios y roles): rojo con blanco
         org: { rojo: "#b0102a", vivo: "#e11d2e", oscuro: "#7f0a1d", tinte: "#fdeef0", linea: "#f2cdd2", tinta: "#2a0f14" },
+        // Indicadores del SIG: paleta "niebla" de la plataforma de rúbricas + estados con significado
+        kpi: {
+          50: "#eef4f9", 100: "#d3e2ed", 300: "#8aa9c4", 600: "#3e5c76", 900: "#1d2d44", cielo: "#7fc4f2",
+          ok: "#3f8f63", warn: "#b9801f", bad: "#b4443c",
+          "ok-ink": "#2f7350", "warn-ink": "#8a5d0f", "bad-ink": "#a23a33",
+        },
         // ZymoAlly survey module (público, sin login) — paleta blanco+rojo
         // portada tal cual del sandbox, ver docs/superpowers/specs/2026-07-07-zymoally-survey-frontend-design.md
         survey: {
@@ -23,6 +29,7 @@ export default {
         // Helix Zymo module colors
         helix: {
           accent:      "#ef3340",
+          "accent-ink": "#c4202c", // texto pequeño en rojo: 5,9:1 sobre blanco
           "accent-2":  "#4e5968",
           ai:          "#00a8c8",
           "ai-2":      "#7c5cff",

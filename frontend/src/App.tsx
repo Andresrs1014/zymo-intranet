@@ -10,6 +10,7 @@ import {
   canSeeFinanciero,
   canSeeGerencial,
   canSeeSIG,
+  canSeeSigLider,
   canUseAgentePanel,
   canSeeExtraccionIA,
   canSeeTyC,
@@ -208,6 +209,14 @@ function ExtraccionIARoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user)
   if (!user) return <Navigate to="/login" replace />
   if (!canSeeExtraccionIA(user.role, user.app_permissions)) return <Navigate to="/dashboard" replace />
+  return <>{children}</>
+}
+
+// Líder de área: la misma página del SIG, limitada a las carpetas de su área (la página detecta el modo por el permiso).
+function SigLiderRoute({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user)
+  if (!user) return <Navigate to="/login" replace />
+  if (!canSeeSigLider(user.role, user.app_permissions)) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
 
@@ -655,6 +664,15 @@ export default function App() {
             <SigRoute>
               <SigPage />
             </SigRoute>
+          }
+        />
+        {/* SIG de mi área — la misma página del SIG, limitada a la carpeta del líder */}
+        <Route
+          path="/sig-area/*"
+          element={
+            <SigLiderRoute>
+              <SigPage />
+            </SigLiderRoute>
           }
         />
 

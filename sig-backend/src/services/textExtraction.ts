@@ -123,7 +123,7 @@ export async function extractText(filePath: string, fileName: string): Promise<E
       text = raw.toString("latin1")
       warnings.push("El archivo no estaba en UTF-8; se decodificó como Latin-1. Revisar acentos y símbolos.")
     }
-    return { text: text.trim(), warnings }
+    return { text: text.replace(/\r\n?/g, "\n").trim(), warnings } // CRLF → LF: un salto de línea distinto no es un cambio
   }
 
   if (lower.endsWith(".docx")) {

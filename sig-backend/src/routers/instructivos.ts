@@ -6,6 +6,7 @@ import fs from "fs/promises"
 import fsSync from "fs"
 import prisma from "../config/prisma"
 import { requireSigAccess, getUserId } from "../middleware/auth"
+import { fueraDeArea } from "../middleware/gateLider"
 import { extractText } from "../services/textExtraction"
 import { getPdfPreview, isOfficeDoc } from "../services/pdfPreview"
 import { resolveActorName } from "../utils/userNames"
@@ -25,7 +26,8 @@ const storage = multer.diskStorage({
   },
 })
 
-const upload = multer({
+const upload = multer({ defParamCharset: "utf8", // los nombres con tilde llegan en UTF-8; multer los leía como latin1 (DESINFECCIÃ“N)
+  
   storage,
   limits: { fileSize: 20 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
@@ -154,6 +156,11 @@ router.post(
       res.status(404).json({ error: "Procedimiento no encontrado" })
       return
     }
+    if (fueraDeArea(req, proc.areaId)) {
+      await fs.unlink(req.file.path).catch(() => {})
+      res.status(404).json({ error: "Procedimiento no encontrado en tu área" })
+      return
+    }
 
     // Extracción servidor-side
     const { text, warnings } = await extractText(req.file.path, req.file.originalname)
@@ -175,6 +182,7 @@ router.post(
 
     const created = await prisma.sigInstructivo.create({
       data: {
+        estado: req.sigAreaIds ? "PENDIENTE_REVISION" : "APROBADO", // líder de área: el SIG lo verifica
         procedimientoId: parsed.data.procedimientoId,
         codigo: parsed.data.codigo.toUpperCase(),
         titulo: parsed.data.titulo,

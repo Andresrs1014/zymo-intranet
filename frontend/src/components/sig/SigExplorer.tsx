@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { Link } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { sigApi } from "@/lib/sigApi"
 import { useAuthStore } from "@/store/authStore"
@@ -17,6 +18,10 @@ interface SigArea {
   descripcion?: string
   color: string
   _count: { procedimientos: number }
+  /** Área de la intranet de la que nació la carpeta (null = carpeta anterior sin enlazar) */
+  intranetAreaId?: number | null
+  /** Cargos del área en el directorio (solo lectura) */
+  cargos?: string[]
 }
 
 interface SigProcedimiento {
@@ -58,11 +63,6 @@ interface Props {
   onDeleteProcedure?: (id: number) => void
 }
 
-const COLORS = [
-  "#ef3340", "#3b82f6", "#10b981", "#f59e0b",
-  "#8b5cf6", "#ec4899", "#06b6d4", "#84cc16",
-]
-
 // ── Main Explorer ──────────────────────────────────────────────────────────────
 
 export function SigExplorer({
@@ -72,28 +72,11 @@ export function SigExplorer({
   const user = useAuthStore((s) => s.user)
   const isAdmin = user?.role === "admin"
   const isManager = user?.role === "admin" || user?.role === "gerente"
-  const qc = useQueryClient()
-
   const [expandedAreas, setExpandedAreas] = useState<Set<number>>(new Set())
   const [expandedProcs, setExpandedProcs] = useState<Set<number>>(new Set())
-  const [showNewArea, setShowNewArea] = useState(false)
-  const [newAreaForm, setNewAreaForm] = useState({ nombre: "", descripcion: "", color: "#ef3340" })
-  const [formError, setFormError] = useState<string | null>(null)
-
   const { data: areas = [] } = useQuery<SigArea[]>({
     queryKey: ["sig", "areas"],
     queryFn: async () => (await sigApi.get("/api/areas")).data,
-  })
-
-  const createArea = useMutation({
-    mutationFn: (data: typeof newAreaForm) => sigApi.post("/api/areas", data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["sig", "areas"] })
-      setShowNewArea(false)
-      setNewAreaForm({ nombre: "", descripcion: "", color: "#ef3340" })
-      setFormError(null)
-    },
-    onError: (e: any) => setFormError(e?.response?.data?.error ?? "Error al crear el área"),
   })
 
   function toggleArea(id: number) {
@@ -104,18 +87,18 @@ export function SigExplorer({
   }
 
   return (
-    <div className="flex flex-col shrink-0 w-52 xl:w-64 border-r border-zinc-200 bg-zinc-50 overflow-hidden min-w-[180px] shadow-sm">
+    <div className="flex flex-col shrink-0 w-52 xl:w-64 border-r border-zinc-300 bg-zinc-100 overflow-hidden min-w-[180px] shadow-sm">
       {/* Explorer header */}
-      <div className="flex items-center justify-between px-3 h-9 shrink-0 border-b border-zinc-200">
-        <span className="text-[11px] font-semibold text-helix-accent/80 tracking-widest uppercase">Explorador</span>
+      <div className="flex items-center justify-between px-3 h-9 shrink-0 border-b border-zinc-300">
+        <span className="text-xs font-semibold text-helix-accent-ink tracking-widest uppercase">Explorador</span>
         {isAdmin && (
-          <button
-            title="Nueva área"
-            onClick={() => setShowNewArea(true)}
-            className="h-5 w-5 rounded flex items-center justify-center text-zinc-400 hover:text-helix-accent hover:bg-helix-accent/10 transition-colors"
+          <Link
+            to="/admin/configuracion/organizacion"
+            title="Las carpetas nacen de las áreas: se crean en Configuración → Organización"
+            className="h-5 px-1.5 rounded flex items-center gap-1 text-[11px] font-mono text-zinc-600 hover:text-helix-accent-ink hover:bg-helix-accent/10 transition-colors"
           >
-            <Plus className="h-3.5 w-3.5" />
-          </button>
+            <Plus className="h-3 w-3" /> Áreas
+          </Link>
         )}
       </div>
 
@@ -130,13 +113,13 @@ export function SigExplorer({
               "w-full flex items-center gap-2 px-3 py-1.5 text-left transition-colors group",
               activeKey === "queue"
                 ? "bg-helix-accent/10 text-zinc-800 border-l-2 border-helix-accent/60"
-                : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-800 border-l-2 border-transparent",
+                : "text-zinc-700 hover:bg-zinc-200 hover:text-zinc-800 border-l-2 border-transparent",
             )}
           >
             <Inbox className="h-3.5 w-3.5 shrink-0" />
             <span className="text-[12px] flex-1">Cola de revisión</span>
             {pendingCount > 0 && (
-              <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-600 font-mono font-bold tabular-nums border border-amber-300">
+              <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-mono font-bold tabular-nums border border-amber-300">
                 {pendingCount}
               </span>
             )}
@@ -150,13 +133,13 @@ export function SigExplorer({
         {/* Section label */}
         {areas.length > 0 && (
           <div className="px-3 pt-1 pb-0.5">
-            <span className="text-[11px] text-helix-accent/60 uppercase tracking-widest">Áreas</span>
+            <span className="text-xs text-helix-accent-ink uppercase tracking-widest">Áreas</span>
           </div>
         )}
 
         {/* Area tree */}
         {areas.length === 0 && (
-          <div className="px-4 py-4 text-[11px] text-zinc-600 italic">
+          <div className="px-4 py-4 text-xs text-zinc-700 italic">
             {isAdmin ? "Crea un área con +" : "Sin áreas configuradas"}
           </div>
         )}
@@ -180,58 +163,6 @@ export function SigExplorer({
         ))}
       </div>
 
-      {/* New area form */}
-      {showNewArea && isAdmin && (
-        <div className="border-t border-zinc-200 bg-white p-3 shrink-0">
-          <p className="text-[11px] text-helix-accent/60 mb-2 uppercase tracking-widest">Nueva área</p>
-
-          <input
-            autoFocus
-            value={newAreaForm.nombre}
-            onChange={(e) => setNewAreaForm((f) => ({ ...f, nombre: e.target.value }))}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && newAreaForm.nombre.trim()) createArea.mutate(newAreaForm)
-              if (e.key === "Escape") { setShowNewArea(false); setFormError(null) }
-            }}
-            className="w-full bg-zinc-50 border border-zinc-300 rounded px-2.5 py-1.5 text-xs text-zinc-900 focus:outline-none focus:ring-1 focus:ring-helix-accent/40 placeholder:text-zinc-400 mb-2"
-            placeholder="Nombre del área"
-          />
-
-          {/* Color palette */}
-          <div className="flex gap-1.5 mb-2 flex-wrap">
-            {COLORS.map((c) => (
-              <button
-                key={c}
-                onClick={() => setNewAreaForm((f) => ({ ...f, color: c }))}
-                className="h-4 w-4 rounded-full transition-transform hover:scale-110"
-                style={{
-                  backgroundColor: c,
-                  outline: newAreaForm.color === c ? `2px solid ${c}` : "none",
-                  outlineOffset: "2px",
-                }}
-              />
-            ))}
-          </div>
-
-          {formError && <p className="text-[11px] text-red-500 mb-2">{formError}</p>}
-
-          <div className="flex gap-1.5">
-            <button
-              onClick={() => { setShowNewArea(false); setFormError(null) }}
-              className="flex-1 text-[11px] py-1.5 rounded text-zinc-600 hover:text-zinc-800 transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              disabled={!newAreaForm.nombre.trim() || createArea.isPending}
-              onClick={() => createArea.mutate(newAreaForm)}
-              className="flex-1 text-[11px] py-1.5 rounded bg-helix-accent/80 hover:bg-helix-accent text-white disabled:opacity-40 transition-colors"
-            >
-              Crear
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
@@ -281,13 +212,16 @@ function AreaNode({
     <div>
       {/* Area row */}
       {renaming ? (
-        <div className="flex items-center gap-1.5 px-2 py-1 bg-zinc-100">
+        <div className="flex items-center gap-1.5 px-2 py-1 bg-zinc-200">
           {expanded
             ? <FolderOpen className="h-3.5 w-3.5 shrink-0" style={{ color: area.color }} />
             : <Folder className="h-3.5 w-3.5 shrink-0" style={{ color: area.color }} />
           }
           <input
             autoFocus
+            aria-label="Nombre de la carpeta"
+            name="nombre"
+            autoComplete="off"
             value={renameValue}
             onChange={(e) => setRenameValue(e.target.value)}
             onKeyDown={(e) => {
@@ -299,12 +233,12 @@ function AreaNode({
           />
         </div>
       ) : (
-        <div className="flex items-center group">
+        <div className="relative flex items-center group">
           <button
             onClick={onToggleArea}
-            className="flex items-center gap-1.5 px-2 py-1 text-left hover:bg-zinc-100 transition-colors flex-1 min-w-0"
+            className="flex items-center gap-1.5 px-2 py-1 text-left hover:bg-zinc-200 transition-colors flex-1 min-w-0"
           >
-            <span className="h-3.5 w-3.5 text-zinc-400 group-hover:text-zinc-600 transition-colors shrink-0">
+            <span className="h-3.5 w-3.5 text-zinc-600 group-hover:text-zinc-700 transition-colors shrink-0">
               {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
             </span>
             {expanded
@@ -312,15 +246,16 @@ function AreaNode({
               : <Folder className="h-3.5 w-3.5 shrink-0" style={{ color: area.color }} />
             }
             <span className="text-[12px] text-zinc-700 flex-1 truncate">{area.nombre}</span>
-            <span className="text-[11px] text-zinc-400 font-mono tabular-nums pr-1">
+            <span className="text-xs text-zinc-600 font-mono tabular-nums pr-1">
               {area._count.procedimientos}
             </span>
           </button>
-          {isManager && (
+          {isManager && area.intranetAreaId == null && (
             <button
               onClick={(e) => { e.stopPropagation(); setRenaming(true) }}
-              className="opacity-0 group-hover:opacity-50 hover:!opacity-100 pr-1.5 text-zinc-400 hover:text-helix-accent transition-all shrink-0"
+              className="absolute right-6 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-70 hover:!opacity-100 focus-visible:!opacity-100 text-zinc-600 hover:text-helix-accent-ink transition-opacity"
               title="Renombrar área"
+              aria-label="Renombrar área"
             >
               <Pencil className="h-3 w-3" />
             </button>
@@ -328,11 +263,17 @@ function AreaNode({
         </div>
       )}
 
+      {/* Cargos del área (vienen del directorio; solo se ven) */}
+      {expanded && (area.cargos?.length ?? 0) > 0 && (
+        <p className="pl-8 pr-2 pb-1 text-[10.5px] leading-snug text-zinc-600" title="Cargos del área en el directorio">
+          <span className="font-mono uppercase tracking-wider">Cargos · </span>{area.cargos!.join(" · ")}
+        </p>
+      )}
       {/* Procedures */}
       {expanded && (
         <div className="pl-5">
           {procs.length === 0 && (
-            <div className="px-3 py-1 text-[11px] text-zinc-600 italic">Sin procedimientos</div>
+            <div className="px-3 py-1 text-xs text-zinc-700 italic">Sin procedimientos</div>
           )}
           {procs.map((proc) => (
             <ProcNode
@@ -375,9 +316,9 @@ function AreaNode({
 // ── Procedure Node ─────────────────────────────────────────────────────────────
 
 const ESTADO_DOT: Record<string, string> = {
-  BORRADOR: "text-zinc-400",
-  VIGENTE:  "text-helix-done",
-  OBSOLETO: "text-zinc-300",
+  BORRADOR: "text-zinc-600",
+  VIGENTE:  "text-emerald-700",
+  OBSOLETO: "text-zinc-600",
 }
 
 function ProcNode({
@@ -421,12 +362,12 @@ function ProcNode({
     <div>
       <div className={cn(
         "flex items-center group rounded transition-colors",
-        isActive ? "bg-helix-accent/8 border-l-2 border-helix-accent/50" : "hover:bg-zinc-100 border-l-2 border-transparent",
+        isActive ? "bg-helix-accent/8 border-l-2 border-helix-accent/50" : "hover:bg-zinc-200 border-l-2 border-transparent",
       )}>
         {/* Expand toggle for commits */}
         <button
           onClick={onToggle}
-          className="h-6 w-5 flex items-center justify-center text-zinc-300 hover:text-zinc-500 shrink-0 transition-colors"
+          className="h-6 w-5 flex items-center justify-center text-zinc-600 hover:text-zinc-700 shrink-0 transition-colors"
         >
           {expanded
             ? <ChevronDown className="h-3 w-3" />
@@ -439,10 +380,10 @@ function ProcNode({
           onClick={onSelect}
           className="flex items-center gap-1.5 flex-1 min-w-0 py-1 pr-1 text-left"
         >
-          <FileText className="h-3.5 w-3.5 shrink-0 text-zinc-400 group-hover:text-zinc-500 transition-colors" />
+          <FileText className="h-3.5 w-3.5 shrink-0 text-zinc-600 group-hover:text-zinc-700 transition-colors" />
           <span className={cn(
             "text-[12px] font-mono flex-1 truncate transition-colors",
-            isActive ? "text-zinc-900" : "text-zinc-600 group-hover:text-zinc-800",
+            isActive ? "text-zinc-900" : "text-zinc-700 group-hover:text-zinc-800",
           )}>
             {proc.codigo}
           </span>
@@ -455,8 +396,9 @@ function ProcNode({
         {canEditSig && onCargarVersion && !confirmDelete && (
           <button
             onClick={(e) => { e.stopPropagation(); onCargarVersion() }}
-            className="opacity-0 group-hover:opacity-50 hover:!opacity-100 pr-1 text-zinc-400 hover:text-helix-accent transition-all shrink-0"
+            className="opacity-0 group-hover:opacity-50 hover:!opacity-100 focus-visible:!opacity-100 pr-1 text-zinc-600 hover:text-helix-accent-ink transition-opacity shrink-0"
             title="Cargar nueva versión desde documento"
+            aria-label="Cargar nueva versión desde documento"
           >
             <UploadCloud className="h-3 w-3" />
           </button>
@@ -470,13 +412,13 @@ function ProcNode({
               <button
                 onClick={(e) => { e.stopPropagation(); deleteMutation.mutate() }}
                 disabled={deleteMutation.isPending}
-                className="text-[11px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
+                className="text-xs px-1.5 py-0.5 rounded bg-red-500/20 text-red-600 hover:bg-red-500/30 transition-colors"
               >
                 {deleteMutation.isPending ? "…" : "Sí"}
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); setConfirmDelete(false) }}
-                className="text-[11px] px-1 py-0.5 rounded text-zinc-600 hover:text-zinc-800 transition-colors"
+                className="text-xs px-1 py-0.5 rounded text-zinc-700 hover:text-zinc-800 transition-colors"
               >
                 No
               </button>
@@ -484,8 +426,9 @@ function ProcNode({
           ) : (
             <button
               onClick={(e) => { e.stopPropagation(); setConfirmDelete(true) }}
-              className="opacity-0 group-hover:opacity-50 hover:!opacity-100 pr-1.5 text-zinc-400 hover:text-red-400 transition-all shrink-0"
+              className="opacity-0 group-hover:opacity-50 hover:!opacity-100 focus-visible:!opacity-100 pr-1.5 text-zinc-600 hover:text-red-600 transition-opacity shrink-0"
               title="Eliminar procedimiento"
+              aria-label="Eliminar procedimiento"
             >
               <Trash2 className="h-3 w-3" />
             </button>
@@ -497,7 +440,7 @@ function ProcNode({
       {expanded && (
         <div className="pl-5">
           {commits.length === 0 && (
-            <div className="px-3 py-1 text-[11px] text-zinc-600 italic">Sin commits</div>
+            <div className="px-3 py-1 text-xs text-zinc-700 italic">Sin commits</div>
           )}
           {commits.map((c) => (
             <CommitNode
@@ -518,8 +461,8 @@ function ProcNode({
 
 const COMMIT_DOT: Record<string, string> = {
   PENDIENTE_REVISION: "text-amber-400 animate-pulse",
-  APROBADO:           "text-helix-done",
-  RECHAZADO:          "text-helix-accent",
+  APROBADO:           "text-emerald-700",
+  RECHAZADO:          "text-helix-accent-ink",
 }
 
 function CommitNode({
@@ -536,14 +479,14 @@ function CommitNode({
     <button
       onClick={onSelect}
       className={cn(
-        "w-full flex items-center gap-1.5 py-1 px-2 text-left rounded transition-colors group border-l-2",
-        isActive ? "bg-helix-ai/10 border-helix-ai/40" : "hover:bg-zinc-100 border-transparent",
+        "w-full flex items-center gap-1.5 py-1 px-2 text-left rounded transition-colors group",
+        isActive ? "bg-helix-ai/10 ring-1 ring-inset ring-helix-ai/40" : "hover:bg-zinc-200",
       )}
     >
       <GitCommit className="h-3 w-3 shrink-0 text-helix-ai/50" />
       <span className={cn(
-        "text-[11px] font-mono flex-1 truncate",
-        isActive ? "text-zinc-700" : "text-zinc-400 group-hover:text-zinc-600",
+        "text-xs font-mono flex-1 truncate",
+        isActive ? "text-zinc-700" : "text-zinc-600 group-hover:text-zinc-700",
       )}>
         #{String(commit.id).padStart(4, "0")}
       </span>

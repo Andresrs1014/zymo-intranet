@@ -130,7 +130,7 @@ export function SigDiffMobileView({ commitId, isGerente, onActioned }: Props) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full bg-white">
-        <div className="flex items-center gap-2 text-zinc-500">
+        <div className="flex items-center gap-2 text-zinc-700">
           <div className="h-3 w-3 rounded-full border border-zinc-300 border-t-zinc-500 animate-spin" />
           <span className="text-[13px]">Cargando…</span>
         </div>
@@ -140,7 +140,7 @@ export function SigDiffMobileView({ commitId, isGerente, onActioned }: Props) {
   if (!commit) {
     return (
       <div className="flex items-center justify-center h-full bg-white">
-        <span className="text-[13px] text-zinc-500">Commit no encontrado</span>
+        <span className="text-[13px] text-zinc-700">Commit no encontrado</span>
       </div>
     )
   }
@@ -156,16 +156,16 @@ export function SigDiffMobileView({ commitId, isGerente, onActioned }: Props) {
     <div className="relative flex flex-col h-full bg-white overflow-hidden isolate">
 
       {/* Header — todo apilado verticalmente, pensado para pantalla angosta */}
-      <div className="shrink-0 border-b border-zinc-200 bg-zinc-50 px-4 pt-3 pb-3">
+      <div className="shrink-0 border-b border-zinc-300 bg-zinc-100 px-4 pt-3 pb-3">
         <div className="flex items-center gap-1.5">
           <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: commit.procedimiento.area.color }} />
-          <span className="text-[11px] text-zinc-600 font-mono font-medium">{commit.procedimiento.area.nombre}</span>
+          <span className="text-xs text-zinc-700 font-mono font-medium">{commit.procedimiento.area.nombre}</span>
         </div>
 
         <div className="flex items-center gap-1.5 mt-1.5">
-          <GitCommit className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+          <GitCommit className="h-3.5 w-3.5 text-zinc-600 shrink-0" />
           <span className="text-[13px] text-zinc-700 font-mono font-semibold">{commit.procedimiento.codigo}</span>
-          <span className="text-[11px] text-zinc-400 font-mono">#{String(commit.id).padStart(4, "0")}</span>
+          <span className="text-xs text-zinc-600 font-mono">#{String(commit.id).padStart(4, "0")}</span>
         </div>
 
         <p className="text-[15px] font-semibold text-zinc-900 leading-snug mt-2">{commit.mensaje}</p>
@@ -174,12 +174,12 @@ export function SigDiffMobileView({ commitId, isGerente, onActioned }: Props) {
           <span className="text-[12px] text-zinc-700">{commit.autorNombre}</span>
           {commit.versionDoc && (
             <>
-              <span className="text-zinc-300">·</span>
-              <span className="text-[11px] text-zinc-500 font-mono">v{commit.versionDoc}</span>
+              <span className="text-zinc-600">·</span>
+              <span className="text-xs text-zinc-700 font-mono">v{commit.versionDoc}</span>
             </>
           )}
-          <span className="text-zinc-300">·</span>
-          <span className="text-[11px] text-zinc-500 font-mono">
+          <span className="text-zinc-600">·</span>
+          <span className="text-xs text-zinc-700 font-mono">
             {new Date(commit.createdAt).toLocaleString("es-CO", {
               day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
             })}
@@ -190,12 +190,12 @@ export function SigDiffMobileView({ commitId, isGerente, onActioned }: Props) {
           <EstadoBadge estado={commit.estado} />
           {hasDiff && (
             <>
-              <span className="text-[11px] text-helix-done font-mono font-semibold">+{additions}</span>
-              <span className="text-[11px] text-helix-accent font-mono font-semibold">−{deletions}</span>
+              <span className="text-xs text-emerald-700 font-mono font-semibold">+{additions}</span>
+              <span className="text-xs text-helix-accent-ink font-mono font-semibold">−{deletions}</span>
             </>
           )}
           {!isPending && commit.aprobadoNombre && (
-            <span className="text-[11px] text-zinc-500">
+            <span className="text-xs text-zinc-700">
               por {commit.aprobadoNombre}
               {commit.aprobadoEn && " · " + new Date(commit.aprobadoEn).toLocaleDateString("es-CO")}
             </span>
@@ -204,14 +204,14 @@ export function SigDiffMobileView({ commitId, isGerente, onActioned }: Props) {
 
         {commit.comentarioRevision && (
           <div className="mt-2.5 flex items-start gap-2 rounded-lg border-l-[3px] border-helix-accent bg-red-50 px-3 py-2">
-            <AlertCircle className="h-3.5 w-3.5 text-helix-accent mt-0.5 shrink-0" />
+            <AlertCircle className="h-3.5 w-3.5 text-helix-accent-ink mt-0.5 shrink-0" />
             <div className="min-w-0">
-              <span className="text-[11px] font-semibold text-helix-accent">Motivo del rechazo — </span>
+              <span className="text-xs font-semibold text-helix-accent-ink">Motivo del rechazo — </span>
               <span className="text-[12px] text-zinc-700">{commit.comentarioRevision}</span>
             </div>
           </div>
         )}
-        {actionError && <p className="mt-2 text-[11px] text-helix-accent font-mono">{actionError}</p>}
+        {actionError && <p className="mt-2 text-xs text-helix-accent-ink font-mono">{actionError}</p>}
       </div>
 
       {/* Contenido — una sola columna, nunca split. Padding inferior para no quedar tapado por la barra fija. */}
@@ -230,10 +230,10 @@ export function SigDiffMobileView({ commitId, isGerente, onActioned }: Props) {
 
       {/* Barra de acción fija abajo — sin scroll para encontrarla */}
       {showBar && (
-        <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center gap-2 border-t border-zinc-200 bg-white/95 backdrop-blur px-4 py-3">
+        <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center gap-2 border-t border-zinc-300 bg-white/95 backdrop-blur px-4 py-3">
           <button
             onClick={() => setShowReject(true)}
-            className="flex items-center justify-center gap-1.5 flex-1 h-11 rounded-xl border border-helix-accent/40 text-helix-accent text-[13px] font-medium active:bg-red-50 transition-colors"
+            className="flex items-center justify-center gap-1.5 flex-1 h-11 rounded-xl border border-helix-accent/40 text-helix-accent-ink text-[13px] font-medium active:bg-red-50 transition-colors"
           >
             <X className="h-4 w-4" />
             Rechazar
@@ -288,7 +288,7 @@ function RejectSheet({
       />
       <div
         className={cn(
-          "relative w-full bg-white rounded-t-2xl border-t border-zinc-200 px-4 pt-3 pb-4 shadow-2xl transition-transform duration-200 ease-out",
+          "relative w-full bg-white rounded-t-2xl border-t border-zinc-300 px-4 pt-3 pb-4 shadow-2xl transition-transform duration-200 ease-out",
           entered ? "translate-y-0" : "translate-y-full",
         )}
       >
@@ -296,7 +296,7 @@ function RejectSheet({
         <h2 className="text-[14px] font-semibold text-zinc-900">
           Rechazar #{String(commitId).padStart(4, "0")}
         </h2>
-        <p className="text-[12px] text-zinc-500 mt-1 mb-3">
+        <p className="text-[12px] text-zinc-700 mt-1 mb-3">
           Explica el motivo para que el equipo pueda corregir el documento.
         </p>
         <textarea
@@ -304,13 +304,13 @@ function RejectSheet({
           value={rejectComment}
           onChange={(e) => setRejectComment(e.target.value)}
           rows={4}
-          className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-2.5 text-[15px] text-zinc-900 resize-none focus:outline-none focus:ring-1 focus:ring-helix-accent/50 placeholder:text-zinc-400"
+          className="w-full bg-zinc-100 border border-zinc-300 rounded-xl px-3 py-2.5 text-[15px] text-zinc-900 resize-none focus:outline-none focus:ring-1 focus:ring-helix-accent/50 placeholder:text-zinc-600"
           placeholder="Motivo del rechazo…"
         />
         <div className="flex gap-2 mt-3">
           <button
             onClick={onCancel}
-            className="flex-1 h-11 rounded-xl text-[13px] text-zinc-500 border border-zinc-200 active:bg-zinc-50 transition-colors"
+            className="flex-1 h-11 rounded-xl text-[13px] text-zinc-700 border border-zinc-300 active:bg-zinc-100 transition-colors"
           >
             Cancelar
           </button>
@@ -334,7 +334,7 @@ function DocumentBody({ content, banner }: { content: string; banner: string }) 
     return (
       <div className="flex flex-col items-center justify-center h-full gap-2 py-16 text-center px-6">
         <FileText className="h-7 w-7 text-zinc-200" />
-        <p className="text-[13px] text-zinc-500">Sin contenido en este commit</p>
+        <p className="text-[13px] text-zinc-700">Sin contenido en este commit</p>
       </div>
     )
   }
@@ -342,7 +342,7 @@ function DocumentBody({ content, banner }: { content: string; banner: string }) 
   return (
     <div>
       <div className="flex items-start gap-2 mx-4 mt-3 rounded-lg border-l-[3px] border-sky-300 bg-sky-50 px-3 py-2">
-        <FileText className="h-3.5 w-3.5 text-sky-500 mt-0.5 shrink-0" />
+        <FileText className="h-3.5 w-3.5 text-sky-700 mt-0.5 shrink-0" />
         <p className="text-[12px] text-sky-700 leading-relaxed">{banner}</p>
       </div>
       <div className="px-4 py-4">
@@ -351,9 +351,9 @@ function DocumentBody({ content, banner }: { content: string; banner: string }) 
           prose-p:text-zinc-700 prose-p:text-[15px] prose-p:leading-relaxed
           prose-li:text-zinc-700 prose-li:text-[15px] prose-li:leading-relaxed
           prose-strong:text-zinc-800 prose-strong:font-semibold
-          prose-code:text-helix-ai prose-code:bg-zinc-100 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-[13px]
-          prose-hr:border-zinc-200
-          prose-blockquote:border-l-zinc-300 prose-blockquote:text-zinc-500
+          prose-code:text-helix-ai prose-code:bg-zinc-200 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-[13px]
+          prose-hr:border-zinc-300
+          prose-blockquote:border-l-zinc-300 prose-blockquote:text-zinc-700
           prose-a:text-helix-ai prose-a:no-underline"
         >
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
@@ -367,12 +367,12 @@ function DocumentBody({ content, banner }: { content: string; banner: string }) 
 
 function MobileDiff({ rows }: { rows: DiffRow[] }) {
   return (
-    <div className="divide-y divide-zinc-100">
+    <div className="divide-y divide-zinc-200">
       {rows.map((row, i) => {
         if (row.kind === "hunk") {
           return (
-            <div key={i} className="flex items-center justify-center py-2 bg-zinc-50">
-              <span className="text-[11px] text-zinc-400 font-mono tracking-widest">· · ·</span>
+            <div key={i} className="flex items-center justify-center py-2 bg-zinc-100">
+              <span className="text-xs text-zinc-600 font-mono tracking-widest">· · ·</span>
             </div>
           )
         }
@@ -386,7 +386,7 @@ function MobileDiff({ rows }: { rows: DiffRow[] }) {
         if (row.kind === "delete") {
           return (
             <div key={i} className="flex gap-2 px-4 py-2 bg-red-50/70 border-l-[3px] border-helix-accent/50">
-              <span className="text-helix-accent font-bold shrink-0 select-none">−</span>
+              <span className="text-helix-accent-ink font-bold shrink-0 select-none">−</span>
               <p className="text-[15px] leading-relaxed text-red-800 line-through decoration-red-300 whitespace-pre-wrap break-words">
                 {row.left || " "}
               </p>
@@ -396,7 +396,7 @@ function MobileDiff({ rows }: { rows: DiffRow[] }) {
         if (row.kind === "insert") {
           return (
             <div key={i} className="flex gap-2 px-4 py-2 bg-green-50/70 border-l-[3px] border-helix-done/50">
-              <span className="text-helix-done font-bold shrink-0 select-none">+</span>
+              <span className="text-emerald-700 font-bold shrink-0 select-none">+</span>
               <p className="text-[15px] leading-relaxed text-green-800 whitespace-pre-wrap break-words">
                 {row.right || " "}
               </p>
@@ -407,13 +407,13 @@ function MobileDiff({ rows }: { rows: DiffRow[] }) {
         return (
           <div key={i}>
             <div className="flex gap-2 px-4 py-2 bg-red-50/70 border-l-[3px] border-helix-accent/50">
-              <span className="text-helix-accent font-bold shrink-0 select-none">−</span>
+              <span className="text-helix-accent-ink font-bold shrink-0 select-none">−</span>
               <p className="text-[15px] leading-relaxed text-red-800 line-through decoration-red-300 whitespace-pre-wrap break-words">
                 {row.left || " "}
               </p>
             </div>
             <div className="flex gap-2 px-4 py-2 bg-green-50/70 border-l-[3px] border-helix-done/50">
-              <span className="text-helix-done font-bold shrink-0 select-none">+</span>
+              <span className="text-emerald-700 font-bold shrink-0 select-none">+</span>
               <p className="text-[15px] leading-relaxed text-green-800 whitespace-pre-wrap break-words">
                 {row.right || " "}
               </p>
@@ -430,8 +430,8 @@ function MobileDiff({ rows }: { rows: DiffRow[] }) {
 function EstadoBadge({ estado }: { estado: string }) {
   const map: Record<string, string> = {
     PENDIENTE_REVISION: "text-amber-700 bg-amber-50 border-amber-200",
-    APROBADO:           "text-helix-done bg-helix-done/10 border-helix-done/30",
-    RECHAZADO:          "text-helix-accent bg-helix-accent/10 border-helix-accent/30",
+    APROBADO:           "text-emerald-700 bg-helix-done/10 border-helix-done/30",
+    RECHAZADO:          "text-helix-accent-ink bg-helix-accent/10 border-helix-accent/30",
   }
   const labels: Record<string, string> = {
     PENDIENTE_REVISION: "pendiente",
@@ -439,7 +439,7 @@ function EstadoBadge({ estado }: { estado: string }) {
     RECHAZADO: "rechazado",
   }
   return (
-    <span className={cn("text-[11px] px-2 py-0.5 rounded-full border font-mono tracking-wide", map[estado] ?? "")}>
+    <span className={cn("text-xs px-2 py-0.5 rounded-full border font-mono tracking-wide", map[estado] ?? "")}>
       {labels[estado] ?? estado}
     </span>
   )

@@ -6,6 +6,7 @@ import fs from "fs/promises"
 import fsSync from "fs"
 import prisma from "../config/prisma"
 import { requireSigAccess, getUserId } from "../middleware/auth"
+import { fueraDeArea } from "../middleware/gateLider"
 import { resolveActorName } from "../utils/userNames"
 
 const router = Router()
@@ -23,7 +24,8 @@ const storage = multer.diskStorage({
   },
 })
 
-const upload = multer({ storage, limits: { fileSize: 20 * 1024 * 1024 } })
+const upload = multer({ defParamCharset: "utf8", // los nombres con tilde llegan en UTF-8; multer los leía como latin1 (DESINFECCIÃ“N)
+   storage, limits: { fileSize: 20 * 1024 * 1024 } })
 
 // ── GET /api/doc-anexos?procedimientoId= ───────────────────────────────────────
 
@@ -85,10 +87,16 @@ router.post(
       res.status(404).json({ error: "Procedimiento no encontrado" })
       return
     }
+    if (fueraDeArea(req, proc.areaId)) {
+      await fs.unlink(req.file.path).catch(() => {})
+      res.status(404).json({ error: "Procedimiento no encontrado en tu área" })
+      return
+    }
 
     const autorId = getUserId(req.user!)
     const created = await prisma.sigDocAnexo.create({
       data: {
+        estado: req.sigAreaIds ? "PENDIENTE_REVISION" : "APROBADO", // líder de área: el SIG lo verifica
         procedimientoId: parsed.data.procedimientoId,
         nombre: parsed.data.nombre,
         archivo: req.file.path,

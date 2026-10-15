@@ -27,6 +27,7 @@ import {
   canSeeGerencial,
   canSeeIT,
   canSeeSIG,
+  canSeeSigLider,
   canSeeExtraccionIA,
   canSubmitDevTasks,
   canManageDevTasks,
@@ -65,6 +66,7 @@ export function Sidebar() {
   const showGerencial      = user ? canSeeGerencial(user.role, perms) : false
   const showIT             = user ? canSeeIT(user.role, perms) : false
   const showSIG            = user ? canSeeSIG(user.role, perms) : false
+  const showSigLider       = user ? canSeeSigLider(user.role, perms) : false
   const showExtraccionIA   = user ? canSeeExtraccionIA(user.role, perms) : false
   const showGestionTareas  = user
     ? canSubmitDevTasks(user.user_tools ?? []) || canManageDevTasks(user.user_tools ?? [])
@@ -129,7 +131,7 @@ export function Sidebar() {
         </SidebarGroup>
 
         {/* ── Section: Módulos ────────────────────────────────────────── */}
-        {(showIT || showSGC || showSIG || showOperativo || showAdministrativo ||
+        {(showIT || showSGC || showSIG || showSigLider || showOperativo || showAdministrativo ||
           showMantenimiento || showFinanciero || showGerencial || showExtraccionIA || showTyC || showReportes) && (
           <SidebarGroup>
             <SidebarGroupLabel>Módulos disponibles</SidebarGroupLabel>
@@ -162,6 +164,21 @@ export function Sidebar() {
                       >
                         <Database className="w-4 h-4" />
                         <span>SIG</span>
+                      </a>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                {showSigLider && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild tooltip="SIG de mi área">
+                      <a
+                        href="/sig-area"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label="SIG de mi área (nueva pestaña)"
+                      >
+                        <Database className="w-4 h-4" />
+                        <span>SIG de mi área</span>
                       </a>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
