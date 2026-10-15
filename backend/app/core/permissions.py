@@ -38,7 +38,10 @@ def user_has_permission(db: Session, user: User, permission: str) -> bool:
         return True
     if permission in _role_permission_set(db, user.role):
         return True
-    return _legacy_area_grants(user, permission)
+    if _legacy_area_grants(user, permission):
+        return True
+    from app.services.acceso_area import permisos_asignados  # import tardío: evita ciclo con modelos
+    return permission in permisos_asignados(db, user)
 
 
 def user_has_any_permission(db: Session, user: User, permissions: list[str]) -> bool:

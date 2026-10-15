@@ -32,6 +32,7 @@ import { DashboardPage } from "@/pages/DashboardPage"
 import { AdminPage } from "@/pages/AdminPage"
 import { ConfiguracionIntranetPage } from "@/pages/admin/ConfiguracionIntranetPage"
 import { RolesPage } from "@/pages/RolesPage"
+import { OrganizacionPage } from "@/pages/OrganizacionPage"
 import { AreasPage } from "@/pages/AreasPage"
 import { SmtpConfigPage } from "@/pages/admin/SmtpConfigPage"
 import { WhatsappConfigPage } from "@/pages/admin/WhatsappConfigPage"
@@ -373,6 +374,14 @@ export default function App() {
           element={
             <AdminRoute>
               <ConfiguracionIntranetPage />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/configuracion/organizacion"
+          element={
+            <AdminRoute>
+              <OrganizacionPage />
             </AdminRoute>
           }
         />

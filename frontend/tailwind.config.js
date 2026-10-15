@@ -8,6 +8,8 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Organización (áreas, usuarios y permisos): rojo con blanco
+        org: { rojo: "#b0102a", vivo: "#e11d2e", oscuro: "#7f0a1d", tinte: "#fdeef0", linea: "#f2cdd2", tinta: "#2a0f14" },
         // ZymoAlly survey module (público, sin login) — paleta blanco+rojo
         // portada tal cual del sandbox, ver docs/superpowers/specs/2026-07-07-zymoally-survey-frontend-design.md
         survey: {

@@ -13,6 +13,13 @@ interface ConfigCard {
 
 const CARDS: ConfigCard[] = [
   {
+    to: "/admin/configuracion/organizacion",
+    icon: <Building2 className="h-5 w-5" />,
+    title: "Organización",
+    description: "Áreas, usuarios y permisos en un solo lugar: eliges el área y ahí ves a su gente, su rol y qué ve cada persona.",
+    accent: "#b0102a",
+  },
+  {
     to: "/admin/configuracion/usuarios",
     icon: <Users className="h-5 w-5" />,
     title: "Usuarios",

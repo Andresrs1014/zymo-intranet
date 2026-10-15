@@ -3,6 +3,7 @@ import { ArrowLeft, Building2, Mail, MessageCircle, ShieldCheck, Users, Handshak
 import { cn } from "@/lib/utils"
 
 const LINKS = [
+  { to: "/admin/configuracion/organizacion", label: "Organización", icon: Building2 },
   { to: "/admin/configuracion/usuarios", label: "Usuarios", icon: Users },
   { to: "/admin/configuracion/roles", label: "Roles y permisos", icon: ShieldCheck },
   { to: "/admin/configuracion/areas", label: "Áreas y sedes", icon: Building2 },

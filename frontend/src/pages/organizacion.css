@@ -1,0 +1,23 @@
+/* Organización: mismas fuentes que la plataforma de rúbricas — Ubuntu para el texto y Cascadia Code para cifras y etiquetas. Solo dentro de .org-root. */
+@import "@fontsource/ubuntu/400.css";
+@import "@fontsource/ubuntu/400-italic.css";
+@import "@fontsource/ubuntu/500.css";
+@import "@fontsource/ubuntu/700.css";
+@import "@fontsource-variable/cascadia-code";
+
+.org-root, .org-root input, .org-root select, .org-root textarea, .org-root button, .org-root optgroup, .org-root option { font-family: "Ubuntu", system-ui, sans-serif; }
+.org-root .font-mono { font-family: "Cascadia Code Variable", "Cascadia Code", ui-monospace, monospace; }
+/* Ubuntu no tiene 600: los títulos semibold pasan a 500 */
+.org-root .font-semibold { font-weight: 500; }
+
+/* Barras de desplazamiento: finas, pista invisible, pulgar rosado que se enciende en rojo al pasar el cursor */
+.org-root * { scrollbar-width: thin; scrollbar-color: #f2cdd2 transparent; }
+.org-root ::-webkit-scrollbar { width: 10px; height: 10px; }
+.org-root ::-webkit-scrollbar-track { background: transparent; }
+.org-root ::-webkit-scrollbar-thumb { background: #f2cdd2; border-radius: 999px; border: 3px solid transparent; background-clip: content-box; }
+.org-root ::-webkit-scrollbar-thumb:hover { background: #e11d2e; background-clip: content-box; border: 3px solid transparent; }
+.org-root ::-webkit-scrollbar-corner { background: transparent; }
+/* La columna roja: pulgar blanco translúcido */
+.org-root aside { scrollbar-color: rgb(255 255 255 / .35) transparent; }
+.org-root aside::-webkit-scrollbar-thumb { background: rgb(255 255 255 / .35); background-clip: content-box; border: 3px solid transparent; }
+.org-root aside::-webkit-scrollbar-thumb:hover { background: rgb(255 255 255 / .75); background-clip: content-box; border: 3px solid transparent; }

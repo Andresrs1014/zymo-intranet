@@ -12,6 +12,7 @@ from app.core.deps import get_current_user, get_db, require_admin
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models.role import Role
 from app.models.user import User
+from app.services.acceso_area import permisos_asignados
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -83,6 +84,11 @@ def _permissions_for_role(db: Session, role_name: str) -> list[str]:
     return list(role.app_permissions)
 
 
+def _permissions_for_user(db: Session, user: User) -> list[str]:
+    """Permisos del rol (lo de siempre) + los asignados directamente a la persona."""
+    return sorted(set(_permissions_for_role(db, user.role)) | permisos_asignados(db, user))
+
+
 def _to_me(
     u: User,
     app_permissions: list[str] | None = None,
@@ -133,7 +139,7 @@ def login(
     db.add(user)
     db.commit()
 
-    perms = _permissions_for_role(db, user.role)
+    perms = _permissions_for_user(db, user)
     token = create_access_token(
         subject=user.email,
         extra={
@@ -157,7 +163,7 @@ def admin_check(_: User = Depends(require_admin)) -> None:
 def me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     from app.models.user_tool import UserTool
 
-    perms = _permissions_for_role(db, current_user.role)
+    perms = _permissions_for_user(db, current_user)
     tools = db.exec(
         select(UserTool).where(
             UserTool.user_id == current_user.id,
@@ -255,7 +261,7 @@ def update_user(
     db.add(user)
     db.commit()
     db.refresh(user)
-    perms = _permissions_for_role(db, user.role)
+    perms = _permissions_for_user(db, user)
     return _to_me(user, perms)
 
 

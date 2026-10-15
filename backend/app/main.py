@@ -29,6 +29,7 @@ from app.models.draft import FormDraft  # noqa: F401
 from app.config import settings
 from app.routers import auth, users, roles
 from app.routers import areas as areas_router
+from app.routers import area_acceso as area_acceso_router
 from app.routers import sedes as sedes_router
 from app.routers.oc.router import router as oc_router
 from app.routers.sgc.router import router as sgc_router
@@ -463,6 +464,7 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(roles.router)
 app.include_router(areas_router.router)
+app.include_router(area_acceso_router.router)
 app.include_router(sedes_router.router)
 app.include_router(oc_router)
 app.include_router(sgc_router)
