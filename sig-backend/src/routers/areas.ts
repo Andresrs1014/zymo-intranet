@@ -71,23 +71,29 @@ router.post("/sincronizar", requireSigAccess, async (_req: Request, res: Respons
   res.status(204).send()
 })
 
-// DELETE /api/areas/:id — solo admin; las carpetas enlazadas desaparecen al borrar el área en Organización
+// DELETE /api/areas/:id — solo admin, y solo una carpeta vacía. Si venía de un área de la intranet, esa área no se toca:
+// se anota como excluida para que la sincronización no la vuelva a crear.
 router.delete("/:id", requireSigAccess, async (req: Request, res: Response) => {
   const role = req.user?.role
-  if (role !== "admin") { res.status(403).json({ error: "Solo admin puede eliminar áreas" }); return }
+  if (role !== "admin") { res.status(403).json({ error: "Solo admin puede eliminar carpetas del SIG" }); return }
 
   const id = parseInt(req.params.id)
   const area = await prisma.sigArea.findUnique({ where: { id } })
-  if (area?.intranetAreaId != null) {
-    res.status(409).json({ error: "Esta carpeta pertenece a un área de la intranet; no se elimina desde el SIG." })
+  if (!area) { res.status(404).json({ error: "Carpeta no encontrada" }); return }
+  const [procs, kpis] = await Promise.all([
+    prisma.sigProcedimiento.count({ where: { areaId: id } }),
+    prisma.sigIndicador.count({ where: { areaId: id } }),
+  ])
+  if (procs > 0 || kpis > 0) {
+    res.status(409).json({ error: "La carpeta tiene contenido (procedimientos o indicadores). Solo se eliminan carpetas vacías." })
     return
   }
-  const count = await prisma.sigProcedimiento.count({ where: { areaId: id } })
-  if (count > 0) {
-    res.status(409).json({ error: "No se puede eliminar un área con procedimientos. Mueve o elimina los procedimientos primero." })
-    return
-  }
-  await prisma.sigArea.delete({ where: { id } })
+  await prisma.$transaction([
+    ...(area.intranetAreaId != null
+      ? [prisma.sigAreaExcluida.upsert({ where: { intranetAreaId: area.intranetAreaId }, create: { intranetAreaId: area.intranetAreaId }, update: {} })]
+      : []),
+    prisma.sigArea.delete({ where: { id } }),
+  ])
   res.status(204).send()
 })
 

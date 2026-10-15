@@ -189,6 +189,21 @@ function AreaNode({
   const qc = useQueryClient()
   const [renaming, setRenaming] = useState(false)
   const [renameValue, setRenameValue] = useState(area.nombre)
+  const [errorBorrar, setErrorBorrar] = useState<string | null>(null)
+  const esAdmin = useAuthStore((s) => s.user?.role) === "admin"
+  const puedeRenombrar = isManager && area.intranetAreaId == null
+  const puedeBorrar = esAdmin && area._count.procedimientos === 0
+
+  const borrarMutation = useMutation({
+    mutationFn: () => sigApi.delete(`/api/areas/${area.id}`),
+    onSuccess: () => { setErrorBorrar(null); qc.invalidateQueries({ queryKey: ["sig", "areas"] }) },
+    onError: (e) => setErrorBorrar((e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "No se pudo eliminar la carpeta."),
+  })
+  const borrar = () => {
+    if (window.confirm(`¿Eliminar la carpeta «${area.nombre}» del SIG?
+
+Está vacía. El área sigue existiendo en la intranet; solo desaparece su carpeta aquí.`)) borrarMutation.mutate()
+  }
 
   const renameMutation = useMutation({
     mutationFn: (nombre: string) => sigApi.patch(`/api/areas/${area.id}`, { nombre }),
@@ -250,7 +265,7 @@ function AreaNode({
               {area._count.procedimientos}
             </span>
           </button>
-          {isManager && area.intranetAreaId == null && (
+          {puedeRenombrar && (
             <button
               onClick={(e) => { e.stopPropagation(); setRenaming(true) }}
               className="absolute right-6 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-70 hover:!opacity-100 focus-visible:!opacity-100 text-zinc-600 hover:text-helix-accent-ink transition-opacity"
@@ -260,8 +275,20 @@ function AreaNode({
               <Pencil className="h-3 w-3" />
             </button>
           )}
+          {puedeBorrar && (
+            <button
+              onClick={(e) => { e.stopPropagation(); borrar() }}
+              disabled={borrarMutation.isPending}
+              className={`absolute ${puedeRenombrar ? "right-11" : "right-6"} top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-70 hover:!opacity-100 focus-visible:!opacity-100 text-zinc-600 hover:text-red-700 transition-opacity disabled:opacity-40`}
+              title="Eliminar carpeta vacía"
+              aria-label={`Eliminar la carpeta ${area.nombre}`}
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          )}
         </div>
       )}
+      {errorBorrar && <p role="alert" className="pl-8 pr-2 pb-1 text-[11px] text-red-700">{errorBorrar}</p>}
 
       {/* Cargos del área (vienen del directorio; solo se ven) */}
       {expanded && (area.cargos?.length ?? 0) > 0 && (

@@ -29,8 +29,10 @@ async function sincronizar(): Promise<void> {
   const catalogo = await traerCatalogo()
   if (!catalogo) return // sin conexión con la intranet se conserva lo que ya hay
   const libres = await prisma.sigArea.findMany({ where: { intranetAreaId: null } })
+  const excluidas = new Set((await prisma.sigAreaExcluida.findMany()).map((e) => e.intranetAreaId))
   const usadas = new Set<number>()
   for (const a of catalogo) {
+    if (excluidas.has(a.id)) continue // el admin eliminó su carpeta del SIG
     const cargos = a.cargos ?? []
     const enlazada = await prisma.sigArea.findUnique({ where: { intranetAreaId: a.id } })
     if (enlazada) {

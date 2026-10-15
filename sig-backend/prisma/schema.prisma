@@ -9,6 +9,12 @@ datasource db {
 
 // ── Áreas de procedimientos: se crean desde las áreas de la intranet (Organización), no aquí ──
 
+/// Áreas de la intranet cuya carpeta el admin eliminó del SIG: la sincronización no la vuelve a crear
+model SigAreaExcluida {
+  intranetAreaId Int      @id
+  createdAt      DateTime @default(now())
+}
+
 model SigArea {
   id             Int                @id @default(autoincrement())
   /// Área de la intranet de la que nació esta carpeta (null = carpeta anterior sin enlazar)
