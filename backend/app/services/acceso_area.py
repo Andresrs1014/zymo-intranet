@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 
-from sqlmodel import Session, select
+from sqlmodel import Session, func, select
 
 from app.models.area import Area
 from app.models.area_acceso import HerramientaAcceso, UsuarioPermiso
@@ -19,7 +19,7 @@ def exclusivos(db: Session) -> dict[str, set[int]]:
 def area_id_de(db: Session, user: User) -> int | None:
     if not user.area:
         return None
-    area = db.exec(select(Area).where(Area.name == user.area)).first()
+    area = db.exec(select(Area).where(func.lower(Area.name) == user.area.strip().lower())).first()  # «Planeación y consultoria» ≙ «…Consultoria»
     return area.id if area else None
 
 

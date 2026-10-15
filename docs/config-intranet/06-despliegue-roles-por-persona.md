@@ -32,6 +32,14 @@ docker compose logs --tail=50 backend             # debe decir que arrancó sin 
 ```
 Las sesiones abiertas conservan su token hasta que cierren sesión; lo asignado por persona aplica en el siguiente inicio de sesión.
 
+## Dejar creadas todas las áreas
+```
+docker exec -i <backend> sh -c "cd /app && PYTHONPATH=/app python -" < backend/scripts/areas_faltantes.py            # simulación
+docker exec -i <backend> sh -c "cd /app && PYTHONPATH=/app python - --aplicar" < backend/scripts/areas_faltantes.py
+```
+Solo agrega (compara sin mayúsculas ni tildes): hoy en producción crearía únicamente «Servicio al Cliente». El área de un usuario también
+se reconoce sin importar mayúsculas (3 usuarios tienen «Planeación y consultoria»).
+
 ## Dejar marcados a quienes ya ven Financiero, Compras y Tareas
 ```
 # 1) simulación (no escribe nada)

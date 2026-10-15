@@ -137,7 +137,7 @@ def usuarios_del_area(area_id: int, _: User = Depends(require_admin), db: Sessio
     with Session(get_personal_engine()) as pdb:
         en_area = pdb.exec(select(PtcPersona).where(PtcPersona.area_id == area_id, PtcPersona.user_id.is_not(None))).all()  # type: ignore[union-attr]
         cargos = {c.id: c.nombre for c in pdb.exec(select(PtcCargo)).all()}
-        users = {u.id: u for u in db.exec(select(User).where(User.area == area.name)).all()}
+        users = {u.id: u for u in db.exec(select(User).where(func.lower(User.area) == area.name.lower())).all()}
         for p in en_area:
             if p.user_id not in users and (u := db.get(User, p.user_id)):
                 users[p.user_id] = u

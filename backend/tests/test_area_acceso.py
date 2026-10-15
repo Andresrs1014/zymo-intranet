@@ -178,6 +178,14 @@ class OrganizacionTests(unittest.TestCase):
         self.assertEqual((por_id[1], por_id[3]), (True, False))
         self.assertNotIn(4, por_id)  # cargo de otra área
 
+    def test_el_area_del_usuario_se_reconoce_sin_importar_mayusculas(self) -> None:
+        # en producción hay usuarios con «Planeación y consultoria» y el área se llama «…Consultoria»
+        self.db.add(User(email="m@x.co", hashed_password="x", area="compras"))
+        self.db.commit()
+        u = self.db.exec(select(User).where(User.email == "m@x.co")).one()
+        self.assertEqual(acceso_area.area_id_de(self.db, u), 2)
+        self.assertIn(u.id, [x["id"] for x in r.usuarios_del_area(2, None, self.db)])
+
 
 if __name__ == "__main__":
     unittest.main()
