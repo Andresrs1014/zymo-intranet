@@ -1,0 +1,53 @@
+import { useQuery } from "@tanstack/react-query"
+import { ListTodo, UserX } from "lucide-react"
+
+import { taskApi } from "@/lib/taskApi"
+import { canManageDevTasks } from "@/lib/permissions"
+import { useAuthStore } from "@/store/authStore"
+import type { Task } from "@/types/task"
+import { CHIP_PRIORIDAD, CuadroVistaPrevia } from "./CuadroVistaPrevia"
+
+const ORDEN = ["alta", "media", "baja"]
+const CERRADAS = new Set(["completada", "cancelada"])
+
+/** Trae hasta 50 tareas con ese filtro; el backend ya limita a los equipos de la persona. */
+function useTareas(clave: string, params: string) {
+  return useQuery({
+    queryKey: ["tasks", "vista-previa", clave, params],
+    queryFn: async () => {
+      const { data } = await taskApi.get<Task[]>(`/api/tasks?limit=50&${params}`)
+      return data.filter((t) => !CERRADAS.has(t.estado))
+    },
+    refetchInterval: 60_000,
+  })
+}
+
+function Cuadro({ titulo, icon, clave, params, aparte, vacio }: {
+  titulo: string; icon: React.ReactNode; clave: string; params: string; aparte: (t: Task) => string; vacio: string
+}) {
+  const { data = [], isLoading, isError } = useTareas(clave, params)
+  const filas = [...data]
+    .sort((a, b) => ORDEN.indexOf(a.prioridad.toLowerCase()) - ORDEN.indexOf(b.prioridad.toLowerCase()))
+    .map((t) => ({
+      key: String(t.id),
+      chip: { texto: t.prioridad, clase: CHIP_PRIORIDAD[t.prioridad.toLowerCase()] ?? CHIP_PRIORIDAD.baja },
+      texto: t.titulo,
+      aparte: aparte(t),
+    }))
+  return <CuadroVistaPrevia titulo={titulo} icon={icon} total={isLoading ? undefined : data.length} filas={filas} cargando={isLoading} error={isError} vacio={vacio} />
+}
+
+/** Vista previa de Gestión de Tareas: lo asignado a mí y, para quien gestiona, lo que falta por asignar. */
+export function TareasVistaPrevia() {
+  const user = useAuthStore((s) => s.user)
+  if (!user) return null
+  const gestiona = canManageDevTasks(user.user_tools ?? [])
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-3">
+      <Cuadro titulo="Mis tareas" icon={<ListTodo className="size-4" aria-hidden="true" />} clave="mias" params={`responsableId=${user.id}`} aparte={(t) => t.subidoPorNombre} vacio="No tienes tareas abiertas." />
+      {gestiona && (
+        <Cuadro titulo="Sin asignar" icon={<UserX className="size-4" aria-hidden="true" />} clave="sin-asignar" params="soloSinAsignar=true" aparte={(t) => t.subidoPorNombre} vacio="Todas las tareas tienen responsable." />
+      )}
+    </div>
+  )
+}
