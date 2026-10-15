@@ -8,6 +8,7 @@ import { PageLayout } from "@/components/layout/PageLayout"
 import { RailOrganizacion } from "@/components/admin/org/RailOrganizacion"
 import { AreaUsuarios } from "@/components/admin/org/AreaUsuarios"
 import { AreaAcceso } from "@/components/admin/org/AreaAcceso"
+import { CarpetaSig } from "@/components/admin/org/CarpetaSig"
 import { useAreas, useDeleteArea, useUpdateArea, type AreaItem } from "@/hooks/useAreas"
 import { getApiError } from "@/hooks/useRoles"
 import { useUsers } from "@/hooks/useUsers"
@@ -114,6 +115,7 @@ function EncabezadoArea({ area, pestana, onPestana }: { area: AreaItem; pestana:
           <button type="button" onClick={eliminar} aria-label="Eliminar el área" className="rounded-lg p-2 text-org-tinta/40 transition-colors hover:bg-org-tinte hover:text-org-rojo"><Trash2 className="h-4 w-4" aria-hidden /></button>
         </div>
       </div>
+      <CarpetaSig areaId={area.id} />
       {error && <p role="alert" className="mt-3 rounded-lg border border-org-linea bg-org-tinte px-3 py-2 text-[12px] text-org-rojo">{error}</p>}
       <div role="tablist" aria-label="Contenido del área" className="mt-6 flex gap-6 border-b border-org-linea">
         {([["usuarios", "Personas"], ["acceso", "Aplicaciones"]] as const).map(([t, texto]) => (
