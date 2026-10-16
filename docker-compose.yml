@@ -30,9 +30,37 @@ services:
       dockerfile: Dockerfile
     ports:
       - "81:80"
+    volumes:
+      # ZYMO Assets: sus archivos estáticos (repo ZYMO_Assets, carpeta frontend) se sirven en /activos
+      - ${ACTIVOS_DIR:-../ZYMO_Assets}/frontend:/usr/share/nginx/activos:ro
     depends_on:
       - backend
     restart: unless-stopped
+
+  # ZYMO Assets (inventario de activos): backend FastAPI + SQLite propio, sin puerto público; el
+  # nginx del frontend lo expone en /activos-api. Variables en el .env de la raíz:
+  #   ACTIVOS_SECRET_KEY (>=16 caracteres, distinta de JWT_SSO_SECRET), JWT_SSO_SECRET (la MISMA que
+  #   usa el backend de la intranet para firmar /auth/sso-token-zymo-assets), INTERNAL_KEY (la misma
+  #   del backend), ACTIVOS_FIRST_SUPERVISOR_EMAIL (correo del primer Supervisor, igual al de la intranet).
+  activos-backend:
+    build:
+      context: ${ACTIVOS_DIR:-../ZYMO_Assets}/backend
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=sqlite:////app/data/zymo_assets.db
+      - TZ=America/Bogota
+      - SECRET_KEY=${ACTIVOS_SECRET_KEY:-}
+      - JWT_SSO_SECRET=${JWT_SSO_SECRET:-}
+      - INTERNAL_KEY=${INTERNAL_KEY:-}
+      - INTRANET_API_URL=http://backend:8001
+      - FIRST_SUPERVISOR_EMAIL=${ACTIVOS_FIRST_SUPERVISOR_EMAIL:-}
+      - ENVIRONMENT=production
+      - QR_BASE_URL=https://zymointranet.com/activos-api
+    volumes:
+      - activos_data:/app/data
+    restart: unless-stopped
+    depends_on:
+      - backend
 
   zymo-worker:
     build:
@@ -279,6 +307,7 @@ services:
 
 volumes:
   backend_data:
+  activos_data:
   task_db_data:
   task_uploads:
   sig_db_data:
