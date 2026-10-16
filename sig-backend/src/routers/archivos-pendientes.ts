@@ -1,4 +1,4 @@
-import { Router, Request, Response } from "express"
+import { Router, Request, Response, NextFunction } from "express"
 import { z } from "zod"
 import multer from "multer"
 import path from "path"
@@ -27,7 +27,7 @@ const storage = multer.diskStorage({
 const upload = multer({ defParamCharset: "utf8", // los nombres con tilde llegan en UTF-8; multer los leía como latin1 (DESINFECCIÃ“N)
   
   storage,
-  limits: { fileSize: 20 * 1024 * 1024, files: 50 },
+  limits: { fileSize: 200 * 1024 * 1024, files: 50 },
   fileFilter: (_req, file, cb) => {
     const allowed = [".md", ".markdown", ".txt", ".docx", ".pdf", ".doc"]
     const ext = path.extname(file.originalname).toLowerCase()
@@ -58,7 +58,14 @@ router.get("/", requireSigAccess, async (req: Request, res: Response) => {
 router.post(
   "/upload",
   requireSigAccess,
-  upload.array("files", 50),
+  (req: Request, res: Response, next: NextFunction) => upload.array("files", 50)(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      const grande = err.code === "LIMIT_FILE_SIZE"
+      res.status(grande ? 413 : 422).json({ error: grande ? "Un archivo supera los 200 MB; no se subió ninguno." : `No se pudo subir: ${err.message}` })
+      return
+    }
+    next(err)
+  }),
   async (req: Request, res: Response) => {
     const files = (req.files as Express.Multer.File[] | undefined) ?? []
     if (files.length === 0) {

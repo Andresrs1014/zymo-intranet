@@ -31,6 +31,8 @@ interface ArchivoPendiente {
 interface SigArea { id: number; nombre: string; color: string }
 interface SigProcedimiento { id: number; areaId: number; codigo: string; titulo: string }
 
+const MAX_ARCHIVO = 200 * 1024 * 1024 // mismo tope que multer en sig-backend
+
 function getErr(e: unknown, fallback: string): string {
   return (e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? fallback
 }
@@ -74,8 +76,13 @@ export function SigArchivosPendientesTray() {
   const soporte = archivos.filter((a) => a.categoria === "soporte")
 
   async function handleUpload(fileList: FileList, categoria: Categoria) {
-    const files = Array.from(fileList)
-    if (files.length === 0) return
+    const todos = Array.from(fileList)
+    const files = todos.filter((f) => f.size <= MAX_ARCHIVO)
+    const grandes = todos.filter((f) => f.size > MAX_ARCHIVO).map((f) => f.name)
+    if (files.length === 0) {
+      if (grandes.length) setUploadError(`Superan los 200 MB y no se subieron: ${grandes.join(", ")}`)
+      return
+    }
     setUploading(true)
     setUploadError("")
     try {
@@ -87,6 +94,7 @@ export function SigArchivosPendientesTray() {
       })
       setExpanded(true)
       await qc.invalidateQueries({ queryKey: LIST_KEY })
+      if (grandes.length) setUploadError(`Se subieron ${files.length}. Superan los 200 MB y no se subieron: ${grandes.join(", ")}`)
     } catch (e) {
       setUploadError(getErr(e, "Error al subir los archivos"))
     } finally {
