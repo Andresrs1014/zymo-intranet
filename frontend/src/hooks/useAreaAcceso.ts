@@ -15,6 +15,8 @@ export interface UsuarioArea {
   cargo: string | null
   /** Permisos a aplicaciones asignados directamente a la persona */
   permisos: string[]
+  /** Área escrita en la cuenta (solo en la vista de todas las personas) */
+  area?: string | null
 }
 
 export interface CargoDir {
@@ -43,6 +45,13 @@ export function useUsuariosArea(areaId: number | null) {
   })
 }
 
+export function useTodosUsuarios() {
+  return useQuery({
+    queryKey: ["area-usuarios", "todos"],
+    queryFn: async () => (await api.get<UsuarioArea[]>("/acceso/usuarios")).data,
+  })
+}
+
 export function useCargosArea(areaId: number | null) {
   return useQuery({
     queryKey: ["area-cargos", areaId],
@@ -64,7 +73,7 @@ export function useFijarPermisos(areaId: number) {
   return useMutation({
     mutationFn: async ({ userId, permisos }: { userId: number; permisos: string[] }) =>
       (await api.put<{ permisos: string[] }>(`/areas/${areaId}/usuarios/${userId}/permisos`, { permisos })).data,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["area-usuarios", areaId] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["area-usuarios"] }), // también la vista de todas las personas
   })
 }
 

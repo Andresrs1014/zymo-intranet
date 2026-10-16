@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { RailOrganizacion } from "@/components/admin/org/RailOrganizacion"
 import { AreaUsuarios } from "@/components/admin/org/AreaUsuarios"
+import { TodasPersonas } from "@/components/admin/org/TodasPersonas"
 import { AreaAcceso } from "@/components/admin/org/AreaAcceso"
 import { CarpetaSig } from "@/components/admin/org/CarpetaSig"
 import { useAreas, useDeleteArea, useUpdateArea, type AreaItem } from "@/hooks/useAreas"
@@ -23,7 +24,8 @@ export function OrganizacionPage() {
   const { data: usuarios = [] } = useUsers()
 
   const pedida = Number(params.get("area")) || null
-  const area = areas.find((a) => a.id === pedida) ?? areas[0] ?? null
+  // «Todas las personas» es la vista principal; un área solo se abre si se pide (?area=ID)
+  const area = areas.find((a) => a.id === pedida) ?? null
   const pestana: Pestana = params.get("tab") === "acceso" ? "acceso" : "usuarios"
 
   const conteo = useMemo(() => {
@@ -41,10 +43,10 @@ export function OrganizacionPage() {
 
   return (
     <PageLayout title="Organización" mainClassName="org-root flex min-h-0 flex-1 overflow-hidden bg-white">
-      <RailOrganizacion areas={areas} conteo={conteo} activa={area?.id ?? null} onElegir={(id) => ir({ area: String(id) })} />
+      <RailOrganizacion areas={areas} conteo={conteo} total={usuarios.length} activa={area?.id ?? null} onElegir={(id) => ir({ area: String(id) })} onTodas={() => ir({ area: "todas" })} />
       <div className="min-w-0 flex-1 overflow-y-auto">
         {isLoading && <p className="p-10 font-mono text-[12px] text-org-tinta/40">Cargando áreas…</p>}
-        {!isLoading && !area && <p className="p-10 text-[14px] text-org-tinta/60">Aún no hay áreas. Crea la primera desde la columna roja.</p>}
+        {!area && <TodasPersonas areas={areas} onVerArea={(id) => ir({ area: String(id), tab: "usuarios" })} />}
         {area && (
           <div key={area.id} className="mx-auto max-w-5xl px-6 pb-16 pt-8 sm:px-10">
             <EncabezadoArea area={area} pestana={pestana} onPestana={(t) => ir({ tab: t })} />

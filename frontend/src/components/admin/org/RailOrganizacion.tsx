@@ -7,11 +7,13 @@ import { useCreateArea, type AreaItem } from "@/hooks/useAreas"
 import { useCreateSede, useDeleteSede, useSedes } from "@/hooks/useSedes"
 
 /** Columna roja: las áreas (la elegida se funde con el panel blanco) y, abajo, las sedes. */
-export function RailOrganizacion({ areas, conteo, activa, onElegir }: {
+export function RailOrganizacion({ areas, conteo, total, activa, onElegir, onTodas }: {
   areas: AreaItem[]
   conteo: Record<string, number>
   activa: number | null
+  total: number
   onElegir: (id: number) => void
+  onTodas: () => void
 }) {
   const crearArea = useCreateArea()
   const [nueva, setNueva] = useState<string | null>(null)
@@ -40,6 +42,19 @@ export function RailOrganizacion({ areas, conteo, activa, onElegir }: {
         <h1 className="mt-1 text-xl font-semibold tracking-tight">Áreas</h1>
       </div>
 
+      <div className="pl-3">
+        <button
+          type="button" onClick={onTodas} aria-current={activa == null ? "true" : undefined}
+          className={cn(
+            "flex w-full items-center justify-between gap-2 rounded-l-full py-2 pl-4 pr-4 text-left text-[13px] transition-colors",
+            activa == null ? "bg-white font-semibold text-org-rojo" : "text-white/85 hover:bg-white/10",
+          )}
+        >
+          <span className="truncate">Todas las personas</span>
+          <span className={cn("font-mono text-[11px] tabular-nums", activa == null ? "text-org-vivo" : "text-white/50")}>{total}</span>
+        </button>
+      </div>
+      <p className="px-5 pb-1 pt-4 font-mono text-[10px] uppercase tracking-[0.24em] text-white/60">Por área</p>
       <ul className="space-y-0.5 pl-3">
         {areas.map((a, i) => {
           const on = a.id === activa

@@ -136,26 +136,39 @@ def usuarios_del_area(area_id: int, _: User = Depends(require_admin), db: Sessio
     area = _area(db, area_id)
     with Session(get_personal_engine()) as pdb:
         en_area = pdb.exec(select(PtcPersona).where(PtcPersona.area_id == area_id, PtcPersona.user_id.is_not(None))).all()  # type: ignore[union-attr]
-        cargos = {c.id: c.nombre for c in pdb.exec(select(PtcCargo)).all()}
         users = {u.id: u for u in db.exec(select(User).where(func.lower(User.area) == area.name.lower())).all()}
         for p in en_area:
             if p.user_id not in users and (u := db.get(User, p.user_id)):
                 users[p.user_id] = u
+    return _filas_usuarios(db, list(users.values()))
+
+
+@router.get("/acceso/usuarios")
+def todos_los_usuarios(_: User = Depends(require_admin), db: Session = Depends(get_db)):
+    """Todas las cuentas activas, con su área (texto de la cuenta), cargo y permisos: la vista «Todas las personas» de Organización."""
+    return _filas_usuarios(db, list(db.exec(select(User).where(User.is_active == True)).all()))  # noqa: E712
+
+
+def _filas_usuarios(db: Session, usuarios: list[User]) -> list[dict]:
+    ids = [u.id for u in usuarios]
+    with Session(get_personal_engine()) as pdb:
+        cargos = {c.id: c.nombre for c in pdb.exec(select(PtcCargo)).all()}
         # fichas vinculadas a cada usuario (pueden estar en otra área, o ser varias por un vínculo mal hecho)
         fichas: dict[int, list[PtcPersona]] = {}
-        if users:
-            for p in pdb.exec(select(PtcPersona).where(PtcPersona.user_id.in_(list(users)))).all():
+        if ids:
+            for p in pdb.exec(select(PtcPersona).where(PtcPersona.user_id.in_(ids))).all():
                 fichas.setdefault(p.user_id, []).append(p)
     dados: dict[int, list[str]] = {}
-    if users:
-        for f in db.exec(select(UsuarioPermiso).where(UsuarioPermiso.user_id.in_(list(users)))).all():
+    if ids:
+        for f in db.exec(select(UsuarioPermiso).where(UsuarioPermiso.user_id.in_(ids))).all():
             dados.setdefault(f.user_id, []).append(f.permiso)
     salida = []
-    for u in sorted(users.values(), key=lambda x: (x.full_name or x.email).lower()):
+    for u in sorted(usuarios, key=lambda x: (x.full_name or x.email).lower()):
         lista = fichas.get(u.id, [])
         p = lista[0] if len(lista) == 1 else None  # con varias fichas el vínculo es ambiguo: no se adivina
         salida.append({
             "id": u.id, "full_name": u.full_name, "email": u.email, "sede": u.sede, "is_active": u.is_active,
+            "area": u.area,
             "fichas": len(lista),
             "persona_id": p.id if p else None,
             "persona_area_id": p.area_id if p else None,
