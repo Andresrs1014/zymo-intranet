@@ -43,6 +43,13 @@ function fmtSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+/** «PR-GC-01 - Gestión de cartera.docx» → código «PR-GC-01», título «Gestión de cartera»; sin ese patrón, solo el título. */
+function codigoYTitulo(nombre: string): { codigo: string; titulo: string } {
+  const base = stripExt(nombre)
+  const m = base.match(/^([A-Za-z]{1,6}[-_.][\w.-]*\d[\w.-]*)\s*[-–_ ]\s*(.+)$/)
+  return m ? { codigo: m[1]!.toUpperCase(), titulo: m[2]!.trim() } : { codigo: "", titulo: base }
+}
+
 function stripExt(name: string): string {
   return name.replace(/\.[^./\\]+$/, "")
 }
@@ -375,14 +382,31 @@ function AsignarProcedimientoForm({
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
   const { areas, procs } = useAreasYProcedimientos(areaId)
+  // Procedimiento nuevo: "PR-GC-01 - Título.docx" propone código y título; si ya se creó y la asignación falló, el reintento reutiliza el creado
+  const [nuevo, setNuevo] = useState(false)
+  const propuesto = codigoYTitulo(archivo.nombreArchivo)
+  const [codigo, setCodigo] = useState(propuesto.codigo)
+  const [titulo, setTitulo] = useState(propuesto.titulo)
+  const [creadoId, setCreadoId] = useState<number | null>(null)
+  const listo = nuevo ? areaId != null && codigo.trim() && titulo.trim() : !!procId
 
   async function submit() {
-    if (!procId || !mensaje.trim()) return
+    if (!listo || !mensaje.trim()) return
     setSubmitting(true)
     setError("")
     try {
+      let destino = procId
+      if (nuevo) {
+        if (creadoId == null) {
+          const { data } = await sigApi.post("/api/procedimientos", { areaId, codigo: codigo.trim(), titulo: titulo.trim() })
+          setCreadoId(data.id)
+          destino = data.id
+        } else {
+          destino = creadoId
+        }
+      }
       await sigApi.post(`/api/archivos-pendientes/${archivo.id}/asignar-procedimiento`, {
-        procedimientoId: procId,
+        procedimientoId: destino,
         mensaje: mensaje.trim(),
         versionDoc: versionDoc.trim() || undefined,
       })
@@ -390,8 +414,9 @@ function AsignarProcedimientoForm({
       // sin esto, el previsualizador de ProcedureFileView queda con la caché vieja
       // (proc.commits no incluye el commit nuevo) y el texto extraído no aparece
       // hasta un F5 manual.
-      await qc.invalidateQueries({ queryKey: ["sig", "procedimiento", procId] })
-      await qc.invalidateQueries({ queryKey: ["sig", "commits-by-proc", procId] })
+      await qc.invalidateQueries({ queryKey: ["sig", "procedimiento", destino] })
+      await qc.invalidateQueries({ queryKey: ["sig", "commits-by-proc", destino] })
+      await qc.invalidateQueries({ queryKey: ["sig", "procedimientos"] })
       if (areaId != null) await qc.invalidateQueries({ queryKey: ["sig", "procs-by-area", areaId] })
       await qc.invalidateQueries({ queryKey: ["sig", "commits", "pendientes"] })
       await qc.invalidateQueries({ queryKey: ["sig", "commits", "pendientes-detail"] })
@@ -415,15 +440,32 @@ function AsignarProcedimientoForm({
           {areas.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}
         </select>
         <select
-          value={procId ?? ""}
-          onChange={(e) => setProcId(e.target.value ? Number(e.target.value) : null)}
-          disabled={areaId == null}
+          onChange={(e) => {
+            const v = e.target.value
+            setNuevo(v === "nuevo")
+            setProcId(v && v !== "nuevo" ? Number(v) : null)
+          }}
+          disabled={areaId == null || creadoId != null}
           className="bg-white border border-zinc-300 rounded-lg px-2 py-1 text-xs text-zinc-700 font-mono focus:outline-none focus:ring-1 focus:ring-helix-accent/40 disabled:opacity-50"
+          value={nuevo ? "nuevo" : procId ?? ""}
         >
           <option value="">Procedimiento…</option>
+          <option value="nuevo">＋ Crear procedimiento nuevo</option>
           {procs.map((p) => <option key={p.id} value={p.id}>{p.codigo} — {p.titulo}</option>)}
         </select>
       </div>
+      {nuevo && (
+        <div className="grid grid-cols-[8rem_1fr] gap-1.5">
+          <input
+            value={codigo} onChange={(e) => setCodigo(e.target.value)} disabled={creadoId != null} aria-label="Código del procedimiento nuevo" placeholder="Código"
+            className="bg-white border border-zinc-300 rounded-lg px-2 py-1 text-xs text-zinc-700 font-mono placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-helix-accent/40 disabled:opacity-50"
+          />
+          <input
+            value={titulo} onChange={(e) => setTitulo(e.target.value)} disabled={creadoId != null} aria-label="Título del procedimiento nuevo" placeholder="Título"
+            className="bg-white border border-zinc-300 rounded-lg px-2 py-1 text-xs text-zinc-700 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-helix-accent/40 disabled:opacity-50"
+          />
+        </div>
+      )}
       <input
         value={mensaje}
         onChange={(e) => setMensaje(e.target.value)}
@@ -446,11 +488,11 @@ function AsignarProcedimientoForm({
         </button>
         <button
           onClick={submit}
-          disabled={submitting || !procId || !mensaje.trim()}
+          disabled={submitting || !listo || !mensaje.trim()}
           className="flex-1 flex items-center justify-center gap-1.5 py-1 bg-helix-accent text-white text-xs font-medium rounded-lg hover:opacity-90 disabled:opacity-40 transition-opacity font-mono"
         >
           {submitting ? <Loader className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
-          Asignar
+          {nuevo ? "Crear y asignar" : "Asignar"}
         </button>
       </div>
     </div>
