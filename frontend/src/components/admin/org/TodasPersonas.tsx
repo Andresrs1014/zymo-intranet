@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react"
 import { Search, ShieldCheck } from "lucide-react"
-import { INTERNAL_MODULES } from "@/lib/roles"
+import { ALL_APPS } from "@/lib/roles"
 import type { AreaItem } from "@/hooks/useAreas"
 import { useTodosUsuarios, type UsuarioArea } from "@/hooks/useAreaAcceso"
 import { PermisosUsuario } from "./PermisosUsuario"
 
-const APP: Record<string, string> = Object.fromEntries(INTERNAL_MODULES.map((m) => [m.id, m.name]))
+const APP: Record<string, string> = Object.fromEntries(ALL_APPS.map((m) => [m.id, m.name]))
 const nombre = (u: UsuarioArea) => u.full_name ?? u.email
 const iniciales = (u: UsuarioArea) => nombre(u).split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]!.toUpperCase()).join("")
 

@@ -16,8 +16,11 @@ import {
   Smile,
   NotebookPen,
   Handshake,
+  Package,
 } from "lucide-react"
 import { useAuthStore } from "@/store/authStore"
+import { EXTERNAL_APPS, getAppsForRole } from "@/lib/roles"
+import { openExternalApp } from "@/lib/openApp"
 import {
   canSeeMantenimiento,
   canSeeOC,
@@ -67,6 +70,11 @@ export function Sidebar() {
   const showIT             = user ? canSeeIT(user.role, perms) : false
   const showSIG            = user ? canSeeSIG(user.role, perms) : false
   const showSigLider       = user ? canSeeSigLider(user.role, perms) : false
+  // ZYMO Assets es una app externa (sistema aparte): botón del sidebar que entra con SSO
+  const zymoAssets         = EXTERNAL_APPS.find((a) => a.id === "zymo_assets")
+  const showZymoAssets     = user && zymoAssets
+    ? getAppsForRole(user.role, perms ?? []).some((a) => a.id === zymoAssets.id)
+    : false
   const showExtraccionIA   = user ? canSeeExtraccionIA(user.role, perms) : false
   const showGestionTareas  = user
     ? canSubmitDevTasks(user.user_tools ?? []) || canManageDevTasks(user.user_tools ?? [])
@@ -132,7 +140,8 @@ export function Sidebar() {
 
         {/* ── Section: Módulos ────────────────────────────────────────── */}
         {(showIT || showSGC || showSIG || showSigLider || showOperativo || showAdministrativo ||
-          showMantenimiento || showFinanciero || showGerencial || showExtraccionIA || showTyC || showReportes) && (
+          showMantenimiento || showFinanciero || showGerencial || showExtraccionIA || showTyC || showReportes ||
+          showZymoAssets) && (
           <SidebarGroup>
             <SidebarGroupLabel>Módulos disponibles</SidebarGroupLabel>
             <SidebarGroupContent>
@@ -180,6 +189,18 @@ export function Sidebar() {
                         <Database className="w-4 h-4" />
                         <span>SIG de mi área</span>
                       </a>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                {showZymoAssets && zymoAssets && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      tooltip="ZYMO Assets"
+                      aria-label="ZYMO Assets (nueva pestaña)"
+                      onClick={() => void openExternalApp(zymoAssets, useAuthStore.getState().token)}
+                    >
+                      <Package className="w-4 h-4" />
+                      <span>ZYMO Assets</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )}

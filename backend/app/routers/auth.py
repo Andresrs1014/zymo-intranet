@@ -197,6 +197,26 @@ def sso_token_crm(current_user: User = Depends(get_current_user)):
     return SSOTokenResponse(sso_token=token)
 
 
+@router.get("/sso-token-zymo-assets", response_model=SSOTokenResponse)
+def sso_token_zymo_assets(current_user: User = Depends(get_current_user)):
+    """Genera un JWT de corta duración (5 min) firmado con JWT_SSO_SECRET
+    para autenticar al usuario en ZYMO_Assets sin contraseña."""
+    if not settings.jwt_sso_secret:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="SSO no configurado en este servidor.",
+        )
+    payload = {
+        "sub": current_user.email,
+        "username": current_user.email,
+        "full_name": current_user.full_name,
+        "role": current_user.role,
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=5),
+    }
+    token = jwt.encode(payload, settings.jwt_sso_secret, algorithm="HS256")
+    return SSOTokenResponse(sso_token=token)
+
+
 @router.post("/register", response_model=MeResponse)
 def register(
     payload: RegisterRequest,

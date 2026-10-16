@@ -1,23 +1,63 @@
-import { useState, type FormEvent } from "react"
-import { useNavigate, useLocation, type Location } from "react-router-dom"
+import { useEffect, useState, type FormEvent } from "react"
+import { useNavigate, useLocation, useSearchParams, type Location } from "react-router-dom"
 import { useLogin } from "@/hooks/useAuth"
+import { useAuthStore } from "@/store/authStore"
+import { api } from "@/lib/api"
+import { EXTERNAL_APPS } from "@/lib/roles"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+
+// ponytail: the redirect target comes from EXTERNAL_APPS (a trusted, code-controlled list),
+// never from a query-string value — so there's no open-redirect surface to validate against.
+async function redirectToSsoApp(appId: string): Promise<void> {
+  const app = EXTERNAL_APPS.find((a) => a.id === appId)
+  if (!app?.sso_endpoint || !app.url) return
+  // api's baseURL already points at the backend root — strip the "/api" prefix that
+  // AppCard.tsx's same-origin fetch() relies on (that one goes through the frontend's
+  // own proxy, this one calls the backend directly).
+  const backendPath = app.sso_endpoint.replace(/^\/api/, "")
+  const { data } = await api.get<{ sso_token: string }>(backendPath)
+  window.location.href = `${app.url}/?sso_token=${data.sso_token}`
+}
 
 export function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchParams] = useSearchParams()
   const { mutate: login, isPending, error } = useLogin()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
 
+  const ssoAppId = searchParams.get("app")
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+
+  // Covers both cases with one path: arriving already logged in, and just having logged
+  // in via the form below (isAuthenticated flips true, this re-fires either way).
+  useEffect(() => {
+    if (ssoAppId && isAuthenticated) {
+      void redirectToSsoApp(ssoAppId)
+    }
+  }, [ssoAppId, isAuthenticated])
+
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    if (ssoAppId) {
+      login({ email, password })
+      return
+    }
     const from = (location.state as { from?: Location } | null)?.from
     const dest = from ? `${from.pathname}${from.search}${from.hash}` : "/dashboard"
     login(
       { email, password },
       { onSuccess: () => navigate(dest, { replace: true }) },
+    )
+  }
+
+  if (ssoAppId && isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <p className="text-sm text-muted-foreground">Redirigiendo…</p>
+      </div>
     )
   }
 
