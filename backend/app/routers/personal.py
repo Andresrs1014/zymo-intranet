@@ -1073,6 +1073,10 @@ class PersonaBuscarOut(BaseModel):
     nombre: str
     cargo: str
     plataforma: str
+    documento: str
+    # solo corporativo a proposito (sin fallback a personal) — pedido explicito
+    # del consumidor que necesita este campo (ZYMO_Assets)
+    correo_corporativo: str
 
 
 @router.get("/personas/buscar", response_model=list[PersonaBuscarOut])
@@ -1083,11 +1087,13 @@ def buscar_personas_publico(
     main_db: Session = Depends(get_db),
 ):
     """
-    Búsqueda mínima de personas activas, solo nombre/cargo/plataforma —
-    pensada para autocompletar formularios externos sin login (ej.
-    postulación pública de WOW Olimpiadas). Servicio-a-servicio únicamente
-    (X-Internal-Key) — ningún navegador la llama directo, la consume el
-    backend Node del proyecto que la necesite.
+    Búsqueda de personas activas para autocompletar formularios externos sin
+    login (ej. postulación pública de WOW Olimpiadas, o Responsable en
+    ZYMO_Assets). Servicio-a-servicio únicamente (X-Internal-Key) — ningún
+    navegador la llama directo, la consume el backend del proyecto que la
+    necesite. Incluye documento y correo_corporativo adicional a
+    nombre/cargo/plataforma — mismo nivel de confianza que ya tenian los
+    consumidores de esta key, solo mas datos en la respuesta.
     """
     if not _valid_internal_key(x_internal_key):
         raise HTTPException(status_code=403, detail="Requiere X-Internal-Key válida.")
@@ -1110,6 +1116,8 @@ def buscar_personas_publico(
             nombre=p.nombre,
             cargo=cargo.nombre if cargo else "",
             plataforma=sede.name if sede else "",
+            documento=p.documento or "",
+            correo_corporativo=p.email_corporativo or "",
         ))
     return result
 
