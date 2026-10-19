@@ -1,5 +1,5 @@
 import { useRef, useState } from "react"
-import { ArrowLeft, Plus, X } from "lucide-react"
+import { ArrowLeft, FolderCheck, FolderX, Plus, X } from "lucide-react"
 import { Link } from "react-router-dom"
 import { cn } from "@/lib/utils"
 import { getApiError } from "@/hooks/useRoles"
@@ -9,9 +9,11 @@ import { useCreateArea, type AreaItem } from "@/hooks/useAreas"
 import { useCreateSede, useDeleteSede, useSedes } from "@/hooks/useSedes"
 
 /** Columna roja: las áreas (la elegida se funde con el panel blanco) y, abajo, las sedes. */
-export function RailOrganizacion({ areas, conteo, total, activa, onElegir, onTodas }: {
+export function RailOrganizacion({ areas, conteo, conCarpeta, total, activa, onElegir, onTodas }: {
   areas: AreaItem[]
   conteo: Record<string, number>
+  /** Ids de las áreas que tienen carpeta en el SIG; null si el SIG no respondió (no se marca nada) */
+  conCarpeta: Set<number> | null
   activa: number | null
   total: number
   onElegir: (id: number) => void
@@ -69,7 +71,13 @@ export function RailOrganizacion({ areas, conteo, total, activa, onElegir, onTod
           <span className={cn("font-mono text-[11px] tabular-nums", activa == null ? "text-org-vivo" : "text-white/50")}>{total}</span>
         </button>
       </div>
-      <p className="px-5 pb-1 pt-4 font-mono text-[10px] uppercase tracking-[0.24em] text-white/60">Por área</p>
+      <p className="px-5 pt-4 font-mono text-[10px] uppercase tracking-[0.24em] text-white/60">Por área</p>
+      {conCarpeta && (
+        <p className="px-5 pb-1.5 pt-1 text-[11px] leading-snug text-white/70">
+          <FolderCheck className="mr-1 inline h-3 w-3 align-[-2px]" aria-hidden />{areas.filter((a) => conCarpeta.has(a.id)).length} con carpeta en el SIG ·{" "}
+          <FolderX className="mr-1 inline h-3 w-3 align-[-2px] opacity-70" aria-hidden />{areas.filter((a) => !conCarpeta.has(a.id)).length} sin carpeta
+        </p>
+      )}
       <ul className="space-y-0.5 pl-3">
         {areas.map((a, i) => {
           const on = a.id === activa
@@ -84,8 +92,13 @@ export function RailOrganizacion({ areas, conteo, total, activa, onElegir, onTod
                   on ? "bg-white font-semibold text-org-rojo" : "text-white/85 hover:bg-white/10",
                 )}
               >
-                <span className="truncate">{a.name}</span>
-                <span className={cn("font-mono text-[11px] tabular-nums", on ? "text-org-vivo" : "text-white/50")}>{conteo[a.name] ?? 0}</span>
+                <span className="truncate" title={a.name}>{a.name}</span>
+                <span className="flex shrink-0 items-center gap-2">
+                  {conCarpeta && (conCarpeta.has(a.id)
+                    ? <span title="Tiene carpeta en el SIG"><FolderCheck className={cn("h-3.5 w-3.5", on ? "text-org-vivo" : "text-white/85")} aria-hidden /><span className="sr-only">Tiene carpeta en el SIG</span></span>
+                    : <span title="Sin carpeta en el SIG"><FolderX className={cn("h-3.5 w-3.5", on ? "text-org-tinta/35" : "text-white/35")} aria-hidden /><span className="sr-only">Sin carpeta en el SIG</span></span>)}
+                  <span className={cn("font-mono text-[11px] tabular-nums", on ? "text-org-vivo" : "text-white/50")}>{conteo[a.name] ?? 0}</span>
+                </span>
               </button>
             </li>
           )

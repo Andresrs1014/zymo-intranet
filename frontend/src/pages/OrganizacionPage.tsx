@@ -1,8 +1,10 @@
 import "./organizacion.css"
 import { useEffect, useMemo, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { useSearchParams } from "react-router-dom"
 import { Pencil, Trash2 } from "lucide-react"
 import { api } from "@/lib/api"
+import { sigApi } from "@/lib/sigApi"
 import { cn } from "@/lib/utils"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { RailOrganizacion } from "@/components/admin/org/RailOrganizacion"
@@ -22,6 +24,15 @@ export function OrganizacionPage() {
   const [params, setParams] = useSearchParams()
   const { data: areas = [], isLoading } = useAreas()
   const { data: usuarios = [] } = useUsers()
+
+  // Carpetas del SIG (misma consulta que usa el bloque de cada área): sirve para marcar en la lista cuáles áreas tienen carpeta
+  const { data: carpetasSig } = useQuery({
+    queryKey: ["sig", "areas"],
+    queryFn: async () => (await sigApi.get<{ id: number; nombre: string; intranetAreaId: number | null; _count: { procedimientos: number } }[]>("/api/areas")).data,
+    staleTime: 30_000,
+    retry: false,
+  })
+  const conCarpeta = useMemo(() => (carpetasSig ? new Set(carpetasSig.filter((c) => c.intranetAreaId != null).map((c) => c.intranetAreaId as number)) : null), [carpetasSig])
 
   const pedida = Number(params.get("area")) || null
   // «Todas las personas» es la vista principal; un área solo se abre si se pide (?area=ID)
@@ -43,7 +54,7 @@ export function OrganizacionPage() {
 
   return (
     <PageLayout title="Organización" mainClassName="org-root flex min-h-0 flex-1 overflow-hidden bg-white">
-      <RailOrganizacion areas={areas} conteo={conteo} total={usuarios.length} activa={area?.id ?? null} onElegir={(id) => ir({ area: String(id) })} onTodas={() => ir({ area: "todas" })} />
+      <RailOrganizacion areas={areas} conteo={conteo} conCarpeta={conCarpeta} total={usuarios.length} activa={area?.id ?? null} onElegir={(id) => ir({ area: String(id) })} onTodas={() => ir({ area: "todas" })} />
       <div className="min-w-0 flex-1 overflow-y-auto">
         {isLoading && <p className="p-10 font-mono text-[12px] text-org-tinta/40">Cargando áreas…</p>}
         {!area && <TodasPersonas areas={areas} onVerArea={(id) => ir({ area: String(id), tab: "usuarios" })} />}
