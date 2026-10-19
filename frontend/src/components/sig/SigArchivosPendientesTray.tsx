@@ -3,10 +3,10 @@ import { useArrastrable } from "@/hooks/useArrastrable"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { sigApi } from "@/lib/sigApi"
 import { cn } from "@/lib/utils"
-import { ArchivoPrevisualizador } from "@/components/sig/ArchivoPrevisualizador"
+import { VisorArchivoDialog } from "@/components/sig/VisorArchivoDialog"
 import { GripVertical,
   Inbox, ChevronUp, FileText, Loader, AlertTriangle,
-  Trash2, ArrowRight, ChevronLeft, CheckCircle, Bot, User, Plus, Layers, Eye, EyeOff,
+  Trash2, ArrowRight, ChevronLeft, CheckCircle, Bot, User, Plus, Layers, Eye,
 } from "lucide-react"
 
 // Tray persistente abajo a la derecha (overlay persistente) --
@@ -341,13 +341,13 @@ function ArchivoRow({
           </button>
         )}
         <button
-          onClick={() => setVer((v) => !v)}
-          aria-expanded={ver}
-          title={ver ? "Ocultar la vista previa" : "Ver el archivo"}
-          aria-label={`${ver ? "Ocultar" : "Ver"} la vista previa de ${archivo.nombreArchivo}`}
+          onClick={() => setVer(true)}
+          aria-haspopup="dialog"
+          title="Ver el archivo"
+          aria-label={`Ver ${archivo.nombreArchivo}`}
           className="shrink-0 h-5 w-5 flex items-center justify-center rounded text-zinc-600 hover:text-helix-accent-ink hover:bg-helix-accent/5 transition-colors"
         >
-          {ver ? <EyeOff className="h-2.5 w-2.5" /> : <Eye className="h-2.5 w-2.5" />}
+          <Eye className="h-2.5 w-2.5" />
         </button>
         <button
           onClick={onDiscard}
@@ -359,9 +359,7 @@ function ArchivoRow({
       </div>
 
       {ver && (
-        <div className="border-t border-zinc-300 bg-zinc-50 p-2">
-          <ArchivoPrevisualizador base={`/api/archivos-pendientes/${archivo.id}`} nombre={archivo.nombreArchivo} mime={archivo.tipoMime} tamano={archivo.tamanoBytes} altura="45vh" />
-        </div>
+        <VisorArchivoDialog base={`/api/archivos-pendientes/${archivo.id}`} nombre={archivo.nombreArchivo} mime={archivo.tipoMime} onClose={() => setVer(false)} />
       )}
 
       {isAssigning && (

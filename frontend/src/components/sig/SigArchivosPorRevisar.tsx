@@ -1,7 +1,8 @@
 import { useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { Check, Download, X } from "lucide-react"
+import { Check, Eye, X } from "lucide-react"
 import { sigApi } from "@/lib/sigApi"
+import { VisorArchivoDialog } from "./VisorArchivoDialog"
 
 export interface ArchivoPorRevisar {
   tipo: "instructivo" | "formato" | "anexo"
@@ -22,6 +23,7 @@ export function SigArchivosPorRevisar({ items }: { items: ArchivoPorRevisar[] })
   const [rechazando, setRechazando] = useState<string | null>(null)
   const [motivo, setMotivo] = useState("")
   const [error, setError] = useState<string | null>(null)
+  const [viendo, setViendo] = useState<ArchivoPorRevisar | null>(null)
 
   const resolver = useMutation({
     mutationFn: async (v: { a: ArchivoPorRevisar; aprobar: boolean }) =>
@@ -34,16 +36,6 @@ export function SigArchivosPorRevisar({ items }: { items: ArchivoPorRevisar[] })
     },
     onError: () => setError("No se pudo guardar la decisión. Intenta de nuevo."),
   })
-
-  async function ver(a: ArchivoPorRevisar) {
-    const res = await sigApi.get(`/api/${RUTA[a.tipo]}/${a.id}/archivo`, { responseType: "blob" })
-    const url = URL.createObjectURL(res.data)
-    const link = document.createElement("a")
-    link.href = url
-    link.download = a.nombreArchivo ?? a.nombre
-    link.click()
-    URL.revokeObjectURL(url)
-  }
 
   return (
     <div className="mx-auto w-full max-w-3xl mt-6 mb-4">
@@ -66,12 +58,12 @@ export function SigArchivosPorRevisar({ items }: { items: ArchivoPorRevisar[] })
                   <p className="text-xs text-zinc-600">por {a.autorNombre}</p>
                 </div>
                 <button
-                  onClick={() => void ver(a)}
+                  onClick={() => setViendo(a)}
                   className="p-1.5 rounded text-zinc-600 hover:text-zinc-700 hover:bg-zinc-200"
-                  title="Descargar para revisar"
-                  aria-label={`Descargar ${a.nombre}`}
+                  title="Ver el documento original"
+                  aria-label={`Ver ${a.nombre}`}
                 >
-                  <Download className="h-3.5 w-3.5" aria-hidden />
+                  <Eye className="h-3.5 w-3.5" aria-hidden />
                 </button>
                 <button
                   onClick={() => resolver.mutate({ a, aprobar: true })}
@@ -117,6 +109,9 @@ export function SigArchivosPorRevisar({ items }: { items: ArchivoPorRevisar[] })
           )
         })}
       </div>
+      {viendo && (
+        <VisorArchivoDialog base={`/api/${RUTA[viendo.tipo]}/${viendo.id}`} nombre={viendo.nombreArchivo ?? viendo.nombre} onClose={() => setViendo(null)} />
+      )}
     </div>
   )
 }

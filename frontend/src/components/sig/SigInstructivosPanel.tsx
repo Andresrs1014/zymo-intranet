@@ -4,10 +4,11 @@ import { sigApi } from "@/lib/sigApi"
 import { EstadoRevision } from "./EstadoRevision"
 import { cn } from "@/lib/utils"
 import { PdfFrame, WordPreview } from "@/components/sig/SigFileViewer"
+import { ArchivoPrevisualizador } from "@/components/sig/ArchivoPrevisualizador"
 import {
   BookOpen, Plus, FileText, Trash2, Loader, AlertCircle, AlertTriangle,
-  X, FileCheck, Upload, FolderOpen, Paperclip,
-  Download, RefreshCw, ChevronRight,
+  X, FileCheck, Upload, FolderOpen,
+  RefreshCw, ChevronRight,
 } from "lucide-react"
 
 const MAX_INSTRUCTIVOS = 20
@@ -710,24 +711,10 @@ export function InstructivoArchivoView({ inst }: { inst: SigInstructivo }) {
     )
   }
 
-  // .doc u otro — descarga
+  // .doc u otro formato: visor general (tabla, texto, imagen, PDF vía servidor…)
   return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-4 bg-white">
-      <Paperclip className="h-8 w-8 text-zinc-600" />
-      <div className="text-center">
-        <p className="text-sm font-mono text-zinc-700">{inst.nombreArchivo ?? "Archivo"}</p>
-        <p className="text-xs text-zinc-600 mt-1">Este formato no puede mostrarse en el navegador.</p>
-      </div>
-      {objectUrl && (
-        <a
-          href={objectUrl}
-          download={inst.nombreArchivo ?? "archivo"}
-          className="flex items-center gap-1.5 text-xs px-3 py-2 rounded border border-zinc-300 text-zinc-700 hover:border-zinc-400 hover:text-zinc-900 transition-colors font-mono"
-        >
-          <Download className="h-3.5 w-3.5" />
-          Descargar {inst.nombreArchivo}
-        </a>
-      )}
+    <div className="flex-1 overflow-auto bg-white p-4">
+      <ArchivoPrevisualizador base={`/api/instructivos/${inst.id}`} nombre={inst.nombreArchivo ?? "archivo"} altura="75vh" />
     </div>
   )
 }

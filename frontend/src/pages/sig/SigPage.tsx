@@ -876,7 +876,7 @@ export function ProcedureFileView({
                 listUrl={`/api/formatos?procedimientoId=${id}`}
                 uploadUrl="/api/formatos/upload"
                 deleteUrlBase="/api/formatos"
-                archivoUrlBase="/sig-api/api/formatos"
+                archivoUrlBase="/api/formatos"
                 queryKey={["sig", "formatos", id]}
                 canEdit={canEditSig}
                 soloSubir={portable}
@@ -896,7 +896,7 @@ export function ProcedureFileView({
                 listUrl={`/api/doc-anexos?procedimientoId=${id}`}
                 uploadUrl="/api/doc-anexos/upload"
                 deleteUrlBase="/api/doc-anexos"
-                archivoUrlBase="/sig-api/api/doc-anexos"
+                archivoUrlBase="/api/doc-anexos"
                 queryKey={["sig", "doc-anexos", id]}
                 canEdit={canEditSig}
                 soloSubir={portable}
@@ -2011,7 +2011,7 @@ function SigProcedureMobileView({
             listUrl={`/api/formatos?procedimientoId=${id}`}
             uploadUrl="/api/formatos/upload"
             deleteUrlBase="/api/formatos"
-            archivoUrlBase="/sig-api/api/formatos"
+            archivoUrlBase="/api/formatos"
             queryKey={["sig", "formatos", id]}
             canEdit={canEditSig}
             instructivoOptions={instructivosSnap}
@@ -2026,7 +2026,7 @@ function SigProcedureMobileView({
             listUrl={`/api/doc-anexos?procedimientoId=${id}`}
             uploadUrl="/api/doc-anexos/upload"
             deleteUrlBase="/api/doc-anexos"
-            archivoUrlBase="/sig-api/api/doc-anexos"
+            archivoUrlBase="/api/doc-anexos"
             queryKey={["sig", "doc-anexos", id]}
             canEdit={canEditSig}
             extraField={{ name: "procedimientoId", value: String(id) }}

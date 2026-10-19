@@ -2,10 +2,10 @@ import { useRef, useState } from "react"
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query"
 import { sigApi } from "@/lib/sigApi"
 import { EstadoRevision } from "./EstadoRevision"
-import { ArchivoPrevisualizador } from "./ArchivoPrevisualizador"
+import { VisorArchivoDialog } from "./VisorArchivoDialog"
 import {
   Paperclip, Plus, FileText, Trash2, Loader, AlertCircle, AlertTriangle,
-  X, FileCheck, Upload, Download, Pencil, Eye, EyeOff,
+  X, FileCheck, Upload, Download, Pencil, Eye,
 } from "lucide-react"
 
 // ── Panel genérico de "archivo suelto" — usado por Formatos (cuelga de un
@@ -65,7 +65,7 @@ export function SigAnexoPanel({
   const [deleting, setDeleting] = useState<number | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
   const [downloading, setDownloading] = useState<number | null>(null)
-  const [abierto, setAbierto] = useState<number | null>(null) // fila con la vista previa desplegada (una a la vez)
+  const [abierto, setAbierto] = useState<number | null>(null) // fila cuyo documento está abierto en la ventana
   const [batchProgress, setBatchProgress] = useState<{ done: number; total: number } | null>(null)
   const [batchErrors, setBatchErrors] = useState<string[]>([])
   const [editingInstructivoFor, setEditingInstructivoFor] = useState<number | null>(null)
@@ -424,14 +424,14 @@ export function SigAnexoPanel({
                 <p className="text-xs text-zinc-600 truncate mt-0.5">{item.nombreArchivo}</p>
               </div>
               <button
-                onClick={() => setAbierto(abierto === item.id ? null : item.id)}
-                aria-expanded={abierto === item.id}
+                onClick={() => setAbierto(item.id)}
+                aria-haspopup="dialog"
                 className="shrink-0 flex items-center gap-1 px-2 py-1 rounded text-[11px] font-mono text-zinc-600 hover:text-helix-accent-ink hover:bg-helix-accent/5 transition-colors"
-                title={abierto === item.id ? "Ocultar la vista previa" : "Ver la vista previa"}
-                aria-label={`${abierto === item.id ? "Ocultar" : "Ver"} la vista previa de ${item.nombre}`}
+                title="Ver el documento original"
+                aria-label={`Ver ${item.nombre}`}
               >
-                {abierto === item.id ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                {abierto === item.id ? "Ocultar" : "Ver"}
+                <Eye className="h-3.5 w-3.5" />
+                Ver
               </button>
               <button
                 onClick={() => void handleDownload(item)}
@@ -476,9 +476,7 @@ export function SigAnexoPanel({
               )}
             </div>
             {abierto === item.id && (
-              <div className="mt-1.5">
-                <ArchivoPrevisualizador base={`${archivoUrlBase}/${item.id}`} nombre={item.nombreArchivo} mime={item.tipoMime} />
-              </div>
+              <VisorArchivoDialog base={`${archivoUrlBase}/${item.id}`} nombre={item.nombreArchivo} mime={item.tipoMime} onClose={() => setAbierto(null)} />
             )}
             </div>
           ))}
