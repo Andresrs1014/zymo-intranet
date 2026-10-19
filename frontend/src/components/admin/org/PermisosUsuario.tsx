@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { Lock, X } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { INTERNAL_MODULE_GROUPS } from "@/lib/roles"
+import { ORG_PERMISSION_GROUPS } from "@/lib/roles"
 import { getApiError } from "@/hooks/useRoles"
 import { useExclusivos, useFijarPermisos, type UsuarioArea } from "@/hooks/useAreaAcceso"
 
@@ -53,7 +53,7 @@ export function PermisosUsuario({ areaId, usuario, onCerrar }: { areaId: number;
 
         <div className="flex-1 overflow-y-auto px-6 py-5">
           <div className="grid gap-3 sm:grid-cols-2">
-            {INTERNAL_MODULE_GROUPS.map((g) => (
+            {ORG_PERMISSION_GROUPS.map((g) => (
               <fieldset key={g.title} className="self-start rounded-2xl border border-org-linea p-4">
                 <legend className="px-1 text-[13px] font-medium text-org-tinta">{g.title}</legend>
                 <ul className="space-y-0.5">

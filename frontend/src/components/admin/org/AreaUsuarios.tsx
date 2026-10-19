@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { Link } from "react-router-dom"
 import { Archive, ArrowRightLeft, Plus, Search, ShieldCheck, UserMinus, Wrench, X } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { INTERNAL_MODULES } from "@/lib/roles"
+import { ALL_APPS } from "@/lib/roles"
 import { getApiError } from "@/hooks/useRoles"
 import { useDeactivateUser } from "@/hooks/useUsers"
 import { useSedes } from "@/hooks/useSedes"
@@ -12,7 +12,7 @@ import { MoverPersona } from "./MoverPersona"
 import { PermisosUsuario } from "./PermisosUsuario"
 import { useCambiarCargo, useCargosArea, useCrearUsuario, useMoverUsuario, useUsuariosArea, type CargoDir, type UsuarioArea } from "@/hooks/useAreaAcceso"
 
-const APP: Record<string, string> = Object.fromEntries(INTERNAL_MODULES.map((m) => [m.id, m.name]))
+const APP: Record<string, string> = Object.fromEntries(ALL_APPS.map((m) => [m.id, m.name]))
 
 const iniciales = (u: UsuarioArea) =>
   (u.full_name ?? u.email).split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]!.toUpperCase()).join("")

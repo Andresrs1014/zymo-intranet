@@ -1,11 +1,11 @@
 import { useState } from "react"
 import { X } from "lucide-react"
-import { INTERNAL_MODULES } from "@/lib/roles"
+import { ALL_APPS } from "@/lib/roles"
 import { getApiError } from "@/hooks/useRoles"
 import { useAreas } from "@/hooks/useAreas"
 import { useMoverUsuario, type MovidoResultado } from "@/hooks/useAreaAcceso"
 
-const APP: Record<string, string> = Object.fromEntries(INTERNAL_MODULES.map((m) => [m.id, m.name]))
+const APP: Record<string, string> = Object.fromEntries(ALL_APPS.map((m) => [m.id, m.name]))
 
 /** Pasar a una persona a otra área. Dice al final qué cambió y qué debe saber el admin. */
 export function MoverPersona({ userId, nombre, areaActual, onCerrar }: {

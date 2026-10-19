@@ -47,7 +47,8 @@ export function DashboardPage() {
   // 3 módulos: cada uno se despliega; 1 o 2: se muestran abiertos y en grande, con quién pidió y hace cuánto
   const plegable = [verCompras, verFinanciera, verTareas, verSig].filter(Boolean).length >= 3
   // ponytail: las aplicaciones externas solo salen si la persona no tiene ningún resumen que mostrar
-  const externas = user && !conResumen ? getAppsForRole(user.role, perms) : []
+  // ZYMO Assets vive solo en el sidebar, no como tarjeta del dashboard
+  const externas = user && !conResumen ? getAppsForRole(user.role, perms).filter((app) => app.id !== "zymo_assets") : []
 
   return (
     <PageLayout title="Dashboard">

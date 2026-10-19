@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom"
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useSearchParams } from "react-router-dom"
 import { useEffect } from "react"
 import { useAuthStore } from "@/store/authStore"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
@@ -142,7 +142,10 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
-  if (isAuthenticated) return <Navigate to="/dashboard" replace />
+  const [searchParams] = useSearchParams()
+  // An already-authenticated user hitting /login?app=X is here for the SSO handoff, not
+  // to re-login — let LoginPage itself handle that redirect instead of bouncing to /dashboard.
+  if (isAuthenticated && !searchParams.get("app")) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
 

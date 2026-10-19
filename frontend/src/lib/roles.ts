@@ -320,9 +320,29 @@ export const EXTERNAL_APPS: AppDefinition[] = [
     url: "https://crm.zymointranet.com",
     sso_endpoint: "/api/auth/sso-token-crm",
   },
+  {
+    id: "zymo_assets",
+    category: "app_externa",
+    icon: "📦",
+    name: "ZYMO Assets",
+    description: "Inventario y control de activos patrimoniales",
+    // VITE_ZYMO_ASSETS_URL solo se define en un .env local para probar contra otra instancia
+    url: import.meta.env.VITE_ZYMO_ASSETS_URL || "https://zymointranet.com/activos",
+    sso_endpoint: "/auth/sso-token-zymo-assets",
+  },
 ]
 
 export const ALL_APPS: AppDefinition[] = [...INTERNAL_MODULES, ...EXTERNAL_APPS]
+
+/** Grupos que la pantalla Organización ofrece al dar permisos: los módulos y, aparte, ZYMO Assets (app externa con SSO). */
+export const ORG_PERMISSION_GROUPS: ModulePermissionGroup[] = [
+  ...INTERNAL_MODULE_GROUPS,
+  {
+    title: "ZYMO Assets",
+    subtitle: "Inventario y control de activos patrimoniales",
+    modules: EXTERNAL_APPS.filter((a) => a.id === "zymo_assets"),
+  },
+]
 
 export function getAppsForRole(role: string, permissions: string[]): AppDefinition[] {
   if (role === "admin") return EXTERNAL_APPS

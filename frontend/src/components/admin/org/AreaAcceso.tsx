@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react"
 import { ChevronDown, Lock } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { INTERNAL_MODULE_GROUPS } from "@/lib/roles"
+import { ORG_PERMISSION_GROUPS } from "@/lib/roles"
 import { getApiError } from "@/hooks/useRoles"
 import { useExclusivos, useFijarExclusivo, useFijarPermisos, useUsuariosArea, type UsuarioArea } from "@/hooks/useAreaAcceso"
 
@@ -29,7 +29,7 @@ export function AreaAcceso({ areaId, nombresAreas }: { areaId: number; nombresAr
       </p>
       {error && <p role="alert" className="mb-4 rounded-lg border border-org-linea bg-org-tinte px-3 py-2 text-[12px] text-org-rojo">{error}</p>}
       <div className="grid gap-4 lg:grid-cols-2">
-        {INTERNAL_MODULE_GROUPS.map((g, i) => {
+        {ORG_PERMISSION_GROUPS.map((g, i) => {
           const ids = g.modules.map((m) => m.id)
           const aqui = ids.every((p) => exclusivo.get(p)?.includes(areaId))
           const otras = ids.some(ajena)
