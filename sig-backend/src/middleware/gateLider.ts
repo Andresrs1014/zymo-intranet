@@ -57,6 +57,9 @@ export async function gateLider(req: Request, res: Response, next: NextFunction)
     try { return decodeURIComponent(seg).toLowerCase() } catch { return seg.toLowerCase() }
   })
 
+  // mod_sig_subir: sube y crea procedimientos en TODAS las áreas, siempre pendiente de verificación, sin análisis.
+  if (perms.includes("mod_sig_subir")) { puertaSubir(req, res, next, familia, idRaw, resto); return }
+
   // Quien no tiene ningún permiso de SIG: todo lo de /api está cerrado salvo lo que tiene su propia regla.
   if (!perms.includes("mod_sig_lider")) {
     if (familia && !LIBRES.has(familia)) { prohibido(res, "Sin acceso al módulo SIG"); return }
@@ -67,6 +70,7 @@ export async function gateLider(req: Request, res: Response, next: NextFunction)
   if (carpetas.length === 0) { res.status(409).json({ error: "Tu área todavía no tiene una carpeta en el SIG." }); return }
   const areas = carpetas.map((c) => c.id)
   req.sigAreaIds = areas // los listados de áreas y procedimientos filtran con esto; las subidas lo comprueban
+  req.sigSoloPendiente = true
 
   if (req.method === "POST" && SUBIDAS.has(`${familia}/${idRaw}`) && resto.length === 0) { req.sigLiderOk = true; next(); return }
   if (req.method !== "GET") { prohibido(res, "Los líderes suben archivos y versiones nuevas; borrar, editar o aprobar es del SIG"); return }
@@ -97,4 +101,33 @@ export async function gateLider(req: Request, res: Response, next: NextFunction)
   if (area == null || !areas.includes(area)) { res.status(404).json({ error: "No encontrado en tu área" }); return }
   req.sigLiderOk = true
   next()
+}
+
+/** Lecturas de mod_sig_subir: contenido de cualquier área, nunca análisis (auditorías, hallazgos, indicadores, cargos, referencias) ni la cola de aprobación. */
+function puertaSubir(req: Request, res: Response, next: NextFunction, familia: string | undefined, idRaw: string | undefined, resto: string[]): void {
+  req.sigSoloPendiente = true
+  const ok = () => { req.sigLiderOk = true; next() }
+  const ruta = resto.join("/")
+  const numerico = idRaw !== undefined && Number.isFinite(parseInt(idRaw))
+
+  if (req.method === "POST") {
+    if (SUBIDAS.has(`${familia}/${idRaw}`) && resto.length === 0) { ok(); return }
+    if (familia === "procedimientos" && idRaw === undefined) { ok(); return } // crear procedimiento
+    if (familia === "archivos-pendientes" && ((idRaw === "upload" && resto.length === 0) || (idRaw === "asignar-soporte" && resto.length === 0) || (numerico && ruta === "asignar-procedimiento"))) { ok(); return }
+    prohibido(res, "Este permiso sube archivos y crea procedimientos; aprobar, editar o borrar es del SIG"); return
+  }
+  if (req.method === "DELETE") {
+    if (familia === "archivos-pendientes" && numerico && resto.length === 0) { ok(); return } // descartar un archivo pendiente
+    prohibido(res, "Este permiso sube archivos y crea procedimientos; aprobar, editar o borrar es del SIG"); return
+  }
+  if (req.method !== "GET") { prohibido(res); return }
+
+  if (idRaw === undefined) {
+    if (familia === "areas" || familia === "procedimientos" || familia === "buscar" || familia === "archivos-pendientes" || (familia && familia in SUBRUTAS)) { ok(); return }
+    prohibido(res); return
+  }
+  if (familia === "areas" && numerico && resto.length === 0) { ok(); return }
+  // los cargos de un procedimiento alimentan el análisis de cargos: no se leen con este permiso
+  if (familia && familia in SUBRUTAS && numerico && ruta !== "cargos" && SUBRUTAS[familia as Familia].includes(ruta)) { ok(); return }
+  prohibido(res)
 }

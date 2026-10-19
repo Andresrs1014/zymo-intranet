@@ -96,7 +96,7 @@ router.post(
     const autorId = getUserId(req.user!)
     const created = await prisma.sigDocAnexo.create({
       data: {
-        estado: req.sigAreaIds ? "PENDIENTE_REVISION" : "APROBADO", // líder de área: el SIG lo verifica
+        estado: req.sigSoloPendiente ? "PENDIENTE_REVISION" : "APROBADO", // líder de área: el SIG lo verifica
         procedimientoId: parsed.data.procedimientoId,
         nombre: parsed.data.nombre,
         archivo: req.file.path,

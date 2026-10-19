@@ -70,7 +70,9 @@ function SigDesktopView() {
   const isGerente = user?.role === "admin" || user?.role === "gerente"
   const perms = user?.app_permissions ?? []
   // Líder de área: el mismo SIG, pero solo con las carpetas de su área; sube versiones y archivos, no borra ni aprueba ni ve análisis.
-  const esLider = !isGerente && !perms.includes("mod_sig") && perms.includes("mod_sig_lider")
+  // mod_sig_subir: igual, pero en todas las áreas y también crea procedimientos.
+  const esSubir = !isGerente && !perms.includes("mod_sig") && perms.includes("mod_sig_subir")
+  const esLider = esSubir || (!isGerente && !perms.includes("mod_sig") && perms.includes("mod_sig_lider"))
   const canEditSig = isGerente || perms.includes("mod_sig") || esLider
 
   const [openTabs, setOpenTabs] = useState<TabMeta[]>([])
@@ -249,7 +251,7 @@ function SigDesktopView() {
       <StatusBar pendingCount={pendingCount} isGerente={isGerente} activeView={activeView} />
 
       {/* Bolsa de archivos pendientes — persiste aunque se cierre, ver ArchivoPendiente */}
-      {!esLider && <SigArchivosPendientesTray />}
+      {(!esLider || esSubir) && <SigArchivosPendientesTray />}
 
       {/* Carga de procedimiento / nueva versión desde documento */}
       {cargarOpen && (

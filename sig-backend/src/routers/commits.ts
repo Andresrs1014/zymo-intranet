@@ -321,7 +321,7 @@ router.post(
       procedimientoId,
       mensaje: (req.body.mensaje ?? "").trim(),
       versionDoc: req.body.versionDoc?.trim() || undefined,
-    }, req.user!, { soloPendiente: Boolean(req.sigAreaIds) })
+    }, req.user!, { soloPendiente: Boolean(req.sigSoloPendiente) })
     res.status(r.status).json(r.body)
   },
 )

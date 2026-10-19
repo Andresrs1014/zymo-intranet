@@ -249,6 +249,7 @@ router.post("/asignar-soporte", requireSigAccess, async (req: Request, res: Resp
           tipoMime: archivo.tipoMime,
           autorId: userId,
           autorNombre: userName,
+          ...(req.sigSoloPendiente ? { estado: "PENDIENTE_REVISION" as const } : {}),
         },
       })
       await prisma.sigArchivoPendiente.update({
@@ -266,6 +267,7 @@ router.post("/asignar-soporte", requireSigAccess, async (req: Request, res: Resp
           tipoMime: archivo.tipoMime,
           autorId: userId,
           autorNombre: userName,
+          ...(req.sigSoloPendiente ? { estado: "PENDIENTE_REVISION" as const } : {}),
         },
       })
       await prisma.sigArchivoPendiente.update({
@@ -283,6 +285,7 @@ router.post("/asignar-soporte", requireSigAccess, async (req: Request, res: Resp
           tipoMime: archivo.tipoMime,
           autorId: userId,
           autorNombre: userName,
+          ...(req.sigSoloPendiente ? { estado: "PENDIENTE_REVISION" as const } : {}),
         },
       })
       await prisma.sigArchivoPendiente.update({
