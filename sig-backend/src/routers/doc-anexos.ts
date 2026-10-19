@@ -8,6 +8,8 @@ import prisma from "../config/prisma"
 import { requireSigAccess, getUserId } from "../middleware/auth"
 import { fueraDeArea } from "../middleware/gateLider"
 import { resolveActorName } from "../utils/userNames"
+import { inline } from "../utils/descarga"
+import { servirPdfPreview } from "../services/pdfPreview"
 
 const router = Router()
 
@@ -54,8 +56,20 @@ router.get("/:id/archivo", requireSigAccess, async (req: Request, res: Response)
     return
   }
   res.setHeader("Content-Type", anexo.tipoMime ?? "application/octet-stream")
-  res.setHeader("Content-Disposition", `inline; filename="${anexo.nombreArchivo}"`)
+  res.setHeader("Content-Disposition", inline(anexo.nombreArchivo))
   fsSync.createReadStream(anexo.archivo).pipe(res)
+})
+
+// ── GET /api/doc-anexos/:id/archivo/pdf — vista previa de Office como PDF ──
+
+router.get("/:id/archivo/pdf", requireSigAccess, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id)
+  const anexo = await prisma.sigDocAnexo.findUnique({ where: { id }, select: { archivo: true } })
+  if (!anexo) {
+    res.status(404).json({ error: "Documento anexo no encontrado" })
+    return
+  }
+  await servirPdfPreview(res, anexo.archivo, `anexo_${id}`)
 })
 
 // ── POST /api/doc-anexos/upload ────────────────────────────────────────────────

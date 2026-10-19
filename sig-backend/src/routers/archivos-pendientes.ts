@@ -8,6 +8,8 @@ import prisma from "../config/prisma"
 import { requireSigAccess, getUserId } from "../middleware/auth"
 import { extractText } from "../services/textExtraction"
 import { resolveActorName } from "../utils/userNames"
+import { inline } from "../utils/descarga"
+import { servirPdfPreview } from "../services/pdfPreview"
 
 const router = Router()
 
@@ -49,6 +51,30 @@ router.get("/", requireSigAccess, async (req: Request, res: Response) => {
     orderBy: { createdAt: "desc" },
   })
   res.json(archivos)
+})
+
+// ── GET /api/archivos-pendientes/:id/archivo (+ /pdf) — ver el archivo antes de asignarlo ───
+
+async function rutaDePendiente(req: Request, res: Response): Promise<{ id: number; ruta: string; nombre: string; mime: string | null } | null> {
+  const id = parseInt(req.params.id)
+  const a = await prisma.sigArchivoPendiente.findUnique({ where: { id }, select: { archivoOriginal: true, nombreArchivo: true, tipoMime: true } })
+  if (!a) { res.status(404).json({ error: "Archivo no encontrado" }); return null }
+  return { id, ruta: path.join(UPLOADS_DIR, a.archivoOriginal), nombre: a.nombreArchivo, mime: a.tipoMime }
+}
+
+router.get("/:id/archivo", requireSigAccess, async (req: Request, res: Response) => {
+  const a = await rutaDePendiente(req, res)
+  if (!a) return
+  try { await fs.access(a.ruta) } catch { res.status(404).json({ error: "Archivo no encontrado en el servidor" }); return }
+  res.setHeader("Content-Type", a.mime ?? "application/octet-stream")
+  res.setHeader("Content-Disposition", inline(a.nombre))
+  fsSync.createReadStream(a.ruta).pipe(res)
+})
+
+router.get("/:id/archivo/pdf", requireSigAccess, async (req: Request, res: Response) => {
+  const a = await rutaDePendiente(req, res)
+  if (!a) return
+  await servirPdfPreview(res, a.ruta, `pendiente_${a.id}`)
 })
 
 // ── POST /api/archivos-pendientes/upload — sube varios archivos sin asignar ───

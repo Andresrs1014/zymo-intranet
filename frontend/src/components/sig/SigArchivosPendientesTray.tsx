@@ -3,9 +3,10 @@ import { useArrastrable } from "@/hooks/useArrastrable"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { sigApi } from "@/lib/sigApi"
 import { cn } from "@/lib/utils"
+import { ArchivoPrevisualizador } from "@/components/sig/ArchivoPrevisualizador"
 import { GripVertical,
   Inbox, ChevronUp, FileText, Loader, AlertTriangle,
-  Trash2, ArrowRight, ChevronLeft, CheckCircle, Bot, User, Plus, Layers,
+  Trash2, ArrowRight, ChevronLeft, CheckCircle, Bot, User, Plus, Layers, Eye, EyeOff,
 } from "lucide-react"
 
 // Tray persistente abajo a la derecha (overlay persistente) --
@@ -309,6 +310,7 @@ function ArchivoRow({
   onCancelAssign: () => void
   onAssigned: () => void
 }) {
+  const [ver, setVer] = useState(false)
   return (
     <div className={cn("rounded-lg border overflow-hidden", isAssigning ? "border-helix-accent/40" : "border-zinc-300")}>
       <div className="flex items-center gap-2 px-2.5 py-1.5 bg-white">
@@ -339,6 +341,15 @@ function ArchivoRow({
           </button>
         )}
         <button
+          onClick={() => setVer((v) => !v)}
+          aria-expanded={ver}
+          title={ver ? "Ocultar la vista previa" : "Ver el archivo"}
+          aria-label={`${ver ? "Ocultar" : "Ver"} la vista previa de ${archivo.nombreArchivo}`}
+          className="shrink-0 h-5 w-5 flex items-center justify-center rounded text-zinc-600 hover:text-helix-accent-ink hover:bg-helix-accent/5 transition-colors"
+        >
+          {ver ? <EyeOff className="h-2.5 w-2.5" /> : <Eye className="h-2.5 w-2.5" />}
+        </button>
+        <button
           onClick={onDiscard}
           title="Descartar"
           className="shrink-0 h-5 w-5 flex items-center justify-center rounded text-zinc-600 hover:text-red-700 hover:bg-red-50 transition-colors"
@@ -346,6 +357,12 @@ function ArchivoRow({
           <Trash2 className="h-2.5 w-2.5" />
         </button>
       </div>
+
+      {ver && (
+        <div className="border-t border-zinc-300 bg-zinc-50 p-2">
+          <ArchivoPrevisualizador base={`/api/archivos-pendientes/${archivo.id}`} nombre={archivo.nombreArchivo} mime={archivo.tipoMime} tamano={archivo.tamanoBytes} altura="45vh" />
+        </div>
+      )}
 
       {isAssigning && (
         <AsignarProcedimientoForm archivo={archivo} onCancel={onCancelAssign} onDone={onAssigned} />

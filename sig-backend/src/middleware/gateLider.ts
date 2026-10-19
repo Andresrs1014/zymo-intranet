@@ -22,8 +22,8 @@ const SUBRUTAS: Record<Familia, string[]> = {
   procedimientos: ["", "cargos"],
   commits: ["", "archivo", "archivo/pdf", "flujograma-imagen"],
   instructivos: ["", "archivo", "archivo/pdf"],
-  formatos: ["", "archivo"],
-  "doc-anexos": ["", "archivo"],
+  formatos: ["", "archivo", "archivo/pdf"],
+  "doc-anexos": ["", "archivo", "archivo/pdf"],
   protocolos: ["", "archivo"],
 }
 
@@ -135,6 +135,7 @@ function puertaSubir(req: Request, res: Response, next: NextFunction, familia: s
     prohibido(res); return
   }
   if (familia === "areas" && numerico && resto.length === 0) { ok(); return }
+  if (familia === "archivos-pendientes" && numerico && (ruta === "archivo" || ruta === "archivo/pdf")) { ok(); return } // ver un archivo de la bandeja
   // los cargos de un procedimiento alimentan el análisis de cargos: no se leen con este permiso
   if (familia && familia in SUBRUTAS && numerico && ruta !== "cargos" && SUBRUTAS[familia as Familia].includes(ruta)) { ok(); return }
   prohibido(res)

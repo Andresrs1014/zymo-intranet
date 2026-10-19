@@ -8,6 +8,8 @@ import prisma from "../config/prisma"
 import { requireSigAccess, getUserId } from "../middleware/auth"
 import { fueraDeArea } from "../middleware/gateLider"
 import { resolveActorName } from "../utils/userNames"
+import { inline } from "../utils/descarga"
+import { servirPdfPreview } from "../services/pdfPreview"
 
 const router = Router()
 
@@ -60,8 +62,20 @@ router.get("/:id/archivo", requireSigAccess, async (req: Request, res: Response)
     return
   }
   res.setHeader("Content-Type", formato.tipoMime ?? "application/octet-stream")
-  res.setHeader("Content-Disposition", `inline; filename="${formato.nombreArchivo}"`)
+  res.setHeader("Content-Disposition", inline(formato.nombreArchivo))
   fsSync.createReadStream(formato.archivo).pipe(res)
+})
+
+// ── GET /api/formatos/:id/archivo/pdf — vista previa de Office (Excel, Word, PowerPoint…) como PDF ──
+
+router.get("/:id/archivo/pdf", requireSigAccess, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id)
+  const formato = await prisma.sigFormato.findUnique({ where: { id }, select: { archivo: true } })
+  if (!formato) {
+    res.status(404).json({ error: "Formato no encontrado" })
+    return
+  }
+  await servirPdfPreview(res, formato.archivo, `formato_${id}`)
 })
 
 // ── POST /api/formatos/upload ──────────────────────────────────────────────────
