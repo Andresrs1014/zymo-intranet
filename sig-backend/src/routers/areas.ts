@@ -2,7 +2,7 @@ import { Router, Request, Response } from "express"
 import { z } from "zod"
 import prisma from "../config/prisma"
 import { requireSigAccess } from "../middleware/auth"
-import { norm, sincronizarAreas } from "../services/areasIntranet"
+import { norm, sincronizarAreas, traerCatalogo } from "../services/areasIntranet"
 
 const router = Router()
 
@@ -41,9 +41,56 @@ router.get("/:id", async (req: Request, res: Response) => {
   res.json(area)
 })
 
-// POST /api/areas — las carpetas ya no se crean aquí: nacen de las áreas de la intranet
+// POST /api/areas — las carpetas ya no se crean aquí: se piden desde Organización
 router.post("/", (_req: Request, res: Response) => {
-  res.status(409).json({ error: "Las carpetas del SIG se crean desde las áreas: Configuración → Organización. Aparecen aquí solas." })
+  res.status(409).json({ error: "Las carpetas del SIG se piden desde el área: Configuración → Organización → «Dar carpeta en el SIG»." })
+})
+
+const DesdeIntranetSchema = z.object({
+  intranetAreaId: z.number().int().positive(),
+  /** Usar una carpeta que ya existe y no está enlazada, en vez de crear una nueva */
+  carpetaId: z.number().int().positive().optional(),
+})
+
+// POST /api/areas/desde-intranet — solo admin. Da a un área de la intranet su espacio en el SIG: crea la carpeta o enlaza una existente sin enlace.
+router.post("/desde-intranet", requireSigAccess, async (req: Request, res: Response) => {
+  if (req.user?.role !== "admin") { res.status(403).json({ error: "Solo admin puede dar carpetas del SIG a un área" }); return }
+  const parsed = DesdeIntranetSchema.safeParse(req.body)
+  if (!parsed.success) { res.status(422).json({ error: parsed.error.flatten() }); return }
+  const { intranetAreaId, carpetaId } = parsed.data
+
+  const catalogo = await traerCatalogo()
+  if (!catalogo) { res.status(502).json({ error: "No se pudo consultar las áreas de la intranet. Intenta de nuevo." }); return }
+  const area = catalogo.find((a) => a.id === intranetAreaId)
+  if (!area) { res.status(404).json({ error: "Esa área no existe en la intranet" }); return }
+  if (await prisma.sigArea.findUnique({ where: { intranetAreaId } })) { res.status(409).json({ error: "Esa área ya tiene su carpeta en el SIG." }); return }
+
+  const cargos = area.cargos ?? []
+  let carpeta
+  if (carpetaId !== undefined) {
+    const existente = await prisma.sigArea.findUnique({ where: { id: carpetaId } })
+    if (!existente) { res.status(404).json({ error: "Carpeta no encontrada" }); return }
+    if (existente.intranetAreaId != null) { res.status(409).json({ error: "Esa carpeta ya está enlazada a otra área." }); return }
+    carpeta = await prisma.sigArea.update({ where: { id: carpetaId }, data: { intranetAreaId, cargos } }) // conserva su nombre y su contenido
+  } else {
+    const todas = await prisma.sigArea.findMany({ select: { nombre: true } })
+    if (todas.some((c) => norm(c.nombre) === norm(area.name))) {
+      res.status(409).json({ error: `Ya existe una carpeta llamada «${area.name}». Enlázala con esta área o cámbiale el nombre primero.` })
+      return
+    }
+    carpeta = await prisma.sigArea.create({ data: { nombre: area.name, intranetAreaId, cargos } })
+  }
+  await prisma.sigAreaExcluida.deleteMany({ where: { intranetAreaId } }) // si antes se había quitado a propósito, ya no
+  res.status(201).json(carpeta)
+})
+
+// POST /api/areas/:id/desenlazar — solo admin. La carpeta se queda con todo su contenido, pero deja de ser la de esa área de la intranet.
+router.post("/:id/desenlazar", requireSigAccess, async (req: Request, res: Response) => {
+  if (req.user?.role !== "admin") { res.status(403).json({ error: "Solo admin puede desenlazar carpetas" }); return }
+  const id = parseInt(req.params.id)
+  const carpeta = await prisma.sigArea.findUnique({ where: { id } })
+  if (!carpeta) { res.status(404).json({ error: "Carpeta no encontrada" }); return }
+  res.json(await prisma.sigArea.update({ where: { id }, data: { intranetAreaId: null } }))
 })
 
 // PATCH /api/areas/:id — admin o gerente. Renombrar la carpeta no cambia el área de la intranet ni el área de nadie.

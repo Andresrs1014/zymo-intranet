@@ -111,6 +111,28 @@ export function useCambiarCargo(areaId: number) {
   })
 }
 
+export interface MovidoResultado {
+  area: string
+  area_anterior: string | null
+  /** Permisos propios que no aplican en la nueva área (son exclusivos de otras) */
+  permisos_inactivos: string[]
+  /** movida | sin_ficha | varias */
+  ficha: string
+}
+
+/** Pasa a la persona a otra área (cuenta y, si tiene una sola ficha, también el directorio). */
+export function useMoverUsuario() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ userId, areaId }: { userId: number; areaId: number }) =>
+      (await api.put<MovidoResultado>(`/acceso/usuarios/${userId}/area`, { area_id: areaId })).data,
+    onSuccess: () => Promise.all([
+      qc.invalidateQueries({ queryKey: ["area-usuarios"] }),
+      qc.invalidateQueries({ queryKey: ["users"] }),
+    ]),
+  })
+}
+
 export function useFijarExclusivo() {
   const qc = useQueryClient()
   return useMutation({

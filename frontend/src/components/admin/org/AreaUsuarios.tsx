@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { Link } from "react-router-dom"
-import { Archive, Plus, Search, ShieldCheck, Wrench, X } from "lucide-react"
+import { Archive, ArrowRightLeft, Plus, Search, ShieldCheck, Wrench, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { INTERNAL_MODULES } from "@/lib/roles"
 import { getApiError } from "@/hooks/useRoles"
 import { useDeactivateUser } from "@/hooks/useUsers"
 import { useSedes } from "@/hooks/useSedes"
 import { UserToolsModal } from "./HerramientasUsuario"
+import { MoverPersona } from "./MoverPersona"
 import { PermisosUsuario } from "./PermisosUsuario"
 import { useCambiarCargo, useCargosArea, useCrearUsuario, useUsuariosArea, type CargoDir, type UsuarioArea } from "@/hooks/useAreaAcceso"
 
@@ -27,6 +28,7 @@ export function AreaUsuarios({ areaId, areaNombre }: { areaId: number; areaNombr
   const [creando, setCreando] = useState(false)
   const [herramientas, setHerramientas] = useState<UsuarioArea | null>(null)
   const [permisosDe, setPermisosDe] = useState<UsuarioArea | null>(null)
+  const [moverA, setMoverA] = useState<UsuarioArea | null>(null)
   const [abrirPermisosDe, setAbrirPermisosDe] = useState<number | null>(null) // recién creado: abrir «Editar permisos» al llegar a la lista
   const [error, setError] = useState<string>()
 
@@ -74,7 +76,7 @@ export function AreaUsuarios({ areaId, areaNombre }: { areaId: number; areaNombr
         {visibles.map((u, i) => (
           <li
             key={u.id} style={{ animation: `org-in .4s ease ${i * 35}ms both` }}
-            className={cn("grid items-center gap-x-4 gap-y-2 rounded-2xl border border-org-linea bg-white px-4 py-3 md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_13rem_6.5rem]", !u.is_active && "opacity-60")}
+            className={cn("grid items-center gap-x-4 gap-y-2 rounded-2xl border border-org-linea bg-white px-4 py-3 md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_13rem_8.5rem]", !u.is_active && "opacity-60")}
           >
             <div className="flex min-w-0 items-center gap-3">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-org-tinte font-mono text-[12px] font-medium text-org-rojo" aria-hidden>{iniciales(u)}</span>
@@ -94,6 +96,7 @@ export function AreaUsuarios({ areaId, areaNombre }: { areaId: number; areaNombr
 
             <div className="flex justify-self-end">
               <button type="button" onClick={() => setPermisosDe(u)} aria-label={`Editar permisos de ${u.full_name ?? u.email}`} title="Editar permisos" className={boton}><ShieldCheck className="h-4 w-4" aria-hidden /></button>
+              <button type="button" onClick={() => setMoverA(u)} aria-label={`Mover a ${u.full_name ?? u.email} a otra área`} title="Mover a otra área" className={boton}><ArrowRightLeft className="h-4 w-4" aria-hidden /></button>
               <button type="button" onClick={() => setHerramientas(u)} aria-label={`Herramientas de ${u.full_name ?? u.email}`} title="Herramientas y equipos de Tareas" className={boton}><Wrench className="h-4 w-4" aria-hidden /></button>
               <button type="button" onClick={() => quitar(u)} aria-label={`Archivar a ${u.full_name ?? u.email}`} title="Archivar" className={boton}><Archive className="h-4 w-4" aria-hidden /></button>
             </div>
@@ -107,6 +110,7 @@ export function AreaUsuarios({ areaId, areaNombre }: { areaId: number; areaNombr
       </p>
 
       {permisosDe && <PermisosUsuario areaId={areaId} usuario={permisosDe} onCerrar={() => setPermisosDe(null)} />}
+      {moverA && <MoverPersona userId={moverA.id} nombre={moverA.full_name ?? moverA.email} areaActual={areaNombre} onCerrar={() => setMoverA(null)} />}
       {herramientas && <UserToolsModal user={herramientas} onClose={() => setHerramientas(null)} />}
       {creando && <NuevaPersona areaId={areaId} areaNombre={areaNombre} cargos={cargos} onCerrar={() => setCreando(false)}
         onCreada={(id, conPermisos) => { setCreando(false); if (conPermisos) setAbrirPermisosDe(id) }} />}

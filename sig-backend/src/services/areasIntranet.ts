@@ -1,11 +1,11 @@
 import prisma from "../config/prisma"
 import { env } from "../config/env"
 
-/** Las carpetas del SIG nacen de las áreas de la intranet (Organización). Aquí se sincronizan y se resuelve el área de una persona. */
+/** Las carpetas del SIG se piden a mano desde Organización (POST /api/areas/desde-intranet). Aquí solo se mantienen al día y se resuelve el área de una persona. */
 
 export const norm = (s: string): string => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/\s+/g, " ").trim()
 
-interface AreaIntranet { id: number; name: string; cargos: string[] }
+export interface AreaIntranet { id: number; name: string; cargos: string[] }
 
 const REFRESCO_MS = 60_000
 /** Nombre actual de cada área en la intranet (id → nombre): a una persona se le busca su carpeta por el área de su cuenta, no por el nombre de la carpeta. */
@@ -13,7 +13,7 @@ const nombresIntranet = new Map<number, string>()
 let ultima = 0
 let enCurso: Promise<void> | null = null
 
-async function traerCatalogo(): Promise<AreaIntranet[] | null> {
+export async function traerCatalogo(): Promise<AreaIntranet[] | null> {
   try {
     const res = await fetch(`${env.INTRANET_API_URL}/acceso/catalogo-areas`, {
       headers: { "X-Internal-Key": env.INTERNAL_KEY },
@@ -32,26 +32,10 @@ async function sincronizar(): Promise<void> {
   if (!catalogo) return // sin conexión con la intranet se conserva lo que ya hay
   nombresIntranet.clear()
   for (const a of catalogo) nombresIntranet.set(a.id, a.name)
-  const libres = await prisma.sigArea.findMany({ where: { intranetAreaId: null } })
-  const excluidas = new Set((await prisma.sigAreaExcluida.findMany()).map((e) => e.intranetAreaId))
-  const usadas = new Set<number>()
+  // Solo las carpetas que el admin ya enlazó: se refrescan sus cargos. Nunca se crea ni se enlaza nada solo.
   for (const a of catalogo) {
-    if (excluidas.has(a.id)) continue // el admin eliminó su carpeta del SIG
-    const cargos = a.cargos ?? []
     const enlazada = await prisma.sigArea.findUnique({ where: { intranetAreaId: a.id } })
-    if (enlazada) {
-      usadas.add(enlazada.id)
-      await prisma.sigArea.update({ where: { id: enlazada.id }, data: { cargos } }) // el nombre de la carpeta lo cambia el admin en el SIG
-      continue
-    }
-    // carpeta anterior con el mismo nombre: se adopta en vez de duplicarla
-    const igual = libres.find((l) => !usadas.has(l.id) && norm(l.nombre) === norm(a.name))
-    if (igual) {
-      usadas.add(igual.id)
-      await prisma.sigArea.update({ where: { id: igual.id }, data: { intranetAreaId: a.id, nombre: a.name, cargos } })
-    } else {
-      await prisma.sigArea.create({ data: { nombre: a.name, intranetAreaId: a.id, cargos } })
-    }
+    if (enlazada) await prisma.sigArea.update({ where: { id: enlazada.id }, data: { cargos: a.cargos ?? [] } }) // el nombre lo cambia el admin en el SIG
   }
   // un área que ya no existe en la intranet: su carpeta se va con ella; si ya tiene contenido, se conserva sin enlazar
   const huerfanas = await prisma.sigArea.findMany({

@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react"
-import { Search, ShieldCheck } from "lucide-react"
+import { ArrowRightLeft, Search, ShieldCheck } from "lucide-react"
 import { INTERNAL_MODULES } from "@/lib/roles"
 import type { AreaItem } from "@/hooks/useAreas"
 import { useTodosUsuarios, type UsuarioArea } from "@/hooks/useAreaAcceso"
+import { MoverPersona } from "./MoverPersona"
 import { PermisosUsuario } from "./PermisosUsuario"
 
 const APP: Record<string, string> = Object.fromEntries(INTERNAL_MODULES.map((m) => [m.id, m.name]))
@@ -13,6 +14,7 @@ const iniciales = (u: UsuarioArea) => nombre(u).split(/\s+/).filter(Boolean).sli
 export function TodasPersonas({ areas, onVerArea }: { areas: AreaItem[]; onVerArea: (id: number) => void }) {
   const { data: usuarios = [], isLoading } = useTodosUsuarios()
   const [q, setQ] = useState("")
+  const [moverA, setMoverA] = useState<UsuarioArea | null>(null)
   const [permisosDe, setPermisosDe] = useState<{ u: UsuarioArea; areaId: number } | null>(null)
   const areaDe = (u: UsuarioArea) => areas.find((a) => a.name.toLowerCase() === (u.area ?? "").trim().toLowerCase())
 
@@ -44,7 +46,7 @@ export function TodasPersonas({ areas, onVerArea }: { areas: AreaItem[]; onVerAr
         {visibles.map((u) => {
           const area = areaDe(u)
           return (
-            <li key={u.id} className="grid items-center gap-x-4 gap-y-2 rounded-2xl border border-org-linea bg-white px-4 py-3 md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_3rem]">
+            <li key={u.id} className="grid items-center gap-x-4 gap-y-2 rounded-2xl border border-org-linea bg-white px-4 py-3 md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_5.5rem]">
               <div className="flex min-w-0 items-center gap-3">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-org-tinte font-mono text-[12px] font-medium text-org-rojo" aria-hidden>{iniciales(u)}</span>
                 <div className="min-w-0">
@@ -65,7 +67,11 @@ export function TodasPersonas({ areas, onVerArea }: { areas: AreaItem[]; onVerAr
                 {u.permisos.length > 3 && <span className="rounded-full bg-org-tinte px-2 py-0.5 font-mono text-[11px] text-org-rojo">+{u.permisos.length - 3}</span>}
                 {u.permisos.length === 0 && <span className="text-[11px] italic text-org-tinta/40">sin permisos asignados</span>}
               </div>
-              <div className="justify-self-end">
+              <div className="flex justify-self-end">
+                <button
+                  type="button" onClick={() => setMoverA(u)} aria-label={`Mover a ${nombre(u)} a otra área`} title="Mover a otra área"
+                  className="rounded-lg p-1.5 text-org-tinta/35 transition-colors hover:bg-org-tinte hover:text-org-rojo"
+                ><ArrowRightLeft className="h-4 w-4" aria-hidden /></button>
                 <button
                   type="button" disabled={!area} onClick={() => area && setPermisosDe({ u, areaId: area.id })}
                   aria-label={`Editar permisos de ${nombre(u)}`} title={area ? "Editar permisos" : "Necesita un área para asignar permisos"}
@@ -77,6 +83,7 @@ export function TodasPersonas({ areas, onVerArea }: { areas: AreaItem[]; onVerAr
         })}
       </ul>
 
+      {moverA && <MoverPersona userId={moverA.id} nombre={nombre(moverA)} areaActual={moverA.area} onCerrar={() => setMoverA(null)} />}
       {permisosDe && <PermisosUsuario areaId={permisosDe.areaId} usuario={permisosDe.u} onCerrar={() => setPermisosDe(null)} />}
     </div>
   )

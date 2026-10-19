@@ -31,6 +31,10 @@ class PermisosIn(BaseModel):
     permisos: list[str] = []
 
 
+class MoverIn(BaseModel):
+    area_id: int
+
+
 class CargoIn(BaseModel):
     cargo_id: int | None = None
     nombre: str | None = Field(default=None, max_length=150)
@@ -222,6 +226,39 @@ def cambiar_cargo(area_id: int, user_id: int, body: CargoIn, _: User = Depends(r
         raise HTTPException(_INVALIDO, "Escribe o elige un cargo.")
     cargo = _poner_cargo(db, area_id, user, body.cargo_id, nombre)
     return {"cargo_id": cargo.id, "cargo": cargo.nombre}
+
+
+@router.put("/acceso/usuarios/{user_id}/area")
+def mover_usuario(user_id: int, body: MoverIn, _: User = Depends(require_admin), db: Session = Depends(get_db)):
+    """Pasa a la persona a otra área: cambia el área de su cuenta y, si tiene una sola ficha en el directorio, también la de la ficha.
+    Los permisos propios que sean exclusivos de otras áreas dejan de aplicar solos (no se borran). Debe volver a iniciar sesión."""
+    user = _usuario(db, user_id)
+    destino = _area(db, body.area_id)
+    anterior = user.area
+    if (anterior or "").strip().lower() == destino.name.strip().lower():
+        raise HTTPException(_INVALIDO, "La persona ya está en esa área.")
+    user.area = destino.name
+    db.add(user)
+    db.flush()
+    propios = [f.permiso for f in db.exec(select(UsuarioPermiso).where(UsuarioPermiso.user_id == user.id)).all()]
+    inactivos = sorted(permisos_no_permitidos(db, user, propios))
+    db.commit()
+    ficha = "sin_ficha"
+    with Session(get_personal_engine()) as pdb:
+        fichas = pdb.exec(select(PtcPersona).where(PtcPersona.user_id == user.id)).all()
+        if len(fichas) == 1:
+            persona = fichas[0]
+            persona.area_id = destino.id
+            cargo = pdb.get(PtcCargo, persona.cargo_id) if persona.cargo_id else None
+            if cargo is not None and cargo.area_id not in (None, destino.id):
+                persona.cargo_id = None  # el cargo era de otra área
+            persona.updated_at = datetime.utcnow()
+            pdb.add(persona)
+            pdb.commit()
+            ficha = "movida"
+        elif len(fichas) > 1:
+            ficha = "varias"  # vínculo ambiguo: no se adivina
+    return {"user_id": user.id, "area": destino.name, "area_anterior": anterior, "permisos_inactivos": inactivos, "ficha": ficha}
 
 
 @router.put("/areas/{area_id}/usuarios/{user_id}/permisos")

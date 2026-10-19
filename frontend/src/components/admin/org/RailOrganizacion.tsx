@@ -1,8 +1,10 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { ArrowLeft, Plus, X } from "lucide-react"
 import { Link } from "react-router-dom"
 import { cn } from "@/lib/utils"
 import { getApiError } from "@/hooks/useRoles"
+import { useQueryClient } from "@tanstack/react-query"
+import { sigApi } from "@/lib/sigApi"
 import { useCreateArea, type AreaItem } from "@/hooks/useAreas"
 import { useCreateSede, useDeleteSede, useSedes } from "@/hooks/useSedes"
 
@@ -16,7 +18,10 @@ export function RailOrganizacion({ areas, conteo, total, activa, onElegir, onTod
   onTodas: () => void
 }) {
   const crearArea = useCreateArea()
+  const qc = useQueryClient()
   const [nueva, setNueva] = useState<string | null>(null)
+  const [conSig, setConSig] = useState(false)
+  const panel = useRef<HTMLDivElement>(null)
   const [error, setError] = useState<string>()
 
   async function agregar() {
@@ -25,8 +30,18 @@ export function RailOrganizacion({ areas, conteo, total, activa, onElegir, onTod
     setError(undefined)
     try {
       const creada = await crearArea.mutateAsync(nombre)
+      const quiereSig = conSig
       setNueva(null)
+      setConSig(false)
       onElegir(creada.id)
+      if (quiereSig) {
+        try {
+          await sigApi.post("/api/areas/desde-intranet", { intranetAreaId: creada.id })
+          qc.invalidateQueries({ queryKey: ["sig", "areas"] })
+        } catch (e) {
+          setError(`El área se creó, pero no su carpeta en el SIG: ${(e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "el SIG no respondió"}. Pídela desde el área.`)
+        }
+      }
     } catch (err) {
       setError(getApiError(err))
     }
@@ -83,12 +98,20 @@ export function RailOrganizacion({ areas, conteo, total, activa, onElegir, onTod
             <Plus className="h-3.5 w-3.5" aria-hidden /> Nueva área
           </button>
         ) : (
-          <input
-            autoFocus value={nueva} onChange={(e) => setNueva(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") agregar(); if (e.key === "Escape") setNueva(null) }}
-            onBlur={agregar} placeholder="Nombre del área…" aria-label="Nombre de la nueva área"
-            className="w-full rounded-md border border-white/30 bg-white/10 px-2.5 py-1.5 text-[13px] text-white placeholder:text-white/50 focus:border-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-          />
+          <div ref={panel}>
+            <input
+              autoFocus value={nueva} onChange={(e) => setNueva(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") agregar(); if (e.key === "Escape") { setNueva(null); setConSig(false) } }}
+              onBlur={(e) => { if (!panel.current?.contains(e.relatedTarget as Node | null)) agregar() }}
+              placeholder="Nombre del área…" aria-label="Nombre de la nueva área"
+              className="w-full rounded-md border border-white/30 bg-white/10 px-2.5 py-1.5 text-[13px] text-white placeholder:text-white/50 focus:border-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+            />
+            <label className="mt-2 flex cursor-pointer items-start gap-2 text-[11px] leading-snug text-white/85">
+              <input type="checkbox" checked={conSig} onChange={(e) => setConSig(e.target.checked)} className="mt-0.5 h-3.5 w-3.5 accent-white" />
+              También darle su carpeta en el SIG
+            </label>
+            <button type="button" onClick={agregar} className="mt-2 rounded-md bg-white px-3 py-1 text-[12px] font-medium text-org-rojo hover:bg-white/90">Crear área</button>
+          </div>
         )}
         {error && <p role="alert" className="mt-2 text-[11px] text-white">{error}</p>}
       </div>
