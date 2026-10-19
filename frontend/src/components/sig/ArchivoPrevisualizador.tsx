@@ -15,7 +15,7 @@ import { DocxViewer } from "@/components/sig/SigFileViewer"
  * No carga nada hasta que se monta, así que quien la use la monta solo al desplegar.
  */
 
-type Hoja = { nombre: string; filas: string[][] }
+type Hoja = { nombre: string; filas: string[][]; merges: { r: number; c: number; rs: number; cs: number }[] }
 type Vista =
   | { t: "cargando" }
   | { t: "url"; url: string; tipo: "pdf" | "imagen" | "audio" | "video" }
@@ -45,11 +45,17 @@ const mb = (b: number) => `${(b / 1024 / 1024).toFixed(1)} MB`
 async function leerTabla(buf: ArrayBuffer): Promise<Hoja[]> {
   const XLSX = await import("xlsx")
   const libro = XLSX.read(buf, { type: "array" })
-  return libro.SheetNames.slice(0, 12).map((n) => ({
-    nombre: n,
-    filas: (XLSX.utils.sheet_to_json<string[]>(libro.Sheets[n]!, { header: 1, raw: false, defval: "" }) as string[][])
-      .slice(0, MAX_FILAS).map((f) => f.slice(0, MAX_COLS).map(String)),
-  }))
+  return libro.SheetNames.slice(0, 12).map((n) => {
+    const hoja = libro.Sheets[n]!
+    const todas = XLSX.utils.sheet_to_json<string[]>(hoja, { header: 1, raw: false, defval: "" }) as string[][]
+    // Los formularios traen un rango «usado» enorme y casi vacío: se recorta a lo que realmente tiene contenido (o está combinado)
+    const merges = (hoja["!merges"] ?? []).map((m) => ({ r: m.s.r, c: m.s.c, rs: m.e.r - m.s.r + 1, cs: m.e.c - m.s.c + 1 }))
+    let ultFila = -1, ultCol = -1
+    todas.forEach((f, r) => f.forEach((v, c) => { if (String(v).trim() !== "") { ultFila = Math.max(ultFila, r); ultCol = Math.max(ultCol, c) } }))
+    merges.forEach((m) => { ultFila = Math.max(ultFila, m.r); ultCol = Math.max(ultCol, m.c) })
+    const filas = todas.slice(0, Math.min(ultFila + 1, MAX_FILAS)).map((f) => Array.from({ length: Math.min(ultCol + 1, MAX_COLS) }, (_, c) => String(f[c] ?? "")))
+    return { nombre: n, filas, merges: merges.filter((m) => m.r < filas.length && m.c < MAX_COLS) }
+  })
 }
 
 export function ArchivoPrevisualizador({ base, nombre, mime, tamano, altura = "70vh" }: {
@@ -178,7 +184,12 @@ export function ArchivoPrevisualizador({ base, nombre, mime, tamano, altura = "7
 function TablaHojas({ hojas, altura, marco }: { hojas: Hoja[]; altura: string; marco: string }) {
   const [activa, setActiva] = useState(0)
   const h = hojas[activa] ?? hojas[0]
-  if (!h) return <div className={`${marco} px-4 py-8 text-center text-xs text-zinc-600`}>El archivo está vacío.</div>
+  if (!h || h.filas.length === 0) return <div className={`${marco} px-4 py-8 text-center text-xs text-zinc-600`}>{h ? "Esta hoja está vacía." : "El archivo está vacío."}</div>
+  // celda de origen de cada combinación y celdas tapadas por ella
+  const origen = new Map(h.merges.map((m) => [`${m.r},${m.c}`, m]))
+  const tapada = new Set<string>()
+  h.merges.forEach((m) => { for (let r = m.r; r < m.r + m.rs; r++) for (let c = m.c; c < m.c + m.cs; c++) if (r !== m.r || c !== m.c) tapada.add(`${r},${c}`) })
+  const conEncabezado = h.merges.length === 0
   return (
     <div className={`${marco} flex flex-col bg-white`} style={{ maxHeight: altura }}>
       {hojas.length > 1 && (
@@ -192,11 +203,19 @@ function TablaHojas({ hojas, altura, marco }: { hojas: Hoja[]; altura: string; m
         </div>
       )}
       <div className="overflow-auto">
-        <table className="min-w-full border-collapse text-xs">
+        <table className="border-collapse text-[13px]">
           <tbody>
             {h.filas.map((fila, i) => (
-              <tr key={i} className={i === 0 ? "sticky top-0 bg-zinc-100 font-semibold" : i % 2 ? "bg-zinc-50" : ""}>
-                {fila.map((c, j) => <td key={j} className="max-w-[260px] truncate border border-zinc-200 px-2 py-1 text-zinc-800" title={c}>{c}</td>)}
+              <tr key={i} className={conEncabezado && i === 0 ? "sticky top-0 bg-zinc-100 font-semibold" : ""}>
+                {fila.map((c, j) => {
+                  if (tapada.has(`${i},${j}`)) return null
+                  const m = origen.get(`${i},${j}`)
+                  return (
+                    <td key={j} rowSpan={m?.rs} colSpan={m?.cs} className="min-w-[3rem] max-w-[420px] whitespace-pre-wrap break-words border border-zinc-300 px-2 py-1 align-top text-zinc-800">
+                      {c}
+                    </td>
+                  )
+                })}
               </tr>
             ))}
           </tbody>
