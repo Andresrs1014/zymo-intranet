@@ -213,10 +213,9 @@ def _resync_pg_sequences() -> None:
             try:
                 conn.execute(
                     text(
-                        f'SELECT setval('
-                        f"pg_get_serial_sequence('{table}', 'id'), "
-                        f'COALESCE((SELECT MAX(id) FROM "{table}"), 1), '
-                        f'(SELECT MAX(id) IS NOT NULL FROM "{table}"))'
+                        f'SELECT setval(s.nm, GREATEST(COALESCE((SELECT MAX(id) FROM "{table}"), 1), '
+                        f"COALESCE((SELECT last_value FROM pg_sequences WHERE schemaname || '.' || sequencename = s.nm), 1)), true) "
+                        f"FROM (SELECT pg_get_serial_sequence('{table}', 'id') AS nm) s"
                     )
                 )
                 conn.commit()

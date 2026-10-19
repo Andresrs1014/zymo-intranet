@@ -51,9 +51,9 @@ export function AreaUsuarios({ areaId, areaNombre }: { areaId: number; areaNombr
   }
 
   async function quitar(u: UsuarioArea) {
-    if (!window.confirm(`¿Archivar a ${u.full_name ?? u.email}? Deja de poder entrar; se puede reactivar.`)) return
+    if (!window.confirm(`¿Archivar a ${u.full_name ?? u.email}? Deja de poder entrar y desaparece de todas las listas de áreas; se puede reactivar desde «Archivados».`)) return
     setError(undefined)
-    try { await archivar.mutateAsync(u.id); qc.invalidateQueries({ queryKey: ["area-usuarios", areaId] }) } catch (err) { setError(getApiError(err)) }
+    try { await archivar.mutateAsync(u.id); qc.invalidateQueries({ queryKey: ["area-usuarios"] }) } catch (err) { setError(getApiError(err)) }
   }
 
   return (

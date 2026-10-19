@@ -44,7 +44,7 @@ export function OrganizacionPage() {
 
   const conteo = useMemo(() => {
     const c: Record<string, number> = {}
-    for (const u of usuarios) if (u.area) c[u.area] = (c[u.area] ?? 0) + 1
+    for (const u of usuarios) if (u.area?.trim()) { const k = u.area.trim().toLowerCase(); c[k] = (c[k] ?? 0) + 1 }
     return c
   }, [usuarios])
   const nombresAreas = useMemo(() => Object.fromEntries(areas.map((a) => [a.id, a.name])), [areas])

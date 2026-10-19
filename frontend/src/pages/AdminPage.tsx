@@ -7,12 +7,9 @@ import { UserFormModal } from "@/components/admin/UserFormModal"
 import { getRoleLabel } from "@/lib/roles"
 import {
   useUsers,
-  useArchivedUsers,
   useCreateUser,
   useUpdateUser,
   useDeactivateUser,
-  useReactivateUser,
-  useDeleteUser,
   getApiError,
   type CreateUserPayload,
   type UpdateUserPayload,
@@ -44,14 +41,14 @@ import {
 } from "@/components/ui/dialog"
 import { useSystemConfig, useUpdateSystemConfig, useTestEmail, useTestWebhook } from "@/hooks/useSystemConfig"
 
-type Tab = "activos" | "archivados" | "equipos" | "config"
+type Tab = "activos" | "equipos" | "config"
 
 const TOOLS = [
   { key: "tool_task_submit_dev", label: "Gestión de Tareas — Colaborador", desc: "Acceso a registro de tareas propias" },
   { key: "tool_task_manage_dev", label: "Gestión de Tareas — Gestor", desc: "Gestión completa del equipo de tareas" },
 ]
 
-const VALID_TABS: Tab[] = ["activos", "equipos", "config"] // «archivados» se movió a Organización
+const VALID_TABS: Tab[] = ["activos", "equipos", "config"] // las cuentas archivadas están en Organización
 
 export function AdminPage() {
   const [searchParams] = useSearchParams()
@@ -62,21 +59,11 @@ export function AdminPage() {
   const [selected, setSelected] = useState<UserListItem | null>(null)
   const [mutationError, setMutationError] = useState<string>()
   const [toolsUser, setToolsUser] = useState<UserListItem | null>(null)
-  const [deleteTasksConfirm, setDeleteTasksConfirm] = useState<"idle" | "ask">("idle")
-  const [pendingDeleteUser, setPendingDeleteUser] = useState<UserListItem | null>(null)
 
   const { data: activeUsers = [], isLoading: loadingActive } = useUsers()
-  const {
-    data: archivedUsers = [],
-    isLoading: loadingArchived,
-    refetch: fetchArchived,
-  } = useArchivedUsers()
-
   const createUser = useCreateUser()
   const updateUser = useUpdateUser()
   const deactivateUser = useDeactivateUser()
-  const reactivateUser = useReactivateUser()
-  const deleteUser = useDeleteUser()
 
   function openCreate() {
     setSelected(null)
@@ -94,11 +81,6 @@ export function AdminPage() {
     setModal(null)
     setSelected(null)
     setMutationError(undefined)
-  }
-
-  function handleTabChange(next: Tab) {
-    setTab(next)
-    if (next === "archivados") fetchArchived()
   }
 
   function handleSubmit(payload: CreateUserPayload | UpdateUserPayload) {
@@ -124,18 +106,9 @@ export function AdminPage() {
     deactivateUser.mutate(user.id)
   }
 
-  function handleReactivate(user: UserListItem) {
-    reactivateUser.mutate(user.id)
-  }
-
-  function handleDelete(user: UserListItem) {
-    setPendingDeleteUser(user)
-    setDeleteTasksConfirm("ask")
-  }
-
   const isModalLoading = createUser.isPending || updateUser.isPending
-  const users = tab === "activos" ? activeUsers : archivedUsers
-  const isLoading = tab === "activos" ? loadingActive : loadingArchived
+  const users = activeUsers
+  const isLoading = loadingActive
 
   return (
     <>
@@ -168,7 +141,7 @@ export function AdminPage() {
             ] as { key: Tab; label: string }[]).map((t) => (
               <button
                 key={t.key}
-                onClick={() => handleTabChange(t.key)}
+                onClick={() => setTab(t.key)}
                 className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
                   tab === t.key
                     ? "bg-card text-foreground shadow-sm"
@@ -194,11 +167,7 @@ export function AdminPage() {
               </div>
             ) : users.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
-                <p className="text-muted-foreground text-sm">
-                  {tab === "activos"
-                    ? "No hay usuarios activos."
-                    : "No hay usuarios archivados."}
-                </p>
+                <p className="text-muted-foreground text-sm">No hay usuarios activos.</p>
               </div>
             ) : (
               <table className="w-full text-sm">
@@ -222,11 +191,8 @@ export function AdminPage() {
                     <UserRow
                       key={user.id}
                       user={user}
-                      tab={tab}
                       onEdit={openEdit}
                       onDeactivate={handleDeactivate}
-                      onReactivate={handleReactivate}
-                      onDelete={handleDelete}
                       onManageTools={setToolsUser}
                     />
                   ))}
@@ -251,59 +217,18 @@ export function AdminPage() {
         <UserToolsModal user={toolsUser} onClose={() => setToolsUser(null)} />
       )}
 
-      {deleteTasksConfirm === "ask" && pendingDeleteUser && (
-        <Dialog
-          open={true}
-          onOpenChange={(open) => {
-            if (!open) { setDeleteTasksConfirm("idle"); setPendingDeleteUser(null) }
-          }}
-        >
-          <DialogContent className="max-w-sm">
-            <DialogHeader>
-              <DialogTitle>Eliminar usuario</DialogTitle>
-            </DialogHeader>
-            <p className="text-sm text-muted-foreground">¿Qué hacer con las tareas de este usuario?</p>
-            <DialogFooter className="flex-col gap-2 sm:flex-col">
-              <Button
-                onClick={() => { deleteUser.mutate({ id: pendingDeleteUser.id, deleteTasks: true }); setDeleteTasksConfirm("idle"); setPendingDeleteUser(null) }}
-                variant="destructive"
-                className="w-full"
-              >
-                Eliminar usuario y sus tareas
-              </Button>
-              <Button
-                onClick={() => { deleteUser.mutate({ id: pendingDeleteUser.id, deleteTasks: false }); setDeleteTasksConfirm("idle"); setPendingDeleteUser(null) }}
-                variant="outline"
-                className="w-full"
-              >
-                Eliminar usuario, dejar tareas dormidas
-              </Button>
-              <Button
-                onClick={() => { setDeleteTasksConfirm("idle"); setPendingDeleteUser(null) }}
-                variant="ghost"
-                className="w-full"
-              >
-                Cancelar
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
     </>
   )
 }
 
 interface RowProps {
   user: UserListItem
-  tab: Tab
   onEdit: (u: UserListItem) => void
   onDeactivate: (u: UserListItem) => void
-  onReactivate: (u: UserListItem) => void
-  onDelete: (u: UserListItem) => void
   onManageTools: (u: UserListItem) => void
 }
 
-function UserRow({ user, tab, onEdit, onDeactivate, onReactivate, onDelete, onManageTools }: RowProps) {
+function UserRow({ user, onEdit, onDeactivate, onManageTools }: RowProps) {
   return (
     <tr className="hover:bg-muted transition-colors">
       <td className="px-4 py-3">
@@ -332,53 +257,32 @@ function UserRow({ user, tab, onEdit, onDeactivate, onReactivate, onDelete, onMa
       </td>
       <td className="px-4 py-3 text-right">
         <div className="flex items-center justify-end gap-2">
-          {tab === "activos" ? (
-            <>
-              <Button
-                onClick={() => onManageTools(user)}
-                variant="ghost"
-                size="sm"
-                className="text-xs px-2 py-1 h-auto"
-              >
-                Herramientas
-              </Button>
-              <Button
-                onClick={() => onEdit(user)}
-                variant="ghost"
-                size="sm"
-                className="text-xs px-2 py-1 h-auto text-primary hover:bg-primary/10"
-              >
-                Editar
-              </Button>
-              <Button
-                onClick={() => onDeactivate(user)}
-                variant="ghost"
-                size="sm"
-                className="text-xs px-2 py-1 h-auto text-red-500 hover:bg-red-50"
-              >
-                Desactivar
-              </Button>
+          <>
+            <Button
+              onClick={() => onManageTools(user)}
+              variant="ghost"
+              size="sm"
+              className="text-xs px-2 py-1 h-auto"
+            >
+              Herramientas
+            </Button>
+            <Button
+              onClick={() => onEdit(user)}
+              variant="ghost"
+              size="sm"
+              className="text-xs px-2 py-1 h-auto text-primary hover:bg-primary/10"
+            >
+              Editar
+            </Button>
+            <Button
+              onClick={() => onDeactivate(user)}
+              variant="ghost"
+              size="sm"
+              className="text-xs px-2 py-1 h-auto text-red-500 hover:bg-red-50"
+            >
+              Desactivar
+            </Button>
             </>
-          ) : (
-            <>
-              <Button
-                onClick={() => onReactivate(user)}
-                variant="ghost"
-                size="sm"
-                className="text-xs px-2 py-1 h-auto text-green-600 hover:bg-green-50"
-              >
-                Reactivar
-              </Button>
-              <Button
-                onClick={() => onDelete(user)}
-                variant="ghost"
-                size="sm"
-                className="text-xs px-2 py-1 h-auto text-red-500 hover:bg-red-50"
-              >
-                Eliminar
-              </Button>
-            </>
-          )}
         </div>
       </td>
     </tr>

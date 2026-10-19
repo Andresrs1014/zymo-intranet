@@ -30,17 +30,6 @@ export function useUsers() {
   })
 }
 
-export function useArchivedUsers() {
-  return useQuery({
-    queryKey: ["users", "archived"],
-    queryFn: async () => {
-      const { data } = await api.get<UserListItem[]>("/auth/users/archived")
-      return data
-    },
-    enabled: false, // solo se carga cuando el tab está activo
-  })
-}
-
 export interface LoteResultado {
   archivados?: number[]
   eliminados?: number[]
@@ -118,18 +107,6 @@ export function useDeactivateUser() {
       await api.delete(`/auth/users/${id}`)
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["users"] }),
-  })
-}
-
-export function useDeleteUser() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async ({ id, deleteTasks = false }: { id: number; deleteTasks?: boolean }) => {
-      await api.delete(`/auth/users/${id}/eliminar?delete_tasks=${deleteTasks}`)
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["users"] })
-    },
   })
 }
 

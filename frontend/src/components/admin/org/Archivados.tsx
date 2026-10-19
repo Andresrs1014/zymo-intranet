@@ -22,7 +22,7 @@ export function Archivados() {
   }, [archivados, q])
   const todosMarcados = visibles.length > 0 && visibles.every((u) => marcados.has(u.id))
   const alternar = (id: number) => setMarcados((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
-  const seleccionados = archivados.filter((u) => marcados.has(u.id))
+  const seleccionados = visibles.filter((u) => marcados.has(u.id))
 
   async function volver(u: UserListItem) {
     setError(undefined)

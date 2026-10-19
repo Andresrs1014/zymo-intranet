@@ -1162,6 +1162,15 @@ def obtener_persona(
     return data
 
 
+def _cuenta_libre(db: Session, user_id: int | None, persona_id: int | None = None) -> None:
+    """Una cuenta pertenece a UNA persona: vincularla a una segunda ficha hace que el sistema confunda quién es quién."""
+    if user_id is None:
+        return
+    otra = db.exec(select(PtcPersona).where(PtcPersona.user_id == user_id, PtcPersona.id != (persona_id or 0))).first()
+    if otra:
+        raise HTTPException(status_code=409, detail=f"Esa cuenta ya está vinculada a la ficha de {otra.nombre}.")
+
+
 @router.post("/personas", status_code=status.HTTP_201_CREATED)
 def crear_persona(
     body: PersonaCreate,
@@ -1171,6 +1180,7 @@ def crear_persona(
 ):
     if not main_db.get(Sede, body.empresa_id):
         raise HTTPException(status_code=400, detail="Sede (empresa) no encontrada.")
+    _cuenta_libre(db, body.user_id)
 
     initials = body.initials or "".join(
         w[0].upper() for w in body.nombre.split()[:2] if w
@@ -1220,6 +1230,7 @@ def actualizar_persona(
         raise HTTPException(status_code=404, detail="Persona no encontrada.")
 
     data = body.model_dump(exclude_unset=True)
+    _cuenta_libre(db, data.get("user_id"), persona_id)
     # empresa_id es el alias público de sede_id (cross-DB, sin FK)
     if "empresa_id" in data:
         data["sede_id"] = data.pop("empresa_id")

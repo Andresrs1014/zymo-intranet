@@ -339,6 +339,7 @@ def eliminar_varios(payload: LoteIds, db: Session = Depends(get_db), current_use
     ids = list(dict.fromkeys(payload.ids))
     eliminados: list[int] = []
     omitidos: list[dict] = []
+    pdb = Session(get_personal_engine())
     for uid in ids:
         u = db.get(User, uid)
         if not u:
@@ -351,40 +352,20 @@ def eliminar_varios(payload: LoteIds, db: Session = Depends(get_db), current_use
             omitidos.append({"id": uid, "motivo": "primero hay que archivarlo"})
             continue
         try:
+            for p in pdb.exec(select(PtcPersona).where(PtcPersona.user_id == uid)).all():  # type: ignore[union-attr]
+                p.user_id = None  # la ficha se queda, sin el vínculo a una cuenta que va a dejar de existir
+                pdb.add(p)
             db.delete(u)
             db.commit()
+            pdb.commit()
         except SQLAlchemyError:
             db.rollback()
+            pdb.rollback()
             omitidos.append({"id": uid, "motivo": "tiene registros que dependen de la cuenta"})
             continue
         eliminados.append(uid)
-    if eliminados:
-        with Session(get_personal_engine()) as pdb:  # las fichas se quedan, sin el vínculo a una cuenta que ya no existe
-            for p in pdb.exec(select(PtcPersona).where(PtcPersona.user_id.in_(eliminados))).all():  # type: ignore[union-attr]
-                p.user_id = None
-                pdb.add(p)
-            pdb.commit()
+    pdb.close()
     return {"eliminados": eliminados, "omitidos": omitidos}
-
-
-@router.delete("/users/{user_id}/eliminar")
-def delete_user_permanently(
-    user_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
-):
-    """Elimina permanentemente un usuario archivado."""
-    user = db.get(User, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
-    if user.is_active:
-        raise HTTPException(status_code=400, detail="Solo se pueden eliminar usuarios archivados.")
-    if user.id == current_user.id:
-        raise HTTPException(status_code=400, detail="No puedes eliminarte a ti mismo.")
-
-    db.delete(user)
-    db.commit()
-    return {"ok": True}
 
 
 @router.post("/users/{user_id}/reactivar", response_model=MeResponse)

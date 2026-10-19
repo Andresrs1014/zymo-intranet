@@ -91,7 +91,7 @@ export function useCrearUsuario(areaId: number) {
   return useMutation({
     mutationFn: async (datos: UsuarioNuevo) => (await api.post<{ id: number; email: string; cargo: string | null }>(`/areas/${areaId}/usuarios`, datos)).data,
     onSuccess: () => Promise.all([
-      qc.invalidateQueries({ queryKey: ["area-usuarios", areaId] }),
+      qc.invalidateQueries({ queryKey: ["area-usuarios"] }),
       qc.invalidateQueries({ queryKey: ["area-cargos", areaId] }),
       qc.invalidateQueries({ queryKey: ["users"] }),
     ]),
@@ -105,7 +105,7 @@ export function useCambiarCargo(areaId: number) {
     mutationFn: async ({ userId, cargo_id, nombre }: { userId: number; cargo_id?: number; nombre?: string }) =>
       (await api.put<{ cargo_id: number; cargo: string }>(`/areas/${areaId}/usuarios/${userId}/cargo`, { cargo_id, nombre })).data,
     onSuccess: () => Promise.all([
-      qc.invalidateQueries({ queryKey: ["area-usuarios", areaId] }),
+      qc.invalidateQueries({ queryKey: ["area-usuarios"] }),
       qc.invalidateQueries({ queryKey: ["area-cargos", areaId] }),
     ]),
   })

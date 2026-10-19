@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from sqlmodel import Session, select
+from sqlmodel import Session, func, select
 
 from app.core.deps import get_current_user, require_admin
 from app.database import get_db
@@ -71,13 +71,18 @@ def update_area(
     area = db.get(Area, area_id)
     if not area:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Área no encontrada.")
-    conflict = db.exec(select(Area).where(Area.name == payload.name)).first()
+    conflict = db.exec(select(Area).where(func.lower(Area.name) == payload.name.strip().lower())).first()
     if conflict and conflict.id != area_id:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Ya existe un área con el nombre '{payload.name}'.",
         )
+    anterior = area.name
     area.name = payload.name
+    # el área de una cuenta es un texto: si el área cambia de nombre, las cuentas que la tenían deben seguirla
+    for user in db.exec(select(User).where(func.lower(func.trim(User.area)) == anterior.strip().lower())).all():
+        user.area = payload.name
+        db.add(user)
     db.add(area)
     db.commit()
     db.refresh(area)
@@ -95,7 +100,7 @@ def area_en_uso(
     if not area:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Área no encontrada.")
 
-    cuentas = db.exec(select(User).where(User.area == area.name)).all()
+    cuentas = db.exec(select(User).where(func.lower(func.trim(User.area)) == area.name.strip().lower())).all()
     with Session(get_personal_engine()) as pdb:
         personas = pdb.exec(select(PtcPersona).where(PtcPersona.area_id == area_id)).all()
 
@@ -116,7 +121,7 @@ def delete_area(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Área no encontrada.")
 
     # Desvincula en vez de bloquear — el usuario ya confirmó contra /en-uso.
-    for user in db.exec(select(User).where(User.area == area.name)).all():
+    for user in db.exec(select(User).where(func.lower(func.trim(User.area)) == area.name.strip().lower())).all():
         user.area = None
         db.add(user)
     db.commit()

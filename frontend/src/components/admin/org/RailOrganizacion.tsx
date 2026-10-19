@@ -1,4 +1,4 @@
-import { useRef, useState } from "react"
+import { useState } from "react"
 import { ArrowLeft, FolderCheck, FolderX, Plus, X } from "lucide-react"
 import { Link } from "react-router-dom"
 import { cn } from "@/lib/utils"
@@ -26,11 +26,11 @@ export function RailOrganizacion({ areas, conteo, conCarpeta, total, archivados,
   const qc = useQueryClient()
   const [nueva, setNueva] = useState<string | null>(null)
   const [conSig, setConSig] = useState(false)
-  const panel = useRef<HTMLDivElement>(null)
   const [error, setError] = useState<string>()
 
   async function agregar() {
     const nombre = (nueva ?? "").trim()
+    if (crearArea.isPending) return
     if (!nombre) { setNueva(null); return }
     setError(undefined)
     try {
@@ -110,7 +110,7 @@ export function RailOrganizacion({ areas, conteo, conCarpeta, total, archivados,
                   {conCarpeta && (conCarpeta.has(a.id)
                     ? <span title="Tiene carpeta en el SIG"><FolderCheck className={cn("h-3.5 w-3.5", on ? "text-org-vivo" : "text-white/85")} aria-hidden /><span className="sr-only">Tiene carpeta en el SIG</span></span>
                     : <span title="Sin carpeta en el SIG"><FolderX className={cn("h-3.5 w-3.5", on ? "text-org-tinta/35" : "text-white/35")} aria-hidden /><span className="sr-only">Sin carpeta en el SIG</span></span>)}
-                  <span className={cn("font-mono text-[11px] tabular-nums", on ? "text-org-vivo" : "text-white/50")}>{conteo[a.name] ?? 0}</span>
+                  <span className={cn("font-mono text-[11px] tabular-nums", on ? "text-org-vivo" : "text-white/50")}>{conteo[a.name.trim().toLowerCase()] ?? 0}</span>
                 </span>
               </button>
             </li>
@@ -124,11 +124,10 @@ export function RailOrganizacion({ areas, conteo, conCarpeta, total, archivados,
             <Plus className="h-3.5 w-3.5" aria-hidden /> Nueva área
           </button>
         ) : (
-          <div ref={panel}>
+          <div>
             <input
               autoFocus value={nueva} onChange={(e) => setNueva(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") agregar(); if (e.key === "Escape") { setNueva(null); setConSig(false) } }}
-              onBlur={(e) => { if (!panel.current?.contains(e.relatedTarget as Node | null)) agregar() }}
               placeholder="Nombre del área…" aria-label="Nombre de la nueva área"
               className="w-full rounded-md border border-white/30 bg-white/10 px-2.5 py-1.5 text-[13px] text-white placeholder:text-white/50 focus:border-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
             />
@@ -136,7 +135,7 @@ export function RailOrganizacion({ areas, conteo, conCarpeta, total, archivados,
               <input type="checkbox" checked={conSig} onChange={(e) => setConSig(e.target.checked)} className="mt-0.5 h-3.5 w-3.5 accent-white" />
               También darle su carpeta en el SIG
             </label>
-            <button type="button" onClick={agregar} className="mt-2 rounded-md bg-white px-3 py-1 text-[12px] font-medium text-org-rojo hover:bg-white/90">Crear área</button>
+            <button type="button" onClick={agregar} disabled={crearArea.isPending} className="mt-2 rounded-md bg-white px-3 py-1 disabled:opacity-60 text-[12px] font-medium text-org-rojo hover:bg-white/90">Crear área</button>
           </div>
         )}
         {error && <p role="alert" className="mt-2 text-[11px] text-white">{error}</p>}

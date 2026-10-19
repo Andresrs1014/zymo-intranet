@@ -25,7 +25,7 @@ export function TodasPersonas({ areas, onVerArea }: { areas: AreaItem[]; onVerAr
   const alternar = (id: number) => setMarcados((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
 
   async function archivarMarcados() {
-    const ids = [...marcados]
+    const ids = visibles.filter((u) => marcados.has(u.id)).map((u) => u.id) // solo lo que se ve: el filtro no deja marcadas cuentas ocultas
     if (!window.confirm(`¿Archivar ${ids.length} cuenta${ids.length === 1 ? "" : "s"}? Dejan de poder entrar; se pueden reactivar desde «Archivados».`)) return
     setAviso(undefined)
     try {
@@ -41,6 +41,8 @@ export function TodasPersonas({ areas, onVerArea }: { areas: AreaItem[]; onVerAr
     const t = q.trim().toLowerCase()
     return t ? usuarios.filter((u) => `${u.full_name ?? ""} ${u.email} ${u.cargo ?? ""} ${u.area ?? ""}`.toLowerCase().includes(t)) : usuarios
   }, [usuarios, q])
+
+  const nMarcadas = visibles.filter((u) => marcados.has(u.id)).length
 
   return (
     <div className="mx-auto max-w-5xl px-6 pb-16 pt-8 sm:px-10">
@@ -58,9 +60,9 @@ export function TodasPersonas({ areas, onVerArea }: { areas: AreaItem[]; onVerAr
         />
       </label>
 
-      {marcados.size > 0 && (
+      {nMarcadas > 0 && (
         <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-org-rojo/30 bg-org-tinte/60 px-4 py-2 text-[12px] text-org-tinta">
-          <span><strong>{marcados.size}</strong> marcada{marcados.size === 1 ? "" : "s"}</span>
+          <span><strong>{nMarcadas}</strong> marcada{nMarcadas === 1 ? "" : "s"}</span>
           <button type="button" onClick={archivarMarcados} disabled={archivarVarios.isPending}
             className="inline-flex items-center gap-1.5 rounded-full bg-org-rojo px-3 py-1 font-medium text-white hover:bg-org-oscuro disabled:opacity-50"><Archive className="h-3.5 w-3.5" aria-hidden /> Archivar seleccionadas</button>
           <button type="button" onClick={() => setMarcados(new Set())} className="text-org-tinta/60 underline-offset-2 hover:underline">Quitar selección</button>
@@ -94,7 +96,8 @@ export function TodasPersonas({ areas, onVerArea }: { areas: AreaItem[]; onVerAr
                     <button type="button" onClick={() => setMoverA(u)} className="font-medium text-org-rojo underline-offset-2 hover:underline">Asignar área</button>
                   </span>
                 )}
-                <p className="mt-1 truncate text-org-tinta/60">{u.cargo ?? (u.fichas > 1 ? `${u.fichas} fichas vinculadas` : u.fichas === 0 ? "sin ficha en el directorio" : "sin cargo")}</p>
+                <p className="mt-1 truncate text-org-tinta/60">{u.cargo ?? (u.fichas === 0 ? "sin ficha en el directorio" : "sin cargo")}</p>
+                {u.fichas > 1 && <p className="mt-0.5 text-[11px] text-org-rojo" title="Hay fichas del directorio vinculadas a esta cuenta que pueden ser de otras personas">⚠ {u.fichas} fichas vinculadas: revisar</p>}
               </div>
               <div className="flex min-w-0 flex-wrap items-center gap-1">
                 {u.permisos.slice(0, 3).map((p) => <span key={p} className="rounded-full border border-org-vivo/40 bg-org-tinte px-2 py-0.5 text-[11px] font-medium text-org-rojo">{APP[p] ?? p}</span>)}

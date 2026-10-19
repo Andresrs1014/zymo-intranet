@@ -2,12 +2,13 @@
 
 Solo organiza quién VE qué; no toca la lógica de ninguna herramienta.
 """
+import logging
 import re
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, Field
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlmodel import Session, func, select
 
 from app.config import settings
@@ -21,6 +22,7 @@ from app.models.user import User
 from app.personal_database import PtcCargo, PtcCargoSede, PtcPersona, get_personal_engine
 from app.services.acceso_area import permisos_no_permitidos
 
+log = logging.getLogger(__name__)
 router = APIRouter(tags=["Organización"])
 
 _PERMISO = re.compile(r"^[a-z][a-z0-9_]{2,99}$")
@@ -136,15 +138,11 @@ def _poner_cargo(db: Session, area_id: int, user: User, cargo_id: int | None, no
 
 @router.get("/areas/{area_id}/usuarios")
 def usuarios_del_area(area_id: int, _: User = Depends(require_admin), db: Session = Depends(get_db)):
-    """Usuarios del área (por su ficha del directorio o por el texto `User.area`), con su cargo y los permisos que tienen asignados."""
+    """Cuentas activas del área. Pertenecer a un área es lo que dice el texto `User.area` de la cuenta: es lo único que usan el JWT,
+    los permisos por área y el SIG. La ficha del directorio no mete a nadie en una lista (hay fichas vinculadas a la cuenta equivocada)."""
     area = _area(db, area_id)
-    with Session(get_personal_engine()) as pdb:
-        en_area = pdb.exec(select(PtcPersona).where(PtcPersona.area_id == area_id, PtcPersona.user_id.is_not(None))).all()  # type: ignore[union-attr]
-        users = {u.id: u for u in db.exec(select(User).where(func.lower(User.area) == area.name.lower(), User.is_active == True)).all()}  # noqa: E712
-        for p in en_area:
-            if p.user_id not in users and (u := db.get(User, p.user_id)) and u.is_active:
-                users[p.user_id] = u
-    return _filas_usuarios(db, list(users.values()))
+    users = db.exec(select(User).where(func.lower(func.trim(User.area)) == area.name.strip().lower(), User.is_active == True)).all()  # noqa: E712
+    return _filas_usuarios(db, list(users))
 
 
 @router.get("/acceso/usuarios")
@@ -247,20 +245,24 @@ def mover_usuario(user_id: int, body: MoverIn, _: User = Depends(require_admin),
     inactivos = sorted(permisos_no_permitidos(db, user, propios))
     db.commit()
     ficha = "sin_ficha"
-    with Session(get_personal_engine()) as pdb:
-        fichas = pdb.exec(select(PtcPersona).where(PtcPersona.user_id == user.id)).all()
-        if len(fichas) == 1:
-            persona = fichas[0]
-            persona.area_id = destino.id if destino else None
-            cargo = pdb.get(PtcCargo, persona.cargo_id) if persona.cargo_id else None
-            if destino is not None and cargo is not None and cargo.area_id not in (None, destino.id):
-                persona.cargo_id = None  # el cargo era de otra área
-            persona.updated_at = datetime.utcnow()
-            pdb.add(persona)
-            pdb.commit()
-            ficha = "movida"
-        elif len(fichas) > 1:
-            ficha = "varias"  # vínculo ambiguo: no se adivina
+    try:
+        with Session(get_personal_engine()) as pdb:
+            fichas = pdb.exec(select(PtcPersona).where(PtcPersona.user_id == user.id)).all()
+            if len(fichas) == 1:
+                persona = fichas[0]
+                persona.area_id = destino.id if destino else None
+                cargo = pdb.get(PtcCargo, persona.cargo_id) if persona.cargo_id else None
+                if destino is not None and cargo is not None and cargo.area_id not in (None, destino.id):
+                    persona.cargo_id = None  # el cargo era de otra área
+                persona.updated_at = datetime.utcnow()
+                pdb.add(persona)
+                pdb.commit()
+                ficha = "movida"
+            elif len(fichas) > 1:
+                ficha = "varias"  # vínculo ambiguo: no se adivina (ver el diagnóstico de vínculos)
+    except SQLAlchemyError:
+        log.exception("La cuenta %s cambió de área pero no se pudo actualizar su ficha del directorio", user.id)
+        ficha = "error"
     return {"user_id": user.id, "area": destino.name if destino else None, "area_anterior": anterior, "permisos_inactivos": inactivos, "ficha": ficha}
 
 
