@@ -250,7 +250,7 @@ Está vacía. El área sigue existiendo en la intranet; solo desaparece su carpe
           />
         </div>
       ) : (
-        <div className="relative flex items-center group">
+        <div className="flex items-center group pr-1">
           <button
             onClick={onToggleArea}
             className="flex items-center gap-1.5 px-2 py-1 text-left hover:bg-zinc-200 transition-colors flex-1 min-w-0"
@@ -262,7 +262,7 @@ Está vacía. El área sigue existiendo en la intranet; solo desaparece su carpe
               ? <FolderOpen className="h-3.5 w-3.5 shrink-0" style={{ color: area.color }} />
               : <Folder className="h-3.5 w-3.5 shrink-0" style={{ color: area.color }} />
             }
-            <span className="text-[12px] text-zinc-700 flex-1 truncate">{area.nombre}</span>
+            <span className="text-[12px] text-zinc-700 flex-1 truncate" title={area.nombre}>{area.nombre}</span>
             <span className="text-xs text-zinc-600 font-mono tabular-nums pr-1">
               {area._count.procedimientos}
             </span>
@@ -270,7 +270,7 @@ Está vacía. El área sigue existiendo en la intranet; solo desaparece su carpe
           {puedeRenombrar && (
             <button
               onClick={(e) => { e.stopPropagation(); setRenaming(true) }}
-              className="absolute right-6 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-70 hover:!opacity-100 focus-visible:!opacity-100 text-zinc-600 hover:text-helix-accent-ink transition-opacity"
+              className="shrink-0 p-1 opacity-0 group-hover:opacity-70 hover:!opacity-100 focus-visible:!opacity-100 text-zinc-600 hover:text-helix-accent-ink transition-opacity"
               title="Renombrar área"
               aria-label="Renombrar área"
             >
@@ -281,7 +281,7 @@ Está vacía. El área sigue existiendo en la intranet; solo desaparece su carpe
             <button
               onClick={(e) => { e.stopPropagation(); borrar() }}
               disabled={borrarMutation.isPending}
-              className={`absolute ${puedeRenombrar ? "right-11" : "right-6"} top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-70 hover:!opacity-100 focus-visible:!opacity-100 text-zinc-600 hover:text-red-700 transition-opacity disabled:opacity-40`}
+              className="shrink-0 p-1 opacity-0 group-hover:opacity-70 hover:!opacity-100 focus-visible:!opacity-100 text-zinc-600 hover:text-red-700 transition-opacity disabled:opacity-40"
               title="Eliminar carpeta vacía"
               aria-label={`Eliminar la carpeta ${area.nombre}`}
             >
