@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { Link } from "react-router-dom"
-import { Archive, ArrowRightLeft, Plus, Search, ShieldCheck, Wrench, X } from "lucide-react"
+import { Archive, ArrowRightLeft, Plus, Search, ShieldCheck, UserMinus, Wrench, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { INTERNAL_MODULES } from "@/lib/roles"
 import { getApiError } from "@/hooks/useRoles"
@@ -10,7 +10,7 @@ import { useSedes } from "@/hooks/useSedes"
 import { UserToolsModal } from "./HerramientasUsuario"
 import { MoverPersona } from "./MoverPersona"
 import { PermisosUsuario } from "./PermisosUsuario"
-import { useCambiarCargo, useCargosArea, useCrearUsuario, useUsuariosArea, type CargoDir, type UsuarioArea } from "@/hooks/useAreaAcceso"
+import { useCambiarCargo, useCargosArea, useCrearUsuario, useMoverUsuario, useUsuariosArea, type CargoDir, type UsuarioArea } from "@/hooks/useAreaAcceso"
 
 const APP: Record<string, string> = Object.fromEntries(INTERNAL_MODULES.map((m) => [m.id, m.name]))
 
@@ -24,6 +24,7 @@ export function AreaUsuarios({ areaId, areaNombre }: { areaId: number; areaNombr
   const { data: usuarios = [], isLoading } = useUsuariosArea(areaId)
   const { data: cargos = [] } = useCargosArea(areaId)
   const archivar = useDeactivateUser()
+  const sacar = useMoverUsuario()
   const [q, setQ] = useState("")
   const [creando, setCreando] = useState(false)
   const [herramientas, setHerramientas] = useState<UsuarioArea | null>(null)
@@ -42,6 +43,12 @@ export function AreaUsuarios({ areaId, areaNombre }: { areaId: number; areaNombr
     const t = q.trim().toLowerCase()
     return t ? usuarios.filter((u) => `${u.full_name ?? ""} ${u.email} ${u.cargo ?? ""}`.toLowerCase().includes(t)) : usuarios
   }, [usuarios, q])
+
+  async function sacarDelArea(u: UsuarioArea) {
+    if (!window.confirm(`¿Sacar a ${u.full_name ?? u.email} del área «${areaNombre}»? Queda como «Sin área» y podrás asignarle otra desde «Todas las personas». Debe volver a iniciar sesión.`)) return
+    setError(undefined)
+    try { await sacar.mutateAsync({ userId: u.id, areaId: null }) } catch (err) { setError(getApiError(err)) }
+  }
 
   async function quitar(u: UsuarioArea) {
     if (!window.confirm(`¿Archivar a ${u.full_name ?? u.email}? Deja de poder entrar; se puede reactivar.`)) return
@@ -76,7 +83,7 @@ export function AreaUsuarios({ areaId, areaNombre }: { areaId: number; areaNombr
         {visibles.map((u, i) => (
           <li
             key={u.id} style={{ animation: `org-in .4s ease ${i * 35}ms both` }}
-            className={cn("grid items-center gap-x-4 gap-y-2 rounded-2xl border border-org-linea bg-white px-4 py-3 md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_13rem_8.5rem]", !u.is_active && "opacity-60")}
+            className={cn("grid items-center gap-x-4 gap-y-2 rounded-2xl border border-org-linea bg-white px-4 py-3 md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_13rem_11rem]", !u.is_active && "opacity-60")}
           >
             <div className="flex min-w-0 items-center gap-3">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-org-tinte font-mono text-[12px] font-medium text-org-rojo" aria-hidden>{iniciales(u)}</span>
@@ -96,6 +103,7 @@ export function AreaUsuarios({ areaId, areaNombre }: { areaId: number; areaNombr
 
             <div className="flex justify-self-end">
               <button type="button" onClick={() => setPermisosDe(u)} aria-label={`Editar permisos de ${u.full_name ?? u.email}`} title="Editar permisos" className={boton}><ShieldCheck className="h-4 w-4" aria-hidden /></button>
+              <button type="button" onClick={() => sacarDelArea(u)} disabled={sacar.isPending} aria-label={`Sacar a ${u.full_name ?? u.email} del área`} title="Sacar del área (queda sin área)" className={boton}><UserMinus className="h-4 w-4" aria-hidden /></button>
               <button type="button" onClick={() => setMoverA(u)} aria-label={`Mover a ${u.full_name ?? u.email} a otra área`} title="Mover a otra área" className={boton}><ArrowRightLeft className="h-4 w-4" aria-hidden /></button>
               <button type="button" onClick={() => setHerramientas(u)} aria-label={`Herramientas de ${u.full_name ?? u.email}`} title="Herramientas y equipos de Tareas" className={boton}><Wrench className="h-4 w-4" aria-hidden /></button>
               <button type="button" onClick={() => quitar(u)} aria-label={`Archivar a ${u.full_name ?? u.email}`} title="Archivar" className={boton}><Archive className="h-4 w-4" aria-hidden /></button>
@@ -105,8 +113,8 @@ export function AreaUsuarios({ areaId, areaNombre }: { areaId: number; areaNombr
       </ul>
 
       <p className="mt-6 text-[12px] text-org-tinta/50">
-        Los usuarios archivados siguen en{" "}
-        <Link to="/admin/configuracion/usuarios" className="text-org-rojo underline underline-offset-2">la gestión clásica de usuarios</Link>.
+        Las cuentas archivadas están en{" "}
+        <Link to="/admin/configuracion/organizacion?area=archivados" className="text-org-rojo underline underline-offset-2">Organización → Archivados</Link>.
       </p>
 
       {permisosDe && <PermisosUsuario areaId={areaId} usuario={permisosDe} onCerrar={() => setPermisosDe(null)} />}

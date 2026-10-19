@@ -9,12 +9,13 @@ import { cn } from "@/lib/utils"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { RailOrganizacion } from "@/components/admin/org/RailOrganizacion"
 import { AreaUsuarios } from "@/components/admin/org/AreaUsuarios"
+import { Archivados } from "@/components/admin/org/Archivados"
 import { TodasPersonas } from "@/components/admin/org/TodasPersonas"
 import { AreaAcceso } from "@/components/admin/org/AreaAcceso"
 import { CarpetaSig } from "@/components/admin/org/CarpetaSig"
 import { useAreas, useDeleteArea, useUpdateArea, type AreaItem } from "@/hooks/useAreas"
 import { getApiError } from "@/hooks/useRoles"
-import { useUsers } from "@/hooks/useUsers"
+import { useUsers, useUsuariosArchivados } from "@/hooks/useUsers"
 import { useUsuariosArea } from "@/hooks/useAreaAcceso"
 
 type Pestana = "usuarios" | "acceso"
@@ -24,6 +25,7 @@ export function OrganizacionPage() {
   const [params, setParams] = useSearchParams()
   const { data: areas = [], isLoading } = useAreas()
   const { data: usuarios = [] } = useUsers()
+  const { data: archivados = [] } = useUsuariosArchivados()
 
   // Carpetas del SIG (misma consulta que usa el bloque de cada área): sirve para marcar en la lista cuáles áreas tienen carpeta
   const { data: carpetasSig } = useQuery({
@@ -34,6 +36,7 @@ export function OrganizacionPage() {
   })
   const conCarpeta = useMemo(() => (carpetasSig ? new Set(carpetasSig.filter((c) => c.intranetAreaId != null).map((c) => c.intranetAreaId as number)) : null), [carpetasSig])
 
+  const verArchivados = params.get("area") === "archivados"
   const pedida = Number(params.get("area")) || null
   // «Todas las personas» es la vista principal; un área solo se abre si se pide (?area=ID)
   const area = areas.find((a) => a.id === pedida) ?? null
@@ -54,10 +57,11 @@ export function OrganizacionPage() {
 
   return (
     <PageLayout title="Organización" mainClassName="org-root flex min-h-0 flex-1 overflow-hidden bg-white">
-      <RailOrganizacion areas={areas} conteo={conteo} conCarpeta={conCarpeta} total={usuarios.length} activa={area?.id ?? null} onElegir={(id) => ir({ area: String(id) })} onTodas={() => ir({ area: "todas" })} />
+      <RailOrganizacion areas={areas} conteo={conteo} conCarpeta={conCarpeta} total={usuarios.length} archivados={archivados.length} verArchivados={verArchivados} onArchivados={() => ir({ area: "archivados" })} activa={area?.id ?? null} onElegir={(id) => ir({ area: String(id) })} onTodas={() => ir({ area: "todas" })} />
       <div className="min-w-0 flex-1 overflow-y-auto">
         {isLoading && <p className="p-10 font-mono text-[12px] text-org-tinta/40">Cargando áreas…</p>}
-        {!area && <TodasPersonas areas={areas} onVerArea={(id) => ir({ area: String(id), tab: "usuarios" })} />}
+        {!area && !verArchivados && <TodasPersonas areas={areas} onVerArea={(id) => ir({ area: String(id), tab: "usuarios" })} />}
+        {!area && verArchivados && <Archivados />}
         {area && (
           <div key={area.id} className="mx-auto max-w-5xl px-6 pb-16 pt-8 sm:px-10">
             <EncabezadoArea area={area} pestana={pestana} onPestana={(t) => ir({ tab: t })} />

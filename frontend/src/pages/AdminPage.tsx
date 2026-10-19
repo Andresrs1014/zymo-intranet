@@ -51,7 +51,7 @@ const TOOLS = [
   { key: "tool_task_manage_dev", label: "Gestión de Tareas — Gestor", desc: "Gestión completa del equipo de tareas" },
 ]
 
-const VALID_TABS: Tab[] = ["activos", "archivados", "equipos", "config"]
+const VALID_TABS: Tab[] = ["activos", "equipos", "config"] // «archivados» se movió a Organización
 
 export function AdminPage() {
   const [searchParams] = useSearchParams()
@@ -163,7 +163,6 @@ export function AdminPage() {
           <div className="flex gap-1 mb-4 bg-muted rounded-lg p-1 w-fit">
             {([
               { key: "activos", label: "Activos" },
-              { key: "archivados", label: "Archivados" },
               { key: "equipos", label: "Equipos archivados" },
               { key: "config", label: "Configuración" },
             ] as { key: Tab; label: string }[]).map((t) => (

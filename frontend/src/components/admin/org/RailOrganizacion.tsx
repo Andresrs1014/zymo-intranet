@@ -9,13 +9,16 @@ import { useCreateArea, type AreaItem } from "@/hooks/useAreas"
 import { useCreateSede, useDeleteSede, useSedes } from "@/hooks/useSedes"
 
 /** Columna roja: las áreas (la elegida se funde con el panel blanco) y, abajo, las sedes. */
-export function RailOrganizacion({ areas, conteo, conCarpeta, total, activa, onElegir, onTodas }: {
+export function RailOrganizacion({ areas, conteo, conCarpeta, total, archivados, verArchivados, onArchivados, activa, onElegir, onTodas }: {
   areas: AreaItem[]
   conteo: Record<string, number>
   /** Ids de las áreas que tienen carpeta en el SIG; null si el SIG no respondió (no se marca nada) */
   conCarpeta: Set<number> | null
   activa: number | null
   total: number
+  archivados: number
+  verArchivados: boolean
+  onArchivados: () => void
   onElegir: (id: number) => void
   onTodas: () => void
 }) {
@@ -61,14 +64,24 @@ export function RailOrganizacion({ areas, conteo, conCarpeta, total, activa, onE
 
       <div className="pl-3">
         <button
-          type="button" onClick={onTodas} aria-current={activa == null ? "true" : undefined}
+          type="button" onClick={onTodas} aria-current={activa == null && !verArchivados ? "true" : undefined}
           className={cn(
             "flex w-full items-center justify-between gap-2 rounded-l-full py-2 pl-4 pr-4 text-left text-[13px] transition-colors",
-            activa == null ? "bg-white font-semibold text-org-rojo" : "text-white/85 hover:bg-white/10",
+            activa == null && !verArchivados ? "bg-white font-semibold text-org-rojo" : "text-white/85 hover:bg-white/10",
           )}
         >
           <span className="truncate">Todas las personas</span>
-          <span className={cn("font-mono text-[11px] tabular-nums", activa == null ? "text-org-vivo" : "text-white/50")}>{total}</span>
+          <span className={cn("font-mono text-[11px] tabular-nums", activa == null && !verArchivados ? "text-org-vivo" : "text-white/50")}>{total}</span>
+        </button>
+        <button
+          type="button" onClick={onArchivados} aria-current={verArchivados ? "true" : undefined}
+          className={cn(
+            "mt-0.5 flex w-full items-center justify-between gap-2 rounded-l-full py-2 pl-4 pr-4 text-left text-[13px] transition-colors",
+            verArchivados ? "bg-white font-semibold text-org-rojo" : "text-white/85 hover:bg-white/10",
+          )}
+        >
+          <span className="truncate">Archivados</span>
+          <span className={cn("font-mono text-[11px] tabular-nums", verArchivados ? "text-org-vivo" : "text-white/50")}>{archivados}</span>
         </button>
       </div>
       <p className="px-5 pt-4 font-mono text-[10px] uppercase tracking-[0.24em] text-white/60">Por área</p>

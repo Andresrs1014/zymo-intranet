@@ -32,7 +32,7 @@ class PermisosIn(BaseModel):
 
 
 class MoverIn(BaseModel):
-    area_id: int
+    area_id: int | None = None  # None = dejar a la persona sin área
 
 
 class CargoIn(BaseModel):
@@ -140,9 +140,9 @@ def usuarios_del_area(area_id: int, _: User = Depends(require_admin), db: Sessio
     area = _area(db, area_id)
     with Session(get_personal_engine()) as pdb:
         en_area = pdb.exec(select(PtcPersona).where(PtcPersona.area_id == area_id, PtcPersona.user_id.is_not(None))).all()  # type: ignore[union-attr]
-        users = {u.id: u for u in db.exec(select(User).where(func.lower(User.area) == area.name.lower())).all()}
+        users = {u.id: u for u in db.exec(select(User).where(func.lower(User.area) == area.name.lower(), User.is_active == True)).all()}  # noqa: E712
         for p in en_area:
-            if p.user_id not in users and (u := db.get(User, p.user_id)):
+            if p.user_id not in users and (u := db.get(User, p.user_id)) and u.is_active:
                 users[p.user_id] = u
     return _filas_usuarios(db, list(users.values()))
 
@@ -230,14 +230,17 @@ def cambiar_cargo(area_id: int, user_id: int, body: CargoIn, _: User = Depends(r
 
 @router.put("/acceso/usuarios/{user_id}/area")
 def mover_usuario(user_id: int, body: MoverIn, _: User = Depends(require_admin), db: Session = Depends(get_db)):
-    """Pasa a la persona a otra área: cambia el área de su cuenta y, si tiene una sola ficha en el directorio, también la de la ficha.
-    Los permisos propios que sean exclusivos de otras áreas dejan de aplicar solos (no se borran). Debe volver a iniciar sesión."""
+    """Pasa a la persona a otra área (o la deja sin área con area_id null): cambia el área de su cuenta y, si tiene una sola ficha en el
+    directorio, también la de la ficha. Los permisos propios que sean exclusivos de otras áreas dejan de aplicar solos (no se borran).
+    Debe volver a iniciar sesión."""
     user = _usuario(db, user_id)
-    destino = _area(db, body.area_id)
+    destino = _area(db, body.area_id) if body.area_id is not None else None
     anterior = user.area
-    if (anterior or "").strip().lower() == destino.name.strip().lower():
+    if destino is None and not (anterior or "").strip():
+        raise HTTPException(_INVALIDO, "La persona ya está sin área.")
+    if destino is not None and (anterior or "").strip().lower() == destino.name.strip().lower():
         raise HTTPException(_INVALIDO, "La persona ya está en esa área.")
-    user.area = destino.name
+    user.area = destino.name if destino else None
     db.add(user)
     db.flush()
     propios = [f.permiso for f in db.exec(select(UsuarioPermiso).where(UsuarioPermiso.user_id == user.id)).all()]
@@ -248,9 +251,9 @@ def mover_usuario(user_id: int, body: MoverIn, _: User = Depends(require_admin),
         fichas = pdb.exec(select(PtcPersona).where(PtcPersona.user_id == user.id)).all()
         if len(fichas) == 1:
             persona = fichas[0]
-            persona.area_id = destino.id
+            persona.area_id = destino.id if destino else None
             cargo = pdb.get(PtcCargo, persona.cargo_id) if persona.cargo_id else None
-            if cargo is not None and cargo.area_id not in (None, destino.id):
+            if destino is not None and cargo is not None and cargo.area_id not in (None, destino.id):
                 persona.cargo_id = None  # el cargo era de otra área
             persona.updated_at = datetime.utcnow()
             pdb.add(persona)
@@ -258,7 +261,7 @@ def mover_usuario(user_id: int, body: MoverIn, _: User = Depends(require_admin),
             ficha = "movida"
         elif len(fichas) > 1:
             ficha = "varias"  # vínculo ambiguo: no se adivina
-    return {"user_id": user.id, "area": destino.name, "area_anterior": anterior, "permisos_inactivos": inactivos, "ficha": ficha}
+    return {"user_id": user.id, "area": destino.name if destino else None, "area_anterior": anterior, "permisos_inactivos": inactivos, "ficha": ficha}
 
 
 @router.put("/areas/{area_id}/usuarios/{user_id}/permisos")

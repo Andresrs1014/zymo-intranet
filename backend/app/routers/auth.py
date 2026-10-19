@@ -4,7 +4,8 @@ from typing import cast
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import jwt
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
 
 from app.config import settings
@@ -12,6 +13,7 @@ from app.core.deps import get_current_user, get_db, require_admin
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models.role import Role
 from app.models.user import User
+from app.personal_database import PtcPersona, get_personal_engine
 from app.services.acceso_area import permisos_asignados
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -300,6 +302,69 @@ def deactivate_user(
     db.add(user)
     db.commit()
     return {"ok": True}
+
+
+class LoteIds(BaseModel):
+    ids: list[int] = Field(min_length=1, max_length=200)
+
+
+@router.post("/users/archivar-varios")
+def archivar_varios(payload: LoteIds, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+    """Archiva varias cuentas de una vez (reversible: se pueden reactivar). Nunca a uno mismo (así siempre queda al menos el administrador que lo hace)."""
+    ahora = datetime.now(timezone.utc)
+    ids = list(dict.fromkeys(payload.ids))
+    archivados: list[int] = []
+    omitidos: list[dict] = []
+    for uid in ids:
+        u = db.get(User, uid)
+        if not u:
+            omitidos.append({"id": uid, "motivo": "no existe"})
+        elif u.id == current_user.id:
+            omitidos.append({"id": uid, "motivo": "no puedes archivarte a ti mismo"})
+        elif not u.is_active:
+            omitidos.append({"id": uid, "motivo": "ya estaba archivado"})
+        else:
+            u.is_active = False
+            u.deactivated_at = ahora
+            db.add(u)
+            archivados.append(uid)
+    db.commit()
+    return {"archivados": archivados, "omitidos": omitidos}
+
+
+@router.post("/users/eliminar-varios")
+def eliminar_varios(payload: LoteIds, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+    """Elimina PARA SIEMPRE varias cuentas ya archivadas. Los permisos propios se van con ellas y las fichas del directorio
+    quedan sin usuario vinculado. Los registros de otros módulos (OC, tareas…) conservan su historial con el número del usuario."""
+    ids = list(dict.fromkeys(payload.ids))
+    eliminados: list[int] = []
+    omitidos: list[dict] = []
+    for uid in ids:
+        u = db.get(User, uid)
+        if not u:
+            omitidos.append({"id": uid, "motivo": "no existe"})
+            continue
+        if u.id == current_user.id:
+            omitidos.append({"id": uid, "motivo": "no puedes eliminarte a ti mismo"})
+            continue
+        if u.is_active:
+            omitidos.append({"id": uid, "motivo": "primero hay que archivarlo"})
+            continue
+        try:
+            db.delete(u)
+            db.commit()
+        except SQLAlchemyError:
+            db.rollback()
+            omitidos.append({"id": uid, "motivo": "tiene registros que dependen de la cuenta"})
+            continue
+        eliminados.append(uid)
+    if eliminados:
+        with Session(get_personal_engine()) as pdb:  # las fichas se quedan, sin el vínculo a una cuenta que ya no existe
+            for p in pdb.exec(select(PtcPersona).where(PtcPersona.user_id.in_(eliminados))).all():  # type: ignore[union-attr]
+                p.user_id = None
+                pdb.add(p)
+            pdb.commit()
+    return {"eliminados": eliminados, "omitidos": omitidos}
 
 
 @router.delete("/users/{user_id}/eliminar")

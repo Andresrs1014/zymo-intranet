@@ -41,6 +41,36 @@ export function useArchivedUsers() {
   })
 }
 
+export interface LoteResultado {
+  archivados?: number[]
+  eliminados?: number[]
+  omitidos: { id: number; motivo: string }[]
+}
+
+/** Cuentas archivadas, siempre cargadas (la pantalla de Organización no depende de un clic previo). */
+export function useUsuariosArchivados() {
+  return useQuery({
+    queryKey: ["users", "archivados-org"],
+    queryFn: async () => (await api.get<UserListItem[]>("/auth/users/archived")).data,
+  })
+}
+
+export function useArchivarVarios() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (ids: number[]) => (await api.post<LoteResultado>("/auth/users/archivar-varios", { ids })).data,
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ["users"] }), qc.invalidateQueries({ queryKey: ["area-usuarios"] })]),
+  })
+}
+
+export function useEliminarVarios() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (ids: number[]) => (await api.post<LoteResultado>("/auth/users/eliminar-varios", { ids })).data,
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ["users"] }), qc.invalidateQueries({ queryKey: ["area-usuarios"] })]),
+  })
+}
+
 export function useCreateUser() {
   const qc = useQueryClient()
   return useMutation({

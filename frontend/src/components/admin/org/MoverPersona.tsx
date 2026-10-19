@@ -30,9 +30,9 @@ export function MoverPersona({ userId, nombre, areaActual, onCerrar }: {
       <form onSubmit={confirmar} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl [animation:org-in_.3s_ease_both]" style={{ fontFamily: '"Ubuntu", system-ui, sans-serif' }}>
         <div className="mb-4 flex items-start justify-between">
           <div className="min-w-0">
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-org-vivo">Mover de área</p>
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-org-vivo">{areaActual ? "Mover de área" : "Asignar área"}</p>
             <h2 className="truncate text-lg font-medium text-org-tinta">{nombre}</h2>
-            <p className="mt-0.5 text-[12px] text-org-tinta/55">Ahora en: <strong className="font-medium">{areaActual || "sin área"}</strong></p>
+            <p className="mt-0.5 text-[12px] text-org-tinta/55">Ahora en: <strong className="font-medium">{areaActual || "Sin área"}</strong></p>
           </div>
           <button type="button" onClick={onCerrar} aria-label="Cerrar" className="rounded-lg p-1 text-org-tinta/40 hover:bg-org-tinte hover:text-org-rojo"><X className="h-4 w-4" /></button>
         </div>
@@ -61,7 +61,7 @@ export function MoverPersona({ userId, nombre, areaActual, onCerrar }: {
           </>
         ) : (
           <>
-            <p className="text-[13px] text-org-tinta">Listo: <strong>{nombre}</strong> ahora está en <strong>{hecho.area}</strong>.</p>
+            <p className="text-[13px] text-org-tinta">Listo: <strong>{nombre}</strong> {hecho.area ? <>ahora está en <strong>{hecho.area}</strong></> : <>quedó <strong>sin área</strong></>}.</p>
             <ul className="mt-3 space-y-1.5 text-[12px] text-org-tinta/70">
               <li>Debe cerrar sesión y volver a entrar para ver el cambio.</li>
               {hecho.ficha === "movida" && <li>Su ficha del directorio también pasó a esta área.</li>}

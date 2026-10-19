@@ -112,7 +112,8 @@ export function useCambiarCargo(areaId: number) {
 }
 
 export interface MovidoResultado {
-  area: string
+  /** null = quedó sin área */
+  area: string | null
   area_anterior: string | null
   /** Permisos propios que no aplican en la nueva área (son exclusivos de otras) */
   permisos_inactivos: string[]
@@ -124,7 +125,7 @@ export interface MovidoResultado {
 export function useMoverUsuario() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ userId, areaId }: { userId: number; areaId: number }) =>
+    mutationFn: async ({ userId, areaId }: { userId: number; areaId: number | null }) =>
       (await api.put<MovidoResultado>(`/acceso/usuarios/${userId}/area`, { area_id: areaId })).data,
     onSuccess: () => Promise.all([
       qc.invalidateQueries({ queryKey: ["area-usuarios"] }),
