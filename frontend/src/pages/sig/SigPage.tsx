@@ -93,7 +93,7 @@ function SigDesktopView() {
 
   const { data: pendientes = [] } = useQuery<unknown[]>({
     queryKey: ["sig", "commits", "pendientes"],
-    queryFn: async () => (await sigApi.get("/api/commits/pendientes")).data,
+    queryFn: async () => (await sigApi.get("/api/commits/pendientes", { params: { resumen: 1 } })).data,
     enabled: puedeAprobar,
     refetchInterval: 30_000,
   })

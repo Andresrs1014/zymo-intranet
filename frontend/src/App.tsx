@@ -1,7 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useSearchParams } from "react-router-dom"
-import { useEffect } from "react"
+import { lazy, Suspense, useEffect } from "react"
 import { useAuthStore } from "@/store/authStore"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
+import { CargandoPagina } from "@/components/layout/CargandoPagina"
 import {
   canAccessMantenimiento,
   canSeeOC,
@@ -30,75 +31,79 @@ import { useIsMobile } from "@/hooks/use-mobile"
 import { useMe } from "@/hooks/useAuth"
 import { LoginPage } from "@/pages/LoginPage"
 import { DashboardPage } from "@/pages/DashboardPage"
-import { AdminPage } from "@/pages/AdminPage"
-import { ConfiguracionIntranetPage } from "@/pages/admin/ConfiguracionIntranetPage"
-import { RolesPage } from "@/pages/RolesPage"
-import { OrganizacionPage } from "@/pages/OrganizacionPage"
-import { AreasPage } from "@/pages/AreasPage"
-import { SmtpConfigPage } from "@/pages/admin/SmtpConfigPage"
-import { WhatsappConfigPage } from "@/pages/admin/WhatsappConfigPage"
-import { UsuariosExternosPage } from "@/pages/admin/UsuariosExternosPage"
-import { AdministrativoPage } from "@/pages/AdministrativoPage"
-import { SolicitudesPage } from "@/pages/oc/SolicitudesPage"
-import { SolicitudDetallePage } from "@/pages/oc/SolicitudDetallePage"
-import ParesExternosPage from "@/pages/oc/ParesExternosPage"
-import { CotizacionFormPage } from "@/pages/oc/CotizacionFormPage"
-import { AprobacionPage } from "@/pages/oc/AprobacionPage"
-import { KPIPage } from "@/pages/oc/KPIPage"
-import { OcConfigPage } from "@/pages/oc/OcConfigPage"
-import { SGCPage } from "@/pages/sgc/SGCPage"
-import { ProveedoresPage } from "@/pages/sgc/ProveedoresPage"
-import { OperativoPage } from "@/pages/operativo/OperativoPage"
-import { MisSolicitudesPage } from "@/pages/operativo/MisSolicitudesPage"
-import { MiSolicitudDetallePage } from "@/pages/operativo/MiSolicitudDetallePage"
-import { NuevaSolicitudPage } from "@/pages/operativo/NuevaSolicitudPage"
-import { PaquetesPage } from "@/pages/operativo/PaquetesPage"
-import { OperClientesPage } from "@/pages/operativo/OperClientesPage"
-import { GestionarTicketsPage } from "@/pages/operativo/GestionarTicketsPage"
-import { FinancieroPage } from "@/pages/financiero/FinancieroPage"
-import { FacturasPage } from "@/pages/financiero/FacturasPage"
-import { FacturaDetallePage } from "@/pages/financiero/FacturaDetallePage"
-import { FinancieroConfigPage } from "@/pages/financiero/FinancieroConfigPage"
-import { PrintFacturacionPage } from "@/pages/financiero/PrintFacturacionPage"
-import { AgentFloatingWindow } from "@/components/agent/AgentFloatingWindow"
-import { GerencialPage } from "@/pages/gerencial/GerencialPage"
-import { ExtraccionIAPage } from "@/pages/admin/ExtraccionIAPage"
-import { LibertadoraPage } from "@/pages/libertadora/LibertadoraPage"
-import { LibertadoraPartnerPage } from "@/pages/libertadora/partner/LibertadoraPartnerPage"
-import { TicketsPage } from "@/pages/tickets/TicketsPage"
-import { SacPage } from "@/pages/sac/SacPage"
-import { SurveyPage } from "@/pages/survey/SurveyPage"
-import { TaskPage } from "@/pages/tareas/TaskPage"
-import { SigPage } from "@/pages/sig/SigPage"
-import MantenimientoPage from "@/pages/mantenimiento/MantenimientoPage"
-import NuevaMantenimientoPage from "@/pages/mantenimiento/NuevaMantenimientoPage"
-import MantenimientoDetallePage from "@/pages/mantenimiento/MantenimientoDetallePage"
-import MantenimientoPortalShell from "@/pages/mantenimiento/MantenimientoPortalShell"
-import MantenimientoMobilePage from "@/pages/mantenimiento/MantenimientoMobilePage"
-import MantenimientoDashboard from "@/pages/mantenimiento/MantenimientoDashboard"
-import { TyCPage } from "@/pages/tc/TyCPage"
-import { TyCDirectorioPage } from "@/pages/tc/TyCDirectorioPage"
-import { TyCPersonaPage } from "@/pages/tc/TyCPersonaPage"
-import { TyCOrganigramaPage } from "@/pages/tc/TyCOrganigramaPage"
-import { TyCImportPage } from "@/pages/tc/TyCImportPage"
-import { TyCManualesPage } from "@/pages/tc/TyCManualesPage"
-import { TyCFormatosPage } from "@/pages/tc/TyCFormatosPage"
-import { TyCFormatoAusentismoPage } from "@/pages/tc/TyCFormatoAusentismoPage"
-import { TyCEvaluacionDesempenoPage } from "@/pages/tc/TyCEvaluacionDesempenoPage"
-import { TyCAprobacionesPage } from "@/pages/tc/TyCAprobacionesPage"
-import { TyCIndicadoresPage } from "@/pages/tc/TyCIndicadoresPage"
-import { TyCAgendaCalendarioPage } from "@/pages/tc/TyCAgendaCalendarioPage"
-import { TyCAgendaEventoPage } from "@/pages/tc/TyCAgendaEventoPage"
-import { TyCConfigPage } from "@/pages/tc/TyCConfigPage"
-import { TyCRotacionPage } from "@/pages/tc/TyCRotacionPage"
-import { TyCClientesPage } from "@/pages/tc/TyCClientesPage"
-import { TyCEmpresaPage } from "@/pages/tc/TyCEmpresaPage"
-import { TyCNuevoPersonalCalendarioPage } from "@/pages/tc/TyCNuevoPersonalCalendarioPage"
-import { TyCNuevoPersonalNuevoPage } from "@/pages/tc/TyCNuevoPersonalNuevoPage"
-import { TyCNuevoPersonalDiaPage } from "@/pages/tc/TyCNuevoPersonalDiaPage"
-import { ReportesDesarrolloPage } from "@/pages/reportes/ReportesDesarrolloPage"
-import { ReporteDetallePage } from "@/pages/reportes/ReporteDetallePage"
-import { ReporteEditorPageNew, ReporteEditorPageEdit } from "@/pages/reportes/ReporteEditorPage"
+
+
+// Cada pantalla se descarga solo cuando se entra a ella (el paquete inicial pasó de ~2,7 MB a lo mínimo para abrir la sesión).
+const AdminPage = lazy(() => import("@/pages/AdminPage").then((m) => ({ default: m.AdminPage })))
+const ConfiguracionIntranetPage = lazy(() => import("@/pages/admin/ConfiguracionIntranetPage").then((m) => ({ default: m.ConfiguracionIntranetPage })))
+const RolesPage = lazy(() => import("@/pages/RolesPage").then((m) => ({ default: m.RolesPage })))
+const OrganizacionPage = lazy(() => import("@/pages/OrganizacionPage").then((m) => ({ default: m.OrganizacionPage })))
+const AreasPage = lazy(() => import("@/pages/AreasPage").then((m) => ({ default: m.AreasPage })))
+const SmtpConfigPage = lazy(() => import("@/pages/admin/SmtpConfigPage").then((m) => ({ default: m.SmtpConfigPage })))
+const WhatsappConfigPage = lazy(() => import("@/pages/admin/WhatsappConfigPage").then((m) => ({ default: m.WhatsappConfigPage })))
+const UsuariosExternosPage = lazy(() => import("@/pages/admin/UsuariosExternosPage").then((m) => ({ default: m.UsuariosExternosPage })))
+const AdministrativoPage = lazy(() => import("@/pages/AdministrativoPage").then((m) => ({ default: m.AdministrativoPage })))
+const SolicitudesPage = lazy(() => import("@/pages/oc/SolicitudesPage").then((m) => ({ default: m.SolicitudesPage })))
+const SolicitudDetallePage = lazy(() => import("@/pages/oc/SolicitudDetallePage").then((m) => ({ default: m.SolicitudDetallePage })))
+const ParesExternosPage = lazy(() => import("@/pages/oc/ParesExternosPage"))
+const CotizacionFormPage = lazy(() => import("@/pages/oc/CotizacionFormPage").then((m) => ({ default: m.CotizacionFormPage })))
+const AprobacionPage = lazy(() => import("@/pages/oc/AprobacionPage").then((m) => ({ default: m.AprobacionPage })))
+const KPIPage = lazy(() => import("@/pages/oc/KPIPage").then((m) => ({ default: m.KPIPage })))
+const OcConfigPage = lazy(() => import("@/pages/oc/OcConfigPage").then((m) => ({ default: m.OcConfigPage })))
+const SGCPage = lazy(() => import("@/pages/sgc/SGCPage").then((m) => ({ default: m.SGCPage })))
+const ProveedoresPage = lazy(() => import("@/pages/sgc/ProveedoresPage").then((m) => ({ default: m.ProveedoresPage })))
+const OperativoPage = lazy(() => import("@/pages/operativo/OperativoPage").then((m) => ({ default: m.OperativoPage })))
+const MisSolicitudesPage = lazy(() => import("@/pages/operativo/MisSolicitudesPage").then((m) => ({ default: m.MisSolicitudesPage })))
+const MiSolicitudDetallePage = lazy(() => import("@/pages/operativo/MiSolicitudDetallePage").then((m) => ({ default: m.MiSolicitudDetallePage })))
+const NuevaSolicitudPage = lazy(() => import("@/pages/operativo/NuevaSolicitudPage").then((m) => ({ default: m.NuevaSolicitudPage })))
+const PaquetesPage = lazy(() => import("@/pages/operativo/PaquetesPage").then((m) => ({ default: m.PaquetesPage })))
+const OperClientesPage = lazy(() => import("@/pages/operativo/OperClientesPage").then((m) => ({ default: m.OperClientesPage })))
+const GestionarTicketsPage = lazy(() => import("@/pages/operativo/GestionarTicketsPage").then((m) => ({ default: m.GestionarTicketsPage })))
+const FinancieroPage = lazy(() => import("@/pages/financiero/FinancieroPage").then((m) => ({ default: m.FinancieroPage })))
+const FacturasPage = lazy(() => import("@/pages/financiero/FacturasPage").then((m) => ({ default: m.FacturasPage })))
+const FacturaDetallePage = lazy(() => import("@/pages/financiero/FacturaDetallePage").then((m) => ({ default: m.FacturaDetallePage })))
+const FinancieroConfigPage = lazy(() => import("@/pages/financiero/FinancieroConfigPage").then((m) => ({ default: m.FinancieroConfigPage })))
+const PrintFacturacionPage = lazy(() => import("@/pages/financiero/PrintFacturacionPage").then((m) => ({ default: m.PrintFacturacionPage })))
+const GerencialPage = lazy(() => import("@/pages/gerencial/GerencialPage").then((m) => ({ default: m.GerencialPage })))
+const ExtraccionIAPage = lazy(() => import("@/pages/admin/ExtraccionIAPage").then((m) => ({ default: m.ExtraccionIAPage })))
+const LibertadoraPage = lazy(() => import("@/pages/libertadora/LibertadoraPage").then((m) => ({ default: m.LibertadoraPage })))
+const LibertadoraPartnerPage = lazy(() => import("@/pages/libertadora/partner/LibertadoraPartnerPage").then((m) => ({ default: m.LibertadoraPartnerPage })))
+const TicketsPage = lazy(() => import("@/pages/tickets/TicketsPage").then((m) => ({ default: m.TicketsPage })))
+const SacPage = lazy(() => import("@/pages/sac/SacPage").then((m) => ({ default: m.SacPage })))
+const SurveyPage = lazy(() => import("@/pages/survey/SurveyPage").then((m) => ({ default: m.SurveyPage })))
+const TaskPage = lazy(() => import("@/pages/tareas/TaskPage").then((m) => ({ default: m.TaskPage })))
+const SigPage = lazy(() => import("@/pages/sig/SigPage").then((m) => ({ default: m.SigPage })))
+const MantenimientoPage = lazy(() => import("@/pages/mantenimiento/MantenimientoPage"))
+const NuevaMantenimientoPage = lazy(() => import("@/pages/mantenimiento/NuevaMantenimientoPage"))
+const MantenimientoDetallePage = lazy(() => import("@/pages/mantenimiento/MantenimientoDetallePage"))
+const MantenimientoPortalShell = lazy(() => import("@/pages/mantenimiento/MantenimientoPortalShell"))
+const MantenimientoMobilePage = lazy(() => import("@/pages/mantenimiento/MantenimientoMobilePage"))
+const MantenimientoDashboard = lazy(() => import("@/pages/mantenimiento/MantenimientoDashboard"))
+const TyCPage = lazy(() => import("@/pages/tc/TyCPage").then((m) => ({ default: m.TyCPage })))
+const TyCDirectorioPage = lazy(() => import("@/pages/tc/TyCDirectorioPage").then((m) => ({ default: m.TyCDirectorioPage })))
+const TyCPersonaPage = lazy(() => import("@/pages/tc/TyCPersonaPage").then((m) => ({ default: m.TyCPersonaPage })))
+const TyCOrganigramaPage = lazy(() => import("@/pages/tc/TyCOrganigramaPage").then((m) => ({ default: m.TyCOrganigramaPage })))
+const TyCImportPage = lazy(() => import("@/pages/tc/TyCImportPage").then((m) => ({ default: m.TyCImportPage })))
+const TyCManualesPage = lazy(() => import("@/pages/tc/TyCManualesPage").then((m) => ({ default: m.TyCManualesPage })))
+const TyCFormatosPage = lazy(() => import("@/pages/tc/TyCFormatosPage").then((m) => ({ default: m.TyCFormatosPage })))
+const TyCFormatoAusentismoPage = lazy(() => import("@/pages/tc/TyCFormatoAusentismoPage").then((m) => ({ default: m.TyCFormatoAusentismoPage })))
+const TyCEvaluacionDesempenoPage = lazy(() => import("@/pages/tc/TyCEvaluacionDesempenoPage").then((m) => ({ default: m.TyCEvaluacionDesempenoPage })))
+const TyCAprobacionesPage = lazy(() => import("@/pages/tc/TyCAprobacionesPage").then((m) => ({ default: m.TyCAprobacionesPage })))
+const TyCIndicadoresPage = lazy(() => import("@/pages/tc/TyCIndicadoresPage").then((m) => ({ default: m.TyCIndicadoresPage })))
+const TyCAgendaCalendarioPage = lazy(() => import("@/pages/tc/TyCAgendaCalendarioPage").then((m) => ({ default: m.TyCAgendaCalendarioPage })))
+const TyCAgendaEventoPage = lazy(() => import("@/pages/tc/TyCAgendaEventoPage").then((m) => ({ default: m.TyCAgendaEventoPage })))
+const TyCConfigPage = lazy(() => import("@/pages/tc/TyCConfigPage").then((m) => ({ default: m.TyCConfigPage })))
+const TyCRotacionPage = lazy(() => import("@/pages/tc/TyCRotacionPage").then((m) => ({ default: m.TyCRotacionPage })))
+const TyCClientesPage = lazy(() => import("@/pages/tc/TyCClientesPage").then((m) => ({ default: m.TyCClientesPage })))
+const TyCEmpresaPage = lazy(() => import("@/pages/tc/TyCEmpresaPage").then((m) => ({ default: m.TyCEmpresaPage })))
+const TyCNuevoPersonalCalendarioPage = lazy(() => import("@/pages/tc/TyCNuevoPersonalCalendarioPage").then((m) => ({ default: m.TyCNuevoPersonalCalendarioPage })))
+const TyCNuevoPersonalNuevoPage = lazy(() => import("@/pages/tc/TyCNuevoPersonalNuevoPage").then((m) => ({ default: m.TyCNuevoPersonalNuevoPage })))
+const TyCNuevoPersonalDiaPage = lazy(() => import("@/pages/tc/TyCNuevoPersonalDiaPage").then((m) => ({ default: m.TyCNuevoPersonalDiaPage })))
+const ReportesDesarrolloPage = lazy(() => import("@/pages/reportes/ReportesDesarrolloPage").then((m) => ({ default: m.ReportesDesarrolloPage })))
+const ReporteDetallePage = lazy(() => import("@/pages/reportes/ReporteDetallePage").then((m) => ({ default: m.ReporteDetallePage })))
+const ReporteEditorPageNew = lazy(() => import("@/pages/reportes/ReporteEditorPage").then((m) => ({ default: m.ReporteEditorPageNew })))
+const ReporteEditorPageEdit = lazy(() => import("@/pages/reportes/ReporteEditorPage").then((m) => ({ default: m.ReporteEditorPageEdit })))
+const AgentFloatingWindow = lazy(() => import("@/components/agent/AgentFloatingWindow").then((m) => ({ default: m.AgentFloatingWindow })))
 
 // Decodifica el claim `exp` del JWT sin verificar firma (solo para chequeo local de expiración)
 function isTokenExpired(token: string): boolean {
@@ -331,10 +336,12 @@ function AgentLayer() {
   if (docked && lg) return null
 
   return (
-    <AgentFloatingWindow
-      agente={agente}
-      usuarioNombre={user.full_name ?? user.email}
-    />
+    <Suspense fallback={null}>
+      <AgentFloatingWindow
+        agente={agente}
+        usuarioNombre={user.full_name ?? user.email}
+      />
+    </Suspense>
   )
 }
 
@@ -346,6 +353,7 @@ export default function App() {
     <ErrorBoundary>
     <BrowserRouter>
       <AgentLayer />
+      <Suspense fallback={<CargandoPagina />}>
       <Routes>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         {/* Portal móvil permanente — auxiliar sin login */}
@@ -897,6 +905,7 @@ export default function App() {
 
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
+      </Suspense>
     </BrowserRouter>
     </ErrorBoundary>
   )

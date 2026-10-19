@@ -85,12 +85,14 @@ export function RailOrganizacion({ areas, conteo, conCarpeta, total, archivados,
         </button>
       </div>
       <p className="px-5 pt-4 font-mono text-[10px] uppercase tracking-[0.24em] text-white/60">Por área</p>
-      {conCarpeta && (
-        <p className="px-5 pb-1.5 pt-1 text-[11px] leading-snug text-white/70">
-          <FolderCheck className="mr-1 inline h-3 w-3 align-[-2px]" aria-hidden />{areas.filter((a) => conCarpeta.has(a.id)).length} con carpeta en el SIG ·{" "}
-          <FolderX className="mr-1 inline h-3 w-3 align-[-2px] opacity-70" aria-hidden />{areas.filter((a) => !conCarpeta.has(a.id)).length} sin carpeta
-        </p>
-      )}
+      <p className="min-h-[2.6rem] px-5 pb-1.5 pt-1 text-[11px] leading-snug text-white/70">
+        {conCarpeta && (
+          <>
+            <FolderCheck className="mr-1 inline h-3 w-3 align-[-2px]" aria-hidden />{areas.filter((a) => conCarpeta.has(a.id)).length} con carpeta en el SIG ·
+            <FolderX className="mr-1 inline h-3 w-3 align-[-2px] opacity-70" aria-hidden />{areas.filter((a) => !conCarpeta.has(a.id)).length} sin carpeta
+          </>
+        )}
+      </p>
       <ul className="space-y-0.5 pl-3">
         {areas.map((a, i) => {
           const on = a.id === activa

@@ -187,8 +187,8 @@ export function TyCDirectorioPage() {
           />
         </div>
 
-        {empresasConPersonas.length > 0 && (
-          <div className="flex gap-3 mb-4">
+        <div className="flex gap-3 mb-4 min-h-[34px]">
+          {empresasConPersonas.length > 0 && (<>
             {empresasConPersonas.map((e, idx) => {
               const palette = TC_EMPRESA_PALETTE[idx % TC_EMPRESA_PALETTE.length]
               const pct = Math.round((e.activos / Math.max(e.total, 1)) * 100)
@@ -220,8 +220,8 @@ export function TyCDirectorioPage() {
                 × limpiar
               </button>
             )}
-          </div>
-        )}
+          </>)}
+        </div>
 
         <div className="flex items-center gap-2 pb-3 flex-wrap">
 
@@ -236,31 +236,29 @@ export function TyCDirectorioPage() {
             />
           </div>
 
-          {areas.length > 0 && (
-            <select
+          <select
               value={areaFiltro}
               onChange={(e) => { setAreaFiltro(e.target.value); setCargoFiltro("") }}
               className="combo"
+            disabled={areas.length === 0}
             >
               <option value="">Todas las áreas</option>
               {areas.map((a) => (
                 <option key={a.id} value={a.id}>{a.name}</option>
               ))}
-            </select>
-          )}
+          </select>
 
-          {cargos.length > 0 && (
-            <select
+          <select
               value={cargoFiltro}
               onChange={(e) => setCargoFiltro(e.target.value)}
               className="combo"
+            disabled={cargos.length === 0}
             >
               <option value="">Todos los cargos</option>
               {cargos.map((c) => (
                 <option key={c.id} value={c.id}>{c.nombre}</option>
               ))}
-            </select>
-          )}
+          </select>
 
           <select
             value={estadoFiltro}
@@ -422,7 +420,7 @@ export function TyCDirectorioPage() {
           background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
           background-repeat: no-repeat;
           background-position: right 0.45rem center;
-          min-width: 130px;
+          width: 190px; /* fijo: si se ajustara a la opción más larga, al cargar las listas se ensancharía y movería la barra */
           cursor: pointer;
         }
         .combo:focus { outline: none; box-shadow: 0 0 0 1px hsl(var(--ring)); }

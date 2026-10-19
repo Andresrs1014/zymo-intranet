@@ -23,7 +23,7 @@ type Pestana = "usuarios" | "acceso"
 /** Áreas, sedes, usuarios y acceso a aplicaciones en un solo lugar: el área manda. */
 export function OrganizacionPage() {
   const [params, setParams] = useSearchParams()
-  const { data: areas = [], isLoading } = useAreas()
+  const { data: areas = [] } = useAreas()
   const { data: usuarios = [] } = useUsers()
   const { data: archivados = [] } = useUsuariosArchivados()
 
@@ -59,7 +59,6 @@ export function OrganizacionPage() {
     <PageLayout title="Organización" mainClassName="org-root flex min-h-0 flex-1 overflow-hidden bg-white">
       <RailOrganizacion areas={areas} conteo={conteo} conCarpeta={conCarpeta} total={usuarios.length} archivados={archivados.length} verArchivados={verArchivados} onArchivados={() => ir({ area: "archivados" })} activa={area?.id ?? null} onElegir={(id) => ir({ area: String(id) })} onTodas={() => ir({ area: "todas" })} />
       <div className="min-w-0 flex-1 overflow-y-auto">
-        {isLoading && <p className="p-10 font-mono text-[12px] text-org-tinta/40">Cargando áreas…</p>}
         {!area && !verArchivados && <TodasPersonas areas={areas} onVerArea={(id) => ir({ area: String(id), tab: "usuarios" })} />}
         {!area && verArchivados && <Archivados />}
         {area && (

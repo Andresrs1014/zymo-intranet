@@ -79,7 +79,12 @@ router.get("/", async (req: Request, res: Response) => {
 
 // ── GET /api/commits/pendientes ───────────────────────────────────────────────
 
-router.get("/pendientes", requireAprobador, async (_req: Request, res: Response) => {
+router.get("/pendientes", requireAprobador, async (req: Request, res: Response) => {
+  // ?resumen=1: solo los ids (la insignia de pendientes cuenta y se actualiza cada 30 s; el listado completo trae el texto de cada versión)
+  if (req.query.resumen) {
+    res.json(await prisma.sigCommit.findMany({ where: { estado: "PENDIENTE_REVISION" }, select: { id: true } }))
+    return
+  }
   const commits = await prisma.sigCommit.findMany({
     where: { estado: "PENDIENTE_REVISION" },
     include: {
