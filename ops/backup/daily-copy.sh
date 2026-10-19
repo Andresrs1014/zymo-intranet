@@ -8,7 +8,7 @@
 # Qué copia:
 #   - pg_*.sql.gz        pg_dumpall de TODO contenedor Postgres que esté corriendo (descubiertos, no hardcodeados)
 #   - sqlite/*.db        SQLite del backend (API de backup de SQLite, consistente) + quick_check;
-#                        más los SQLite de matrix_backend y crm_html_app
+#                        más el SQLite de matrix_backend (crm_html_app se retiró el 2026-10-19)
 #   - vol_*.tgz          volúmenes de adjuntos (uploads, backend_data sin los .db) del proyecto zymo-intranet
 # Protección contra sobrescribir una copia buena con una mala: cada archivo nuevo se valida
 # (gzip íntegro, dump completo, quick_check, y no menos de la mitad del tamaño del actual). Si falla,
@@ -122,7 +122,6 @@ NODE
   fi
 }
 sqlite_extra py   matrix_backend /app/data/matrix.db            matrix.db
-sqlite_extra node crm_html_app   /app/backend/data/app.db        crm-html-app.db
 
 # 3) Adjuntos: volúmenes uploads y backend_data (sin los .db, que van arriba)
 for v in $(docker volume ls -q --filter "label=com.docker.compose.project=$PROJECT" | grep -E '(uploads|backend_data)$' | grep -v pruebas); do
