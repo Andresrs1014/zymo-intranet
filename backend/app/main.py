@@ -234,13 +234,10 @@ def _seed_roles() -> None:
                 if not existing.label:  # vacío por el DEFAULT '' de la migración
                     existing.label = r["label"]
                     changed = True
-                # Repoblar desde plantilla si aún no hay permisos (migración; admin puede quedar en [])
-                tmpl = list(r["app_permissions"])
+                # Solo si el rol nunca tuvo permisos (NULL tras una migración). Una lista vacía es una decisión del admin:
+                # antes se repoblaba desde la plantilla en cada arranque y re-otorgaba permisos que se habían quitado a propósito.
                 if existing.app_permissions is None:
-                    existing.app_permissions = tmpl
-                    changed = True
-                elif not existing.app_permissions and r["name"] != "admin":
-                    existing.app_permissions = tmpl
+                    existing.app_permissions = list(r["app_permissions"])
                     changed = True
                 if changed:
                     session.add(existing)
