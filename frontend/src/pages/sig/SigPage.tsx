@@ -17,7 +17,7 @@ import { ClipboardList,
   FileText, GitCommit, Inbox, X, Gauge,
   GitBranchPlus, GitBranch, Clock, ChevronRight, ChevronLeft, Check, Circle, Download,
   AlertCircle,
-  ClipboardCheck, RefreshCw, History, UploadCloud, BookOpen, Paperclip, Users,
+  ClipboardCheck, RefreshCw, History, UploadCloud, BookOpen, Paperclip, Users, Columns2,
 } from "lucide-react"
 import { SigAuditoriasView, AuditoriasProcLista } from "@/components/sig/SigAuditoriasView"
 import type { PreselectedProc } from "@/components/sig/SigCargarModal"
@@ -28,6 +28,7 @@ import { SigProcedimientoCargosPanel } from "@/components/sig/SigProcedimientoCa
 import { SigAnexoPanel } from "@/components/sig/SigAnexoPanel"
 import { PanelSIG } from "@/components/sig/PanelSIG"
 import { SigBuscarProcedimiento, type TabSolicitada } from "@/components/sig/SigBuscarProcedimiento"
+import { VistaAuditoria } from "@/components/sig/auditoria/VistaAuditoria"
 
 // Los paneles pesados se descargan al usarlos por primera vez: el SIG abre sin esperar a los diffs, los indicadores ni el modal de carga.
 // mermaid pesa ~650 KB y solo se usa en la pestaña Flujograma
@@ -511,6 +512,7 @@ export function ProcedureFileView({
   const [contentTab, setContentTab] = useState<"doc" | "archivo" | "soporte" | "formatos" | "docanexos" | "cargos" | "flujograma">(pedirTab?.tab ?? (SHOW_DOC_TAB ? "doc" : "archivo"))
   useEffect(() => { if (pedirTab) setContentTab(pedirTab.tab) }, [pedirTab?.n]) // eslint-disable-line react-hooks/exhaustive-deps
   const [selectedInst, setSelectedInst] = useState<SigInstructivo | null>(null)
+  const [auditoria, setAuditoria] = useState(false)
   function switchTab(tab: "doc" | "archivo" | "soporte" | "formatos" | "docanexos" | "cargos" | "flujograma") {
     setContentTab(tab)
     if (tab !== "soporte") setSelectedInst(null)
@@ -624,6 +626,14 @@ export function ProcedureFileView({
               {proc.estado.toLowerCase()}
             </span>
           </div>
+          <button
+            type="button"
+            onClick={() => setAuditoria(true)}
+            className="ml-auto flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-mono text-zinc-700 shadow-sm transition-colors hover:border-helix-accent/50 hover:text-helix-accent-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-helix-accent"
+          >
+            <Columns2 className="h-3.5 w-3.5" aria-hidden /> Vista de auditoría
+          </button>
+          {auditoria && <VistaAuditoria procedimientoId={id} onClose={() => setAuditoria(false)} />}
         </div>
 
         {/* View mode */}

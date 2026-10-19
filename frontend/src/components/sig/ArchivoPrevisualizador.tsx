@@ -58,13 +58,25 @@ async function leerTabla(buf: ArrayBuffer): Promise<Hoja[]> {
   })
 }
 
-export function ArchivoPrevisualizador({ base, nombre, mime, tamano, altura = "70vh" }: {
+/** Descarga el archivo original de un recurso del SIG. */
+export async function descargarArchivo(base: string, nombre: string) {
+  const b = (await sigApi.get<Blob>(`${base}/archivo`, { responseType: "blob" })).data
+  const a = document.createElement("a")
+  a.href = URL.createObjectURL(b)
+  a.download = nombre
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000)
+}
+
+export function ArchivoPrevisualizador({ base, nombre, mime, tamano, altura = "70vh", embebido = false }: {
   base: string
   nombre: string
   mime?: string | null
   tamano?: number | null
   /** Alto del recuadro (CSS). */
   altura?: string
+  /** Dentro de un panel que ya tiene su marco: sin borde propio, sin barra del lector de PDF y a todo el alto. */
+  embebido?: boolean
 }) {
   const [vista, setVista] = useState<Vista>({ t: "cargando" })
   const ext = extension(nombre)
@@ -121,15 +133,10 @@ export function ArchivoPrevisualizador({ base, nombre, mime, tamano, altura = "7
   }, [base, ext, mime, tamano])
 
   async function descargar() {
-    const b = (await sigApi.get<Blob>(`${base}/archivo`, { responseType: "blob" })).data
-    const a = document.createElement("a")
-    a.href = URL.createObjectURL(b)
-    a.download = nombre
-    a.click()
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000)
+    try { await descargarArchivo(base, nombre) } catch { setVista({ t: "otro", motivo: "No se pudo descargar el archivo." }) }
   }
 
-  const marco = "overflow-hidden rounded-lg border border-zinc-300 bg-zinc-100"
+  const marco = embebido ? "overflow-hidden bg-zinc-100" : "overflow-hidden rounded-lg border border-zinc-300 bg-zinc-100"
 
   if (vista.t === "cargando") {
     return (
@@ -154,7 +161,7 @@ export function ArchivoPrevisualizador({ base, nombre, mime, tamano, altura = "7
   if (vista.t === "url") {
     return (
       <div className={`${marco} flex items-center justify-center bg-zinc-200`} style={{ height: altura }}>
-        {vista.tipo === "pdf" && <iframe src={`${vista.url}#view=FitH`} title={nombre} className="h-full w-full border-0 bg-zinc-200" />}
+        {vista.tipo === "pdf" && <iframe src={`${vista.url}#${embebido ? "toolbar=0&navpanes=0&" : ""}view=FitH`} title={nombre} className="h-full w-full border-0 bg-zinc-200" />}
         {vista.tipo === "imagen" && <img src={vista.url} alt={nombre} className="max-h-full max-w-full object-contain" />}
         {vista.tipo === "audio" && <audio src={vista.url} controls className="w-full max-w-md px-4" />}
         {vista.tipo === "video" && <video src={vista.url} controls className="max-h-full max-w-full" />}
@@ -178,10 +185,10 @@ export function ArchivoPrevisualizador({ base, nombre, mime, tamano, altura = "7
       </div>
     )
   }
-  return <TablaHojas hojas={vista.hojas} altura={altura} marco={marco} />
+  return <TablaHojas hojas={vista.hojas} altura={altura} marco={marco} lleno={embebido} />
 }
 
-function TablaHojas({ hojas, altura, marco }: { hojas: Hoja[]; altura: string; marco: string }) {
+function TablaHojas({ hojas, altura, marco, lleno }: { hojas: Hoja[]; altura: string; marco: string; lleno: boolean }) {
   const [activa, setActiva] = useState(0)
   const h = hojas[activa] ?? hojas[0]
   if (!h || h.filas.length === 0) return <div className={`${marco} px-4 py-8 text-center text-xs text-zinc-600`}>{h ? "Esta hoja está vacía." : "El archivo está vacío."}</div>
@@ -191,18 +198,22 @@ function TablaHojas({ hojas, altura, marco }: { hojas: Hoja[]; altura: string; m
   h.merges.forEach((m) => { for (let r = m.r; r < m.r + m.rs; r++) for (let c = m.c; c < m.c + m.cs; c++) if (r !== m.r || c !== m.c) tapada.add(`${r},${c}`) })
   const conEncabezado = h.merges.length === 0
   return (
-    <div className={`${marco} flex flex-col bg-white`} style={{ maxHeight: altura }}>
+    <div className={`${marco} flex flex-col bg-white`} style={lleno ? { height: altura } : { maxHeight: altura }}>
       {hojas.length > 1 && (
         <div role="tablist" aria-label="Hojas" className="flex shrink-0 gap-1 overflow-x-auto border-b border-zinc-300 bg-zinc-100 px-2 pt-1.5">
           {hojas.map((x, i) => (
-            <button key={x.nombre} type="button" role="tab" aria-selected={i === activa} onClick={() => setActiva(i)}
-              className={`whitespace-nowrap rounded-t px-3 py-1 text-xs font-mono ${i === activa ? "bg-white font-semibold text-zinc-800" : "text-zinc-600 hover:text-zinc-800"}`}>
+            <button key={x.nombre} type="button" role="tab" aria-selected={i === activa} tabIndex={i === activa ? 0 : -1} onClick={() => setActiva(i)}
+              onKeyDown={(e) => {
+                const d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0
+                if (d) { e.preventDefault(); setActiva((activa + d + hojas.length) % hojas.length) }
+              }}
+              className={`min-h-8 whitespace-nowrap rounded-t px-3 py-1 text-xs font-mono ${i === activa ? "bg-white font-semibold text-zinc-800" : "text-zinc-600 hover:text-zinc-800"}`}>
               {x.nombre}
             </button>
           ))}
         </div>
       )}
-      <div className="overflow-auto">
+      <div className="min-h-0 flex-1 overflow-auto">
         <table className="border-collapse text-[13px]">
           <tbody>
             {h.filas.map((fila, i) => (
