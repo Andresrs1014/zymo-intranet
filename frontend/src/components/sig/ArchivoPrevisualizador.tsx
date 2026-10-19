@@ -10,7 +10,7 @@ import { DocxViewer } from "@/components/sig/SigFileViewer"
  * se pide `${base}/archivo` y, para Office, `${base}/archivo/pdf` (el servidor lo convierte con LibreOffice).
  *  - PDF, imágenes, audio y video: visor nativo del navegador.
  *  - Texto, JSON, XML, registros, Markdown: texto (el Markdown se renderiza).
- *  - Excel, CSV, ODS: tabla. Word, PowerPoint, OpenDocument, RTF: PDF; si la conversión falla, Word y Excel caen al visor del navegador.
+ *  - Excel, CSV, ODS: tabla por hoja (PDF del servidor si no se puede leer). Word, PowerPoint, OpenDocument, RTF: PDF; si la conversión falla, Word y Excel caen al visor del navegador.
  *  - Lo demás (zip, ejecutables…): ficha con el dato del archivo y descarga, sin inventar una vista.
  * No carga nada hasta que se monta, así que quien la use la monta solo al desplegar.
  */
@@ -88,12 +88,19 @@ export function ArchivoPrevisualizador({ base, nombre, mime, tamano, altura = "7
           return poner({ t: "texto", md: EXT.markdown.includes(ext), texto: t.slice(0, MAX_TEXTO), truncado: t.length > MAX_TEXTO })
         }
         if (EXT.tabla.includes(ext)) return poner({ t: "tabla", hojas: await leerTabla(await (await pedir("archivo")).arrayBuffer()) })
-        if (EXT.excel.includes(ext) || EXT.office.includes(ext)) {
+        if (EXT.excel.includes(ext)) {
+          // Excel: tabla con una pestaña por hoja (sin depender de LibreOffice); si el archivo no se puede leer, PDF del servidor
+          try {
+            return poner({ t: "tabla", hojas: await leerTabla(await (await pedir("archivo")).arrayBuffer()) })
+          } catch {
+            return poner({ t: "url", tipo: "pdf", url: blobUrl(await pedir("archivo/pdf"), "application/pdf") })
+          }
+        }
+        if (EXT.office.includes(ext)) {
           try {
             return poner({ t: "url", tipo: "pdf", url: blobUrl(await pedir("archivo/pdf"), "application/pdf") })
           } catch {
-            // El servidor no pudo convertirlo: Excel y Word se pueden mostrar en el navegador
-            if (EXT.excel.includes(ext)) return poner({ t: "tabla", hojas: await leerTabla(await (await pedir("archivo")).arrayBuffer()) })
+            // El servidor no pudo convertirlo: Word se muestra en el navegador
             if (ext === "docx") return poner({ t: "docx", data: await (await pedir("archivo")).arrayBuffer() })
             return poner({ t: "otro", motivo: "No se pudo generar la vista previa de este documento. Descárgalo para abrirlo." })
           }
