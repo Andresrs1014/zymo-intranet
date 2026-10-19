@@ -457,11 +457,11 @@ function AsignarProcedimientoForm({
       {nuevo && (
         <div className="grid grid-cols-[8rem_1fr] gap-1.5">
           <input
-            value={codigo} onChange={(e) => setCodigo(e.target.value)} disabled={creadoId != null} aria-label="Código del procedimiento nuevo" placeholder="Código"
+            value={codigo} maxLength={50} onChange={(e) => setCodigo(e.target.value)} disabled={creadoId != null} aria-label="Código del procedimiento nuevo" placeholder="Código"
             className="bg-white border border-zinc-300 rounded-lg px-2 py-1 text-xs text-zinc-700 font-mono placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-helix-accent/40 disabled:opacity-50"
           />
           <input
-            value={titulo} onChange={(e) => setTitulo(e.target.value)} disabled={creadoId != null} aria-label="Título del procedimiento nuevo" placeholder="Título"
+            value={titulo} maxLength={255} onChange={(e) => setTitulo(e.target.value)} disabled={creadoId != null} aria-label="Título del procedimiento nuevo" placeholder="Título"
             className="bg-white border border-zinc-300 rounded-lg px-2 py-1 text-xs text-zinc-700 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-helix-accent/40 disabled:opacity-50"
           />
         </div>
