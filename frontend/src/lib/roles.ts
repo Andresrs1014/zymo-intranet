@@ -88,6 +88,13 @@ export const INTERNAL_MODULE_GROUPS: ModulePermissionGroup[] = [
         name: "SIG — Procedimientos de mi área",
         description: "Ver los procedimientos y archivos de su área y enviar versiones nuevas para que el SIG las verifique",
       },
+      {
+        id: "mod_sig_subir",
+        category: "modulo",
+        icon: "📤",
+        name: "SIG — Cargar procedimientos (todas las áreas)",
+        description: "Subir y crear procedimientos en cualquier área; quedan pendientes de que el SIG los apruebe. Sin Auditorías, Indicadores ni Cargos",
+      },
     ],
   },
   {

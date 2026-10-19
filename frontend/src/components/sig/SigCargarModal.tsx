@@ -68,7 +68,7 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
   const isManager = user?.role === "admin" || user?.role === "gerente"
   const perms = user?.app_permissions ?? []
   // Líder de área: solo envía versiones nuevas de los procedimientos de su área; crear procedimientos es del SIG
-  const esLider = !isManager && !perms.includes("mod_sig") && perms.includes("mod_sig_lider")
+  const esLider = !isManager && !perms.includes("mod_sig") && perms.includes("mod_sig_lider") && !perms.includes("mod_sig_subir")
   const qc = useQueryClient()
 
   const [step, setStep] = useState<Step>(preselected ? "load-file" : "select")

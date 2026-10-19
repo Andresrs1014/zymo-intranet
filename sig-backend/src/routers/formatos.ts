@@ -112,7 +112,7 @@ router.post(
     const autorId = getUserId(req.user!)
     const created = await prisma.sigFormato.create({
       data: {
-        estado: req.sigAreaIds ? "PENDIENTE_REVISION" : "APROBADO", // líder de área: el SIG lo verifica
+        estado: req.sigSoloPendiente ? "PENDIENTE_REVISION" : "APROBADO", // líder de área: el SIG lo verifica
         procedimientoId: parsed.data.procedimientoId,
         instructivoId: parsed.data.instructivoId ?? null,
         nombre: parsed.data.nombre,

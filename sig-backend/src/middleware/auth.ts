@@ -20,6 +20,8 @@ declare global {
       sigAreaIds?: number[]
       /** La puerta de líderes ya comprobó que este GET es de una carpeta de su área. */
       sigLiderOk?: boolean
+      /** Quien sube sin ser del SIG completo (líder o mod_sig_subir): lo que sube queda pendiente de verificación. */
+      sigSoloPendiente?: boolean
     }
   }
 }

@@ -182,7 +182,7 @@ router.post(
 
     const created = await prisma.sigInstructivo.create({
       data: {
-        estado: req.sigAreaIds ? "PENDIENTE_REVISION" : "APROBADO", // líder de área: el SIG lo verifica
+        estado: req.sigSoloPendiente ? "PENDIENTE_REVISION" : "APROBADO", // líder de área: el SIG lo verifica
         procedimientoId: parsed.data.procedimientoId,
         codigo: parsed.data.codigo.toUpperCase(),
         titulo: parsed.data.titulo,

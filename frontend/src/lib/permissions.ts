@@ -68,13 +68,13 @@ export function canSeeIT(role: string, appPerms?: string[]): boolean {
 
 export function canSeeSIG(role: string, appPerms?: string[]): boolean {
   if (role === "admin") return true
-  return hasPerm(appPerms, "mod_sig")
+  return hasPerm(appPerms, "mod_sig") || hasPerm(appPerms, "mod_sig_subir")
 }
 
 /** Líder de área: ve solo las carpetas de su área en el SIG. Quien ya tiene el SIG completo no lo necesita. */
 export function canSeeSigLider(role: string, appPerms?: string[]): boolean {
   if (role === "admin") return false
-  return hasPerm(appPerms, "mod_sig_lider") && !hasPerm(appPerms, "mod_sig")
+  return hasPerm(appPerms, "mod_sig_lider") && !hasPerm(appPerms, "mod_sig") && !hasPerm(appPerms, "mod_sig_subir")
 }
 
 export function canSeeExtraccionIA(role: string, appPerms?: string[]): boolean {
