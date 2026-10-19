@@ -2,7 +2,7 @@ import { Router, Request, Response } from "express"
 import { z } from "zod"
 import prisma from "../config/prisma"
 import { requireSigAccess } from "../middleware/auth"
-import { sincronizarAreas } from "../services/areasIntranet"
+import { norm, sincronizarAreas } from "../services/areasIntranet"
 
 const router = Router()
 
@@ -46,7 +46,7 @@ router.post("/", (_req: Request, res: Response) => {
   res.status(409).json({ error: "Las carpetas del SIG se crean desde las áreas: Configuración → Organización. Aparecen aquí solas." })
 })
 
-// PATCH /api/areas/:id — admin o gerente. El nombre de una carpeta enlazada se cambia en Organización.
+// PATCH /api/areas/:id — admin o gerente. Renombrar la carpeta no cambia el área de la intranet ni el área de nadie.
 router.patch("/:id", requireSigAccess, async (req: Request, res: Response) => {
   const role = req.user?.role
   if (role !== "admin" && role !== "gerente") { res.status(403).json({ error: "Solo admin o gerente puede editar áreas" }); return }
@@ -56,9 +56,13 @@ router.patch("/:id", requireSigAccess, async (req: Request, res: Response) => {
   if (!parsed.success) { res.status(422).json({ error: parsed.error.flatten() }); return }
   const actual = await prisma.sigArea.findUnique({ where: { id } })
   if (!actual) { res.status(404).json({ error: "Área no encontrada" }); return }
-  if (actual.intranetAreaId != null && parsed.data.nombre !== undefined && parsed.data.nombre !== actual.nombre) {
-    res.status(409).json({ error: "El nombre viene del área de la intranet: cámbialo en Configuración → Organización." })
-    return
+  if (parsed.data.nombre !== undefined) {
+    parsed.data.nombre = parsed.data.nombre.trim()
+    const otras = await prisma.sigArea.findMany({ where: { id: { not: id } }, select: { nombre: true } })
+    if (otras.some((o) => norm(o.nombre) === norm(parsed.data.nombre!))) {
+      res.status(409).json({ error: "Ya existe una carpeta con ese nombre." })
+      return
+    }
   }
 
   const area = await prisma.sigArea.update({ where: { id }, data: parsed.data })

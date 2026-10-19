@@ -191,7 +191,7 @@ function AreaNode({
   const [renameValue, setRenameValue] = useState(area.nombre)
   const [errorBorrar, setErrorBorrar] = useState<string | null>(null)
   const esAdmin = useAuthStore((s) => s.user?.role) === "admin"
-  const puedeRenombrar = isManager && area.intranetAreaId == null
+  const puedeRenombrar = isManager
   const puedeBorrar = esAdmin && area._count.procedimientos === 0
 
   const borrarMutation = useMutation({
@@ -208,10 +208,12 @@ Está vacía. El área sigue existiendo en la intranet; solo desaparece su carpe
   const renameMutation = useMutation({
     mutationFn: (nombre: string) => sigApi.patch(`/api/areas/${area.id}`, { nombre }),
     onSuccess: () => {
+      setErrorBorrar(null)
       qc.invalidateQueries({ queryKey: ["sig", "areas"] })
       setRenaming(false)
     },
-    onError: () => {
+    onError: (e) => {
+      setErrorBorrar((e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "No se pudo renombrar la carpeta.")
       setRenameValue(area.nombre)
       setRenaming(false)
     },

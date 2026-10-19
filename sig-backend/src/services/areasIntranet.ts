@@ -8,6 +8,8 @@ export const norm = (s: string): string => s.normalize("NFD").replace(/\p{M}/gu,
 interface AreaIntranet { id: number; name: string; cargos: string[] }
 
 const REFRESCO_MS = 60_000
+/** Nombre actual de cada área en la intranet (id → nombre): a una persona se le busca su carpeta por el área de su cuenta, no por el nombre de la carpeta. */
+const nombresIntranet = new Map<number, string>()
 let ultima = 0
 let enCurso: Promise<void> | null = null
 
@@ -28,6 +30,8 @@ async function traerCatalogo(): Promise<AreaIntranet[] | null> {
 async function sincronizar(): Promise<void> {
   const catalogo = await traerCatalogo()
   if (!catalogo) return // sin conexión con la intranet se conserva lo que ya hay
+  nombresIntranet.clear()
+  for (const a of catalogo) nombresIntranet.set(a.id, a.name)
   const libres = await prisma.sigArea.findMany({ where: { intranetAreaId: null } })
   const excluidas = new Set((await prisma.sigAreaExcluida.findMany()).map((e) => e.intranetAreaId))
   const usadas = new Set<number>()
@@ -37,7 +41,7 @@ async function sincronizar(): Promise<void> {
     const enlazada = await prisma.sigArea.findUnique({ where: { intranetAreaId: a.id } })
     if (enlazada) {
       usadas.add(enlazada.id)
-      await prisma.sigArea.update({ where: { id: enlazada.id }, data: { nombre: a.name, cargos } })
+      await prisma.sigArea.update({ where: { id: enlazada.id }, data: { cargos } }) // el nombre de la carpeta lo cambia el admin en el SIG
       continue
     }
     // carpeta anterior con el mismo nombre: se adopta en vez de duplicarla
@@ -74,6 +78,7 @@ export function sincronizarAreas(forzar = false): Promise<void> {
 export async function carpetasDeArea(nombreArea: string | undefined): Promise<{ id: number; nombre: string }[]> {
   if (!nombreArea?.trim()) return []
   await sincronizarAreas()
-  const enlazadas = await prisma.sigArea.findMany({ where: { intranetAreaId: { not: null } }, select: { id: true, nombre: true } })
-  return enlazadas.filter((a) => norm(a.nombre) === norm(nombreArea))
+  const enlazadas = await prisma.sigArea.findMany({ where: { intranetAreaId: { not: null } }, select: { id: true, nombre: true, intranetAreaId: true } })
+  // por el nombre del área en la intranet; si aún no se pudo leer el catálogo, por el nombre de la carpeta
+  return enlazadas.filter((a) => norm(nombresIntranet.get(a.intranetAreaId!) ?? a.nombre) === norm(nombreArea))
 }
