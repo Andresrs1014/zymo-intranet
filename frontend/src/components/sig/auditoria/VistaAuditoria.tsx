@@ -37,7 +37,8 @@ export function VistaAuditoria({ procedimientoId, onClose }: { procedimientoId: 
   const planos = [d.procedimiento, ...d.instructivos, ...d.formatos, ...d.anexos].filter((x): x is DocAuditoria => !!x)
   const elegir = useCallback((doc: DocAuditoria) => {
     setAbierto(doc)
-    setModo((m) => (m === "proc" ? "dividida" : m))
+    // una hoja de cálculo es ancha: desde el modo Procedimiento se abre a todo el ancho; lo demás, al lado del procedimiento
+    setModo((m) => (m === "proc" ? (/\.(xlsx?|xlsm|ods)$/i.test(doc.nombreArchivo ?? "") ? "doc" : "dividida") : m))
     if (!esPantallaAncha()) setLista(false)
   }, [])
 

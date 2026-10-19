@@ -10,7 +10,7 @@ import { DocxViewer } from "@/components/sig/SigFileViewer"
  * se pide `${base}/archivo` y, para Office, `${base}/archivo/pdf` (el servidor lo convierte con LibreOffice).
  *  - PDF, imágenes, audio y video: visor nativo del navegador.
  *  - Texto, JSON, XML, registros, Markdown: texto (el Markdown se renderiza).
- *  - Excel, CSV, ODS: tabla por hoja (PDF del servidor si no se puede leer). Word, PowerPoint, OpenDocument, RTF: PDF; si la conversión falla, Word y Excel caen al visor del navegador.
+ *  - Excel y ODS: PDF del servidor (tabla por hoja si no se pudo convertir). CSV: tabla. Word, PowerPoint, OpenDocument, RTF: PDF; si la conversión falla, Word y Excel caen al visor del navegador.
  *  - Lo demás (zip, ejecutables…): ficha con el dato del archivo y descarga, sin inventar una vista.
  * No carga nada hasta que se monta, así que quien la use la monta solo al desplegar.
  */
@@ -107,11 +107,11 @@ export function ArchivoPrevisualizador({ base, nombre, mime, tamano, altura = "7
         }
         if (EXT.tabla.includes(ext)) return poner({ t: "tabla", hojas: await leerTabla(await (await pedir("archivo")).arrayBuffer()) })
         if (EXT.excel.includes(ext)) {
-          // Excel: tabla con una pestaña por hoja (sin depender de LibreOffice); si el archivo no se puede leer, PDF del servidor
+          // Excel: PDF del servidor (fiel al original: logos, colores, celdas combinadas); si no se pudo convertir, tabla con una pestaña por hoja
           try {
-            return poner({ t: "tabla", hojas: await leerTabla(await (await pedir("archivo")).arrayBuffer()) })
-          } catch {
             return poner({ t: "url", tipo: "pdf", url: blobUrl(await pedir("archivo/pdf"), "application/pdf") })
+          } catch {
+            return poner({ t: "tabla", hojas: await leerTabla(await (await pedir("archivo")).arrayBuffer()) })
           }
         }
         if (EXT.office.includes(ext)) {
@@ -161,7 +161,7 @@ export function ArchivoPrevisualizador({ base, nombre, mime, tamano, altura = "7
   if (vista.t === "url") {
     return (
       <div className={`${marco} flex items-center justify-center bg-zinc-200`} style={{ height: altura }}>
-        {vista.tipo === "pdf" && <iframe src={`${vista.url}#${embebido ? "toolbar=0&navpanes=0&" : ""}view=FitH`} title={nombre} className="h-full w-full border-0 bg-zinc-200" />}
+        {vista.tipo === "pdf" && <iframe src={`${vista.url}#${embebido ? (EXT.excel.includes(ext) ? "navpanes=0&" : "toolbar=0&navpanes=0&") : ""}view=FitH`} title={nombre} className="h-full w-full border-0 bg-zinc-200" />}
         {vista.tipo === "imagen" && <img src={vista.url} alt={nombre} className="max-h-full max-w-full object-contain" />}
         {vista.tipo === "audio" && <audio src={vista.url} controls className="w-full max-w-md px-4" />}
         {vista.tipo === "video" && <video src={vista.url} controls className="max-h-full max-w-full" />}

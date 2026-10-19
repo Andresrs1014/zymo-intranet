@@ -141,11 +141,19 @@ services:
       - DATABASE_URL=postgresql://${SIG_DB_USER:-sig}:${SIG_DB_PASSWORD}@sig-db:5432/${SIG_DB_NAME:-sigdb}
       - INTRANET_API_URL=http://backend:8001
       - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:81}
+      # Convierte Excel a PDF para la vista previa (LibreOffice de Alpine se cae con Excel). Sin esta variable o si falla, usa el LibreOffice local.
+      - GOTENBERG_URL=http://gotenberg:3000
     depends_on:
       sig-db:
         condition: service_healthy
     volumes:
       - sig_uploads:/app/uploads/sig
+    restart: unless-stopped
+
+  # Conversor de documentos de Office a PDF (LibreOffice sobre Debian). Solo red interna: lo llama sig-backend.
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    mem_limit: 1536m
     restart: unless-stopped
 
   sig-db:

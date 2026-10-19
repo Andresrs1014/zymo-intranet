@@ -22,7 +22,32 @@ export function isOfficeDoc(filePath: string): boolean {
   return /\.(docx?|xlsx?|xlsm|pptx?|odt|ods|odp|rtf)$/i.test(filePath)
 }
 
+const esHojaDeCalculo = (filePath: string) => /\.(xlsx?|xlsm|ods)$/i.test(filePath)
+
+/** Excel → PDF en Gotenberg (LibreOffice sobre Debian, una página por hoja). null si no está configurado o falla: se usa el LibreOffice local. */
+async function porGotenberg(filePath: string): Promise<Buffer | null> {
+  const url = process.env.GOTENBERG_URL
+  if (!url) return null
+  try {
+    const form = new FormData()
+    form.append("files", new Blob([await fs.readFile(filePath)]), `hoja${path.extname(filePath)}`)
+    form.append("singlePageSheets", "true")
+    const res = await fetch(`${url}/forms/libreoffice/convert`, { method: "POST", body: form, signal: AbortSignal.timeout(90_000) })
+    return res.ok ? Buffer.from(await res.arrayBuffer()) : null
+  } catch {
+    return null
+  }
+}
+
 async function build(filePath: string, cachePath: string): Promise<string | null> {
+  const pdf = esHojaDeCalculo(filePath) ? await porGotenberg(filePath) : null
+  if (pdf) {
+    await fs.mkdir(PREVIEW_DIR, { recursive: true })
+    const tmp = `${cachePath}.${process.pid}.tmp`
+    await fs.writeFile(tmp, pdf)
+    await fs.rename(tmp, cachePath)
+    return cachePath
+  }
   const converted = await tryLibreOfficeConvert(filePath, "pdf")
   if (!converted) return null
   try {
