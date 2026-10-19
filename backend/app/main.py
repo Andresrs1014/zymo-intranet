@@ -259,12 +259,14 @@ _DEFAULT_SEDES = [
 
 
 def _seed_areas_sedes() -> None:
+    """Solo en una instalación vacía. Antes se recreaban por nombre en CADA arranque: las áreas y sedes que el admin borraba o
+    renombraba volvían a aparecer con cada reinicio del backend (2026-10-19)."""
     with Session(get_engine()) as session:
-        for name in _DEFAULT_AREAS:
-            if not session.exec(select(Area).where(Area.name == name)).first():
+        if not session.exec(select(Area)).first():
+            for name in _DEFAULT_AREAS:
                 session.add(Area(name=name))
-        for name in _DEFAULT_SEDES:
-            if not session.exec(select(Sede).where(Sede.name == name)).first():
+        if not session.exec(select(Sede)).first():
+            for name in _DEFAULT_SEDES:
                 session.add(Sede(name=name))
         session.commit()
     print("[seed] Áreas y sedes verificadas.")
