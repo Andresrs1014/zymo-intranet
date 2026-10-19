@@ -62,6 +62,14 @@ import { fetchProcCargoIds, type ProcCargoAsignado } from "@/components/sig/..."
 
 ---
 
+## Despliegue (flujo vigente desde 2026-10-19)
+
+- **Todo el trabajo va directo a `master`** (`origin/master`); no se usan ramas por funcionalidad. El servidor corre `master`.
+- Un push a `master` dispara el webhook de GitHub (`~/webhook/deploy-intranet.sh` en el servidor). Si `master` cambió, reconstruye **solo los servicios cuyo código cambió** (`backend/`, `frontend/`, `sig-backend/`, `task-backend/`, `zymoally-backend/`, `libertadora-backend/`), de uno en uno y con prioridad baja; cambios solo en `docs/` o en este archivo no reconstruyen nada. Si el servidor está en otra rama, no hace nada. Registro: `~/webhook/deploy-intranet.log`.
+- El servidor es un **PC de escritorio sin UPS** que se ha reiniciado en seco: no lanzar varios builds a la vez ni tareas pesadas juntas. Caja negra del equipo (estado cada 2 s): `~/zymo-backups/caja-negra/AAAA-MM-DD.log`. Limpieza de caché de Docker: `ops/limpieza/limpieza-docker.sh` (simulacro por defecto; solo ejecuta fuera de horario laboral).
+- **El arranque del backend no debe recrear datos que el admin edita.** Las áreas y sedes por defecto se siembran solo si la tabla está vacía (antes volvían tras cada reinicio). Revisar los seeds de `lifespan` en `backend/app/main.py` antes de reiniciar en producción.
+- Área de una persona = texto `User.area` de la cuenta (lo que usan JWT, permisos y SIG); la ficha del directorio no define a qué área pertenece.
+
 ## Respaldos (obligatorio mantenerlos vivos)
 
 Incidente 2026-10-02: un `docker compose down -v` borró todos los volúmenes y el último respaldo útil tenía 12 días. **Nunca** usar `down -v` en este proyecto (ver gotcha abajo). Hoy hay tres capas, todas fuera de Docker (`~/zymo-backups/` en el servidor):
@@ -200,7 +208,7 @@ Los endpoints `/api/sig-ia/*` (análisis, chat, editar-con-IA, indexar/consultar
 
 ## MCP externo — `mcp001-intranet`
 
-Servidor MCP en `C:\Gestion_documental\mcps\mcp001-intranet` que expone 16 herramientas del SIG a Codex, Claude Code y cualquier cliente MCP. Permite que agentes externos (Codex/GPT) lean y analicen procedimientos usando su propia licencia de LLM, sin consumir la API key del servidor.
+Servidor MCP en `C:\Gestion_documental\mcps\mcp001-intranet` que expone 17 herramientas del SIG (incluye `sig_list_indicators`: los KPI del área con su lectura mecánica) a Codex, Claude Code y cualquier cliente MCP. Permite que agentes externos (Codex/GPT) lean y analicen procedimientos usando su propia licencia de LLM, sin consumir la API key del servidor.
 
 - Paquete Python instalable: `pip install git+https://github.com/Andresrs1014/mcp001-intranet.git`
 - Comando: `mcp001-intranet` (entry point del paquete)
@@ -370,8 +378,8 @@ npx skills find xss csrf protection
 npx skills find secrets management
 ```
 
-### frontend-design — antes de cualquier componente UI
-Revisar dirección estética del módulo activo contra las reglas de estética ZYMO arriba.
+### impeccable — antes de cualquier componente UI (reemplaza a frontend-design)
+Revisar dirección estética del módulo activo contra las reglas de estética ZYMO arriba; pasarlas como brief fijo a `/impeccable` (PRODUCT.md/DESIGN.md).
 
 ### web-design-guidelines — antes de commit con cambios UI
 ```
