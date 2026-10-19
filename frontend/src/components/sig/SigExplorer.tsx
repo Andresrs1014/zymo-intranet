@@ -262,10 +262,10 @@ Está vacía. El área sigue existiendo en la intranet; solo desaparece su carpe
               ? <FolderOpen className="h-3.5 w-3.5 shrink-0" style={{ color: area.color }} />
               : <Folder className="h-3.5 w-3.5 shrink-0" style={{ color: area.color }} />
             }
-            <span className="text-[12px] text-zinc-700 flex-1 truncate" title={area.nombre}>{area.nombre}</span>
-            <span className="text-xs text-zinc-600 font-mono tabular-nums pr-1">
+            <span className="w-5 shrink-0 text-left text-xs text-zinc-600 font-mono tabular-nums" title="Procedimientos">
               {area._count.procedimientos}
             </span>
+            <span className="text-[12px] text-zinc-700 flex-1 truncate" title={area.nombre}>{area.nombre}</span>
           </button>
           {puedeRenombrar && (
             <button
