@@ -59,6 +59,13 @@ export function getUserId(user: AuthPayload): number {
 }
 
 /** Solo Admin o Gerente puede hacer esta acción */
+/** Admin, gerente o quien tenga mod_sig_aprobar: aprueba o rechaza lo que suben otros. No da análisis, edición ni borrado. */
+export function requireAprobador(req: Request, res: Response, next: NextFunction): void {
+  const role = req.user?.role
+  if (role === "admin" || role === "gerente" || (req.user?.app_permissions ?? []).includes("mod_sig_aprobar")) { next(); return }
+  res.status(403).json({ error: "Solo quien aprueba en el SIG puede realizar esta acción" })
+}
+
 export function requireGerente(req: Request, res: Response, next: NextFunction): void {
   const role = req.user?.role
   if (role !== "admin" && role !== "gerente") {

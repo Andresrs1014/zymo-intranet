@@ -7,7 +7,7 @@ import fs from "fs/promises"
 import fsSync from "fs"
 import { SigEstadoCommit } from "@prisma/client"
 import prisma from "../config/prisma"
-import { getUserId, requireSigAccess, requireGerente } from "../middleware/auth"
+import { getUserId, requireSigAccess, requireAprobador } from "../middleware/auth"
 import { fueraDeArea } from "../middleware/gateLider"
 import { sendAprobacionEmail } from "../services/email"
 import { extractText } from "../services/textExtraction"
@@ -79,7 +79,7 @@ router.get("/", async (req: Request, res: Response) => {
 
 // ── GET /api/commits/pendientes ───────────────────────────────────────────────
 
-router.get("/pendientes", requireGerente, async (_req: Request, res: Response) => {
+router.get("/pendientes", requireAprobador, async (_req: Request, res: Response) => {
   const commits = await prisma.sigCommit.findMany({
     where: { estado: "PENDIENTE_REVISION" },
     include: {
@@ -381,7 +381,7 @@ router.post("/", requireSigAccess, async (req: Request, res: Response) => {
 
 // ── POST /api/commits/:id/aprobar ─────────────────────────────────────────────
 
-router.post("/:id/aprobar", requireGerente, async (req: Request, res: Response) => {
+router.post("/:id/aprobar", requireAprobador, async (req: Request, res: Response) => {
   const id = parseInt(req.params.id)
   const userId = getUserId(req.user!)
   const userName = await resolveActorName(userId, req.user!.full_name)
@@ -474,7 +474,7 @@ router.patch("/:id/flujograma-mmd", requireSigAccess, async (req: Request, res: 
 
 // ── POST /api/commits/:id/rechazar ────────────────────────────────────────────
 
-router.post("/:id/rechazar", requireGerente, async (req: Request, res: Response) => {
+router.post("/:id/rechazar", requireAprobador, async (req: Request, res: Response) => {
   const id = parseInt(req.params.id)
   const userId = getUserId(req.user!)
   const userName = await resolveActorName(userId, req.user!.full_name)

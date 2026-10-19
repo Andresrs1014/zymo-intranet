@@ -95,6 +95,13 @@ export const INTERNAL_MODULE_GROUPS: ModulePermissionGroup[] = [
         name: "SIG — Cargar procedimientos (todas las áreas)",
         description: "Subir y crear procedimientos en cualquier área; quedan pendientes de que el SIG los apruebe. Sin Auditorías, Indicadores ni Cargos",
       },
+      {
+        id: "mod_sig_aprobar",
+        category: "modulo",
+        icon: "✅",
+        name: "SIG — Aprobar versiones y archivos pendientes",
+        description: "Ver la cola de revisión y aprobar o rechazar lo que suben otros. Se usa junto a «Cargar procedimientos»; no da análisis ni permite editar o borrar",
+      },
     ],
   },
   {

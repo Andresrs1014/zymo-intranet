@@ -110,6 +110,14 @@ function puertaSubir(req: Request, res: Response, next: NextFunction, familia: s
   const ruta = resto.join("/")
   const numerico = idRaw !== undefined && Number.isFinite(parseInt(idRaw))
 
+  // mod_sig_aprobar (junto a mod_sig_subir): ve la cola de pendientes y aprueba o rechaza versiones y archivos. Nada más.
+  if ((req.user?.app_permissions ?? []).includes("mod_sig_aprobar")) {
+    const accion = resto[resto.length - 1]
+    if (req.method === "GET" && idRaw === "pendientes" && resto.length === 0 && (familia === "commits" || familia === "revision")) { ok(); return }
+    if (req.method === "POST" && (accion === "aprobar" || accion === "rechazar")
+      && ((familia === "commits" && numerico && resto.length === 1) || (familia === "revision" && resto.length === 2 && Number.isFinite(parseInt(resto[0]))))) { ok(); return }
+  }
+
   if (req.method === "POST") {
     if (SUBIDAS.has(`${familia}/${idRaw}`) && resto.length === 0) { ok(); return }
     if (familia === "procedimientos" && idRaw === undefined) { ok(); return } // crear procedimiento

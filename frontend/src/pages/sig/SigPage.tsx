@@ -74,6 +74,8 @@ function SigDesktopView() {
   const esSubir = !isGerente && !perms.includes("mod_sig") && perms.includes("mod_sig_subir")
   const esLider = esSubir || (!isGerente && !perms.includes("mod_sig") && perms.includes("mod_sig_lider"))
   const canEditSig = isGerente || perms.includes("mod_sig") || esLider
+  // aprobar lo pendiente: gerente/admin o mod_sig_aprobar (no confundir con editar o borrar, que siguen siendo de isGerente)
+  const puedeAprobar = isGerente || perms.includes("mod_sig_aprobar")
 
   const [openTabs, setOpenTabs] = useState<TabMeta[]>([])
   const [activeKey, setActiveKey] = useState<string | null>(null)
@@ -92,13 +94,13 @@ function SigDesktopView() {
   const { data: pendientes = [] } = useQuery<unknown[]>({
     queryKey: ["sig", "commits", "pendientes"],
     queryFn: async () => (await sigApi.get("/api/commits/pendientes")).data,
-    enabled: isGerente,
+    enabled: puedeAprobar,
     refetchInterval: 30_000,
   })
   const { data: archivosPend = [] } = useQuery<unknown[]>({
     queryKey: ["sig", "revision", "pendientes"],
     queryFn: async () => (await sigApi.get("/api/revision/pendientes")).data,
-    enabled: isGerente,
+    enabled: puedeAprobar,
     refetchInterval: 30_000,
   })
 
@@ -183,7 +185,7 @@ function SigDesktopView() {
 
       {/* Title bar */}
       <TitleBar
-        isGerente={isGerente}
+        puedeAprobar={puedeAprobar}
         canEditSig={canEditSig}
         esLider={esLider}
         pendingCount={pendingCount}
@@ -233,7 +235,7 @@ function SigDesktopView() {
               <SigDiffEditor
                 key={activeView.id}
                 commitId={activeView.id}
-                isGerente={isGerente}
+                isGerente={puedeAprobar}
                 portable={esLider}
                 onOpenProcedure={openProcedure}
               />
@@ -248,7 +250,7 @@ function SigDesktopView() {
       </div>
 
       {/* Status bar */}
-      <StatusBar pendingCount={pendingCount} isGerente={isGerente} activeView={activeView} />
+      <StatusBar pendingCount={pendingCount} isGerente={puedeAprobar} activeView={activeView} />
 
       {/* Bolsa de archivos pendientes — persiste aunque se cierre, ver ArchivoPendiente */}
       {(!esLider || esSubir) && <SigArchivosPendientesTray />}
@@ -272,9 +274,9 @@ function SigDesktopView() {
 // ── Title bar ──────────────────────────────────────────────────────────────────
 
 function TitleBar({
-  isGerente, canEditSig, esLider, pendingCount, onOpenQueue, onOpenSync, onOpenIndicadores, onCargar, onSelectProcedure,
+  puedeAprobar, canEditSig, esLider, pendingCount, onOpenQueue, onOpenSync, onOpenIndicadores, onCargar, onSelectProcedure,
 }: {
-  isGerente:            boolean
+  puedeAprobar:         boolean
   canEditSig:           boolean
   /** Líder de área: sin Indicadores ni Auditorías (resultados de análisis) */
   esLider:              boolean
@@ -325,7 +327,7 @@ function TitleBar({
         </button>
           </>
         )}
-        {isGerente && pendingCount > 0 && (
+        {puedeAprobar && pendingCount > 0 && (
           <button
             onClick={onOpenQueue}
             className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors font-mono"

@@ -1,13 +1,13 @@
 import { Router, Request, Response } from "express"
 import { z } from "zod"
 import prisma from "../config/prisma"
-import { getUserId, requireGerente } from "../middleware/auth"
+import { getUserId, requireAprobador } from "../middleware/auth"
 import { resolveActorName } from "../utils/userNames"
 
 // Cola de revisión de lo que suben los líderes de área (formatos, instructivos y docs extra).
 // Las versiones tienen su propia cola en /api/commits/pendientes.
 const router = Router()
-router.use(requireGerente)
+router.use(requireAprobador)
 
 const tabla = { instructivo: prisma.sigInstructivo, formato: prisma.sigFormato, anexo: prisma.sigDocAnexo } as const
 type Tipo = keyof typeof tabla
