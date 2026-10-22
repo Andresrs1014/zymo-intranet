@@ -12,6 +12,7 @@ import archivosPendientesRouter from "./routers/archivos-pendientes"
 import instructivosRouter from "./routers/instructivos"
 import formatosRouter from "./routers/formatos"
 import docAnexosRouter from "./routers/doc-anexos"
+import archivosAreaRouter from "./routers/archivos-area"
 import protocolosRouter from "./routers/protocolos"
 import referenciasRouter from "./routers/referencias"
 import auditoriasRouter from "./routers/auditorias"
@@ -46,6 +47,7 @@ app.use("/api/archivos-pendientes", archivosPendientesRouter)
 app.use("/api/instructivos", instructivosRouter)
 app.use("/api/formatos", formatosRouter)
 app.use("/api/doc-anexos", docAnexosRouter)
+app.use("/api/archivos-area", archivosAreaRouter)
 app.use("/api/protocolos", protocolosRouter)
 app.use("/api/referencias", referenciasRouter)
 app.use("/api", auditoriasRouter) // /api/auditorias, /api/hallazgos, /api/consultas

@@ -40,7 +40,7 @@ const SigIndicadoresView = perezoso(() => import("@/components/sig/SigIndicadore
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-type TabIcon = "file" | "diff" | "queue" | "sync" | "kpi"
+type TabIcon = "file" | "diff" | "queue" | "sync" | "kpi" | "area"
 
 interface TabMeta {
   key: string
@@ -56,6 +56,7 @@ type ActiveView =
   | { kind: "queue" }
   | { kind: "analisis-sync" }
   | { kind: "indicadores" }
+  | { kind: "area-files"; id: number; nombre: string }
 
 // ── SigPage ────────────────────────────────────────────────────────────────────
 
@@ -164,6 +165,13 @@ function SigDesktopView() {
     )
   }, [openTab])
 
+  const openAreaFiles = useCallback((area: { id: number; nombre: string }) => {
+    openTab(
+      { kind: "area-files", id: area.id, nombre: area.nombre },
+      { key: `area-files-${area.id}`, icon: "area", title: "Archivos", subtitle: area.nombre },
+    )
+  }, [openTab])
+
   const openQueue = useCallback(() => {
     openTab({ kind: "queue" }, { key: "queue", icon: "queue", title: "Cola de revisión" })
   }, [openTab])
@@ -211,6 +219,7 @@ function SigDesktopView() {
           onOpenQueue={openQueue}
           onCargarVersion={openCargar}
           onDeleteProcedure={(id) => closeTab(`proc-${id}`)}
+          onOpenArchivosArea={openAreaFiles}
         />
 
         {/* Right: editor area */}
@@ -246,6 +255,24 @@ function SigDesktopView() {
             )}
             {activeView.kind === "analisis-sync" && <SigAuditoriasView />}
             {activeView.kind === "indicadores" && <SigIndicadoresView canEdit={canEditSig} />}
+            {activeView.kind === "area-files" && (
+              <PanelSIG icono={Paperclip} guia={`Archivos sueltos del área ${activeView.nombre}: no pertenecen a ningún procedimiento. Acepta cualquier formato.`}>
+                <SigAnexoPanel
+                  enMarco
+                  key={activeView.id}
+                  title={`Archivos del área · ${activeView.nombre}`}
+                  emptyText="Todavía no hay archivos en esta área. Sube cualquier documento (Excel, PDF, Word, imagen…) que sea del área y no de un procedimiento."
+                  listUrl={`/api/archivos-area?areaId=${activeView.id}`}
+                  uploadUrl="/api/archivos-area/upload"
+                  deleteUrlBase="/api/archivos-area"
+                  archivoUrlBase="/api/archivos-area"
+                  queryKey={["sig", "archivos-area", activeView.id]}
+                  canEdit={canEditSig}
+                  soloSubir={esLider}
+                  extraField={{ name: "areaId", value: String(activeView.id) }}
+                />
+              </PanelSIG>
+            )}
           </div>
         </div>
       </div>
@@ -350,6 +377,7 @@ const TAB_ICON: Record<TabIcon, React.ReactNode> = {
   queue:   <Inbox          className="h-3.5 w-3.5 text-amber-700" />,
   sync:    <History        className="h-3.5 w-3.5 text-zinc-600" />,
   kpi:     <Gauge          className="h-3.5 w-3.5 text-zinc-600" />,
+  area:    <Paperclip      className="h-3.5 w-3.5 text-zinc-600" />,
 }
 
 function TabBar({

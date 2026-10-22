@@ -6,7 +6,7 @@ import { useAuthStore } from "@/store/authStore"
 import { cn } from "@/lib/utils"
 import {
   ChevronRight, ChevronDown, FolderOpen, Folder,
-  FileText, GitCommit, Inbox, Plus, Circle, Trash2, AlertTriangle, UploadCloud, Pencil,
+  FileText, GitCommit, Inbox, Plus, Circle, Trash2, AlertTriangle, UploadCloud, Pencil, Paperclip,
 } from "lucide-react"
 import type { PreselectedProc } from "@/components/sig/SigCargarModal"
 
@@ -61,13 +61,15 @@ interface Props {
   onOpenQueue: () => void
   onCargarVersion?: (proc: PreselectedProc) => void
   onDeleteProcedure?: (id: number) => void
+  /** Abre los archivos que cuelgan del área (sin procedimiento). Sin esto, la fila no se muestra. */
+  onOpenArchivosArea?: (area: { id: number; nombre: string; color: string }) => void
 }
 
 // ── Main Explorer ──────────────────────────────────────────────────────────────
 
 export function SigExplorer({
   activeKey, isGerente, canEditSig, pendingCount,
-  onSelectProcedure, onSelectCommit, onOpenQueue, onCargarVersion, onDeleteProcedure,
+  onSelectProcedure, onSelectCommit, onOpenQueue, onCargarVersion, onDeleteProcedure, onOpenArchivosArea,
 }: Props) {
   const user = useAuthStore((s) => s.user)
   const isAdmin = user?.role === "admin"
@@ -152,6 +154,7 @@ export function SigExplorer({
             expandedProcs={expandedProcs}
             activeKey={activeKey}
             onToggleArea={() => toggleArea(area.id)}
+            onOpenArchivosArea={onOpenArchivosArea}
             onToggleProc={toggleProc}
             onSelectProcedure={onSelectProcedure}
             onSelectCommit={onSelectCommit}
@@ -171,7 +174,7 @@ export function SigExplorer({
 
 function AreaNode({
   area, expanded, expandedProcs, activeKey,
-  onToggleArea, onToggleProc, onSelectProcedure, onSelectCommit, isManager, canEditSig, onCargarVersion, onDeleteProcedure,
+  onToggleArea, onToggleProc, onSelectProcedure, onSelectCommit, isManager, canEditSig, onCargarVersion, onDeleteProcedure, onOpenArchivosArea,
 }: {
   area: SigArea
   expanded: boolean
@@ -185,6 +188,7 @@ function AreaNode({
   canEditSig?: boolean
   onCargarVersion?: (proc: PreselectedProc) => void
   onDeleteProcedure?: (id: number) => void
+  onOpenArchivosArea?: Props["onOpenArchivosArea"]
 }) {
   const qc = useQueryClient()
   const [renaming, setRenaming] = useState(false)
@@ -301,6 +305,20 @@ Está vacía. El área sigue existiendo en la intranet; solo desaparece su carpe
       {/* Procedures */}
       {expanded && (
         <div className="pl-5">
+          {onOpenArchivosArea && (
+            <button
+              onClick={() => onOpenArchivosArea({ id: area.id, nombre: area.nombre, color: area.color })}
+              className={cn(
+                "w-full flex items-center gap-1.5 px-3 py-1 text-left transition-colors border-l-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-helix-accent/40",
+                activeKey === `area-files-${area.id}`
+                  ? "bg-helix-accent/10 text-zinc-800 border-helix-accent/60"
+                  : "text-zinc-700 hover:bg-zinc-200 border-transparent",
+              )}
+            >
+              <Paperclip className="h-3 w-3 shrink-0 text-zinc-600" />
+              <span className="text-[12px] truncate">Archivos del área</span>
+            </button>
+          )}
           {procs.length === 0 && (
             <div className="px-3 py-1 text-xs text-zinc-700 italic">Sin procedimientos</div>
           )}

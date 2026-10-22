@@ -28,6 +28,7 @@ model SigArea {
   updatedAt      DateTime           @updatedAt
   procedimientos SigProcedimiento[]
   indicadores    SigIndicador[]
+  archivos       SigArchivoArea[]
 }
 
 // ── Procedimiento (el "repositorio" de un documento) ──────────────────────────
@@ -209,6 +210,26 @@ model SigDocAnexo {
   createdAt DateTime @default(now())
 
   @@index([procedimientoId])
+}
+
+// ── Archivo de área — documento suelto que cuelga del área (no de un procedimiento) ──
+
+model SigArchivoArea {
+  id     Int     @id @default(autoincrement())
+  areaId Int
+  area   SigArea @relation(fields: [areaId], references: [id], onDelete: Cascade)
+
+  nombre        String
+  archivo       String  @db.VarChar(500)
+  nombreArchivo String  @db.VarChar(255)
+  tipoMime      String? @db.VarChar(100)
+
+  autorId     Int
+  autorNombre String
+
+  createdAt DateTime @default(now())
+
+  @@index([areaId])
 }
 
 // ── Archivo pendiente — pool de carga masiva sin asignar ──────────────────────

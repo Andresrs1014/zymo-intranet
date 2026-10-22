@@ -15,7 +15,7 @@ import { carpetasDeArea } from "../services/areasIntranet"
 /** Lo único de /api que no es contenido del SIG y se rige por su propia regla (reportes de desarrollo). Todo lo demás se cierra por defecto. */
 const LIBRES = new Set(["reportes-desarrollo"])
 
-type Familia = "procedimientos" | "commits" | "instructivos" | "formatos" | "doc-anexos" | "protocolos"
+type Familia = "procedimientos" | "commits" | "instructivos" | "formatos" | "doc-anexos" | "protocolos" | "archivos-area"
 
 /** Subrutas de lectura permitidas por familia. "" = el recurso en sí. */
 const SUBRUTAS: Record<Familia, string[]> = {
@@ -25,10 +25,11 @@ const SUBRUTAS: Record<Familia, string[]> = {
   formatos: ["", "archivo", "archivo/pdf"],
   "doc-anexos": ["", "archivo", "archivo/pdf"],
   protocolos: ["", "archivo"],
+  "archivos-area": ["", "archivo", "archivo/pdf"],
 }
 
 /** Las únicas escrituras de un líder: subir archivos. Cada manejador comprueba después que el procedimiento sea de su área. */
-const SUBIDAS = new Set(["commits/upload", "formatos/upload", "doc-anexos/upload", "instructivos/upload"])
+const SUBIDAS = new Set(["commits/upload", "formatos/upload", "doc-anexos/upload", "instructivos/upload", "archivos-area/upload"])
 
 async function areaDe(familia: Familia, id: number): Promise<number | null> {
   const sel = { procedimiento: { select: { areaId: true } } } as const
@@ -38,6 +39,7 @@ async function areaDe(familia: Familia, id: number): Promise<number | null> {
     case "instructivos": return (await prisma.sigInstructivo.findUnique({ where: { id }, select: sel }))?.procedimiento.areaId ?? null
     case "formatos": return (await prisma.sigFormato.findUnique({ where: { id }, select: sel }))?.procedimiento.areaId ?? null
     case "doc-anexos": return (await prisma.sigDocAnexo.findUnique({ where: { id }, select: sel }))?.procedimiento.areaId ?? null
+    case "archivos-area": return (await prisma.sigArchivoArea.findUnique({ where: { id }, select: { areaId: true } }))?.areaId ?? null
     case "protocolos": return (await prisma.sigProtocolo.findUnique({ where: { id }, select: sel }))?.procedimiento.areaId ?? null
   }
 }
@@ -81,7 +83,9 @@ export async function gateLider(req: Request, res: Response, next: NextFunction)
     if (familia && familia in SUBRUTAS) {
       // el resto de listados solo se piden por procedimiento, y debe ser de su área
       const procId = parseInt(String(req.query.procedimientoId ?? ""))
-      const area = Number.isFinite(procId) ? await areaDe("procedimientos", procId) : null
+      const areaQ = parseInt(String(req.query.areaId ?? ""))
+      const area = familia === "archivos-area" ? (Number.isFinite(areaQ) ? areaQ : null)
+        : Number.isFinite(procId) ? await areaDe("procedimientos", procId) : null
       if (area != null && areas.includes(area)) { req.sigLiderOk = true; next(); return }
     }
     prohibido(res); return
