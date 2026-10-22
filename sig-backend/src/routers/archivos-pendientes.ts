@@ -30,14 +30,11 @@ const upload = multer({ defParamCharset: "utf8", // los nombres con tilde llegan
   
   storage,
   limits: { fileSize: 200 * 1024 * 1024, files: 50 },
-  fileFilter: (_req, file, cb) => {
-    const allowed = [".md", ".markdown", ".txt", ".docx", ".pdf", ".doc"]
-    const ext = path.extname(file.originalname).toLowerCase()
-    cb(null, allowed.includes(ext))
-  },
 })
 
 const CATEGORIAS = ["procedimiento", "soporte"] as const
+// Procedimiento = texto extraíble; soporte (formatos, anexos, instructivos) acepta cualquier formato (Excel, PPT, imágenes…).
+const EXT_PROCEDIMIENTO = [".md", ".markdown", ".txt", ".docx", ".pdf", ".doc"]
 
 // ── GET /api/archivos-pendientes?categoria=&asignado= ─────────────────────────
 
@@ -103,6 +100,11 @@ router.post(
     if (!categoria) {
       await Promise.all(files.map((f) => fs.unlink(f.path).catch(() => {})))
       res.status(422).json({ error: 'categoria debe ser "procedimiento" o "soporte"' })
+      return
+    }
+    if (categoria === "procedimiento" && files.some((f) => !EXT_PROCEDIMIENTO.includes(path.extname(f.originalname).toLowerCase()))) {
+      await Promise.all(files.map((f) => fs.unlink(f.path).catch(() => {})))
+      res.status(422).json({ error: "Los procedimientos solo admiten .docx, .doc, .pdf, .md o .txt; para Excel y otros formatos usa «Soporte»." })
       return
     }
 

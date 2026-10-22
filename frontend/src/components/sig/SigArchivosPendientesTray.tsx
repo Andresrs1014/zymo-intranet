@@ -204,7 +204,7 @@ export function SigArchivosPendientesTray() {
           <div className="flex gap-2">
             <input ref={inputProcRef} type="file" accept={UPLOAD_ACCEPT} multiple className="hidden"
               onChange={(e) => { if (e.target.files) void handleUpload(e.target.files, "procedimiento"); e.target.value = "" }} />
-            <input ref={inputSoporteRef} type="file" accept={UPLOAD_ACCEPT} multiple className="hidden"
+            <input ref={inputSoporteRef} type="file" multiple className="hidden"
               onChange={(e) => { if (e.target.files) void handleUpload(e.target.files, "soporte"); e.target.value = "" }} />
             <button
               onClick={() => inputProcRef.current?.click()}
