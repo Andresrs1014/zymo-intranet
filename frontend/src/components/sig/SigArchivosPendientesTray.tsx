@@ -33,6 +33,7 @@ interface SigArea { id: number; nombre: string; color: string }
 interface SigProcedimiento { id: number; areaId: number; codigo: string; titulo: string }
 
 const MAX_ARCHIVO = 200 * 1024 * 1024 // mismo tope que multer en sig-backend
+const EXT_PROCEDIMIENTO = /\.(docx|doc|pdf|md|txt)$/i // espejo de EXT_PROCEDIMIENTO en archivos-pendientes.ts
 
 function getErr(e: unknown, fallback: string): string {
   return (e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? fallback
@@ -85,10 +86,17 @@ export function SigArchivosPendientesTray() {
 
   async function handleUpload(fileList: FileList, categoria: Categoria) {
     const todos = Array.from(fileList)
-    const files = todos.filter((f) => f.size <= MAX_ARCHIVO)
+    // mismas extensiones que valida el backend para "procedimiento"; el resto se avisa, no tumba el lote
+    const extValida = (f: File) => categoria !== "procedimiento" || EXT_PROCEDIMIENTO.test(f.name)
+    const files = todos.filter((f) => f.size <= MAX_ARCHIVO && extValida(f))
     const grandes = todos.filter((f) => f.size > MAX_ARCHIVO).map((f) => f.name)
+    const formato = todos.filter((f) => f.size <= MAX_ARCHIVO && !extValida(f)).map((f) => f.name)
+    const omitidos = [
+      grandes.length ? `superan los 200 MB: ${grandes.join(", ")}` : "",
+      formato.length ? `como procedimiento solo se admiten .docx, .doc, .pdf, .md o .txt (usa «Soporte» para el resto): ${formato.join(", ")}` : "",
+    ].filter(Boolean).join(". ")
     if (files.length === 0) {
-      if (grandes.length) setUploadError(`Superan los 200 MB y no se subieron: ${grandes.join(", ")}`)
+      if (omitidos) setUploadError(`No se subió ninguno: ${omitidos}`)
       return
     }
     setUploading(true)
@@ -102,7 +110,7 @@ export function SigArchivosPendientesTray() {
       })
       setExpanded(true)
       await qc.invalidateQueries({ queryKey: LIST_KEY })
-      if (grandes.length) setUploadError(`Se subieron ${files.length}. Superan los 200 MB y no se subieron: ${grandes.join(", ")}`)
+      if (omitidos) setUploadError(`Se subieron ${files.length}. No se subieron: ${omitidos}`)
     } catch (e) {
       setUploadError(getErr(e, "Error al subir los archivos"))
     } finally {
