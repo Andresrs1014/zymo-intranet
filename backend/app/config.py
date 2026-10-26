@@ -37,10 +37,6 @@ class Settings(BaseSettings):
     # Clave interna para llamadas service-to-service (task-backend, etc.)
     internal_key: str = ""
 
-    # OC Automatizaciones
-    # Secret para validar que el webhook viene de Power Automate (opcional)
-    oc_webhook_secret: str = ""
-
     # Correo — SMTP Office 365
     smtp_host: str = "smtp.office365.com"
     smtp_port: int = 587
@@ -90,7 +86,8 @@ class Settings(BaseSettings):
     # SIG DB — acceso de lectura para el agente RAG / LightRAG
     sig_database_url: str = ""
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+    # extra=ignore: un .env con variables ya retiradas (ej. OC_WEBHOOK_SECRET) no debe tumbar el arranque
+    model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
 
 settings = Settings()

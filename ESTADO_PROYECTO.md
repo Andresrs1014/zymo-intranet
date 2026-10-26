@@ -50,8 +50,8 @@
 #### Flujo completo de una solicitud
 
 ```
-MS Forms → Power Automate → POST /api/oc/webhook/nueva-solicitud
-(⚠️ Migración a formulario interno planificada — ver Fase 2)
+Formulario interno → POST /api/oc/solicitudes/crear-interna
+(el webhook de Power Automate se eliminó el 2026-10-26)
                                         ↓
                               SolicitudOC creada en oc.db
                               Estado: nueva  |  Prioridad: Media (ajustable)
@@ -155,7 +155,6 @@ Cada empresa tiene su carpeta en `backend/app/platforms/{slug}/` con template pr
 | Archivo | Descripción |
 |---------|-------------|
 | `app/models/oc.py` | Modelos: `SolicitudOC`, `CotizacionProveedor`, `OrdenCompra`, `Proveedor`, `OcConfig` |
-| `app/routers/oc/webhook.py` | `POST /api/oc/webhook/nueva-solicitud` — sin auth, recibe desde Power Automate |
 | `app/routers/oc/solicitudes.py` | CRUD de solicitudes + `GET /mis-solicitudes` (por email del usuario autenticado) |
 | `app/routers/oc/cotizaciones.py` | Crear, aprobar/rechazar cotizaciones + extracción automática |
 | `app/routers/oc/documentos.py` | Generar OC, descargar, marcar-enviada / marcar-en-plataforma / marcar-entregada / cerrar |
@@ -172,7 +171,6 @@ Cada empresa tiene su carpeta en `backend/app/platforms/{slug}/` con template pr
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| POST | `/api/oc/webhook/nueva-solicitud` | Recibe solicitud desde Power Automate (backward compat.) |
 | POST | `/api/oc/solicitudes/crear-interna` | Crea solicitud desde el formulario nativo (cualquier empleado autenticado) |
 | GET | `/api/oc/solicitudes` | Listado **paginado** (rol compras u equivalente): cuerpo `{ "items": [...], "total": number }`. Query: `estado`, `plataforma`, `skip`, `limit` (default **50**, máx. **200**). Orden: `fecha_solicitud` desc, `id` desc. **Migración:** antes respondía un array plano; los clientes deben usar `response.items`. |
 | GET | `/api/oc/solicitudes/mis-solicitudes` | Solicitudes del usuario autenticado (por email) |
@@ -411,7 +409,7 @@ Estado factura: `validada` si todos cumplen, `con_diferencias` si alguno falla.
 - `GET/PATCH /api/oc/config/listas` — listas de dropdowns administradas por compras desde `/oc/configuracion`
 - `NuevaSolicitudPage.tsx` — formulario con dropdowns dinámicos (prioridad, categoría, grupo, cliente, condición), campos de texto, plataforma, validación frontend + backend
 - Email automático a auxiliar de compras con formato de tabla HTML al crear solicitud
-- Webhook Power Automate mantenido para compatibilidad hacia atrás
+- Webhook Power Automate eliminado el 2026-10-26 (ya nadie lo usaba)
 
 **Paquetes (Fase 2b — futuro):**
 - El coordinador guarda templates de solicitudes frecuentes
@@ -460,7 +458,7 @@ aprobada → oc_enviada → oc_en_plataforma → entregada → cerrada
 
 | Estado | Quién avanza | Descripción |
 |--------|-------------|-------------|
-| `nueva` | Sistema (webhook/form) | Solicitud recibida, sin asignar |
+| `nueva` | Sistema (formulario) | Solicitud recibida, sin asignar |
 | `en_cotizacion` | Auxiliar compras | En búsqueda de cotización |
 | `cotizacion_lista` | Auxiliar compras | Cotización cargada, pendiente aprobación |
 | `aprobada` | Directora / Administrativo | Cotización aprobada, listo para OC |
