@@ -22,6 +22,7 @@ from app.oc_database import get_oc_db
 from app.models.oc import CotizacionProveedor, EstadoOC, SolicitudOC
 from app.models.user import User
 from app.routers.oc.documentos import regenerar_pdf_orden_por_solicitud
+from app.services.oc_proforma import obtener_solicitud_con_acceso
 from app.services.email_service import (
     send_aprobacion_directora,
     send_alerta_correccion_post_cierre,
@@ -826,11 +827,10 @@ async def crear_cotizacion(
 def listar_cotizaciones(
     solicitud_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
     oc_db: Session = Depends(get_oc_db),
 ):
-    solicitud = oc_db.get(SolicitudOC, solicitud_id)
-    if not solicitud:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
+    obtener_solicitud_con_acceso(solicitud_id, current_user, db, oc_db)
 
     cotizaciones = oc_db.exec(
         select(CotizacionProveedor)
@@ -1352,12 +1352,14 @@ def corregir_directivo(
 def descargar_pdf_cotizacion(
     cotizacion_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
     oc_db: Session = Depends(get_oc_db),
 ):
     """Descarga el archivo PDF/Excel/Word adjunto a una cotización."""
     cotizacion = oc_db.get(CotizacionProveedor, cotizacion_id)
     if not cotizacion or not cotizacion.pdf_path:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Archivo no disponible.")
+    obtener_solicitud_con_acceso(cotizacion.solicitud_id, current_user, db, oc_db)
     path = Path(cotizacion.pdf_path)
     if not path.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Archivo no encontrado en disco.")

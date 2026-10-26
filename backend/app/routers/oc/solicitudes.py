@@ -22,6 +22,7 @@ from app.services.oc_proforma import (
     cotizaciones_count,
     DETALLE_PROFORMA_DESCARGA_OC_CERRADA,
     DETALLE_PROFORMA_NO_GESTIONABLE,
+    obtener_solicitud_con_acceso,
     proforma_es_gestionable_desde_oc,
     PROFORMA_OC_READONLY_ESTADOS,
     usuario_puede_ver_solicitud_oc,
@@ -397,9 +398,11 @@ def get_solicitud(
 def get_compras_vinculadas(
     solicitud_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
     oc_db: Session = Depends(get_oc_db),
 ):
     """Retorna todas las solicitudes de compra creadas a partir de una solicitud de mantenimiento."""
+    obtener_solicitud_con_acceso(solicitud_id, current_user, db, oc_db)
     compras = oc_db.exec(
         select(SolicitudOC).where(SolicitudOC.origen_solicitud_id == solicitud_id)
     ).all()
@@ -952,12 +955,14 @@ def editar_correccion(
 def get_tiempos_solicitud(
     solicitud_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
     oc_db: Session = Depends(get_oc_db),
 ):
     """
     Timeline completo de tiempos por etapa de una solicitud.
     Muestra cuánto tardó cada transición de estado.
     """
+    obtener_solicitud_con_acceso(solicitud_id, current_user, db, oc_db)
     from app.agents.tools.oc_tools import ver_timeline_solicitud
     return ver_timeline_solicitud(str(solicitud_id))
 
@@ -966,14 +971,13 @@ def get_tiempos_solicitud(
 def get_historial_estados(
     solicitud_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
     oc_db: Session = Depends(get_oc_db),
 ):
     """Retorna el historial de cambios de estado de una solicitud, ordenado cronológicamente."""
     from app.models.oc import HistorialEstado
 
-    solicitud = oc_db.get(SolicitudOC, solicitud_id)
-    if not solicitud:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
+    obtener_solicitud_con_acceso(solicitud_id, current_user, db, oc_db)
 
     entradas = oc_db.exec(
         select(HistorialEstado)
@@ -1086,27 +1090,6 @@ _MIME_FOTO = {
 }
 
 
-_ESTADOS_ADJUNTOS_CERRADOS = {EstadoOC.cerrada, EstadoOC.cancelada}
-
-
-def _solicitud_con_acceso(
-    solicitud_id: uuid.UUID, user: User, db: Session, oc_db: Session, *, modifica: bool
-) -> SolicitudOC:
-    """Solicitud si existe y el usuario puede verla (solicitante, compras o admin).
-    Con modifica=True además exige que no esté cerrada ni cancelada."""
-    solicitud = oc_db.get(SolicitudOC, solicitud_id)
-    if not solicitud:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
-    if not usuario_puede_ver_solicitud_oc(db, user, solicitud):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Sin permiso sobre esta solicitud.")
-    if modifica and solicitud.estado in _ESTADOS_ADJUNTOS_CERRADOS:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="La solicitud está cerrada o cancelada; no se pueden modificar sus archivos.",
-        )
-    return solicitud
-
-
 @router.post("/{solicitud_id}/fotos", status_code=status.HTTP_201_CREATED)
 async def subir_foto_solicitud(
     solicitud_id: uuid.UUID,
@@ -1116,7 +1099,7 @@ async def subir_foto_solicitud(
     oc_db: Session = Depends(get_oc_db),
 ):
     """Sube una foto o archivo de referencia del producto a la solicitud."""
-    solicitud = _solicitud_con_acceso(solicitud_id, current_user, db, oc_db, modifica=True)
+    solicitud = obtener_solicitud_con_acceso(solicitud_id, current_user, db, oc_db, modifica=True)
 
     nombre = file.filename or "archivo"
     ext = nombre.rsplit(".", 1)[-1].lower() if "." in nombre else ""
@@ -1154,7 +1137,7 @@ def descargar_foto_solicitud(
     oc_db: Session = Depends(get_oc_db),
 ):
     """Sirve un archivo de referencia del producto."""
-    solicitud = _solicitud_con_acceso(solicitud_id, current_user, db, oc_db, modifica=False)
+    solicitud = obtener_solicitud_con_acceso(solicitud_id, current_user, db, oc_db, modifica=False)
     if filename not in (solicitud.fotos_producto or []):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Archivo no encontrado.")
     path = _SOLICITUDES_DIR / str(solicitud_id) / filename
@@ -1174,7 +1157,7 @@ def eliminar_foto_solicitud(
     oc_db: Session = Depends(get_oc_db),
 ):
     """Elimina un archivo de referencia del producto."""
-    solicitud = _solicitud_con_acceso(solicitud_id, current_user, db, oc_db, modifica=True)
+    solicitud = obtener_solicitud_con_acceso(solicitud_id, current_user, db, oc_db, modifica=True)
 
     if filename not in (solicitud.fotos_producto or []):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Archivo no encontrado.")

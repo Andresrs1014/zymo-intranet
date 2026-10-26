@@ -20,6 +20,7 @@ from app.models.oc import CotizacionProveedor, OrdenCompra, SolicitudOC
 from app.models.user import User
 from app.oc_database import get_oc_db
 from app.services.historial import registrar_cambio_estado
+from app.services.oc_proforma import obtener_solicitud_con_acceso
 from app.services.platform_empresa import SLUG_MAP as _SLUG_MAP
 
 router = APIRouter(tags=["OC - Documentos"])
@@ -314,8 +315,10 @@ def generar_orden_compra(
 def obtener_orden_por_solicitud(
     solicitud_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
     oc_db: Session = Depends(get_oc_db),
 ):
+    obtener_solicitud_con_acceso(solicitud_id, current_user, db, oc_db)
     orden = oc_db.exec(
         select(OrdenCompra).where(OrdenCompra.solicitud_id == solicitud_id)
     ).first()
@@ -569,6 +572,7 @@ def descargar_orden(
     orden = oc_db.get(OrdenCompra, orden_id)
     if not orden:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Orden de compra no encontrada.")
+    obtener_solicitud_con_acceso(orden.solicitud_id, current_user, db, oc_db)
 
     if not (orden.pdf_path and Path(orden.pdf_path).exists()):
         # El archivo se perdió (volumen borrado/restaurado): se reconstruye desde los datos de la BD,

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 
+from fastapi import HTTPException, status
 from sqlmodel import Session, func, select
 
 from app.core.permissions import user_has_permission
@@ -59,3 +60,26 @@ def usuario_puede_ver_solicitud_oc(db: Session, user: User, solicitud: Solicitud
     is_compras = user_has_permission(db, user, "mod_oc_ver")
     is_solicitante = user.email == solicitud.solicitante_email
     return is_compras or is_solicitante
+
+
+_ESTADOS_ADJUNTOS_CERRADOS: frozenset[str] = frozenset(
+    {EstadoOC.cerrada.value, EstadoOC.cancelada.value}
+)
+
+
+def obtener_solicitud_con_acceso(
+    solicitud_id: uuid.UUID, user: User, db: Session, oc_db: Session, *, modifica: bool = False
+) -> SolicitudOC:
+    """Solicitud si existe y el usuario puede verla (solicitante, compras o admin).
+    Con modifica=True además exige que no esté cerrada ni cancelada."""
+    solicitud = oc_db.get(SolicitudOC, solicitud_id)
+    if not solicitud:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
+    if not usuario_puede_ver_solicitud_oc(db, user, solicitud):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Sin acceso a esta solicitud.")
+    if modifica and solicitud.estado in _ESTADOS_ADJUNTOS_CERRADOS:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="La solicitud está cerrada o cancelada; no se pueden modificar sus archivos.",
+        )
+    return solicitud
