@@ -699,13 +699,21 @@ async def upload_proforma(
     nombre_archivo = f"{solicitud_id}{extension}"
     destino = proformas_dir / nombre_archivo
 
-    destino.write_bytes(contenido)
+    # Se escribe a un temporal y se renombra: si falla a medias, la proforma buena no se daña.
+    temporal = destino.with_name(destino.name + ".tmp")
+    temporal.write_bytes(contenido)
+    temporal.replace(destino)
 
+    anterior = Path(solicitud.proforma_path) if solicitud.proforma_path else None
     solicitud.proforma_path = str(destino)
     solicitud.updated_at = datetime.now(timezone.utc)
     oc_db.add(solicitud)
     oc_db.commit()
     oc_db.refresh(solicitud)
+
+    # Con otra extensión el archivo anterior quedaba huérfano; se borra solo tras guardar la ruta nueva.
+    if anterior and anterior != destino:
+        anterior.unlink(missing_ok=True)
     return solicitud
 
 
