@@ -1086,17 +1086,37 @@ _MIME_FOTO = {
 }
 
 
+_ESTADOS_ADJUNTOS_CERRADOS = {EstadoOC.cerrada, EstadoOC.cancelada}
+
+
+def _solicitud_con_acceso(
+    solicitud_id: uuid.UUID, user: User, db: Session, oc_db: Session, *, modifica: bool
+) -> SolicitudOC:
+    """Solicitud si existe y el usuario puede verla (solicitante, compras o admin).
+    Con modifica=True además exige que no esté cerrada ni cancelada."""
+    solicitud = oc_db.get(SolicitudOC, solicitud_id)
+    if not solicitud:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
+    if not usuario_puede_ver_solicitud_oc(db, user, solicitud):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Sin permiso sobre esta solicitud.")
+    if modifica and solicitud.estado in _ESTADOS_ADJUNTOS_CERRADOS:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="La solicitud está cerrada o cancelada; no se pueden modificar sus archivos.",
+        )
+    return solicitud
+
+
 @router.post("/{solicitud_id}/fotos", status_code=status.HTTP_201_CREATED)
 async def subir_foto_solicitud(
     solicitud_id: uuid.UUID,
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
     oc_db: Session = Depends(get_oc_db),
 ):
     """Sube una foto o archivo de referencia del producto a la solicitud."""
-    solicitud = oc_db.get(SolicitudOC, solicitud_id)
-    if not solicitud:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
+    solicitud = _solicitud_con_acceso(solicitud_id, current_user, db, oc_db, modifica=True)
 
     nombre = file.filename or "archivo"
     ext = nombre.rsplit(".", 1)[-1].lower() if "." in nombre else ""
@@ -1130,12 +1150,11 @@ def descargar_foto_solicitud(
     solicitud_id: uuid.UUID,
     filename: str,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
     oc_db: Session = Depends(get_oc_db),
 ):
     """Sirve un archivo de referencia del producto."""
-    solicitud = oc_db.get(SolicitudOC, solicitud_id)
-    if not solicitud:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
+    solicitud = _solicitud_con_acceso(solicitud_id, current_user, db, oc_db, modifica=False)
     if filename not in (solicitud.fotos_producto or []):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Archivo no encontrado.")
     path = _SOLICITUDES_DIR / str(solicitud_id) / filename
@@ -1155,14 +1174,7 @@ def eliminar_foto_solicitud(
     oc_db: Session = Depends(get_oc_db),
 ):
     """Elimina un archivo de referencia del producto."""
-    solicitud = oc_db.get(SolicitudOC, solicitud_id)
-    if not solicitud:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
-
-    is_compras = user_has_permission(db, current_user, "mod_oc_ver")
-    is_solicitante = current_user.email == solicitud.solicitante_email
-    if not is_compras and not is_solicitante:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Sin permiso para eliminar este archivo.")
+    solicitud = _solicitud_con_acceso(solicitud_id, current_user, db, oc_db, modifica=True)
 
     if filename not in (solicitud.fotos_producto or []):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Archivo no encontrado.")
