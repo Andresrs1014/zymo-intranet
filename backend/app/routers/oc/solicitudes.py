@@ -11,10 +11,14 @@ from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, func, select
 
+from app.config import settings
 from app.core.deps import get_current_user, require_admin, require_compras
 from app.core.permissions import user_has_permission
 from app.database import get_db
 from app.oc_database import get_oc_db
+from app.financiero_database import get_financiero_db
+from app.models.financiero import FacturaProveedor
+from app.models.mantenimiento import SolicitudMantenimiento
 from app.models.oc import CotizacionProveedor, EliminacionOC, EstadoOC, HistorialEstado, OrdenCompra, SolicitudOC
 from app.models.user import User
 from app.services.consecutivos import liberar_consecutivo, siguiente_consecutivo
@@ -674,8 +678,6 @@ async def upload_proforma(
     oc_db: Session = Depends(get_oc_db),
 ):
     """Sube la proforma/anticipo (PDF/XLSX, etc.). Solo después de cargar cotización y antes de OC enviada."""
-    from app.config import settings
-
     solicitud = oc_db.get(SolicitudOC, solicitud_id)
     if not solicitud:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
@@ -1053,13 +1055,16 @@ def eliminar_solicitud(
     payload: EliminarSolicitudPayload,
     current_user: User = Depends(require_admin),
     oc_db: Session = Depends(get_oc_db),
+    fin_db: Session = Depends(get_financiero_db),
 ):
     """Elimina permanentemente una solicitud con todos sus datos y archivos.
 
     Solo accesible para administradores. Usa este endpoint para limpiar
     solicitudes duplicadas o erróneas que distorsionen los KPIs.
     Borra: historial, cotizaciones (+ PDFs en disco), órdenes de compra
-    (+ PDFs), fotos del producto y el archivo de proforma.
+    (+ PDFs), fotos del producto, la proforma y los temporales de extracción. Los archivos se
+    borran después del commit. Responde 409 si la solicitud tiene facturas en Financiero; las
+    compras hijas y el par de mantenimiento pierden el puntero (quedan en NULL).
     Exige un motivo y deja constancia en la bitácora de eliminaciones. Por defecto los números OS/OC
     quedan consumidos; con `liberar_numero` (pruebas) se pueden volver a asignar.
     """
@@ -1067,33 +1072,43 @@ def eliminar_solicitud(
     if not solicitud:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
 
-    # ── 1. Archivos de fotos / referencias del producto ───────────────────────
-    fotos_dir = _SOLICITUDES_DIR / str(solicitud_id)
-    if fotos_dir.exists():
-        shutil.rmtree(fotos_dir, ignore_errors=True)
+    # Financiero vive en otra base sin llaves foráneas: con facturas no se elimina.
+    if fin_db.exec(
+        select(FacturaProveedor.id).where(FacturaProveedor.solicitud_id == solicitud_id)
+    ).first():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="La solicitud tiene facturas registradas en Financiero; no se puede eliminar.",
+        )
 
-    # ── 2. Archivo de proforma ────────────────────────────────────────────────
-    if solicitud.proforma_path:
-        proforma_file = Path(solicitud.proforma_path)
-        proforma_file.unlink(missing_ok=True)
-
-    # ── 3. PDFs de cotizaciones ───────────────────────────────────────────────
     cotizaciones = oc_db.exec(
         select(CotizacionProveedor).where(CotizacionProveedor.solicitud_id == solicitud_id)
     ).all()
-    for cot in cotizaciones:
-        if cot.pdf_path:
-            Path(cot.pdf_path).unlink(missing_ok=True)
-
-    # ── 4. PDFs de órdenes de compra ──────────────────────────────────────────
     ordenes = oc_db.exec(
         select(OrdenCompra).where(OrdenCompra.solicitud_id == solicitud_id)
     ).all()
-    for orden in ordenes:
-        if orden.pdf_path:
-            Path(orden.pdf_path).unlink(missing_ok=True)
 
-    # ── 5. Registros en DB (historial → cotizaciones → órdenes → solicitud) ───
+    # Archivos a borrar solo después de confirmar el commit.
+    archivos = [Path(solicitud.proforma_path)] if solicitud.proforma_path else []
+    archivos += [Path(c.pdf_path) for c in cotizaciones if c.pdf_path]
+    archivos += [Path(o.pdf_path) for o in ordenes if o.pdf_path]
+    # Temporales de extracción (uno por usuario) y resultado de la fase 2.
+    archivos += _COTIZACIONES_DIR_SOL.glob(f"temp_{solicitud_id}_*")
+    archivos += Path(settings.phase2_results_dir).glob(f"{solicitud_id}_*.json")
+
+    # Quita los punteros que apuntan a esta solicitud (compras hijas y par de mantenimiento).
+    for hija in oc_db.exec(
+        select(SolicitudOC).where(SolicitudOC.origen_solicitud_id == solicitud_id)
+    ).all():
+        hija.origen_solicitud_id = None
+        oc_db.add(hija)
+    for mnt in oc_db.exec(
+        select(SolicitudMantenimiento).where(SolicitudMantenimiento.oc_par_id == str(solicitud_id))
+    ).all():
+        mnt.oc_par_id = None
+        oc_db.add(mnt)
+
+    # ── Registros en DB (historial → cotizaciones → órdenes → solicitud) ──────
     historial = oc_db.exec(
         select(HistorialEstado).where(HistorialEstado.solicitud_id == solicitud_id)
     ).all()
@@ -1125,6 +1140,10 @@ def eliminar_solicitud(
 
     oc_db.delete(solicitud)
     oc_db.commit()
+
+    shutil.rmtree(_SOLICITUDES_DIR / str(solicitud_id), ignore_errors=True)
+    for archivo in archivos:
+        archivo.unlink(missing_ok=True)
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
