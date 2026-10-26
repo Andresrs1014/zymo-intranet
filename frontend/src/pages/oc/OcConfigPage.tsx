@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom"
 import { Mail, ArrowRight } from "lucide-react"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { api } from "@/lib/api"
+import { useAuthStore } from "@/store/authStore"
+import { EliminacionesOC } from "@/components/oc/EliminacionesOC"
 import { useRef } from "react"
 import { useListasFormulario, useGuardarListas, useUploadClientesExcel } from "@/hooks/useOC"
 import type { ListasFormulario } from "@/hooks/useOC"
@@ -118,6 +120,7 @@ async function saveConfig(payload: Partial<FormState>): Promise<void> {
 
 export function OcConfigPage() {
   const navigate = useNavigate()
+  const user = useAuthStore((s) => s.user)
   const [form, setForm] = useState<FormState>({
     email_directora: "",
     email_compras: "",
@@ -737,6 +740,7 @@ export function OcConfigPage() {
               </form>
             )}
           </div>
+      {user?.role === "admin" && <EliminacionesOC />}
     </PageLayout>
   )
 }

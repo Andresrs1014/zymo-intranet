@@ -145,6 +145,8 @@ export function SolicitudDetallePage() {
   const [errorArchivar, setErrorArchivar] = useState<string | null>(null)
   const [mostrarModalEliminar, setMostrarModalEliminar] = useState(false)
   const [errorEliminar, setErrorEliminar] = useState<string | null>(null)
+  const [motivoEliminar, setMotivoEliminar] = useState("")
+  const [liberarNumero, setLiberarNumero] = useState(false)
   const fotoInputRef = useRef<HTMLInputElement>(null)
   const [fotoDragOver, setFotoDragOver] = useState(false)
   const evidenciaInputRef = useRef<HTMLInputElement>(null)
@@ -766,6 +768,37 @@ export function SolicitudDetallePage() {
                     <strong className="text-foreground"> Los KPIs se actualizarán automáticamente.</strong>
                   </p>
 
+                  <div>
+                    <label htmlFor="motivo-eliminar" className="block text-sm font-medium text-foreground mb-1">
+                      Motivo de la eliminación
+                    </label>
+                    <textarea
+                      id="motivo-eliminar"
+                      value={motivoEliminar}
+                      onChange={(e) => setMotivoEliminar(e.target.value)}
+                      rows={3}
+                      maxLength={1000}
+                      placeholder="Ej.: solicitud duplicada, creada por error…"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Queda registrado con tu nombre y la fecha; solo lo ven los administradores.</p>
+                  </div>
+
+                  <label className="flex items-start gap-2 text-sm text-foreground cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={liberarNumero}
+                      onChange={(e) => setLiberarNumero(e.target.checked)}
+                      className="mt-0.5 h-4 w-4"
+                    />
+                    <span>
+                      Liberar el número para volver a usarlo
+                      <span className="block text-xs text-muted-foreground">
+                        Solo para pruebas. Sin marcar, el número queda consumido y no se reasigna.
+                      </span>
+                    </span>
+                  </label>
+
                   {errorEliminar && (
                     <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
                       {errorEliminar}
@@ -777,7 +810,7 @@ export function SolicitudDetallePage() {
                       type="button"
                       onClick={() => {
                         setErrorEliminar(null)
-                        eliminarSolicitud.mutate(solicitud.id, {
+                        eliminarSolicitud.mutate({ solicitudId: solicitud.id, motivo: motivoEliminar.trim(), liberarNumero }, {
                           onSuccess: () => navigate("/oc/solicitudes"),
                           onError: (err: unknown) => {
                             const e = err as { response?: { data?: { detail?: string } } }
@@ -785,14 +818,14 @@ export function SolicitudDetallePage() {
                           },
                         })
                       }}
-                      disabled={eliminarSolicitud.isPending}
+                      disabled={eliminarSolicitud.isPending || motivoEliminar.trim().length < 5}
                       className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
                     >
                       {eliminarSolicitud.isPending ? "Eliminando..." : "Sí, eliminar definitivamente"}
                     </button>
                     <button
                       type="button"
-                      onClick={() => { setMostrarModalEliminar(false); setErrorEliminar(null) }}
+                      onClick={() => { setMostrarModalEliminar(false); setErrorEliminar(null); setMotivoEliminar(""); setLiberarNumero(false) }}
                       disabled={eliminarSolicitud.isPending}
                       className="rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-muted disabled:opacity-50"
                     >

@@ -7,7 +7,7 @@ from typing import Literal, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import FileResponse, Response, StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, func, select
 
@@ -15,9 +15,9 @@ from app.core.deps import get_current_user, require_admin, require_compras
 from app.core.permissions import user_has_permission
 from app.database import get_db
 from app.oc_database import get_oc_db
-from app.models.oc import CotizacionProveedor, EstadoOC, HistorialEstado, OrdenCompra, SolicitudOC
+from app.models.oc import CotizacionProveedor, EliminacionOC, EstadoOC, HistorialEstado, OrdenCompra, SolicitudOC
 from app.models.user import User
-from app.services.consecutivos import siguiente_consecutivo
+from app.services.consecutivos import liberar_consecutivo, siguiente_consecutivo
 from app.services.historial import registrar_cambio_estado
 from app.services.oc_proforma import (
     cotizaciones_count,
@@ -1011,9 +1011,38 @@ def archivar_solicitud(
 # ── Eliminación permanente (solo admin) ───────────────────────────────────────
 
 
+class EliminarSolicitudPayload(BaseModel):
+    motivo: str = Field(min_length=5, max_length=1000)
+    # Solo para pruebas: deja libres los números OS/OC de la solicitud para que otra los reutilice.
+    liberar_numero: bool = False
+
+
+class EliminacionRead(BaseModel):
+    id: uuid.UUID
+    fecha: datetime
+    eliminado_por_nombre: str
+    consecutivo_os: str
+    numeros_oc: str
+    estado_al_eliminar: str
+    descripcion: str
+    solicitante_nombre: str
+    motivo: str
+    numero_liberado: bool
+
+
+@router.get("/eliminaciones/historial", response_model=list[EliminacionRead])
+def listar_eliminaciones(
+    current_user: User = Depends(require_admin),
+    oc_db: Session = Depends(get_oc_db),
+):
+    """Bitácora de solicitudes eliminadas (quién, cuándo y por qué). Solo admin."""
+    return oc_db.exec(select(EliminacionOC).order_by(EliminacionOC.fecha.desc())).all()
+
+
 @router.delete("/{solicitud_id}", status_code=status.HTTP_204_NO_CONTENT)
 def eliminar_solicitud(
     solicitud_id: uuid.UUID,
+    payload: EliminarSolicitudPayload,
     current_user: User = Depends(require_admin),
     oc_db: Session = Depends(get_oc_db),
 ):
@@ -1023,6 +1052,8 @@ def eliminar_solicitud(
     solicitudes duplicadas o erróneas que distorsionen los KPIs.
     Borra: historial, cotizaciones (+ PDFs en disco), órdenes de compra
     (+ PDFs), fotos del producto y el archivo de proforma.
+    Exige un motivo y deja constancia en la bitácora de eliminaciones. Por defecto los números OS/OC
+    quedan consumidos; con `liberar_numero` (pruebas) se pueden volver a asignar.
     """
     solicitud = oc_db.get(SolicitudOC, solicitud_id)
     if not solicitud:
@@ -1066,6 +1097,23 @@ def eliminar_solicitud(
 
     for orden in ordenes:
         oc_db.delete(orden)
+
+    oc_db.add(EliminacionOC(
+        eliminado_por_id=current_user.id,
+        eliminado_por_nombre=current_user.full_name or current_user.email,
+        solicitud_id=solicitud_id,
+        consecutivo_os=solicitud.consecutivo_os,
+        numeros_oc=", ".join(o.numero_oc for o in ordenes),
+        estado_al_eliminar=str(getattr(solicitud.estado, "value", solicitud.estado)),
+        descripcion=solicitud.descripcion or "",
+        solicitante_nombre=solicitud.solicitante_nombre or "",
+        motivo=payload.motivo.strip(),
+        numero_liberado=payload.liberar_numero,
+    ))
+    if payload.liberar_numero:
+        liberar_consecutivo(oc_db, solicitud.consecutivo_os)
+        for orden in ordenes:
+            liberar_consecutivo(oc_db, orden.numero_oc)
 
     oc_db.delete(solicitud)
     oc_db.commit()

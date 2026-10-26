@@ -183,6 +183,24 @@ class OcConfig(SQLModel, table=True):
     value: str = Field(default="")
 
 
+class EliminacionOC(SQLModel, table=True):
+    """Bitácora de solicitudes eliminadas de forma permanente (solo la consultan los admins)."""
+    __tablename__ = "oc_eliminaciones"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    fecha: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    eliminado_por_id: int
+    eliminado_por_nombre: str = Field(max_length=200)
+    solicitud_id: uuid.UUID
+    consecutivo_os: str = Field(max_length=50)
+    numeros_oc: str = Field(default="", max_length=500)  # separados por coma
+    estado_al_eliminar: str = Field(max_length=50)
+    descripcion: str = Field(default="")
+    solicitante_nombre: str = Field(default="", max_length=200)
+    motivo: str
+    numero_liberado: bool = Field(default=False)
+
+
 class HistorialEstado(SQLModel, table=True):
     __tablename__ = "oc_historial_estados"
 

@@ -954,13 +954,41 @@ export function useArchivarSolicitud() {
   })
 }
 
+export interface EliminacionOC {
+  id: string
+  fecha: string
+  eliminado_por_nombre: string
+  consecutivo_os: string
+  numeros_oc: string
+  estado_al_eliminar: string
+  descripcion: string
+  solicitante_nombre: string
+  motivo: string
+  numero_liberado: boolean
+}
+
+/** Bitácora de solicitudes eliminadas — solo admin. */
+export function useEliminacionesOC(enabled: boolean) {
+  return useQuery({
+    queryKey: ["oc", "eliminaciones"],
+    enabled,
+    queryFn: async () => {
+      const { data } = await api.get<EliminacionOC[]>("/api/oc/solicitudes/eliminaciones/historial")
+      return data
+    },
+  })
+}
+
 export function useEliminarSolicitud() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (solicitudId: string) => {
-      await api.delete(`/api/oc/solicitudes/${solicitudId}`)
+    mutationFn: async (input: { solicitudId: string; motivo: string; liberarNumero: boolean }) => {
+      await api.delete(`/api/oc/solicitudes/${input.solicitudId}`, {
+        data: { motivo: input.motivo, liberar_numero: input.liberarNumero },
+      })
     },
-    onSuccess: (_data, solicitudId) => {
+    onSuccess: (_data, { solicitudId }) => {
+      qc.invalidateQueries({ queryKey: ["oc", "eliminaciones"] })
       qc.invalidateQueries({ queryKey: ["oc", "solicitudes"] })
       qc.invalidateQueries({ queryKey: ["oc", "solicitudes", solicitudId] })
       qc.invalidateQueries({ queryKey: ["oc", "mis-solicitudes"] })
