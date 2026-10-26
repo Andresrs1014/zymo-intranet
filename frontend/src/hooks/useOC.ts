@@ -148,10 +148,6 @@ export interface GestionPayload {
   observaciones_compras?: string
   fecha_estimada_entrega?: string
   fecha_confirmada_entrega?: string
-  numero_factura?: string
-  aval_compra?: string
-  observacion_contabilidad?: string
-  fecha_recibida_factura?: string
 }
 
 export function useCambiarPrioridad() {

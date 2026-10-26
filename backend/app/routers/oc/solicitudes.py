@@ -153,10 +153,8 @@ class GestionPayload(BaseModel):
     observaciones_compras: Optional[str] = None
     fecha_estimada_entrega: Optional[date] = None
     fecha_confirmada_entrega: Optional[date] = None
-    numero_factura: Optional[str] = None
-    aval_compra: Optional[str] = None
-    observacion_contabilidad: Optional[str] = None
-    fecha_recibida_factura: Optional[date] = None
+    # numero_factura, aval_compra, fecha_recibida_factura y observacion_contabilidad no se editan aquí:
+    # el aval lo fija el sistema al aprobar y la factura la maneja Financiero.
 
 
 class SolicitudInternaCreate(BaseModel):
@@ -776,10 +774,15 @@ def gestionar_solicitud(
     current_user: User = Depends(require_compras),
     oc_db: Session = Depends(get_oc_db),
 ):
-    """Actualiza los campos de gestión de compras (remisión, factura, aval, etc.)."""
+    """Actualiza los campos de gestión de compras (plataforma, remisión, observaciones y fechas de entrega)."""
     solicitud = oc_db.get(SolicitudOC, solicitud_id)
     if not solicitud:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada.")
+    if solicitud.estado in (EstadoOC.cerrada, EstadoOC.cancelada):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="La solicitud está cerrada o cancelada y ya no se puede modificar.",
+        )
 
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(solicitud, field, value)
