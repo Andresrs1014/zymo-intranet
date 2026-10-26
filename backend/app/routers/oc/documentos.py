@@ -10,7 +10,8 @@ _log = logging.getLogger(__name__)
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from sqlmodel import Session, func, select
+from sqlalchemy.exc import IntegrityError
+from sqlmodel import Session, select
 from jinja2 import Environment, FileSystemLoader
 
 from app.core.deps import get_current_user, require_compras
@@ -19,6 +20,7 @@ from app.database import get_db
 from app.models.oc import CotizacionProveedor, OrdenCompra, SolicitudOC
 from app.models.user import User
 from app.oc_database import get_oc_db
+from app.services.consecutivos import siguiente_consecutivo
 from app.services.historial import registrar_cambio_estado
 from app.services.oc_proforma import obtener_solicitud_con_acceso
 from app.services.platform_empresa import SLUG_MAP as _SLUG_MAP
@@ -257,18 +259,37 @@ def generar_orden_compra(
             detail="No existe una cotización aprobada para esta solicitud.",
         )
 
+    reservada: OrdenCompra | None = None
     if orden_existente and forzar:
         numero_oc = orden_existente.numero_oc
         old_pdf = OC_DOCS_DIR / f"{numero_oc}.pdf"
         if old_pdf.exists():
             old_pdf.unlink(missing_ok=True)
     else:
-        anio_actual = datetime.now(timezone.utc).year
-        prefijo = f"OC-{anio_actual}-"
-        count = oc_db.exec(
-            select(func.count(OrdenCompra.id)).where(OrdenCompra.numero_oc.startswith(prefijo))
-        ).one()
-        numero_oc = f"{prefijo}{(count + 1):04d}"
+        # Se reserva el número insertando la orden (sin PDF aún): si otra petición lo tomó antes, el índice
+        # único lo rechaza y se pide el siguiente. El número queda consumido aunque luego falle el PDF.
+        prefijo = f"OC-{datetime.now(timezone.utc).year}-"
+        for _ in range(5):
+            numero_oc = siguiente_consecutivo(oc_db, prefijo, OrdenCompra.numero_oc)
+            candidata = OrdenCompra(
+                solicitud_id=solicitud_id,
+                cotizacion_id=cotizacion.id,
+                numero_oc=numero_oc,
+                email_proveedor=cotizacion.proveedor_email,
+                created_at=datetime.now(timezone.utc),
+            )
+            oc_db.add(candidata)
+            try:
+                oc_db.commit()
+                reservada = candidata
+                break
+            except IntegrityError:
+                oc_db.rollback()
+        if reservada is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="No se pudo generar un número de OC único. Intenta de nuevo.",
+            )
 
     OC_DOCS_DIR.mkdir(parents=True, exist_ok=True)
     pdf_path = OC_DOCS_DIR / f"{numero_oc}.pdf"
@@ -287,24 +308,17 @@ def generar_orden_compra(
     # Regenerar una OC ya cerrada reconstruye el archivo, no emite una OC nueva: conserva su fecha.
     from app.models.oc import EstadoOC
     fecha = _fecha_original_oc(solicitud) if solicitud.estado == EstadoOC.cerrada else None
-    _generar_pdf(numero_oc, solicitud, cotizacion, pdf_path, auxiliar_nombre, aprobador_nombre, fecha)
+    try:
+        _generar_pdf(numero_oc, solicitud, cotizacion, pdf_path, auxiliar_nombre, aprobador_nombre, fecha)
+    except Exception:
+        if not (orden_existente and forzar):
+            oc_db.delete(reservada)  # el número queda consumido (contador en oc_config), la fila no
+            oc_db.commit()
+        raise
 
-    if orden_existente and forzar:
-        orden_existente.cotizacion_id = cotizacion.id
-        orden_existente.pdf_path = str(pdf_path)
-        oc_db.add(orden_existente)
-        oc_db.commit()
-        oc_db.refresh(orden_existente)
-        return orden_existente
-
-    orden = OrdenCompra(
-        solicitud_id=solicitud_id,
-        cotizacion_id=cotizacion.id,
-        numero_oc=numero_oc,
-        pdf_path=str(pdf_path),
-        email_proveedor=cotizacion.proveedor_email,
-        created_at=datetime.now(timezone.utc),
-    )
+    orden = orden_existente if (orden_existente and forzar) else reservada
+    orden.cotizacion_id = cotizacion.id
+    orden.pdf_path = str(pdf_path)
     oc_db.add(orden)
     oc_db.commit()
     oc_db.refresh(orden)

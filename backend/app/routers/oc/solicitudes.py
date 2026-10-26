@@ -17,6 +17,7 @@ from app.database import get_db
 from app.oc_database import get_oc_db
 from app.models.oc import CotizacionProveedor, EstadoOC, HistorialEstado, OrdenCompra, SolicitudOC
 from app.models.user import User
+from app.services.consecutivos import siguiente_consecutivo
 from app.services.historial import registrar_cambio_estado
 from app.services.oc_proforma import (
     cotizaciones_count,
@@ -284,13 +285,8 @@ async def crear_solicitud_interna(
 
     # Generar consecutivo OS-YYYY-XXXX con reintentos para evitar colisión concurrente
     solicitud: SolicitudOC | None = None
-    for intento in range(5):
-        count = oc_db.exec(
-            select(func.count(SolicitudOC.id)).where(
-                SolicitudOC.consecutivo_os.startswith(prefijo)
-            )
-        ).one()
-        consecutivo_os = f"{prefijo}{(count + intento + 1):04d}"
+    for _ in range(5):
+        consecutivo_os = siguiente_consecutivo(oc_db, prefijo, SolicitudOC.consecutivo_os)
 
         candidato = SolicitudOC(
             consecutivo_os=consecutivo_os,

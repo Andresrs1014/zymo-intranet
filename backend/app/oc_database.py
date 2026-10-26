@@ -49,6 +49,16 @@ def create_oc_tables() -> None:
             "ON oc_solicitudes (consecutivo_os)"
         ))
 
+        # Migración: número de OC único. Si ya hay duplicados el índice no se crea (se avisa en el log)
+        # y el consecutivo sigue funcionando, solo sin la red de seguridad de la base de datos.
+        try:
+            conn.execute(text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS ix_oc_ordenes_numero_oc ON oc_ordenes (numero_oc)"
+            ))
+        except Exception:
+            conn.rollback()
+            log.warning("[oc_db] No se creó el índice único de oc_ordenes.numero_oc: hay números de OC repetidos.")
+
         # Migración: fotos del producto subidas desde la intranet
         try:
             conn.execute(text("ALTER TABLE oc_solicitudes ADD COLUMN fotos_producto JSON"))
