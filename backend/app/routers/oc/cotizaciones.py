@@ -22,6 +22,7 @@ from app.oc_database import get_oc_db
 from app.models.oc import CotizacionProveedor, EstadoOC, SolicitudOC
 from app.models.user import User
 from app.routers.oc.documentos import regenerar_pdf_orden_por_solicitud
+from app.routers.oc.solicitudes import _MAX_UPLOAD_BYTES
 from app.services.oc_proforma import obtener_solicitud_con_acceso
 from app.services.email_service import (
     send_aprobacion_directora,
@@ -653,6 +654,9 @@ async def extraer_cotizacion(
         )
 
     contenido = await file.read()
+    if len(contenido) > _MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El archivo supera el límite de 20 MB.")
+    clave = _clave_extraccion(solicitud_id, current_user)
 
     # ── Fase 1: síncrona ──────────────────────────────────────────────────────
     phase1_dict = run_phase1(contenido, ext, str(solicitud_id))
@@ -678,7 +682,9 @@ async def extraer_cotizacion(
     # Guardar archivo temporal (igual que antes)
     try:
         _COTIZACIONES_DIR.mkdir(parents=True, exist_ok=True)
-        temp_path = _COTIZACIONES_DIR / f"temp_{solicitud_id}.{ext}"
+        for previo in _COTIZACIONES_DIR.glob(f"temp_{clave}.*"):  # solo queda el último archivo
+            previo.unlink(missing_ok=True)
+        temp_path = _COTIZACIONES_DIR / f"temp_{clave}.{ext}"
         temp_path.write_bytes(contenido)
         resultado.temp_file_ext = ext
     except Exception as e:
@@ -693,7 +699,7 @@ async def extraer_cotizacion(
 
     if campos_vacios > 0 and settings.gemini_api_key:
         background_tasks.add_task(
-            run_phase2, contenido, ext, str(solicitud_id), phase1_dict
+            run_phase2, contenido, ext, clave, phase1_dict
         )
         log.info("[extraccion] Fase 2 programada para solicitud %s (%d campos vacíos)", solicitud_id, campos_vacios)
 
@@ -701,6 +707,12 @@ async def extraer_cotizacion(
 
 
 _COTIZACIONES_DIR = Path("/app/data/cotizaciones")
+
+
+def _clave_extraccion(solicitud_id: uuid.UUID, user: User) -> str:
+    """Nombre base del temporal y del resultado de Fase 2: por solicitud y por usuario, para que
+    dos auxiliares extrayendo cotizaciones de la misma solicitud no se pisen."""
+    return f"{solicitud_id}_{user.id}"
 
 
 @router.get(
@@ -718,7 +730,7 @@ def get_extraccion_resultado(
     """
     from app.services.extraction_pipeline import get_phase2_result
     from fastapi.responses import Response
-    result = get_phase2_result(str(solicitud_id))
+    result = get_phase2_result(_clave_extraccion(solicitud_id, current_user))
     if result is None:
         return Response(status_code=status.HTTP_204_NO_CONTENT)
     return result
@@ -798,9 +810,9 @@ async def crear_cotizacion(
     oc_db.refresh(cotizacion)
 
     # Vincular el archivo temporal que dejó la extracción automática (si existe)
-    # La extracción guarda: _COTIZACIONES_DIR/temp_{solicitud_id}.{ext}
+    # La extracción guarda: _COTIZACIONES_DIR/temp_{solicitud_id}_{user_id}.{ext}
     try:
-        temp_candidates = list(_COTIZACIONES_DIR.glob(f"temp_{solicitud_id}.*"))
+        temp_candidates = list(_COTIZACIONES_DIR.glob(f"temp_{_clave_extraccion(solicitud_id, current_user)}.*"))
         if temp_candidates:
             temp_path = temp_candidates[0]
             ext = temp_path.suffix.lstrip(".")
