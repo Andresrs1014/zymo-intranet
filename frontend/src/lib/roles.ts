@@ -22,6 +22,11 @@ export interface ModulePermissionGroup {
   modules: AppDefinition[]
 }
 
+/** Permisos que otro necesita para funcionar: al marcar uno se marcan también estos (el backend los exige juntos). */
+export const PERMISOS_REQUERIDOS: Record<string, string[]> = {
+  mod_oc_aprobar: ["mod_oc_ver"],
+}
+
 export const INTERNAL_MODULE_GROUPS: ModulePermissionGroup[] = [
   {
     title: "Órdenes de compra",
@@ -39,7 +44,7 @@ export const INTERNAL_MODULE_GROUPS: ModulePermissionGroup[] = [
         category: "modulo",
         icon: "✅",
         name: "OC — Aprobar cotizaciones",
-        description: "Aprobar o rechazar cotizaciones de proveedores",
+        description: "Aprobar o rechazar cotizaciones de proveedores. Requiere «Ver solicitudes» (se marca sola)",
       },
       {
         id: "mod_oc_config",

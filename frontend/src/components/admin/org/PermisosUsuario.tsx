@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react"
 import { Lock, X } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { ORG_PERMISSION_GROUPS } from "@/lib/roles"
+import { ORG_PERMISSION_GROUPS, PERMISOS_REQUERIDOS } from "@/lib/roles"
 import { getApiError } from "@/hooks/useRoles"
 import { useExclusivos, useFijarPermisos, type UsuarioArea } from "@/hooks/useAreaAcceso"
 
 const toggle = (set: Set<string>, v: string) => {
   const n = new Set(set)
-  if (n.has(v)) n.delete(v); else n.add(v)
+  if (n.has(v)) n.delete(v)
+  else { n.add(v); (PERMISOS_REQUERIDOS[v] ?? []).forEach((r) => n.add(r)) }
   return n
 }
 

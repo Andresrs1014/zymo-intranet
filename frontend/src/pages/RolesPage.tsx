@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { AdminConfigNav } from "@/components/admin/AdminConfigNav"
-import { INTERNAL_MODULES, EXTERNAL_APPS, INTERNAL_MODULE_GROUPS, type AppDefinition } from "@/lib/roles"
+import { INTERNAL_MODULES, EXTERNAL_APPS, INTERNAL_MODULE_GROUPS, PERMISOS_REQUERIDOS, type AppDefinition } from "@/lib/roles"
 import {
   useRoles,
   useCreateRole,
@@ -269,7 +269,9 @@ function RoleFormModal({ role, onSubmit, onClose, isLoading, error }: RoleFormMo
 
   function toggle(id: string) {
     setPermissions((prev) =>
-      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
+      prev.includes(id)
+        ? prev.filter((p) => p !== id)
+        : [...new Set([...prev, id, ...(PERMISOS_REQUERIDOS[id] ?? [])])]
     )
   }
 
