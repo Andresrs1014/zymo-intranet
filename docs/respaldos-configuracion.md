@@ -36,9 +36,16 @@ Además hay un **reintento automático del semanal** (domingo 3:00 a. m. Colombi
 - Intranet: principal (usuarios, roles), SIG, Helix, tareas, ZymoAlly (tickets) y Libertadora.
 - Otros proyectos del mismo servidor: CRM, gestión comercial, WOW Olimpiadas, Brakepak, ZYMO Academy.
 
-**Bases SQLite** del backend (órdenes de compra, personal/T&C, financiero, gerencial, SGC, agentes, intranet) y de los proyectos `matrix` y `crm_html_app`: copiadas con la función de respaldo propia de SQLite, que garantiza una copia consistente aunque la base esté en uso, y verificadas con `quick_check`.
+**Bases SQLite** del backend (órdenes de compra, personal/T&C, financiero, gerencial, SGC, agentes, intranet) y de `matrix`, `cronograma` (`app.db`) y activos (`zymo_assets.db`, desde el 2026-10-29): copiadas con la función de respaldo propia de SQLite, que garantiza una copia consistente aunque la base esté en uso, y verificadas con `quick_check`. (`crm_html_app` se retiró el 2026-10-19.)
 
-**Archivos adjuntos** (volúmenes de Docker): adjuntos de SIG, Helix, tareas y ZymoAlly, y los archivos de `backend_data` (PDFs de órdenes, cotizaciones y facturas). **Antes de esta configuración estos archivos no estaban respaldados en ninguna parte.**
+**Archivos adjuntos** (volúmenes de Docker), un `vol_<nombre>.tgz` por volumen. Desde el 2026-10-29 se descubren solos: **todo volumen nombrado que esté montado por un contenedor en ejecución, de cualquier proyecto del servidor**, menos los datos crudos de Postgres (montados en `/var/lib/postgresql/data`, ya cubiertos por el volcado) y los volúmenes anónimos. Los `.db` se excluyen del tar porque van en la copia SQLite. Hoy eso es:
+- Intranet: `sig_uploads`, `task_uploads`, `zymoally_uploads`, `backend_data` (PDFs de órdenes, cotizaciones y facturas) y `activos_data` (evidencias de activos).
+- Otros proyectos: `wow-olimpiadas_wow_uploads` (fotos de WOW Olimpiadas), `agente-sig_uploads`, `gestion_comercial_gd_data` y `gestion_comercial_logimat_data` (CRM comercial), `cronograma_app-data`, `matriz_sqlite_data` (evidencias de matrix).
+- Carpeta (no volumen) de Reportes Dev: `~/apps/bitacoras/reportes-dev/data` → `vol_bitacoras_reportes-dev_data.tgz`.
+
+Los `uploads`/`backend_data` de la intranet se copian aunque su contenedor esté caído. Un volumen de otro proyecto cuyo contenedor esté detenido en ese momento **no** se copia en esa corrida (queda el `.tgz` anterior). Los tar corren con prioridad baja (`nice`) y de uno en uno.
+
+**Lo que sigue sin respaldo diario:** los `.env` y demás secretos de cada proyecto (a propósito: no se copian secretos a la carpeta de respaldos; deben guardarse aparte, p. ej. en un gestor de contraseñas), el código fuente (vive en GitHub) y los frontends estáticos montados como carpeta (`ZYMO_Assets/frontend`, se reconstruyen desde el código).
 
 ## 5. Protecciones incorporadas
 
@@ -65,7 +72,7 @@ Además hay un **reintento automático del semanal** (domingo 3:00 a. m. Colombi
 
 1. Levantar solo los contenedores de las bases: `docker compose up -d zymo-db sig-db helix-db task-db zymoally-db libertadora-db`.
 2. Cargar cada base desde su archivo: `zcat pg_<contenedor>.sql.gz | docker exec -i <contenedor> psql -U <usuario> -d postgres`.
-3. Copiar los SQLite al volumen `backend_data` y los adjuntos desde los `.tgz`.
+3. Copiar los SQLite a su volumen (`backend_data`, `matriz_sqlite_data`, `cronograma_app-data`, `activos_data`) y los adjuntos desde los `.tgz`.
 4. Levantar las aplicaciones servicio por servicio.
 
 **Importante:** nunca usar `docker compose down -v` en este proyecto; borra todos los volúmenes. Para quitar un servicio puntual se usa `docker compose rm -sfv <servicio>`.

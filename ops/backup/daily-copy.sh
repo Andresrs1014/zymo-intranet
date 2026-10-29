@@ -8,8 +8,9 @@
 # Qué copia:
 #   - pg_*.sql.gz        pg_dumpall de TODO contenedor Postgres que esté corriendo (descubiertos, no hardcodeados)
 #   - sqlite/*.db        SQLite del backend (API de backup de SQLite, consistente) + quick_check;
-#                        más el SQLite de matrix_backend (crm_html_app se retiró el 2026-10-19)
-#   - vol_*.tgz          volúmenes de adjuntos (uploads, backend_data sin los .db) del proyecto zymo-intranet
+#                        más los SQLite de matrix_backend, cronograma y activos (crm_html_app se retiró el 2026-10-19)
+#   - vol_*.tgz          volúmenes nombrados en uso de TODOS los proyectos (sin datos de Postgres ni .db)
+#                        y la carpeta de Reportes Dev (vol_bitacoras_reportes-dev_data.tgz)
 # Protección contra sobrescribir una copia buena con una mala: cada archivo nuevo se valida
 # (gzip íntegro, dump completo, quick_check, y no menos de la mitad del tamaño del actual). Si falla,
 # NO se reemplaza y queda el aviso en LAST_FAILURE. El archivo anterior se conserva como <archivo>.prev.
@@ -44,6 +45,7 @@ promover() {
 }
 
 log "== inicio =="
+renice -n 19 -p $$ >/dev/null; ionice -c2 -n7 -p $$ 2>/dev/null  # prioridad baja: el servidor es frágil
 
 # 1) Postgres: todos los contenedores postgres en ejecución
 for c in $(docker ps --format '{{.Names}} {{.Image}}' | awk '$2 ~ /^postgres/ {print $1}'); do
@@ -122,13 +124,22 @@ NODE
   fi
 }
 sqlite_extra py   matrix_backend /app/data/matrix.db            matrix.db
+sqlite_extra py   cronograma-backend-1 /app/data/app.db         cronograma.db
+sqlite_extra py   zymo-intranet-activos-backend-1 /app/data/zymo_assets.db activos.db
 
-# 3) Adjuntos: volúmenes uploads y backend_data (sin los .db, que van arriba)
-for v in $(docker volume ls -q --filter "label=com.docker.compose.project=$PROJECT" | grep -E '(uploads|backend_data)$' | grep -v pruebas); do
-  out="$DEST/vol_${v}.tgz"; tmp="$out.tmp"
+# 3) Archivos: todo volumen nombrado montado por un contenedor en ejecución (cualquier proyecto), menos los
+#    datos crudos de Postgres (ya van en el paso 1) y los anónimos; más los uploads/backend_data del proyecto
+#    aunque su contenedor esté caído; más la carpeta bind de Reportes Dev. Los .db van arriba, no aquí.
+REPORTES_DEV="$HOME/apps/bitacoras/reportes-dev/data"
+for v in $( { docker volume ls -q --filter "label=com.docker.compose.project=$PROJECT" | grep -E '(uploads|backend_data)$'
+              docker ps -q | xargs -r docker inspect -f '{{range .Mounts}}{{if and (eq .Type "volume") (ne .Destination "/var/lib/postgresql/data")}}{{.Name}}{{"\n"}}{{end}}{{end}}'
+            } | grep -vE '^[0-9a-f]{64}$' | grep -v pruebas | sort -u) "$REPORTES_DEV"; do
+  [ "${v#/}" = "$v" ] || [ -d "$v" ] || { fail "carpeta $v no existe"; continue; }  # sin esto docker la crearía
+  n="${v#"$HOME"/apps/}"; n="${n//\//_}"
+  out="$DEST/vol_${n}.tgz"; tmp="$out.tmp"
   # el contenedor corre como root: el archivo se entrega a nuestro usuario (chown) para poder rotarlo/borrarlo
   if timeout 30m docker run --rm -v "$v":/v:ro -v "$DEST":/out alpine sh -c \
-       "tar czf '/out/$(basename "$tmp")' -C /v --exclude='*.db' --exclude='*.db-wal' --exclude='*.db-shm' . \
+       "nice -n 19 tar czf '/out/$(basename "$tmp")' -C /v --exclude='*.db' --exclude='*.db-wal' --exclude='*.db-shm' . \
         && chown $(id -u):$(id -g) '/out/$(basename "$tmp")'" && gzip -t "$tmp"; then
     promover "$tmp" "$out" 0 && log "ok volumen $v ($(stat -c %s "$out") B)"
   else
