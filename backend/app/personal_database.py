@@ -8,15 +8,32 @@ Las empresas/compañías ya NO están en este módulo. Se leen de la tabla
 Sede del backend principal. ptc_persona.sede_id referencia Sede.id sin FK
 (cross-DB, SQLite → PostgreSQL).
 """
+import unicodedata
 from datetime import date, datetime
 from typing import Optional
 
+from sqlalchemy import event
 from sqlmodel import Field, SQLModel, Session, create_engine
 
 from app.config import settings
 from app.sqlite_paths import ensure_sqlite_parent_dir
 
 _personal_engine = None
+
+
+def sin_acentos(texto: str | None) -> str:
+    """Minúsculas y sin tildes ni Ñ ("NIÑO" → "nino"). El LIKE de SQLite solo ignora mayúsculas en ASCII:
+    "NIÑO" y "niño" no coincidían, así que quien tenía Ñ o tilde no aparecía en las búsquedas por nombre."""
+    sin_marcas = "".join(c for c in unicodedata.normalize("NFD", texto or "") if not unicodedata.combining(c))
+    return sin_marcas.casefold()
+
+
+def registrar_sin_acentos(engine) -> None:
+    """Deja disponible sin_acentos() dentro de las consultas SQL de esta base (SQLite)."""
+
+    @event.listens_for(engine, "connect")
+    def _al_conectar(conexion, _registro):
+        conexion.create_function("sin_acentos", 1, sin_acentos, deterministic=True)
 
 
 def get_personal_engine():
@@ -28,6 +45,8 @@ def get_personal_engine():
             ensure_sqlite_parent_dir(url)
             connect_args = {"check_same_thread": False}
         _personal_engine = create_engine(url, connect_args=connect_args)
+        if "sqlite" in url.lower():
+            registrar_sin_acentos(_personal_engine)
     return _personal_engine
 
 

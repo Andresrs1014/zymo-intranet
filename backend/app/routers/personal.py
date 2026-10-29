@@ -13,7 +13,7 @@ import os
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Header, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel
-from sqlalchemy import text
+from sqlalchemy import func, text
 from sqlmodel import Session, col, select
 
 from app.config import settings
@@ -41,6 +41,7 @@ from app.personal_database import (
     PtcTicketRol,
     get_personal_db,
     get_personal_engine,
+    sin_acentos,
 )
 
 log = logging.getLogger(__name__)
@@ -1098,10 +1099,10 @@ def buscar_personas_publico(
     if not _valid_internal_key(x_internal_key):
         raise HTTPException(status_code=403, detail="Requiere X-Internal-Key válida.")
 
-    term = f"%{q.lower()}%"
+    term = f"%{sin_acentos(q)}%"
     personas = db.exec(
         select(PtcPersona)
-        .where(col(PtcPersona.nombre).ilike(term))
+        .where(func.sin_acentos(col(PtcPersona.nombre)).like(term))
         .where(PtcPersona.estado == "Activo")
         .order_by(col(PtcPersona.nombre))
         .limit(15)
@@ -1137,9 +1138,9 @@ def listar_personas(
 ):
     query = select(PtcPersona)
     if q:
-        term = f"%{q.lower()}%"
+        term = f"%{sin_acentos(q)}%"
         query = query.where(
-            col(PtcPersona.nombre).ilike(term) | col(PtcPersona.documento).ilike(term)
+            func.sin_acentos(col(PtcPersona.nombre)).like(term) | col(PtcPersona.documento).ilike(term)
         )
     if empresa_id is not None:
         query = query.where(PtcPersona.sede_id == empresa_id)
