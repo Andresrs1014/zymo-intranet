@@ -24,6 +24,7 @@ import type { PreselectedProc } from "@/components/sig/SigCargarModal"
 import { SigArchivosPendientesTray } from "@/components/sig/SigArchivosPendientesTray"
 import { SigInstructivosPanel, type SigInstructivo, InstructivoArchivoView, PROSE as INST_PROSE } from "@/components/sig/SigInstructivosPanel"
 import { PdfFrame, WordPreview } from "@/components/sig/SigFileViewer"
+import { ArchivoPrevisualizador } from "@/components/sig/ArchivoPrevisualizador"
 import { SigProcedimientoCargosPanel } from "@/components/sig/SigProcedimientoCargosPanel"
 import { SigAnexoPanel } from "@/components/sig/SigAnexoPanel"
 import { PanelSIG } from "@/components/sig/PanelSIG"
@@ -1199,6 +1200,7 @@ function ArchivoOriginalView({
 
   const isPdf  = tipoMime === "application/pdf"
   const isDocx = tipoMime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  const isDoc  = tipoMime === "application/msword" || /\.doc$/i.test(nombreArchivo ?? "")
 
   useEffect(() => {
     let blobUrl: string | null = null
@@ -1222,6 +1224,15 @@ function ArchivoOriginalView({
 
     return () => { if (blobUrl) URL.revokeObjectURL(blobUrl) }
   }, [commitId, isDocx])
+
+  // .doc viejo: el servidor lo convierte a PDF con LibreOffice; si falla, el previsualizador lo avisa y ofrece la descarga
+  if (isDoc) {
+    return (
+      <div className="flex-1 min-h-0">
+        <ArchivoPrevisualizador base={`/api/commits/${commitId}`} nombre={nombreArchivo ?? "documento.doc"} mime={tipoMime} altura="100%" embebido />
+      </div>
+    )
+  }
 
   if (loading) {
     return (
