@@ -706,5 +706,5 @@ def get_kpis_tiempos(
     Complementa `GET /api/oc/kpis` (campo `reporte_tiempos.texto_para_informe`; las métricas llevan
     `valor` en días y texto legible min/s · h/min · d/h en UI e informe).
     """
-    from app.agents.tools.oc_tools import ver_tiempos_proceso_oc
+    from app.services.oc_tiempos import ver_tiempos_proceso_oc
     return ver_tiempos_proceso_oc(limite_solicitudes=100)

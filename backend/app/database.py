@@ -28,14 +28,13 @@ def create_db_and_tables() -> None:
     from app.models.plataforma_perfil import PlataformaPerfil
     from app.models.draft import FormDraft
     from app.models.learned_synonym import LearnedSynonym
-    from app.models.extraction_review import ExtractionReview
     from app.models.user_tool import UserTool
     from app.models.global_config import GlobalConfig
     from app.models.area_acceso import UsuarioPermiso, HerramientaAcceso
 
     intranet_table_names = {
         "user", "role", "area", "sede", "area_sede", "plataforma_perfil", "form_drafts",
-        "learned_synonyms", "extraction_reviews",
+        "learned_synonyms",
         "user_tools", "global_config",
         "usuario_permiso", "herramienta_acceso",
     }

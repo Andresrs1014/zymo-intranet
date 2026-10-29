@@ -9,7 +9,6 @@ import {
   Wrench,
   BarChart3,
   LineChart,
-  Cpu,
   ListTodo,
   Users,
   Ticket,
@@ -31,7 +30,6 @@ import {
   canSeeIT,
   canSeeSIG,
   canSeeSigLider,
-  canSeeExtraccionIA,
   canSubmitDevTasks,
   canManageDevTasks,
   canSeeTyC,
@@ -75,7 +73,6 @@ export function Sidebar() {
   const showZymoAssets     = user && zymoAssets
     ? getAppsForRole(user.role, perms ?? []).some((a) => a.id === zymoAssets.id)
     : false
-  const showExtraccionIA   = user ? canSeeExtraccionIA(user.role, perms) : false
   const showGestionTareas  = user
     ? canSubmitDevTasks(user.user_tools ?? []) || canManageDevTasks(user.user_tools ?? [])
     : false
@@ -140,7 +137,7 @@ export function Sidebar() {
 
         {/* ── Section: Módulos ────────────────────────────────────────── */}
         {(showIT || showSGC || showSIG || showSigLider || showOperativo || showAdministrativo ||
-          showMantenimiento || showFinanciero || showGerencial || showExtraccionIA || showTyC || showReportes ||
+          showMantenimiento || showFinanciero || showGerencial || showTyC || showReportes ||
           showZymoAssets) && (
           <SidebarGroup>
             <SidebarGroupLabel>Módulos disponibles</SidebarGroupLabel>
@@ -242,14 +239,6 @@ export function Sidebar() {
                     label="Gerencial"
                     icon={<LineChart className="w-4 h-4" />}
                     active={isActive(["/gerencial"])}
-                  />
-                )}
-                {showExtraccionIA && (
-                  <NavItem
-                    to="/admin/extraccion-ia"
-                    label="Motor IA"
-                    icon={<Cpu className="w-4 h-4" />}
-                    active={isActive(["/admin/extraccion-ia"])}
                   />
                 )}
                 {showTyC && (

@@ -28,9 +28,6 @@ class Settings(BaseSettings):
     drafts_dir: str = "/app/data/form_drafts"
     draft_ttl_days: int = 7
 
-    # Motor de Extracción IA — Fase 2 (resultados temporales para poll)
-    phase2_results_dir: str = "/app/data/extraction_phase2"
-
     # SSO — secret compartido con apps externas (CRM, etc.)
     jwt_sso_secret: str = ""
 
@@ -65,26 +62,9 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-4-6"
 
-    # ── Agentes IA ────────────────────────────────────────────────────────────
-    agents_database_url: str = "sqlite:///./data/agents.db"
-    gemini_api_key: str = ""
-    gemini_model: str = "gemini-2.5-flash"
-    perplexity_api_key: str = ""
-    agent_check_interval_minutes: int = 120
-    agent_docs_dir: str = "/app/data/agent_docs"
-    agent_logs_dir: str = "/app/data/agent_logs"
-    agent_memory_dir: str = "/app/data/agent_memory"
-    lightrag_working_dir: str = "/app/data/lightrag"
-
-    # ── Ollama (embeddings locales) ───────────────────────────────────────────
-    ollama_base_url: str = "http://localhost:11434"
-    ollama_embed_model: str = "nomic-embed-text"
-
     # ── PostgreSQL principal Python (reemplaza SQLite progresivamente) ─────────
     # Cuando esté vacío el sistema sigue usando los SQLite individuales (fallback).
     zymo_database_url: str = ""
-    # SIG DB — acceso de lectura para el agente RAG / LightRAG
-    sig_database_url: str = ""
 
     # extra=ignore: un .env con variables ya retiradas (ej. OC_WEBHOOK_SECRET) no debe tumbar el arranque
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}

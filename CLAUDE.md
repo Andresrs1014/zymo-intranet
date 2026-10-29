@@ -26,7 +26,6 @@ npm run build        # Build de producción — ÚNICO chequeo de TS válido, ve
 ```bash
 cd backend
 uvicorn app.main:app --reload --port 8001   # Dev server
-python -m app.agents.worker                 # Worker de agentes en background
 ```
 
 ### Node backends (sig-backend / task-backend / zymoally-backend)
@@ -87,7 +86,6 @@ Incidente 2026-10-02: un `docker compose down -v` borró todos los volúmenes y 
 |---|---|---|---|---|
 | `backend` (Python/FastAPI) | 8001 | 8001 | SQLite (OC/mantenimiento) + `zymo-db` (Postgres principal) | 5437 (solo `zymo-db`) |
 | `frontend` (React/Nginx) | 81 | 80 | — | — |
-| `zymo-worker` | — | — | (comparte backend_data + `zymo-db`) | — |
 | `task-backend` | 3002 | 3002 | `task-db` | 5434 |
 | `sig-backend` | 3004 | 3003 | `sig-db` | 5436 |
 | `zymoally-backend` | 3005 | 3005 | `zymoally-db` | 5438 |
@@ -150,9 +148,6 @@ Clonar y adaptar para cada nuevo backend Node.
 
 > La ruta `/m/:token` es la única completamente pública (sin `PrivateRoute`). Va antes de `<PrivateRoute>` en `App.tsx`.
 
-### Agente flotante (`AgentLayer`)
-`AgentFloatingWindow` se renderiza globalmente sobre todas las rutas. Muestra el agente `"zymo"` (gerencial) o `"administrativo"` (OC) según permisos. El store `agentPanelStore` controla si está flotante o docked.
-
 ### Token guard
 `useTokenGuard` en `App.tsx` limpia la sesión si el JWT expiró, chequeando `visibilitychange` y `focus` — no hay logout automático por timer.
 
@@ -201,8 +196,8 @@ El query param `procedimientoId` es opcional. Sin él retorna todos los instruct
 
 ---
 
-## LightRAG
-Los endpoints `/api/sig-ia/*` (análisis, chat, editar-con-IA, indexar/consultar RAG) y los paneles de IA del frontend del SIG se **retiraron el 2026-10-01**. `backend/app/agents/lightrag_service.py` sigue existiendo solo para el agente administrativo (`agentes.py`, `doc_tools.py`). El contexto de empresa del agente analista vivirá en los grafos de `C:\Gestion_documental\grafo-sig` (ver plan), no en LightRAG.
+## IA en la intranet
+El backend ya no usa Gemini ni LightRAG (retirados el 2026-10-29): se eliminaron los agentes administrativo y ZYMO, el worker, la Fase 2 de la extracción de cotizaciones y el panel Extracción IA. El código se conserva en el respaldo `~/zymo-backups/agentes-gemini-2026-10-29.tgz` del servidor. La extracción de cotizaciones es solo regex + sinónimos + tabla de ítems (`services/extraction_pipeline.py`).
 
 ---
 
@@ -227,8 +222,6 @@ Servidor MCP en `C:\Gestion_documental\mcps\mcp001-intranet` que expone 17 herra
 - `oc/` — flujo completo de órdenes de compra
 - `mantenimiento/` — FSM de mantenimiento (ver sección abajo)
 - `personal.py` — directorio T&C (164 personas), sin base de datos propia: lee `_persona_dict` desde `main_db`
-- `agentes.py` — agente **administrativo** (Sonia/compras: `/administrativo/estado`, `/chat`, `/bienvenida`, `/sugerencias`) + endpoints de documentos RAG. Corregido 2026-08-03: esta línea decía "agente ZYMO conversacional", pero ese chat vive en `zymo.py` (línea de abajo), no aquí.
-- `zymo.py` — workers, orquestación de agentes, y el chat conversacional ZYMO real (`POST /chat` → `chat_zymo`)
 
 ### Modelo de permisos
 `Role.app_permissions: list[str]` en PostgreSQL. Los permisos siguen el patrón `mod_<modulo>_<accion>` (ej. `mod_oc_aprobar`, `mod_sig`, `mod_gh_admin`). El admin siempre bypasa los permisos vía `if role === "admin" return true`.

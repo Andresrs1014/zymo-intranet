@@ -12,8 +12,6 @@ import {
   canSeeGerencial,
   canSeeSIG,
   canSeeSigLider,
-  canUseAgentePanel,
-  canSeeExtraccionIA,
   canSeeTyC,
   canUseAgenda,
   canUseEvaluacionesDesempeno,
@@ -25,8 +23,6 @@ import {
   canSeeReportesDesarrollo,
   canSeeLibertadora,
 } from "@/lib/permissions"
-import { useAgentPanelStore } from "@/store/agentPanelStore"
-import { useMinWidth } from "@/hooks/useMinWidth"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { useMe } from "@/hooks/useAuth"
 import { LoginPage } from "@/pages/LoginPage"
@@ -65,7 +61,6 @@ const FacturaDetallePage = lazy(() => import("@/pages/financiero/FacturaDetalleP
 const FinancieroConfigPage = lazy(() => import("@/pages/financiero/FinancieroConfigPage").then((m) => ({ default: m.FinancieroConfigPage })))
 const PrintFacturacionPage = lazy(() => import("@/pages/financiero/PrintFacturacionPage").then((m) => ({ default: m.PrintFacturacionPage })))
 const GerencialPage = lazy(() => import("@/pages/gerencial/GerencialPage").then((m) => ({ default: m.GerencialPage })))
-const ExtraccionIAPage = lazy(() => import("@/pages/admin/ExtraccionIAPage").then((m) => ({ default: m.ExtraccionIAPage })))
 const LibertadoraPage = lazy(() => import("@/pages/libertadora/LibertadoraPage").then((m) => ({ default: m.LibertadoraPage })))
 const LibertadoraPartnerPage = lazy(() => import("@/pages/libertadora/partner/LibertadoraPartnerPage").then((m) => ({ default: m.LibertadoraPartnerPage })))
 const TicketsPage = lazy(() => import("@/pages/tickets/TicketsPage").then((m) => ({ default: m.TicketsPage })))
@@ -103,7 +98,6 @@ const ReportesDesarrolloPage = lazy(() => import("@/pages/reportes/ReportesDesar
 const ReporteDetallePage = lazy(() => import("@/pages/reportes/ReporteDetallePage").then((m) => ({ default: m.ReporteDetallePage })))
 const ReporteEditorPageNew = lazy(() => import("@/pages/reportes/ReporteEditorPage").then((m) => ({ default: m.ReporteEditorPageNew })))
 const ReporteEditorPageEdit = lazy(() => import("@/pages/reportes/ReporteEditorPage").then((m) => ({ default: m.ReporteEditorPageEdit })))
-const AgentFloatingWindow = lazy(() => import("@/components/agent/AgentFloatingWindow").then((m) => ({ default: m.AgentFloatingWindow })))
 
 // Decodifica el claim `exp` del JWT sin verificar firma (solo para chequeo local de expiración)
 function isTokenExpired(token: string): boolean {
@@ -213,13 +207,6 @@ function GerencialRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
-function ExtraccionIARoute({ children }: { children: React.ReactNode }) {
-  const user = useAuthStore((s) => s.user)
-  if (!user) return <Navigate to="/login" replace />
-  if (!canSeeExtraccionIA(user.role, user.app_permissions)) return <Navigate to="/dashboard" replace />
-  return <>{children}</>
-}
-
 // Líder de área: la misma página del SIG, limitada a las carpetas de su área (la página detecta el modo por el permiso).
 function SigLiderRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user)
@@ -323,28 +310,6 @@ function AprobacionesRoute({ children }: { children: React.ReactNode }) {
 }
 
 
-function AgentLayer() {
-  const user = useAuthStore((s) => s.user)
-  const docked = useAgentPanelStore((s) => s.docked)
-  const lg = useMinWidth(1024)
-
-  if (!user) return null
-  if (!canUseAgentePanel(user.role, user.area, user.app_permissions)) return null
-
-  const agente = canSeeGerencial(user.role, user.app_permissions) ? "zymo" : "administrativo"
-
-  if (docked && lg) return null
-
-  return (
-    <Suspense fallback={null}>
-      <AgentFloatingWindow
-        agente={agente}
-        usuarioNombre={user.full_name ?? user.email}
-      />
-    </Suspense>
-  )
-}
-
 export default function App() {
   useTokenGuard()
   useMe()
@@ -352,7 +317,6 @@ export default function App() {
   return (
     <ErrorBoundary>
     <BrowserRouter>
-      <AgentLayer />
       <Suspense fallback={<CargandoPagina />}>
       <Routes>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -451,14 +415,6 @@ export default function App() {
             <AdminRoute>
               <UsuariosExternosPage />
             </AdminRoute>
-          }
-        />
-        <Route
-          path="/admin/extraccion-ia"
-          element={
-            <ExtraccionIARoute>
-              <ExtraccionIAPage />
-            </ExtraccionIARoute>
           }
         />
         {/* Administrativo */}

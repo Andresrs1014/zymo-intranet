@@ -16,7 +16,6 @@ from app.database import create_db_and_tables, get_engine
 from app.oc_database import create_oc_tables, get_oc_engine
 from app.sgc_database import create_sgc_tables
 from app.financiero_database import create_financiero_tables
-from app.agent_database import create_agent_tables
 from app.core.security import hash_password
 from app.models.user import User
 from app.models.role import Role  # noqa: F401
@@ -34,8 +33,6 @@ from app.routers import sedes as sedes_router
 from app.routers.oc.router import router as oc_router
 from app.routers.sgc.router import router as sgc_router
 from app.routers.financiero.router import router as financiero_router
-from app.routers.agentes import router as agentes_router
-from app.routers.zymo import router as zymo_router
 from app.gerencial_database import create_gerencial_tables
 from app.routers.gerencial import router as gerencial_router
 from app.personal_database import create_personal_tables
@@ -50,7 +47,6 @@ from app.routers.tc_clientes import router as tc_clientes_router
 from app.routers.oper_clientes import router as oper_clientes_router
 from app.routers.tc_paquetes import router as tc_paquetes_router
 from app.routers.borradores import router as borradores_router
-from app.routers.admin.extraccion import router as admin_extraccion_router
 from app.routers.admin.smtp_config import router as admin_smtp_config_router
 from app.routers.admin.whatsapp_config import router as admin_whatsapp_config_router
 from app.routers.whatsapp import router as whatsapp_router
@@ -195,7 +191,7 @@ def _migrate_db() -> None:
 # id es texto (UUID), no serial.
 _TABLES_WITH_SERIAL_ID = [
     "area", "sede", "role", "user", "user_tools",
-    "learned_synonyms", "extraction_reviews",
+    "learned_synonyms",
 ]
 
 
@@ -419,7 +415,6 @@ async def lifespan(app: FastAPI):
     _normalize_plataformas_oc()
     create_sgc_tables()
     create_financiero_tables()
-    create_agent_tables()
     create_gerencial_tables()
     create_personal_tables()
     from app.tc_org_seed import seed_organigrama_if_needed
@@ -467,11 +462,8 @@ app.include_router(sedes_router.router)
 app.include_router(oc_router)
 app.include_router(sgc_router)
 app.include_router(financiero_router)
-app.include_router(agentes_router)
-app.include_router(zymo_router)
 app.include_router(gerencial_router)
 app.include_router(borradores_router)
-app.include_router(admin_extraccion_router)
 app.include_router(admin_smtp_config_router)
 app.include_router(admin_whatsapp_config_router)
 app.include_router(whatsapp_router)

@@ -1,12 +1,8 @@
 """
-Herramientas OC para los agentes ZYMO.
-
-Estas son las funciones que Gemini invoca como "tools" cuando necesita
-consultar datos reales del módulo de compras.
+KPIs y tiempos por etapa del módulo de compras (OC).
 """
 import uuid
 from datetime import datetime, timezone
-from typing import Optional
 
 from sqlmodel import Session, func, select
 
@@ -31,84 +27,6 @@ _TIEMPO_LIMITE_HORAS: dict[str, float] = {
 
 def _session():
     return Session(get_oc_engine())
-
-
-# ── Consultas básicas ──────────────────────────────────────────────────────────
-
-def consultar_solicitudes_oc(estado: Optional[str] = None, limite: int = 10) -> list[dict]:
-    """
-    Retorna las solicitudes OC más recientes, opcionalmente filtradas por estado.
-    estados válidos: nueva, en_cotizacion, pendiente_aprobacion, aprobada,
-                     rechazada, oc_enviada, oc_en_plataforma, entregada, cerrada
-    """
-    with _session() as db:
-        query = select(SolicitudOC)
-        if estado:
-            query = query.where(SolicitudOC.estado == estado)
-        query = query.order_by(SolicitudOC.fecha_solicitud.desc()).limit(limite)
-        solicitudes = db.exec(query).all()
-
-    return [
-        {
-            "id": str(s.id),
-            "consecutivo_os": s.consecutivo_os,
-            "descripcion": s.descripcion,
-            "estado": s.estado,
-            "nivel_prioridad": s.nivel_prioridad,
-            "solicitante_nombre": s.solicitante_nombre,
-            "area_solicitante": s.area_solicitante,
-            "sede": s.sede,
-            "plataforma": s.plataforma,
-            "fecha_solicitud": s.fecha_solicitud.isoformat(),
-            "updated_at": s.updated_at.isoformat(),
-        }
-        for s in solicitudes
-    ]
-
-
-def consultar_cotizaciones_pendientes() -> list[dict]:
-    """
-    Retorna cotizaciones que están esperando aprobación (aprobada=None).
-    Incluye cuántas horas llevan esperando.
-    """
-    with _session() as db:
-        cotizaciones = db.exec(
-            select(CotizacionProveedor)
-            .where(CotizacionProveedor.aprobada.is_(None))
-            .order_by(CotizacionProveedor.created_at.asc())
-        ).all()
-
-        # Obtener solicitudes relacionadas para tener contexto
-        solicitud_ids = {c.solicitud_id for c in cotizaciones}
-        solicitudes = {}
-        if solicitud_ids:
-            for s in db.exec(
-                select(SolicitudOC).where(SolicitudOC.id.in_(solicitud_ids))
-            ).all():
-                solicitudes[s.id] = s
-
-    ahora = datetime.now(timezone.utc)
-    resultado = []
-    for c in cotizaciones:
-        sol = solicitudes.get(c.solicitud_id)
-        created = c.created_at
-        if created.tzinfo is None:
-            created = created.replace(tzinfo=timezone.utc)
-        horas_esperando = (ahora - created).total_seconds() / 3600
-
-        resultado.append({
-            "cotizacion_id": str(c.id),
-            "solicitud_id": str(c.solicitud_id),
-            "consecutivo_os": sol.consecutivo_os if sol else None,
-            "descripcion": sol.descripcion if sol else None,
-            "proveedor_nombre": c.proveedor_nombre,
-            "valor_total": c.valor_total,
-            "horas_esperando": round(horas_esperando, 1),
-            "supera_limite_48h": horas_esperando > 48,
-            "created_at": c.created_at.isoformat(),
-        })
-
-    return resultado
 
 
 def ver_kpis_oc() -> dict:

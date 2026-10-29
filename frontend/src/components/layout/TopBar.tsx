@@ -2,7 +2,6 @@ import { useNavigate } from "react-router-dom"
 import { useAuthStore } from "@/store/authStore"
 import { useLogout } from "@/hooks/useAuth"
 import { getRoleLabel } from "@/lib/roles"
-import { useAgentPanelStore } from "@/store/agentPanelStore"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
@@ -16,16 +15,12 @@ import {
 
 interface TopBarProps {
   title?: string
-  /** Muestra el control para anclar el panel del agente a la derecha (escritorio). */
-  showAgentDockToggle?: boolean
 }
 
-export function TopBar({ title = "Dashboard", showAgentDockToggle = false }: TopBarProps) {
+export function TopBar({ title = "Dashboard" }: TopBarProps) {
   const user = useAuthStore((s) => s.user)
   const logout = useLogout()
   const navigate = useNavigate()
-  const docked = useAgentPanelStore((s) => s.docked)
-  const toggleDocked = useAgentPanelStore((s) => s.toggleDocked)
 
   if (!user) return (
     <header className="flex items-center justify-between h-14 border-b border-border bg-background px-6">
@@ -44,21 +39,6 @@ export function TopBar({ title = "Dashboard", showAgentDockToggle = false }: Top
       <h1 className="text-sm font-semibold text-foreground truncate min-w-0">{title}</h1>
 
       <div className="flex items-center gap-2 shrink-0">
-        {showAgentDockToggle && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={toggleDocked}
-            className={`hidden lg:inline-flex text-xs ${
-              docked ? "border-blue-300 bg-blue-50 text-blue-600" : ""
-            }`}
-            title={docked ? "Desanclar asistente (vista flotante)" : "Anclar asistente a la derecha"}
-          >
-            {docked ? "Asistente anclado" : "Anclar IA"}
-          </Button>
-        )}
-
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button

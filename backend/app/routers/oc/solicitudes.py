@@ -972,7 +972,7 @@ def get_tiempos_solicitud(
     Muestra cuánto tardó cada transición de estado.
     """
     obtener_solicitud_con_acceso(solicitud_id, current_user, db, oc_db)
-    from app.agents.tools.oc_tools import ver_timeline_solicitud
+    from app.services.oc_tiempos import ver_timeline_solicitud
     return ver_timeline_solicitud(str(solicitud_id))
 
 
@@ -1095,9 +1095,8 @@ def eliminar_solicitud(
     archivos = [Path(solicitud.proforma_path)] if solicitud.proforma_path else []
     archivos += [Path(c.pdf_path) for c in cotizaciones if c.pdf_path]
     archivos += [Path(o.pdf_path) for o in ordenes if o.pdf_path]
-    # Temporales de extracción (uno por usuario) y resultado de la fase 2.
+    # Temporales de extracción (uno por usuario).
     archivos += _COTIZACIONES_DIR_SOL.glob(f"temp_{solicitud_id}_*")
-    archivos += Path(settings.phase2_results_dir).glob(f"{solicitud_id}_*.json")
 
     # Quita los punteros que apuntan a esta solicitud (compras hijas y par de mantenimiento).
     for hija in oc_db.exec(

@@ -77,30 +77,6 @@ export function canSeeSigLider(role: string, appPerms?: string[]): boolean {
   return hasPerm(appPerms, "mod_sig_lider") && !hasPerm(appPerms, "mod_sig") && !hasPerm(appPerms, "mod_sig_subir")
 }
 
-export function canSeeExtraccionIA(role: string, appPerms?: string[]): boolean {
-  if (role === "admin") return true
-  return hasPerm(appPerms, "mod_extraccion_ia")
-}
-
-/** Agente flotante estilo compras (no ZYMO): quien ve OC puede usarlo. */
-export function canUseAgenteAdministrativo(
-  role: string,
-  area?: string | null,
-  appPerms?: string[],
-): boolean {
-  if (role === "admin") return true
-  return canSeeOC(role, area, appPerms)
-}
-
-/** Panel de IA (gerencial ZYMO o agente administrativo / OC). */
-export function canUseAgentePanel(
-  role: string,
-  area?: string | null,
-  appPerms?: string[],
-): boolean {
-  return canSeeGerencial(role, appPerms) || canUseAgenteAdministrativo(role, area, appPerms)
-}
-
 // ── Herramientas de usuario ────────────────────────────────────────────────────
 
 export function hasUserTool(userTools: string[] | undefined, key: string): boolean {

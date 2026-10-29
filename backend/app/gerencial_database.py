@@ -13,9 +13,8 @@ Cuando se migre este módulo a PostgreSQL, el mismo proceso aplica
 para TODOS los schemas. Orden recomendado:
 
   1. gerencial  → GERENCIAL_DATABASE_URL   (este archivo — piloto)
-  2. agents     → AGENTS_DATABASE_URL      (agent_database.py)
-  3. oc         → OC_DATABASE_URL          (oc_database.py)
-  4. intranet   → DATABASE_URL             (database.py)
+  2. oc         → OC_DATABASE_URL          (oc_database.py)
+  3. intranet   → DATABASE_URL             (database.py)
 
 Proceso por schema:
   1. Levantar contenedor PostgreSQL (ver docker-compose.yml)

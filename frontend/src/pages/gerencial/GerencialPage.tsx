@@ -37,11 +37,7 @@ export function GerencialPage() {
                     }
                   `}
                 >
-                  {tab.id === "gerente" ? (
-                    <PanelGerenteTabLabel />
-                  ) : (
-                    tab.label
-                  )}
+                  {tab.label}
                 </button>
               ))}
           </nav>
@@ -51,38 +47,5 @@ export function GerencialPage() {
     >
           {activeTab === "gerente" && <PanelGerenteTab />}
     </PageLayout>
-  )
-}
-
-/**
- * Label del tab Panel Gerente con badge de reportes no leídos.
- */
-function PanelGerenteTabLabel() {
-  const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8001"
-  const token = useAuthStore((s) => s.token)
-  const [unread, setUnread] = useState<number | null>(null)
-
-  useState(() => {
-    fetch(`${BASE_URL}/api/zymo/reportes`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    })
-      .then((r) => r.json())
-      .then((data: { leido: boolean }[]) => {
-        if (Array.isArray(data)) {
-          setUnread(data.filter((r) => !r.leido).length)
-        }
-      })
-      .catch(() => {})
-  })
-
-  return (
-    <span className="flex items-center gap-1.5">
-      Panel Gerente
-      {unread !== null && unread > 0 && (
-        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold">
-          {unread > 9 ? "9+" : unread}
-        </span>
-      )}
-    </span>
   )
 }

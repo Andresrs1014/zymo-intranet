@@ -33,7 +33,6 @@ from app.services.email_service import (
     send_proforma_financiero,
 )
 from app.services.historial import registrar_cambio_estado
-from app.config import settings
 
 router = APIRouter(tags=["OC - Cotizaciones"])
 
@@ -628,18 +627,15 @@ def _extraer_tabla_items(contenido: bytes, ext: str) -> list[dict]:
 )
 async def extraer_cotizacion(
     solicitud_id: uuid.UUID,
-    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     current_user: User = Depends(require_compras),
     oc_db: Session = Depends(get_oc_db),
 ):
     """Extrae campos de un PDF/Excel/Word de cotización sin guardar nada.
 
-    Fase 1 (síncrona): regex + sinónimos → respuesta inmediata.
-    Fase 2 (background): Gemini completa campos vacíos, alimenta aprendizaje.
-    El frontend hace poll a GET .../cotizacion/extraccion/resultado para Fase 2.
+    Regex + sinónimos → respuesta inmediata.
     """
-    from app.services.extraction_pipeline import run_phase1, run_phase2
+    from app.services.extraction_pipeline import run_phase1
 
     solicitud = oc_db.get(SolicitudOC, solicitud_id)
     if not solicitud:
@@ -658,7 +654,6 @@ async def extraer_cotizacion(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El archivo supera el límite de 20 MB.")
     clave = _clave_extraccion(solicitud_id, current_user)
 
-    # ── Fase 1: síncrona ──────────────────────────────────────────────────────
     phase1_dict = run_phase1(contenido, ext, str(solicitud_id))
 
     resultado = ExtraccionResult(
@@ -690,19 +685,6 @@ async def extraer_cotizacion(
     except Exception as e:
         log.warning("[extraccion] No se pudo guardar archivo temporal %s: %s", solicitud_id, e)
 
-    # ── Fase 2: background (Gemini) ───────────────────────────────────────────
-    # Solo lanzar si hay campos vacíos que Gemini podría completar
-    campos_vacios = sum(1 for v in [
-        resultado.proveedor_nit, resultado.proveedor_nombre, resultado.valor_total,
-        resultado.forma_pago, resultado.plazo_entrega, resultado.garantia,
-    ] if v is None)
-
-    if campos_vacios > 0 and settings.gemini_api_key:
-        background_tasks.add_task(
-            run_phase2, contenido, ext, clave, phase1_dict
-        )
-        log.info("[extraccion] Fase 2 programada para solicitud %s (%d campos vacíos)", solicitud_id, campos_vacios)
-
     return resultado
 
 
@@ -710,30 +692,9 @@ _COTIZACIONES_DIR = Path("/app/data/cotizaciones")
 
 
 def _clave_extraccion(solicitud_id: uuid.UUID, user: User) -> str:
-    """Nombre base del temporal y del resultado de Fase 2: por solicitud y por usuario, para que
+    """Nombre base del temporal: por solicitud y por usuario, para que
     dos auxiliares extrayendo cotizaciones de la misma solicitud no se pisen."""
     return f"{solicitud_id}_{user.id}"
-
-
-@router.get(
-    "/solicitudes/{solicitud_id}/cotizacion/extraccion/resultado",
-    status_code=status.HTTP_200_OK,
-)
-def get_extraccion_resultado(
-    solicitud_id: uuid.UUID,
-    current_user: User = Depends(require_compras),
-):
-    """Poll: retorna el resultado de Fase 2 (Gemini) cuando esté disponible.
-
-    Retorna 204 si Fase 2 aún no terminó.
-    Retorna 200 + JSON con campos completados cuando esté listo.
-    """
-    from app.services.extraction_pipeline import get_phase2_result
-    from fastapi.responses import Response
-    result = get_phase2_result(_clave_extraccion(solicitud_id, current_user))
-    if result is None:
-        return Response(status_code=status.HTTP_204_NO_CONTENT)
-    return result
 
 
 @router.post(

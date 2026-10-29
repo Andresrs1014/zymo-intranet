@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom"
-import { Users, ShieldCheck, Building2, Mail, MessageCircle, Webhook, Palette, Sparkles, ChevronRight, LockKeyhole, Handshake } from "lucide-react"
+import { Users, ShieldCheck, Building2, Mail, MessageCircle, Webhook, Palette, ChevronRight, LockKeyhole, Handshake } from "lucide-react"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { BlurFade } from "@/components/ui/blur-fade"
 
@@ -74,13 +74,6 @@ const CARDS: ConfigCard[] = [
     title: "Identidad de correos OC",
     description: "Nombre, color, NIT y plantillas de los correos de Compras — branding propio de esa herramienta.",
     accent: "#0369a1",
-  },
-  {
-    to: "/admin/extraccion-ia",
-    icon: <Sparkles className="h-5 w-5" />,
-    title: "Motor de extracción IA",
-    description: "Configuración del motor que lee cotizaciones — módulo aparte, no de gobernanza general.",
-    accent: "#7c3aed",
   },
 ]
 

@@ -12,7 +12,7 @@ import logging
 from sqlmodel import Session, select
 
 from app.database import get_engine
-from app.services.field_synonyms import resolve_field, fuzzy_resolve, FIELD_SYNONYMS
+from app.services.field_synonyms import resolve_field, fuzzy_resolve
 
 _log = logging.getLogger("zymo.synonym_loader")
 
@@ -76,18 +76,3 @@ def resolve_field_enhanced(raw_label: str) -> tuple[str | None, str]:
         return canonical, "media"
 
     return None, "baja"
-
-
-def get_all_synonyms_for_prompt() -> dict[str, list[str]]:
-    """Devuelve el diccionario completo (estático + aprendido) para incluir en el prompt de Gemini.
-
-    Gemini usa esto para entender qué campos existen y cómo se llaman.
-    """
-    if not _cache_loaded:
-        _load_learned_cache()
-
-    merged: dict[str, list[str]] = {k: list(v) for k, v in FIELD_SYNONYMS.items()}
-    for label, canonical in _learned_cache.items():
-        if canonical in merged and label not in merged[canonical]:
-            merged[canonical].append(label)
-    return merged

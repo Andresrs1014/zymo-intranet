@@ -62,26 +62,6 @@ services:
     depends_on:
       - backend
 
-  zymo-worker:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    command: python -m app.agents.worker
-    env_file:
-      - ./backend/.env
-    environment:
-      - ZYMO_DATABASE_URL=postgresql://${ZYMO_DB_USER:-zymo}:${ZYMO_DB_PASSWORD}@zymo-db:5432/${ZYMO_DB_NAME:-zymodb}
-    volumes:
-      - backend_data:/app/data
-    restart: always
-    depends_on:
-      zymo-db:
-        condition: service_healthy
-      backend:
-        condition: service_started
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-
   task-backend:
     build:
       context: ./task-backend

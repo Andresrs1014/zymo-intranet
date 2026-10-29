@@ -14,10 +14,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, s
 from pydantic import BaseModel
 from sqlmodel import Session, desc, select
 
-from app.agent_database import get_agents_db
 from app.gerencial_database import GerencialOrden, GerencialTarea, get_gerencial_db
-from app.agents.tools import oc_tools
-from app.config import settings
+from app.services import oc_tiempos
 from app.core.deps import get_current_user, require_gerencial
 from app.core.permissions import user_has_any_permission
 from app.database import get_db
@@ -137,63 +135,16 @@ def _tarea_to_read(t: GerencialTarea) -> TareaRead:
     )
 
 
-async def _generar_descripcion_zymo(tarea_id: str, titulo: str, descripcion_tecnica: str) -> None:
-    """Background task: ZYMO genera descripcion_gerencial e impacto."""
-    api_key = settings.gemini_api_key
-    if not api_key:
-        return
-    try:
-        from app.agents.zymo_core import ZymoCore
-        from app.gerencial_database import GerencialTarea, get_gerencial_engine
-        from sqlmodel import Session
-
-        zymo = ZymoCore(api_key=api_key)
-        prompt = (
-            f"Tarea técnica registrada por el desarrollador:\n"
-            f"Título: {titulo}\n"
-            f"Descripción técnica: {descripcion_tecnica}\n\n"
-            f"1. Reescribe esto en máximo 3 líneas en lenguaje de negocio para el gerente "
-            f"(sin tecnicismos, enfocado en qué problema resuelve para la empresa).\n"
-            f"2. En una línea separada, calcula el impacto estimado en horas ahorradas por semana "
-            f"o beneficio concreto para la operación.\n\n"
-            f"Formato de respuesta (exactamente así):\n"
-            f"GERENCIAL: [descripción en lenguaje de negocio]\n"
-            f"IMPACTO: [impacto estimado]"
-        )
-        respuesta = await zymo.chat(prompt)
-
-        gerencial = ""
-        impacto = ""
-        for line in respuesta.split("\n"):
-            if line.startswith("GERENCIAL:"):
-                gerencial = line.replace("GERENCIAL:", "").strip()
-            elif line.startswith("IMPACTO:"):
-                impacto = line.replace("IMPACTO:", "").strip()
-
-        with Session(get_gerencial_engine()) as db:
-            tarea = db.get(GerencialTarea, tarea_id)
-            if tarea:
-                tarea.descripcion_gerencial = gerencial or respuesta[:300]
-                tarea.impacto = impacto or None
-                tarea.updated_at = datetime.utcnow()
-                db.add(tarea)
-                db.commit()
-    except Exception as e:
-        logger.error("Error generando descripción ZYMO para tarea %s: %s", tarea_id, e)
-
-
 # ── Tareas Dev ─────────────────────────────────────────────────────────────────
 
 @router.post("/tareas-dev", response_model=TareaRead, status_code=status.HTTP_201_CREATED)
 async def crear_tarea(
     payload: TareaCreate,
-    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_gerencial_db),
 ):
     """
     Andrés (o cualquier dev/admin) registra una tarea completada o en progreso.
-    ZYMO genera automáticamente la descripción gerencial y el impacto en background.
     """
     if payload.etiqueta not in _ETIQUETAS_VALIDAS:
         raise HTTPException(
@@ -231,14 +182,6 @@ async def crear_tarea(
     db.add(tarea)
     db.commit()
     db.refresh(tarea)
-
-    # ZYMO genera descripción gerencial en segundo plano
-    background_tasks.add_task(
-        _generar_descripcion_zymo,
-        tarea.id,
-        tarea.titulo,
-        tarea.descripcion_tecnica,
-    )
 
     return _tarea_to_read(tarea)
 
@@ -337,7 +280,7 @@ def kpis_gerenciales(
     Combina datos de OC, tareas dev y actividad general.
     """
     try:
-        oc_kpis = oc_tools.ver_kpis_oc()
+        oc_kpis = oc_tiempos.ver_kpis_oc()
     except Exception:
         oc_kpis = {}
 
@@ -374,13 +317,10 @@ def actividad_reciente(
     limite: int = Query(default=20, le=100),
     current_user: User = Depends(require_gerencial),
     db: Session = Depends(get_gerencial_db),
-    agents_db: Session = Depends(get_agents_db),
 ):
     """
     Feed de actividad reciente de todas las áreas para el dashboard del gerente.
     """
-    from app.agent_database import AgentAction, AgentSession
-
     actividad = []
 
     # Tareas dev recientes
@@ -394,23 +334,6 @@ def actividad_reciente(
             "descripcion": f"{t.subido_por_nombre} registró tarea: {t.titulo}",
             "estado": t.estado,
             "etiqueta": t.etiqueta,
-        })
-
-    # Acciones recientes del Agente Administrativo
-    acciones = agents_db.exec(
-        select(AgentAction)
-        .join(AgentSession, AgentAction.session_id == AgentSession.id)
-        .where(AgentSession.agente == "administrativo")
-        .order_by(desc(AgentAction.timestamp))
-        .limit(10)
-    ).all()
-    for a in acciones:
-        actividad.append({
-            "tipo": "agente_admin",
-            "timestamp": a.timestamp.isoformat(),
-            "descripcion": f"Agente Administrativo: {a.input[:80]}..." if len(a.input) > 80 else a.input,
-            "estado": "completada",
-            "etiqueta": a.tipo,
         })
 
     # Ordenar por timestamp descendente
