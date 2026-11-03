@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { Link } from "react-router-dom"
-import { Archive, ArrowRightLeft, Plus, Search, ShieldCheck, UserMinus, Wrench, X } from "lucide-react"
+import { Archive, ArrowRightLeft, Pencil, Plus, Search, ShieldCheck, UserMinus, Wrench, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ALL_APPS } from "@/lib/roles"
 import { getApiError } from "@/hooks/useRoles"
 import { useDeactivateUser } from "@/hooks/useUsers"
 import { useSedes } from "@/hooks/useSedes"
+import { EditarCuenta } from "./EditarCuenta"
 import { UserToolsModal } from "./HerramientasUsuario"
 import { MoverPersona } from "./MoverPersona"
 import { PermisosUsuario } from "./PermisosUsuario"
@@ -30,6 +31,7 @@ export function AreaUsuarios({ areaId, areaNombre }: { areaId: number; areaNombr
   const [herramientas, setHerramientas] = useState<UsuarioArea | null>(null)
   const [permisosDe, setPermisosDe] = useState<UsuarioArea | null>(null)
   const [moverA, setMoverA] = useState<UsuarioArea | null>(null)
+  const [editarDe, setEditarDe] = useState<UsuarioArea | null>(null)
   const [abrirPermisosDe, setAbrirPermisosDe] = useState<number | null>(null) // recién creado: abrir «Editar permisos» al llegar a la lista
   const [error, setError] = useState<string>()
 
@@ -83,13 +85,14 @@ export function AreaUsuarios({ areaId, areaNombre }: { areaId: number; areaNombr
         {visibles.map((u, i) => (
           <li
             key={u.id} style={{ animation: `org-in .4s ease ${i * 35}ms both` }}
-            className={cn("grid items-center gap-x-4 gap-y-2 rounded-2xl border border-org-linea bg-white px-4 py-3 md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_13rem_11rem]", !u.is_active && "opacity-60")}
+            className={cn("grid items-center gap-x-4 gap-y-2 rounded-2xl border border-org-linea bg-white px-4 py-3 md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_13rem_13.5rem]", !u.is_active && "opacity-60")}
           >
             <div className="flex min-w-0 items-center gap-3">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-org-tinte font-mono text-[12px] font-medium text-org-rojo" aria-hidden>{iniciales(u)}</span>
               <div className="min-w-0">
                 <p className="truncate text-[14px] font-medium text-org-tinta">{u.full_name ?? u.email}</p>
                 <p className="truncate font-mono text-[11px] text-org-tinta/50">{[u.email, u.sede].filter(Boolean).join(" · ")}</p>
+                {u.fichas > 1 && <p className="truncate text-[11px] text-org-rojo" title="Hay fichas del directorio vinculadas a esta cuenta que pueden ser de otras personas">⚠ {u.fichas} fichas vinculadas: revisar en T&amp;C</p>}
               </div>
             </div>
 
@@ -102,6 +105,7 @@ export function AreaUsuarios({ areaId, areaNombre }: { areaId: number; areaNombr
             <CargoCampo areaId={areaId} u={u} cargos={cargos} />
 
             <div className="flex justify-self-end">
+              <button type="button" onClick={() => setEditarDe(u)} aria-label={`Editar cuenta de ${u.full_name ?? u.email}`} title="Editar cuenta (correo, nombre, rol, sede, contraseña)" className={boton}><Pencil className="h-4 w-4" aria-hidden /></button>
               <button type="button" onClick={() => setPermisosDe(u)} aria-label={`Editar permisos de ${u.full_name ?? u.email}`} title="Editar permisos" className={boton}><ShieldCheck className="h-4 w-4" aria-hidden /></button>
               <button type="button" onClick={() => sacarDelArea(u)} disabled={sacar.isPending} aria-label={`Sacar a ${u.full_name ?? u.email} del área`} title="Sacar del área (queda sin área)" className={boton}><UserMinus className="h-4 w-4" aria-hidden /></button>
               <button type="button" onClick={() => setMoverA(u)} aria-label={`Mover a ${u.full_name ?? u.email} a otra área`} title="Mover a otra área" className={boton}><ArrowRightLeft className="h-4 w-4" aria-hidden /></button>
@@ -117,6 +121,7 @@ export function AreaUsuarios({ areaId, areaNombre }: { areaId: number; areaNombr
         <Link to="/admin/configuracion/organizacion?area=archivados" className="text-org-rojo underline underline-offset-2">Organización → Archivados</Link>.
       </p>
 
+      {editarDe && <EditarCuenta usuario={editarDe} onCerrar={() => setEditarDe(null)} />}
       {permisosDe && <PermisosUsuario areaId={areaId} usuario={permisosDe} onCerrar={() => setPermisosDe(null)} />}
       {moverA && <MoverPersona userId={moverA.id} nombre={moverA.full_name ?? moverA.email} areaActual={areaNombre} onCerrar={() => setMoverA(null)} />}
       {herramientas && <UserToolsModal user={herramientas} onClose={() => setHerramientas(null)} />}

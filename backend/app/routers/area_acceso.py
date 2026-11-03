@@ -170,6 +170,7 @@ def _filas_usuarios(db: Session, usuarios: list[User]) -> list[dict]:
         p = lista[0] if len(lista) == 1 else None  # con varias fichas el vínculo es ambiguo: no se adivina
         salida.append({
             "id": u.id, "full_name": u.full_name, "email": u.email, "sede": u.sede, "is_active": u.is_active,
+            "role": u.role,
             "area": u.area,
             "fichas": len(lista),
             "persona_id": p.id if p else None,

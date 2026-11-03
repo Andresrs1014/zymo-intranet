@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils"
 
 const LINKS = [
   { to: "/admin/configuracion/organizacion", label: "Organización", icon: Building2 },
-  { to: "/admin/configuracion/usuarios", label: "Usuarios", icon: Users },
+  { to: "/admin/configuracion/equipos", label: "Equipos y webhook", icon: Users },
   { to: "/admin/configuracion/roles", label: "Roles y permisos", icon: ShieldCheck },
   { to: "/admin/configuracion/areas", label: "Áreas y sedes", icon: Building2 },
   { to: "/admin/configuracion/smtp", label: "SMTP corporativo", icon: Mail },

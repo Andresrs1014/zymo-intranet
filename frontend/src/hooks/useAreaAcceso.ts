@@ -7,6 +7,7 @@ export interface UsuarioArea {
   email: string
   sede: string | null
   is_active: boolean
+  role: string
   /** Fichas del directorio vinculadas a este usuario: solo con exactamente 1 se puede asignar cargo y dar acceso */
   fichas: number
   persona_id: number | null

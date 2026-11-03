@@ -12,10 +12,11 @@ export interface CreateUserPayload {
 }
 
 export interface UpdateUserPayload {
+  email?: string
   full_name?: string
   role?: string
+  /** "" = dejar sin sede. El área no se edita aquí: se mueve desde Organización (mueve también la ficha). */
   sede?: string
-  area?: string
   /** Solo admin; si se envía, se llama a PATCH /auth/users/:id/password */
   new_password?: string
 }
@@ -83,10 +84,10 @@ export function useUpdateUser() {
         result = data
       }
       const body: Record<string, string> = {}
-      if (payload.full_name !== undefined && payload.full_name !== "") body.full_name = payload.full_name
-      if (payload.role !== undefined && payload.role !== "") body.role = payload.role
+      if (payload.email) body.email = payload.email
+      if (payload.full_name) body.full_name = payload.full_name
+      if (payload.role) body.role = payload.role
       if (payload.sede !== undefined) body.sede = payload.sede
-      if (payload.area !== undefined) body.area = payload.area
       if (Object.keys(body).length > 0) {
         const { data } = await api.put<UserListItem>(`/auth/users/${id}`, body)
         result = data
@@ -96,7 +97,7 @@ export function useUpdateUser() {
       }
       return result
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["users"] }),
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ["users"] }), qc.invalidateQueries({ queryKey: ["area-usuarios"] })]),
   })
 }
 

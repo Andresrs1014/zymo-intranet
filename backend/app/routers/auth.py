@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import jwt
 from pydantic import BaseModel, EmailStr, Field, field_validator
+from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
 
@@ -60,10 +61,12 @@ class RegisterRequest(BaseModel):
 
 
 class UpdateUserRequest(BaseModel):
+    """Datos de la cuenta. El área NO se edita aquí: se cambia con PUT /acceso/usuarios/{id}/area,
+    que además mueve la ficha del directorio y revisa los permisos exclusivos."""
+    email: EmailStr | None = None
     full_name: str | None = None
     role: str | None = None
-    sede: str | None = None
-    area: str | None = None
+    sede: str | None = None  # "" = dejar sin sede
 
 
 class AdminSetPasswordRequest(BaseModel):
@@ -273,12 +276,29 @@ def update_user(
     user_id: int,
     payload: UpdateUserRequest,
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    actor: User = Depends(require_admin),
 ):
     user = db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado.")
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    cambios = payload.model_dump(exclude_unset=True)
+    if "email" in cambios:
+        nuevo = str(cambios["email"]).strip()
+        otro = db.exec(select(User).where(func.lower(User.email) == nuevo.lower(), User.id != user.id)).first()
+        if otro:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Ya existe un usuario con ese correo.")
+        cambios["email"] = nuevo
+    if cambios.get("role") is not None and not db.exec(select(Role).where(Role.name == cambios["role"])).first():
+        raise HTTPException(status_code=422, detail="Ese rol no existe.")
+    if "role" in cambios and not cambios["role"]:
+        cambios.pop("role")  # el rol es obligatorio: vacío = no cambiarlo
+    if cambios.get("role") not in (None, "admin") and user.id == actor.id:
+        raise HTTPException(status_code=400, detail="No puedes quitarte el rol de administrador a ti mismo.")
+    if "full_name" in cambios and not (cambios["full_name"] or "").strip():
+        cambios.pop("full_name")  # el nombre también
+    if "sede" in cambios:
+        cambios["sede"] = (cambios["sede"] or "").strip() or None
+    for field, value in cambios.items():
         setattr(user, field, value)
     db.add(user)
     db.commit()

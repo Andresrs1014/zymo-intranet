@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom"
-import { Users, ShieldCheck, Building2, Mail, MessageCircle, Webhook, Palette, ChevronRight, LockKeyhole, Handshake } from "lucide-react"
+import { ShieldCheck, Building2, Mail, MessageCircle, Webhook, Palette, ChevronRight, LockKeyhole, Handshake } from "lucide-react"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { BlurFade } from "@/components/ui/blur-fade"
 
@@ -16,15 +16,8 @@ const CARDS: ConfigCard[] = [
     to: "/admin/configuracion/organizacion",
     icon: <Building2 className="h-5 w-5" />,
     title: "Organización",
-    description: "Áreas, usuarios y permisos en un solo lugar: eliges el área y ahí ves a su gente, su rol y qué ve cada persona.",
+    description: "Personas, cuentas (correo, rol, contraseña), áreas, cargos y permisos en un solo lugar: eliges el área y ahí ves a su gente y qué ve cada persona.",
     accent: "#b0102a",
-  },
-  {
-    to: "/admin/configuracion/usuarios",
-    icon: <Users className="h-5 w-5" />,
-    title: "Usuarios",
-    description: "Cuentas del portal, archivar/reactivar, herramientas asignadas por persona.",
-    accent: "#2563eb",
   },
   {
     to: "/admin/configuracion/roles",
@@ -62,7 +55,7 @@ const CARDS: ConfigCard[] = [
     accent: "#0d9488",
   },
   {
-    to: "/admin/configuracion/usuarios?tab=config",
+    to: "/admin/configuracion/equipos?tab=config",
     icon: <Webhook className="h-5 w-5" />,
     title: "Webhook Power Automate",
     description: "Integración específica de Gestión de Tareas — vive aparte, solo enlazada aquí para encontrarla fácil.",

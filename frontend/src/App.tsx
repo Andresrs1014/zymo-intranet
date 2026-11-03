@@ -351,7 +351,7 @@ export default function App() {
         />
         <Route
           path="/admin/usuarios"
-          element={<Navigate to="/admin/configuracion/usuarios" replace />}
+          element={<Navigate to="/admin/configuracion/organizacion" replace />}
         />
         <Route
           path="/admin/configuracion"
@@ -371,6 +371,10 @@ export default function App() {
         />
         <Route
           path="/admin/configuracion/usuarios"
+          element={<Navigate to="/admin/configuracion/organizacion" replace />}
+        />
+        <Route
+          path="/admin/configuracion/equipos"
           element={
             <AdminRoute>
               <AdminPage />
