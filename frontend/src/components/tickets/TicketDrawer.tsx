@@ -85,9 +85,11 @@ export function TicketDrawer() {
 
   return (
     <Sheet open={openTicketId !== null} onOpenChange={(open) => !open && setOpenTicketId(null)}>
-      <SheetContent side="right" className="w-full max-w-lg overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle className="font-mono text-base">{ticket.code}</SheetTitle>
+      <SheetContent side="right" className="w-full max-w-lg overflow-y-auto max-md:max-w-none max-md:px-4 max-md:pb-[calc(1.5rem+env(safe-area-inset-bottom))] max-md:pt-[calc(1rem+env(safe-area-inset-top))]">
+        <SheetHeader className="max-md:text-left">
+          <SheetTitle className="font-mono text-base max-md:text-lg">{ticket.code}</SheetTitle>
+          <p className="m-0 text-left text-[15px] font-bold text-zinc-900 md:hidden">{ticket.type}</p>
+          {ticket.client && <p className="m-0 text-left text-[13px] text-zinc-500 md:hidden">{ticket.client}</p>}
         </SheetHeader>
 
         {canDelete && (
@@ -106,14 +108,14 @@ export function TicketDrawer() {
         )}
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as DrawerTab)} className="mt-4">
-          <TabsList>
+          <TabsList className="max-md:grid max-md:h-11 max-md:w-full max-md:grid-cols-3">
             <TabsTrigger value="detalle">Detalle</TabsTrigger>
             <TabsTrigger value="bitacora">Bitácora ({ticket.actions.length})</TabsTrigger>
             <TabsTrigger value="evidencias">Evidencias ({ticket.evidence.length})</TabsTrigger>
           </TabsList>
 
           <TabsContent value="detalle" className="space-y-4 py-3">
-            <div className="text-[13px] text-zinc-700">
+            <div className="text-[13px] text-zinc-700 max-md:space-y-1.5 max-md:text-sm">
               <p><strong>Tipo:</strong> {ticket.type}</p>
               <p><strong>Área:</strong> {ticket.area}</p>
               {ticket.client && <p><strong>Referencia:</strong> {ticket.client}</p>}
@@ -159,13 +161,13 @@ export function TicketDrawer() {
                 value={newAction}
                 onChange={(e) => setNewAction(e.target.value)}
                 placeholder="Agregar acción…"
-                className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-primary"
+                className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-primary max-md:min-h-11"
               />
               <button
                 type="button"
                 disabled={!newAction.trim() || addAction.isPending}
                 onClick={handleAddAction}
-                className="rounded-md bg-primary px-3 text-sm font-bold text-primary-foreground disabled:opacity-50"
+                className="rounded-md bg-primary px-3 text-sm font-bold text-primary-foreground disabled:opacity-50 max-md:min-h-11 max-md:px-4"
               >
                 {addAction.isPending ? "Agregando…" : "Agregar"}
               </button>
@@ -195,7 +197,7 @@ export function TicketDrawer() {
                 type="button"
                 disabled={!newFiles.length || uploadEvidence.isPending}
                 onClick={handleUploadEvidence}
-                className="shrink-0 rounded-md bg-primary px-3 text-sm font-bold text-primary-foreground disabled:opacity-50"
+                className="shrink-0 rounded-md bg-primary px-3 text-sm font-bold text-primary-foreground disabled:opacity-50 max-md:min-h-11 max-md:px-4"
               >
                 {uploadEvidence.isPending ? "Subiendo…" : "Subir"}
               </button>

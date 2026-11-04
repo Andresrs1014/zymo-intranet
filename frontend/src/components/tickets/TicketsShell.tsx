@@ -18,13 +18,13 @@ export function TicketsShell() {
 
   return (
     <SidebarProvider>
-      <div className="relative isolate flex min-h-dvh w-full overflow-hidden bg-background text-foreground max-md:overflow-x-clip max-md:overflow-y-visible">
+      <div className="relative isolate flex min-h-dvh w-full overflow-hidden bg-background text-foreground max-md:bg-[#F4F4F5] max-md:overflow-x-clip max-md:overflow-y-visible">
         {/* Fondo propio de Tickets (no compartido con el resto de la intranet).
             Dos capas conectadas por la misma paleta de marca, no una textura
             gris sola: grid animado en rojo (opacidad real, no decorativa
             perdida) + blooms de blur rojo — mismo tratamiento de atmósfera
             que ya usa TaskShell en tareas-v2, adaptado a Tickets. */}
-        <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+        <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden max-md:hidden">
           <AnimatedGridPattern
             numSquares={70}
             maxOpacity={0.35}
