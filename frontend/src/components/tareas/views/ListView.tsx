@@ -247,6 +247,35 @@ interface TaskRowProps {
   onDelete: (taskId: number) => void
 }
 
+// ─── Tarjeta para el teléfono (reemplaza la fila de la tabla) ──────────────────
+function TaskCardMovil({ task, prioridades, estados, nameMap, onSelect }: Pick<TaskRowProps, "task" | "prioridades" | "estados" | "nameMap" | "onSelect">) {
+  const prio = prioridades.find((p) => p.value === task.prioridad)
+  const estado = estados.find((e) => e.value === task.estado)
+  const done = !!(estado?.isFinal || estado?.isCanceled)
+  const vencida = !done && isOverdue(task)
+  const responsable = task.asignadoAId ? (nameMap.get(task.asignadoAId) ?? task.asignadoANombre) : (nameMap.get(task.subidoPorId) ?? task.subidoPorNombre)
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(task)}
+      className="flex w-full items-start gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3.5 text-left active:bg-zinc-50"
+    >
+      <span aria-hidden className="mt-1 h-9 w-1 shrink-0 rounded-full" style={{ background: prio?.color ?? "#a1a1aa" }} />
+      <span className="min-w-0 flex-1">
+        <span className="block text-[15px] font-semibold leading-snug text-zinc-900">{task.titulo}</span>
+        <span className="mt-0.5 block truncate text-[13px] text-zinc-500">{responsable}</span>
+        <span className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+          <span className="rounded-full px-2 py-0.5 font-semibold" style={{ background: `${estado?.color ?? "#71717a"}1e`, color: estado?.color ?? "#71717a" }}>
+            {estado?.label ?? task.estado}
+          </span>
+          {vencida && <span className="rounded-full bg-primary px-2 py-0.5 font-bold text-primary-foreground">Vencida</span>}
+          <span className="ml-auto font-mono text-zinc-500">{task.fecha.slice(0, 10)}</span>
+        </span>
+      </span>
+    </button>
+  )
+}
+
 function TaskRow({ task, prioridades, etiquetas, plataformas, estados, nameMap, onSelect, onDelete }: TaskRowProps) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const prioConfig = prioridades.find((p) => p.value === task.prioridad)
@@ -404,7 +433,7 @@ export function ListView() {
         onChange={(f) => { setLocalFilters(f); setPage(1) }}
       />
 
-      <div className="task-card-glow overflow-hidden rounded-lg border border-zinc-200 bg-white">
+      <div className="task-card-glow overflow-hidden rounded-lg border border-zinc-200 bg-white max-md:overflow-visible max-md:rounded-none max-md:border-0 max-md:bg-transparent max-md:shadow-none">
         {isLoading ? (
           <table className="w-full border-collapse">
             <tbody>
@@ -416,7 +445,13 @@ export function ListView() {
             No se encontraron tareas con los filtros aplicados.
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <div className="flex flex-col gap-2.5 md:hidden">
+            {tasks.map((task) => (
+              <TaskCardMovil key={task.id} task={task} prioridades={prioridades} estados={estados} nameMap={nameMap} onSelect={setEditingTask} />
+            ))}
+          </div>
+          <div className="overflow-x-auto max-md:hidden">
             <table className="w-full border-collapse">
               <thead>
                 <tr>
@@ -432,6 +467,7 @@ export function ListView() {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
 

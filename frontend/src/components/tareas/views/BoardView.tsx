@@ -127,13 +127,13 @@ function TaskCard({
 
 // ─── Board Column ─────────────────────────────────────────────────────────────
 
-function BoardColumn({ config, tasks, prioridades, etiquetas, onOpen }: { config: ListConfig; tasks: Task[]; prioridades: ListConfig[]; etiquetas: ListConfig[]; onOpen: (t: Task) => void }) {
+function BoardColumn({ config, tasks, prioridades, etiquetas, onOpen, className = "" }: { config: ListConfig; tasks: Task[]; prioridades: ListConfig[]; etiquetas: ListConfig[]; onOpen: (t: Task) => void; className?: string }) {
   const columnDone = !!(config.isFinal || config.isCanceled)
   const { setNodeRef, isOver } = useDroppable({ id: `col-${config.value}` })
 
   return (
     <div
-      className="flex flex-col rounded-lg border p-3.5 transition-colors"
+      className={`flex flex-col rounded-lg border p-3.5 transition-colors max-md:!min-w-0 max-md:!flex-1 max-md:border-0 max-md:!bg-transparent max-md:p-0 ${className}`}
       style={{
         minWidth: 340,
         flex: "0 0 340px",
@@ -142,7 +142,7 @@ function BoardColumn({ config, tasks, prioridades, etiquetas, onOpen }: { config
       }}
     >
       {/* Column header */}
-      <div className="mb-3 flex shrink-0 items-center justify-between">
+      <div className="mb-3 flex shrink-0 items-center justify-between max-md:hidden">
         <div className="flex items-center gap-2">
           <div className="h-2.5 w-2.5 rounded-full" style={{ background: config.color ?? "#71717a" }} />
           <span className="text-[13px] font-bold text-zinc-900">{config.label}</span>
@@ -155,7 +155,7 @@ function BoardColumn({ config, tasks, prioridades, etiquetas, onOpen }: { config
       {/* Tasks — tope de ~8 tarjetas visibles, scroll interno de ahí en adelante
           (antes crecía sin límite y empujaba la barra de scroll horizontal muy
           abajo de la pantalla). */}
-      <div ref={setNodeRef} className="thin-scroll-red min-h-[60px] flex-1 overflow-y-auto pr-1" style={{ maxHeight: 720 }}>
+      <div ref={setNodeRef} className="thin-scroll-red min-h-[60px] flex-1 overflow-y-auto pr-1 max-md:!max-h-none max-md:overflow-visible max-md:pr-0" style={{ maxHeight: 720 }}>
         <SortableContext
           items={tasks.map((t) => `task-${t.id}`)}
           strategy={verticalListSortingStrategy}
@@ -188,6 +188,8 @@ export function BoardView() {
 
   const { data: members = [] } = useTeamMembers(activeTeamId)
   const [memberFilter, setMemberFilter] = useState<number | null>(null)
+  // Teléfono: una columna a la vez, elegida con pestañas.
+  const [colMovil, setColMovil] = useState<string | null>(null)
 
   const estados = listsGrouped?.estado ?? []
   const prioridades = listsGrouped?.prioridad ?? []
@@ -278,7 +280,7 @@ export function BoardView() {
   return (
     <div>
       <div className="mb-3.5 flex items-center gap-2">
-        <span className="text-xs text-zinc-500">Miembro:</span>
+        <span className="text-xs text-zinc-500 max-md:text-sm">Miembro:</span>
         <select
           value={memberFilter ?? ""}
           onChange={(e) => setMemberFilter(e.target.value ? Number(e.target.value) : null)}
@@ -307,10 +309,31 @@ export function BoardView() {
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex items-start gap-3.5 overflow-x-auto pb-4">
+        <div className="-mx-4 mb-3 flex gap-1 overflow-x-auto px-4 [scrollbar-width:none] md:hidden" role="tablist" aria-label="Columnas del tablero">
+          {estados.map((config) => {
+            const on = (colMovil ?? estados[0]?.value) === config.value
+            return (
+              <button
+                key={config.value}
+                type="button"
+                role="tab"
+                aria-selected={on}
+                onClick={() => setColMovil(config.value)}
+                className={`flex h-11 shrink-0 items-center gap-1.5 rounded-full px-4 text-[13px] font-semibold transition-colors motion-reduce:transition-none ${
+                  on ? "bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-200" : "text-zinc-500"
+                }`}
+              >
+                {config.label}
+                <span className="font-mono text-[11px]">{getTasksByState(config.value).length}</span>
+              </button>
+            )
+          })}
+        </div>
+        <div className="flex items-start gap-3.5 overflow-x-auto pb-4 max-md:overflow-visible">
           {estados.map((config) => (
             <BoardColumn
               key={config.value}
+              className={(colMovil ?? estados[0]?.value) === config.value ? "" : "max-md:hidden"}
               config={config}
               tasks={getTasksByState(config.value)}
               prioridades={prioridades}

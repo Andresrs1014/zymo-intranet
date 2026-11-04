@@ -372,14 +372,14 @@ export function CalendarView() {
   }
 
   return (
-    <div className="grid items-start gap-6" style={{ gridTemplateColumns: "300px 1fr" }}>
+    <div className="grid grid-cols-1 items-start gap-6 max-md:gap-4 md:grid-cols-[300px_1fr]">
       {/* ── Calendar grid ── */}
       <div className="rounded-lg border border-zinc-200 bg-white p-[18px] shadow-sm">
         {/* Month nav */}
         <div className="mb-3.5 flex items-center justify-between">
           <button
             onClick={() => setCurrentDate(new Date(year, month - 1, 1))}
-            className="flex h-[30px] w-[30px] items-center justify-center rounded-md border border-zinc-300 bg-zinc-50 text-base leading-none text-zinc-700 transition hover:bg-zinc-100"
+            className="flex h-[30px] w-[30px] items-center justify-center rounded-md border border-zinc-300 bg-zinc-50 text-base leading-none text-zinc-700 transition hover:bg-zinc-100 max-md:size-11"
           >
             ‹
           </button>
@@ -388,7 +388,7 @@ export function CalendarView() {
           </span>
           <button
             onClick={() => setCurrentDate(new Date(year, month + 1, 1))}
-            className="flex h-[30px] w-[30px] items-center justify-center rounded-md border border-zinc-300 bg-zinc-50 text-base leading-none text-zinc-700 transition hover:bg-zinc-100"
+            className="flex h-[30px] w-[30px] items-center justify-center rounded-md border border-zinc-300 bg-zinc-50 text-base leading-none text-zinc-700 transition hover:bg-zinc-100 max-md:size-11"
           >
             ›
           </button>
@@ -421,7 +421,7 @@ export function CalendarView() {
                   <button
                     key={ci}
                     onClick={() => { setSelectedDay(iso); setShowCreate(false) }}
-                    className="relative rounded-md py-[7px] text-[13px] leading-none"
+                    className="relative rounded-md py-[7px] text-[13px] leading-none max-md:h-11 max-md:py-0 max-md:text-sm"
                     style={{
                       border: "none",
                       background: isSelected ? "#c41e3a" : isToday ? "rgba(196,30,58,0.10)" : "transparent",

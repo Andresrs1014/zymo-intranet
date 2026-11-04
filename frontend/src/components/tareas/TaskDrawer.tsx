@@ -12,6 +12,7 @@ import { FormSelect } from "./FormSelect"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { isOverdue } from "@/lib/taskWork"
+import { useIsMobile } from "@/hooks/use-mobile"
 import type { Task, UpdateTaskInput, ActivityAction, ListConfig } from "@/types/task"
 
 function fmtMin(min: number | null | undefined): string {
@@ -35,7 +36,7 @@ const ACTION_LABEL: Record<ActivityAction, string> = {
 type DrawerTab = "detalle" | "actividad" | "adjuntos"
 
 const FIELD =
-  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-[13px] text-zinc-900 " +
+  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-[13px] text-zinc-900 max-md:min-h-11 max-md:text-[15px] " +
   "outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/30 placeholder:text-zinc-400"
 const LABEL = "mb-1.5 block text-[11px] font-bold uppercase tracking-[0.06em] text-zinc-500"
 
@@ -47,6 +48,8 @@ interface Props {
 export function TaskDrawer({ task, onClose }: Props) {
   const targetId = task?.id ?? null
   const { sidebarWidth } = useTaskContext()
+  // Teléfono: pantalla completa (el sidebar es un panel aparte que no ocupa ancho).
+  const isMobile = useIsMobile()
 
   // Datos frescos: refleja aceptar/editar sin cerrar el drawer (el prop es un snapshot).
   const { data: liveTask } = useTaskQuery(targetId)
@@ -191,10 +194,10 @@ export function TaskDrawer({ task, onClose }: Props) {
           // especificidad deja el panel angosto y pegado a la izquierda). Sigue el
           // ancho actual del sidebar (expandido o colapsado) para no desalinearse.
           className="flex flex-col gap-0 border-l border-zinc-200 bg-white p-0 text-zinc-900"
-          style={{ left: sidebarWidth, right: 0, width: "auto", maxWidth: "none" }}
+          style={{ left: isMobile ? 0 : sidebarWidth, right: 0, width: "auto", maxWidth: "none" }}
         >
           {/* Header */}
-          <SheetHeader className="space-y-0 border-b border-zinc-200 px-6 py-5 pr-14 text-left">
+          <SheetHeader className="space-y-0 border-b border-zinc-200 px-6 py-5 pr-14 text-left max-md:px-4 max-md:pt-[calc(1rem+env(safe-area-inset-top))]">
             <div className="mb-2 flex flex-wrap items-center gap-2">
               <TaskStatusPill
                 estadoLabel={estadoConfig?.label ?? t.estado}
@@ -211,7 +214,7 @@ export function TaskDrawer({ task, onClose }: Props) {
                 </span>
               )}
             </div>
-            <SheetTitle className="text-[15px] font-bold leading-snug text-zinc-900">{t.titulo}</SheetTitle>
+            <SheetTitle className="text-[15px] font-bold leading-snug text-zinc-900 max-md:text-xl">{t.titulo}</SheetTitle>
             <p className="mt-1 text-xs text-zinc-500">
               {asignadoNombre} · asignada por {t.subidoPorNombre}
             </p>
@@ -219,7 +222,7 @@ export function TaskDrawer({ task, onClose }: Props) {
 
           {/* Barra de aceptación fijada arriba */}
           {isPendingForMe && (
-            <div className="flex items-center gap-2 border-b border-zinc-200 bg-zinc-50 px-6 py-3 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="flex items-center gap-2 border-b border-zinc-200 bg-zinc-50 px-6 py-3 max-md:flex-wrap max-md:px-4 animate-in fade-in slide-in-from-top-2 duration-300">
               <span className="mr-auto text-[13px] font-medium text-zinc-700">
                 Te asignaron esta tarea. ¿La aceptas?
               </span>
@@ -243,7 +246,7 @@ export function TaskDrawer({ task, onClose }: Props) {
 
           {/* Tiempo real registrado */}
           {real > 0 && (
-            <section className="flex items-center justify-between border-b border-zinc-200 px-6 py-4">
+            <section className="flex items-center justify-between border-b border-zinc-200 px-6 py-4 max-md:px-4">
               <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-zinc-500">
                 Tiempo real
               </span>
@@ -265,7 +268,7 @@ export function TaskDrawer({ task, onClose }: Props) {
               </TabsList>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5 max-md:px-4">
               <TabsContent value="detalle" className="mt-0">
                 <div className="flex flex-col gap-3.5">
                   <div>
@@ -407,7 +410,7 @@ export function TaskDrawer({ task, onClose }: Props) {
 
           {/* Footer: guardar (solo en Detalle) */}
           {tab === "detalle" && (
-            <footer className="flex items-center justify-end gap-2 border-t border-zinc-200 px-6 py-4">
+            <footer className="flex items-center justify-end gap-2 border-t border-zinc-200 px-6 py-4 max-md:px-4 max-md:pb-[calc(0.75rem+env(safe-area-inset-bottom))] max-md:pt-3 max-md:[&>button]:h-12 max-md:[&>button]:flex-1 max-md:[&>button]:justify-center max-md:[&>button]:rounded-xl max-md:[&>button]:text-[15px]">
               <button
                 onClick={onClose}
                 className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-[13px] font-medium text-zinc-700 transition hover:bg-zinc-50"
