@@ -5,6 +5,7 @@ import { OcSolicitudesPagination } from "@/components/oc/OcSolicitudesPagination
 import { useSolicitudes, OC_SOLICITUDES_PAGE_SIZE } from "@/hooks/useOC"
 import { EstadoBadge } from "./SolicitudesPage"
 import { Button } from "@/components/ui/button"
+import { ComprasBarraInferior } from "@/components/oc/ComprasMovil"
 import type { SolicitudOC } from "@/types/oc"
 
 export function AprobacionPage() {
@@ -25,9 +26,12 @@ export function AprobacionPage() {
   }, [total, page])
 
   return (
-    <PageLayout title="OC Automatizaciones">
+    <PageLayout
+      title="OC Automatizaciones"
+      movil={{ titulo: "Aprobar", subtitulo: isRefetching ? "Actualizando…" : "Cotizaciones esperando tu revisión", barraInferior: <ComprasBarraInferior /> }}
+    >
           {/* Header */}
-          <div className="flex items-center justify-between mb-6">
+          <div className="hidden md:flex items-center justify-between mb-6">
             <div>
               <h1 className="text-xl font-bold text-foreground">Panel de Aprobaciones</h1>
               <p className="text-sm text-muted-foreground mt-0.5">
@@ -90,7 +94,7 @@ function AprobacionCard({
   )
 
   return (
-    <div className="bg-card rounded-xl border border-orange-100 shadow-sm p-5 flex items-center justify-between gap-4 hover:border-orange-200 transition-colors">
+    <div className="bg-card rounded-xl border border-orange-100 shadow-sm p-5 flex items-center justify-between gap-4 hover:border-orange-200 transition-colors max-md:flex-col max-md:items-stretch max-md:gap-3 max-md:p-4">
       <div className="flex items-start gap-4 min-w-0">
         {/* Indicador de urgencia */}
         <div
@@ -104,7 +108,7 @@ function AprobacionCard({
         />
 
         <div className="min-w-0">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex flex-wrap items-center gap-2 mb-1">
             <span className="font-mono text-xs font-bold text-primary">
               {s.consecutivo_os}
             </span>
@@ -112,9 +116,9 @@ function AprobacionCard({
             <span className="text-xs text-muted-foreground">· Prioridad {s.nivel_prioridad}</span>
           </div>
 
-          <p className="font-medium text-foreground truncate">{s.descripcion}</p>
+          <p className="font-medium text-foreground truncate max-md:whitespace-normal max-md:line-clamp-2 max-md:text-[15px] max-md:font-bold">{s.descripcion}</p>
 
-          <div className="flex items-center gap-4 mt-1.5 text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5 text-xs text-muted-foreground max-md:text-[13px]">
             <span>Cant: {s.cantidad}</span>
             {s.area_solicitante && <span>{s.area_solicitante}</span>}
             {s.sede && <span>{s.sede}</span>}
@@ -123,7 +127,7 @@ function AprobacionCard({
         </div>
       </div>
 
-      <div className="flex items-center gap-4 shrink-0">
+      <div className="flex items-center gap-4 shrink-0 max-md:w-full">
         {/* Días en espera */}
         <div className="text-right hidden md:block">
           <p className="text-xs text-muted-foreground">En espera</p>
@@ -140,6 +144,7 @@ function AprobacionCard({
           onClick={onRevisar}
           variant="default"
           size="sm"
+          className="max-md:h-11 max-md:flex-1 max-md:text-sm"
         >
           Revisar
         </Button>

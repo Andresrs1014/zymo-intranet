@@ -9,6 +9,12 @@ import { useAreas } from "@/hooks/useAreas"
 import { Combobox } from "@/components/ui/Combobox"
 import { formatFechaRelativa } from "@/lib/dates"
 import { Button } from "@/components/ui/button"
+import { Search } from "lucide-react"
+import { ComprasBarraInferior, SolicitudCardMovil } from "@/components/oc/ComprasMovil"
+import { MovilFab } from "@/components/movil/Movil"
+import { canSeeOperativo } from "@/lib/permissions"
+import { useAuthStore } from "@/store/authStore"
+import { cn } from "@/lib/utils"
 import type { EstadoOC, SolicitudOC } from "@/types/oc"
 
 const ESTADOS_OPTIONS = [
@@ -41,6 +47,9 @@ async function descargarExcelOc(): Promise<string> {
 
 export function SolicitudesPage() {
   const navigate = useNavigate()
+  const user = useAuthStore((s) => s.user)
+  // Crear solicitudes vive en Operativo (misma ruta que en escritorio)
+  const puedeCrear = !!user && canSeeOperativo(user.role, user.area, user.app_permissions)
   const [estadoFiltro, setEstadoFiltro] = useState<string | null>(null)
   const [plataformaFiltro, setPlataformaFiltro] = useState<string | null>(null)
   const [areaFiltro, setAreaFiltro] = useState<string | null>(null)
@@ -103,9 +112,52 @@ export function SolicitudesPage() {
   }, [total, page])
 
   return (
-    <PageLayout title="OC Automatizaciones">
+    <PageLayout
+      title="OC Automatizaciones"
+      movil={{
+        titulo: "Compras",
+        subtitulo: isRefetching ? "Actualizando…" : "Solicitudes de compra",
+        barraInferior: <ComprasBarraInferior />,
+        flotante: puedeCrear ? <MovilFab etiqueta="Nueva" a="/operativo/nueva-solicitud" /> : undefined,
+        conFlotante: true,
+      }}
+    >
+          {/* Teléfono: buscador y estados como chips desplazables */}
+          <div className="mb-3 md:hidden">
+            <label className="relative block">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 size-5 -translate-y-1/2 text-[#71717A]" aria-hidden />
+              <input
+                type="search"
+                value={textoBusqueda}
+                onChange={(e) => setTextoBusqueda(e.target.value)}
+                placeholder="Buscar por OS, proveedor o cotización"
+                aria-label="Buscar por OS, proveedor o número de cotización"
+                className="h-11 w-full rounded-xl border border-[#E4E4E7] bg-white pl-11 pr-3 text-[15px] text-[#18181B] placeholder:text-[#71717A] focus:outline-none focus:ring-2 focus:ring-[#C3182A]/30"
+              />
+            </label>
+            <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]" role="group" aria-label="Filtrar por estado">
+              {[{ value: null, label: "Todas" }, ...ESTADOS_OPTIONS].map((o) => {
+                const on = estadoFiltro === o.value
+                return (
+                  <button
+                    key={o.label}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => setEstadoFiltro(o.value)}
+                    className={cn(
+                      "h-9 shrink-0 rounded-full border px-4 text-[13px] font-semibold transition-colors motion-reduce:transition-none",
+                      on ? "border-[#1F1F23] bg-[#1F1F23] text-white" : "border-[#E4E4E7] bg-white text-[#71717A]",
+                    )}
+                  >
+                    {o.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
           {/* Header */}
-          <div className="flex items-center justify-between mb-6">
+          <div className="hidden md:flex items-center justify-between mb-6">
             <div>
               <h1 className="text-xl font-bold text-foreground">Solicitudes de Compra</h1>
               <p className="text-sm text-muted-foreground mt-0.5">
@@ -127,7 +179,7 @@ export function SolicitudesPage() {
           </div>
 
           {/* Filtros */}
-          <div className="flex flex-wrap gap-3 mb-4 items-center">
+          <div className="hidden md:flex flex-wrap gap-3 mb-4 items-center">
             <div className="relative w-72">
               <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
                 <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 3.48 9.74l3.64 3.64a.75.75 0 1 0 1.06-1.06l-3.64-3.64A5.5 5.5 0 0 0 9 3.5ZM5 9a4 4 0 1 1 8 0 4 4 0 0 1-8 0Z" clipRule="evenodd" />
@@ -169,8 +221,29 @@ export function SolicitudesPage() {
             </div>
           )}
 
+          {/* Teléfono: tarjetas en lugar de tabla */}
+          <div className="md:hidden">
+            {isLoading ? (
+              <p className="py-16 text-center text-sm text-[#71717A]">Cargando…</p>
+            ) : solicitudes.length === 0 ? (
+              <p className="py-16 text-center text-sm text-[#71717A]">No hay solicitudes con los filtros aplicados.</p>
+            ) : (
+              <div className="flex flex-col gap-2.5">
+                {solicitudes.map((s) => (
+                  <SolicitudCardMovil key={s.id} solicitud={s} />
+                ))}
+                <OcSolicitudesPagination
+                  currentPage={page}
+                  totalItems={total}
+                  pageSize={OC_SOLICITUDES_PAGE_SIZE}
+                  onPageChange={setPage}
+                />
+              </div>
+            )}
+          </div>
+
           {/* Tabla */}
-          <div className="bg-card rounded-xl border border-border shadow-sm overflow-x-auto">
+          <div className="hidden md:block bg-card rounded-xl border border-border shadow-sm overflow-x-auto">
             {isLoading ? (
               <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">
                 Cargando...

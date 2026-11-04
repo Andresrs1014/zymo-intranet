@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react"
 import { PageLayout } from "@/components/layout/PageLayout"
+import { ComprasBarraInferior } from "@/components/oc/ComprasMovil"
 import { type OcKpiFilters, useKPIs } from "@/hooks/useOC"
 import type { ConteoItem, MesItem } from "@/types/oc"
 import { formatFechaRelativa } from "@/lib/dates"
@@ -310,9 +311,12 @@ export function KPIPage() {
     : (kpis?.valor_total_sin_iva ?? 0)
 
   return (
-    <PageLayout title="OC Automatizaciones">
+    <PageLayout
+      title="OC Automatizaciones"
+      movil={{ titulo: "KPI de compras", subtitulo: isRefetching ? "Actualizando…" : "Resumen del módulo", barraInferior: <ComprasBarraInferior /> }}
+    >
           {/* Header */}
-          <div className="mb-6">
+          <div className="mb-6 hidden md:block">
             <h1 className="text-xl font-bold text-foreground">Dashboard KPIs</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
               Resumen del módulo OC Automatizaciones
