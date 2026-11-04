@@ -1,5 +1,9 @@
-import React, { type ReactNode } from "react"
-import { TaskContextProvider } from "@/context/TaskContext"
+import React, { useEffect, useState, type ReactNode } from "react"
+import { TaskContextProvider, useTask } from "@/context/TaskContext"
+import { useIsMobile } from "@/hooks/use-mobile"
+import { cn } from "@/lib/utils"
+import { MovilEspaciador } from "@/components/movil/Movil"
+import { TaskBarraInferiorMovil, TaskBarraSuperiorMovil } from "./TaskMovil"
 import { HexagonPattern } from "@/components/ui/hexagon-pattern"
 import { TaskSidebar } from "./TaskSidebar"
 import { TaskTopbar } from "./TaskTopbar"
@@ -48,8 +52,18 @@ class TaskErrorBoundary extends React.Component<{ children: ReactNode }, EBState
 }
 
 function TaskShellInner({ children }: { children: ReactNode }) {
+  // Teléfono: el TaskSidebar (único, con su lógica de equipos) se vuelve panel deslizable.
+  const isMobile = useIsMobile()
+  const { activeView, activeTeamId, setSidebarExpanded } = useTask()
+  const [menuAbierto, setMenuAbierto] = useState(false)
+  useEffect(() => setMenuAbierto(false), [activeView, activeTeamId])
+  const abrirMenu = () => {
+    setSidebarExpanded(true)
+    setMenuAbierto(true)
+  }
+
   return (
-    <div className="relative isolate min-h-dvh overflow-hidden bg-background text-foreground">
+    <div className="relative isolate min-h-dvh overflow-hidden bg-background text-foreground max-md:overflow-x-clip max-md:overflow-y-visible">
       {/* Fondo decorativo — honeycomb de trazo finísimo + difuminado rojo.
           aria-hidden + pointer-events-none + -z-10: nunca intercepta clicks
           ni lo leen lectores de pantalla. El punto de fuga corre en diagonal
@@ -121,17 +135,37 @@ function TaskShellInner({ children }: { children: ReactNode }) {
       </div>
 
       <div
-        className="relative grid min-h-dvh"
+        className="relative grid min-h-dvh max-md:block"
         style={{ gridTemplateColumns: "auto minmax(0, 1fr)" }}
       >
-        <TaskSidebar />
+        {isMobile && menuAbierto && (
+          <button
+            type="button"
+            aria-label="Cerrar menú"
+            onClick={() => setMenuAbierto(false)}
+            className="fixed inset-0 z-40 bg-black/40 animate-in fade-in-0 motion-reduce:animate-none md:hidden"
+          />
+        )}
+        <div
+          inert={isMobile && !menuAbierto}
+          className={cn(
+            "md:contents",
+            "max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-50 max-md:overflow-y-auto max-md:bg-white max-md:shadow-xl max-md:transition-transform max-md:duration-200 motion-reduce:transition-none",
+            menuAbierto ? "max-md:translate-x-0" : "max-md:-translate-x-full",
+          )}
+        >
+          <TaskSidebar />
+        </div>
+        <TaskBarraSuperiorMovil onMenu={abrirMenu} />
         <main
-          className="min-w-0 overflow-auto text-foreground"
+          className="min-w-0 overflow-auto text-foreground max-md:overflow-visible max-md:!p-4"
           style={{ padding: "clamp(14px, 2vw, 24px)" }}
         >
           <TaskTopbar />
           {children}
+          <MovilEspaciador conFab />
         </main>
+        <TaskBarraInferiorMovil onMas={abrirMenu} />
       </div>
     </div>
   )

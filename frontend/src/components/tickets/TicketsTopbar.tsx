@@ -13,7 +13,7 @@ export function TicketsTopbar() {
   const { activeView, setDialogOpen } = useTicketsUI()
 
   return (
-    <header className="mb-6 flex items-center justify-between gap-2 border border-zinc-200 bg-white px-4 py-4 shadow-sm sm:gap-4 sm:px-6">
+    <header className="mb-6 hidden md:flex items-center justify-between gap-2 border border-zinc-200 bg-white px-4 py-4 shadow-sm sm:gap-4 sm:px-6">
       <div className="flex min-w-0 items-center gap-3">
         <SidebarTrigger
           id="tickets-sidebar-trigger"

@@ -23,7 +23,7 @@ export function TopBar({ title = "Dashboard" }: TopBarProps) {
   const navigate = useNavigate()
 
   if (!user) return (
-    <header className="flex items-center justify-between h-14 border-b border-border bg-background px-6">
+    <header className="hidden md:flex items-center justify-between h-14 border-b border-border bg-background px-6">
       <h1 className="text-sm font-semibold text-foreground">{title}</h1>
     </header>
   )
@@ -35,7 +35,7 @@ export function TopBar({ title = "Dashboard" }: TopBarProps) {
     : displayName.charAt(0).toUpperCase()
 
   return (
-    <header className="flex items-center justify-between h-14 border-b border-border bg-background px-6 gap-3">
+    <header className="hidden md:flex items-center justify-between h-14 border-b border-border bg-background px-6 gap-3">
       <h1 className="text-sm font-semibold text-foreground truncate min-w-0">{title}</h1>
 
       <div className="flex items-center gap-2 shrink-0">

@@ -4,6 +4,8 @@ import { cn } from "@/lib/utils"
 import { useTicketsUI } from "@/context/TicketsContext"
 import { TicketsSidebar } from "./TicketsSidebar"
 import { TicketsTopbar } from "./TicketsTopbar"
+import { TicketsMovil } from "./TicketsMovil"
+import { MovilEspaciador } from "@/components/movil/Movil"
 import { ListView } from "./views/ListView"
 import { BoardView } from "./views/BoardView"
 import { DashboardView } from "./views/DashboardView"
@@ -16,7 +18,7 @@ export function TicketsShell() {
 
   return (
     <SidebarProvider>
-      <div className="relative isolate flex min-h-dvh w-full overflow-hidden bg-background text-foreground">
+      <div className="relative isolate flex min-h-dvh w-full overflow-hidden bg-background text-foreground max-md:overflow-x-clip max-md:overflow-y-visible">
         {/* Fondo propio de Tickets (no compartido con el resto de la intranet).
             Dos capas conectadas por la misma paleta de marca, no una textura
             gris sola: grid animado en rojo (opacidad real, no decorativa
@@ -54,12 +56,17 @@ export function TicketsShell() {
           />
         </div>
         <TicketsSidebar />
-        <main className="min-w-0 flex-1 overflow-auto" style={{ padding: "clamp(14px, 2vw, 24px)" }}>
+        <main className="min-w-0 flex-1 overflow-auto max-md:!p-0 max-md:overflow-visible" style={{ padding: "clamp(14px, 2vw, 24px)" }}>
+          <TicketsMovil parte="superior" />
           <TicketsTopbar />
-          {activeView === "list" && <ListView />}
-          {activeView === "board" && <BoardView />}
-          {activeView === "dashboard" && <DashboardView />}
+          <div className="max-md:p-4">
+            {activeView === "list" && <ListView />}
+            {activeView === "board" && <BoardView />}
+            {activeView === "dashboard" && <DashboardView />}
+          </div>
+          <MovilEspaciador conFab />
         </main>
+        <TicketsMovil parte="inferior" />
       </div>
       <TicketDialog />
       <TicketDrawer />

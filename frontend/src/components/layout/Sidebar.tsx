@@ -1,5 +1,7 @@
+import { useEffect } from "react"
 import { NavLink, useLocation } from "react-router-dom"
 import {
+  LogOut,
   LayoutDashboard,
   Monitor,
   ShieldCheck,
@@ -18,7 +20,8 @@ import {
   Package,
 } from "lucide-react"
 import { useAuthStore } from "@/store/authStore"
-import { EXTERNAL_APPS, getAppsForRole } from "@/lib/roles"
+import { useLogout } from "@/hooks/useAuth"
+import { EXTERNAL_APPS, getAppsForRole, getRoleLabel } from "@/lib/roles"
 import { openExternalApp } from "@/lib/openApp"
 import {
   canSeeMantenimiento,
@@ -51,6 +54,8 @@ import {
   SidebarSeparator,
   useSidebar,
 } from "@/components/ui/sidebar"
+
+const MOVIL_ITEM = "max-md:h-11 max-md:gap-3 max-md:px-3 max-md:text-[15px] max-md:[&>svg]:size-5 max-md:data-[active=true]:bg-[#FDECEE] max-md:data-[active=true]:font-semibold max-md:data-[active=true]:text-[#C3182A]"
 
 export function Sidebar() {
   const user = useAuthStore((s) => s.user)
@@ -95,8 +100,17 @@ export function Sidebar() {
         .toUpperCase()
     : user?.email?.[0]?.toUpperCase() ?? "U"
 
-  const { state } = useSidebar()
+  const { state, isMobile, setOpenMobile } = useSidebar()
   const isCollapsed = state === "collapsed"
+  const logout = useLogout()
+
+  // Móvil: el menú es un panel deslizable; al navegar se cierra solo.
+  useEffect(() => {
+    setOpenMobile(false)
+  }, [location.pathname, setOpenMobile])
+
+  // En el teléfono (y en el APK) no se abren pestañas nuevas: todo en la misma vista.
+  const nuevaPestana = isMobile ? {} : { target: "_blank", rel: "noopener noreferrer" }
 
   function isActive(paths: string[]): boolean {
     return paths.some((p) => location.pathname.startsWith(p))
@@ -105,8 +119,20 @@ export function Sidebar() {
   return (
     <ShadcnSidebar collapsible="icon" className="border-r border-sidebar-border">
       {/* ── Header: workspace logo ───────────────────────────────────── */}
-      <SidebarHeader className="px-3 py-4">
-        {isCollapsed ? (
+      <SidebarHeader className={isMobile ? "bg-[#C3182A] px-5 pb-5 pt-[calc(1.25rem+env(safe-area-inset-top))]" : "px-3 py-4"}>
+        {isMobile ? (
+          <div className="flex items-center gap-3">
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-white text-base font-bold text-[#C3182A]">
+              {initials}
+            </div>
+            <div className="min-w-0 text-white">
+              <p className="m-0 truncate text-base font-bold">{user?.full_name ?? user?.email ?? "Usuario"}</p>
+              <p className="m-0 truncate text-xs text-white/85">
+                {[user?.area ?? (user ? getRoleLabel(user.role) : null), user?.sede].filter(Boolean).join(" · ")}
+              </p>
+            </div>
+          </div>
+        ) : isCollapsed ? (
           <div className="flex items-center justify-center px-1">
             <img src="/brand/zymo_logo.png" alt="ZYMO" className="h-7 w-7 object-contain" />
           </div>
@@ -118,9 +144,9 @@ export function Sidebar() {
         )}
       </SidebarHeader>
 
-      <SidebarSeparator />
+      {!isMobile && <SidebarSeparator />}
 
-      <SidebarContent>
+      <SidebarContent className="max-md:pt-2">
         {/* ── Section: Dashboard ──────────────────────────────────────── */}
         <SidebarGroup>
           <SidebarGroupContent>
@@ -161,11 +187,10 @@ export function Sidebar() {
                 )}
                 {showSIG && (
                   <SidebarMenuItem>
-                    <SidebarMenuButton asChild tooltip="SIG">
+                    <SidebarMenuButton className={MOVIL_ITEM} asChild tooltip="SIG">
                       <a
                         href="/sig"
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        {...nuevaPestana}
                         aria-label="SIG (nueva pestaña)"
                       >
                         <Database className="w-4 h-4" />
@@ -176,11 +201,10 @@ export function Sidebar() {
                 )}
                 {showSigLider && (
                   <SidebarMenuItem>
-                    <SidebarMenuButton asChild tooltip="SIG de mi área">
+                    <SidebarMenuButton className={MOVIL_ITEM} asChild tooltip="SIG de mi área">
                       <a
                         href="/sig-area"
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        {...nuevaPestana}
                         aria-label="SIG de mi área (nueva pestaña)"
                       >
                         <Database className="w-4 h-4" />
@@ -192,6 +216,7 @@ export function Sidebar() {
                 {showZymoAssets && zymoAssets && (
                   <SidebarMenuItem>
                     <SidebarMenuButton
+                      className={MOVIL_ITEM}
                       tooltip="ZYMO Assets"
                       aria-label="ZYMO Assets (nueva pestaña)"
                       onClick={() => void openExternalApp(zymoAssets, useAuthStore.getState().token)}
@@ -271,11 +296,10 @@ export function Sidebar() {
               <SidebarGroupContent>
                 <SidebarMenu>
                   <SidebarMenuItem>
-                    <SidebarMenuButton asChild tooltip="Gestión de Tareas">
+                    <SidebarMenuButton className={MOVIL_ITEM} asChild tooltip="Gestión de Tareas">
                       <a
                         href="/tareas-v2"
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        {...nuevaPestana}
                         aria-label="Gestión de Tareas (nueva pestaña)"
                       >
                         <ListTodo className="w-4 h-4" />
@@ -342,7 +366,17 @@ export function Sidebar() {
 
       {/* ── Footer: user avatar ─────────────────────────────────────── */}
       <SidebarSeparator />
-      <SidebarFooter className="px-3 py-3">
+      <SidebarFooter className="px-3 py-3 max-md:pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+        {isMobile ? (
+          <button
+            type="button"
+            onClick={logout}
+            className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-[15px] font-medium text-[#18181B] active:bg-[#F4F4F5]"
+          >
+            <LogOut className="size-5" aria-hidden />
+            Cerrar sesión
+          </button>
+        ) : (
         <div className="flex items-center gap-2.5 px-1">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold">
             {initials}
@@ -358,6 +392,7 @@ export function Sidebar() {
             </div>
           )}
         </div>
+        )}
       </SidebarFooter>
     </ShadcnSidebar>
   )
@@ -375,7 +410,7 @@ interface NavItemProps {
 function NavItem({ to, label, icon, active }: NavItemProps) {
   return (
     <SidebarMenuItem>
-      <SidebarMenuButton asChild isActive={active} tooltip={label}>
+      <SidebarMenuButton className={MOVIL_ITEM} asChild isActive={active} tooltip={label}>
         <NavLink to={to} aria-label={label}>
           {icon}
           <span>{label}</span>

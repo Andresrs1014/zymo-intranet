@@ -3,7 +3,7 @@ import { ShineBorder } from "@/components/ui/shine-border"
 import { BlurFade } from "@/components/ui/blur-fade"
 import "./tareas.css"
 
-const VIEW_TITLES: Record<TaskView, string> = {
+export const VIEW_TITLES: Record<TaskView, string> = {
   mywork: "Mi trabajo",
   list: "Lista de Tareas",
   board: "Tablero Scrum",
@@ -21,7 +21,7 @@ export function TaskTopbar() {
     // asienta sobre la página + ShineBorder (Magic UI) como rim animado rojo/blanco.
     // El shine hereda el radio (0) del header → el borde con dimensión es parte del
     // mismo plano, no una decoración pegada encima.
-    <header className="relative mb-6 flex items-center justify-between gap-4 overflow-hidden border border-zinc-200 bg-white px-6 py-4 shadow-[0_12px_28px_-18px_rgba(24,24,27,0.45)]">
+    <header className="relative mb-6 hidden md:flex items-center justify-between gap-4 overflow-hidden border border-zinc-200 bg-white px-6 py-4 shadow-[0_12px_28px_-18px_rgba(24,24,27,0.45)]">
       <ShineBorder
         shineColor={["#c41e3a", "#ef3340", "#ffffff"]}
         borderWidth={1.5}
