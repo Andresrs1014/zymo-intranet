@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">ZYMO Intranet</string>
+    <string name="title_activity_main">ZYMO Intranet</string>
+    <string name="package_name">com.zymo.intranet</string>
+    <string name="custom_url_scheme">com.zymo.intranet</string>
+</resources>
