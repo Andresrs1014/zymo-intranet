@@ -194,7 +194,7 @@ const styles = {
     paddingTop: "max(24px, env(safe-area-inset-top))",
     paddingBottom: "max(24px, env(safe-area-inset-bottom))",
     background: "#0f172a",
-    minHeight: "100vh",
+    minHeight: "100dvh",
     color: "#f1f5f9",
     colorScheme: "dark",
   } as React.CSSProperties,

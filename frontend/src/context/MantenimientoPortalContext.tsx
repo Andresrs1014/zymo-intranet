@@ -60,7 +60,7 @@ export function MantenimientoPortalProvider({ children }: { children: ReactNode 
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-6">
+      <div className="min-h-dvh flex items-center justify-center bg-gray-50 px-6">
         <div className="text-center max-w-sm">
           <p className="text-red-600 font-semibold mb-2">{error}</p>
           <p className="text-sm text-muted-foreground">
@@ -73,7 +73,7 @@ export function MantenimientoPortalProvider({ children }: { children: ReactNode 
 
   if (!value) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-dvh flex items-center justify-center bg-gray-50">
         <p className="text-sm text-muted-foreground">Cargando portal…</p>
       </div>
     )

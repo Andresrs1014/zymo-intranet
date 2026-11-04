@@ -29,7 +29,7 @@ class TaskErrorBoundary extends React.Component<{ children: ReactNode }, EBState
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background p-10 text-center text-zinc-500">
+        <div className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-background p-10 text-center text-zinc-500">
           <div className="text-4xl text-primary">⚠</div>
           <h2 className="m-0 text-lg font-bold text-zinc-900">Algo salió mal</h2>
           <p className="m-0 text-[13px]">{this.state.message}</p>
@@ -49,7 +49,7 @@ class TaskErrorBoundary extends React.Component<{ children: ReactNode }, EBState
 
 function TaskShellInner({ children }: { children: ReactNode }) {
   return (
-    <div className="relative isolate min-h-screen overflow-hidden bg-background text-foreground">
+    <div className="relative isolate min-h-dvh overflow-hidden bg-background text-foreground">
       {/* Fondo decorativo — honeycomb de trazo finísimo + difuminado rojo.
           aria-hidden + pointer-events-none + -z-10: nunca intercepta clicks
           ni lo leen lectores de pantalla. El punto de fuga corre en diagonal
@@ -121,7 +121,7 @@ function TaskShellInner({ children }: { children: ReactNode }) {
       </div>
 
       <div
-        className="relative grid min-h-screen"
+        className="relative grid min-h-dvh"
         style={{ gridTemplateColumns: "auto minmax(0, 1fr)" }}
       >
         <TaskSidebar />

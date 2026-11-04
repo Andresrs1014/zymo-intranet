@@ -22,7 +22,7 @@ export function PageLayout({
 }: PageLayoutProps) {
   return (
     <SidebarProvider defaultOpen={true}>
-      <div className="flex h-screen w-full bg-gray-50">
+      <div className="flex h-dvh w-full bg-gray-50">
         <Sidebar />
 
         <div className="flex flex-1 min-w-0 min-h-0">

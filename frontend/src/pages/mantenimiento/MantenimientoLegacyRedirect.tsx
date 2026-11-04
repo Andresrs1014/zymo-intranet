@@ -31,14 +31,14 @@ export default function MantenimientoLegacyRedirect({ mode }: Props) {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-6 text-center">
+      <div className="min-h-dvh flex items-center justify-center bg-gray-50 px-6 text-center">
         <p className="text-red-600">{error}</p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="min-h-dvh flex items-center justify-center bg-gray-50">
       <p className="text-sm text-muted-foreground">Abriendo portal…</p>
     </div>
   )

@@ -25,7 +25,7 @@ function PartnerLoginForm() {
   }
 
   return (
-    <div className="libertadora-scope flex min-h-screen items-center justify-center p-6" style={{ background: "var(--lib-navy)" }}>
+    <div className="libertadora-scope flex min-h-dvh items-center justify-center p-6" style={{ background: "var(--lib-navy)" }}>
       <form onSubmit={handleSubmit} className="w-full max-w-sm rounded-xl bg-white p-8 shadow-xl">
         <h1 className="text-lg font-bold" style={{ color: "var(--lib-navy)" }}>Libertadora Seguros</h1>
         <p className="mb-6 mt-1 text-xs text-zinc-500">Acceso de socio · Skandia CREA</p>
@@ -68,7 +68,7 @@ function PartnerPanel() {
 
   return (
     <LibertadoraProvider>
-      <div className="libertadora-scope min-h-screen bg-zinc-50">
+      <div className="libertadora-scope min-h-dvh bg-zinc-50">
         <LibertadoraHeader
           action={
             <Button

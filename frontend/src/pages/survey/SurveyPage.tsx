@@ -21,7 +21,7 @@ export function SurveyPage() {
 
 function InvalidLink({ message }: { message: string }) {
   return (
-    <div className="min-h-screen bg-[#f4f4f6] flex items-center justify-center p-6">
+    <div className="min-h-dvh bg-[#f4f4f6] flex items-center justify-center p-6">
       <div className="bg-white rounded-2xl shadow-lg p-8 max-w-sm text-center">
         <h3 className="text-lg font-semibold text-survey-ink mb-2">Enlace no disponible</h3>
         <p className="text-[13px] text-survey-muted">{message}</p>

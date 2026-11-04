@@ -24,8 +24,8 @@ export function SurveyShell({ logoSrc, title, badge, heading, description, stats
   const stepLabel = `Pregunta ${currentStep} de ${totalSteps}`
 
   return (
-    <div className="min-h-screen bg-[#f4f4f6] flex items-center justify-center p-0 lg:p-10">
-      <div className="w-full flex flex-col lg:max-w-3xl lg:rounded-2xl lg:overflow-hidden lg:shadow-[0_24px_60px_rgba(0,0,0,0.3)] lg:grid lg:grid-cols-[1fr_1.15fr] min-h-screen lg:min-h-0">
+    <div className="min-h-dvh bg-[#f4f4f6] flex items-center justify-center p-0 lg:p-10">
+      <div className="w-full flex flex-col lg:max-w-3xl lg:rounded-2xl lg:overflow-hidden lg:shadow-[0_24px_60px_rgba(0,0,0,0.3)] lg:grid lg:grid-cols-[1fr_1.15fr] min-h-dvh lg:min-h-0">
         {/* Panel de marca — solo desktop */}
         <div className="hidden lg:flex relative flex-col justify-between p-9 overflow-hidden [background:radial-gradient(120%_140%_at_15%_0%,#4a1420_0%,#241014_55%,#180c0e_100%)]">
           <div

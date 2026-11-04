@@ -85,7 +85,7 @@ export function TaskSidebar() {
         padding: "16px 8px",
         background: "#ffffff",
         borderRight: "1px solid #e4e4e7",
-        minHeight: "100vh",
+        minHeight: "100dvh",
         width: sidebarWidth,
         transition: "width 220ms ease",
         overflow: "hidden",

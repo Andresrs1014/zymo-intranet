@@ -20,7 +20,7 @@ export function MantenimientoMobileLayout({
   const portal = useMantenimientoPortal()
 
   return (
-    <div className="min-h-screen bg-background flex flex-col font-[family-name:var(--font-dm-sans)] [color-scheme:light]">
+    <div className="min-h-dvh bg-background flex flex-col font-[family-name:var(--font-dm-sans)] [color-scheme:light]">
       <header className="sticky top-0 z-20 bg-card border-b border-border px-4 pb-3 pt-[max(12px,env(safe-area-inset-top))] flex items-center gap-3">
         {showBack && (
           <button

@@ -448,7 +448,7 @@ function EstadoPill({ estado }: { estado: string }) {
 function Shell({ children }: { children: ReactNode }) {
   return (
     <div
-      className="mx-auto box-border min-h-screen max-w-[480px] bg-[#0f172a] px-6 font-[family-name:var(--font-dm-sans)] text-slate-100 [color-scheme:dark] touch-manipulation pt-[max(24px,env(safe-area-inset-top))] pb-[max(24px,env(safe-area-inset-bottom))] pl-[max(24px,env(safe-area-inset-left))] pr-[max(24px,env(safe-area-inset-right))] [&_button:focus-visible]:outline [&_button:focus-visible]:outline-2 [&_button:focus-visible]:outline-sky-400 [&_button:focus-visible]:outline-offset-2"
+      className="mx-auto box-border min-h-dvh max-w-[480px] bg-[#0f172a] px-6 font-[family-name:var(--font-dm-sans)] text-slate-100 [color-scheme:dark] touch-manipulation pt-[max(24px,env(safe-area-inset-top))] pb-[max(24px,env(safe-area-inset-bottom))] pl-[max(24px,env(safe-area-inset-left))] pr-[max(24px,env(safe-area-inset-right))] [&_button:focus-visible]:outline [&_button:focus-visible]:outline-2 [&_button:focus-visible]:outline-sky-400 [&_button:focus-visible]:outline-offset-2"
     >
       {children}
     </div>

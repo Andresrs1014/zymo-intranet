@@ -26,7 +26,7 @@ export function VisorArchivoDialog({ base, nombre, mime, onClose }: {
         </button>
       </div>
       <div className="min-h-0 flex-1 overflow-auto px-5 pb-5">
-        <ArchivoPrevisualizador base={base} nombre={nombre} mime={mime} altura="calc(100vh - 5.5rem)" />
+        <ArchivoPrevisualizador base={base} nombre={nombre} mime={mime} altura="calc(100dvh - 5.5rem)" />
       </div>
     </div>,
     document.body,

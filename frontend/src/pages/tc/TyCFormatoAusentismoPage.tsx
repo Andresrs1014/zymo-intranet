@@ -81,7 +81,7 @@ export function TyCFormatoAusentismoPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       <div className="max-w-5xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
         <div className="rounded-2xl border border-border bg-muted/5 overflow-hidden">
           {/* Banda corporativa */}

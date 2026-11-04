@@ -55,14 +55,14 @@ export function LoginPage() {
 
   if (ssoAppId && isAuthenticated) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-dvh bg-white flex items-center justify-center">
         <p className="text-sm text-muted-foreground">Redirigiendo…</p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-white flex flex-col items-center justify-center px-4">
+    <div className="min-h-dvh bg-white flex flex-col items-center justify-center px-4">
       {/* Logo + wordmark */}
       <div className="mb-8 flex flex-col items-center gap-3">
         <img

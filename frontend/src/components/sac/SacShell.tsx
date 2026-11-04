@@ -14,7 +14,7 @@ export function SacShell() {
 
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen w-full bg-background text-foreground">
+      <div className="flex min-h-dvh w-full bg-background text-foreground">
         <SacSidebar />
         <main className="min-w-0 flex-1 overflow-auto" style={{ padding: "clamp(14px, 2vw, 24px)" }}>
           <SacTopbar />

@@ -191,7 +191,7 @@ function SigDesktopView() {
   const pendingCount = pendientes.length + archivosPend.length
 
   return (
-    <div className="sig-root h-screen flex flex-col bg-zinc-100 text-zinc-900 overflow-hidden select-none relative">
+    <div className="sig-root h-dvh flex flex-col bg-zinc-100 text-zinc-900 overflow-hidden select-none relative">
 
       {/* Title bar */}
       <TitleBar
