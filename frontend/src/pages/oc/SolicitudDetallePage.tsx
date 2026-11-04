@@ -54,6 +54,7 @@ import {
   puedeGestionarProformaDesdeOc,
   solicitudOcProformaSoloFinanciero,
 } from "@/lib/ocProforma"
+import { EtapasMovil } from "@/components/oc/ComprasMovil"
 import { EstadoBadge } from "./SolicitudesPage"
 import { ImageModal } from "@/components/ui/ImageModal"
 import { absoluteApiUrl } from "@/lib/api"
@@ -515,6 +516,13 @@ export function SolicitudDetallePage() {
     <>
       <PageLayout
         title="OC Automatizaciones"
+        movil={{
+          titulo: solicitud.consecutivo_os,
+          subtitulo: solicitud.descripcion,
+          atras: "/oc/solicitudes",
+          // la barra fija de Rechazar/Aprobar vive en PanelAprobacion
+          conFlotante: esAprobador && solicitud.estado === "pendiente_aprobacion" && !!cotizacionPendiente,
+        }}
         afterMain={
           <>
           {modoRechazoSol ? (
@@ -1146,7 +1154,7 @@ export function SolicitudDetallePage() {
           {/* Breadcrumb */}
           <button
             onClick={() => navigate("/oc/solicitudes")}
-            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors"
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors max-md:hidden"
           >
             ← Volver
           </button>
@@ -1172,10 +1180,12 @@ export function SolicitudDetallePage() {
             </div>
           )}
 
+          <EtapasMovil estado={solicitud.estado} />
+
           {/* Header */}
-          <div className="flex items-start justify-between mb-6">
+          <div className="flex items-start justify-between mb-6 max-md:mb-4 max-md:flex-col max-md:gap-3">
             <div>
-              <div className="flex items-center gap-3 mb-1">
+              <div className="flex flex-wrap items-center gap-3 mb-1 max-md:gap-2">
                 <span className="font-mono text-sm font-bold text-primary">
                   {solicitud.consecutivo_os}
                 </span>
@@ -1199,7 +1209,7 @@ export function SolicitudDetallePage() {
               <h1 className="text-xl font-bold text-foreground">{solicitud.descripcion}</h1>
             </div>
 
-            <div className="flex gap-2 shrink-0 flex-wrap justify-end">
+            <div className="flex gap-2 shrink-0 flex-wrap justify-end max-md:justify-start">
               {muestraAccionesDirectorCotizada ? (
                 <>
                   <button
@@ -2090,8 +2100,34 @@ function PanelAprobacion({
     setModo("idle")
   }
 
+  // Teléfono: la barra fija abre el formulario y lo trae a la vista.
+  const panelRef = useRef<HTMLDivElement>(null)
+  function abrirDesdeBarra(m: "aprobar" | "rechazar") {
+    setModo(m)
+    const suave = !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    requestAnimationFrame(() => panelRef.current?.scrollIntoView({ behavior: suave ? "smooth" : "auto", block: "start" }))
+  }
+
   return (
-    <div className="bg-orange-50 border border-orange-200 rounded-xl p-5">
+    <div ref={panelRef} className="bg-orange-50 border border-orange-200 rounded-xl p-5 max-md:scroll-mt-4 max-md:p-4">
+      {modo === "idle" && (
+        <div className="fixed inset-x-0 bottom-0 z-40 flex gap-3 border-t border-[#E4E4E7] bg-white px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 md:hidden">
+          <button
+            type="button"
+            onClick={() => abrirDesdeBarra("rechazar")}
+            className="h-12 flex-1 rounded-xl border-2 border-[#C3182A] bg-white text-[15px] font-bold text-[#C3182A] active:bg-[#FDECEE]"
+          >
+            Rechazar
+          </button>
+          <button
+            type="button"
+            onClick={() => abrirDesdeBarra("aprobar")}
+            className="h-12 flex-[1.6] rounded-xl bg-[#C3182A] text-[15px] font-bold text-white active:brightness-95"
+          >
+            Aprobar cotización
+          </button>
+        </div>
+      )}
       <div className="flex items-center gap-2 mb-4">
         <span className="text-orange-500 text-lg">⏳</span>
         <h2 className="text-sm font-semibold text-orange-800">

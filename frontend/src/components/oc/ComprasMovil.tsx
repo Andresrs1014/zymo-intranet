@@ -73,3 +73,41 @@ export function ComprasBarraInferior() {
   ]
   return <MovilBarraInferior items={items} />
 }
+
+const ETAPAS = ["Nueva", "Cotiz.", "Aprob.", "OC", "Cierre"]
+const ETAPA_DE: Record<string, number> = {
+  nueva: 0, en_cotizacion: 1, en_correccion: 1, pendiente_aprobacion: 2, aprobada: 3,
+  oc_enviada: 3, oc_en_plataforma: 3, entregada: 4, cerrada: 5,
+}
+
+/** Línea de etapas de la solicitud (solo teléfono). `cerrada` = todas completas. */
+export function EtapasMovil({ estado }: { estado: string }) {
+  const actual = ETAPA_DE[estado]
+  if (actual === undefined) return null
+  return (
+    <ol className="m-0 mb-4 flex list-none rounded-xl border border-[#E4E4E7] bg-white px-2 py-3 md:hidden" aria-label="Etapas de la solicitud">
+      {ETAPAS.map((e, i) => {
+        const hecha = i < actual
+        const enCurso = i === actual
+        return (
+          <li key={e} className="relative flex flex-1 flex-col items-center gap-1.5" aria-current={enCurso ? "step" : undefined}>
+            {i > 0 && (
+              <span aria-hidden className={cn("absolute right-1/2 top-[9px] h-0.5 w-full", i <= actual ? "bg-[#C3182A]" : "bg-[#E4E4E7]")} />
+            )}
+            <span
+              aria-hidden
+              className={cn(
+                "relative z-10 flex size-5 items-center justify-center rounded-full border-2",
+                hecha ? "border-[#C3182A] bg-[#C3182A]" : enCurso ? "border-[#C3182A] bg-white" : "border-[#E4E4E7] bg-[#F4F4F5]",
+              )}
+            >
+              {hecha && <CheckCheck className="size-3 text-white" strokeWidth={3} />}
+              {enCurso && <span className="size-2 rounded-full bg-[#C3182A]" />}
+            </span>
+            <span className={cn("text-[11px]", enCurso ? "font-bold text-[#C3182A]" : "text-[#71717A]")}>{e}</span>
+          </li>
+        )
+      })}
+    </ol>
+  )
+}

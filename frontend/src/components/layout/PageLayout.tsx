@@ -56,7 +56,7 @@ export function PageLayout({
   afterMain,
   movil,
 }: PageLayoutProps) {
-  const hueco = movil?.barraInferior || movil?.flotante
+  const hueco = movil?.barraInferior || movil?.flotante || movil?.conFlotante
   return (
     <SidebarProvider defaultOpen={true}>
       <div className="flex h-dvh w-full bg-gray-50 max-md:bg-[#F4F4F5]">
