@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
+import { Camera } from "lucide-react"
 import { PageLayout } from "@/components/layout/PageLayout"
 import { Combobox } from "@/components/ui/Combobox"
 import { useAuthStore } from "@/store/authStore"
@@ -378,18 +379,21 @@ export function NuevaSolicitudPage() {
           </div>
         </div>
       )}
-      <PageLayout title="Operativo">
+      <PageLayout
+        title="Operativo"
+        movil={{ titulo: "Nueva solicitud", subtitulo: "Los campos con * son obligatorios", atras: () => navigate(-1), conFlotante: true }}
+      >
         <div className="max-w-3xl mx-auto">
           {/* Volver */}
           <button
             onClick={() => navigate("/operativo/mis-solicitudes")}
-            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors"
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors max-md:hidden"
           >
             ← Volver
           </button>
 
           {/* Header */}
-          <div className="mb-6">
+          <div className="mb-6 max-md:hidden">
             <h1 className="text-xl font-bold text-foreground">Nueva Solicitud</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
               Los campos marcados con * son obligatorios
@@ -397,11 +401,11 @@ export function NuevaSolicitudPage() {
           </div>
 
           {/* Selector de tipo de solicitud */}
-          <div className="mb-6 flex gap-3">
+          <div className="mb-6 flex gap-3 max-md:mb-4 max-md:gap-2">
             <button
               type="button"
               onClick={() => cambiarTipo("compra")}
-              className={`flex items-center gap-2 rounded-xl border-2 px-5 py-3 text-sm font-semibold transition-all ${
+              className={`flex items-center gap-2 rounded-xl border-2 px-5 py-3 text-sm font-semibold transition-all max-md:min-h-12 max-md:flex-1 max-md:justify-center max-md:px-2 max-md:text-[13px] ${
                 tipoSolicitud === "compra"
                   ? "border-primary bg-brand-blue text-white shadow-sm"
                   : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:bg-muted"
@@ -415,7 +419,7 @@ export function NuevaSolicitudPage() {
             <button
               type="button"
               onClick={() => cambiarTipo("mantenimiento")}
-              className={`flex items-center gap-2 rounded-xl border-2 px-5 py-3 text-sm font-semibold transition-all ${
+              className={`flex items-center gap-2 rounded-xl border-2 px-5 py-3 text-sm font-semibold transition-all max-md:min-h-12 max-md:flex-1 max-md:justify-center max-md:px-2 max-md:text-[13px] ${
                 tipoSolicitud === "mantenimiento"
                   ? "border-amber-500 bg-amber-500 text-white shadow-sm"
                   : "border-border bg-card text-muted-foreground hover:border-amber-400/40 hover:bg-muted"
@@ -510,7 +514,7 @@ export function NuevaSolicitudPage() {
           )}
 
           {!listasLoading && !sedesLoading && !listasError && !sedesError && (
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6 max-md:space-y-4 max-md:[&_input[type=number]]:min-h-11 max-md:[&_input[type=text]]:min-h-11 max-md:[&_section]:p-4 max-md:[&_textarea]:text-[15px]">
               {/* Sección Solicitante */}
               <section className="bg-card rounded-xl border border-border p-6 space-y-4">
                 <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
@@ -750,9 +754,22 @@ export function NuevaSolicitudPage() {
                   <svg className="w-8 h-8 text-muted-foreground/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
                   </svg>
-                  <p className="text-sm font-medium text-foreground">Arrastra o haz clic para subir</p>
+                  <p className="text-sm font-medium text-foreground"><span className="md:hidden">Toca para elegir archivos</span><span className="hidden md:inline">Arrastra o haz clic para subir</span></p>
                   <p className="text-xs text-muted-foreground">Hasta 5 archivos — JPG, PNG, PDF, Excel, Word, MSG — máx 20 MB c/u</p>
                 </div>
+                {/* Teléfono: abrir la cámara directamente */}
+                <label className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#C3182A] bg-[#FDECEE] text-sm font-bold text-[#C3182A] md:hidden">
+                  <Camera className="size-5" aria-hidden />
+                  Tomar foto
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="sr-only"
+                    onChange={handleFileSelect}
+                    onClick={(e) => { (e.target as HTMLInputElement).value = "" }}
+                  />
+                </label>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -783,7 +800,7 @@ export function NuevaSolicitudPage() {
                           <button
                             type="button"
                             onClick={() => removeFile(index)}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 hover:bg-red-50 p-1.5 rounded-md transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 hover:bg-red-50 p-1.5 rounded-md transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 max-md:right-0 max-md:flex max-md:size-11 max-md:items-center max-md:justify-center max-md:opacity-100"
                             title="Eliminar archivo"
                           >
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -804,22 +821,22 @@ export function NuevaSolicitudPage() {
               )}
 
               {/* Botones */}
-              <div className="flex items-center justify-end gap-3 pb-8">
+              <div className="flex items-center justify-end gap-3 pb-8 max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-40 max-md:border-t max-md:border-[#E4E4E7] max-md:bg-white max-md:px-4 max-md:pb-[calc(0.75rem+env(safe-area-inset-bottom))] max-md:pt-3">
                 <button
                   type="button"
                   onClick={() => navigate("/operativo/mis-solicitudes")}
                   disabled={crear.isPending || subiendoArchivos}
-                  className="rounded-lg border border-border px-5 py-2 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors disabled:opacity-60"
+                  className="rounded-lg border border-border px-5 py-2 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors disabled:opacity-60 max-md:hidden"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={crear.isPending || subiendoArchivos}
-                  className={`rounded-lg px-6 py-2 text-sm font-semibold text-white disabled:opacity-60 transition-all ${
+                  className={`rounded-lg px-6 py-2 text-sm font-semibold text-white disabled:opacity-60 transition-all max-md:h-12 max-md:flex-1 max-md:rounded-xl max-md:text-[15px] max-md:font-bold ${
                     tipoSolicitud === "mantenimiento"
                       ? "bg-amber-500 hover:brightness-105"
-                      : "bg-brand-blue hover:brightness-105"
+                      : "bg-brand-blue hover:brightness-105 max-md:bg-[#C3182A]"
                   }`}
                 >
                   {subiendoArchivos
