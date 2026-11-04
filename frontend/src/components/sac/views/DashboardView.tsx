@@ -5,6 +5,8 @@ import { BlurFade } from "@/components/ui/blur-fade"
 import { downloadFile } from "@/lib/download"
 import { extractErrorMessage } from "@/lib/ticketErrors"
 import { useTicketToast } from "@/components/tickets/TicketToast"
+import { useSacUI } from "@/context/SacContext"
+import { RegistroCardMovil } from "./RecordsView"
 
 function Bar({ label, value, max }: { label: string; value: number; max: number }) {
   const pct = max > 0 ? Math.round((value / max) * 100) : 0
@@ -46,6 +48,7 @@ export function DashboardView() {
   const { data, isLoading } = useSacDashboard()
   const [exporting, setExporting] = useState<"csv" | "json" | null>(null)
   const { showToast } = useTicketToast()
+  const { setOpenRecord } = useSacUI()
 
   async function handleExport(format: "csv" | "json") {
     setExporting(format)
@@ -87,6 +90,43 @@ export function DashboardView() {
         >
           <Download size={14} /> {exporting === "json" ? "Exportando…" : "Exportar JSON"}
         </button>
+      </div>
+
+      {/* Teléfono: NPS como protagonista + registros recientes */}
+      <div className="mb-5 md:hidden">
+        <div className="flex items-end justify-between gap-4 rounded-2xl bg-[#1F1F23] p-5 text-white">
+          <div className="min-w-0">
+            <p className="m-0 font-mono text-[11px] uppercase tracking-wider text-white/70">NPS de clientes</p>
+            <p className="m-0 mt-1 font-mono text-5xl font-medium leading-none">{clientMetrics.nps}</p>
+            <p className="m-0 mt-2 text-[13px] text-white/80">
+              <span className="font-mono">{clientMetrics.respuestas}</span> encuestas respondidas
+            </p>
+          </div>
+          {charts.clientPie.length > 0 && (
+            <div className="flex h-16 shrink-0 items-end gap-1.5" aria-label="Distribución del NPS">
+              {charts.clientPie.map((p, i) => (
+                <div key={p.label} className="flex flex-col items-center gap-1">
+                  <div
+                    className={`w-3.5 rounded-sm ${i === charts.clientPie.length - 1 ? "bg-[#C3182A]" : "bg-white/35"}`}
+                    style={{ height: `${Math.max(8, Math.round((p.value / maxClientPie) * 56))}px` }}
+                    title={`${p.label}: ${p.value}`}
+                  />
+                  <span className="text-[10px] text-white/60">{p.label.charAt(0)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        {data.records.length > 0 && (
+          <>
+            <h3 className="mb-2 mt-5 font-mono text-[11px] font-medium uppercase tracking-wider text-zinc-500">Registros recientes</h3>
+            <div className="flex flex-col gap-2.5">
+              {data.records.slice(0, 4).map((r) => (
+                <RegistroCardMovil key={`${r.recordGroup}-${r.id}`} record={r} onOpen={() => setOpenRecord(r)} />
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Regla del vestido rojo: riesgos de clientes es el único protagonista. */}

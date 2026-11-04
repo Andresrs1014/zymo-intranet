@@ -23,16 +23,40 @@ const GROUP_BADGE: Record<RecordGroup, string> = {
   visit: "bg-amber-50 text-amber-700",
 }
 
-function recordContact(r: SacRecord): string {
+export function recordContact(r: SacRecord): string {
   const rec = r as unknown as Record<string, unknown>
   return String(rec.company ?? rec.client ?? rec.contact ?? "—")
 }
 
-function recordResult(r: SacRecord): string {
+export function recordResult(r: SacRecord): string {
   const rec = r as unknown as Record<string, unknown>
   if (r.recordGroup === "client") return `NPS ${rec.nps ?? "—"} · ${rec.npsCategory ?? ""}`
   if (r.recordGroup === "commercial") return String(rec.fit ?? "—")
   return String(rec.outcome ?? "—")
+}
+
+/** Color del chip del resultado: NPS por categoría, el resto en ámbar (seguimiento). */
+function chipResultado(r: SacRecord): string {
+  const cat = String((r as unknown as Record<string, unknown>).npsCategory ?? "").toLowerCase()
+  if (r.recordGroup === "client") {
+    if (cat.startsWith("promotor")) return "bg-[#DCFCE7] text-[#15803D]"
+    if (cat.startsWith("detractor")) return "bg-[#FDECEE] text-[#C3182A]"
+    return "bg-[#DBEAFE] text-[#1D4ED8]"
+  }
+  return "bg-[#FEF3C7] text-[#B45309]"
+}
+
+/** Tarjeta de registro para el teléfono (reemplaza la fila de la tabla). */
+export function RegistroCardMovil({ record: r, onOpen }: { record: SacRecord; onOpen: () => void }) {
+  return (
+    <button type="button" onClick={onOpen} className="flex w-full items-start justify-between gap-3 rounded-xl border border-[#E4E4E7] bg-white px-4 py-3.5 text-left active:bg-zinc-50">
+      <span className="min-w-0">
+        <span className="block truncate text-[15px] font-bold text-zinc-900">{recordContact(r)} · {r.recordType.toLowerCase()}</span>
+        <span className="mt-0.5 block font-mono text-xs text-zinc-500">{r.date}</span>
+      </span>
+      <span className={`max-w-[45%] shrink-0 truncate rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${chipResultado(r)}`}>{recordResult(r)}</span>
+    </button>
+  )
 }
 
 const FILTER_LABEL = "mb-1.5 block text-[11px] font-bold uppercase tracking-[0.06em] text-zinc-500"
@@ -86,7 +110,15 @@ export function RecordsView() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
+      <div className="flex flex-col gap-2.5 md:hidden">
+        {isLoading && <p className="py-10 text-center text-sm text-zinc-500">Cargando…</p>}
+        {!isLoading && (data?.records.length ?? 0) === 0 && <p className="py-10 text-center text-sm text-zinc-500">Sin registros para estos filtros.</p>}
+        {data?.records.map((r) => (
+          <RegistroCardMovil key={`${r.recordGroup}-${r.id}`} record={r} onOpen={() => setOpenRecord(r)} />
+        ))}
+      </div>
+
+      <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white max-md:hidden">
         <table className="w-full text-left text-[13px]">
           <thead className="border-b border-zinc-200 bg-zinc-50 text-[11px] font-bold uppercase tracking-[0.06em] text-zinc-500">
             <tr>
