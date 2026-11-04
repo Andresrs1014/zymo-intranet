@@ -11,8 +11,9 @@ const ORDEN = ["alta", "media", "baja"]
 const CERRADAS = new Set(["completada", "cancelada"])
 
 /** Trae hasta 50 tareas con ese filtro; el backend ya limita a los equipos de la persona. */
-function useTareas(clave: string, params: string) {
+export function useTareas(clave: string, params: string, options: { enabled?: boolean } = {}) {
   return useQuery({
+    enabled: options.enabled ?? true,
     queryKey: ["tasks", "vista-previa", clave, params],
     queryFn: async () => {
       const { data } = await taskApi.get<Task[]>(`/api/tasks?limit=50&${params}`)

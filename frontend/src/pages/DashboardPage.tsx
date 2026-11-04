@@ -2,6 +2,8 @@ import type { ReactNode } from "react"
 import { ChevronDown } from "lucide-react"
 
 import { PageLayout } from "@/components/layout/PageLayout"
+import { InicioBarraInferior, InicioMovil, saludoInicio } from "@/components/layout/InicioMovil"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { AppCard } from "@/components/apps/AppCard"
 import { ComprasVistaPrevia } from "@/components/layout/ComprasVistaPrevia"
 import { FinancieraVistaPrevia } from "@/components/layout/FinancieraVistaPrevia"
@@ -49,6 +51,16 @@ export function DashboardPage() {
   // ponytail: las aplicaciones externas solo salen si la persona no tiene ningún resumen que mostrar
   // ZYMO Assets vive solo en el sidebar, no como tarjeta del dashboard
   const externas = user && !conResumen ? getAppsForRole(user.role, perms).filter((app) => app.id !== "zymo_assets") : []
+
+  // Teléfono: inicio propio (pendientes, módulos, recientes) con la barra inferior.
+  const isMobile = useIsMobile()
+  if (isMobile && user) {
+    return (
+      <PageLayout title="Inicio" movil={{ ...saludoInicio(user.full_name, user.sede), barraInferior: <InicioBarraInferior /> }}>
+        <InicioMovil />
+      </PageLayout>
+    )
+  }
 
   return (
     <PageLayout title="Dashboard">

@@ -38,8 +38,9 @@ export function usePlataformasOC() {
   })
 }
 
-export function useSolicitudes(filters: SolicitudesFilters = {}, page: number = 1) {
+export function useSolicitudes(filters: SolicitudesFilters = {}, page: number = 1, options: { enabled?: boolean } = {}) {
   return useQuery({
+    enabled: options.enabled ?? true,
     queryKey: ["oc", "solicitudes", filters, page],
     queryFn: async () => {
       const params = new URLSearchParams()
