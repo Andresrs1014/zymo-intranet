@@ -8,7 +8,7 @@ import prisma from "../config/prisma"
 import { requireSigAccess, getUserId } from "../middleware/auth"
 import { extractText } from "../services/textExtraction"
 import { resolveActorName } from "../utils/userNames"
-import { inline } from "../utils/descarga"
+import { cabecerasArchivo, inline } from "../utils/descarga"
 import { servirPdfPreview } from "../services/pdfPreview"
 
 const router = Router()
@@ -63,8 +63,7 @@ router.get("/:id/archivo", requireSigAccess, async (req: Request, res: Response)
   const a = await rutaDePendiente(req, res)
   if (!a) return
   try { await fs.access(a.ruta) } catch { res.status(404).json({ error: "Archivo no encontrado en el servidor" }); return }
-  res.setHeader("Content-Type", a.mime ?? "application/octet-stream")
-  res.setHeader("Content-Disposition", inline(a.nombre))
+  cabecerasArchivo(res, a.nombre)
   fsSync.createReadStream(a.ruta).pipe(res)
 })
 

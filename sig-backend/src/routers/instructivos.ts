@@ -10,6 +10,7 @@ import { fueraDeArea } from "../middleware/gateLider"
 import { extractText } from "../services/textExtraction"
 import { getPdfPreview, isOfficeDoc } from "../services/pdfPreview"
 import { resolveActorName } from "../utils/userNames"
+import { cabecerasArchivo } from "../utils/descarga"
 
 const router = Router()
 
@@ -82,11 +83,7 @@ router.get("/:id/archivo", requireSigAccess, async (req: Request, res: Response)
     return
   }
 
-  res.setHeader("Content-Type", inst.tipoMime ?? "application/octet-stream")
-  res.setHeader(
-    "Content-Disposition",
-    `inline; filename="${inst.nombreArchivo ?? "archivo"}"`,
-  )
+  cabecerasArchivo(res, inst.nombreArchivo, inst.archivoOriginal)
   fsSync.createReadStream(filePath).pipe(res)
 })
 

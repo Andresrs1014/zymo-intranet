@@ -13,6 +13,7 @@ import { sendAprobacionEmail } from "../services/email"
 import { extractText } from "../services/textExtraction"
 import { getPdfPreview, isOfficeDoc } from "../services/pdfPreview"
 import { resolveActorName } from "../utils/userNames"
+import { cabecerasArchivo, inline, tipoSeguro } from "../utils/descarga"
 
 const router = Router()
 
@@ -156,8 +157,7 @@ router.get("/:id/archivo", async (req: Request, res: Response) => {
     return
   }
 
-  res.setHeader("Content-Type", commit.tipoMime ?? "application/octet-stream")
-  res.setHeader("Content-Disposition", `inline; filename="${commit.nombreArchivo ?? "archivo"}"`)
+  cabecerasArchivo(res, commit.nombreArchivo, commit.archivoOriginal)
   const stream = fsSync.createReadStream(filePath)
   stream.pipe(res)
 })
@@ -217,9 +217,14 @@ router.get("/:id/flujograma-imagen", async (req: Request, res: Response) => {
     return
   }
 
-  const ext = path.extname(commit.flujogramaImagenUrl).slice(1).toLowerCase()
-  res.setHeader("Content-Type", `image/${ext === "jpg" ? "jpeg" : ext}`)
-  res.setHeader("Content-Disposition", `inline; filename="${commit.flujogramaImagenUrl}"`)
+  const tipoImg = tipoSeguro(commit.flujogramaImagenUrl)
+  if (!tipoImg.startsWith("image/")) {
+    res.status(404).json({ error: "Imagen de flujograma no válida" })
+    return
+  }
+  res.setHeader("Content-Type", tipoImg)
+  res.setHeader("X-Content-Type-Options", "nosniff")
+  res.setHeader("Content-Disposition", inline(commit.flujogramaImagenUrl))
   const stream = fsSync.createReadStream(filePath)
   stream.pipe(res)
 })

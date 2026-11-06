@@ -6,8 +6,9 @@ luego genera PDF con Jinja2 + WeasyPrint (igual que OC).
 import logging
 import os
 import re
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
+from urllib.parse import quote, unquote, urlparse
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -16,7 +17,7 @@ from fastapi.responses import StreamingResponse
 from jinja2 import Environment, FileSystemLoader
 import io
 
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, get_token
 from app.models.user import User
 
 _log = logging.getLogger(__name__)
@@ -51,8 +52,53 @@ def _logo_url(slug: str, empresa: dict) -> str:
         return ""
     logo_path = _PLATFORMS_DIR / slug / logo_file
     if logo_path.exists():
-        return f"file://{logo_path.resolve().as_posix()}"
+        return logo_path.resolve().as_uri()
     return ""
+
+
+def _url_permitida(url: str) -> None:
+    """Política de recursos del PDF: solo data: y archivos dentro de _PLATFORMS_DIR. Lanza ValueError si no."""
+    parsed = urlparse(url)
+    if parsed.scheme == "data":
+        return
+    if parsed.scheme == "file" and parsed.netloc in ("", "localhost"):
+        try:
+            ruta = Path(unquote(parsed.path))
+            if os.name == "nt" and re.match(r"^/[A-Za-z]:", str(parsed.path)):
+                ruta = Path(unquote(parsed.path)[1:])
+            ruta.resolve().relative_to(_PLATFORMS_DIR.resolve())
+            return
+        except (ValueError, OSError):
+            pass
+    raise ValueError("Recurso no permitido en el PDF")
+
+
+def _crear_url_fetcher():
+    """url_fetcher de WeasyPrint que aplica _url_permitida. La API cambió entre versiones (requirements no fija la versión):
+    >=68 usa la clase URLFetcher; las anteriores, una función con default_url_fetcher."""
+    try:
+        from weasyprint.urls import URLFetcher  # import perezoso (GTK/Pango)
+    except ImportError:
+        from weasyprint import default_url_fetcher
+
+        def _legacy(url, *args, **kwargs):
+            _url_permitida(url)
+            return default_url_fetcher(url, *args, **kwargs)
+
+        return _legacy
+
+    class _Restringido(URLFetcher):
+        def fetch(self, url, headers=None):
+            _url_permitida(url)
+            return super().fetch(url, headers)
+
+    return _Restringido()
+
+
+def _content_disposition(filename: str) -> str:
+    """attachment con fallback ASCII y filename* UTF-8 (RFC 5987): un código con tildes no rompe la cabecera."""
+    ascii_name = re.sub(r'[^\x20-\x7E]|["\\]', "_", filename)
+    return f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(filename, safe='')}"
 
 
 def _md_to_html(md: str) -> str:
@@ -134,6 +180,7 @@ def _estado_label(estado: str) -> str:
 async def generar_pdf_procedimiento(
     commit_id: int,
     current_user: User = Depends(get_current_user),
+    token: str = Depends(get_token),
 ):
     """
     Genera y devuelve en streaming el PDF de un commit aprobado del SIG.
@@ -145,7 +192,7 @@ async def generar_pdf_procedimiento(
         async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.get(
                 f"{_SIG_BACKEND_URL}/api/commits/{commit_id}",
-                headers={"Authorization": f"Bearer {_build_internal_token()}"},
+                headers={"Authorization": f"Bearer {token}"},
             )
     except httpx.RequestError as e:
         _log.error("No se pudo contactar sig-backend: %s", e)
@@ -156,9 +203,9 @@ async def generar_pdf_procedimiento(
 
     if resp.status_code == 404:
         raise HTTPException(status_code=404, detail="Commit no encontrado")
-    if resp.status_code == 401:
-        _log.error("sig-backend rechazó el token interno (401) — verificar JWT_SECRET / SECRET_KEY")
-        raise HTTPException(status_code=502, detail="Error de autenticación interna con sig-backend")
+    if resp.status_code in (401, 403):
+        # sig-backend aplica permisos y área (gateLider) con el JWT del propio usuario
+        raise HTTPException(status_code=403, detail="Sin acceso a este procedimiento")
     if resp.status_code != 200:
         _log.error("sig-backend respondió %s: %s", resp.status_code, resp.text[:200])
         raise HTTPException(
@@ -228,7 +275,7 @@ async def generar_pdf_procedimiento(
     }
 
     # ── 4. Renderizar HTML ────────────────────────────────────────────────
-    env  = Environment(loader=FileSystemLoader(str(_TEMPLATES_DIR)))
+    env  = Environment(loader=FileSystemLoader(str(_TEMPLATES_DIR)), autoescape=True)
     html = env.get_template("template_sig.html").render(**context)
 
     # ── 5. Generar PDF en memoria ─────────────────────────────────────────
@@ -238,6 +285,7 @@ async def generar_pdf_procedimiento(
     pdf_bytes = HTML(
         string=html,
         base_url=str(_PLATFORMS_DIR / slug),
+        url_fetcher=_crear_url_fetcher(),
     ).write_pdf()
 
     filename = f"{proc.get('codigo', 'SIG')}_v{context['version']}.pdf"
@@ -246,29 +294,8 @@ async def generar_pdf_procedimiento(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Disposition": _content_disposition(filename),
             "Content-Length": str(len(pdf_bytes)),
         },
     )
 
-
-def _build_internal_token() -> str:
-    """
-    Genera un JWT mínimo con rol admin para la llamada interna backend→sig-backend.
-    Usa el mismo JWT_SECRET del sig-backend (variable de entorno compartida).
-    """
-    from jose import jwt as jose_jwt
-    # sig-backend reads JWT_SECRET ?? SECRET_KEY — match the same priority chain
-    secret = (
-        os.getenv("SIG_JWT_SECRET")
-        or os.getenv("JWT_SECRET")
-        or os.getenv("SECRET_KEY")
-        or "sig-dev-secret"
-    )
-    payload = {
-        "sub":             "internal-backend",
-        "role":            "admin",
-        "app_permissions": [],
-        "exp":             int(datetime.now(timezone.utc).timestamp()) + 60,
-    }
-    return jose_jwt.encode(payload, secret, algorithm="HS256")

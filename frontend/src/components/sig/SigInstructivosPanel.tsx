@@ -664,7 +664,8 @@ export function InstructivoArchivoView({ inst }: { inst: SigInstructivo }) {
 
     sigApi.get(`/api/instructivos/${inst.id}/archivo`, { responseType: "blob" })
       .then(async (res) => {
-        const blob: Blob = res.data
+        // Un PDF se muestra siempre como PDF: nunca con el tipo que declaró quien lo subió (HTML correría en el origen de la intranet).
+        const blob: Blob = isPdf ? new Blob([res.data], { type: "application/pdf" }) : res.data
         blobUrl = URL.createObjectURL(blob)
         setObjectUrl(blobUrl)
         if (isDocx) {

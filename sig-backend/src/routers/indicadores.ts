@@ -10,6 +10,7 @@ import { requireSigAccess, getUserId } from "../middleware/auth"
 import { resolveActorName } from "../utils/userNames"
 import { leerIndicadoresXlsx, type FichaIndicador, type ResultadoIndicador } from "../services/indicadorHoja"
 import { evaluarIndicador } from "../services/indicadorLectura"
+import { cabecerasArchivo } from "../utils/descarga"
 
 const router = Router()
 const UPLOADS_DIR = path.join(process.cwd(), "uploads", "sig", "indicadores")
@@ -58,8 +59,7 @@ router.get("/:id/archivo", requireSigAccess, async (req: Request, res: Response)
   const row = await prisma.sigIndicador.findUnique({ where: { id } })
   if (!row) { res.status(404).json({ error: "Indicador no encontrado" }); return }
   try { await fs.access(row.archivo) } catch { res.status(404).json({ error: "Archivo no encontrado" }); return }
-  res.setHeader("Content-Type", row.tipoMime ?? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-  res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(row.nombreArchivo)}"`)
+  cabecerasArchivo(res, row.nombreArchivo)
   fsSync.createReadStream(row.archivo).pipe(res)
 })
 
