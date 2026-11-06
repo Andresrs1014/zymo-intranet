@@ -9,6 +9,8 @@ export interface AuthPayload {
   full_name?: string
   role?: string
   area?: string
+  /** ids de áreas de la intranet adicionales a `area` (líder de más de una); las asigna el admin en Organización */
+  areas_extra?: number[]
   app_permissions?: string[]
 }
 

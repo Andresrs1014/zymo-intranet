@@ -177,6 +177,14 @@ def _migrate_db() -> None:
             print("[migrate] Columna sede.visible_en_solicitudes_oc agregada.")
         except Exception:
             pass
+    # conexión propia: un ALTER que falla en Postgres aborta la transacción y arrastraría al siguiente
+    with get_engine().connect() as conn:
+        try:
+            conn.execute(text('ALTER TABLE "user" ADD COLUMN areas_extra JSON'))
+            conn.commit()
+            print("[migrate] Columna user.areas_extra agregada.")
+        except Exception:
+            conn.rollback()  # La columna ya existe
     with Session(get_engine()) as session:
         for sede_row in session.exec(select(Sede)).all():
             if sede_row.name.strip().lower() == "transversal":

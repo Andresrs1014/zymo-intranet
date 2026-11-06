@@ -68,7 +68,8 @@ export async function gateLider(req: Request, res: Response, next: NextFunction)
     next(); return
   }
 
-  const carpetas = await carpetasDeArea(req.user?.area)
+  const extra = Array.isArray(req.user?.areas_extra) ? req.user.areas_extra.filter((n) => Number.isInteger(n)) : []
+  const carpetas = await carpetasDeArea(req.user?.area, extra)
   if (carpetas.length === 0) { res.status(409).json({ error: "Tu área todavía no tiene una carpeta en el SIG." }); return }
   const areas = carpetas.map((c) => c.id)
   req.sigAreaIds = areas // los listados de áreas y procedimientos filtran con esto; las subidas lo comprueban

@@ -18,6 +18,8 @@ export interface UsuarioArea {
   permisos: string[]
   /** Área escrita en la cuenta (solo en la vista de todas las personas) */
   area?: string | null
+  /** ids de áreas adicionales que ve en el SIG (líder de más de una); solo vienen en la vista de todas las personas y en la del área */
+  areas_extra?: number[]
 }
 
 export interface CargoDir {
@@ -75,6 +77,16 @@ export function useFijarPermisos(areaId: number) {
     mutationFn: async ({ userId, permisos }: { userId: number; permisos: string[] }) =>
       (await api.put<{ permisos: string[] }>(`/areas/${areaId}/usuarios/${userId}/permisos`, { permisos })).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ["area-usuarios"] }), // también la vista de todas las personas
+  })
+}
+
+/** Áreas adicionales que ve en el SIG un líder de más de una (Editar permisos). La persona debe volver a iniciar sesión. */
+export function useFijarAreasSig() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ userId, areas }: { userId: number; areas: number[] }) =>
+      (await api.put<{ areas_extra: number[] }>(`/acceso/usuarios/${userId}/areas-sig`, { areas })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["area-usuarios"] }),
   })
 }
 

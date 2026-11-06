@@ -151,6 +151,7 @@ def login(
             "role": user.role,
             "sede": user.sede,
             "area": user.area,
+            "areas_extra": user.areas_extra or [],
             "id": user.id,
             "app_permissions": perms,
         },

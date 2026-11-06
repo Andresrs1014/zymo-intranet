@@ -33,6 +33,10 @@ class PermisosIn(BaseModel):
     permisos: list[str] = []
 
 
+class AreasSigIn(BaseModel):
+    areas: list[int] = []
+
+
 class MoverIn(BaseModel):
     area_id: int | None = None  # None = dejar a la persona sin área
 
@@ -172,6 +176,7 @@ def _filas_usuarios(db: Session, usuarios: list[User]) -> list[dict]:
             "id": u.id, "full_name": u.full_name, "email": u.email, "sede": u.sede, "is_active": u.is_active,
             "role": u.role,
             "area": u.area,
+            "areas_extra": u.areas_extra or [],
             "fichas": len(lista),
             "persona_id": p.id if p else None,
             "persona_area_id": p.area_id if p else None,
@@ -275,6 +280,22 @@ def fijar_permisos(area_id: int, user_id: int, body: PermisosIn, _: User = Depen
     guardados = _guardar_permisos(db, user, body.permisos)
     db.commit()
     return {"user_id": user.id, "permisos": sorted(guardados)}
+
+
+@router.put("/acceso/usuarios/{user_id}/areas-sig")
+def fijar_areas_sig(user_id: int, body: AreasSigIn, _: User = Depends(require_admin), db: Session = Depends(get_db)):
+    """Áreas adicionales (además de la suya) cuyos procedimientos ve en el SIG un líder de más de una área. Reemplaza la lista.
+    Entra al JWT: la persona debe volver a iniciar sesión."""
+    user = _usuario(db, user_id)
+    ids = list(dict.fromkeys(body.areas))
+    validas = {a.id: a.name for a in db.exec(select(Area).where(Area.id.in_(ids))).all()} if ids else {}
+    if len(validas) != len(ids):
+        raise HTTPException(_INVALIDO, "Alguna de las áreas no existe.")
+    propia = (user.area or "").strip().lower()
+    user.areas_extra = [i for i in ids if validas[i].strip().lower() != propia]  # su área principal ya la ve
+    db.add(user)
+    db.commit()
+    return {"user_id": user.id, "areas_extra": user.areas_extra}
 
 
 @router.get("/areas/{area_id}/cargos")

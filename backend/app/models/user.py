@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from typing import Optional
 
+from sqlalchemy import JSON, Column
 from sqlmodel import Field, SQLModel
 
 
@@ -12,6 +13,8 @@ class User(SQLModel, table=True):
     role: str = Field(default="empleado", nullable=False, max_length=50)
     sede: str | None = Field(default=None, max_length=100)   # IMCCARGO / LOGIMAT / IMC Depósito → futuro: sede
     area: str | None = Field(default=None, max_length=100)   # Comercial / Operaciones / RRHH / etc.
+    # ids de áreas adicionales cuyos procedimientos ve en el SIG (líder de más de una área); `area` sigue siendo la principal
+    areas_extra: list[int] | None = Field(default=None, sa_column=Column(JSON))
     is_active: bool = Field(default=True, nullable=False)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc), nullable=False

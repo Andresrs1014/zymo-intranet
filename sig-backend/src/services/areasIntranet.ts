@@ -58,11 +58,13 @@ export function sincronizarAreas(forzar = false): Promise<void> {
   return enCurso
 }
 
-/** Carpeta(s) del SIG que corresponden al área de la persona (por el nombre del área en su sesión). */
-export async function carpetasDeArea(nombreArea: string | undefined): Promise<{ id: number; nombre: string }[]> {
-  if (!nombreArea?.trim()) return []
+/** Carpeta(s) del SIG de la persona: la de su área (por el nombre del área en su sesión) más las áreas adicionales que el admin le asignó (ids de la intranet). */
+export async function carpetasDeArea(nombreArea: string | undefined, areasExtra: number[] = []): Promise<{ id: number; nombre: string }[]> {
+  if (!nombreArea?.trim() && areasExtra.length === 0) return []
   await sincronizarAreas()
   const enlazadas = await prisma.sigArea.findMany({ where: { intranetAreaId: { not: null } }, select: { id: true, nombre: true, intranetAreaId: true } })
   // por el nombre del área en la intranet; si aún no se pudo leer el catálogo, por el nombre de la carpeta
-  return enlazadas.filter((a) => norm(nombresIntranet.get(a.intranetAreaId!) ?? a.nombre) === norm(nombreArea))
+  return enlazadas.filter((a) =>
+    areasExtra.includes(a.intranetAreaId!) ||
+    (!!nombreArea?.trim() && norm(nombresIntranet.get(a.intranetAreaId!) ?? a.nombre) === norm(nombreArea)))
 }
