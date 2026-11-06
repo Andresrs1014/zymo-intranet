@@ -198,6 +198,7 @@ function SigDesktopView() {
         puedeAprobar={puedeAprobar}
         canEditSig={canEditSig}
         esLider={esLider}
+        soloVersiones={esLider && !esSubir}
         pendingCount={pendingCount}
         onOpenQueue={openQueue}
         onOpenSync={openAnalisisSync}
@@ -303,10 +304,12 @@ function SigDesktopView() {
 // ── Title bar ──────────────────────────────────────────────────────────────────
 
 function TitleBar({
-  puedeAprobar, canEditSig, esLider, pendingCount, onOpenQueue, onOpenSync, onOpenIndicadores, onCargar, onSelectProcedure,
+  puedeAprobar, canEditSig, esLider, soloVersiones, pendingCount, onOpenQueue, onOpenSync, onOpenIndicadores, onCargar, onSelectProcedure,
 }: {
   puedeAprobar:         boolean
   canEditSig:           boolean
+  /** Líder (mod_sig_lider): solo carga versiones nuevas de procedimientos existentes de su área */
+  soloVersiones:        boolean
   /** Líder de área: sin Indicadores ni Auditorías (resultados de análisis) */
   esLider:              boolean
   pendingCount:         number
@@ -333,7 +336,7 @@ function TitleBar({
             className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded border border-helix-accent/30 text-helix-accent-ink hover:bg-helix-accent/5 transition-colors font-mono"
           >
             <UploadCloud className="h-3 w-3" />
-            Cargar procedimiento
+            {soloVersiones ? "Cargar nueva versión" : "Cargar procedimiento"}
           </button>
         )}
         {!esLider && (
@@ -871,7 +874,7 @@ export function ProcedureFileView({
                         <p className="text-sm text-zinc-700 font-mono">Sin contenido publicado</p>
                         <p className="text-xs text-zinc-600 mt-1">
                           {proc.commits.length === 0
-                            ? "Usa «Cargar procedimiento» para subir el primer documento."
+                            ? (portable ? "Aún no tiene versiones. Usa «Cargar nueva versión» para enviar el documento." : "Usa «Cargar procedimiento» para subir el primer documento.")
                             : "Hay commits en revisión. Aprueba uno para publicar el contenido."
                           }
                         </p>

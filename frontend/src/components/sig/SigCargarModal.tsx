@@ -127,13 +127,13 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
   // Mensaje por defecto al fijar el procedimiento destino
   useEffect(() => {
     if (proc && !mensaje) {
-      setMensaje(preselected ? `Nueva versión de ${proc.codigo}` : `Carga inicial de ${proc.codigo}`)
+      setMensaje(preselected || esLider ? `Nueva versión de ${proc.codigo}` : `Carga inicial de ${proc.codigo}`)
     }
-  }, [proc, preselected, mensaje])
+  }, [proc, preselected, esLider, mensaje])
 
   // ── Handlers ────────────────────────────────────────────────────────────────
   async function handleCreateProc() {
-    if (areaId == null || !codigo.trim() || !titulo.trim()) return
+    if (esLider || areaId == null || !codigo.trim() || !titulo.trim()) return
     setCreatingProc(true)
     setError("")
     try {
@@ -246,7 +246,7 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
               <UploadCloud className="h-3.5 w-3.5 text-helix-accent-ink" />
             </div>
             <span className="text-[13px] font-semibold text-zinc-800 font-mono">
-              {preselected ? "Cargar nueva versión" : "Cargar procedimiento"}
+              {preselected || esLider ? "Cargar nueva versión" : "Cargar procedimiento"}
             </span>
             {selectedArea && (
               <span
@@ -271,8 +271,10 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
           {step === "select" && (
             <div className="space-y-4">
               <p className="text-xs text-zinc-700 leading-relaxed">
-                Selecciona el procedimiento destino. Cada carga genera una versión que
-                {isManager ? " queda vigente" : " entra a la cola de revisión del gerente"}.
+                {esLider
+                  ? "Elige el procedimiento de tu área al que le vas a cargar una versión nueva. Queda pendiente de que el SIG la verifique."
+                  : <>Selecciona el procedimiento destino. Cada carga genera una versión que
+                    {isManager ? " queda vigente" : " entra a la cola de revisión del gerente"}.</>}
               </p>
 
               {/* Área */}
@@ -312,7 +314,7 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
                       }
                       const p = procs.find((x) => x.id === Number(e.target.value)) ?? null
                       setProc(p)
-                      if (p) { setMensaje(`Carga inicial de ${p.codigo}`); setStep("load-file") }
+                      if (p) { setMensaje(esLider ? `Nueva versión de ${p.codigo}` : `Carga inicial de ${p.codigo}`); setStep("load-file") }
                     }}
                     className="w-full bg-zinc-100 border border-zinc-300 hover:border-zinc-300 rounded-lg px-3 py-2 text-xs text-zinc-700 font-mono focus:outline-none focus:ring-1 focus:ring-helix-accent/40 transition-colors"
                   >
@@ -330,7 +332,7 @@ export function SigCargarModal({ preselected, onClose, onSuccess }: Props) {
           )}
 
           {/* ── CREATE PROC ──────────────────────────────────────────────────── */}
-          {step === "create-proc" && (
+          {step === "create-proc" && !esLider && (
             <div className="space-y-3.5">
               <StepTitle icon={<Plus className="h-3 w-3 text-emerald-700" />} label="Nuevo procedimiento" />
               <Field label="Código">
